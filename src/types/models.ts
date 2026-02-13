@@ -136,7 +136,7 @@ export interface Payment extends BaseRecord {
   patientId: number;
   amount: number;
   currency: string;
-  status: "PENDING" | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  status: 'PENDING' | 'processing' | 'succeeded' | 'failed' | 'canceled';
   paymentMethod?: string;
   invoiceId?: number;
   metadata?: Record<string, unknown>;

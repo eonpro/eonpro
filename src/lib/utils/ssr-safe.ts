@@ -1,13 +1,13 @@
 /**
  * SSR-Safe Utilities
  * ==================
- * 
+ *
  * Provides utilities for safely accessing browser APIs
  * in a server-side rendering context.
- * 
+ *
  * Usage:
  *   import { isBrowser, safeWindow, useClientValue } from '@/lib/utils/ssr-safe';
- * 
+ *
  * @module lib/utils/ssr-safe
  */
 
@@ -69,11 +69,11 @@ export const safeSessionStorage: Storage = isBrowser
  * Hook to get a value that depends on client-side APIs
  * Returns the initial value during SSR and hydration,
  * then updates to the client value after mount.
- * 
+ *
  * @param getClientValue - Function that returns the client-side value
  * @param serverValue - Value to use during SSR and initial hydration
  * @returns The server value during SSR, client value after mount
- * 
+ *
  * @example
  * const windowWidth = useClientValue(() => window.innerWidth, 0);
  */
@@ -92,9 +92,9 @@ export function useClientValue<T>(getClientValue: () => T, serverValue: T): T {
 /**
  * Hook to check if the component has mounted (client-side)
  * Useful for conditionally rendering client-only content
- * 
+ *
  * @returns true after first client render, false during SSR
- * 
+ *
  * @example
  * const mounted = useIsMounted();
  * if (!mounted) return <Skeleton />;
@@ -112,11 +112,11 @@ export function useIsMounted(): boolean {
 
 /**
  * Wrapper to safely execute a function only on the client
- * 
+ *
  * @param fn - The function to execute
  * @param fallback - Optional fallback value for server
  * @returns The function result or fallback
- * 
+ *
  * @example
  * const token = clientOnly(() => localStorage.getItem('token'), null);
  */
@@ -133,7 +133,7 @@ export function clientOnly<T>(fn: () => T, fallback: T): T {
 
 /**
  * Get a value from localStorage safely (SSR-safe)
- * 
+ *
  * @param key - The localStorage key
  * @param defaultValue - Default value if not found
  * @returns The stored value or default
@@ -142,7 +142,7 @@ export function getLocalStorageItem(key: string, defaultValue: string = ''): str
   if (!isBrowser) {
     return defaultValue;
   }
-  
+
   try {
     return localStorage.getItem(key) ?? defaultValue;
   } catch {
@@ -152,7 +152,7 @@ export function getLocalStorageItem(key: string, defaultValue: string = ''): str
 
 /**
  * Set a value in localStorage safely (SSR-safe)
- * 
+ *
  * @param key - The localStorage key
  * @param value - The value to store
  * @returns true if successful, false otherwise
@@ -161,7 +161,7 @@ export function setLocalStorageItem(key: string, value: string): boolean {
   if (!isBrowser) {
     return false;
   }
-  
+
   try {
     localStorage.setItem(key, value);
     return true;
@@ -172,7 +172,7 @@ export function setLocalStorageItem(key: string, value: string): boolean {
 
 /**
  * Remove a value from localStorage safely (SSR-safe)
- * 
+ *
  * @param key - The localStorage key
  * @returns true if successful, false otherwise
  */
@@ -180,7 +180,7 @@ export function removeLocalStorageItem(key: string): boolean {
   if (!isBrowser) {
     return false;
   }
-  
+
   try {
     localStorage.removeItem(key);
     return true;

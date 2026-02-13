@@ -15,11 +15,25 @@ const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   shortDescription: z.string().optional(),
-  category: z.enum(['SERVICE', 'MEDICATION', 'SUPPLEMENT', 'LAB_TEST', 'PROCEDURE', 'PACKAGE', 'MEMBERSHIP', 'OTHER']).default('SERVICE'),
+  category: z
+    .enum([
+      'SERVICE',
+      'MEDICATION',
+      'SUPPLEMENT',
+      'LAB_TEST',
+      'PROCEDURE',
+      'PACKAGE',
+      'MEMBERSHIP',
+      'OTHER',
+    ])
+    .default('SERVICE'),
   price: z.number().min(0, 'Price must be positive'),
   currency: z.string().default('usd'),
   billingType: z.enum(['ONE_TIME', 'RECURRING']).default('ONE_TIME'),
-  billingInterval: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM']).optional().nullable(),
+  billingInterval: z
+    .enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM'])
+    .optional()
+    .nullable(),
   billingIntervalCount: z.number().min(1).default(1),
   trialDays: z.number().min(0).optional().nullable(),
   isActive: z.boolean().default(true),
@@ -71,10 +85,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     const products = await prisma.product.findMany({
       where,
-      orderBy: [
-        { displayOrder: 'asc' },
-        { name: 'asc' },
-      ],
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
       include: {
         clinic: {
           select: {
@@ -83,15 +94,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
       },
+      take: 100,
     });
 
     return NextResponse.json({ products });
   } catch (error: any) {
     logger.error('[Products API] Error fetching products:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch products' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
 }
 
@@ -113,10 +122,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     }
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     // Create Stripe Product and Price if Stripe is configured
@@ -146,21 +152,21 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         // Add recurring info for subscription products
         if (validated.billingType === 'RECURRING' && validated.billingInterval) {
           const intervalMap: Record<string, Stripe.PriceCreateParams.Recurring.Interval> = {
-            'WEEKLY': 'week',
-            'MONTHLY': 'month',
-            'QUARTERLY': 'month',
-            'SEMI_ANNUAL': 'month',
-            'ANNUAL': 'year',
-            'CUSTOM': 'month',
+            WEEKLY: 'week',
+            MONTHLY: 'month',
+            QUARTERLY: 'month',
+            SEMI_ANNUAL: 'month',
+            ANNUAL: 'year',
+            CUSTOM: 'month',
           };
 
           const intervalCountMap: Record<string, number> = {
-            'WEEKLY': 1,
-            'MONTHLY': 1,
-            'QUARTERLY': 3,
-            'SEMI_ANNUAL': 6,
-            'ANNUAL': 1,
-            'CUSTOM': validated.billingIntervalCount || 1,
+            WEEKLY: 1,
+            MONTHLY: 1,
+            QUARTERLY: 3,
+            SEMI_ANNUAL: 6,
+            ANNUAL: 1,
+            CUSTOM: validated.billingIntervalCount || 1,
           };
 
           priceData.recurring = {
@@ -177,7 +183,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           priceId: stripePriceId,
         });
       } catch (stripeError: any) {
-        logger.warn('[Products API] Failed to create Stripe product (continuing without)', stripeError.message);
+        logger.warn(
+          '[Products API] Failed to create Stripe product (continuing without)',
+          stripeError.message
+        );
       }
     }
 
@@ -221,10 +230,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       );
     }
     logger.error('[Products API] Error creating product:', error);
-    return NextResponse.json(
-      { error: 'Failed to create product' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
   }
 }
 

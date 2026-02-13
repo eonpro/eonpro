@@ -6,6 +6,13 @@ import { notificationService } from '@/services/notification';
 import { WebhookStatus } from '@prisma/client';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import crypto from 'crypto';
+import {
+  extractLifefileOrderIdentifiers,
+  buildOrderLookupWhere,
+  mapToShippingStatusEnum,
+  sanitizeEventType,
+  MAX_WEBHOOK_BODY_BYTES,
+} from '@/lib/webhooks/lifefile-payload';
 
 type RouteParams = { params: Promise<{ clinicSlug: string }> };
 
@@ -121,16 +128,10 @@ function verifyHmacSignature(
     // Parse signature header (e.g., "sha256=abc123" or just "abc123")
     const providedSig = signature.replace(/^sha256=/, '');
 
-    const expectedSig = crypto
-      .createHmac('sha256', secret)
-      .update(body)
-      .digest('hex');
+    const expectedSig = crypto.createHmac('sha256', secret).update(body).digest('hex');
 
     // Constant-time comparison
-    return crypto.timingSafeEqual(
-      Buffer.from(providedSig),
-      Buffer.from(expectedSig)
-    );
+    return crypto.timingSafeEqual(Buffer.from(providedSig), Buffer.from(expectedSig));
   } catch (error: unknown) {
     logger.error('[LIFEFILE INBOUND] Error verifying signature:', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -166,28 +167,31 @@ async function processShippingUpdate(
 ): Promise<{ processed: boolean; details: any }> {
   logger.info('[LIFEFILE INBOUND] Processing shipping update');
 
-  const {
-    trackingNumber,
-    orderId: lifefileOrderId,
-    deliveryService,
-    status,
-    estimatedDelivery,
-    trackingUrl,
-    medication,
-    brand,
-    shippedAt,
-    deliveredAt,
-  } = payload;
+  const { orderId: orderIdFromPayload, referenceId: referenceIdFromPayload } =
+    extractLifefileOrderIdentifiers(payload);
+  const trackingNumber = payload.trackingNumber ?? payload.tracking_number;
+  const lifefileOrderId = orderIdFromPayload;
+  const deliveryService = payload.deliveryService ?? payload.carrier;
+  const status = payload.status;
+  const estimatedDelivery = payload.estimatedDelivery;
+  const trackingUrl = payload.trackingUrl ?? payload.tracking_url;
+  const medication = payload.medication;
+  const brand = payload.brand;
+  const shippedAt = payload.shippedAt;
+  const deliveredAt = payload.deliveredAt;
+
+  const where = buildOrderLookupWhere(clinicId, orderIdFromPayload, referenceIdFromPayload);
+  if (!where) {
+    logger.warn('[LIFEFILE INBOUND] Shipping update: no orderId or referenceId', {
+      clinicId,
+      payloadKeys: Object.keys(payload),
+    });
+    return { processed: false, details: { reason: 'Missing orderId or referenceId' } };
+  }
 
   // Find the order by LifeFile order ID or reference ID
   const order = await prisma.order.findFirst({
-    where: {
-      clinicId,
-      OR: [
-        { lifefileOrderId: lifefileOrderId },
-        { referenceId: payload.referenceId || '' },
-      ],
-    },
+    where,
     include: {
       patient: {
         select: { id: true, firstName: true, lastName: true, email: true, clinicId: true },
@@ -215,21 +219,32 @@ async function processShippingUpdate(
     },
   });
 
-  // Create shipping update record
-  await prisma.patientShippingUpdate.create({
-    data: {
-      patientId: order.patientId,
-      orderId: order.id,
-      trackingNumber: trackingNumber || null,
-      carrier: deliveryService || null,
-      status: status || 'update_received',
-      estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
-      trackingUrl: trackingUrl || null,
-      rawPayload: payload,
-      shippedAt: shippedAt ? new Date(shippedAt) : null,
-      deliveredAt: deliveredAt ? new Date(deliveredAt) : null,
-    },
-  });
+  // Create shipping update record (clinicId and carrier required; status must be enum)
+  if (order.clinicId != null && trackingNumber) {
+    try {
+      await prisma.patientShippingUpdate.create({
+        data: {
+          clinicId: order.clinicId,
+          patientId: order.patientId,
+          orderId: order.id,
+          trackingNumber,
+          carrier: deliveryService && String(deliveryService).trim() ? String(deliveryService) : 'Unknown',
+          status: mapToShippingStatusEnum(status),
+          estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
+          trackingUrl: trackingUrl || null,
+          rawPayload: payload as object,
+          shippedAt: shippedAt ? new Date(shippedAt) : null,
+          actualDelivery: deliveredAt ? new Date(deliveredAt) : null,
+          lifefileOrderId: lifefileOrderId || null,
+        },
+      });
+    } catch (createErr: unknown) {
+      logger.warn('[LIFEFILE INBOUND] Failed to create PatientShippingUpdate (order still updated)', {
+        orderId: order.id,
+        error: createErr instanceof Error ? createErr.message : String(createErr),
+      });
+    }
+  }
 
   // Create order event for tracking
   await prisma.orderEvent.create({
@@ -247,25 +262,27 @@ async function processShippingUpdate(
     const patientName =
       `${safeDecryptPHI(order.patient.firstName) || 'Patient'} ${safeDecryptPHI(order.patient.lastName) || ''}`.trim();
 
-    await notificationService.notifyAdmins({
-      clinicId: order.patient.clinicId,
-      category: 'SHIPMENT',
-      priority: 'NORMAL',
-      title: 'Shipping Update',
-      message: `${patientName}: ${status || 'Update received'}${trackingNumber ? ` - Tracking: ${trackingNumber}` : ''}`,
-      actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
-      metadata: {
-        orderId: order.id,
-        patientId: order.patientId,
-        trackingNumber,
-        status,
-        carrier: deliveryService,
-      },
-      sourceType: 'webhook',
-      sourceId: `lifefile-shipping-${lifefileOrderId}`,
-    }).catch((err) => {
-      logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
-    });
+    await notificationService
+      .notifyAdmins({
+        clinicId: order.patient.clinicId,
+        category: 'SHIPMENT',
+        priority: 'NORMAL',
+        title: 'Shipping Update',
+        message: `${patientName}: ${status || 'Update received'}${trackingNumber ? ` - Tracking: ${trackingNumber}` : ''}`,
+        actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
+        metadata: {
+          orderId: order.id,
+          patientId: order.patientId,
+          trackingNumber,
+          status,
+          carrier: deliveryService,
+        },
+        sourceType: 'webhook',
+        sourceId: `lifefile-shipping-${lifefileOrderId}`,
+      })
+      .catch((err) => {
+        logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
+      });
   }
 
   return {
@@ -283,28 +300,25 @@ async function processPrescriptionStatus(
 ): Promise<{ processed: boolean; details: any }> {
   logger.info('[LIFEFILE INBOUND] Processing prescription status');
 
-  const {
-    orderId: lifefileOrderId,
-    referenceId,
-    status,
-    trackingNumber,
-    trackingUrl,
-    shippedAt,
-    errorMessage,
-    approvedAt,
-    rejectedAt,
-    rejectionReason,
-  } = payload;
+  const { orderId: lifefileOrderId, referenceId } = extractLifefileOrderIdentifiers(payload);
+  const status = payload.status;
+  const trackingNumber = payload.trackingNumber ?? payload.tracking_number;
+  const trackingUrl = payload.trackingUrl ?? payload.tracking_url;
+  const errorMessage = payload.errorMessage ?? payload.error_message;
+  const rejectionReason = payload.rejectionReason ?? payload.rejection_reason;
+
+  const where = buildOrderLookupWhere(clinicId, lifefileOrderId, referenceId);
+  if (!where) {
+    logger.warn('[LIFEFILE INBOUND] Prescription status: no orderId or referenceId', {
+      clinicId,
+      payloadKeys: Object.keys(payload),
+    });
+    return { processed: false, details: { reason: 'Missing orderId or referenceId' } };
+  }
 
   // Find the order
   const order = await prisma.order.findFirst({
-    where: {
-      clinicId,
-      OR: [
-        { lifefileOrderId: lifefileOrderId },
-        { referenceId: referenceId || '' },
-      ],
-    },
+    where,
     include: {
       patient: {
         select: { id: true, firstName: true, lastName: true, clinicId: true },
@@ -337,14 +351,15 @@ async function processPrescriptionStatus(
     data: updateData,
   });
 
-  // Create order event
+  // Create order event (sanitized note length)
+  const prescriptionNote = `Prescription Status: ${status ?? ''}${rejectionReason ? ` - ${String(rejectionReason).slice(0, 100)}` : ''}`;
   await prisma.orderEvent.create({
     data: {
       orderId: order.id,
-      lifefileOrderId: lifefileOrderId,
+      lifefileOrderId: lifefileOrderId ?? undefined,
       eventType: 'prescription_status',
-      payload: payload,
-      note: `Prescription Status: ${status}${rejectionReason ? ` - ${rejectionReason}` : ''}`,
+      payload: payload as object,
+      note: prescriptionNote.slice(0, 500),
     },
   });
 
@@ -358,24 +373,26 @@ async function processPrescriptionStatus(
       ? 'HIGH'
       : 'NORMAL';
 
-    await notificationService.notifyAdmins({
-      clinicId: order.patient.clinicId,
-      category: 'PRESCRIPTION',
-      priority: priority as any,
-      title: `Prescription ${status}`,
-      message: `${patientName}: Prescription ${status}${rejectionReason ? ` - ${rejectionReason}` : ''}`,
-      actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
-      metadata: {
-        orderId: order.id,
-        patientId: order.patientId,
-        status,
-        rejectionReason,
-      },
-      sourceType: 'webhook',
-      sourceId: `lifefile-rx-${lifefileOrderId}-${status}`,
-    }).catch((err) => {
-      logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
-    });
+    await notificationService
+      .notifyAdmins({
+        clinicId: order.patient.clinicId,
+        category: 'PRESCRIPTION',
+        priority: priority as any,
+        title: `Prescription ${status}`,
+        message: `${patientName}: Prescription ${status}${rejectionReason ? ` - ${rejectionReason}` : ''}`,
+        actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
+        metadata: {
+          orderId: order.id,
+          patientId: order.patientId,
+          status,
+          rejectionReason,
+        },
+        sourceType: 'webhook',
+        sourceId: `lifefile-rx-${lifefileOrderId}-${status}`,
+      })
+      .catch((err) => {
+        logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
+      });
   }
 
   return {
@@ -393,27 +410,28 @@ async function processOrderStatus(
 ): Promise<{ processed: boolean; details: any }> {
   logger.info('[LIFEFILE INBOUND] Processing order status');
 
+  // Support both top-level and payload.order.*
   const orderData = payload.order || payload;
-  const {
-    orderId: lifefileOrderId,
-    referenceId,
-    status,
-    shippingStatus,
-    trackingNumber,
-    trackingUrl,
-    errorMessage,
-    estimatedDelivery,
-  } = orderData;
+  const { orderId: lifefileOrderId, referenceId } = extractLifefileOrderIdentifiers(payload);
+  const status = orderData.status;
+  const shippingStatus = orderData.shippingStatus ?? orderData.shipping_status;
+  const trackingNumber = orderData.trackingNumber ?? orderData.tracking_number;
+  const trackingUrl = orderData.trackingUrl ?? orderData.tracking_url;
+  const errorMessage = orderData.errorMessage ?? orderData.error_message;
+  const estimatedDelivery = orderData.estimatedDelivery;
+
+  const where = buildOrderLookupWhere(clinicId, lifefileOrderId, referenceId);
+  if (!where) {
+    logger.warn('[LIFEFILE INBOUND] Order status: no orderId or referenceId', {
+      clinicId,
+      payloadKeys: Object.keys(payload),
+    });
+    return { processed: false, details: { reason: 'Missing orderId or referenceId' } };
+  }
 
   // Find the order
   const order = await prisma.order.findFirst({
-    where: {
-      clinicId,
-      OR: [
-        { lifefileOrderId: lifefileOrderId },
-        { referenceId: referenceId || '' },
-      ],
-    },
+    where,
     include: {
       patient: {
         select: { id: true, firstName: true, lastName: true, clinicId: true },
@@ -447,14 +465,15 @@ async function processOrderStatus(
     data: updateData,
   });
 
-  // Create order event
+  // Create order event (sanitized eventType and note length)
+  const orderEventNote = `Order Status: ${status || shippingStatus}${trackingNumber ? `, Tracking: ${String(trackingNumber).slice(0, 80)}` : ''}`;
   await prisma.orderEvent.create({
     data: {
       orderId: order.id,
-      lifefileOrderId: lifefileOrderId,
-      eventType: payload.eventType || 'order_status',
-      payload: payload,
-      note: `Order Status: ${status || shippingStatus}${trackingNumber ? `, Tracking: ${trackingNumber}` : ''}`,
+      lifefileOrderId: lifefileOrderId ?? undefined,
+      eventType: sanitizeEventType(payload.eventType || 'order_status'),
+      payload: payload as object,
+      note: orderEventNote.slice(0, 500),
     },
   });
 
@@ -463,25 +482,27 @@ async function processOrderStatus(
     const patientName =
       `${safeDecryptPHI(order.patient.firstName) || 'Patient'} ${safeDecryptPHI(order.patient.lastName) || ''}`.trim();
 
-    await notificationService.notifyAdmins({
-      clinicId: order.patient.clinicId,
-      category: 'ORDER',
-      priority: 'NORMAL',
-      title: 'Order Update',
-      message: `${patientName}: ${status || shippingStatus}${trackingNumber ? ` - ${trackingNumber}` : ''}`,
-      actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
-      metadata: {
-        orderId: order.id,
-        patientId: order.patientId,
-        status,
-        shippingStatus,
-        trackingNumber,
-      },
-      sourceType: 'webhook',
-      sourceId: `lifefile-order-${lifefileOrderId}-${status || shippingStatus}`,
-    }).catch((err) => {
-      logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
-    });
+    await notificationService
+      .notifyAdmins({
+        clinicId: order.patient.clinicId,
+        category: 'ORDER',
+        priority: 'NORMAL',
+        title: 'Order Update',
+        message: `${patientName}: ${status || shippingStatus}${trackingNumber ? ` - ${trackingNumber}` : ''}`,
+        actionUrl: `/patients/${order.patientId}?tab=prescriptions`,
+        metadata: {
+          orderId: order.id,
+          patientId: order.patientId,
+          status,
+          shippingStatus,
+          trackingNumber,
+        },
+        sourceType: 'webhook',
+        sourceId: `lifefile-order-${lifefileOrderId}-${status || shippingStatus}`,
+      })
+      .catch((err) => {
+        logger.warn('[LIFEFILE INBOUND] Failed to send notification', { error: err.message });
+      });
   }
 
   return {
@@ -499,23 +520,23 @@ async function processRxEvent(
 ): Promise<{ processed: boolean; details: any }> {
   logger.info('[LIFEFILE INBOUND] Processing Rx event');
 
+  const { orderId: lifefileOrderId, referenceId } = extractLifefileOrderIdentifiers(payload);
   const rxData = payload.prescription || payload.rx || payload;
-  const {
-    orderId: lifefileOrderId,
-    referenceId,
-    status,
-    eventType,
-  } = rxData;
+  const status = rxData?.status;
+  const eventType = rxData?.eventType ?? rxData?.event_type;
+
+  const where = buildOrderLookupWhere(clinicId, lifefileOrderId, referenceId);
+  if (!where) {
+    logger.warn('[LIFEFILE INBOUND] Rx event: no orderId or referenceId', {
+      clinicId,
+      payloadKeys: Object.keys(payload),
+    });
+    return { processed: false, details: { reason: 'Missing orderId or referenceId' } };
+  }
 
   // Find the order
   const order = await prisma.order.findFirst({
-    where: {
-      clinicId,
-      OR: [
-        { lifefileOrderId: lifefileOrderId },
-        { referenceId: referenceId || '' },
-      ],
-    },
+    where,
   });
 
   if (!order) {
@@ -539,14 +560,14 @@ async function processRxEvent(
     });
   }
 
-  // Create order event
+  // Create order event (sanitized eventType)
   await prisma.orderEvent.create({
     data: {
       orderId: order.id,
-      lifefileOrderId: lifefileOrderId,
-      eventType: eventType || 'rx_event',
-      payload: payload,
-      note: `Rx Event: ${status || eventType || 'received'}`,
+      lifefileOrderId: lifefileOrderId ?? undefined,
+      eventType: sanitizeEventType(eventType || 'rx_event'),
+      payload: payload as object,
+      note: `Rx Event: ${String(status || eventType || 'received').slice(0, 200)}`,
     },
   });
 
@@ -614,12 +635,11 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.statusCode = 404;
       webhookLogData.errorMessage = 'Webhook endpoint not found or disabled';
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for unknown clinic', { error: err instanceof Error ? err.message : String(err) });
+      });
 
-      return NextResponse.json(
-        { error: 'Webhook endpoint not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Webhook endpoint not found' }, { status: 404 });
     }
 
     webhookLogData.clinicId = clinic.id;
@@ -641,20 +661,21 @@ export async function POST(req: NextRequest, context: RouteParams) {
     });
 
     // Verify IP allowlist
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-                     req.headers.get('x-real-ip') || null;
+    const clientIp =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      null;
     if (!isIpAllowed(clientIp, clinic.lifefileInboundAllowedIPs)) {
       logger.warn(`[LIFEFILE INBOUND] IP not allowed: ${clientIp}`);
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 403;
       webhookLogData.errorMessage = `IP ${clientIp} not in allowed list`;
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for IP rejection', { error: err instanceof Error ? err.message : String(err) });
+      });
 
-      return NextResponse.json(
-        { error: 'IP not allowed' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'IP not allowed' }, { status: 403 });
     }
 
     // Verify Basic Auth
@@ -665,45 +686,63 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for auth failure', { error: err instanceof Error ? err.message : String(err) });
+      });
 
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get raw body for signature verification
+    // Get raw body for signature verification (with size limit)
     const rawBody = await req.text();
     if (!rawBody) {
-      throw new Error('Empty request body');
+      webhookLogData.errorMessage = 'Empty request body';
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for empty body', { error: err instanceof Error ? err.message : String(err) });
+      });
+      return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
+    }
+    if (rawBody.length > MAX_WEBHOOK_BODY_BYTES) {
+      webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
+      webhookLogData.statusCode = 413;
+      webhookLogData.errorMessage = 'Payload too large';
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for oversized payload', { error: err instanceof Error ? err.message : String(err) });
+      });
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
 
     // Verify HMAC signature if secret is configured
-    const signature = req.headers.get('x-webhook-signature') ||
-                     req.headers.get('x-lifefile-signature') ||
-                     req.headers.get('x-signature');
+    const signature =
+      req.headers.get('x-webhook-signature') ||
+      req.headers.get('x-lifefile-signature') ||
+      req.headers.get('x-signature');
     if (!verifyHmacSignature(rawBody, signature, secret)) {
       logger.warn('[LIFEFILE INBOUND] Signature verification failed');
       webhookLogData.status = WebhookStatus.INVALID_SIGNATURE;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Invalid webhook signature';
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for invalid signature', { error: err instanceof Error ? err.message : String(err) });
+      });
 
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // Parse payload
-    let payload: any;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      throw new Error('Invalid JSON format');
+    // Parse payload (must be non-null object; no array or primitive)
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const parsed = safeParseJsonString<unknown>(rawBody);
+    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
+      webhookLogData.statusCode = 400;
+      webhookLogData.errorMessage = 'Invalid JSON or payload must be an object';
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for invalid payload', { error: err instanceof Error ? err.message : String(err) });
+      });
+      return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
     }
+    const payload = parsed as Record<string, unknown>;
 
     webhookLogData.payload = payload;
 
@@ -728,7 +767,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
       webhookLogData.responseData = { test: true, testId: payload.testId };
       webhookLogData.processingTimeMs = Date.now() - startTime;
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile Inbound] Failed to persist webhook log for test event', { error: err instanceof Error ? err.message : String(err) });
+      });
 
       return NextResponse.json({
         success: true,
@@ -754,7 +795,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
         webhookLogData.statusCode = 400;
         webhookLogData.errorMessage = `Event type '${eventType}' not allowed`;
 
-        await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+        await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+          logger.warn('[LifeFile Inbound] Failed to persist webhook log for disallowed event', { error: err instanceof Error ? err.message : String(err) });
+        });
 
         return NextResponse.json(
           { error: `Event type '${eventType}' not configured for this clinic` },
@@ -826,7 +869,9 @@ export async function POST(req: NextRequest, context: RouteParams) {
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+    await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      logger.warn('[LifeFile Inbound] Failed to persist webhook log for processing error', { error: err instanceof Error ? err.message : String(err) });
+    });
 
     return NextResponse.json(
       {
@@ -858,10 +903,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
   });
 
   if (!clinic) {
-    return NextResponse.json(
-      { error: 'Webhook endpoint not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Webhook endpoint not found' }, { status: 404 });
   }
 
   return NextResponse.json({

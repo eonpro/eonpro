@@ -90,7 +90,13 @@ interface RefillStats {
   total: number;
 }
 
-type StatusFilter = 'ALL' | 'PENDING_PAYMENT' | 'PENDING_ADMIN' | 'APPROVED' | 'PENDING_PROVIDER' | 'SCHEDULED';
+type StatusFilter =
+  | 'ALL'
+  | 'PENDING_PAYMENT'
+  | 'PENDING_ADMIN'
+  | 'APPROVED'
+  | 'PENDING_PROVIDER'
+  | 'SCHEDULED';
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -657,7 +663,9 @@ export default function AdminRefillQueuePage() {
             </div>
 
             {actionError && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {actionError}
+              </div>
             )}
 
             <div className="space-y-4">
@@ -762,18 +770,20 @@ export default function AdminRefillQueuePage() {
                         {selectedRefill.paymentMethod === 'STRIPE_AUTO'
                           ? 'Auto-matched (Stripe)'
                           : selectedRefill.paymentMethod === 'MANUAL_VERIFIED'
-                          ? 'Manually verified'
-                          : selectedRefill.paymentMethod === 'EXTERNAL_REFERENCE'
-                          ? 'External payment'
-                          : selectedRefill.paymentMethod === 'PAYMENT_SKIPPED'
-                          ? 'Skipped'
-                          : selectedRefill.paymentMethod || '-'}
+                            ? 'Manually verified'
+                            : selectedRefill.paymentMethod === 'EXTERNAL_REFERENCE'
+                              ? 'External payment'
+                              : selectedRefill.paymentMethod === 'PAYMENT_SKIPPED'
+                                ? 'Skipped'
+                                : selectedRefill.paymentMethod || '-'}
                       </p>
                     </div>
                     {selectedRefill.paymentReference && (
                       <div>
                         <p className="text-sm text-gray-500">Reference</p>
-                        <p className="font-medium text-gray-900">{selectedRefill.paymentReference}</p>
+                        <p className="font-medium text-gray-900">
+                          {selectedRefill.paymentReference}
+                        </p>
                       </div>
                     )}
                     {selectedRefill.paymentVerifiedAt && (
@@ -831,7 +841,9 @@ export default function AdminRefillQueuePage() {
               {/* Patient Notes */}
               {selectedRefill.patientNotes && (
                 <div className="rounded-lg bg-gray-50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">Patient Notes</h3>
+                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                    Patient Notes
+                  </h3>
                   <p className="whitespace-pre-wrap text-gray-900">{selectedRefill.patientNotes}</p>
                 </div>
               )}
@@ -839,7 +851,9 @@ export default function AdminRefillQueuePage() {
               {/* Admin Notes */}
               {selectedRefill.adminNotes && (
                 <div className="rounded-lg bg-gray-50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">Admin Notes</h3>
+                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                    Admin Notes
+                  </h3>
                   <p className="whitespace-pre-wrap text-gray-900">{selectedRefill.adminNotes}</p>
                 </div>
               )}

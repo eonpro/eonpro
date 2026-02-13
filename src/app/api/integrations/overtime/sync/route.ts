@@ -14,6 +14,7 @@ import type { SyncOptions } from '@/lib/overtime/airtableSyncService';
 import { OVERTIME_AIRTABLE_TABLES } from '@/lib/overtime/airtableClient';
 import { OVERTIME_TREATMENT_TYPES } from '@/lib/overtime/treatmentTypes';
 import type { OvertimeTreatmentType } from '@/lib/overtime/types';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // Authentication
@@ -51,10 +52,7 @@ function validateAuth(req: NextRequest): boolean {
 export async function POST(req: NextRequest) {
   // Validate authentication
   if (!validateAuth(req)) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -114,7 +112,7 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('[OvertimeSync] Sync failed:', error);
+    logger.error('[OvertimeSync] Sync failed', { error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       {
@@ -133,10 +131,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   // Validate authentication
   if (!validateAuth(req)) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
@@ -158,7 +153,7 @@ export async function GET(req: NextRequest) {
       usage: {
         endpoint: 'POST /api/integrations/overtime/sync',
         headers: {
-          'Authorization': 'Bearer <OVERTIME_SYNC_API_KEY>',
+          Authorization: 'Bearer <OVERTIME_SYNC_API_KEY>',
           'Content-Type': 'application/json',
         },
         body: {
@@ -173,7 +168,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[OvertimeSync] Status check failed:', error);
+    logger.error('[OvertimeSync] Status check failed', { error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       {

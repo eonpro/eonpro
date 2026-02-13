@@ -1,8 +1,8 @@
 /**
  * Affiliate Fraud Queue API
- * 
+ *
  * Admin endpoint for reviewing and resolving fraud alerts.
- * 
+ *
  * GET  - List fraud alerts with filters
  * PATCH - Update alert status / resolve
  */
@@ -25,10 +25,12 @@ interface FraudAlertListParams {
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    
+
     const params: FraudAlertListParams = {
       clinicId: searchParams.get('clinicId') ? parseInt(searchParams.get('clinicId')!) : undefined,
-      affiliateId: searchParams.get('affiliateId') ? parseInt(searchParams.get('affiliateId')!) : undefined,
+      affiliateId: searchParams.get('affiliateId')
+        ? parseInt(searchParams.get('affiliateId')!)
+        : undefined,
       status: searchParams.get('status') || undefined,
       severity: searchParams.get('severity') || undefined,
       type: searchParams.get('type') || undefined,
@@ -103,17 +105,22 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     // Get summary stats
     const stats = await prisma.affiliateFraudAlert.groupBy({
       by: ['status'],
-      where: user.role === 'super_admin' 
-        ? (params.clinicId ? { clinicId: params.clinicId } : {})
-        : { clinicId: user.clinicId! },
+      where:
+        user.role === 'super_admin'
+          ? params.clinicId
+            ? { clinicId: params.clinicId }
+            : {}
+          : { clinicId: user.clinicId! },
       _count: true,
     });
 
     const severityStats = await prisma.affiliateFraudAlert.groupBy({
       by: ['severity'],
       where: {
-        ...(user.role === 'super_admin' 
-          ? (params.clinicId ? { clinicId: params.clinicId } : {})
+        ...(user.role === 'super_admin'
+          ? params.clinicId
+            ? { clinicId: params.clinicId }
+            : {}
           : { clinicId: user.clinicId! }),
         status: 'OPEN',
       },
@@ -121,7 +128,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     });
 
     return NextResponse.json({
-      alerts: alerts.map((alert: typeof alerts[number]) => ({
+      alerts: alerts.map((alert: (typeof alerts)[number]) => ({
         id: alert.id,
         createdAt: alert.createdAt,
         clinicId: alert.clinicId,
@@ -149,24 +156,27 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         totalPages: Math.ceil(total / params.limit!),
       },
       stats: {
-        byStatus: stats.reduce((acc: Record<string, number>, s: { status: string; _count: number }) => {
-          acc[s.status] = s._count;
-          return acc;
-        }, {} as Record<string, number>),
-        bySeverity: severityStats.reduce((acc: Record<string, number>, s: { severity: string; _count: number }) => {
-          acc[s.severity] = s._count;
-          return acc;
-        }, {} as Record<string, number>),
+        byStatus: stats.reduce(
+          (acc: Record<string, number>, s: { status: string; _count: number }) => {
+            acc[s.status] = s._count;
+            return acc;
+          },
+          {} as Record<string, number>
+        ),
+        bySeverity: severityStats.reduce(
+          (acc: Record<string, number>, s: { severity: string; _count: number }) => {
+            acc[s.severity] = s._count;
+            return acc;
+          },
+          {} as Record<string, number>
+        ),
       },
     });
   } catch (error) {
     logger.error('[FraudQueue] Error listing alerts', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to list fraud alerts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to list fraud alerts' }, { status: 500 });
   }
 }
 
@@ -200,9 +210,20 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     }
 
     // Process action - use Prisma enum types (must match schema exactly)
-    type FraudAlertStatus = 'OPEN' | 'INVESTIGATING' | 'CONFIRMED_FRAUD' | 'FALSE_POSITIVE' | 'DISMISSED';
-    type FraudResolutionAction = 'NO_ACTION' | 'WARNING_ISSUED' | 'COMMISSION_REVERSED' | 'COMMISSIONS_HELD' | 'AFFILIATE_SUSPENDED' | 'AFFILIATE_TERMINATED';
-    
+    type FraudAlertStatus =
+      | 'OPEN'
+      | 'INVESTIGATING'
+      | 'CONFIRMED_FRAUD'
+      | 'FALSE_POSITIVE'
+      | 'DISMISSED';
+    type FraudResolutionAction =
+      | 'NO_ACTION'
+      | 'WARNING_ISSUED'
+      | 'COMMISSION_REVERSED'
+      | 'COMMISSIONS_HELD'
+      | 'AFFILIATE_SUSPENDED'
+      | 'AFFILIATE_TERMINATED';
+
     let status: FraudAlertStatus;
     let resolutionAction: FraudResolutionAction | null = null;
 
@@ -290,10 +311,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     logger.error('[FraudQueue] Error updating alert', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to update fraud alert' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update fraud alert' }, { status: 500 });
   }
 }
 

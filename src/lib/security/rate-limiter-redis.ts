@@ -2,7 +2,7 @@
  * Enterprise Redis Rate Limiter
  * Production-ready rate limiting with Redis backend
  * Falls back to in-memory for development
- * 
+ *
  * @module security/rate-limiter-redis
  * @version 2.0.0
  */
@@ -66,7 +66,7 @@ async function getRedisClient(): Promise<any> {
 
   // Check if Redis URL is configured
   const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-  
+
   if (!redisUrl) {
     logger.info('[RateLimit] Redis not configured, using in-memory fallback');
     return null;
@@ -115,10 +115,7 @@ const memoryCache = new LRUCache<string, RateLimitEntry>({
 /**
  * Check and increment rate limit
  */
-async function checkRateLimit(
-  key: string,
-  config: RateLimitConfig
-): Promise<RateLimitResult> {
+async function checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
   const now = Math.floor(Date.now() / 1000);
   const windowEnd = now + config.windowSeconds;
   const redis = await getRedisClient();
@@ -158,14 +155,14 @@ async function checkRateLimitRedis(
 
     // Use Redis MULTI for atomic operations
     const isUpstash = !!process.env.UPSTASH_REDIS_REST_URL;
-    
+
     if (isUpstash) {
       // Upstash Redis REST API
       const pipeline = redis.pipeline();
       pipeline.incr(windowKey);
       pipeline.ttl(windowKey);
       const results = await pipeline.exec();
-      
+
       const count = results[0] as number;
       const ttl = results[1] as number;
 
@@ -189,7 +186,7 @@ async function checkRateLimitRedis(
           limit: config.maxRequests,
           remaining: 0,
           reset,
-          retryAfter: config.blockDurationSeconds || (reset - now),
+          retryAfter: config.blockDurationSeconds || reset - now,
         };
       }
 
@@ -227,7 +224,7 @@ async function checkRateLimitRedis(
           limit: config.maxRequests,
           remaining: 0,
           reset,
-          retryAfter: config.blockDurationSeconds || (reset - now),
+          retryAfter: config.blockDurationSeconds || reset - now,
         };
       }
 
@@ -248,11 +245,7 @@ async function checkRateLimitRedis(
 /**
  * In-memory rate limiting fallback
  */
-function checkRateLimitMemory(
-  key: string,
-  config: RateLimitConfig,
-  now: number
-): RateLimitResult {
+function checkRateLimitMemory(key: string, config: RateLimitConfig, now: number): RateLimitResult {
   const cacheKey = `${config.identifier}:${key}`;
   let entry = memoryCache.get(cacheKey);
 
@@ -274,7 +267,7 @@ function checkRateLimitMemory(
       resetTime: now + config.windowSeconds,
     };
     memoryCache.set(cacheKey, entry);
-    
+
     return {
       success: true,
       limit: config.maxRequests,
@@ -285,7 +278,7 @@ function checkRateLimitMemory(
 
   // Increment count
   entry.count++;
-  
+
   if (entry.count > config.maxRequests) {
     // Block if configured
     if (config.blockDurationSeconds) {
@@ -300,7 +293,7 @@ function checkRateLimitMemory(
       limit: config.maxRequests,
       remaining: 0,
       reset: entry.blockedUntil || entry.resetTime,
-      retryAfter: config.blockDurationSeconds || (entry.resetTime - now),
+      retryAfter: config.blockDurationSeconds || entry.resetTime - now,
     };
   }
 
@@ -320,12 +313,12 @@ function checkRateLimitMemory(
 
 function defaultKeyGenerator(req: NextRequest): string {
   // Get IP from various headers (Cloudflare, Vercel, nginx, etc.)
-  const ip = 
+  const ip =
     req.headers.get('cf-connecting-ip') ||
     req.headers.get('x-real-ip') ||
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     'unknown';
-  
+
   return ip;
 }
 
@@ -364,9 +357,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
     blockDurationSeconds: config.blockDurationSeconds,
   };
 
-  return function rateLimitMiddleware(
-    handler: (req: NextRequest) => Promise<Response>
-  ) {
+  return function rateLimitMiddleware(handler: (req: NextRequest) => Promise<Response>) {
     return async (req: NextRequest): Promise<Response> => {
       const key = fullConfig.keyGenerator!(req);
       const result = await checkRateLimit(key, fullConfig);
@@ -380,7 +371,7 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
         });
 
         return NextResponse.json(
-          { 
+          {
             error: fullConfig.message,
             code: 'RATE_LIMIT_EXCEEDED',
             retryAfter: result.retryAfter,
@@ -546,7 +537,7 @@ export async function getRateLimitStatus(
 
   const cacheKey = `${identifier}:${key}`;
   const entry = memoryCache.get(cacheKey);
-  
+
   if (!entry) return null;
 
   return {
@@ -560,10 +551,7 @@ export async function getRateLimitStatus(
 /**
  * Clear rate limit for a specific key (for admin use)
  */
-export async function clearRateLimit(
-  identifier: string,
-  key: string
-): Promise<boolean> {
+export async function clearRateLimit(identifier: string, key: string): Promise<boolean> {
   const redis = await getRedisClient();
 
   if (redis && redisAvailable) {

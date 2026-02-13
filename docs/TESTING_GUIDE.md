@@ -2,7 +2,8 @@
 
 ## Overview
 
-This guide covers the comprehensive testing strategy for EONPRO, including unit tests, integration tests, E2E tests, and security testing.
+This guide covers the comprehensive testing strategy for EONPRO, including unit tests, integration
+tests, E2E tests, and security testing.
 
 ## Table of Contents
 
@@ -143,7 +144,7 @@ describe('API Integration', () => {
 
     const { GET } = await import('@/app/api/users/route');
     const request = new NextRequest('http://localhost/api/users');
-    
+
     const response = await GET(request);
     expect(response.status).toBe(200);
   });
@@ -159,11 +160,11 @@ test.describe('User Flow', () => {
   test('should complete checkout', async ({ page }) => {
     // Navigate
     await page.goto('/products');
-    
+
     // Interact
     await page.click('[data-testid="add-to-cart"]');
     await page.click('[data-testid="checkout"]');
-    
+
     // Assert
     await expect(page.locator('[data-testid="success"]')).toBeVisible();
   });
@@ -176,20 +177,20 @@ test.describe('User Flow', () => {
 
 ### Global Thresholds
 
-| Metric | Minimum |
-|--------|---------|
-| Statements | 70% |
-| Branches | 65% |
-| Functions | 70% |
-| Lines | 70% |
+| Metric     | Minimum |
+| ---------- | ------- |
+| Statements | 70%     |
+| Branches   | 65%     |
+| Functions  | 70%     |
+| Lines      | 70%     |
 
 ### Critical Module Thresholds
 
-| Module | Statements | Branches |
-|--------|------------|----------|
-| `src/lib/auth/**` | 85% | 80% |
-| `src/lib/security/**` | 90% | 85% |
-| `src/lib/encryption.ts` | 95% | 90% |
+| Module                  | Statements | Branches |
+| ----------------------- | ---------- | -------- |
+| `src/lib/auth/**`       | 85%        | 80%      |
+| `src/lib/security/**`   | 90%        | 85%      |
+| `src/lib/encryption.ts` | 95%        | 90%      |
 
 ### Checking Coverage
 
@@ -208,12 +209,14 @@ open coverage/index.html
 ### GitHub Actions Workflow
 
 Tests run automatically on:
+
 - Every push to `main`, `develop`, `feature/*`
 - Every pull request
 
 ### Quality Gates
 
 PR cannot be merged if:
+
 - Any test fails
 - Coverage drops below thresholds
 - Lint errors exist
@@ -303,4 +306,4 @@ npx playwright test --retries=3
 
 ---
 
-*Last Updated: December 2025*
+_Last Updated: December 2025_

@@ -2,13 +2,17 @@
 
 ## What Was Fixed
 
-1. **SOAP Note Generation Error**: Fixed the OpenAI API error that was preventing SOAP notes from being generated. The issue was that when using JSON response format, the prompts must explicitly mention "json".
+1. **SOAP Note Generation Error**: Fixed the OpenAI API error that was preventing SOAP notes from
+   being generated. The issue was that when using JSON response format, the prompts must explicitly
+   mention "json".
 
-2. **Webhook Setup**: Successfully configured ngrok tunnel to expose your local development server to the internet for MedLink webhook testing.
+2. **Webhook Setup**: Successfully configured ngrok tunnel to expose your local development server
+   to the internet for MedLink webhook testing.
 
 ## Current Status
 
 ### ✅ Working Features:
+
 - **ngrok Tunnel**: Running at `https://1d2f49d51cf3.ngrok-free.app`
 - **Webhook Endpoint**: `/api/webhooks/medlink-intake` is receiving data correctly
 - **Patient Creation**: Webhook automatically creates new patients from MedLink submissions
@@ -16,6 +20,7 @@
 - **Becca AI Assistant**: Available globally with improved patient search capabilities
 
 ### 📊 Test Results:
+
 - Successfully created test patient (ID #000002)
 - Generated SOAP Note #1 from webhook data
 - Note is in DRAFT status and ready for provider approval

@@ -22,7 +22,7 @@ async function verifyInfluencerToken(req: NextRequest): Promise<JWTPayload | nul
     return payload as unknown as JWTPayload;
   } catch (error: any) {
     // @ts-ignore
-   
+
     return null;
   }
 }
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Payment Settings API] GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch payment settings' }, { status: 500 });
   }
@@ -81,13 +81,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Payment settings updated successfully' 
+    return NextResponse.json({
+      success: true,
+      message: 'Payment settings updated successfully',
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Payment Settings API] POST error:', error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });

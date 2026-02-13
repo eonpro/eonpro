@@ -1,6 +1,6 @@
 /**
  * SMS Configuration Check (Development Only)
- * 
+ *
  * GET /api/auth/check-sms-config
  * Returns the status of Twilio/SMS configuration
  */
@@ -25,7 +25,7 @@ export async function GET(): Promise<Response> {
   return NextResponse.json({
     status: 'ok',
     config,
-    recommendation: !config.twilioConfigured 
+    recommendation: !config.twilioConfigured
       ? 'Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in Vercel environment variables'
       : !config.twilioFeatureEnabled
         ? 'Set NEXT_PUBLIC_ENABLE_TWILIO_SMS=true in Vercel environment variables'

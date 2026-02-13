@@ -2,7 +2,25 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Filter, Eye, Edit, MoreVertical, Users, GitMerge, Trash2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, DollarSign, ShoppingCart, UserCheck } from 'lucide-react';
+import {
+  Search,
+  Plus,
+  Filter,
+  Eye,
+  Edit,
+  MoreVertical,
+  Users,
+  GitMerge,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Loader2,
+  DollarSign,
+  ShoppingCart,
+  UserCheck,
+} from 'lucide-react';
 import MergePatientModal from '@/components/MergePatientModal';
 import DeletePatientModal from '@/components/DeletePatientModal';
 import SalesRepAssignmentModal from '@/components/SalesRepAssignmentModal';
@@ -33,6 +51,7 @@ interface Patient {
   lastOrderStatus?: string | null;
   clinicName?: string | null;
   tags?: string[];
+  medicationNames?: string[];
   source?: string | null;
   salesRep?: SalesRep | null;
   salesRepId?: number | null;
@@ -71,7 +90,7 @@ const isEncryptedData = (value: string | null | undefined): boolean => {
   const parts = value.split(':');
   if (parts.length !== 3) return false;
   // Check if all parts look like base64 (contain base64 chars and end with = padding or alphanumeric)
-  return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
+  return parts.every((part) => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
 };
 
 // Safely display contact info - hide encrypted data
@@ -125,7 +144,7 @@ export default function AdminPatientsPage() {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       const response = await fetch('/api/admin/sales-reps', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       if (response.ok) {
@@ -138,59 +157,62 @@ export default function AdminPatientsPage() {
   }, []);
 
   // Fetch converted patients with server-side search and pagination
-  const fetchPatients = useCallback(async (page: number, searchQuery: string, salesRepIdFilter?: string) => {
-    try {
-      const isSearch = searchQuery.trim().length > 0;
-      setIsSearching(isSearch);
-      setLoading(true);
+  const fetchPatients = useCallback(
+    async (page: number, searchQuery: string, salesRepIdFilter?: string) => {
+      try {
+        const isSearch = searchQuery.trim().length > 0;
+        setIsSearching(isSearch);
+        setLoading(true);
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+        const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
-      // Build query params
-      const params = new URLSearchParams({
-        includeContact: 'true',
-      });
-
-      // When searching, fetch more results to show all matches
-      // When not searching, use pagination
-      if (isSearch) {
-        // For search: fetch up to 500 results to show all matches
-        params.set('limit', '500');
-        params.set('search', searchQuery.trim());
-      } else {
-        // For browsing: use pagination
-        const offset = (page - 1) * PAGE_SIZE;
-        params.set('limit', PAGE_SIZE.toString());
-        params.set('offset', offset.toString());
-      }
-
-      // Add sales rep filter
-      if (salesRepIdFilter && salesRepIdFilter !== 'all') {
-        params.set('salesRepId', salesRepIdFilter);
-      }
-
-      // Use the new admin patients API for converted patients only
-      const response = await fetch(`/api/admin/patients?${params.toString()}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPatients(data.patients || []);
-        setMeta({
-          count: data.meta?.count || 0,
-          total: data.meta?.total || 0,
-          hasMore: data.meta?.hasMore || false,
+        // Build query params
+        const params = new URLSearchParams({
+          includeContact: 'true',
         });
+
+        // When searching, fetch more results to show all matches
+        // When not searching, use pagination
+        if (isSearch) {
+          // For search: fetch up to 500 results to show all matches
+          params.set('limit', '500');
+          params.set('search', searchQuery.trim());
+        } else {
+          // For browsing: use pagination
+          const offset = (page - 1) * PAGE_SIZE;
+          params.set('limit', PAGE_SIZE.toString());
+          params.set('offset', offset.toString());
+        }
+
+        // Add sales rep filter
+        if (salesRepIdFilter && salesRepIdFilter !== 'all') {
+          params.set('salesRepId', salesRepIdFilter);
+        }
+
+        // Use the new admin patients API for converted patients only
+        const response = await fetch(`/api/admin/patients?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setPatients(data.patients || []);
+          setMeta({
+            count: data.meta?.count || 0,
+            total: data.meta?.total || 0,
+            hasMore: data.meta?.hasMore || false,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch patients:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch patients:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   // Fetch sales reps on mount
   useEffect(() => {
@@ -214,10 +236,11 @@ export default function AdminPatientsPage() {
   }, []);
 
   // Apply client-side status filter to loaded patients
-  const filteredPatients = patients.filter(patient => {
+  const filteredPatients = patients.filter((patient) => {
     const matchesStatus = statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
-    const matchesTreatment = treatmentFilter === 'all' || 
-      (patient.tags && patient.tags.some(tag => tag === treatmentFilter));
+    const matchesTreatment =
+      treatmentFilter === 'all' ||
+      (patient.tags && patient.tags.some((tag) => tag === treatmentFilter));
     return matchesStatus && matchesTreatment;
   });
 
@@ -285,7 +308,7 @@ export default function AdminPatientsPage() {
     const response = await fetch(`/api/patients/${deletePatient.id}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -299,21 +322,23 @@ export default function AdminPatientsPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <div className="mx-auto max-w-7xl p-6">
+      <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-          <p className="text-gray-600 mt-1">Patients who have made a payment or received a prescription</p>
+          <p className="mt-1 text-gray-600">
+            Patients who have made a payment or received a prescription
+          </p>
         </div>
         <button
-          onClick={() => window.location.href = '/admin/patients/new'}
-          className="px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2"
+          onClick={() => (window.location.href = '/admin/patients/new')}
+          className="flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors"
           style={{
             backgroundColor: 'var(--brand-primary, #4fa77e)',
-            color: 'var(--brand-primary-text, #ffffff)'
+            color: 'var(--brand-primary-text, #ffffff)',
           }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.9')}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
         >
           <Plus className="h-5 w-5" />
           Add Patient
@@ -322,19 +347,19 @@ export default function AdminPatientsPage() {
 
       {/* Info Banner */}
       <div
-        className="rounded-xl p-4 mb-6 border"
+        className="mb-6 rounded-xl border p-4"
         style={{
           backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
-          borderColor: 'var(--brand-primary, #4fa77e)'
+          borderColor: 'var(--brand-primary, #4fa77e)',
         }}
       >
         <div className="flex items-start gap-3">
-          <Users className="h-5 w-5 mt-0.5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
+          <Users className="mt-0.5 h-5 w-5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
           <div>
             <p className="text-sm font-medium text-gray-800">
               This list shows converted patients with payment or prescription history
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+            <p className="mt-1 text-xs" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
               New intakes without payment or prescription are shown in the Intakes tab
             </p>
           </div>
@@ -342,25 +367,24 @@ export default function AdminPatientsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search by name, patient ID, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
               style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-400 hover:text-gray-600"
               >
-                <span className="sr-only">Clear search</span>
-                ×
+                <span className="sr-only">Clear search</span>×
               </button>
             )}
           </div>
@@ -369,7 +393,7 @@ export default function AdminPatientsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2"
               style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             >
               <option value="all">All Status</option>
@@ -382,11 +406,13 @@ export default function AdminPatientsPage() {
             <select
               value={treatmentFilter}
               onChange={(e) => setTreatmentFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2"
               style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             >
-              {TREATMENT_FILTERS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              {TREATMENT_FILTERS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
@@ -399,12 +425,14 @@ export default function AdminPatientsPage() {
                   setSalesRepFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent"
-                style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
+                className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2"
+                style={
+                  { '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties
+                }
               >
                 <option value="all">All Sales Reps</option>
                 <option value="unassigned">Unassigned</option>
-                {salesReps.map(rep => (
+                {salesReps.map((rep) => (
                   <option key={rep.id} value={rep.id.toString()}>
                     {rep.firstName} {rep.lastName} ({rep.patientCount})
                   </option>
@@ -463,16 +491,18 @@ export default function AdminPatientsPage() {
 
       {/* Results summary */}
       {!loading && (
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <p className="text-sm text-gray-600">
             {isSearching ? (
               <>
-                Found <span className="font-medium">{filteredPatients.length}</span> patient{filteredPatients.length !== 1 ? 's' : ''} matching &quot;{debouncedSearch}&quot;
+                Found <span className="font-medium">{filteredPatients.length}</span> patient
+                {filteredPatients.length !== 1 ? 's' : ''} matching &quot;{debouncedSearch}&quot;
                 {statusFilter !== 'all' && ` (${statusFilter})`}
               </>
             ) : (
               <>
-                Showing <span className="font-medium">{displayedPatients.length}</span> of <span className="font-medium">{meta.total}</span> patients
+                Showing <span className="font-medium">{displayedPatients.length}</span> of{' '}
+                <span className="font-medium">{meta.total}</span> patients
                 {statusFilter !== 'all' && ` (filtered by ${statusFilter})`}
               </>
             )}
@@ -481,20 +511,25 @@ export default function AdminPatientsPage() {
       )}
 
       {/* Patients Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {loading ? (
           <div className="p-12 text-center">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
+            <Loader2
+              className="mx-auto mb-4 h-12 w-12 animate-spin"
+              style={{ color: 'var(--brand-primary, #4fa77e)' }}
+            />
             <p className="text-gray-600">
               {searchTerm ? 'Searching patients...' : 'Loading patients...'}
             </p>
           </div>
         ) : displayedPatients.length === 0 ? (
           <div className="p-12 text-center">
-            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
-            <p className="text-gray-600 mb-4">
-              {searchTerm ? 'Try adjusting your search criteria' : 'No intakes have been converted to patients yet'}
+            <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+            <h3 className="mb-2 text-lg font-medium text-gray-900">No patients found</h3>
+            <p className="mb-4 text-gray-600">
+              {searchTerm
+                ? 'Try adjusting your search criteria'
+                : 'No intakes have been converted to patients yet'}
             </p>
             {!searchTerm && (
               <p className="text-sm text-gray-500">
@@ -507,53 +542,83 @@ export default function AdminPatientsPage() {
             <table className="w-full min-w-[800px]">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Treatment</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Patient
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Contact
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    DOB
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Treatment
+                  </th>
                   {salesReps.length > 0 && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales Rep</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Sales Rep
+                    </th>
                   )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {displayedPatients.map((patient) => (
                   <tr
                     key={patient.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => window.location.href = `/patients/${patient.id}`}
+                    className="cursor-pointer transition-colors hover:bg-gray-50"
+                    onClick={() => (window.location.href = `/patients/${patient.id}`)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center">
-                        <div 
-                          className="h-10 w-10 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))' }}
+                        <div
+                          className="flex h-10 w-10 items-center justify-center rounded-full"
+                          style={{
+                            backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                          }}
                         >
-                          <span className="font-medium" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
-                            {patient.firstName?.[0]}{patient.lastName?.[0]}
+                          <span
+                            className="font-medium"
+                            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+                          >
+                            {patient.firstName?.[0]}
+                            {patient.lastName?.[0]}
                           </span>
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
                             {patient.firstName} {patient.lastName}
                           </div>
-                          <div className="text-sm text-gray-500">ID: {patient.patientId || patient.id}</div>
+                          <div className="text-sm text-gray-500">
+                            ID: {patient.patientId || patient.id}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-6 py-4">
                       <div className="text-sm text-gray-900">{displayContact(patient.email)}</div>
                       <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {(() => {
-                        if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth)) return '-';
+                        if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth))
+                          return '-';
                         // Check for placeholder dates (1900-01-01, 1899-12-31, etc.)
                         const dob = patient.dateOfBirth;
-                        if (dob.startsWith('1900') || dob.startsWith('1899') || dob === '01/01/1900') return '-';
+                        if (
+                          dob.startsWith('1900') ||
+                          dob.startsWith('1899') ||
+                          dob === '01/01/1900'
+                        )
+                          return '-';
                         const dobDate = new Date(dob);
                         const year = dobDate.getFullYear();
                         // Hide any DOB before 1920 (unrealistic) or invalid
@@ -561,37 +626,84 @@ export default function AdminPatientsPage() {
                         return dobDate.toLocaleDateString();
                       })()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {patient.tags?.includes('peptides') && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">Peptides</span>
+                    <td className="px-6 py-4">
+                      <div className="flex max-w-[200px] flex-wrap gap-1">
+                        {patient.medicationNames && patient.medicationNames.length > 0 ? (
+                          <>
+                            {patient.medicationNames.slice(0, 3).map((med, i) => (
+                              <span
+                                key={i}
+                                className="inline-block max-w-full truncate rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                                title={med}
+                              >
+                                {med}
+                              </span>
+                            ))}
+                            {patient.medicationNames.length > 3 && (
+                              <span
+                                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                title={patient.medicationNames.slice(3).join(', ')}
+                              >
+                                +{patient.medicationNames.length - 3}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {patient.tags?.includes('peptides') && (
+                              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                                Peptides
+                              </span>
+                            )}
+                            {patient.tags?.includes('nad-plus') && (
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                NAD+
+                              </span>
+                            )}
+                            {patient.tags?.includes('sexual-health') && (
+                              <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs font-medium text-pink-700">
+                                Better Sex
+                              </span>
+                            )}
+                            {patient.tags?.includes('trt') && (
+                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                                TRT
+                              </span>
+                            )}
+                            {patient.tags?.includes('labs') && (
+                              <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">
+                                Labs
+                              </span>
+                            )}
+                            {patient.tags?.includes('weight-loss') && (
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                Weight Loss
+                              </span>
+                            )}
+                          </>
                         )}
-                        {patient.tags?.includes('nad-plus') && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">NAD+</span>
-                        )}
-                        {patient.tags?.includes('sexual-health') && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-pink-100 text-pink-700">Better Sex</span>
-                        )}
-                        {patient.tags?.includes('trt') && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700">TRT</span>
-                        )}
-                        {patient.tags?.includes('labs') && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-teal-100 text-teal-700">Labs</span>
-                        )}
-                        {patient.tags?.includes('weight-loss') && (
-                          <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Weight Loss</span>
-                        )}
-                        {!patient.tags?.some(t => ['peptides', 'nad-plus', 'sexual-health', 'trt', 'labs', 'weight-loss'].includes(t)) && (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        {(!patient.medicationNames?.length &&
+                          !patient.tags?.some((t) =>
+                            [
+                              'peptides',
+                              'nad-plus',
+                              'sexual-health',
+                              'trt',
+                              'labs',
+                              'weight-loss',
+                            ].includes(t)
+                          )) && <span className="text-gray-400">-</span>}
                       </div>
                     </td>
                     {salesReps.length > 0 && (
-                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="whitespace-nowrap px-6 py-4"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {patient.salesRep ? (
                           <button
                             onClick={() => setAssignSalesRepPatient(patient)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-sky-100 text-sky-700 hover:bg-sky-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-200"
                           >
                             <UserCheck className="h-3 w-3" />
                             {patient.salesRep.firstName} {patient.salesRep.lastName?.[0]}.
@@ -599,7 +711,7 @@ export default function AdminPatientsPage() {
                         ) : (
                           <button
                             onClick={() => setAssignSalesRepPatient(patient)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200"
                           >
                             <Plus className="h-3 w-3" />
                             Assign
@@ -607,14 +719,15 @@ export default function AdminPatientsPage() {
                         )}
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center gap-2">
                         {patient.hasPayment && (
                           <span
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
                             style={{
-                              backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
-                              color: 'var(--brand-primary, #4fa77e)'
+                              backgroundColor:
+                                'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                              color: 'var(--brand-primary, #4fa77e)',
                             }}
                           >
                             <DollarSign className="h-3 w-3" />
@@ -623,10 +736,11 @@ export default function AdminPatientsPage() {
                         )}
                         {patient.hasOrder && (
                           <span
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
                             style={{
-                              backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
-                              color: 'var(--brand-primary, #4fa77e)'
+                              backgroundColor:
+                                'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                              color: 'var(--brand-primary, #4fa77e)',
                             }}
                           >
                             <ShoppingCart className="h-3 w-3" />
@@ -635,17 +749,21 @@ export default function AdminPatientsPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td
+                      className="whitespace-nowrap px-6 py-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => window.location.href = `/patients/${patient.id}`}
-                          className="p-2 text-gray-600 rounded-lg transition-colors"
+                          onClick={() => (window.location.href = `/patients/${patient.id}`)}
+                          className="rounded-lg p-2 text-gray-600 transition-colors"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
-                            e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                            e.currentTarget.style.backgroundColor =
+                              'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.color = '#4b5563';
@@ -656,64 +774,69 @@ export default function AdminPatientsPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => window.location.href = `/patients/${patient.id}/edit`}
-                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          onClick={() => (window.location.href = `/patients/${patient.id}/edit`)}
+                          className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
                           title="Edit"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                      <div className="relative" ref={openDropdownId === patient.id ? dropdownRef : null}>
-                        <button
-                          onClick={() => setOpenDropdownId(openDropdownId === patient.id ? null : patient.id)}
-                          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        <div
+                          className="relative"
+                          ref={openDropdownId === patient.id ? dropdownRef : null}
                         >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                        {openDropdownId === patient.id && (
-                          <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
-                            {salesReps.length > 0 && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setOpenDropdownId(null);
-                                    setAssignSalesRepPatient(patient);
-                                  }}
-                                  className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                                >
-                                  <UserCheck className="h-4 w-4 text-gray-500" />
-                                  {patient.salesRep ? 'Change sales rep' : 'Assign sales rep'}
-                                </button>
-                                <div className="border-t border-gray-100 my-1" />
-                              </>
-                            )}
-                            <button
-                              onClick={() => {
-                                setOpenDropdownId(null);
-                                setMergePatient(patient);
-                              }}
-                              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
-                            >
-                              <GitMerge className="h-4 w-4 text-gray-500" />
-                              Merge with another patient
-                            </button>
-                            <div className="border-t border-gray-100 my-1" />
-                            <button
-                              onClick={() => {
-                                setOpenDropdownId(null);
-                                setDeletePatient(patient);
-                              }}
-                              className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete patient
-                            </button>
-                          </div>
-                        )}
+                          <button
+                            onClick={() =>
+                              setOpenDropdownId(openDropdownId === patient.id ? null : patient.id)
+                            }
+                            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          {openDropdownId === patient.id && (
+                            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-xl">
+                              {salesReps.length > 0 && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setOpenDropdownId(null);
+                                      setAssignSalesRepPatient(patient);
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                  >
+                                    <UserCheck className="h-4 w-4 text-gray-500" />
+                                    {patient.salesRep ? 'Change sales rep' : 'Assign sales rep'}
+                                  </button>
+                                  <div className="my-1 border-t border-gray-100" />
+                                </>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                  setMergePatient(patient);
+                                }}
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <GitMerge className="h-4 w-4 text-gray-500" />
+                                Merge with another patient
+                              </button>
+                              <div className="my-1 border-t border-gray-100" />
+                              <button
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                  setDeletePatient(patient);
+                                }}
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Delete patient
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -721,7 +844,7 @@ export default function AdminPatientsPage() {
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600">
                 Page {currentPage} of {totalPages}
@@ -731,11 +854,12 @@ export default function AdminPatientsPage() {
                 <button
                   onClick={() => goToPage(1)}
                   disabled={currentPage === 1}
-                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg p-2 text-gray-600 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   onMouseEnter={(e) => {
                     if (currentPage !== 1) {
                       e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
-                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                      e.currentTarget.style.backgroundColor =
+                        'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -751,11 +875,12 @@ export default function AdminPatientsPage() {
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg p-2 text-gray-600 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   onMouseEnter={(e) => {
                     if (currentPage !== 1) {
                       e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
-                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                      e.currentTarget.style.backgroundColor =
+                        'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -768,23 +893,28 @@ export default function AdminPatientsPage() {
                 </button>
 
                 {/* Page numbers */}
-                <div className="flex items-center gap-1 mx-2">
-                  {getPageNumbers().map((page, index) => (
+                <div className="mx-2 flex items-center gap-1">
+                  {getPageNumbers().map((page, index) =>
                     typeof page === 'number' ? (
                       <button
                         key={index}
                         onClick={() => goToPage(page)}
-                        className="min-w-[36px] h-9 px-3 rounded-lg text-sm font-medium transition-colors"
-                        style={currentPage === page ? {
-                          backgroundColor: 'var(--brand-primary, #4fa77e)',
-                          color: 'var(--brand-primary-text, #ffffff)'
-                        } : {
-                          color: '#4b5563'
-                        }}
+                        className="h-9 min-w-[36px] rounded-lg px-3 text-sm font-medium transition-colors"
+                        style={
+                          currentPage === page
+                            ? {
+                                backgroundColor: 'var(--brand-primary, #4fa77e)',
+                                color: 'var(--brand-primary-text, #ffffff)',
+                              }
+                            : {
+                                color: '#4b5563',
+                              }
+                        }
                         onMouseEnter={(e) => {
                           if (currentPage !== page) {
                             e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
-                            e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                            e.currentTarget.style.backgroundColor =
+                              'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
                           }
                         }}
                         onMouseLeave={(e) => {
@@ -801,18 +931,19 @@ export default function AdminPatientsPage() {
                         {page}
                       </span>
                     )
-                  ))}
+                  )}
                 </div>
 
                 {/* Next page */}
                 <button
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg p-2 text-gray-600 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   onMouseEnter={(e) => {
                     if (currentPage !== totalPages) {
                       e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
-                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                      e.currentTarget.style.backgroundColor =
+                        'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -828,11 +959,12 @@ export default function AdminPatientsPage() {
                 <button
                   onClick={() => goToPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="p-2 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-lg p-2 text-gray-600 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   onMouseEnter={(e) => {
                     if (currentPage !== totalPages) {
                       e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
-                      e.currentTarget.style.backgroundColor = 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
+                      e.currentTarget.style.backgroundColor =
+                        'var(--brand-primary-light, rgba(79, 167, 126, 0.1))';
                     }
                   }}
                   onMouseLeave={(e) => {

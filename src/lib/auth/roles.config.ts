@@ -5,7 +5,16 @@
 
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
-export type UserRole = 'super_admin' | 'admin' | 'provider' | 'staff' | 'support' | 'patient' | 'influencer' | 'affiliate' | 'sales_rep';
+export type UserRole =
+  | 'super_admin'
+  | 'admin'
+  | 'provider'
+  | 'staff'
+  | 'support'
+  | 'patient'
+  | 'influencer'
+  | 'affiliate'
+  | 'sales_rep';
 
 export interface RoleConfig {
   role: UserRole;
@@ -100,7 +109,7 @@ export const SUPER_ADMIN_CONFIG: RoleConfig = {
     primaryColor: '#DC2626', // Red
     secondaryColor: '#991B1B',
     iconColor: '#FCA5A5',
-    bgGradient: 'from-red-600 to-red-800'
+    bgGradient: 'from-red-600 to-red-800',
   },
   features: {
     // All features enabled
@@ -148,14 +157,26 @@ export const SUPER_ADMIN_CONFIG: RoleConfig = {
       { label: 'Create Clinic', action: 'create-clinic', icon: 'Plus', color: 'green' },
       { label: 'System Backup', action: 'system-backup', icon: 'Download', color: 'blue' },
       { label: 'Emergency Stop', action: 'emergency-stop', icon: 'AlertTriangle', color: 'red' },
-    ]
+    ],
   },
   widgets: [
     { id: 'system-overview', title: 'System Overview', type: 'stat', size: 'large', position: 1 },
-    { id: 'clinic-performance', title: 'Clinic Performance', type: 'chart', size: 'large', position: 2 },
+    {
+      id: 'clinic-performance',
+      title: 'Clinic Performance',
+      type: 'chart',
+      size: 'large',
+      position: 2,
+    },
     { id: 'security-alerts', title: 'Security Alerts', type: 'alert', size: 'medium', position: 3 },
-    { id: 'revenue-analytics', title: 'Platform Revenue', type: 'chart', size: 'large', position: 4 },
-  ]
+    {
+      id: 'revenue-analytics',
+      title: 'Platform Revenue',
+      type: 'chart',
+      size: 'large',
+      position: 4,
+    },
+  ],
 };
 
 // ADMIN - Clinic-level administrator
@@ -168,7 +189,7 @@ export const ADMIN_CONFIG: RoleConfig = {
     primaryColor: '#7C3AED', // Purple
     secondaryColor: '#6D28D9',
     iconColor: '#C4B5FD',
-    bgGradient: 'from-purple-600 to-indigo-700'
+    bgGradient: 'from-purple-600 to-indigo-700',
   },
   features: {
     viewAllPatients: true,
@@ -210,7 +231,7 @@ export const ADMIN_CONFIG: RoleConfig = {
           { label: 'All Patients', path: '/patients', icon: 'UserCheck' },
           { label: 'New Intake', path: '/admin/patients/new', icon: 'UserPlus' },
           { label: 'Reports', path: '/admin/patients/reports', icon: 'FileText' },
-        ]
+        ],
       },
       {
         label: 'Staff',
@@ -219,7 +240,7 @@ export const ADMIN_CONFIG: RoleConfig = {
         subItems: [
           { label: 'Providers', path: '/providers', icon: 'Stethoscope' },
           { label: 'Manage Users', path: '/settings/users', icon: 'Users' },
-        ]
+        ],
       },
       { label: 'Orders', path: '/orders', icon: 'ShoppingCart' },
       { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
@@ -233,15 +254,21 @@ export const ADMIN_CONFIG: RoleConfig = {
       { label: 'Create Order', action: 'create-order', icon: 'ShoppingBag', color: 'green' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
       { label: 'View Reports', action: 'view-reports', icon: 'FileBarChart', color: 'purple' },
-    ]
+    ],
   },
   widgets: [
     { id: 'clinic-stats', title: 'Clinic Overview', type: 'stat', size: 'full', position: 1 },
     { id: 'recent-patients', title: 'Recent Patients', type: 'list', size: 'medium', position: 2 },
     { id: 'revenue-chart', title: 'Revenue', type: 'chart', size: 'medium', position: 3 },
-    { id: 'staff-activity', title: 'Staff Activity', type: 'activity', size: 'medium', position: 4 },
+    {
+      id: 'staff-activity',
+      title: 'Staff Activity',
+      type: 'activity',
+      size: 'medium',
+      position: 4,
+    },
     { id: 'pending-tasks', title: 'Pending Tasks', type: 'list', size: 'medium', position: 5 },
-  ]
+  ],
 };
 
 // PROVIDER - Medical professionals
@@ -254,7 +281,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
     primaryColor: '#059669', // Green
     secondaryColor: '#047857',
     iconColor: '#6EE7B7',
-    bgGradient: 'from-green-600 to-teal-700'
+    bgGradient: 'from-green-600 to-teal-700',
   },
   features: {
     viewAllPatients: true, // Only assigned patients
@@ -304,16 +331,26 @@ export const PROVIDER_CONFIG: RoleConfig = {
       { label: 'Write SOAP Note', action: 'create-soap', icon: 'PenTool', color: 'blue' },
       { label: 'E-Prescribe', action: 'prescribe', icon: 'Pill', color: 'purple' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
-    ]
+    ],
   },
   widgets: [
-    { id: 'todays-schedule', title: "Today's Schedule", type: 'calendar', size: 'large', position: 1 },
+    {
+      id: 'todays-schedule',
+      title: "Today's Schedule",
+      type: 'calendar',
+      size: 'large',
+      position: 1,
+    },
     { id: 'patient-queue', title: 'Patient Queue', type: 'list', size: 'medium', position: 2 },
     { id: 'recent-labs', title: 'Recent Lab Results', type: 'list', size: 'medium', position: 3 },
     { id: 'pending-rx', title: 'Pending Prescriptions', type: 'list', size: 'small', position: 4 },
     { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 5 },
   ],
-  restrictions: ['Cannot delete patients', 'Cannot access financial data', 'Cannot manage other users']
+  restrictions: [
+    'Cannot delete patients',
+    'Cannot access financial data',
+    'Cannot manage other users',
+  ],
 };
 
 // STAFF - General staff members / Agents
@@ -326,7 +363,7 @@ export const STAFF_CONFIG: RoleConfig = {
     primaryColor: '#0891B2', // Cyan
     secondaryColor: '#0E7490',
     iconColor: '#67E8F9',
-    bgGradient: 'from-cyan-600 to-blue-700'
+    bgGradient: 'from-cyan-600 to-blue-700',
   },
   features: {
     viewAllPatients: true,
@@ -372,16 +409,22 @@ export const STAFF_CONFIG: RoleConfig = {
       { label: 'New Intake', action: 'new-intake', icon: 'UserPlus', color: 'blue' },
       { label: 'Schedule Appointment', action: 'schedule', icon: 'Calendar', color: 'green' },
       { label: 'Process Order', action: 'process-order', icon: 'Package', color: 'orange' },
-    ]
+    ],
   },
   widgets: [
     { id: 'pending-intakes', title: 'Pending Intakes', type: 'list', size: 'medium', position: 1 },
-    { id: 'todays-appointments', title: "Today's Appointments", type: 'list', size: 'medium', position: 2 },
+    {
+      id: 'todays-appointments',
+      title: "Today's Appointments",
+      type: 'list',
+      size: 'medium',
+      position: 2,
+    },
     { id: 'open-tickets', title: 'Open Tickets', type: 'list', size: 'medium', position: 3 },
     { id: 'order-queue', title: 'Order Queue', type: 'list', size: 'medium', position: 4 },
     { id: 'quick-stats', title: 'Daily Stats', type: 'stat', size: 'full', position: 5 },
   ],
-  restrictions: ['No PHI access', 'Cannot prescribe', 'Cannot view medical records']
+  restrictions: ['No PHI access', 'Cannot prescribe', 'Cannot view medical records'],
 };
 
 // SUPPORT - Customer support team
@@ -394,7 +437,7 @@ export const SUPPORT_CONFIG: RoleConfig = {
     primaryColor: '#F59E0B', // Amber
     secondaryColor: '#D97706',
     iconColor: '#FCD34D',
-    bgGradient: 'from-amber-600 to-orange-700'
+    bgGradient: 'from-amber-600 to-orange-700',
   },
   features: {
     viewAllPatients: true, // Limited view
@@ -439,7 +482,7 @@ export const SUPPORT_CONFIG: RoleConfig = {
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Plus', color: 'blue' },
       { label: 'Start Chat', action: 'start-chat', icon: 'MessageCircle', color: 'green' },
       { label: 'Search KB', action: 'search-kb', icon: 'Search', color: 'purple' },
-    ]
+    ],
   },
   widgets: [
     { id: 'ticket-queue', title: 'Ticket Queue', type: 'list', size: 'large', position: 1 },
@@ -448,7 +491,7 @@ export const SUPPORT_CONFIG: RoleConfig = {
     { id: 'customer-satisfaction', title: 'CSAT Score', type: 'chart', size: 'small', position: 4 },
     { id: 'trending-issues', title: 'Trending Issues', type: 'list', size: 'medium', position: 5 },
   ],
-  restrictions: ['No PHI access', 'Cannot edit patient data', 'View-only customer information']
+  restrictions: ['No PHI access', 'Cannot edit patient data', 'View-only customer information'],
 };
 
 // PATIENT - Patient portal access
@@ -461,7 +504,7 @@ export const PATIENT_CONFIG: RoleConfig = {
     primaryColor: '#3B82F6', // Blue
     secondaryColor: '#2563EB',
     iconColor: '#93C5FD',
-    bgGradient: 'from-blue-500 to-indigo-600'
+    bgGradient: 'from-blue-500 to-indigo-600',
   },
   features: {
     viewAllPatients: false, // Only themselves
@@ -497,7 +540,7 @@ export const PATIENT_CONFIG: RoleConfig = {
       { label: 'My Health', path: PATIENT_PORTAL_PATH, icon: 'Heart' },
       { label: 'Appointments', path: `${PATIENT_PORTAL_PATH}/appointments`, icon: 'Calendar' },
       { label: 'Medications', path: `${PATIENT_PORTAL_PATH}/medications`, icon: 'Pill' },
-      { label: 'Lab Results', path: `${PATIENT_PORTAL_PATH}/labs`, icon: 'TestTube' },
+      { label: 'Lab Results', path: `${PATIENT_PORTAL_PATH}/bloodwork`, icon: 'TestTube' },
       { label: 'Documents', path: `${PATIENT_PORTAL_PATH}/documents`, icon: 'FileText' },
       { label: 'Photos', path: `${PATIENT_PORTAL_PATH}/photos`, icon: 'Camera' },
       { label: 'Messages', path: `${PATIENT_PORTAL_PATH}/messages`, icon: 'MessageSquare' },
@@ -506,19 +549,39 @@ export const PATIENT_CONFIG: RoleConfig = {
       { label: 'Profile', path: `${PATIENT_PORTAL_PATH}/profile`, icon: 'User' },
     ],
     quick: [
-      { label: 'Book Appointment', action: 'book-appointment', icon: 'CalendarPlus', color: 'green' },
-      { label: 'Message Provider', action: 'message-provider', icon: 'MessageSquare', color: 'blue' },
+      {
+        label: 'Book Appointment',
+        action: 'book-appointment',
+        icon: 'CalendarPlus',
+        color: 'green',
+      },
+      {
+        label: 'Message Provider',
+        action: 'message-provider',
+        icon: 'MessageSquare',
+        color: 'blue',
+      },
       { label: 'Refill Rx', action: 'refill-rx', icon: 'Pill', color: 'purple' },
-    ]
+    ],
   },
   widgets: [
     { id: 'health-summary', title: 'Health Summary', type: 'stat', size: 'full', position: 1 },
-    { id: 'upcoming-appointments', title: 'Upcoming Appointments', type: 'list', size: 'medium', position: 2 },
+    {
+      id: 'upcoming-appointments',
+      title: 'Upcoming Appointments',
+      type: 'list',
+      size: 'medium',
+      position: 2,
+    },
     { id: 'medications', title: 'Active Medications', type: 'list', size: 'medium', position: 3 },
     { id: 'recent-labs', title: 'Recent Lab Results', type: 'list', size: 'medium', position: 4 },
     { id: 'health-goals', title: 'Health Goals', type: 'chart', size: 'medium', position: 5 },
   ],
-  restrictions: ['Can only view own data', 'Cannot access other patient information', 'Cannot prescribe or order tests']
+  restrictions: [
+    'Can only view own data',
+    'Cannot access other patient information',
+    'Cannot prescribe or order tests',
+  ],
 };
 
 // INFLUENCER - Referral partners
@@ -531,7 +594,7 @@ export const INFLUENCER_CONFIG: RoleConfig = {
     primaryColor: '#EC4899', // Pink
     secondaryColor: '#DB2777',
     iconColor: '#F9A8D4',
-    bgGradient: 'from-pink-500 to-purple-600'
+    bgGradient: 'from-pink-500 to-purple-600',
   },
   features: {
     viewAllPatients: false,
@@ -576,16 +639,50 @@ export const INFLUENCER_CONFIG: RoleConfig = {
       { label: 'Share Link', action: 'share-link', icon: 'Share2', color: 'blue' },
       { label: 'View Earnings', action: 'view-earnings', icon: 'DollarSign', color: 'green' },
       { label: 'Get Materials', action: 'get-materials', icon: 'Download', color: 'purple' },
-    ]
+    ],
   },
   widgets: [
-    { id: 'earnings-overview', title: 'Earnings Overview', type: 'stat', size: 'large', position: 1 },
-    { id: 'referral-stats', title: 'Referral Performance', type: 'chart', size: 'large', position: 2 },
-    { id: 'recent-referrals', title: 'Recent Referrals', type: 'list', size: 'medium', position: 3 },
-    { id: 'pending-commissions', title: 'Pending Commissions', type: 'list', size: 'medium', position: 4 },
-    { id: 'campaign-performance', title: 'Campaign Performance', type: 'chart', size: 'full', position: 5 },
+    {
+      id: 'earnings-overview',
+      title: 'Earnings Overview',
+      type: 'stat',
+      size: 'large',
+      position: 1,
+    },
+    {
+      id: 'referral-stats',
+      title: 'Referral Performance',
+      type: 'chart',
+      size: 'large',
+      position: 2,
+    },
+    {
+      id: 'recent-referrals',
+      title: 'Recent Referrals',
+      type: 'list',
+      size: 'medium',
+      position: 3,
+    },
+    {
+      id: 'pending-commissions',
+      title: 'Pending Commissions',
+      type: 'list',
+      size: 'medium',
+      position: 4,
+    },
+    {
+      id: 'campaign-performance',
+      title: 'Campaign Performance',
+      type: 'chart',
+      size: 'full',
+      position: 5,
+    },
   ],
-  restrictions: ['No patient data access', 'View-only commission data', 'Cannot process medical operations']
+  restrictions: [
+    'No patient data access',
+    'View-only commission data',
+    'Cannot process medical operations',
+  ],
 };
 
 // AFFILIATE - Affiliate/referral partners portal
@@ -598,7 +695,7 @@ export const AFFILIATE_CONFIG: RoleConfig = {
     primaryColor: '#8B5CF6', // Violet
     secondaryColor: '#7C3AED',
     iconColor: '#C4B5FD',
-    bgGradient: 'from-violet-500 to-purple-600'
+    bgGradient: 'from-violet-500 to-purple-600',
   },
   features: {
     viewAllPatients: false,
@@ -641,20 +738,38 @@ export const AFFILIATE_CONFIG: RoleConfig = {
     quick: [
       { label: 'Copy Link', action: 'copy-ref-link', icon: 'Copy', color: 'blue' },
       { label: 'View Earnings', action: 'view-earnings', icon: 'DollarSign', color: 'green' },
-    ]
+    ],
   },
   widgets: [
-    { id: 'commission-overview', title: 'Commission Overview', type: 'stat', size: 'large', position: 1 },
-    { id: 'conversion-trends', title: 'Conversion Trends', type: 'chart', size: 'large', position: 2 },
-    { id: 'pending-commissions', title: 'Pending Commissions', type: 'stat', size: 'medium', position: 3 },
+    {
+      id: 'commission-overview',
+      title: 'Commission Overview',
+      type: 'stat',
+      size: 'large',
+      position: 1,
+    },
+    {
+      id: 'conversion-trends',
+      title: 'Conversion Trends',
+      type: 'chart',
+      size: 'large',
+      position: 2,
+    },
+    {
+      id: 'pending-commissions',
+      title: 'Pending Commissions',
+      type: 'stat',
+      size: 'medium',
+      position: 3,
+    },
     { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 4 },
   ],
   restrictions: [
     'No access to patient data (HIPAA compliant)',
     'View-only aggregated metrics',
     'Cannot process medical operations',
-    'Cannot view individual conversion details'
-  ]
+    'Cannot view individual conversion details',
+  ],
 };
 
 // SALES_REP - Sales representatives managing patient relationships
@@ -667,13 +782,13 @@ export const SALES_REP_CONFIG: RoleConfig = {
     primaryColor: '#0EA5E9', // Sky blue
     secondaryColor: '#0284C7',
     iconColor: '#7DD3FC',
-    bgGradient: 'from-sky-500 to-blue-600'
+    bgGradient: 'from-sky-500 to-blue-600',
   },
   features: {
     viewAllPatients: false, // Only assigned patients
-    editPatients: true,     // Can edit assigned patients
+    editPatients: true, // Can edit assigned patients
     deletePatients: false,
-    viewPatientPHI: false,  // Limited PHI access
+    viewPatientPHI: false, // Limited PHI access
     exportPatientData: false,
     createSoapNotes: false,
     prescribeRx: false,
@@ -682,7 +797,7 @@ export const SALES_REP_CONFIG: RoleConfig = {
     uploadDocuments: false,
     manageUsers: false,
     manageClinics: false,
-    viewAnalytics: true,    // Own performance metrics
+    viewAnalytics: true, // Own performance metrics
     viewFinancials: false,
     manageSubscriptions: false,
     internalMessaging: true,
@@ -696,7 +811,7 @@ export const SALES_REP_CONFIG: RoleConfig = {
     manageOrders: false,
     processPayments: false,
     manageInventory: false,
-    viewCommissions: true,  // View own commissions/performance
+    viewCommissions: true, // View own commissions/performance
   },
   navigation: {
     primary: [
@@ -711,21 +826,27 @@ export const SALES_REP_CONFIG: RoleConfig = {
       { label: 'View Patient', action: 'view-patient', icon: 'User', color: 'blue' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
       { label: 'Send Message', action: 'send-message', icon: 'MessageSquare', color: 'green' },
-    ]
+    ],
   },
   widgets: [
     { id: 'patient-overview', title: 'My Patients', type: 'stat', size: 'large', position: 1 },
     { id: 'open-tickets', title: 'Open Tickets', type: 'list', size: 'medium', position: 2 },
     { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 3 },
-    { id: 'conversion-stats', title: 'Conversion Stats', type: 'chart', size: 'medium', position: 4 },
+    {
+      id: 'conversion-stats',
+      title: 'Conversion Stats',
+      type: 'chart',
+      size: 'medium',
+      position: 4,
+    },
     { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 5 },
   ],
   restrictions: [
     'Only view assigned patients',
     'Cannot access medical records',
     'Cannot prescribe or order tests',
-    'Cannot view financial data'
-  ]
+    'Cannot view financial data',
+  ],
 };
 
 // Role configuration map

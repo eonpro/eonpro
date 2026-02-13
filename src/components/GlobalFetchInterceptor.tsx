@@ -6,7 +6,7 @@ import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 
 /**
  * Global Fetch Interceptor
- * 
+ *
  * This component patches the global fetch to intercept 401/403 responses
  * and trigger the session expiration flow. This ensures that ALL fetch calls
  * (not just those using apiFetch) properly handle expired sessions.
@@ -28,19 +28,30 @@ export default function GlobalFetchInterceptor() {
         const response = await originalFetch(input, init);
 
         // Check for auth errors on API routes
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
         const isApiRoute = url.includes('/api/');
 
         if (isApiRoute && (response.status === 401 || response.status === 403)) {
+          // Skip interception for apiFetch requests - they handle 401 with token refresh + retry
+          const req = typeof input === 'object' && 'headers' in input ? (input as Request) : null;
+          const headers = init?.headers ?? req?.headers;
+          const hasAuthRetry =
+            headers instanceof Headers
+              ? headers.get('X-Eonpro-Auth-Retry') === '1'
+              : (headers as Record<string, string>)?.['X-Eonpro-Auth-Retry'] === '1' ||
+                (headers as Record<string, string>)?.['x-eonpro-auth-retry'] === '1';
+
           // Check if this is a login/auth route (don't intercept those)
-          const isAuthRoute = url.includes('/api/auth/login') || 
-                              url.includes('/api/auth/verify') ||
-                              url.includes('/api/auth/refresh') ||
-                              url.includes('/api/affiliate/auth/login') ||
-                              url.includes('/api/affiliate/auth/me') ||
-                              url.includes('/api/influencers/auth/');
-          
-          if (!isAuthRoute) {
+          const isAuthRoute =
+            url.includes('/api/auth/login') ||
+            url.includes('/api/auth/verify') ||
+            url.includes('/api/auth/refresh') ||
+            url.includes('/api/affiliate/auth/login') ||
+            url.includes('/api/affiliate/auth/me') ||
+            url.includes('/api/influencers/auth/');
+
+          if (!isAuthRoute && !hasAuthRetry) {
             // Clone response to read the body without consuming it
             const clonedResponse = response.clone();
             let errorMessage = 'Session expired';

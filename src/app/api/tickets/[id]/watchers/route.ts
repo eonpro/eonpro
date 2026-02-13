@@ -31,10 +31,7 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const userContext = {
@@ -65,19 +62,13 @@ export const POST = withAuth(async (request, user, { params }: RouteParams) => {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const body = await request.json();
 
     if (!body.userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
     const userContext = {
@@ -103,10 +94,7 @@ export const POST = withAuth(async (request, user, { params }: RouteParams) => {
       addedById: user.id,
     });
 
-    return NextResponse.json(
-      { message: 'Watcher added successfully' },
-      { status: 201 }
-    );
+    return NextResponse.json({ message: 'Watcher added successfully' }, { status: 201 });
   } catch (error) {
     return handleApiError(error, { route: `POST /api/tickets/${(await params).id}/watchers` });
   }
@@ -122,20 +110,14 @@ export const DELETE = withAuth(async (request, user, { params }: RouteParams) =>
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
     const watcherUserId = parseInt(userId, 10);

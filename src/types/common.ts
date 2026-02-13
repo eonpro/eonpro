@@ -41,6 +41,20 @@ export interface RequestContext {
   sessionId?: string;
 }
 
+/** User shape passed to layout components (from localStorage or auth/me). No PHI in logs. */
+export interface LayoutUser {
+  id: number;
+  email: string;
+  role: string;
+  clinicId?: number;
+  patientId?: number;
+  providerId?: number;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  specialty?: string;
+}
+
 // Database record types
 export interface BaseRecord {
   id: number;

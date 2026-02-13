@@ -1,6 +1,6 @@
 /**
  * Admin Provider Compensation API
- * 
+ *
  * GET  - Get compensation plan for a provider
  * PUT  - Create or update compensation plan for a provider
  */
@@ -13,24 +13,32 @@ import { z } from 'zod';
 
 const compensationTypeEnum = z.enum(['FLAT_RATE', 'PERCENTAGE', 'HYBRID']);
 
-const compensationPlanSchema = z.object({
-  compensationType: compensationTypeEnum.default('FLAT_RATE'),
-  flatRatePerScript: z.number().int().min(0).max(100000).optional(), // Max $1000 per script (in cents)
-  percentBps: z.number().int().min(0).max(10000).optional(), // Max 100% (in basis points)
-  notes: z.string().optional(),
-}).refine((data) => {
-  // Validate that required fields are present based on compensation type
-  if (data.compensationType === 'FLAT_RATE' || data.compensationType === 'HYBRID') {
-    return data.flatRatePerScript !== undefined && data.flatRatePerScript >= 0;
-  }
-  return true;
-}, { message: 'Flat rate is required for FLAT_RATE or HYBRID compensation types' })
-.refine((data) => {
-  if (data.compensationType === 'PERCENTAGE' || data.compensationType === 'HYBRID') {
-    return data.percentBps !== undefined && data.percentBps >= 0;
-  }
-  return true;
-}, { message: 'Percentage is required for PERCENTAGE or HYBRID compensation types' });
+const compensationPlanSchema = z
+  .object({
+    compensationType: compensationTypeEnum.default('FLAT_RATE'),
+    flatRatePerScript: z.number().int().min(0).max(100000).optional(), // Max $1000 per script (in cents)
+    percentBps: z.number().int().min(0).max(10000).optional(), // Max 100% (in basis points)
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Validate that required fields are present based on compensation type
+      if (data.compensationType === 'FLAT_RATE' || data.compensationType === 'HYBRID') {
+        return data.flatRatePerScript !== undefined && data.flatRatePerScript >= 0;
+      }
+      return true;
+    },
+    { message: 'Flat rate is required for FLAT_RATE or HYBRID compensation types' }
+  )
+  .refine(
+    (data) => {
+      if (data.compensationType === 'PERCENTAGE' || data.compensationType === 'HYBRID') {
+        return data.percentBps !== undefined && data.percentBps >= 0;
+      }
+      return true;
+    },
+    { message: 'Percentage is required for PERCENTAGE or HYBRID compensation types' }
+  );
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -40,24 +48,17 @@ interface RouteContext {
  * GET /api/admin/providers/[id]/compensation
  * Get compensation plan for a provider
  */
-async function handleGet(
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext
-) {
+async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext) {
   try {
     const params = await context.params;
     const providerId = parseInt(params.id, 10);
 
     if (isNaN(providerId)) {
-      return NextResponse.json(
-        { error: 'Invalid provider ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid provider ID' }, { status: 400 });
     }
 
     const clinicId = user.clinicId;
-    
+
     if (!clinicId && user.role !== 'super_admin') {
       return NextResponse.json(
         { error: 'Admin must be associated with a clinic' },
@@ -69,15 +70,11 @@ async function handleGet(
     // They may pass clinicId as query param
     const { searchParams } = new URL(req.url);
     const queryClinicId = searchParams.get('clinicId');
-    const effectiveClinicId = user.role === 'super_admin' && queryClinicId
-      ? parseInt(queryClinicId, 10)
-      : clinicId;
+    const effectiveClinicId =
+      user.role === 'super_admin' && queryClinicId ? parseInt(queryClinicId, 10) : clinicId;
 
     if (!effectiveClinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     logger.info('[ADMIN-COMPENSATION] Getting compensation plan', {
@@ -88,7 +85,7 @@ async function handleGet(
 
     // Check if compensation is enabled
     const config = await providerRoutingService.getRoutingConfig(effectiveClinicId);
-    
+
     const plan = await providerCompensationService.getCompensationPlan(
       effectiveClinicId,
       providerId
@@ -141,24 +138,17 @@ async function handleGet(
  * PUT /api/admin/providers/[id]/compensation
  * Create or update compensation plan for a provider
  */
-async function handlePut(
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext
-) {
+async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext) {
   try {
     const params = await context.params;
     const providerId = parseInt(params.id, 10);
 
     if (isNaN(providerId)) {
-      return NextResponse.json(
-        { error: 'Invalid provider ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid provider ID' }, { status: 400 });
     }
 
     const clinicId = user.clinicId;
-    
+
     if (!clinicId && user.role !== 'super_admin') {
       return NextResponse.json(
         { error: 'Admin must be associated with a clinic' },
@@ -167,21 +157,17 @@ async function handlePut(
     }
 
     const body = await req.json();
-    
+
     // Super admin can specify clinicId in body
-    const effectiveClinicId = user.role === 'super_admin' && body.clinicId
-      ? body.clinicId
-      : clinicId;
+    const effectiveClinicId =
+      user.role === 'super_admin' && body.clinicId ? body.clinicId : clinicId;
 
     if (!effectiveClinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     const parsed = compensationPlanSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parsed.error.issues },
@@ -219,7 +205,7 @@ async function handlePut(
       compensationType: plan.compensationType,
       flatRatePerScript: plan.flatRatePerScript,
       percentBps: plan.percentBps,
-      updatedBy: user.email,
+      updatedBy: user.id,
     });
 
     return NextResponse.json({
@@ -250,12 +236,10 @@ async function handlePut(
   }
 }
 
-export const GET = withAdminAuth(
-  (req: NextRequest, user: AuthUser, context?: unknown) => 
-    handleGet(req, user, context as RouteContext)
+export const GET = withAdminAuth((req: NextRequest, user: AuthUser, context?: unknown) =>
+  handleGet(req, user, context as RouteContext)
 );
 
-export const PUT = withAdminAuth(
-  (req: NextRequest, user: AuthUser, context?: unknown) => 
-    handlePut(req, user, context as RouteContext)
+export const PUT = withAdminAuth((req: NextRequest, user: AuthUser, context?: unknown) =>
+  handlePut(req, user, context as RouteContext)
 );

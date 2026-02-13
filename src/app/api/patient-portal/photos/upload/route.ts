@@ -22,7 +22,14 @@ import { PatientPhotoType } from '@prisma/client';
 // =============================================================================
 
 const MAX_PHOTO_SIZE = 15 * 1024 * 1024; // 15MB for photos
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+];
 const PRESIGNED_URL_EXPIRY = 300; // 5 minutes
 
 // =============================================================================
@@ -31,10 +38,9 @@ const PRESIGNED_URL_EXPIRY = 300; // 5 minutes
 
 const uploadRequestSchema = z.object({
   type: z.nativeEnum(PatientPhotoType),
-  contentType: z.string().refine(
-    (type) => ALLOWED_MIME_TYPES.includes(type.toLowerCase()),
-    { message: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}` }
-  ),
+  contentType: z.string().refine((type) => ALLOWED_MIME_TYPES.includes(type.toLowerCase()), {
+    message: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
+  }),
   fileSize: z.number().max(MAX_PHOTO_SIZE, {
     message: `File size exceeds maximum of ${MAX_PHOTO_SIZE / 1024 / 1024}MB`,
   }),
@@ -48,7 +54,12 @@ const uploadRequestSchema = z.object({
 // Helpers
 // =============================================================================
 
-function generateS3Key(patientId: number, clinicId: number, type: PatientPhotoType, extension: string): string {
+function generateS3Key(
+  patientId: number,
+  clinicId: number,
+  type: PatientPhotoType,
+  extension: string
+): string {
   const timestamp = Date.now();
   const uuid = uuidv4();
   return `${STORAGE_CONFIG.PATHS.PATIENT_PHOTOS}/${clinicId}/${patientId}/${type.toLowerCase()}/${timestamp}-${uuid}.${extension}`;
@@ -134,14 +145,14 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     // Generate S3 keys
     const extension = getExtensionFromMimeType(parsed.data.contentType);
     const s3Key = generateS3Key(patientId, clinicId, parsed.data.type, extension);
-    
+
     // Generate presigned URL for main photo
     const uploadUrl = await generateSignedUrl(s3Key, 'PUT', PRESIGNED_URL_EXPIRY);
 
     // Optionally generate thumbnail upload URL
     let thumbnailUploadUrl: string | null = null;
     let thumbnailKey: string | null = null;
-    
+
     if (parsed.data.includeThumbnail) {
       thumbnailKey = s3Key.replace(`.${extension}`, `_thumb.${extension}`);
       thumbnailUploadUrl = await generateSignedUrl(thumbnailKey, 'PUT', PRESIGNED_URL_EXPIRY);
@@ -176,10 +187,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to generate upload URL' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
   }
 }
 

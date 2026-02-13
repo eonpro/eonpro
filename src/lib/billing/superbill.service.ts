@@ -1,6 +1,6 @@
 /**
  * Superbill Service
- * 
+ *
  * Generates superbills for insurance reimbursement
  * Includes CPT codes, ICD-10 codes, and billing information
  */
@@ -18,29 +18,33 @@ export const COMMON_CPT_CODES = [
   { code: '99203', description: 'Office visit, new patient, 30 min', defaultPrice: 11000 },
   { code: '99204', description: 'Office visit, new patient, 45 min', defaultPrice: 16500 },
   { code: '99205', description: 'Office visit, new patient, 60 min', defaultPrice: 21000 },
-  
+
   // E&M Codes - Established Patient
   { code: '99211', description: 'Office visit, established patient, 5 min', defaultPrice: 2500 },
   { code: '99212', description: 'Office visit, established patient, 10 min', defaultPrice: 4500 },
   { code: '99213', description: 'Office visit, established patient, 15 min', defaultPrice: 7500 },
   { code: '99214', description: 'Office visit, established patient, 25 min', defaultPrice: 11000 },
   { code: '99215', description: 'Office visit, established patient, 40 min', defaultPrice: 15000 },
-  
+
   // Telehealth Modifiers
   { code: '99441', description: 'Telephone E/M, 5-10 min', defaultPrice: 3500 },
   { code: '99442', description: 'Telephone E/M, 11-20 min', defaultPrice: 6500 },
   { code: '99443', description: 'Telephone E/M, 21-30 min', defaultPrice: 10000 },
-  
+
   // Obesity/Weight Management
   { code: '99401', description: 'Preventive counseling, 15 min', defaultPrice: 3500 },
   { code: '99402', description: 'Preventive counseling, 30 min', defaultPrice: 6500 },
   { code: '99403', description: 'Preventive counseling, 45 min', defaultPrice: 9500 },
   { code: '99404', description: 'Preventive counseling, 60 min', defaultPrice: 13000 },
   { code: 'G0447', description: 'Behavioral counseling for obesity, 15 min', defaultPrice: 3500 },
-  
+
   // Medical Nutrition Therapy
   { code: '97802', description: 'Medical nutrition therapy, initial, 15 min', defaultPrice: 5000 },
-  { code: '97803', description: 'Medical nutrition therapy, re-assessment, 15 min', defaultPrice: 4000 },
+  {
+    code: '97803',
+    description: 'Medical nutrition therapy, re-assessment, 15 min',
+    defaultPrice: 4000,
+  },
   { code: '97804', description: 'Medical nutrition therapy, group, 30 min', defaultPrice: 3000 },
 ];
 
@@ -138,7 +142,7 @@ export async function createSuperbill(input: CreateSuperbillInput): Promise<{
   try {
     // Calculate total
     const totalAmount = input.items.reduce((sum, item) => {
-      return sum + (item.unitPrice * (item.units || 1));
+      return sum + item.unitPrice * (item.units || 1);
     }, 0);
 
     const superbill = await prisma.superbill.create({
@@ -152,7 +156,7 @@ export async function createSuperbill(input: CreateSuperbillInput): Promise<{
         notes: input.notes,
         status: 'DRAFT',
         items: {
-          create: input.items.map(item => ({
+          create: input.items.map((item) => ({
             cptCode: item.cptCode,
             cptDescription: item.cptDescription,
             icdCodes: item.icdCodes,
@@ -251,22 +255,16 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
 
     // Clinic Information
     if (superbill.clinic) {
-      doc
-        .fontSize(12)
-        .font('Helvetica-Bold')
-        .text('Practice Information:');
-      
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .text(superbill.clinic.name);
-      
+      doc.fontSize(12).font('Helvetica-Bold').text('Practice Information:');
+
+      doc.fontSize(10).font('Helvetica').text(superbill.clinic.name);
+
       if (superbill.clinic.address) {
         const addr = superbill.clinic.address as any;
         doc.text(`${addr.address1 || ''}`);
         doc.text(`${addr.city || ''}, ${addr.state || ''} ${addr.zip || ''}`);
       }
-      
+
       if (superbill.clinic.phone) {
         doc.text(`Phone: ${superbill.clinic.phone}`);
       }
@@ -275,11 +273,8 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
     doc.moveDown();
 
     // Provider Information
-    doc
-      .fontSize(12)
-      .font('Helvetica-Bold')
-      .text('Provider Information:');
-    
+    doc.fontSize(12).font('Helvetica-Bold').text('Provider Information:');
+
     doc
       .fontSize(10)
       .font('Helvetica')
@@ -292,11 +287,8 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
     doc.moveDown();
 
     // Patient Information
-    doc
-      .fontSize(12)
-      .font('Helvetica-Bold')
-      .text('Patient Information:');
-    
+    doc.fontSize(12).font('Helvetica-Bold').text('Patient Information:');
+
     doc
       .fontSize(10)
       .font('Helvetica')
@@ -309,11 +301,8 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
     doc.moveDown();
 
     // Service Information
-    doc
-      .fontSize(12)
-      .font('Helvetica-Bold')
-      .text('Service Information:');
-    
+    doc.fontSize(12).font('Helvetica-Bold').text('Service Information:');
+
     doc
       .fontSize(10)
       .font('Helvetica')
@@ -323,7 +312,7 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
 
     // Table Header
     const tableTop = doc.y;
-    const col1 = 50;  // CPT
+    const col1 = 50; // CPT
     const col2 = 120; // Description
     const col3 = 320; // ICD-10
     const col4 = 420; // Units
@@ -360,10 +349,7 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
     }
 
     // Total
-    doc
-      .moveTo(col1, rowTop)
-      .lineTo(550, rowTop)
-      .stroke();
+    doc.moveTo(col1, rowTop).lineTo(550, rowTop).stroke();
 
     rowTop += 10;
     doc
@@ -379,24 +365,23 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
         .font('Helvetica')
         .text('Amount Paid:', col4 - 50, rowTop)
         .text(`$${(superbill.paidAmount / 100).toFixed(2)}`, col5, rowTop);
-      
+
       rowTop += 15;
       doc
         .font('Helvetica-Bold')
         .text('Balance Due:', col4 - 50, rowTop)
-        .text(`$${((superbill.totalAmount - superbill.paidAmount) / 100).toFixed(2)}`, col5, rowTop);
+        .text(
+          `$${((superbill.totalAmount - superbill.paidAmount) / 100).toFixed(2)}`,
+          col5,
+          rowTop
+        );
     }
 
     // Notes
     if (superbill.notes) {
       doc.moveDown(2);
-      doc
-        .fontSize(10)
-        .font('Helvetica-Bold')
-        .text('Notes:');
-      doc
-        .font('Helvetica')
-        .text(superbill.notes);
+      doc.fontSize(10).font('Helvetica-Bold').text('Notes:');
+      doc.font('Helvetica').text(superbill.notes);
     }
 
     // Footer
@@ -410,13 +395,7 @@ export async function generateSuperbillPDF(superbillId: number): Promise<{
         { align: 'center' }
       );
 
-    doc
-      .text(
-        `Generated: ${new Date().toLocaleString()}`,
-        50,
-        720,
-        { align: 'center' }
-      );
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 50, 720, { align: 'center' });
 
     doc.end();
 
@@ -505,19 +484,20 @@ export async function searchBillingCodes(
 
   // If not enough results, add from common codes
   if (clinicCodes.length < 10) {
-    const commonCodes = codeType === 'CPT'
-      ? COMMON_CPT_CODES.filter(
-          c =>
-            c.code.toLowerCase().includes(query.toLowerCase()) ||
-            c.description.toLowerCase().includes(query.toLowerCase())
-        ).slice(0, 20 - clinicCodes.length)
-      : COMMON_ICD10_CODES.filter(
-          c =>
-            c.code.toLowerCase().includes(query.toLowerCase()) ||
-            c.description.toLowerCase().includes(query.toLowerCase())
-        ).slice(0, 20 - clinicCodes.length);
+    const commonCodes =
+      codeType === 'CPT'
+        ? COMMON_CPT_CODES.filter(
+            (c) =>
+              c.code.toLowerCase().includes(query.toLowerCase()) ||
+              c.description.toLowerCase().includes(query.toLowerCase())
+          ).slice(0, 20 - clinicCodes.length)
+        : COMMON_ICD10_CODES.filter(
+            (c) =>
+              c.code.toLowerCase().includes(query.toLowerCase()) ||
+              c.description.toLowerCase().includes(query.toLowerCase())
+          ).slice(0, 20 - clinicCodes.length);
 
-    return [...clinicCodes, ...commonCodes.map(c => ({ ...c, isCommon: true }))];
+    return [...clinicCodes, ...commonCodes.map((c) => ({ ...c, isCommon: true }))];
   }
 
   return clinicCodes;

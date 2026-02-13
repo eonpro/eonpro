@@ -1,6 +1,10 @@
 // Provider - wrap your app with this
 export { NotificationProvider, useNotificationContext } from './NotificationProvider';
-export type { NotificationPreferences, ToastNotification, NotificationContextValue } from './NotificationProvider';
+export type {
+  NotificationPreferences,
+  ToastNotification,
+  NotificationContextValue,
+} from './NotificationProvider';
 
 // Components
 export { default as NotificationCenter } from './NotificationCenter';

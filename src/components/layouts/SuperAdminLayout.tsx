@@ -16,10 +16,6 @@ export default function SuperAdminLayout({ children, userData }: SuperAdminLayou
   // - Global user management
   // - API management
   // - Platform configuration
-  
-  return (
-    <AdminLayout userData={{ ...userData, role: 'super_admin' }}>
-      {children}
-    </AdminLayout>
-  );
+
+  return <AdminLayout userData={{ ...userData, role: 'super_admin' }}>{children}</AdminLayout>;
 }

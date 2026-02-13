@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Account Page
- * 
+ *
  * Profile settings, payout methods, and preferences.
  * Clean, organized settings with clear actions.
  */
@@ -108,8 +108,12 @@ export default function AccountPage() {
   const [isSavingLeaderboard, setIsSavingLeaderboard] = useState(false);
 
   // Notification preferences state
-  const [emailNotifications, setEmailNotifications] = useState(displayData.preferences.emailNotifications);
-  const [smsNotifications, setSmsNotifications] = useState(displayData.preferences.smsNotifications);
+  const [emailNotifications, setEmailNotifications] = useState(
+    displayData.preferences.emailNotifications
+  );
+  const [smsNotifications, setSmsNotifications] = useState(
+    displayData.preferences.smsNotifications
+  );
   const [weeklyReport, setWeeklyReport] = useState(displayData.preferences.weeklyReport);
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
 
@@ -125,10 +129,16 @@ export default function AccountPage() {
   }, [data]);
 
   // Handle notification preference toggles
-  const handlePreferenceToggle = async (preference: 'emailNotifications' | 'smsNotifications' | 'weeklyReport') => {
+  const handlePreferenceToggle = async (
+    preference: 'emailNotifications' | 'smsNotifications' | 'weeklyReport'
+  ) => {
     setIsSavingPreferences(true);
-    const newValue = preference === 'emailNotifications' ? !emailNotifications :
-                     preference === 'smsNotifications' ? !smsNotifications : !weeklyReport;
+    const newValue =
+      preference === 'emailNotifications'
+        ? !emailNotifications
+        : preference === 'smsNotifications'
+          ? !smsNotifications
+          : !weeklyReport;
 
     try {
       const res = await fetch('/api/affiliate/account', {
@@ -192,8 +202,8 @@ export default function AccountPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
       </div>
     );
   }
@@ -201,26 +211,26 @@ export default function AccountPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+        <div className="mx-auto max-w-3xl">
           <h1 className="text-xl font-semibold text-gray-900">Account</h1>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
         {/* Profile Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6"
+          className="rounded-2xl bg-white p-6"
         >
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full flex items-center justify-center">
+          <div className="mb-6 flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-gray-700 to-gray-900">
               {displayData.profile.avatarUrl ? (
-                <img 
-                  src={displayData.profile.avatarUrl} 
+                <img
+                  src={displayData.profile.avatarUrl}
                   alt={displayData.profile.displayName}
-                  className="w-full h-full rounded-full object-cover"
+                  className="h-full w-full rounded-full object-cover"
                 />
               ) : (
                 <span className="text-2xl font-semibold text-white">
@@ -229,19 +239,21 @@ export default function AccountPage() {
               )}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">{displayData.profile.displayName}</h2>
-              <span className="inline-block px-2 py-0.5 bg-yellow-50 text-yellow-700 text-xs font-medium rounded-full mt-1">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {displayData.profile.displayName}
+              </h2>
+              <span className="mt-1 inline-block rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
                 {displayData.profile.tier}
               </span>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-center justify-between border-b border-gray-100 py-3">
               <span className="text-gray-500">Phone</span>
               <span className="text-gray-900">{displayData.profile.phone}</span>
             </div>
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-center justify-between border-b border-gray-100 py-3">
               <span className="text-gray-500">Email</span>
               <span className="text-gray-900">{displayData.profile.email}</span>
             </div>
@@ -250,7 +262,7 @@ export default function AccountPage() {
               <span className="text-gray-900">
                 {new Date(displayData.profile.joinedAt).toLocaleDateString('en-US', {
                   month: 'long',
-                  year: 'numeric'
+                  year: 'numeric',
                 })}
               </span>
             </div>
@@ -258,8 +270,7 @@ export default function AccountPage() {
 
           <Link
             href="/affiliate/account/edit"
-            className="mt-4 block w-full py-3 border border-gray-200 text-gray-900 font-medium rounded-xl text-center
-                     hover:bg-gray-50 transition-colors"
+            className="mt-4 block w-full rounded-xl border border-gray-200 py-3 text-center font-medium text-gray-900 transition-colors hover:bg-gray-50"
           >
             Edit Profile
           </Link>
@@ -270,11 +281,11 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl p-6"
+          className="rounded-2xl bg-white p-6"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Payout Method</h3>
-            <Link 
+            <Link
               href="/affiliate/account/payout-method"
               className="text-sm text-gray-500 hover:text-gray-700"
             >
@@ -283,27 +294,35 @@ export default function AccountPage() {
           </div>
 
           {displayData.payoutMethod && displayData.payoutMethod.type !== 'none' ? (
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+            <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
                 {displayData.payoutMethod.type === 'bank' ? (
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  <svg
+                    className="h-5 w-5 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5 text-[#cab172]" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5 text-[#cab172]" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}
               </div>
               <div>
                 <p className="font-medium text-gray-900">
-                  {displayData.payoutMethod.type === 'bank' 
+                  {displayData.payoutMethod.type === 'bank'
                     ? `${displayData.payoutMethod.bankName} ••••${displayData.payoutMethod.last4}`
-                    : displayData.payoutMethod.email
-                  }
+                    : displayData.payoutMethod.email}
                 </p>
-                <p className="text-sm text-gray-500 capitalize">
+                <p className="text-sm capitalize text-gray-500">
                   {displayData.payoutMethod.type === 'bank' ? 'Bank Account' : 'PayPal'}
                 </p>
               </div>
@@ -311,12 +330,21 @@ export default function AccountPage() {
           ) : (
             <Link
               href="/affiliate/account/payout-method"
-              className="flex items-center gap-4 p-4 border-2 border-dashed border-gray-200 rounded-xl
-                       hover:border-gray-300 transition-colors"
+              className="flex items-center gap-4 rounded-xl border-2 border-dashed border-gray-200 p-4 transition-colors hover:border-gray-300"
             >
-              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
                 </svg>
               </div>
               <div>
@@ -332,11 +360,11 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-white rounded-2xl p-6"
+          className="rounded-2xl bg-white p-6"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Tax Information</h3>
-            <Link 
+            <Link
               href="/affiliate/account/tax"
               className="text-sm text-gray-500 hover:text-gray-700"
             >
@@ -347,29 +375,39 @@ export default function AccountPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-500">W-9 Status</span>
-              <span className={`flex items-center gap-1.5 ${displayData.taxStatus.hasValidW9 ? 'text-green-600' : 'text-yellow-600'}`}>
+              <span
+                className={`flex items-center gap-1.5 ${displayData.taxStatus.hasValidW9 ? 'text-green-600' : 'text-yellow-600'}`}
+              >
                 {displayData.taxStatus.hasValidW9 ? (
                   <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     On file
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     Required
                   </>
                 )}
               </span>
             </div>
-            
+
             {displayData.taxStatus.yearToDateEarnings >= displayData.taxStatus.threshold && (
-              <div className="p-3 bg-yellow-50 rounded-xl text-sm text-yellow-800">
+              <div className="rounded-xl bg-yellow-50 p-3 text-sm text-yellow-800">
                 <p className="font-medium">1099 eligible</p>
-                <p className="text-yellow-700 mt-1">
+                <p className="mt-1 text-yellow-700">
                   You&apos;ve earned over $600 this year. A 1099 will be issued.
                 </p>
               </div>
@@ -382,9 +420,9 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl p-6"
+          className="rounded-2xl bg-white p-6"
         >
-          <h3 className="font-semibold text-gray-900 mb-4">Notifications</h3>
+          <h3 className="mb-4 font-semibold text-gray-900">Notifications</h3>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between py-2">
@@ -395,12 +433,12 @@ export default function AccountPage() {
               <button
                 onClick={() => handlePreferenceToggle('emailNotifications')}
                 disabled={isSavingPreferences}
-                className={`w-12 h-7 rounded-full relative transition-colors disabled:opacity-50 ${
+                className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
                   emailNotifications ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
                     emailNotifications ? 'left-5.5 translate-x-0' : 'left-0.5'
                   }`}
                   style={{
@@ -418,12 +456,12 @@ export default function AccountPage() {
               <button
                 onClick={() => handlePreferenceToggle('smsNotifications')}
                 disabled={isSavingPreferences}
-                className={`w-12 h-7 rounded-full relative transition-colors disabled:opacity-50 ${
+                className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
                   smsNotifications ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform`}
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform`}
                   style={{
                     transform: smsNotifications ? 'translateX(20px)' : 'translateX(0)',
                   }}
@@ -439,12 +477,12 @@ export default function AccountPage() {
               <button
                 onClick={() => handlePreferenceToggle('weeklyReport')}
                 disabled={isSavingPreferences}
-                className={`w-12 h-7 rounded-full relative transition-colors disabled:opacity-50 ${
+                className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
                   weeklyReport ? 'bg-gray-900' : 'bg-gray-200'
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform`}
+                  className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform`}
                   style={{
                     transform: weeklyReport ? 'translateX(20px)' : 'translateX(0)',
                   }}
@@ -459,12 +497,22 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.22 }}
-          className="bg-white rounded-2xl p-6"
+          className="rounded-2xl bg-white p-6"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              <svg
+                className="h-5 w-5 text-amber-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                />
               </svg>
               <h3 className="font-semibold text-gray-900">Leaderboard Settings</h3>
             </div>
@@ -485,12 +533,12 @@ export default function AccountPage() {
               <button
                 onClick={handleLeaderboardToggle}
                 disabled={isSavingLeaderboard}
-                className={`w-12 h-7 rounded-full relative transition-colors ${
+                className={`relative h-7 w-12 rounded-full transition-colors ${
                   leaderboardOptIn ? 'bg-amber-500' : 'bg-gray-200'
                 } ${isSavingLeaderboard ? 'opacity-50' : ''}`}
               >
                 <span
-                  className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform"
+                  className="absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform"
                   style={{
                     transform: leaderboardOptIn ? 'translateX(20px)' : 'translateX(2px)',
                   }}
@@ -500,7 +548,7 @@ export default function AccountPage() {
 
             {leaderboardOptIn && (
               <div className="pt-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Display Name (optional)
                 </label>
                 <div className="flex gap-2">
@@ -510,25 +558,24 @@ export default function AccountPage() {
                     onChange={(e) => setLeaderboardAlias(e.target.value)}
                     placeholder={displayData.profile.displayName}
                     maxLength={30}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                    className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   />
                   <button
                     onClick={handleAliasChange}
                     disabled={isSavingLeaderboard}
-                    className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
                   >
                     Save
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Leave blank to use your profile name
-                </p>
+                <p className="mt-1 text-xs text-gray-400">Leave blank to use your profile name</p>
               </div>
             )}
 
             {!leaderboardOptIn && (
-              <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                When disabled, you appear as &quot;Partner #{displayData.profile.displayName.slice(0, 3)}...&quot; on public leaderboards
+              <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-500">
+                When disabled, you appear as &quot;Partner #
+                {displayData.profile.displayName.slice(0, 3)}...&quot; on public leaderboards
               </p>
             )}
           </div>
@@ -539,32 +586,47 @@ export default function AccountPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="bg-white rounded-2xl divide-y divide-gray-100"
+          className="divide-y divide-gray-100 rounded-2xl bg-white"
         >
           <Link
             href="/affiliate/help"
-            className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-between p-4 transition-colors hover:bg-gray-50"
           >
             <span className="text-gray-900">Help Center</span>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-5 w-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
           <Link
             href="/affiliate/terms"
-            className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-between p-4 transition-colors hover:bg-gray-50"
           >
             <span className="text-gray-900">Partner Agreement</span>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-5 w-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
           <Link
             href="/privacy"
-            className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+            className="flex items-center justify-between p-4 transition-colors hover:bg-gray-50"
           >
             <span className="text-gray-900">Privacy Policy</span>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-5 w-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </Link>
@@ -577,16 +639,13 @@ export default function AccountPage() {
           transition={{ delay: 0.3 }}
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="w-full py-4 text-red-600 font-medium hover:bg-red-50 rounded-2xl transition-colors
-                   disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-2xl py-4 font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isLoggingOut ? 'Signing out...' : 'Sign Out'}
         </motion.button>
 
         {/* Version */}
-        <p className="text-center text-xs text-gray-400 pb-4">
-          Version 1.0.0
-        </p>
+        <p className="pb-4 text-center text-xs text-gray-400">Version 1.0.0</p>
       </div>
     </div>
   );

@@ -82,3 +82,5 @@ Thumbs.db
 
 # Build artifacts
 .turbo/.env.vercel
+.env.rds
+test-results/

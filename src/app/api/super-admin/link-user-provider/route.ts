@@ -1,8 +1,8 @@
 /**
  * Admin Endpoint to Link User to Provider
- * 
+ *
  * POST /api/super-admin/link-user-provider
- * 
+ *
  * Links a User account to a Provider record so they can approve SOAP notes.
  */
 
@@ -18,10 +18,7 @@ export const POST = withAuth(
       const { userEmail, providerId, autoMatch } = body;
 
       if (!userEmail) {
-        return NextResponse.json(
-          { error: 'userEmail is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'userEmail is required' }, { status: 400 });
       }
 
       // Find the user
@@ -31,10 +28,7 @@ export const POST = withAuth(
       });
 
       if (!targetUser) {
-        return NextResponse.json(
-          { error: `User not found: ${userEmail}` },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: `User not found: ${userEmail}` }, { status: 404 });
       }
 
       if (targetUser.provider) {
@@ -67,7 +61,7 @@ export const POST = withAuth(
             { status: 404 }
           );
         }
-      } 
+      }
       // Auto-match by email or name
       else if (autoMatch !== false) {
         // Try email match
@@ -91,33 +85,42 @@ export const POST = withAuth(
             where: {
               OR: [
                 { email: { contains: userEmail.split('@')[0], mode: 'insensitive' } },
-                ...(targetUser.firstName ? [
-                  { firstName: { contains: targetUser.firstName, mode: 'insensitive' as const } },
-                ] : []),
-                ...(targetUser.lastName ? [
-                  { lastName: { contains: targetUser.lastName, mode: 'insensitive' as const } },
-                ] : []),
+                ...(targetUser.firstName
+                  ? [
+                      {
+                        firstName: { contains: targetUser.firstName, mode: 'insensitive' as const },
+                      },
+                    ]
+                  : []),
+                ...(targetUser.lastName
+                  ? [{ lastName: { contains: targetUser.lastName, mode: 'insensitive' as const } }]
+                  : []),
               ],
             },
             take: 10,
           });
 
-          return NextResponse.json({
-            ok: false,
-            error: 'No automatic match found',
-            user: {
-              id: targetUser.id,
-              email: targetUser.email,
-              firstName: targetUser.firstName,
-              lastName: targetUser.lastName,
+          return NextResponse.json(
+            {
+              ok: false,
+              error: 'No automatic match found',
+              user: {
+                id: targetUser.id,
+                email: targetUser.email,
+                firstName: targetUser.firstName,
+                lastName: targetUser.lastName,
+              },
+              potentialMatches: potentialMatches.map(
+                (p: { id: number; firstName: string; lastName: string; email: string }) => ({
+                  id: p.id,
+                  name: `${p.firstName} ${p.lastName}`,
+                  email: p.email,
+                })
+              ),
+              hint: 'Specify providerId to link manually',
             },
-            potentialMatches: potentialMatches.map((p: { id: number; firstName: string; lastName: string; email: string }) => ({
-              id: p.id,
-              name: `${p.firstName} ${p.lastName}`,
-              email: p.email,
-            })),
-            hint: 'Specify providerId to link manually',
-          }, { status: 400 });
+            { status: 400 }
+          );
         }
       }
 
@@ -155,13 +158,9 @@ export const POST = withAuth(
           email: matchedProvider.email,
         },
       });
-
     } catch (error: any) {
       logger.error('[Admin] Error linking user to provider:', { error: error.message });
-      return NextResponse.json(
-        { error: 'Failed to link user to provider' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to link user to provider' }, { status: 500 });
     }
   },
   { roles: ['super_admin'] }
@@ -169,7 +168,7 @@ export const POST = withAuth(
 
 /**
  * GET /api/super-admin/link-user-provider?email=xxx
- * 
+ *
  * Check user-provider link status
  */
 export const GET = withAuth(
@@ -179,10 +178,7 @@ export const GET = withAuth(
       const email = searchParams.get('email');
 
       if (!email) {
-        return NextResponse.json(
-          { error: 'email query parameter is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'email query parameter is required' }, { status: 400 });
       }
 
       const targetUser = await prisma.user.findUnique({
@@ -191,10 +187,7 @@ export const GET = withAuth(
       });
 
       if (!targetUser) {
-        return NextResponse.json(
-          { error: `User not found: ${email}` },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: `User not found: ${email}` }, { status: 404 });
       }
 
       return NextResponse.json({
@@ -207,20 +200,18 @@ export const GET = withAuth(
           role: targetUser.role,
           providerId: targetUser.providerId,
         },
-        provider: targetUser.provider ? {
-          id: targetUser.provider.id,
-          name: `${targetUser.provider.firstName} ${targetUser.provider.lastName}`,
-          email: targetUser.provider.email,
-        } : null,
+        provider: targetUser.provider
+          ? {
+              id: targetUser.provider.id,
+              name: `${targetUser.provider.firstName} ${targetUser.provider.lastName}`,
+              email: targetUser.provider.email,
+            }
+          : null,
         isLinked: !!targetUser.provider,
       });
-
     } catch (error: any) {
       logger.error('[Admin] Error checking user-provider link:', { error: error.message });
-      return NextResponse.json(
-        { error: 'Failed to check user-provider link' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to check user-provider link' }, { status: 500 });
     }
   },
   { roles: ['super_admin'] }

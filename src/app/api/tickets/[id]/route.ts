@@ -43,10 +43,7 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
     } else {
       const ticketId = parseInt(id, 10);
       if (isNaN(ticketId)) {
-        return NextResponse.json(
-          { error: 'Invalid ticket ID' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
       }
       ticket = await ticketService.getById(ticketId, userContext);
     }
@@ -75,10 +72,7 @@ export const PATCH = withAuth(async (request, user, { params }: RouteParams) => 
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -144,10 +138,7 @@ export const DELETE = withAuth(async (request, user, { params }: RouteParams) =>
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const userContext = {

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
 
 interface ClinicFeatures {
   // Core Features
@@ -84,10 +85,7 @@ export const GET = withAuth(
   async (request: NextRequest, user: AuthUser) => {
     try {
       if (!user.clinicId) {
-        return NextResponse.json(
-          { error: 'User is not associated with a clinic' },
-          { status: 400 }
-        );
+        throw new BadRequestError('User is not associated with a clinic');
       }
 
       const clinic = await prisma.clinic.findUnique({
@@ -106,7 +104,7 @@ export const GET = withAuth(
       });
 
       if (!clinic) {
-        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+        throw new NotFoundError('Clinic not found');
       }
 
       // Merge stored features with defaults
@@ -156,8 +154,79 @@ export const GET = withAuth(
         billingPlan: clinic.billingPlan,
       });
     } catch (error) {
-      logger.error('Error fetching clinic features:', error);
-      return NextResponse.json({ error: 'Failed to fetch features' }, { status: 500 });
+      return handleApiError(error, { route: 'GET /api/admin/clinic/features' });
+    }
+  },
+  { roles: ['admin', 'super_admin'] }
+);
+
+/**
+ * PATCH /api/admin/clinic/features
+ * Update clinic features (merge with existing). Body: partial ClinicFeatures, e.g. { BLOODWORK_LABS: true }.
+ * Super admins can pass clinicId in body to update any clinic; others update their own clinic.
+ */
+export const PATCH = withAuth(
+  async (request: NextRequest, user: AuthUser) => {
+    try {
+      const body = await request.json();
+      const { clinicId: bodyClinicId, ...featureUpdates } = body;
+
+      const clinicId =
+        user.role === 'super_admin' && bodyClinicId != null
+          ? Number(bodyClinicId)
+          : user.clinicId;
+
+      if (!clinicId) {
+        throw new BadRequestError('Clinic not found or not associated');
+      }
+      if (isNaN(clinicId) || clinicId <= 0) {
+        throw new BadRequestError('Invalid clinic ID');
+      }
+      if (user.role !== 'super_admin' && bodyClinicId != null) {
+        throw new ForbiddenError('Only super admins can set clinicId');
+      }
+
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { id: true, name: true, features: true, lifefileEnabled: true, stripeAccountId: true },
+      });
+
+      if (!clinic) {
+        throw new NotFoundError('Clinic not found');
+      }
+
+      const stored = (clinic.features as Partial<ClinicFeatures>) || {};
+      const merged: Partial<ClinicFeatures> = { ...stored };
+      for (const key of Object.keys(featureUpdates) as (keyof ClinicFeatures)[]) {
+        if (key in DEFAULT_FEATURES && typeof featureUpdates[key] === 'boolean') {
+          merged[key] = featureUpdates[key];
+        }
+      }
+
+      await prisma.clinic.update({
+        where: { id: clinicId },
+        data: { features: merged },
+      });
+
+      const features: ClinicFeatures = {
+        ...DEFAULT_FEATURES,
+        ...merged,
+        LIFEFILE_INTEGRATION: clinic.lifefileEnabled || false,
+        STRIPE_SUBSCRIPTIONS: !!clinic.stripeAccountId,
+      };
+
+      logger.info('[CLINIC-FEATURES] Updated', {
+        clinicId,
+        updatedBy: user.id,
+        keys: Object.keys(featureUpdates),
+      });
+
+      return NextResponse.json({
+        features,
+        message: 'Features updated successfully',
+      });
+    } catch (error) {
+      return handleApiError(error, { route: 'PATCH /api/admin/clinic/features' });
     }
   },
   { roles: ['admin', 'super_admin'] }

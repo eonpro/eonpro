@@ -77,7 +77,7 @@ describe('Twilio Client Configuration', () => {
 
     it('should validate required env vars', () => {
       const validateConfig = () => {
-        const missing = REQUIRED_VARS.filter(key => !process.env[key]);
+        const missing = REQUIRED_VARS.filter((key) => !process.env[key]);
         return { valid: missing.length === 0, missing };
       };
 
@@ -92,7 +92,7 @@ describe('Twilio Client Configuration', () => {
       process.env.TWILIO_PHONE_NUMBER = '+15551234567';
 
       const validateConfig = () => {
-        const missing = REQUIRED_VARS.filter(key => !process.env[key]);
+        const missing = REQUIRED_VARS.filter((key) => !process.env[key]);
         return { valid: missing.length === 0, missing };
       };
 
@@ -221,12 +221,16 @@ describe('SMS Operations', () => {
 
     it('should throw on missing fields', async () => {
       await expect(sendSMS('', 'test', '+15559876543')).rejects.toThrow('Missing required fields');
-      await expect(sendSMS('+15551234567', '', '+15559876543')).rejects.toThrow('Missing required fields');
+      await expect(sendSMS('+15551234567', '', '+15559876543')).rejects.toThrow(
+        'Missing required fields'
+      );
     });
 
     it('should throw on message too long', async () => {
       const longMessage = 'x'.repeat(1601);
-      await expect(sendSMS('+15551234567', longMessage, '+15559876543')).rejects.toThrow('Message too long');
+      await expect(sendSMS('+15551234567', longMessage, '+15559876543')).rejects.toThrow(
+        'Message too long'
+      );
     });
 
     it('should calculate message segments', async () => {
@@ -280,11 +284,13 @@ describe('SMS Operations', () => {
 describe('SMS Templates', () => {
   describe('Template Rendering', () => {
     const SMS_TEMPLATES = {
-      APPOINTMENT_REMINDER: 'Hi {{patientName}}, reminder: your appointment is on {{date}} at {{time}}.',
+      APPOINTMENT_REMINDER:
+        'Hi {{patientName}}, reminder: your appointment is on {{date}} at {{time}}.',
       PRESCRIPTION_READY: 'Hi {{patientName}}, your prescription is ready for pickup.',
-      ORDER_SHIPPED: 'Hi {{patientName}}, your order #{{orderId}} has shipped! Tracking: {{tracking}}',
+      ORDER_SHIPPED:
+        'Hi {{patientName}}, your order #{{orderId}} has shipped! Tracking: {{tracking}}',
       PAYMENT_RECEIVED: 'Hi {{patientName}}, payment of {{amount}} received. Thank you!',
-      WELCOME: 'Welcome to {{clinicName}}, {{patientName}}! We\'re here to help.',
+      WELCOME: "Welcome to {{clinicName}}, {{patientName}}! We're here to help.",
     };
 
     const renderTemplate = (template: string, vars: Record<string, string>): string => {
@@ -328,11 +334,10 @@ describe('SMS Templates', () => {
 
   describe('Template Validation', () => {
     const validateTemplate = (template: string, vars: Record<string, string>) => {
-      const requiredVars = (template.match(/{{(\w+)}}/g) || [])
-        .map(v => v.replace(/[{}]/g, ''));
-      
-      const missing = requiredVars.filter(v => !vars[v]);
-      
+      const requiredVars = (template.match(/{{(\w+)}}/g) || []).map((v) => v.replace(/[{}]/g, ''));
+
+      const missing = requiredVars.filter((v) => !vars[v]);
+
       return {
         valid: missing.length === 0,
         missing,
@@ -345,7 +350,9 @@ describe('SMS Templates', () => {
     });
 
     it('should report missing variables', () => {
-      const result = validateTemplate('Hello {{name}}, your appointment is {{date}}', { name: 'John' });
+      const result = validateTemplate('Hello {{name}}, your appointment is {{date}}', {
+        name: 'John',
+      });
       expect(result.valid).toBe(false);
       expect(result.missing).toContain('date');
     });
@@ -634,7 +641,7 @@ describe('Opt-Out Management', () => {
 
     it('should process opt-out', async () => {
       const result = await processOptOut('+15551234567');
-      
+
       expect(result.optedOut).toBe(true);
       expect(result.confirmationSent).toBe(true);
     });
@@ -653,9 +660,7 @@ describe('Message Logging', () => {
     }) => ({
       ...message,
       timestamp: new Date(),
-      bodyPreview: message.body.length > 50 
-        ? message.body.substring(0, 47) + '...' 
-        : message.body,
+      bodyPreview: message.body.length > 50 ? message.body.substring(0, 47) + '...' : message.body,
     });
 
     it('should create log entry', () => {

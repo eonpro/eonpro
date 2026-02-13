@@ -2,7 +2,8 @@
 
 ## 🎯 Overview
 
-This document covers the comprehensive calendar synchronization and Zoom telehealth integration for the EON Health platform. These features enable providers to:
+This document covers the comprehensive calendar synchronization and Zoom telehealth integration for
+the EON Health platform. These features enable providers to:
 
 - Sync appointments with external calendars (Google, Outlook, Apple)
 - Conduct HIPAA-compliant video consultations via Zoom
@@ -15,11 +16,11 @@ This document covers the comprehensive calendar synchronization and Zoom telehea
 
 ### Supported Calendar Providers
 
-| Provider | Sync Type | Authentication | Features |
-|----------|-----------|----------------|----------|
-| **Google Calendar** | Two-way | OAuth 2.0 | Full sync, event CRUD, external events import |
-| **Microsoft Outlook** | Two-way | OAuth 2.0 (MSAL) | Full sync, event CRUD, external events import |
-| **Apple Calendar** | One-way (subscription) | iCal Feed | Subscription-based, auto-refresh |
+| Provider              | Sync Type              | Authentication   | Features                                      |
+| --------------------- | ---------------------- | ---------------- | --------------------------------------------- |
+| **Google Calendar**   | Two-way                | OAuth 2.0        | Full sync, event CRUD, external events import |
+| **Microsoft Outlook** | Two-way                | OAuth 2.0 (MSAL) | Full sync, event CRUD, external events import |
+| **Apple Calendar**    | One-way (subscription) | iCal Feed        | Subscription-based, auto-refresh              |
 
 ### How It Works
 
@@ -31,12 +32,15 @@ This document covers the comprehensive calendar synchronization and Zoom telehea
 4. **External Events**: Can import external events as blocked time to prevent double-booking
 
 **Files:**
+
 - `src/lib/calendar-sync/google-calendar.service.ts`
 - `src/app/api/calendar-sync/google/callback/route.ts`
 
 **Google Cloud Console – OAuth client (Web application):**
 
-When creating the OAuth client ID in [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create OAuth client ID → Application type: **Web application**:
+When creating the OAuth client ID in
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials) → Create OAuth client ID →
+Application type: **Web application**:
 
 - **Authorized JavaScript origins** (add each you use):
   - Production: `https://app.eonpro.io`
@@ -45,7 +49,8 @@ When creating the OAuth client ID in [Google Cloud Console](https://console.clou
   - Production: `https://app.eonpro.io/api/calendar-sync/google/callback`
   - Local dev: `http://localhost:3000/api/calendar-sync/google/callback` (or port 3001)
 
-Then set in your environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `NEXTAUTH_URL` (or `GOOGLE_REDIRECT_URI`) to match the redirect URI above.
+Then set in your environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `NEXTAUTH_URL` (or
+`GOOGLE_REDIRECT_URI`) to match the redirect URI above.
 
 #### Outlook Calendar Integration
 
@@ -55,6 +60,7 @@ Then set in your environment: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `N
 4. **Graph API**: Uses Microsoft Graph API for calendar operations
 
 **Files:**
+
 - `src/lib/calendar-sync/outlook-calendar.service.ts`
 - `src/app/api/calendar-sync/outlook/callback/route.ts`
 
@@ -68,6 +74,7 @@ Apple Calendar doesn't provide a REST API, so we use iCal subscription feeds:
 4. Calendar refreshes automatically (every 30 minutes)
 
 **Files:**
+
 - `src/lib/calendar-sync/apple-calendar.service.ts`
 - `src/lib/calendar-sync/ical.service.ts`
 - `src/app/api/calendar/ical/[token]/route.ts`
@@ -257,7 +264,7 @@ model TelehealthSession {
   appointmentId   Int?
   patientId       Int
   providerId      Int
-  
+
   // Meeting details
   meetingId       String    @unique
   meetingUuid     String?
@@ -265,22 +272,22 @@ model TelehealthSession {
   hostUrl         String?   // Provider URL
   password        String?
   topic           String?
-  
+
   // Timing
   scheduledAt     DateTime
   startedAt       DateTime?
   endedAt         DateTime?
   duration        Int       // Scheduled (minutes)
   actualDuration  Int?      // Actual (minutes)
-  
+
   // Status
   status          TelehealthSessionStatus
   platform        String    @default("zoom")
-  
+
   // Recording
   recordingUrl      String?
   recordingPassword String?
-  
+
   // Participant tracking
   hostJoinedAt          DateTime?
   patientJoinedAt       DateTime?
@@ -344,14 +351,14 @@ DELETE /api/v2/zoom/meetings?meetingId=123456789
 
 The webhook endpoint (`/api/v2/zoom/webhook`) handles:
 
-| Event | Action |
-|-------|--------|
-| `meeting.started` | Update session status to `IN_PROGRESS`, record `startedAt` |
-| `meeting.ended` | Update status to `COMPLETED`, calculate `actualDuration` |
-| `meeting.participant_joined` | Create `TelehealthParticipant` record |
-| `meeting.participant_left` | Update participant `leftAt` and `duration` |
-| `meeting.participant_waiting` | Update `waitingRoomEnteredAt` |
-| `recording.completed` | Store `recordingUrl` and metadata |
+| Event                         | Action                                                     |
+| ----------------------------- | ---------------------------------------------------------- |
+| `meeting.started`             | Update session status to `IN_PROGRESS`, record `startedAt` |
+| `meeting.ended`               | Update status to `COMPLETED`, calculate `actualDuration`   |
+| `meeting.participant_joined`  | Create `TelehealthParticipant` record                      |
+| `meeting.participant_left`    | Update participant `leftAt` and `duration`                 |
+| `meeting.participant_waiting` | Update `waitingRoomEnteredAt`                              |
+| `recording.completed`         | Store `recordingUrl` and metadata                          |
 
 ### Automatic Meeting Creation
 
@@ -365,6 +372,7 @@ When a VIDEO appointment is scheduled:
 6. Triggers calendar sync (includes Zoom link in calendar event)
 
 **Code path:**
+
 ```
 createAppointment() → scheduling.service.ts
     ↓
@@ -393,12 +401,14 @@ When a VIDEO appointment is cancelled:
 Each clinic can connect their own Zoom account, similar to Stripe Connect and Lifefile integration.
 
 **Benefits of per-clinic Zoom:**
+
 - Meetings created under the clinic's Zoom organization
 - Clinic maintains their own HIPAA BAA with Zoom
 - Full control over recording storage and settings
 - Branding and customization options
 
-**Fallback behavior:** If a clinic doesn't configure their own Zoom, the platform-level Zoom account is used.
+**Fallback behavior:** If a clinic doesn't configure their own Zoom, the platform-level Zoom account
+is used.
 
 ### Clinic Database Fields
 
@@ -504,10 +514,7 @@ Full settings page for calendar and Zoom configuration.
 ```tsx
 import CalendarIntegrationSettings from '@/components/CalendarIntegrationSettings';
 
-<CalendarIntegrationSettings
-  providerId={123}
-  onUpdate={() => refetch()}
-/>
+<CalendarIntegrationSettings providerId={123} onUpdate={() => refetch()} />;
 ```
 
 ### ProviderCalendarStatusCard
@@ -576,11 +583,13 @@ GET /api/v2/zoom/webhook
 ### Calendar Sync Issues
 
 **Problem**: Google Calendar not syncing
+
 - Check OAuth token expiry
 - Verify Google Calendar API is enabled in Google Cloud Console
 - Check for errors in logs
 
 **Problem**: iCal feed not updating
+
 - Verify subscription is active
 - Check that calendar app is refreshing (30-minute default)
 - Manually refresh the calendar
@@ -588,11 +597,13 @@ GET /api/v2/zoom/webhook
 ### Zoom Issues
 
 **Problem**: Meeting not created for VIDEO appointment
+
 - Verify `NEXT_PUBLIC_ENABLE_ZOOM_TELEHEALTH=true`
 - Check Zoom credentials are valid
 - Look for errors in appointment creation logs
 
 **Problem**: Webhook events not received
+
 - Verify webhook URL is correct in Zoom App settings
 - Check `ZOOM_WEBHOOK_SECRET` matches Zoom App
 - Test with Zoom's webhook validator
@@ -613,6 +624,7 @@ npx ts-node scripts/migrate-existing-video-appointments.ts
 ### Calendar Sync
 
 Providers need to manually connect their calendars via:
+
 - Settings → Calendar Integration → Connect
 
 ---
@@ -628,6 +640,7 @@ Providers need to manually connect their calendars via:
 ## 🗓 Changelog
 
 ### v1.0.0 (Jan 31, 2026)
+
 - Initial implementation
 - Google, Outlook, Apple Calendar support
 - Zoom auto-creation for VIDEO appointments

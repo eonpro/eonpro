@@ -7,21 +7,34 @@ import { logger } from '@/lib/logger';
 /**
  * Middleware to check for Super Admin role
  */
-function withSuperAdminAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
+function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
 }
 
 // Validation schema for list query
 const listQuerySchema = z.object({
-  clinicId: z.string().optional().transform((v) => v ? parseInt(v) : undefined),
+  clinicId: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v) : undefined)),
   status: z.enum(['DRAFT', 'PENDING', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED']).optional(),
   periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
-  startDate: z.string().optional().transform((v) => v ? new Date(v) : undefined),
-  endDate: z.string().optional().transform((v) => v ? new Date(v) : undefined),
-  limit: z.string().optional().transform((v) => v ? parseInt(v) : 50),
-  offset: z.string().optional().transform((v) => v ? parseInt(v) : 0),
+  startDate: z
+    .string()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
+  endDate: z
+    .string()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v) : 50)),
+  offset: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v) : 0)),
 });
 
 /**
@@ -32,7 +45,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
   try {
     const { searchParams } = new URL(req.url);
     const queryParams = Object.fromEntries(searchParams.entries());
-    
+
     const result = listQuerySchema.safeParse(queryParams);
     if (!result.success) {
       return NextResponse.json(
@@ -72,10 +85,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     logger.error('[SuperAdmin] Error listing clinic invoices', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to list invoices' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to list invoices' }, { status: 500 });
   }
 });
 
@@ -98,7 +108,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
   try {
     const body = await req.json();
     const result = generateInvoiceSchema.safeParse(body);
-    
+
     if (!result.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: result.error.flatten() },
@@ -106,7 +116,15 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       );
     }
 
-    const { clinicId, periodType, periodStart, periodEnd, notes, externalNotes, createStripeInvoice } = result.data;
+    const {
+      clinicId,
+      periodType,
+      periodStart,
+      periodEnd,
+      notes,
+      externalNotes,
+      createStripeInvoice,
+    } = result.data;
 
     // Generate invoice
     let invoice = await clinicInvoiceService.generateInvoice({

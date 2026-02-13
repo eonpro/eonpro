@@ -1,18 +1,18 @@
 /**
  * Zoom Meeting Service
- * 
+ *
  * Handles Zoom meeting creation, management, and participant control
  */
 
 import { logger } from '@/lib/logger';
 import {
-  isZoomEnabled, 
-  zoomConfig, 
-  MeetingType, 
+  isZoomEnabled,
+  zoomConfig,
+  MeetingType,
   MeetingStatus,
   TELEHEALTH_SETTINGS,
   CONSULTATION_DURATIONS,
-  ZOOM_ERRORS
+  ZOOM_ERRORS,
 } from './config';
 // import { prisma } from '@/lib/db'; // Uncomment when telehealthSession table is added
 import crypto from 'crypto';
@@ -66,7 +66,7 @@ export interface ZoomParticipant {
 }
 
 // Generate Zoom JWT for API calls (Server-side only)
-export function generateZoomJWT(): string {
+export async function generateZoomJWT(): Promise<string> {
   if (typeof window !== 'undefined') {
     throw new Error('generateZoomJWT can only be called on the server side');
   }
@@ -77,8 +77,8 @@ export function generateZoomJWT(): string {
   }
 
   try {
-    const jwt = require('jsonwebtoken');
-    
+    const { default: jwt } = await import('jsonwebtoken');
+
     const payload = {
       iss: zoomConfig.clientId,
       exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
@@ -87,7 +87,7 @@ export function generateZoomJWT(): string {
     return jwt.sign(payload, zoomConfig.clientSecret, { algorithm: 'HS256' });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to generate JWT:', error);
     return '';
   }
@@ -100,12 +100,14 @@ export async function getZoomAccessToken(): Promise<string> {
   }
 
   try {
-    const credentials = Buffer.from(`${zoomConfig.clientId}:${zoomConfig.clientSecret}`).toString('base64');
-    
+    const credentials = Buffer.from(`${zoomConfig.clientId}:${zoomConfig.clientSecret}`).toString(
+      'base64'
+    );
+
     const response = await fetch('https://zoom.us/oauth/token', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
+        Authorization: `Basic ${credentials}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: `grant_type=account_credentials&account_id=${zoomConfig.accountId}`,
@@ -119,7 +121,7 @@ export async function getZoomAccessToken(): Promise<string> {
     return data.access_token;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to get access token:', error);
     throw error;
   }
@@ -134,7 +136,7 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
 
   try {
     const accessToken = await getZoomAccessToken();
-    
+
     const meetingData = {
       topic: params.topic,
       type: params.scheduledAt ? MeetingType.SCHEDULED : MeetingType.INSTANT,
@@ -152,7 +154,7 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
     const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(meetingData),
@@ -192,7 +194,7 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
     return meeting;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Meeting creation error:', error);
     throw error;
   }
@@ -201,7 +203,7 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
 // Get meeting details
 export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResponse | null> {
   if (!isZoomEnabled()) {
-    return createMockMeeting({ 
+    return createMockMeeting({
       topic: 'Mock Meeting',
       duration: 30,
       patientId: 1,
@@ -211,10 +213,10 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
 
   try {
     const accessToken = await getZoomAccessToken();
-    
+
     const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
@@ -228,7 +230,7 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
     return await response.json();
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to get meeting:', error);
     return null;
   }
@@ -236,7 +238,7 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
 
 // Update meeting
 export async function updateZoomMeeting(
-  meetingId: string, 
+  meetingId: string,
   updates: Partial<CreateMeetingParams>
 ): Promise<boolean> {
   if (!isZoomEnabled()) {
@@ -245,11 +247,11 @@ export async function updateZoomMeeting(
 
   try {
     const accessToken = await getZoomAccessToken();
-    
+
     const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
       method: 'PATCH',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -264,7 +266,7 @@ export async function updateZoomMeeting(
     return response.ok;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to update meeting:', error);
     return false;
   }
@@ -278,11 +280,11 @@ export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
 
   try {
     const accessToken = await getZoomAccessToken();
-    
+
     const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
@@ -304,7 +306,7 @@ export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
     return response.ok;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to cancel meeting:', error);
     return false;
   }
@@ -334,12 +336,12 @@ export async function getMeetingParticipants(meetingId: string): Promise<ZoomPar
 
   try {
     const accessToken = await getZoomAccessToken();
-    
+
     const response = await fetch(
       `https://api.zoom.us/v2/metrics/meetings/${meetingId}/participants`,
       {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
@@ -352,7 +354,7 @@ export async function getMeetingParticipants(meetingId: string): Promise<ZoomPar
     return data.participants || [];
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to get participants:', error);
     return [];
   }
@@ -366,13 +368,13 @@ export async function admitParticipant(meetingId: string, participantId: string)
 
   try {
     const accessToken = await getZoomAccessToken();
-    
+
     const response = await fetch(
       `https://api.zoom.us/v2/meetings/${meetingId}/participants/${participantId}/admit`,
       {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
@@ -380,7 +382,7 @@ export async function admitParticipant(meetingId: string, participantId: string)
     return response.ok;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[ZOOM] Failed to admit participant:', error);
     return false;
   }
@@ -402,11 +404,8 @@ export function generateZoomSignature(
 
   const timestamp = new Date().getTime() - 30000;
   const msg = Buffer.from(zoomConfig.sdkKey + meetingNumber + timestamp + role).toString('base64');
-  
-  const hash = crypto
-    .createHmac('sha256', zoomConfig.sdkSecret)
-    .update(msg)
-    .digest('base64');
+
+  const hash = crypto.createHmac('sha256', zoomConfig.sdkSecret).update(msg).digest('base64');
 
   const signature = Buffer.from(
     `${zoomConfig.sdkKey}.${meetingNumber}.${timestamp}.${role}.${hash}`
@@ -419,7 +418,7 @@ export function generateZoomSignature(
 function createMockMeeting(params: CreateMeetingParams): ZoomMeetingResponse {
   const meetingId = Math.floor(Math.random() * 1000000000);
   const password = generateMeetingPassword();
-  
+
   return {
     id: meetingId,
     uuid: `mock-${meetingId}`,
@@ -439,12 +438,13 @@ function createMockMeeting(params: CreateMeetingParams): ZoomMeetingResponse {
 // Export mock service for testing
 export const mockZoomService = {
   createMeeting: createMockMeeting,
-  getMeeting: () => createMockMeeting({
-    topic: 'Mock Consultation',
-    duration: 30,
-    patientId: 1,
-    providerId: 1,
-  }),
+  getMeeting: () =>
+    createMockMeeting({
+      topic: 'Mock Consultation',
+      duration: 30,
+      patientId: 1,
+      providerId: 1,
+    }),
   cancelMeeting: () => true,
   getParticipants: () => [],
   admitParticipant: () => true,

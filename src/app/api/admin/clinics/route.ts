@@ -12,6 +12,7 @@ export const GET = withSuperAdminAuth(async (request: NextRequest, user: AuthUse
   try {
     // Use explicit select for backwards compatibility with schema changes
     const clinics = await prisma.clinic.findMany({
+      take: 100,
       select: {
         id: true,
         name: true,
@@ -39,12 +40,12 @@ export const GET = withSuperAdminAuth(async (request: NextRequest, user: AuthUse
             users: true,
             orders: true,
             invoices: true,
-          }
-        }
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     // Count providers per clinic from both User table (role PROVIDER) and Provider table
@@ -78,10 +79,7 @@ export const GET = withSuperAdminAuth(async (request: NextRequest, user: AuthUse
     return NextResponse.json({ clinics: clinicsWithProviderCount });
   } catch (error) {
     logger.error('Error fetching clinics:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch clinics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
 });
 
@@ -95,10 +93,7 @@ export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUs
 
     // Validate required fields
     if (!body.name || !body.subdomain || !body.adminEmail) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Check if subdomain is already taken (select only id for efficiency)
@@ -108,16 +103,16 @@ export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUs
     });
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'Subdomain already exists' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Subdomain already exists' }, { status: 409 });
     }
 
     // Create the clinic
     // Generate default patientIdPrefix from subdomain if not provided
     const patientIdPrefix = body.patientIdPrefix
-      ? body.patientIdPrefix.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5)
+      ? body.patientIdPrefix
+          .toUpperCase()
+          .replace(/[^A-Z]/g, '')
+          .slice(0, 5)
       : body.subdomain.toUpperCase().slice(0, 3);
 
     const clinic = await prisma.clinic.create({
@@ -155,9 +150,9 @@ export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUs
           TICKET_SYSTEM: true,
         },
         integrations: body.integrations || {},
-      }
+      },
     });
-    
+
     // Create audit log
     await prisma.clinicAuditLog.create({
       data: {
@@ -167,16 +162,13 @@ export const POST = withSuperAdminAuth(async (request: NextRequest, user: AuthUs
         details: {
           createdBy: user.email,
           initialPlan: clinic.billingPlan,
-        }
-      }
+        },
+      },
     });
-    
+
     return NextResponse.json(clinic, { status: 201 });
   } catch (error) {
     logger.error('Error creating clinic:', error);
-    return NextResponse.json(
-      { error: 'Failed to create clinic' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create clinic' }, { status: 500 });
   }
 });

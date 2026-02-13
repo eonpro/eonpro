@@ -1,9 +1,9 @@
 /**
  * Affiliate Tax Documents API
- * 
+ *
  * Handles W-9/W-8BEN tax document submission and verification.
  * Required for affiliates earning > $600/year.
- * 
+ *
  * GET  - List affiliate's tax documents
  * POST - Submit new tax document
  */
@@ -21,10 +21,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     const documents = await prisma.affiliateTaxDocument.findMany({
       where: { affiliateId: user.affiliateId },
-      orderBy: [
-        { taxYear: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ taxYear: 'desc' }, { createdAt: 'desc' }],
+      take: 100,
       select: {
         id: true,
         documentType: true,
@@ -63,13 +61,13 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       _sum: { commissionAmountCents: true },
     });
 
-    const ytdEarnings = (ytdPayouts._sum.netAmountCents || 0) + 
-                        (pendingCommissions._sum.commissionAmountCents || 0);
-    
+    const ytdEarnings =
+      (ytdPayouts._sum.netAmountCents || 0) + (pendingCommissions._sum.commissionAmountCents || 0);
+
     const taxDocRequired = ytdEarnings >= 60000; // $600
-    
+
     const hasValidDoc = documents.some(
-      (doc: typeof documents[number]) => doc.taxYear === currentYear && doc.status === 'VERIFIED'
+      (doc: (typeof documents)[number]) => doc.taxYear === currentYear && doc.status === 'VERIFIED'
     );
 
     return NextResponse.json({
@@ -86,10 +84,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     logger.error('[TaxDocs] Error listing documents', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to list tax documents' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to list tax documents' }, { status: 500 });
   }
 }
 
@@ -114,26 +109,17 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 
     // Validate required fields
     if (!documentType || !taxYear || !legalName || !taxIdLast4 || !certificationAccepted) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Validate document type
     if (!['W9', 'W8BEN', 'W8BENE'].includes(documentType)) {
-      return NextResponse.json(
-        { error: 'Invalid document type' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid document type' }, { status: 400 });
     }
 
     // Validate tax ID format (last 4 digits)
     if (!/^\d{4}$/.test(taxIdLast4)) {
-      return NextResponse.json(
-        { error: 'Tax ID last 4 must be 4 digits' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Tax ID last 4 must be 4 digits' }, { status: 400 });
     }
 
     // Check for existing document for this year
@@ -207,10 +193,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     logger.error('[TaxDocs] Error submitting document', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to submit tax document' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to submit tax document' }, { status: 500 });
   }
 }
 

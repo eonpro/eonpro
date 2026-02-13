@@ -14,6 +14,7 @@ import { providerService, type UserContext } from '@/domains/provider';
 import { handleApiError } from '@/domains/shared/errors';
 import { authRateLimiter } from '@/lib/security/rate-limiter-redis';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
 
 /**
  * GET /api/providers
@@ -21,16 +22,47 @@ import { logger } from '@/lib/logger';
  *
  * - Super admin: all providers
  * - Other roles: linked provider + clinic providers + shared providers
+ *
+ * Optional ?clinicId=N: when admin is viewing a specific clinic (e.g. via subdomain or
+ * clinic switcher), pass clinicId so providers for that clinic are returned. The user
+ * must have access to the clinic (primary clinic or UserClinic).
  */
 export const GET = withAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
-      // Convert auth user to service UserContext
+      let effectiveClinicId = user.clinicId;
+
+      // Optional clinic scope: allow admins to request providers for a specific clinic
+      // (e.g. when on wellmedr.eonpro.io or after switching clinic in UI)
+      const clinicIdParam = req.nextUrl.searchParams.get('clinicId');
+      if (clinicIdParam && (user.role === 'admin' || user.role === 'super_admin')) {
+        const requestedId = parseInt(clinicIdParam, 10);
+        if (!Number.isNaN(requestedId)) {
+          const hasAccess =
+            user.role === 'super_admin' ||
+            user.clinicId === requestedId ||
+            (await prisma.userClinic.findFirst({
+              where: {
+                userId: user.id,
+                clinicId: requestedId,
+                isActive: true,
+              },
+            }));
+          if (hasAccess) {
+            effectiveClinicId = requestedId;
+            logger.debug('[GET /api/providers] Using requested clinicId for provider list', {
+              userId: user.id,
+              requestedClinicId: requestedId,
+            });
+          }
+        }
+      }
+
       const userContext: UserContext = {
         id: user.id,
         email: user.email,
         role: user.role as UserContext['role'],
-        clinicId: user.clinicId,
+        clinicId: effectiveClinicId ?? null,
         patientId: user.patientId,
         providerId: user.providerId,
       };

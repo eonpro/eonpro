@@ -23,10 +23,7 @@ export interface UserForClinicAccess {
  * @param targetClinicId - The clinic ID being accessed
  * @returns true if access is allowed, false otherwise
  */
-export function verifyClinicAccess(
-  user: UserForClinicAccess,
-  targetClinicId: number
-): boolean {
+export function verifyClinicAccess(user: UserForClinicAccess, targetClinicId: number): boolean {
   // Super admins can access any clinic
   if (user.role === 'super_admin') {
     return true;

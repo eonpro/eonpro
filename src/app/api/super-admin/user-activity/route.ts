@@ -1,8 +1,8 @@
 /**
  * User Activity API
- * 
+ *
  * GET /api/super-admin/user-activity
- * 
+ *
  * Returns comprehensive user activity data:
  * - All users with last login times
  * - Currently online users (active sessions)
@@ -40,7 +40,7 @@ export const GET = withAuth(
 
       // Build where clause based on filter
       let whereClause: any = {};
-      
+
       if (search) {
         whereClause.OR = [
           { email: { contains: search, mode: 'insensitive' } },
@@ -132,11 +132,11 @@ export const GET = withAuth(
       });
 
       // Enrich users with online status and session duration
-      const enrichedUsers = users.map((user: typeof users[number]) => {
+      const enrichedUsers = users.map((user: (typeof users)[number]) => {
         const isOnline = onlineUserIds.has(user.id);
         const currentSession = user.sessions[0];
         let sessionDuration = null;
-        
+
         if (currentSession && isOnline) {
           sessionDuration = Math.floor(
             (now.getTime() - new Date(currentSession.createdAt).getTime()) / 1000 / 60
@@ -158,13 +158,15 @@ export const GET = withAuth(
           providerId: user.providerId,
           provider: user.provider,
           isOnline,
-          currentSession: currentSession ? {
-            ipAddress: currentSession.ipAddress,
-            userAgent: currentSession.userAgent,
-            startedAt: currentSession.createdAt,
-            lastActivity: currentSession.lastActivity,
-            durationMinutes: sessionDuration,
-          } : null,
+          currentSession: currentSession
+            ? {
+                ipAddress: currentSession.ipAddress,
+                userAgent: currentSession.userAgent,
+                startedAt: currentSession.createdAt,
+                lastActivity: currentSession.lastActivity,
+                durationMinutes: sessionDuration,
+              }
+            : null,
           totalSessions: user._count.sessions,
           totalActions: user._count.auditLogs,
         };
@@ -216,13 +218,9 @@ export const GET = withAuth(
           totalPages: Math.ceil(totalCount / limit),
         },
       });
-
     } catch (error: any) {
       logger.error('[API] Error fetching user activity:', { error: error.message });
-      return NextResponse.json(
-        { error: 'Failed to fetch user activity' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch user activity' }, { status: 500 });
     }
   },
   { roles: ['super_admin'] }
@@ -230,7 +228,7 @@ export const GET = withAuth(
 
 /**
  * POST /api/super-admin/user-activity
- * 
+ *
  * Force logout a user (invalidate all their sessions)
  */
 export const POST = withAuth(
@@ -271,17 +269,10 @@ export const POST = withAuth(
         });
       }
 
-      return NextResponse.json(
-        { error: 'Invalid action' },
-        { status: 400 }
-      );
-
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     } catch (error: any) {
       logger.error('[API] Error performing user activity action:', { error: error.message });
-      return NextResponse.json(
-        { error: 'Failed to perform action' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to perform action' }, { status: 500 });
     }
   },
   { roles: ['super_admin'] }

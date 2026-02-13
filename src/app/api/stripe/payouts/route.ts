@@ -37,20 +37,27 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
 
     const { stripe, stripeAccountId, clinicId, isPlatformAccount } = context;
     const { searchParams } = new URL(request.url);
-    
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const startingAfter = searchParams.get('starting_after') || undefined;
-    const status = searchParams.get('status') as 'pending' | 'paid' | 'failed' | 'canceled' | undefined;
+    const status = searchParams.get('status') as
+      | 'pending'
+      | 'paid'
+      | 'failed'
+      | 'canceled'
+      | undefined;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    
+
     // Build filters
-    const arrivalDateFilter: Stripe.RangeQueryParam | undefined = 
-      startDate || endDate ? {
-        ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
-        ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
-      } : undefined;
-    
+    const arrivalDateFilter: Stripe.RangeQueryParam | undefined =
+      startDate || endDate
+        ? {
+            ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
+            ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
+          }
+        : undefined;
+
     // Fetch payouts
     const payoutParams: Stripe.PayoutListParams = {
       limit,
@@ -65,14 +72,14 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       : payoutParams;
 
     const payouts = await stripe.payouts.list(listOptions as Stripe.PayoutListParams);
-    
+
     // Calculate statistics
     let totalPaidOut = 0;
     let totalPending = 0;
     let totalFailed = 0;
     const statusBreakdown: Record<string, { count: number; amount: number }> = {};
-    
-    const formattedPayouts = payouts.data.map(payout => {
+
+    const formattedPayouts = payouts.data.map((payout) => {
       if (payout.status === 'paid') {
         totalPaidOut += payout.amount;
       } else if (payout.status === 'pending' || payout.status === 'in_transit') {
@@ -80,13 +87,13 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       } else if (payout.status === 'failed' || payout.status === 'canceled') {
         totalFailed += payout.amount;
       }
-      
+
       if (!statusBreakdown[payout.status]) {
         statusBreakdown[payout.status] = { count: 0, amount: 0 };
       }
       statusBreakdown[payout.status].count++;
       statusBreakdown[payout.status].amount += payout.amount;
-      
+
       return {
         id: payout.id,
         amount: payout.amount,
@@ -108,12 +115,14 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
         failureMessage: payout.failure_message,
         metadata: payout.metadata,
         // Bank account info (masked)
-        destination: payout.destination ? {
-          id: typeof payout.destination === 'string' ? payout.destination : payout.destination,
-        } : null,
+        destination: payout.destination
+          ? {
+              id: typeof payout.destination === 'string' ? payout.destination : payout.destination,
+            }
+          : null,
       };
     });
-    
+
     // Get account settings for payout schedule
     let payoutSchedule = null;
     try {
@@ -128,9 +137,11 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       }
     } catch (error: unknown) {
       // Account settings might not be accessible
-      logger.warn('[STRIPE PAYOUTS] Failed to fetch account settings', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('[STRIPE PAYOUTS] Failed to fetch account settings', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
-    
+
     const summary = {
       totalPayouts: formattedPayouts.length,
       totalPaidOut,
@@ -148,12 +159,12 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       })),
       schedule: payoutSchedule,
     };
-    
+
     logger.info('[STRIPE PAYOUTS] Retrieved payouts', {
       count: formattedPayouts.length,
       totalPaidOut: formatCurrency(totalPaidOut),
     });
-    
+
     return NextResponse.json({
       success: true,
       payouts: formattedPayouts,
@@ -161,14 +172,15 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       pagination: {
         hasMore: payouts.has_more,
         limit,
-        ...(formattedPayouts.length > 0 && { lastId: formattedPayouts[formattedPayouts.length - 1].id }),
+        ...(formattedPayouts.length > 0 && {
+          lastId: formattedPayouts[formattedPayouts.length - 1].id,
+        }),
       },
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE PAYOUTS] Error:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch payouts' },
       { status: 500 }
@@ -180,11 +192,11 @@ export const GET = withAuth(getPayoutsHandler);
 
 function formatPayoutStatus(status: string): string {
   const statusMap: Record<string, string> = {
-    'paid': 'Paid',
-    'pending': 'Pending',
-    'in_transit': 'In Transit',
-    'canceled': 'Canceled',
-    'failed': 'Failed',
+    paid: 'Paid',
+    pending: 'Pending',
+    in_transit: 'In Transit',
+    canceled: 'Canceled',
+    failed: 'Failed',
   };
   return statusMap[status] || status;
 }

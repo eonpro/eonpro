@@ -113,7 +113,7 @@ export default function AffiliateDetailPage() {
 
     try {
       const response = await fetch(`/api/admin/affiliates/${affiliateId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -201,7 +201,9 @@ export default function AffiliateDetailPage() {
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-gray-900">{affiliate.displayName}</h1>
-                <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[affiliate.status] || statusColors.INACTIVE}`}>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[affiliate.status] || statusColors.INACTIVE}`}
+                >
                   {affiliate.status}
                 </span>
                 {affiliate.isLegacy && (
@@ -210,15 +212,13 @@ export default function AffiliateDetailPage() {
                   </span>
                 )}
               </div>
-              {affiliate.user && (
-                <p className="text-gray-500">{affiliate.user.email}</p>
-              )}
+              {affiliate.user && <p className="text-gray-500">{affiliate.user.email}</p>}
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.location.href = `/admin/affiliates/${affiliateId}/edit`}
+              onClick={() => (window.location.href = `/admin/affiliates/${affiliateId}/edit`)}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <Edit className="h-4 w-4" />

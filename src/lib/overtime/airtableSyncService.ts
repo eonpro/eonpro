@@ -14,6 +14,7 @@ import {
   createAirtableClient,
 } from './airtableClient';
 import type { OvertimeTreatmentType } from './types';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // Types
@@ -62,7 +63,7 @@ export class AirtableSyncService {
 
   constructor(client?: AirtableClient) {
     this.client = client ?? createAirtableClient();
-    
+
     // Use the production URL for webhook calls
     // Vercel serverless functions can't reliably call routes on the same deployment
     // So we use the stable production domain
@@ -87,7 +88,7 @@ export class AirtableSyncService {
       ? OVERTIME_AIRTABLE_TABLES.filter((t) => options.treatmentTypes!.includes(t.treatmentType))
       : OVERTIME_AIRTABLE_TABLES;
 
-    console.log(`[AirtableSync] Starting sync for ${tablesToSync.length} tables...`);
+    logger.info('[AirtableSync] Starting sync', { tableCount: tablesToSync.length });
 
     for (const table of tablesToSync) {
       try {
@@ -97,7 +98,7 @@ export class AirtableSyncService {
         successCount += result.recordIds.length;
         errorCount += result.errors.length;
       } catch (error) {
-        console.error(`[AirtableSync] Failed to sync table ${table.name}:`, error);
+        logger.error('[AirtableSync] Failed to sync table', { tableName: table.name, error: error instanceof Error ? error.message : String(error) });
         results.push({
           table: table.name,
           treatmentType: table.treatmentType,
@@ -114,9 +115,7 @@ export class AirtableSyncService {
 
     const completedAt = new Date();
 
-    console.log(
-      `[AirtableSync] Completed. Total: ${totalRecords}, Success: ${successCount}, Errors: ${errorCount}, Skipped: ${skippedCount}`
-    );
+    logger.info('[AirtableSync] Completed', { totalRecords, successCount, errorCount, skippedCount });
 
     return {
       startedAt,
@@ -140,7 +139,7 @@ export class AirtableSyncService {
     const table = OVERTIME_AIRTABLE_TABLES.find((t) => t.id === tableId);
     const tableName = table?.name ?? tableId;
 
-    console.log(`[AirtableSync] Syncing table: ${tableName} (${treatmentType})`);
+    logger.info('[AirtableSync] Syncing table', { tableName, treatmentType });
 
     // Build filter formula for Airtable
     let filterFormula = '';
@@ -167,7 +166,7 @@ export class AirtableSyncService {
       ? records.slice(0, options.maxRecordsPerTable)
       : records;
 
-    console.log(`[AirtableSync] Found ${records.length} records, processing ${recordsToProcess.length}`);
+    logger.info('[AirtableSync] Found records', { totalFound: records.length, processing: recordsToProcess.length });
 
     const processedIds: string[] = [];
     const errors: Array<{ recordId: string; error: string }> = [];
@@ -175,13 +174,13 @@ export class AirtableSyncService {
     for (const record of recordsToProcess) {
       try {
         if (options.dryRun) {
-          console.log(`[AirtableSync] [DRY RUN] Would process record: ${record.id}`);
+          logger.info('[AirtableSync] [DRY RUN] Would process record', { recordId: record.id });
           processedIds.push(record.id);
           continue;
         }
 
         const result = await this.processRecord(record, treatmentType);
-        
+
         if (result.success) {
           processedIds.push(record.id);
 
@@ -192,14 +191,12 @@ export class AirtableSyncService {
             });
           }
 
-          console.log(
-            `[AirtableSync] Processed record ${record.id} -> Patient ${result.eonproPatientId}`
-          );
+          logger.info('[AirtableSync] Processed record', { recordId: record.id, eonproPatientId: result.eonproPatientId });
         } else {
           errors.push({ recordId: record.id, error: result.error || 'Unknown error' });
         }
       } catch (error) {
-        console.error(`[AirtableSync] Error processing record ${record.id}:`, error);
+        logger.error('[AirtableSync] Error processing record', { recordId: record.id, error: error instanceof Error ? error.message : String(error) });
         errors.push({ recordId: record.id, error: String(error) });
       }
 
@@ -248,13 +245,13 @@ export class AirtableSyncService {
 
     // Get response text first to handle non-JSON responses
     const responseText = await response.text();
-    
+
     let result: Record<string, unknown>;
     try {
       result = JSON.parse(responseText);
     } catch {
       // If not JSON, return the raw text as error
-      console.error(`[AirtableSync] Non-JSON response from webhook: ${responseText.substring(0, 200)}`);
+      logger.error('[AirtableSync] Non-JSON response from webhook', { responsePreview: responseText.substring(0, 200) });
       return {
         success: false,
         error: `Webhook returned non-JSON: ${responseText.substring(0, 100)}`,
@@ -262,9 +259,10 @@ export class AirtableSyncService {
     }
 
     if (!response.ok) {
-      const errorMsg = typeof result.error === 'string' 
-        ? result.error 
-        : JSON.stringify(result.error) || `HTTP ${response.status}`;
+      const errorMsg =
+        typeof result.error === 'string'
+          ? result.error
+          : JSON.stringify(result.error) || `HTTP ${response.status}`;
       return {
         success: false,
         error: errorMsg,

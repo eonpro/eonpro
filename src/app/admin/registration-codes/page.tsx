@@ -192,7 +192,9 @@ export default function RegistrationCodesPage() {
   };
 
   const handleDeleteCode = async (code: RegistrationCode) => {
-    if (!confirm(`Are you sure you want to delete the code "${code.code}"? This cannot be undone.`)) {
+    if (
+      !confirm(`Are you sure you want to delete the code "${code.code}"? This cannot be undone.`)
+    ) {
       return;
     }
 
@@ -275,11 +277,7 @@ export default function RegistrationCodesPage() {
             toast.type === 'error' ? 'bg-red-600' : 'bg-gray-900'
           }`}
         >
-          {toast.type === 'error' ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <Check className="h-5 w-5" />
-          )}
+          {toast.type === 'error' ? <X className="h-5 w-5" /> : <Check className="h-5 w-5" />}
           <span className="font-medium">{toast.message}</span>
         </div>
       )}
@@ -428,9 +426,7 @@ export default function RegistrationCodesPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-sm text-gray-600">
-                      {code.description || '—'}
-                    </span>
+                    <span className="text-sm text-gray-600">{code.description || '—'}</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm">
@@ -438,16 +434,12 @@ export default function RegistrationCodesPage() {
                       {code.usageLimit && (
                         <span className="text-gray-500"> / {code.usageLimit}</span>
                       )}
-                      {!code.usageLimit && (
-                        <span className="text-gray-400"> (unlimited)</span>
-                      )}
+                      {!code.usageLimit && <span className="text-gray-400"> (unlimited)</span>}
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm text-gray-600">
-                      {code.expiresAt
-                        ? new Date(code.expiresAt).toLocaleDateString()
-                        : 'Never'}
+                      {code.expiresAt ? new Date(code.expiresAt).toLocaleDateString() : 'Never'}
                     </span>
                   </td>
                   <td className="px-6 py-4">{getStatusBadge(code)}</td>

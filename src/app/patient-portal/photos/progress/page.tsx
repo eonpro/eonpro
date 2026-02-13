@@ -12,6 +12,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 import { PhotoUploader, PhotoGallery, PhotoComparison } from '@/components/patient-portal/photos';
 import {
   Camera,
@@ -103,26 +106,31 @@ export default function ProgressPhotosPage() {
   const [stats, setStats] = useState<PhotoStats | null>(null);
   const [currentWeight, setCurrentWeight] = useState<string>('');
   const [uploadedCount, setUploadedCount] = useState(0);
-  const [comparePhotos, setComparePhotos] = useState<{ before: Photo | null; after: Photo | null }>({
-    before: null,
-    after: null,
-  });
+  const [comparePhotos, setComparePhotos] = useState<{ before: Photo | null; after: Photo | null }>(
+    {
+      before: null,
+      after: null,
+    }
+  );
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Fetch photos
   const fetchPhotos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(
+      const response = await portalFetch(
         `/api/patient-portal/photos?type=PROGRESS_FRONT&type=PROGRESS_SIDE&type=PROGRESS_BACK`
       );
-      
+
       if (!response.ok) {
         throw new Error('Failed to load photos');
       }
 
-      const data = await response.json();
-      const allPhotos: Photo[] = data.photos || [];
+      const data = await safeParseJson(response);
+      const allPhotos: Photo[] =
+        data !== null && typeof data === 'object' && 'photos' in data
+          ? ((data as { photos?: Photo[] }).photos ?? [])
+          : [];
 
       // Filter to only progress photos
       const progressPhotos = allPhotos.filter((p) =>
@@ -175,7 +183,7 @@ export default function ProgressPhotosPage() {
   // Handle upload complete
   const handleUploadComplete = () => {
     setUploadedCount((prev) => prev + 1);
-    
+
     // After uploading all three types, show success and go back to gallery
     if (uploadedCount >= 2) {
       setShowSuccess(true);
@@ -198,14 +206,16 @@ export default function ProgressPhotosPage() {
   // Handle photo delete
   const handleDeletePhoto = async (photoId: number) => {
     try {
-      const response = await fetch(`/api/patient-portal/photos/${photoId}`, {
+      const response = await portalFetch(`/api/patient-portal/photos/${photoId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
         setPhotos((prev) => prev.filter((p) => p.id !== photoId));
       }
     } catch (err) {
-      console.error('Failed to delete photo:', err);
+      logger.error('Failed to delete photo', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
     }
   };
 
@@ -228,10 +238,7 @@ export default function ProgressPhotosPage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2
-          className="h-10 w-10 animate-spin"
-          style={{ color: primaryColor }}
-        />
+        <Loader2 className="h-10 w-10 animate-spin" style={{ color: primaryColor }} />
       </div>
     );
   }
@@ -240,15 +247,15 @@ export default function ProgressPhotosPage() {
   if (error) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
-        <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-        <p className="text-red-600 font-medium mb-2">Error Loading Photos</p>
-        <p className="text-gray-500 text-sm mb-4">{error}</p>
+        <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
+        <p className="mb-2 font-medium text-red-600">Error Loading Photos</p>
+        <p className="mb-4 text-sm text-gray-500">{error}</p>
         <button
           onClick={() => {
             setError(null);
             fetchPhotos();
           }}
-          className="px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-medium"
+          className="rounded-lg bg-red-100 px-4 py-2 font-medium text-red-700 hover:bg-red-200"
         >
           Try Again
         </button>
@@ -260,7 +267,7 @@ export default function ProgressPhotosPage() {
     <div className="min-h-[100dvh] px-4 py-6">
       {/* Success Toast */}
       {showSuccess && (
-        <div className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl animate-in slide-in-from-top-2">
+        <div className="animate-in slide-in-from-top-2 fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
             <CheckCircle className="h-4 w-4" />
           </div>
@@ -277,7 +284,7 @@ export default function ProgressPhotosPage() {
                 setViewMode('gallery');
                 setComparePhotos({ before: null, after: null });
               }}
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="-ml-2 rounded-full p-2 transition-colors hover:bg-gray-100"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -395,8 +402,8 @@ export default function ProgressPhotosPage() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
                 <Camera className="h-8 w-8 text-gray-400" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">No Progress Photos Yet</h3>
-              <p className="text-gray-500 text-sm mb-6">
+              <h3 className="mb-2 font-semibold text-gray-900">No Progress Photos Yet</h3>
+              <p className="mb-6 text-sm text-gray-500">
                 Start documenting your journey by taking your first set of progress photos.
               </p>
               <button
@@ -419,9 +426,7 @@ export default function ProgressPhotosPage() {
           <div className="flex items-center justify-center gap-2">
             {PROGRESS_TYPES.map((type, index) => {
               const isActive = type.type === uploadType;
-              const isComplete = PROGRESS_TYPES.slice(0, index).some(
-                (t) => t.type === uploadType
-              )
+              const isComplete = PROGRESS_TYPES.slice(0, index).some((t) => t.type === uploadType)
                 ? uploadedCount > index
                 : index < PROGRESS_TYPES.findIndex((t) => t.type === uploadType);
 
@@ -440,9 +445,7 @@ export default function ProgressPhotosPage() {
                   </div>
                   {index < PROGRESS_TYPES.length - 1 && (
                     <div
-                      className={`mx-2 h-0.5 w-8 ${
-                        isComplete ? 'bg-emerald-500' : 'bg-gray-200'
-                      }`}
+                      className={`mx-2 h-0.5 w-8 ${isComplete ? 'bg-emerald-500' : 'bg-gray-200'}`}
                     />
                   )}
                 </div>
@@ -452,7 +455,7 @@ export default function ProgressPhotosPage() {
 
           {/* Current Type Info */}
           <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
+            <div className="mb-4 flex items-center gap-3">
               <div
                 className="flex h-12 w-12 items-center justify-center rounded-xl"
                 style={{ backgroundColor: `${primaryColor}20` }}
@@ -471,11 +474,11 @@ export default function ProgressPhotosPage() {
 
             {/* Weight Input */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Current Weight (optional)
               </label>
               <div className="relative">
-                <Scale className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Scale className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="number"
                   step="0.1"
@@ -510,7 +513,7 @@ export default function ProgressPhotosPage() {
                 fetchPhotos();
               }
             }}
-            className="w-full py-3 text-gray-500 hover:text-gray-700 text-sm font-medium"
+            className="w-full py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
           >
             Skip this angle
           </button>

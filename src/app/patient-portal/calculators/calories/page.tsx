@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import { ArrowLeft, Info, Flame, Target, Clock } from 'lucide-react';
 
 const activityLevels = [
@@ -138,7 +139,7 @@ export default function CalorieCalculatorPage() {
                   min="18"
                   max="100"
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-16 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                  style={{ '--tw-ring-color': primaryColor } as any}
+                  style={ringColorStyle(primaryColor)}
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                   years
@@ -159,7 +160,7 @@ export default function CalorieCalculatorPage() {
                     min="0"
                     max="8"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     ft
@@ -174,7 +175,7 @@ export default function CalorieCalculatorPage() {
                     min="0"
                     max="11"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-10 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     in
@@ -196,7 +197,7 @@ export default function CalorieCalculatorPage() {
                     onChange={(e) => setWeight(e.target.value)}
                     placeholder="0"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     lbs
@@ -212,7 +213,7 @@ export default function CalorieCalculatorPage() {
                     onChange={(e) => setGoalWeight(e.target.value)}
                     placeholder="0"
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                     lbs

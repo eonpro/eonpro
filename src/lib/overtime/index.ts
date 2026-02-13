@@ -1,9 +1,9 @@
 /**
  * Overtime Men's Clinic Integration Module
- * 
+ *
  * Provides intake normalization, treatment type detection, and intake section
  * configuration for Overtime Men's Clinic (subdomain: ot).
- * 
+ *
  * Supports 6 treatment types:
  * 1. Weight Loss (GLP-1)
  * 2. Peptides
@@ -28,12 +28,7 @@ export type {
 } from './types';
 
 // Re-export shared types
-export type {
-  IntakeEntry,
-  IntakeSection,
-  NormalizedIntake,
-  NormalizedPatient,
-} from './types';
+export type { IntakeEntry, IntakeSection, NormalizedIntake, NormalizedPatient } from './types';
 
 // Treatment Types
 export {
@@ -48,10 +43,7 @@ export {
 } from './treatmentTypes';
 
 // Normalizer
-export {
-  normalizeOvertimePayload,
-  extractPromoCode,
-} from './intakeNormalizer';
+export { normalizeOvertimePayload, extractPromoCode } from './intakeNormalizer';
 
 // Intake Sections
 export {

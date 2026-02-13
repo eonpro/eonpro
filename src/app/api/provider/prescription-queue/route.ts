@@ -6,7 +6,7 @@
  * PATCH - Mark a prescription as processed
  *
  * CRITICAL: Each item includes SOAP note status for clinical documentation compliance
- * 
+ *
  * Queue sources:
  * 1. Paid invoices (prescriptionProcessed = false) - original queue
  * 2. Approved refills (status = APPROVED or PENDING_PROVIDER) - refill queue
@@ -15,10 +15,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
-import type { Invoice, Clinic, Patient, IntakeFormSubmission, SOAPNote, RefillQueue, Subscription } from '@prisma/client';
+import type {
+  Invoice,
+  Clinic,
+  Patient,
+  IntakeFormSubmission,
+  SOAPNote,
+  RefillQueue,
+  Subscription,
+} from '@prisma/client';
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -27,7 +36,7 @@ const safeDecrypt = (value: string | null): string | null => {
     // Check if it looks encrypted (3 base64 parts with colons)
     // Min length reduced to 2 to handle short encrypted values like state codes
     const parts = value.split(':');
-    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+    if (parts.length === 3 && parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
       return decryptPHI(value);
     }
     return value; // Not encrypted, return as-is
@@ -49,8 +58,14 @@ type PatientDocumentWithData = {
 
 // Type for invoice with included relations from our query
 type InvoiceWithRelations = Invoice & {
-  clinic: Pick<Clinic, 'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'> | null;
-  patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
+  clinic: Pick<
+    Clinic,
+    'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'
+  > | null;
+  patient: Pick<
+    Patient,
+    'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'
+  > & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
     documents: PatientDocumentWithData[];
@@ -59,8 +74,14 @@ type InvoiceWithRelations = Invoice & {
 
 // Type for refill queue with included relations
 type RefillWithRelations = RefillQueue & {
-  clinic: Pick<Clinic, 'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'> | null;
-  patient: Pick<Patient, 'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'> & {
+  clinic: Pick<
+    Clinic,
+    'id' | 'name' | 'subdomain' | 'lifefileEnabled' | 'lifefilePracticeName'
+  > | null;
+  patient: Pick<
+    Patient,
+    'id' | 'patientId' | 'firstName' | 'lastName' | 'email' | 'phone' | 'dob' | 'clinicId'
+  > & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
     documents: PatientDocumentWithData[];
@@ -71,7 +92,7 @@ type RefillWithRelations = RefillQueue & {
 /**
  * GET /api/provider/prescription-queue
  * Get list of patients in the prescription processing queue
- * 
+ *
  * Query params:
  * - limit: number of records (default 50)
  * - offset: pagination offset (default 0)
@@ -85,238 +106,364 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     logger.info('[PRESCRIPTION-QUEUE] GET request', {
       userId: user.id,
       userEmail: user.email,
-      clinicId: user.clinicId,
+      providerId: user.providerId,
     });
 
-    // Get provider's clinic ID
-    const clinicId = user.clinicId;
-    if (!clinicId) {
-      logger.warn('[PRESCRIPTION-QUEUE] Provider has no clinic', { userId: user.id });
+    // Get all clinic IDs this provider can work at (multi-clinic: single queue for all clinics)
+    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
+    if (clinicIds.length === 0) {
+      logger.warn('[PRESCRIPTION-QUEUE] Provider has no clinic assignments', { userId: user.id });
       return NextResponse.json(
-        { error: 'Provider must be associated with a clinic' },
+        { error: 'Provider must be associated with at least one clinic' },
         { status: 400 }
       );
     }
 
-    // Query paid invoices that haven't been processed yet
+    // Query paid invoices that haven't been processed yet (across all provider's clinics)
     // CRITICAL: Include clinic info for Lifefile prescription context
     // NOTE: We don't require IntakeFormSubmission because:
     // - WellMedR/Heyflow patients have intake data in invoice metadata, not IntakeFormSubmission
     // - EONmeds patients use internal intake forms (IntakeFormSubmission)
     // The prescription process handles both scenarios
     // Also fetch orders queued by admin for provider approval (status = queued_for_provider)
-    const [invoices, invoiceCount, refills, refillCount, queuedOrders, queuedOrderCount] = await Promise.all([
-      prisma.invoice.findMany({
-        where: {
-          clinicId: clinicId,
-          status: 'PAID',
-          prescriptionProcessed: false,
-        },
-        include: {
-          // CRITICAL: Include clinic for prescription context (Lifefile API, PDF branding)
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-              lifefileEnabled: true,
-              lifefilePracticeName: true,
-            },
+    const [invoices, invoiceCount, refills, refillCount, queuedOrders, queuedOrderCount] =
+      await Promise.all([
+        prisma.invoice.findMany({
+          where: {
+            clinicId: { in: clinicIds },
+            status: 'PAID',
+            prescriptionProcessed: false,
           },
-          patient: {
-            select: {
-              id: true,
-              patientId: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              dob: true,
-              clinicId: true, // Patient's clinic for validation
-              intakeSubmissions: {
-                where: { status: 'completed' },
-                orderBy: { completedAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  completedAt: true,
-                },
-              },
-              // CRITICAL: Include SOAP notes for clinical documentation compliance
-              soapNotes: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  status: true,
-                  createdAt: true,
-                  approvedAt: true,
-                  approvedBy: true,
-                },
-              },
-              // Include ALL documents for GLP-1 history (filter by category in code)
-              documents: {
-                orderBy: { createdAt: 'desc' },
-                take: 5,
-                select: {
-                  id: true,
-                  data: true,
-                  sourceSubmissionId: true,
-                  category: true,
-                },
+          include: {
+            // CRITICAL: Include clinic for prescription context (Lifefile API, PDF branding)
+            clinic: {
+              select: {
+                id: true,
+                name: true,
+                subdomain: true,
+                lifefileEnabled: true,
+                lifefilePracticeName: true,
               },
             },
-          },
-        },
-        orderBy: {
-          paidAt: 'asc', // Oldest paid first (FIFO queue)
-        },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.invoice.count({
-        where: {
-          clinicId: clinicId,
-          status: 'PAID',
-          prescriptionProcessed: false,
-        },
-      }),
-      // Query approved refills from RefillQueue
-      prisma.refillQueue.findMany({
-        where: {
-          clinicId: clinicId,
-          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
-        },
-        include: {
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-              lifefileEnabled: true,
-              lifefilePracticeName: true,
-            },
-          },
-          patient: {
-            select: {
-              id: true,
-              patientId: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              dob: true,
-              clinicId: true,
-              intakeSubmissions: {
-                where: { status: 'completed' },
-                orderBy: { completedAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  completedAt: true,
+            patient: {
+              select: {
+                id: true,
+                patientId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                dob: true,
+                clinicId: true, // Patient's clinic for validation
+                intakeSubmissions: {
+                  where: { status: 'completed' },
+                  orderBy: { completedAt: 'desc' },
+                  take: 1,
+                  select: {
+                    id: true,
+                    completedAt: true,
+                  },
                 },
-              },
-              soapNotes: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  status: true,
-                  createdAt: true,
-                  approvedAt: true,
-                  approvedBy: true,
+                // CRITICAL: Include SOAP notes for clinical documentation compliance
+                soapNotes: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                  select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
+                    approvedAt: true,
+                    approvedBy: true,
+                  },
                 },
-              },
-              // Include ALL documents for GLP-1 history (filter by category in code)
-              documents: {
-                orderBy: { createdAt: 'desc' },
-                take: 5,
-                select: {
-                  id: true,
-                  data: true,
-                  sourceSubmissionId: true,
-                  category: true,
+                // Include ALL documents for GLP-1 history (filter by category in code)
+                documents: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 5,
+                  select: {
+                    id: true,
+                    data: true,
+                    sourceSubmissionId: true,
+                    category: true,
+                  },
                 },
               },
             },
           },
-          subscription: {
-            select: {
-              id: true,
-              planName: true,
-              status: true,
-            },
+          orderBy: {
+            paidAt: 'asc', // Oldest paid first (FIFO queue)
           },
-        },
-        orderBy: {
-          providerQueuedAt: 'asc', // Oldest queued first (FIFO)
-        },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.refillQueue.count({
-        where: {
-          clinicId: clinicId,
-          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
-        },
-      }),
-      prisma.order.findMany({
-        where: {
-          clinicId: clinicId,
-          status: 'queued_for_provider',
-        },
-        include: {
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-              lifefileEnabled: true,
-              lifefilePracticeName: true,
-            },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.invoice.count({
+          where: {
+            clinicId: { in: clinicIds },
+            status: 'PAID',
+            prescriptionProcessed: false,
           },
-          patient: {
-            select: {
-              id: true,
-              patientId: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              dob: true,
-              clinicId: true,
-              soapNotes: {
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-                select: {
-                  id: true,
-                  status: true,
-                  createdAt: true,
-                  approvedAt: true,
-                  approvedBy: true,
+        }),
+        // Query approved refills from RefillQueue (all provider's clinics)
+        prisma.refillQueue.findMany({
+          where: {
+            clinicId: { in: clinicIds },
+            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+          },
+          include: {
+            clinic: {
+              select: {
+                id: true,
+                name: true,
+                subdomain: true,
+                lifefileEnabled: true,
+                lifefilePracticeName: true,
+              },
+            },
+            patient: {
+              select: {
+                id: true,
+                patientId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                dob: true,
+                clinicId: true,
+                intakeSubmissions: {
+                  where: { status: 'completed' },
+                  orderBy: { completedAt: 'desc' },
+                  take: 1,
+                  select: {
+                    id: true,
+                    completedAt: true,
+                  },
+                },
+                soapNotes: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                  select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
+                    approvedAt: true,
+                    approvedBy: true,
+                  },
+                },
+                // Include ALL documents for GLP-1 history (filter by category in code)
+                documents: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 5,
+                  select: {
+                    id: true,
+                    data: true,
+                    sourceSubmissionId: true,
+                    category: true,
+                  },
                 },
               },
             },
+            subscription: {
+              select: {
+                id: true,
+                planName: true,
+                status: true,
+              },
+            },
           },
-          provider: { select: { id: true, firstName: true, lastName: true, email: true } },
-          rxs: true,
-        },
-        orderBy: { queuedForProviderAt: 'asc' },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.order.count({
-        where: {
-          clinicId: clinicId,
-          status: 'queued_for_provider',
-        },
-      }),
-    ]);
+          orderBy: {
+            providerQueuedAt: 'asc', // Oldest queued first (FIFO)
+          },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.refillQueue.count({
+          where: {
+            clinicId: { in: clinicIds },
+            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+          },
+        }),
+        prisma.order.findMany({
+          where: {
+            clinicId: { in: clinicIds },
+            status: 'queued_for_provider',
+          },
+          include: {
+            clinic: {
+              select: {
+                id: true,
+                name: true,
+                subdomain: true,
+                lifefileEnabled: true,
+                lifefilePracticeName: true,
+              },
+            },
+            patient: {
+              select: {
+                id: true,
+                patientId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                dob: true,
+                clinicId: true,
+                soapNotes: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                  select: {
+                    id: true,
+                    status: true,
+                    createdAt: true,
+                    approvedAt: true,
+                    approvedBy: true,
+                  },
+                },
+              },
+            },
+            provider: { select: { id: true, firstName: true, lastName: true, email: true } },
+            rxs: true,
+          },
+          orderBy: { queuedForProviderAt: 'asc' },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.order.count({
+          where: {
+            clinicId: { in: clinicIds },
+            status: 'queued_for_provider',
+          },
+        }),
+      ]);
 
     const totalCount = invoiceCount + refillCount + queuedOrderCount;
 
     // Helper function to normalize keys for comparison (lowercase, remove spaces/dashes/underscores)
     const normalizeKey = (key: string) => key.toLowerCase().replace(/[-_\s]/g, '');
+
+    // Check if product/treatment looks like plan-only (e.g. "1mo Injections", "3mo Injections", "1 month", "3 month")
+    // without a medication name like tirzepatide or semaglutide.
+    // Lenient: handles suffixes like "1mo Injections WM-202602-0151" (invoice numbers, etc.)
+    const looksLikePlanOnly = (text: string): boolean => {
+      if (!text || typeof text !== 'string') return false;
+      const lower = text.toLowerCase().trim().replace(/\s+/g, ' ');
+      // Has explicit medication name - not plan-only
+      if (
+        lower.includes('tirzepatide') ||
+        lower.includes('semaglutide') ||
+        lower.includes('mounjaro') ||
+        lower.includes('zepbound') ||
+        lower.includes('ozempic') ||
+        lower.includes('wegovy')
+      ) {
+        return false;
+      }
+      // Plan-like: contains "injection" or "Xmo"/"X month" but NO medication name
+      const hasInjection = /\binjections?\b/i.test(lower);
+      const hasPlanDuration = /\b(\d+\s*mo|\d+\s*month|1mo|2mo|3mo|6mo|1\s*month|3\s*month|6\s*month)\b/i.test(lower);
+      return hasInjection || hasPlanDuration;
+    };
+
+    // Extract preferred medication from intake document for fallback when invoice metadata has plan-only
+    const extractMedicationFromDocument = (documentData: Buffer | null): string | null => {
+      if (!documentData) return null;
+      try {
+        let rawData: string;
+        if (documentData instanceof Uint8Array) {
+          rawData = new TextDecoder().decode(documentData);
+        } else if (Buffer.isBuffer(documentData)) {
+          rawData = documentData.toString('utf8');
+        } else if (
+          typeof documentData === 'object' &&
+          (documentData as any).type === 'Buffer' &&
+          Array.isArray((documentData as any).data)
+        ) {
+          rawData = new TextDecoder().decode(new Uint8Array((documentData as any).data));
+        } else {
+          rawData = String(documentData);
+        }
+        const docJson = JSON.parse(rawData);
+        const check = (obj: Record<string, unknown>, keys: string[]): string | null => {
+          for (const k of keys) {
+            const v = obj[k];
+            if (v && typeof v === 'string' && v.trim()) {
+              const s = v.trim();
+              if (
+                /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(s) &&
+                s.toLowerCase() !== 'none'
+              ) {
+                return s;
+              }
+            }
+          }
+          return null;
+        };
+        // Root-level fields (Airtable/WellMedR format)
+        const fromRoot = check(docJson, [
+          'preferred-meds',
+          'preferredMedication',
+          'preferred_meds',
+          'medication-preference',
+          'medication_type',
+          'medicationType',
+          'glp1-medication-type',
+          'glp1_last_30_medication_type',
+          'glp1-last-30-medication-type',
+          'product',
+          'treatment',
+        ]);
+        if (fromRoot) return fromRoot;
+        // answers array
+        if (docJson.answers && Array.isArray(docJson.answers)) {
+          for (const a of docJson.answers) {
+            const key = normalizeKey(
+              String(a.question || a.field || a.id || a.label || '').toLowerCase()
+            );
+            const val = a.answer ?? a.value;
+            if (typeof val !== 'string' || !val.trim()) continue;
+            if (
+              key.includes('preferred') ||
+              key.includes('medication') ||
+              key.includes('glp1type') ||
+              key.includes('treatment')
+            ) {
+              if (
+                /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(val) &&
+                val.toLowerCase() !== 'none'
+              ) {
+                return val.trim();
+              }
+            }
+          }
+        }
+        // sections
+        if (docJson.sections && Array.isArray(docJson.sections)) {
+          for (const sec of docJson.sections) {
+            const entries = sec.questions || sec.entries || sec.fields || [];
+            if (!Array.isArray(entries)) continue;
+            for (const q of entries) {
+              const key = normalizeKey(String(q.question || q.field || q.id || q.label || ''));
+              const val = q.answer ?? q.value;
+              if (typeof val !== 'string' || !val.trim()) continue;
+              if (
+                key.includes('preferred') ||
+                key.includes('medication') ||
+                key.includes('glp1type')
+              ) {
+                if (
+                  /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(val) &&
+                  val.toLowerCase() !== 'none'
+                ) {
+                  return val.trim();
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+      return null;
+    };
 
     // Helper function to extract GLP-1 info from metadata and/or document data
     const extractGlp1Info = (
@@ -329,8 +476,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const checkExactAirtableFields = (obj: Record<string, unknown>) => {
         // Check exact Airtable field names (case-insensitive)
         const glp1Last30 = obj['glp1-last-30'] || obj['glp1_last_30'] || obj['GLP1-last-30'];
-        const glp1Type = obj['glp1-last-30-medication-type'] || obj['glp1_last_30_medication_type'] || obj['GLP1-last-30-medication-type'];
-        const glp1Dose = obj['glp1-last-30-medication-dose-mg'] || obj['glp1_last_30_medication_dose_mg'] || obj['GLP1-last-30-medication-dose-mg'];
+        const glp1Type =
+          obj['glp1-last-30-medication-type'] ||
+          obj['glp1_last_30_medication_type'] ||
+          obj['GLP1-last-30-medication-type'];
+        const glp1Dose =
+          obj['glp1-last-30-medication-dose-mg'] ||
+          obj['glp1_last_30_medication_dose_mg'] ||
+          obj['GLP1-last-30-medication-dose-mg'];
 
         if (glp1Last30) {
           const isYes = String(glp1Last30).toLowerCase() === 'yes' || glp1Last30 === true;
@@ -354,7 +507,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             rawData = new TextDecoder().decode(documentData);
           } else if (Buffer.isBuffer(documentData)) {
             rawData = documentData.toString('utf8');
-          } else if (typeof documentData === 'object' && (documentData as any).type === 'Buffer' && Array.isArray((documentData as any).data)) {
+          } else if (
+            typeof documentData === 'object' &&
+            (documentData as any).type === 'Buffer' &&
+            Array.isArray((documentData as any).data)
+          ) {
             rawData = new TextDecoder().decode(new Uint8Array((documentData as any).data));
           } else {
             rawData = String(documentData);
@@ -363,15 +520,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           const docJson = JSON.parse(rawData);
 
           // Debug logging - show document structure and GLP-1 related fields
-          const answersPreview = docJson.answers?.slice?.(0, 3)?.map((a: Record<string, unknown>) => ({
-            id: a.id || a.field || a.question,
-            label: a.label,
-            value: a.value || a.answer,
-          }));
+          const answersPreview = docJson.answers
+            ?.slice?.(0, 3)
+            ?.map((a: Record<string, unknown>) => ({
+              id: a.id || a.field || a.question,
+              label: a.label,
+              value: a.value || a.answer,
+            }));
           const sectionsPreview = docJson.sections?.map?.((s: Record<string, unknown>) => ({
             name: s.name || s.title,
             hasEntries: !!(s.entries || s.questions || s.fields),
-            entryCount: ((s.entries || s.questions || s.fields) as unknown[] | undefined)?.length || 0,
+            entryCount:
+              ((s.entries || s.questions || s.fields) as unknown[] | undefined)?.length || 0,
           }));
           logger.info('[PRESCRIPTION-QUEUE] Parsing document data', {
             patientName,
@@ -427,27 +587,53 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
             for (const answer of docJson.answers) {
               // Support multiple field naming conventions: MedLink (id/label), WellMedR (question/field)
-              const key = normalizeKey(answer.question || answer.field || answer.id || answer.label || '');
+              const key = normalizeKey(
+                answer.question || answer.field || answer.id || answer.label || ''
+              );
               const val = answer.answer || answer.value || '';
 
               // GLP-1 usage patterns - matches "Used GLP-1 in Last 30 Days", "glp1-last-30", etc.
-              if (key.includes('glp1last30') || key.includes('usedglp1') || key.includes('glp1inlast30')) {
+              if (
+                key.includes('glp1last30') ||
+                key.includes('usedglp1') ||
+                key.includes('glp1inlast30')
+              ) {
                 if (String(val).toLowerCase() === 'yes' || val === true) {
                   usedGlp1 = true;
                 }
               }
               // GLP-1 type patterns - matches "Recent GLP-1 Medication Type", "glp1Type", etc.
-              if (key.includes('glp1type') || key.includes('medicationtype') || key.includes('recentglp1') ||
-                  key.includes('currentglp1') || key.includes('glp1medication')) {
-                if (val && String(val).toLowerCase() !== 'none' && String(val).toLowerCase() !== 'no' && String(val) !== '-') {
+              if (
+                key.includes('glp1type') ||
+                key.includes('medicationtype') ||
+                key.includes('recentglp1') ||
+                key.includes('currentglp1') ||
+                key.includes('glp1medication')
+              ) {
+                if (
+                  val &&
+                  String(val).toLowerCase() !== 'none' &&
+                  String(val).toLowerCase() !== 'no' &&
+                  String(val) !== '-'
+                ) {
                   glp1Type = String(val);
                 }
               }
               // Dose patterns - matches "Semaglutide Dose", "Tirzepatide Dose", "glp1-last-30-medication-dose-mg"
-              if (key.includes('semaglutidedose') || key.includes('semaglutidedosage') ||
-                  key.includes('tirzepatidedose') || key.includes('tirzepatidedosage') ||
-                  key.includes('dosemg') || key.includes('currentglp1dose')) {
-                if (val && String(val) !== '-' && String(val) !== '0' && String(val).toLowerCase() !== 'none') {
+              if (
+                key.includes('semaglutidedose') ||
+                key.includes('semaglutidedosage') ||
+                key.includes('tirzepatidedose') ||
+                key.includes('tirzepatidedosage') ||
+                key.includes('dosemg') ||
+                key.includes('currentglp1dose')
+              ) {
+                if (
+                  val &&
+                  String(val) !== '-' &&
+                  String(val) !== '0' &&
+                  String(val).toLowerCase() !== 'none'
+                ) {
                   const numericDose = String(val).replace(/[^\d.]/g, '');
                   if (numericDose && parseFloat(numericDose) > 0) {
                     lastDose = numericDose;
@@ -484,24 +670,48 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                 const val = q.answer || q.value || '';
 
                 // GLP-1 usage check
-                if (key.includes('glp1last30') || key.includes('usedglp1') || key.includes('glp1inlast30') ||
-                    ((key.includes('glp1') || key.includes('glp-1')) && key.includes('30'))) {
+                if (
+                  key.includes('glp1last30') ||
+                  key.includes('usedglp1') ||
+                  key.includes('glp1inlast30') ||
+                  ((key.includes('glp1') || key.includes('glp-1')) && key.includes('30'))
+                ) {
                   if (String(val).toLowerCase() === 'yes' || val === true) {
                     sectionUsedGlp1 = true;
                   }
                 }
                 // GLP-1 type check
-                if (key.includes('glp1type') || key.includes('medicationtype') || key.includes('recentglp1') ||
-                    key.includes('currentglp1') || key.includes('glp1medication')) {
-                  if (val && String(val).toLowerCase() !== 'none' && String(val).toLowerCase() !== 'no' && String(val) !== '-') {
+                if (
+                  key.includes('glp1type') ||
+                  key.includes('medicationtype') ||
+                  key.includes('recentglp1') ||
+                  key.includes('currentglp1') ||
+                  key.includes('glp1medication')
+                ) {
+                  if (
+                    val &&
+                    String(val).toLowerCase() !== 'none' &&
+                    String(val).toLowerCase() !== 'no' &&
+                    String(val) !== '-'
+                  ) {
                     sectionGlp1Type = String(val);
                   }
                 }
                 // Dose check
-                if (key.includes('semaglutidedose') || key.includes('semaglutidedosage') ||
-                    key.includes('tirzepatidedose') || key.includes('tirzepatidedosage') ||
-                    key.includes('dosemg') || key.includes('currentglp1dose')) {
-                  if (val && String(val) !== '-' && String(val) !== '0' && String(val).toLowerCase() !== 'none') {
+                if (
+                  key.includes('semaglutidedose') ||
+                  key.includes('semaglutidedosage') ||
+                  key.includes('tirzepatidedose') ||
+                  key.includes('tirzepatidedosage') ||
+                  key.includes('dosemg') ||
+                  key.includes('currentglp1dose')
+                ) {
+                  if (
+                    val &&
+                    String(val) !== '-' &&
+                    String(val) !== '0' &&
+                    String(val).toLowerCase() !== 'none'
+                  ) {
                     const numericDose = String(val).replace(/[^\d.]/g, '');
                     if (numericDose && parseFloat(numericDose) > 0) {
                       sectionLastDose = numericDose;
@@ -527,7 +737,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           }
         } catch (e) {
           // Document data not JSON or malformed, fall through to metadata check
-          logger.debug('[PRESCRIPTION-QUEUE] Document parse failed', { patientName, error: e instanceof Error ? e.message : 'Unknown' });
+          logger.debug('[PRESCRIPTION-QUEUE] Document parse failed', {
+            patientName,
+            error: e instanceof Error ? e.message : 'Unknown',
+          });
         }
       }
 
@@ -537,27 +750,41 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // Check exact Airtable field names in metadata first
       const exactMetadataMatch = checkExactAirtableFields(metadata);
       if (exactMetadataMatch) {
-        logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from metadata exact fields', { patientName, glp1Info: exactMetadataMatch });
+        logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from metadata exact fields', {
+          patientName,
+          glp1Info: exactMetadataMatch,
+        });
         return exactMetadataMatch;
       }
 
       // Patterns to match (will be normalized for comparison)
       const glp1UsedPatterns = [
-        'glp1last30days', 'glp1last30', 'usedglp1inlast30days',
-        'usedglp1inlast30', 'glp1usage', 'usedglp1'
+        'glp1last30days',
+        'glp1last30',
+        'usedglp1inlast30days',
+        'usedglp1inlast30',
+        'glp1usage',
+        'usedglp1',
       ];
       const glp1TypePatterns = [
-        'glp1type', 'glp1last30medicationtype', 'recentglp1medicationtype',
-        'currentglp1medication', 'currentglp1', 'glp1medication',
-        'recentglp1type', 'glp1medicationtype'
+        'glp1type',
+        'glp1last30medicationtype',
+        'recentglp1medicationtype',
+        'currentglp1medication',
+        'currentglp1',
+        'glp1medication',
+        'recentglp1type',
+        'glp1medicationtype',
       ];
       const semaDosePatterns = [
-        'semaglutidedosage', 'semaglutidedose', 'semadose',
-        'glp1last30medicationdosemg', 'glp1dose', 'glp1dosage'
+        'semaglutidedosage',
+        'semaglutidedose',
+        'semadose',
+        'glp1last30medicationdosemg',
+        'glp1dose',
+        'glp1dosage',
       ];
-      const tirzDosePatterns = [
-        'tirzepatidedosage', 'tirzepatidedose', 'tirzdose'
-      ];
+      const tirzDosePatterns = ['tirzepatidedosage', 'tirzepatidedose', 'tirzdose'];
 
       // Helper to find a value by matching patterns against all metadata keys
       const findValueByPatterns = (patterns: string[]): string | null => {
@@ -615,9 +842,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const invoicePatientIds = (invoices as any[]).map((inv: any) => inv.patient.id);
     const refillPatientIds = (refills as any[]).map((ref: any) => ref.patient.id);
     const queuedOrderPatientIds = (queuedOrders as any[]).map((o: any) => o.patient.id);
-    const allPatientIds = [...new Set([...invoicePatientIds, ...refillPatientIds, ...queuedOrderPatientIds])];
+    const allPatientIds = [
+      ...new Set([...invoicePatientIds, ...refillPatientIds, ...queuedOrderPatientIds]),
+    ];
     const patientDocsMap = new Map<number, PatientDocumentWithData[]>();
-    
+
     if (allPatientIds.length > 0) {
       const allPatientDocs = await prisma.patientDocument.findMany({
         where: {
@@ -633,7 +862,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           category: true,
         },
       });
-      
+
       // Group docs by patientId
       for (const doc of allPatientDocs) {
         if (!patientDocsMap.has(doc.patientId)) {
@@ -641,7 +870,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
         patientDocsMap.get(doc.patientId)!.push(doc as PatientDocumentWithData);
       }
-      
+
       logger.info('[PRESCRIPTION-QUEUE] Fetched intake documents', {
         patientCount: allPatientIds.length,
         docsFound: allPatientDocs.length,
@@ -655,7 +884,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // This is a defense-in-depth check to catch multi-tenant isolation violations
       const invoiceClinicId = invoice.clinicId;
       const patientClinicId = invoice.patient.clinicId;
-      
+
       if (invoiceClinicId !== patientClinicId) {
         logger.error('[PRESCRIPTION-QUEUE] CRITICAL SECURITY: Clinic mismatch detected!', {
           invoiceId: invoice.id,
@@ -667,7 +896,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         });
         // We still return the item but flag it so UI can highlight the issue
       }
-      
+
       // Extract treatment info from metadata or line items
       const metadata = invoice.metadata as Record<string, unknown> | null;
       const lineItems = invoice.lineItems as Array<Record<string, unknown>> | null;
@@ -694,8 +923,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
       // DEBUG: Log metadata keys to understand what data we have
       const metadataKeys = metadata ? Object.keys(metadata) : [];
-      const hasGlp1InMetadata = metadataKeys.some(k =>
-        k.toLowerCase().includes('glp1') || k.toLowerCase().includes('glp-1')
+      const hasGlp1InMetadata = metadataKeys.some(
+        (k) => k.toLowerCase().includes('glp1') || k.toLowerCase().includes('glp-1')
       );
 
       logger.info('[PRESCRIPTION-QUEUE] GLP-1 data sources', {
@@ -708,7 +937,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         hasGlp1InMetadata,
         // Check for specific Airtable fields in metadata
         'glp1-last-30': metadata?.['glp1-last-30'],
-        'glp1_last_30': metadata?.['glp1_last_30'],
+        glp1_last_30: metadata?.['glp1_last_30'],
       });
 
       const glp1Info = extractGlp1Info(
@@ -728,7 +957,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         medicationType = (metadata.medicationType as string) || '';
         plan = (metadata.plan as string) || '';
       }
-      
+
       if (lineItems && lineItems.length > 0) {
         const firstItem = lineItems[0];
         if (firstItem.description) {
@@ -745,40 +974,97 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
       }
 
-      // Clean up treatment name - remove "product" suffix and capitalize
+      // Clean up treatment name - remove "product" suffix, invoice numbers (WM-202602-0151), and capitalize
       let cleanTreatment = treatment
-        .replace(/product$/i, '')  // Remove "product" suffix
-        .replace(/\s+/g, ' ')      // Normalize spaces
+        .replace(/product$/i, '') // Remove "product" suffix
+        .replace(/\s+WM-\d{6}-\d{4}\s*$/i, '') // Strip WellMedR invoice numbers (e.g. WM-202602-0151)
+        .replace(/\s+/g, ' ') // Normalize spaces
         .trim();
-      
+
       // Capitalize first letter
       if (cleanTreatment) {
         cleanTreatment = cleanTreatment.charAt(0).toUpperCase() + cleanTreatment.slice(1);
       }
 
       // Format medication type (capitalize)
-      const formattedMedType = medicationType 
+      let formattedMedType = medicationType
         ? medicationType.charAt(0).toUpperCase() + medicationType.slice(1).toLowerCase()
         : '';
 
-      // Map plan to duration info for prescribing
+      // When invoice metadata has plan-only (e.g. "1mo Injections", "3mo Injections") without medication,
+      // derive medication from intake document so the Rx queue shows "Tirzepatide 2.5mg 1mo Injections"
+      let derivedMedFromDoc: string | null = null;
+      if (!formattedMedType && looksLikePlanOnly(cleanTreatment) && documentData) {
+        const docMed = extractMedicationFromDocument(documentData);
+        if (docMed) {
+          derivedMedFromDoc = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
+          logger.info('[PRESCRIPTION-QUEUE] Derived medication from intake (plan-only invoice)', {
+            patientId: invoice.patient.id,
+            patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+            originalProduct: cleanTreatment,
+            derivedMedication: derivedMedFromDoc,
+          });
+        }
+      }
+
+      // Map plan to duration info for prescribing (label and months must stay in sync)
       const planDurationMap: Record<string, { label: string; months: number }> = {
-        'monthly': { label: 'Monthly', months: 1 },
-        'quarterly': { label: 'Quarterly', months: 3 },
-        'semester': { label: '6-Month', months: 6 },
+        monthly: { label: 'Monthly', months: 1 },
+        '1month': { label: 'Monthly', months: 1 },
+        '1-month': { label: 'Monthly', months: 1 },
+        quarterly: { label: 'Quarterly', months: 3 },
+        '3month': { label: 'Quarterly', months: 3 },
+        '3-month': { label: 'Quarterly', months: 3 },
+        semester: { label: '6-Month', months: 6 },
         '6-month': { label: '6-Month', months: 6 },
         '6month': { label: '6-Month', months: 6 },
-        'annual': { label: 'Annual', months: 12 },
-        'yearly': { label: 'Annual', months: 12 },
+        annual: { label: 'Annual', months: 12 },
+        yearly: { label: 'Annual', months: 12 },
+        '12-month': { label: '12-Month', months: 12 },
+        '12month': { label: '12-Month', months: 12 },
       };
-      
+
       const planKey = plan.toLowerCase().replace(/[\s-]/g, '');
       const planInfo = planDurationMap[planKey] || { label: plan || 'Monthly', months: 1 };
 
-      // Build treatment display string: "Tirzepatide Injections"
+      // Build treatment display string: "Tirzepatide 2.5mg 1mo Injections" or "Tirzepatide Injections"
       let treatmentDisplay = cleanTreatment;
       if (formattedMedType) {
         treatmentDisplay += ` ${formattedMedType}`;
+      }
+      // When we derived medication from intake (plan-only product), show medication first for clarity
+      if (derivedMedFromDoc) {
+        treatmentDisplay = `${derivedMedFromDoc} ${cleanTreatment}`;
+      }
+      // Use glp1Info.glp1Type when we have it (e.g. patient preference or last-used from intake)
+      else if (
+        !formattedMedType &&
+        !derivedMedFromDoc &&
+        looksLikePlanOnly(cleanTreatment) &&
+        glp1Info.glp1Type
+      ) {
+        const medName =
+          glp1Info.glp1Type.charAt(0).toUpperCase() + glp1Info.glp1Type.slice(1).toLowerCase();
+        treatmentDisplay = `${medName} ${cleanTreatment}`;
+        logger.info('[PRESCRIPTION-QUEUE] Used glp1Type from intake for display', {
+          patientId: invoice.patient.id,
+          glp1Type: glp1Info.glp1Type,
+          originalProduct: cleanTreatment,
+        });
+      }
+      // Fallback: when Airtable sends plan-only (e.g. "1mo Injections") and no med from intake,
+      // show "Semaglutide or Tirzepatide - 1mo Injections" so provider knows to verify (WellMedR is GLP-1 clinic)
+      else if (
+        !formattedMedType &&
+        !derivedMedFromDoc &&
+        looksLikePlanOnly(cleanTreatment) &&
+        (metadata?.source as string) === 'wellmedr-airtable'
+      ) {
+        treatmentDisplay = `Semaglutide or Tirzepatide - ${cleanTreatment}`;
+        logger.info('[PRESCRIPTION-QUEUE] Applied GLP-1 fallback (plan-only, no intake med)', {
+          patientId: invoice.patient.id,
+          originalProduct: cleanTreatment,
+        });
       }
 
       // Get intake completion date if available
@@ -826,48 +1112,55 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
         // CRITICAL: SOAP Note status for clinical documentation compliance
         // Providers should review/approve SOAP notes before prescribing
-        soapNote: soapNote ? {
-          id: soapNote.id,
-          status: soapNote.status,
-          createdAt: soapNote.createdAt,
-          approvedAt: soapNote.approvedAt,
-          isApproved: soapNoteApproved,
-        } : null,
+        soapNote: soapNote
+          ? {
+              id: soapNote.id,
+              status: soapNote.status,
+              createdAt: soapNote.createdAt,
+              approvedAt: soapNote.approvedAt,
+              isApproved: soapNoteApproved,
+            }
+          : null,
         hasSoapNote,
         soapNoteStatus: soapNote?.status || 'MISSING',
         // CRITICAL: Clinic context for Lifefile prescriptions
         // The prescription MUST use this clinic's API credentials and PDF branding
         clinicId: invoice.clinicId,
-        clinic: invoice.clinic ? {
-          id: invoice.clinic.id,
-          name: invoice.clinic.name,
-          subdomain: invoice.clinic.subdomain,
-          lifefileEnabled: invoice.clinic.lifefileEnabled,
-          practiceName: invoice.clinic.lifefilePracticeName,
-        } : null,
+        clinic: invoice.clinic
+          ? {
+              id: invoice.clinic.id,
+              name: invoice.clinic.name,
+              subdomain: invoice.clinic.subdomain,
+              lifefileEnabled: invoice.clinic.lifefileEnabled,
+              practiceName: invoice.clinic.lifefilePracticeName,
+            }
+          : null,
         // CRITICAL: Flag for multi-tenant isolation violation detection
         // If true, this record has a clinic mismatch between invoice and patient
         clinicMismatch: invoiceClinicId !== patientClinicId,
         patientClinicId: patientClinicId, // Include for debugging/fixing
       };
     });
-    
+
     // Transform refill data for frontend
     const refillItems = (refills as any[]).map((refill: any) => {
       // CRITICAL: Validate clinic consistency between refill and patient
       const refillClinicId = refill.clinicId;
       const refillPatientClinicId = refill.patient.clinicId;
-      
+
       if (refillClinicId !== refillPatientClinicId) {
-        logger.error('[PRESCRIPTION-QUEUE] CRITICAL SECURITY: Clinic mismatch detected in refill!', {
-          refillId: refill.id,
-          refillClinicId,
-          patientId: refill.patient.id,
-          patientClinicId: refillPatientClinicId,
-          patientDisplayId: refill.patient.patientId,
-        });
+        logger.error(
+          '[PRESCRIPTION-QUEUE] CRITICAL SECURITY: Clinic mismatch detected in refill!',
+          {
+            refillId: refill.id,
+            refillClinicId,
+            patientId: refill.patient.id,
+            patientClinicId: refillPatientClinicId,
+            patientDisplayId: refill.patient.patientId,
+          }
+        );
       }
-      
+
       // Get intake completion date if available
       const intakeCompletedAt = refill.patient.intakeSubmissions?.[0]?.completedAt || null;
 
@@ -877,7 +1170,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const soapNoteApproved = soapNote?.status === 'APPROVED' || soapNote?.status === 'LOCKED';
 
       // Build treatment display from refill medication info
-      const treatmentDisplay = refill.medicationName 
+      const treatmentDisplay = refill.medicationName
         ? `${refill.medicationName}${refill.medicationStrength ? ` ${refill.medicationStrength}` : ''}`
         : 'Refill Prescription';
 
@@ -895,7 +1188,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const refillDocumentData = refillIntakeDoc?.data || null;
 
       // Get GLP-1 info from documents if available (for original dose info)
-      const docGlp1Info = refillDocumentData ? extractGlp1Info(null, refillDocumentData, `${refill.patient.firstName} ${refill.patient.lastName}`) : null;
+      const docGlp1Info = refillDocumentData
+        ? extractGlp1Info(
+            null,
+            refillDocumentData,
+            `${refill.patient.firstName} ${refill.patient.lastName}`
+          )
+        : null;
 
       return {
         // Queue item identification
@@ -933,34 +1232,42 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // Prefer document data if available (has original intake info), fallback to medication info
         glp1Info: {
           usedGlp1: true, // Refill = they've used it before
-          glp1Type: docGlp1Info?.glp1Type || (istirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName),
+          glp1Type:
+            docGlp1Info?.glp1Type ||
+            (istirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName),
           lastDose: docGlp1Info?.lastDose || refill.medicationStrength || null,
         },
         // SOAP Note status
-        soapNote: soapNote ? {
-          id: soapNote.id,
-          status: soapNote.status,
-          createdAt: soapNote.createdAt,
-          approvedAt: soapNote.approvedAt,
-          isApproved: soapNoteApproved,
-        } : null,
+        soapNote: soapNote
+          ? {
+              id: soapNote.id,
+              status: soapNote.status,
+              createdAt: soapNote.createdAt,
+              approvedAt: soapNote.approvedAt,
+              isApproved: soapNoteApproved,
+            }
+          : null,
         hasSoapNote,
         soapNoteStatus: soapNote?.status || 'MISSING',
         // Clinic context
         clinicId: refill.clinicId,
-        clinic: refill.clinic ? {
-          id: refill.clinic.id,
-          name: refill.clinic.name,
-          subdomain: refill.clinic.subdomain,
-          lifefileEnabled: refill.clinic.lifefileEnabled,
-          practiceName: refill.clinic.lifefilePracticeName,
-        } : null,
+        clinic: refill.clinic
+          ? {
+              id: refill.clinic.id,
+              name: refill.clinic.name,
+              subdomain: refill.clinic.subdomain,
+              lifefileEnabled: refill.clinic.lifefileEnabled,
+              practiceName: refill.clinic.lifefilePracticeName,
+            }
+          : null,
         // Subscription info
-        subscription: refill.subscription ? {
-          id: refill.subscription.id,
-          planName: refill.subscription.planName,
-          status: refill.subscription.status,
-        } : null,
+        subscription: refill.subscription
+          ? {
+              id: refill.subscription.id,
+              planName: refill.subscription.planName,
+              status: refill.subscription.status,
+            }
+          : null,
         // CRITICAL: Flag for multi-tenant isolation violation detection
         clinicMismatch: refillClinicId !== refillPatientClinicId,
         patientClinicId: refillPatientClinicId,
@@ -1000,23 +1307,27 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         invoiceNumber: `QUEUED-${order.id}`,
         intakeCompletedAt: null,
         glp1Info: { usedGlp1: false, glp1Type: null, lastDose: null },
-        soapNote: soapNote ? {
-          id: soapNote.id,
-          status: soapNote.status,
-          createdAt: soapNote.createdAt,
-          approvedAt: soapNote.approvedAt,
-          isApproved: soapNoteApproved,
-        } : null,
+        soapNote: soapNote
+          ? {
+              id: soapNote.id,
+              status: soapNote.status,
+              createdAt: soapNote.createdAt,
+              approvedAt: soapNote.approvedAt,
+              isApproved: soapNoteApproved,
+            }
+          : null,
         hasSoapNote,
         soapNoteStatus: soapNote?.status || 'MISSING',
         clinicId: order.clinicId,
-        clinic: order.clinic ? {
-          id: order.clinic.id,
-          name: order.clinic.name,
-          subdomain: order.clinic.subdomain,
-          lifefileEnabled: order.clinic.lifefileEnabled,
-          practiceName: order.clinic.lifefilePracticeName,
-        } : null,
+        clinic: order.clinic
+          ? {
+              id: order.clinic.id,
+              name: order.clinic.name,
+              subdomain: order.clinic.subdomain,
+              lifefileEnabled: order.clinic.lifefileEnabled,
+              practiceName: order.clinic.lifefilePracticeName,
+            }
+          : null,
         clinicMismatch: false,
         patientClinicId: order.patient.clinicId,
         // For approve-and-send: order payload is in requestJson; provider and rxs on order
@@ -1026,7 +1337,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         queuedByUserId: order.queuedByUserId,
       };
     });
-    
+
     // Combine and sort by queuedAt (oldest first - FIFO)
     const queueItems = [...invoiceItems, ...refillItems, ...queuedOrderItems].sort((a, b) => {
       const dateA = new Date(a.queuedAt || a.createdAt).getTime();
@@ -1049,9 +1360,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const errorStack = error instanceof Error ? error.stack : undefined;
     logger.error('[PRESCRIPTION-QUEUE] Error fetching queue', {
       error: errorMessage,
-      stack: errorStack,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
       userId: user.id,
-      clinicId: user.clinicId,
+      providerId: user.providerId,
     });
     return NextResponse.json(
       { error: 'Failed to fetch prescription queue', details: errorMessage },
@@ -1063,7 +1374,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 /**
  * PATCH /api/provider/prescription-queue
  * Mark a prescription as processed
- * 
+ *
  * Body:
  * - invoiceId: ID of the invoice to mark as processed
  */
@@ -1073,22 +1384,18 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     const { invoiceId } = body;
 
     if (!invoiceId) {
+      return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
+    }
+
+    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
+    if (clinicIds.length === 0) {
       return NextResponse.json(
-        { error: 'Invoice ID is required' },
+        { error: 'Provider must be associated with at least one clinic' },
         { status: 400 }
       );
     }
 
-    // Get provider's clinic ID
-    const clinicId = user.clinicId;
-    if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Provider must be associated with a clinic' },
-        { status: 400 }
-      );
-    }
-
-    // CRITICAL: Verify invoice exists, belongs to provider's clinic, and is in the queue
+    // CRITICAL: Verify invoice exists, belongs to one of provider's clinics, and is in the queue
     // This ensures prescriptions use the correct clinic context for:
     // - Lifefile API credentials (pharmacy routing, billing)
     // - E-prescription PDF branding (clinic name, address, phone)
@@ -1096,7 +1403,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        clinicId: clinicId, // CRITICAL: Must match provider's active clinic
+        clinicId: { in: clinicIds },
         status: 'PAID',
         prescriptionProcessed: false,
       },
@@ -1128,12 +1435,11 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     }
 
     // CRITICAL: Validate clinic context consistency
-    if (invoice.patient.clinicId !== clinicId) {
+    if (invoice.patient.clinicId !== invoice.clinicId) {
       logger.warn('Clinic mismatch: patient clinic differs from invoice clinic', {
         invoiceId,
         invoiceClinicId: invoice.clinicId,
         patientClinicId: invoice.patient.clinicId,
-        providerClinicId: clinicId,
       });
       // Allow processing but log the mismatch for audit
     }
@@ -1197,7 +1503,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 /**
  * POST /api/provider/prescription-queue
  * Decline a prescription request
- * 
+ *
  * Body:
  * - invoiceId: ID of the invoice to decline
  * - reason: Reason for declining the prescription
@@ -1208,10 +1514,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const { invoiceId, reason } = body;
 
     if (!invoiceId) {
-      return NextResponse.json(
-        { error: 'Invoice ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
     }
 
     if (!reason || typeof reason !== 'string' || reason.trim().length < 10) {
@@ -1221,20 +1524,19 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       );
     }
 
-    // Get provider's clinic ID
-    const clinicId = user.clinicId;
-    if (!clinicId) {
+    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
+    if (clinicIds.length === 0) {
       return NextResponse.json(
-        { error: 'Provider must be associated with a clinic' },
+        { error: 'Provider must be associated with at least one clinic' },
         { status: 400 }
       );
     }
 
-    // Verify invoice exists, belongs to provider's clinic, and is in the queue
+    // Verify invoice exists, belongs to one of provider's clinics, and is in the queue
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
-        clinicId: clinicId,
+        clinicId: { in: clinicIds },
         status: 'PAID',
         prescriptionProcessed: false,
       },
@@ -1269,14 +1571,14 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     if (user.id) {
       const userData = await prisma.user.findUnique({
         where: { id: user.id },
-        select: { 
+        select: {
           providerId: true,
           provider: {
             select: {
               firstName: true,
               lastName: true,
-            }
-          }
+            },
+          },
         },
       });
       providerId = userData?.providerId || null;
@@ -1336,10 +1638,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to decline prescription' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to decline prescription' }, { status: 500 });
   }
 }
 

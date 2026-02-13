@@ -16,8 +16,12 @@ vi.mock('@aws-sdk/client-s3', () => ({
   })),
   PutObjectCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'PutObject' })),
   GetObjectCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'GetObject' })),
-  DeleteObjectCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'DeleteObject' })),
-  ListObjectsV2Command: vi.fn().mockImplementation((params) => ({ ...params, _type: 'ListObjects' })),
+  DeleteObjectCommand: vi
+    .fn()
+    .mockImplementation((params) => ({ ...params, _type: 'DeleteObject' })),
+  ListObjectsV2Command: vi
+    .fn()
+    .mockImplementation((params) => ({ ...params, _type: 'ListObjects' })),
   HeadObjectCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'HeadObject' })),
 }));
 
@@ -30,7 +34,9 @@ vi.mock('@aws-sdk/client-ses', () => ({
     send: mockSESSend,
   })),
   SendEmailCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'SendEmail' })),
-  SendTemplatedEmailCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'SendTemplatedEmail' })),
+  SendTemplatedEmailCommand: vi
+    .fn()
+    .mockImplementation((params) => ({ ...params, _type: 'SendTemplatedEmail' })),
   GetSendQuotaCommand: vi.fn().mockImplementation(() => ({ _type: 'GetSendQuota' })),
 }));
 
@@ -40,7 +46,9 @@ vi.mock('@aws-sdk/client-kms', () => ({
   })),
   EncryptCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'Encrypt' })),
   DecryptCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'Decrypt' })),
-  GenerateDataKeyCommand: vi.fn().mockImplementation((params) => ({ ...params, _type: 'GenerateDataKey' })),
+  GenerateDataKeyCommand: vi
+    .fn()
+    .mockImplementation((params) => ({ ...params, _type: 'GenerateDataKey' })),
 }));
 
 // Mock logger
@@ -103,9 +111,9 @@ describe('AWS S3 Service', () => {
       const patientId = 123;
       const filename = 'intake-form.pdf';
       const timestamp = Date.now();
-      
+
       const key = `patients/${patientId}/documents/${timestamp}-${filename}`;
-      
+
       expect(key).toContain('patients/123');
       expect(key).toContain('intake-form.pdf');
     });
@@ -120,12 +128,12 @@ describe('AWS S3 Service', () => {
 
     it('should set correct content type for different file types', () => {
       const contentTypes: Record<string, string> = {
-        'pdf': 'application/pdf',
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'doc': 'application/msword',
-        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        pdf: 'application/pdf',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       };
 
       Object.entries(contentTypes).forEach(([ext, expectedType]) => {
@@ -172,7 +180,7 @@ describe('AWS S3 Service', () => {
   describe('Signed URLs', () => {
     it('should generate signed URL for upload', async () => {
       const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-      
+
       const signedUrl = await getSignedUrl(
         {} as any,
         { Bucket: 'test-bucket', Key: 'test.pdf' } as any,
@@ -185,7 +193,7 @@ describe('AWS S3 Service', () => {
 
     it('should generate signed URL for download', async () => {
       const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-      
+
       const signedUrl = await getSignedUrl(
         {} as any,
         { Bucket: 'test-bucket', Key: 'patients/1/documents/test.pdf' } as any,
@@ -539,7 +547,7 @@ describe('AWS KMS Service', () => {
 
       // Simulate encryption of PHI fields
       const encryptedData = { ...patientData };
-      phiFields.forEach(field => {
+      phiFields.forEach((field) => {
         if (encryptedData[field as keyof typeof encryptedData]) {
           // In real implementation, this would call KMS
           (encryptedData as any)[field] = `encrypted:${(encryptedData as any)[field]}`;
@@ -562,7 +570,7 @@ describe('AWS KMS Service', () => {
 
       // Simulate decryption
       const decryptedData = { ...encryptedData };
-      Object.keys(decryptedData).forEach(key => {
+      Object.keys(decryptedData).forEach((key) => {
         const value = (decryptedData as any)[key];
         if (typeof value === 'string' && value.startsWith('encrypted:')) {
           (decryptedData as any)[key] = value.replace('encrypted:', '');

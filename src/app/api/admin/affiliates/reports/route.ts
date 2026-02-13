@@ -48,11 +48,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 
   try {
     // Determine clinic filter based on user role
-    const clinicFilter = user.role === 'super_admin'
-      ? {}
-      : user.clinicId
-        ? { clinicId: user.clinicId }
-        : {};
+    const clinicFilter =
+      user.role === 'super_admin' ? {} : user.clinicId ? { clinicId: user.clinicId } : {};
 
     // Calculate date range
     let dateFrom: Date;
@@ -181,17 +178,23 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       commissionCents: number;
     };
 
-    type ModernAffiliate = typeof topModernAffiliates[number];
+    type ModernAffiliate = (typeof topModernAffiliates)[number];
     type ModernCommissionEvent = ModernAffiliate['commissionEvents'][number];
-    type LegacyInfluencer = typeof topLegacyInfluencers[number];
+    type LegacyInfluencer = (typeof topLegacyInfluencers)[number];
 
     const allTopAffiliates: TopAffiliate[] = [
       ...topModernAffiliates.map((a: ModernAffiliate) => ({
         id: a.id,
         name: a.displayName,
         conversions: a.commissionEvents.length,
-        revenueCents: a.commissionEvents.reduce((sum: number, e: ModernCommissionEvent) => sum + (e.eventAmountCents || 0), 0),
-        commissionCents: a.commissionEvents.reduce((sum: number, e: ModernCommissionEvent) => sum + (e.commissionAmountCents || 0), 0),
+        revenueCents: a.commissionEvents.reduce(
+          (sum: number, e: ModernCommissionEvent) => sum + (e.eventAmountCents || 0),
+          0
+        ),
+        commissionCents: a.commissionEvents.reduce(
+          (sum: number, e: ModernCommissionEvent) => sum + (e.commissionAmountCents || 0),
+          0
+        ),
       })),
       ...topLegacyInfluencers.map((i: LegacyInfluencer) => ({
         id: i.id + 100000, // Offset to avoid ID collision
@@ -274,7 +277,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         _count: true,
       });
 
-      type FraudAlert = typeof fraudAlerts[number];
+      type FraudAlert = (typeof fraudAlerts)[number];
       fraudData.openAlerts = fraudAlerts.reduce((sum: number, a: FraudAlert) => sum + a._count, 0);
       fraudData.criticalAlerts = fraudAlerts
         .filter((a: FraudAlert) => a.severity === 'CRITICAL')
@@ -304,10 +307,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to fetch affiliate reports' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch affiliate reports' }, { status: 500 });
   }
 }
 

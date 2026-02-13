@@ -23,6 +23,8 @@ import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import NextLink from 'next/link';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 
 interface PaymentMethod {
   id: string;
@@ -95,11 +97,15 @@ export default function BillingPage() {
         return;
       }
       if (res.ok) {
-        const result = await res.json();
-        setData(result);
+        const result = await safeParseJson(res);
+        setData(
+          result !== null && typeof result === 'object' ? (result as BillingData) : null
+        );
       }
     } catch (error) {
-      console.error('Failed to fetch billing data:', error);
+      logger.error('Failed to fetch billing data', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setLoading(false);
     }
@@ -111,11 +117,17 @@ export default function BillingPage() {
         method: 'POST',
       });
       if (res.ok) {
-        const { url } = await res.json();
-        window.location.href = url;
+        const parsed = await safeParseJson(res);
+        const url =
+          parsed !== null && typeof parsed === 'object' && 'url' in parsed
+            ? (parsed as { url?: string }).url
+            : undefined;
+        if (url) window.location.href = url;
       }
     } catch (error) {
-      console.error('Failed to open customer portal:', error);
+      logger.error('Failed to open customer portal', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 

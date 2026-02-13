@@ -24,20 +24,20 @@ export function ClinicProvider({ children, initialClinic }: ClinicProviderProps)
   const [clinic, setClinic] = useState<Clinic | null>(initialClinic || null);
   const [isLoading, setIsLoading] = useState(!initialClinic);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     if (!initialClinic) {
       fetchCurrentClinic();
     }
   }, [initialClinic]);
-  
+
   const fetchCurrentClinic = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const response = await fetch('/api/clinic/current');
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           // No clinic context, might need to select one
@@ -46,7 +46,7 @@ export function ClinicProvider({ children, initialClinic }: ClinicProviderProps)
         }
         throw new Error('Failed to fetch current clinic');
       }
-      
+
       const data = await response.json();
       setClinic(data);
     } catch (err) {
@@ -56,28 +56,28 @@ export function ClinicProvider({ children, initialClinic }: ClinicProviderProps)
       setIsLoading(false);
     }
   };
-  
+
   const switchClinic = async (clinicId: number) => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const response = await fetch('/api/clinic/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clinicId }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to switch clinic');
       }
-      
+
       const data = await response.json();
       setClinic(data);
-      
+
       // Set cookie for persistence
       document.cookie = `selected-clinic=${clinicId}; path=/; max-age=${30 * 24 * 60 * 60}`; // 30 days
-      
+
       // Optionally reload the page to ensure all data is refreshed
       if (data.requiresReload) {
         window.location.reload();
@@ -89,19 +89,19 @@ export function ClinicProvider({ children, initialClinic }: ClinicProviderProps)
       setIsLoading(false);
     }
   };
-  
+
   const refreshClinic = async () => {
     await fetchCurrentClinic();
   };
-  
+
   return (
-    <ClinicContext.Provider 
-      value={{ 
-        clinic, 
-        isLoading, 
-        error, 
-        switchClinic, 
-        refreshClinic 
+    <ClinicContext.Provider
+      value={{
+        clinic,
+        isLoading,
+        error,
+        switchClinic,
+        refreshClinic,
       }}
     >
       {children}
@@ -120,14 +120,14 @@ export const useClinic = () => {
 // Helper hook for requiring clinic context
 export const useRequireClinic = () => {
   const { clinic, isLoading, error } = useClinic();
-  
+
   if (isLoading) {
     return { clinic: null, isReady: false };
   }
-  
+
   if (!clinic) {
     throw new Error('Clinic context is required but not available');
   }
-  
+
   return { clinic, isReady: true };
 };

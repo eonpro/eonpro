@@ -1,29 +1,29 @@
 /**
  * DATABASE METRICS API
  * ====================
- * 
+ *
  * Admin endpoint for monitoring database performance:
  * - Query optimizer metrics
  * - Connection pool status
  * - Cache hit rates
  * - Slow query tracking
- * 
+ *
  * GET /api/admin/database-metrics - Get all metrics
  * POST /api/admin/database-metrics/clear-cache - Clear caches
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
-import { 
-  getDatabaseMetrics, 
+import {
+  getDatabaseMetrics,
   getDatabaseHealth,
   clearAllCaches,
   invalidateEntity,
 } from '@/lib/database';
 import { logger } from '@/lib/logger';
 
-// Only allow super_admin and admin
-const ALLOWED_ROLES = ['super_admin', 'admin'];
+// Control Center: super_admin only
+const ALLOWED_ROLES = ['super_admin'];
 
 /**
  * GET - Retrieve database metrics
@@ -45,10 +45,7 @@ export const GET = withAuth(async (request: NextRequest, user) => {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get database metrics', { error: errorMsg });
-    return NextResponse.json(
-      { error: 'Failed to retrieve metrics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to retrieve metrics' }, { status: 500 });
   }
 });
 
@@ -68,27 +65,24 @@ export const POST = withAuth(async (request: NextRequest, user) => {
       case 'clear-all':
         await clearAllCaches();
         logger.info('All caches cleared', { userId: user.id });
-        return NextResponse.json({ 
-          success: true, 
-          message: 'All caches cleared' 
+        return NextResponse.json({
+          success: true,
+          message: 'All caches cleared',
         });
 
       case 'invalidate':
         if (!entityType) {
-          return NextResponse.json(
-            { error: 'entityType is required' },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: 'entityType is required' }, { status: 400 });
         }
         await invalidateEntity(entityType, entityId);
-        logger.info('Entity cache invalidated', { 
-          userId: user.id, 
-          entityType, 
-          entityId 
+        logger.info('Entity cache invalidated', {
+          userId: user.id,
+          entityType,
+          entityId,
         });
-        return NextResponse.json({ 
-          success: true, 
-          message: `Cache invalidated for ${entityType}${entityId ? `:${entityId}` : ''}` 
+        return NextResponse.json({
+          success: true,
+          message: `Cache invalidated for ${entityType}${entityId ? `:${entityId}` : ''}`,
         });
 
       default:
@@ -100,10 +94,7 @@ export const POST = withAuth(async (request: NextRequest, user) => {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Cache operation failed', { error: errorMsg, userId: user.id });
-    return NextResponse.json(
-      { error: 'Cache operation failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Cache operation failed' }, { status: 500 });
   }
 });
 
@@ -118,9 +109,8 @@ function generateRecommendations(
   const queryMetrics = metrics.queryOptimizer;
 
   // Cache hit rate recommendations
-  const cacheHitRate = queryMetrics.totalQueries > 0
-    ? (queryMetrics.cacheHits / queryMetrics.totalQueries) * 100
-    : 0;
+  const cacheHitRate =
+    queryMetrics.totalQueries > 0 ? (queryMetrics.cacheHits / queryMetrics.totalQueries) * 100 : 0;
 
   if (cacheHitRate < 50 && queryMetrics.totalQueries > 100) {
     recommendations.push(
@@ -129,9 +119,10 @@ function generateRecommendations(
   }
 
   // Slow query recommendations
-  const slowQueryRate = queryMetrics.totalQueries > 0
-    ? (queryMetrics.slowQueries / queryMetrics.totalQueries) * 100
-    : 0;
+  const slowQueryRate =
+    queryMetrics.totalQueries > 0
+      ? (queryMetrics.slowQueries / queryMetrics.totalQueries) * 100
+      : 0;
 
   if (slowQueryRate > 5) {
     recommendations.push(
@@ -152,9 +143,7 @@ function generateRecommendations(
       'Connection pool is degraded. Monitor for connection leaks or increase pool size.'
     );
   } else if (health.status === 'unhealthy') {
-    recommendations.push(
-      'Connection pool is unhealthy! Immediate investigation required.'
-    );
+    recommendations.push('Connection pool is unhealthy! Immediate investigation required.');
   }
 
   // L1 cache recommendations

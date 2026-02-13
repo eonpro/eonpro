@@ -1,13 +1,18 @@
 /**
  * Admin/Provider: upload Quest bloodwork PDF for a patient.
  * Rate limited; errors return structured codes (parse vs storage vs validation).
+ * Uses Node runtime to support pdf-parse and native dependencies.
  */
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
 import { createBloodworkReportFromPdf } from '@/lib/bloodwork/service';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';
+import { ensureTenantResource } from '@/lib/tenant-response';
 import { handleApiError } from '@/domains/shared/errors';
 import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -30,7 +35,10 @@ function isSchemaOrTableError(err: unknown): boolean {
     lower.includes('unknown field') ||
     lower.includes('unknown argument') ||
     lower.includes('labreport') ||
-    lower.includes('lab report')
+    lower.includes('lab report') ||
+    lower.includes('relation') && lower.includes('exist') ||
+    lower.includes('table') && (lower.includes('exist') || lower.includes('missing')) ||
+    lower.includes('column') && lower.includes('exist')
   );
 }
 
@@ -65,12 +73,9 @@ async function postHandler(
     where: { id: patientId },
     select: { id: true, clinicId: true },
   });
-  if (!patient) {
-    return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-  }
-  if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-  }
+  const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+  const notFound = ensureTenantResource(patient, clinicId);
+  if (notFound) return notFound;
   if (patient.clinicId == null) {
     return NextResponse.json(
       { error: 'Patient must be assigned to a clinic before uploading lab reports.' },
@@ -149,7 +154,7 @@ async function postHandler(
       userId: user.id,
       patientId,
       error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : undefined }),
     });
     if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
       return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });

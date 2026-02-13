@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 import {
   Package,
   Truck,
@@ -113,7 +116,7 @@ export default function ShipmentsPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/patient-portal/tracking');
+      const response = await portalFetch('/api/patient-portal/tracking');
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -123,20 +126,29 @@ export default function ShipmentsPage() {
         throw new Error('Failed to load shipments');
       }
 
-      const data = await response.json();
+      const data = await safeParseJson(response);
+      const active =
+        data !== null && typeof data === 'object' && 'activeShipments' in data
+          ? (data as { activeShipments?: unknown[] }).activeShipments ?? []
+          : [];
+      const delivered =
+        data !== null && typeof data === 'object' && 'deliveredShipments' in data
+          ? (data as { deliveredShipments?: unknown[] }).deliveredShipments ?? []
+          : [];
+      setActiveShipments(Array.isArray(active) ? active : []);
+      setDeliveredShipments(Array.isArray(delivered) ? delivered : []);
 
-      setActiveShipments(data.activeShipments || []);
-      setDeliveredShipments(data.deliveredShipments || []);
-
-      if (data.activeShipments?.length > 0) {
-        setSelectedShipment(data.activeShipments[0]);
+      if (Array.isArray(active) && active.length > 0) {
+        setSelectedShipment(active[0] as Shipment);
         setActiveTab('active');
-      } else if (data.deliveredShipments?.length > 0) {
-        setSelectedShipment(data.deliveredShipments[0]);
+      } else if (Array.isArray(delivered) && delivered.length > 0) {
+        setSelectedShipment(delivered[0] as Shipment);
         setActiveTab('history');
       }
     } catch (err) {
-      console.error('Error loading shipments:', err);
+      logger.error('Error loading shipments', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
       setError(err instanceof Error ? err.message : 'Failed to load shipments');
     } finally {
       setLoading(false);
@@ -169,7 +181,7 @@ export default function ShipmentsPage() {
         <div className="flex items-center gap-4">
           <Link
             href="/patient-portal"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-gray-100 hover:shadow-md transition-all"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md"
           >
             <ArrowLeft className="h-5 w-5 text-gray-600" />
           </Link>
@@ -181,7 +193,7 @@ export default function ShipmentsPage() {
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm border border-gray-100 hover:shadow-md transition-all disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition-all hover:shadow-md disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
@@ -189,13 +201,13 @@ export default function ShipmentsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl bg-red-50 border border-red-100 p-4 text-red-700">
+        <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700">
           {error}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="mb-6 inline-flex rounded-2xl bg-white p-1.5 shadow-sm border border-gray-100">
+      <div className="mb-6 inline-flex rounded-2xl border border-gray-100 bg-white p-1.5 shadow-sm">
         <button
           onClick={() => {
             setActiveTab('active');
@@ -227,7 +239,7 @@ export default function ShipmentsPage() {
       </div>
 
       {currentShipments.length === 0 ? (
-        <div className="rounded-3xl bg-white p-12 text-center shadow-sm border border-gray-100">
+        <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50">
             {activeTab === 'active' ? (
               <Package className="h-10 w-10 text-gray-400" />
@@ -248,7 +260,7 @@ export default function ShipmentsPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Shipment List */}
           <div className="space-y-3 lg:col-span-1">
-            <h2 className="mb-3 text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
               {activeTab === 'active' ? 'Active Orders' : 'Past Deliveries'}
             </h2>
             {currentShipments.map((shipment) => {
@@ -260,10 +272,10 @@ export default function ShipmentsPage() {
                 <button
                   key={shipment.id}
                   onClick={() => setSelectedShipment(shipment)}
-                  className={`w-full rounded-2xl bg-white p-4 text-left transition-all border-2 ${
+                  className={`w-full rounded-2xl border-2 bg-white p-4 text-left transition-all ${
                     isSelected
                       ? 'border-purple-500 shadow-lg shadow-purple-500/10'
-                      : 'border-transparent shadow-sm hover:shadow-md hover:border-gray-200'
+                      : 'border-transparent shadow-sm hover:border-gray-200 hover:shadow-md'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -272,7 +284,9 @@ export default function ShipmentsPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="truncate font-semibold text-gray-900">{shipment.orderNumber}</p>
+                        <p className="truncate font-semibold text-gray-900">
+                          {shipment.orderNumber}
+                        </p>
                         {shipment.isRefill && (
                           <span className="flex items-center gap-0.5 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
                             <Sparkles className="h-3 w-3" />
@@ -283,8 +297,8 @@ export default function ShipmentsPage() {
                       <p className={`text-sm font-medium ${config.textColor}`}>
                         {shipment.statusLabel}
                       </p>
-                      <p className="mt-1 text-xs text-gray-400 truncate">
-                        {shipment.items.map(i => i.name).join(', ')}
+                      <p className="mt-1 truncate text-xs text-gray-400">
+                        {shipment.items.map((i) => i.name).join(', ')}
                       </p>
                     </div>
                     <ChevronRight
@@ -302,12 +316,14 @@ export default function ShipmentsPage() {
           {selectedShipment && (
             <div className="space-y-6 lg:col-span-2">
               {/* Status Hero Card */}
-              <div className="overflow-hidden rounded-3xl bg-white shadow-lg border border-gray-100">
-                <div className={`relative bg-gradient-to-r ${statusConfig[selectedShipment.status].gradient} px-8 py-8`}>
+              <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg">
+                <div
+                  className={`relative bg-gradient-to-r ${statusConfig[selectedShipment.status].gradient} px-8 py-8`}
+                >
                   {/* Decorative elements */}
                   <div className="absolute inset-0 overflow-hidden">
                     <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
-                    <div className="absolute -left-5 -bottom-5 h-24 w-24 rounded-full bg-white/10" />
+                    <div className="absolute -bottom-5 -left-5 h-24 w-24 rounded-full bg-white/10" />
                   </div>
 
                   <div className="relative flex items-center justify-between">
@@ -335,7 +351,9 @@ export default function ShipmentsPage() {
                   {(selectedShipment.estimatedDelivery || selectedShipment.deliveredAt) && (
                     <div className="relative mt-6 rounded-2xl bg-white/20 p-4 backdrop-blur-sm">
                       <p className="text-xs font-medium text-white/80">
-                        {selectedShipment.status === 'delivered' ? 'Delivered On' : 'Expected Delivery'}
+                        {selectedShipment.status === 'delivered'
+                          ? 'Delivered On'
+                          : 'Expected Delivery'}
                       </p>
                       <p className="text-xl font-bold text-white">
                         {new Date(
@@ -366,9 +384,9 @@ export default function ShipmentsPage() {
                         const ItemIcon = item.icon;
 
                         return (
-                          <div key={idx} className="flex flex-col items-center relative">
+                          <div key={idx} className="relative flex flex-col items-center">
                             {idx < 4 && (
-                              <div className="absolute left-[50%] top-5 w-full h-1 -z-10">
+                              <div className="absolute left-[50%] top-5 -z-10 h-1 w-full">
                                 <div
                                   className={`h-full transition-all duration-500 ${
                                     isCompleted
@@ -384,12 +402,12 @@ export default function ShipmentsPage() {
                                 isCompleted
                                   ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                                   : isCurrent
-                                  ? 'bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-110'
-                                  : 'bg-gray-100 text-gray-400'
+                                    ? 'scale-110 bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+                                    : 'bg-gray-100 text-gray-400'
                               }`}
                             >
                               {isCurrent && (
-                                <div className="absolute inset-0 rounded-full bg-purple-400 animate-ping opacity-30" />
+                                <div className="absolute inset-0 animate-ping rounded-full bg-purple-400 opacity-30" />
                               )}
                               {isCompleted ? (
                                 <CheckCircle2 className="h-5 w-5" />
@@ -399,12 +417,12 @@ export default function ShipmentsPage() {
                             </div>
 
                             <span
-                              className={`mt-2 text-xs font-medium text-center ${
+                              className={`mt-2 text-center text-xs font-medium ${
                                 isCurrent
                                   ? 'text-purple-600'
                                   : isCompleted
-                                  ? 'text-emerald-600'
-                                  : 'text-gray-400'
+                                    ? 'text-emerald-600'
+                                    : 'text-gray-400'
                               }`}
                             >
                               {item.label}
@@ -418,32 +436,34 @@ export default function ShipmentsPage() {
               </div>
 
               {/* Tracking Info Card */}
-              <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+              <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
                 <h3 className="mb-4 font-bold text-gray-900">Tracking Information</h3>
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 border border-blue-100">
+                    <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
                       <p className="mb-1 text-xs font-medium text-blue-600">Carrier</p>
                       <p className="text-lg font-bold text-blue-900">{selectedShipment.carrier}</p>
                     </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-slate-50 p-4 border border-gray-100">
+                    <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-slate-50 p-4">
                       <p className="mb-1 text-xs font-medium text-gray-500">Tracking Number</p>
-                      <p className="font-mono text-sm font-semibold text-gray-900 break-all">
+                      <p className="break-all font-mono text-sm font-semibold text-gray-900">
                         {selectedShipment.trackingNumber}
                       </p>
                     </div>
                   </div>
 
                   {selectedShipment.lastLocation && (
-                    <div className="flex items-start gap-3 rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 p-4 border border-purple-100">
+                    <div className="flex items-start gap-3 rounded-2xl border border-purple-100 bg-gradient-to-r from-violet-50 to-purple-50 p-4">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/10">
                         <MapPin className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>
                         <p className="text-xs font-medium text-purple-600">Latest Update</p>
-                        <p className="font-semibold text-purple-900">{selectedShipment.lastLocation}</p>
-                        <p className="text-xs text-purple-500 mt-0.5">
+                        <p className="font-semibold text-purple-900">
+                          {selectedShipment.lastLocation}
+                        </p>
+                        <p className="mt-0.5 text-xs text-purple-500">
                           {new Date(selectedShipment.lastUpdate).toLocaleString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -460,7 +480,7 @@ export default function ShipmentsPage() {
                       href={selectedShipment.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.01] active:scale-[0.99]"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.01] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.99]"
                     >
                       <Truck className="h-5 w-5" />
                       Track on {selectedShipment.carrier}
@@ -471,7 +491,7 @@ export default function ShipmentsPage() {
               </div>
 
               {/* Order Items Card */}
-              <div className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+              <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
                 <h3 className="mb-4 font-bold text-gray-900">📦 Package Contents</h3>
 
                 <div className="space-y-3">

@@ -1,11 +1,11 @@
 /**
  * SOAP Note Generation API
- * 
+ *
  * POST /api/soap-notes/generate
- * 
+ *
  * Generates a SOAP note for a patient who is paid and ready for prescription
  * but is missing clinical documentation.
- * 
+ *
  * This endpoint allows providers to:
  * 1. Generate SOAP from intake documents
  * 2. Generate SOAP from invoice metadata (Heyflow patients)
@@ -17,10 +17,10 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { 
-  ensureSoapNoteExists, 
+import {
+  ensureSoapNoteExists,
   processMissingSoapNotes,
-  getPatientSoapNote 
+  getPatientSoapNote,
 } from '@/lib/soap-note-automation';
 import { z } from 'zod';
 
@@ -39,9 +39,9 @@ const batchGenerateSchema = z.object({
 
 /**
  * POST /api/soap-notes/generate
- * 
+ *
  * Generate SOAP note for a patient
- * 
+ *
  * Body options:
  * 1. Single patient: { patientId: number, invoiceId?: number, force?: boolean }
  * 2. Batch mode: { batch: true, limit?: number }
@@ -84,7 +84,7 @@ export const POST = withAuth(
         if (!force) {
           const existingSoapNote = await getPatientSoapNote(patientId);
           if (existingSoapNote) {
-            return { 
+            return {
               existingNote: true,
               soapNote: existingSoapNote,
               patient,
@@ -102,10 +102,7 @@ export const POST = withAuth(
       });
 
       if ('error' in result) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: result.status }
-        );
+        return NextResponse.json({ error: result.error }, { status: result.status });
       }
 
       // Handle existing note case
@@ -126,10 +123,13 @@ export const POST = withAuth(
       const { soapResult, patient } = result;
 
       if (!soapResult) {
-        return NextResponse.json({
-          ok: false,
-          error: 'Failed to generate SOAP note - unexpected result',
-        }, { status: 500 });
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Failed to generate SOAP note - unexpected result',
+          },
+          { status: 500 }
+        );
       }
 
       // HIPAA Audit: Log SOAP note generation
@@ -152,14 +152,18 @@ export const POST = withAuth(
       });
 
       if (!soapResult.success) {
-        return NextResponse.json({
-          ok: false,
-          error: soapResult.error || 'Failed to generate SOAP note',
-          action: soapResult.action,
-          message: soapResult.action === 'no_data' 
-            ? 'No intake data available. Please add intake form data or create SOAP note manually.'
-            : 'SOAP note generation failed. Please try again or create manually.',
-        }, { status: 422 });
+        return NextResponse.json(
+          {
+            ok: false,
+            error: soapResult.error || 'Failed to generate SOAP note',
+            action: soapResult.action,
+            message:
+              soapResult.action === 'no_data'
+                ? 'No intake data available. Please add intake form data or create SOAP note manually.'
+                : 'SOAP note generation failed. Please try again or create manually.',
+          },
+          { status: 422 }
+        );
       }
 
       logger.info('[API] SOAP note generated successfully', {
@@ -182,15 +186,14 @@ export const POST = withAuth(
           name: `${patient.firstName} ${patient.lastName}`,
         },
       });
-
     } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[API] Error generating SOAP note:', { error: errorMessage });
-      
+
       // Handle rate limit errors gracefully
       if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
         return NextResponse.json(
-          { 
+          {
             error: 'AI service is busy. Please wait 30 seconds and try again.',
             code: 'RATE_LIMIT',
             retryAfter: 30,
@@ -205,15 +208,15 @@ export const POST = withAuth(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider'] }  // Admin can generate, but provider must approve
+  { roles: ['super_admin', 'admin', 'provider'] } // Admin can generate, but provider must approve
 );
 
 /**
  * Handle batch processing of missing SOAP notes
  */
 async function handleBatchGeneration(
-  request: NextRequest, 
-  user: AuthUser, 
+  request: NextRequest,
+  user: AuthUser,
   body: any
 ): Promise<NextResponse> {
   const parsed = batchGenerateSchema.safeParse(body);
@@ -274,9 +277,8 @@ async function handleBatchGeneration(
         noData: result.noData,
       },
     });
-
   } catch (error: any) {
-    logger.error('[API] Batch SOAP note processing failed:', { 
+    logger.error('[API] Batch SOAP note processing failed:', {
       error: error.message,
       clinicId,
     });
@@ -290,7 +292,7 @@ async function handleBatchGeneration(
 
 /**
  * GET /api/soap-notes/generate
- * 
+ *
  * Get count of patients in prescription queue missing SOAP notes
  */
 export const GET = withAuth(
@@ -327,19 +329,14 @@ export const GET = withAuth(
         ok: true,
         missingSoapNotes: missingCount,
         totalInQueue: totalQueueCount,
-        percentageMissing: totalQueueCount > 0 
-          ? Math.round((missingCount / totalQueueCount) * 100) 
-          : 0,
+        percentageMissing:
+          totalQueueCount > 0 ? Math.round((missingCount / totalQueueCount) * 100) : 0,
       });
-
     } catch (error: any) {
-      logger.error('[API] Error getting missing SOAP note count:', { 
-        error: error.message 
+      logger.error('[API] Error getting missing SOAP note count:', {
+        error: error.message,
       });
-      return NextResponse.json(
-        { error: 'Failed to get missing SOAP note count' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to get missing SOAP note count' }, { status: 500 });
     }
   },
   { roles: ['super_admin', 'admin', 'provider'] }

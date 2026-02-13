@@ -136,15 +136,15 @@ export interface MergeResult {
 // PHI Fields for decryption
 // ============================================================================
 
-/** 
+/**
  * PHI fields that need encryption/decryption
  * Must match patient.repository.ts PHI_FIELDS
  */
 const PHI_FIELDS = [
   'firstName',
-  'lastName', 
-  'email', 
-  'phone', 
+  'lastName',
+  'email',
+  'phone',
   'dob',
   'address1',
   'address2',
@@ -217,8 +217,12 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
       }
 
       // Decrypt PHI fields (cast to unknown first for PHI decryption compatibility)
-      const source = decryptPatient(sourceRaw as unknown as Record<string, unknown>) as unknown as PatientEntity & { _counts: RelationCounts };
-      const target = decryptPatient(targetRaw as unknown as Record<string, unknown>) as unknown as PatientEntity & { _counts: RelationCounts };
+      const source = decryptPatient(
+        sourceRaw as unknown as Record<string, unknown>
+      ) as unknown as PatientEntity & { _counts: RelationCounts };
+      const target = decryptPatient(
+        targetRaw as unknown as Record<string, unknown>
+      ) as unknown as PatientEntity & { _counts: RelationCounts };
 
       // Build merged profile
       const mergedProfile = buildMergedProfile(source, target);
@@ -579,7 +583,10 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
         // =====================================================================
 
         // Clear stripeCustomerId from source if it was moved (to avoid unique constraint)
-        if (preview.source.stripeCustomerId && preview.source.stripeCustomerId === stripeCustomerId) {
+        if (
+          preview.source.stripeCustomerId &&
+          preview.source.stripeCustomerId === stripeCustomerId
+        ) {
           await tx.patient.update({
             where: { id: sourcePatientId },
             data: { stripeCustomerId: null },
@@ -720,10 +727,7 @@ function decryptPatient<T extends Record<string, unknown>>(patient: T): T {
 /**
  * Build merged profile using target values, filling gaps from source
  */
-function buildMergedProfile(
-  source: PatientEntity,
-  target: PatientEntity
-): PatientMergeFields {
+function buildMergedProfile(source: PatientEntity, target: PatientEntity): PatientMergeFields {
   return {
     // Use target values, fallback to source if target is empty
     firstName: target.firstName || source.firstName,
@@ -813,7 +817,7 @@ function checkMergeConflicts(
         type: 'warning',
         field: 'stripeCustomerId',
         message:
-          'Both patients have different Stripe customer IDs. The target patient\'s Stripe ID will be kept. You may need to merge customers in Stripe separately.',
+          "Both patients have different Stripe customer IDs. The target patient's Stripe ID will be kept. You may need to merge customers in Stripe separately.",
       });
     }
   }
@@ -825,7 +829,7 @@ function checkMergeConflicts(
         type: 'warning',
         field: 'lifefileId',
         message:
-          'Both patients have different Lifefile IDs. The target patient\'s Lifefile ID will be kept.',
+          "Both patients have different Lifefile IDs. The target patient's Lifefile ID will be kept.",
       });
     }
   }

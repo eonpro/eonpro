@@ -1,6 +1,6 @@
 /**
  * AWS S3 Access Control API Endpoint
- * 
+ *
  * Updates file access permissions
  */
 
@@ -14,17 +14,11 @@ export async function POST(request: NextRequest) {
     const { key, accessLevel } = await request.json();
 
     if (!key) {
-      return NextResponse.json(
-        { error: 'File key is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'File key is required' }, { status: 400 });
     }
 
     if (!accessLevel || !Object.values(FileAccessLevel).includes(accessLevel)) {
-      return NextResponse.json(
-        { error: 'Valid access level is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Valid access level is required' }, { status: 400 });
     }
 
     // Check if feature is enabled
@@ -40,10 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Check if S3 is configured
     if (!isS3Enabled()) {
-      return NextResponse.json(
-        { error: S3_ERRORS.NOT_CONFIGURED },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: S3_ERRORS.NOT_CONFIGURED }, { status: 503 });
     }
 
     // In production, you would update the file's metadata here
@@ -56,10 +47,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Access Control] Error:', error);
-    
+
     return NextResponse.json(
       { error: errorMessage || 'Failed to update access control' },
       { status: 500 }

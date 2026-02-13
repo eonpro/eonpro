@@ -528,7 +528,8 @@ html {
 
 /* Subtle pulse for urgent notifications */
 @keyframes pulse-subtle {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
   }
@@ -544,9 +545,23 @@ html {
 
 /* Notification bell shake */
 @keyframes bell-shake {
-  0%, 100% { transform: rotate(0); }
-  10%, 30%, 50%, 70%, 90% { transform: rotate(-5deg); }
-  20%, 40%, 60%, 80% { transform: rotate(5deg); }
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: rotate(-5deg);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: rotate(5deg);
+  }
 }
 
 .animate-bell-shake {
@@ -571,8 +586,13 @@ html {
 
 /* Badge bounce */
 @keyframes badge-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
 }
 
 .animate-badge-bounce {

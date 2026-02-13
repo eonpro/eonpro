@@ -2,7 +2,7 @@
  * PATIENT BILLING API
  * ====================
  * Get patient billing information, balance, and history
- * 
+ *
  * GET /api/v2/patients/[id]/billing - Get billing summary
  * POST /api/v2/patients/[id]/billing - Add credit or adjustment
  */
@@ -23,20 +23,17 @@ export async function GET(
     // Verify auth
     const authResult = await verifyAuth(req);
     if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     const user = authResult.user;
-    
+
     const { id } = await params;
     const patientId = parseInt(id);
-    
+
     if (isNaN(patientId)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
-    
+
     // Get patient
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
@@ -56,15 +53,15 @@ export async function GET(
         paymentMethods: true,
       },
     });
-    
+
     if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
-    
+
     // Calculate balance
     const invoiceManager = createInvoiceManager(user.clinicId);
     const invoiceSummary = await invoiceManager.getPatientInvoiceSummary(patientId);
-    
+
     // Get payment methods from Stripe if available
     let stripePaymentMethods: any[] = [];
     if (patient.stripeCustomerId) {
@@ -75,29 +72,31 @@ export async function GET(
           customer: patient.stripeCustomerId,
           type: 'card',
         });
-        stripePaymentMethods = methods.data.map(m => ({
+        stripePaymentMethods = methods.data.map((m) => ({
           id: m.id,
           type: m.type,
-          card: m.card ? {
-            brand: m.card.brand,
-            last4: m.card.last4,
-            expMonth: m.card.exp_month,
-            expYear: m.card.exp_year,
-          } : null,
+          card: m.card
+            ? {
+                brand: m.card.brand,
+                last4: m.card.last4,
+                expMonth: m.card.exp_month,
+                expYear: m.card.exp_year,
+              }
+            : null,
           isDefault: m.id === (patient as any).defaultPaymentMethodId,
         }));
       } catch (stripeError) {
         logger.warn('Failed to fetch Stripe payment methods', { error: stripeError });
       }
     }
-    
+
     // Calculate credit balance (from metadata)
-    const creditBalance = ((patient as any).metadata?.creditBalance || 0);
-    
+    const creditBalance = (patient as any).metadata?.creditBalance || 0;
+
     // Build payment history
-    type PaymentType = typeof patient.payments[number];
-    type SubscriptionType = typeof patient.subscriptions[number];
-    
+    type PaymentType = (typeof patient.payments)[number];
+    type SubscriptionType = (typeof patient.subscriptions)[number];
+
     const paymentHistory = patient.payments.map((p: PaymentType) => ({
       id: p.id,
       date: p.createdAt,
@@ -106,7 +105,7 @@ export async function GET(
       method: p.paymentMethod,
       invoiceId: p.invoiceId,
     }));
-    
+
     // Active subscriptions
     const activeSubscriptions = patient.subscriptions.map((s: SubscriptionType) => ({
       id: s.id,
@@ -116,17 +115,17 @@ export async function GET(
       nextBillingDate: s.nextBillingDate,
       status: s.status,
     }));
-    
+
     // Recurring revenue from this patient
     const monthlyRecurring = patient.subscriptions
       .filter((s: SubscriptionType) => s.status === 'ACTIVE')
       .reduce((sum: number, s: SubscriptionType) => {
         if (s.interval === 'month') return sum + s.amount;
-        if (s.interval === 'year') return sum + (s.amount / 12);
-        if (s.interval === 'week') return sum + (s.amount * 4);
+        if (s.interval === 'year') return sum + s.amount / 12;
+        if (s.interval === 'week') return sum + s.amount * 4;
         return sum;
       }, 0);
-    
+
     return NextResponse.json({
       patient: {
         id: patient.id,
@@ -154,18 +153,19 @@ export async function GET(
         monthlyRecurring,
       },
       paymentMethods: stripePaymentMethods,
-      recentInvoices: patient.invoices.slice(0, 10).map((inv: typeof patient.invoices[number]) => ({
-        id: inv.id,
-        date: inv.createdAt,
-        amount: inv.amount,
-        amountDue: inv.amountDue,
-        status: inv.status,
-        dueDate: inv.dueDate,
-        description: inv.description,
-      })),
+      recentInvoices: patient.invoices
+        .slice(0, 10)
+        .map((inv: (typeof patient.invoices)[number]) => ({
+          id: inv.id,
+          date: inv.createdAt,
+          amount: inv.amount,
+          amountDue: inv.amountDue,
+          status: inv.status,
+          dueDate: inv.dueDate,
+          description: inv.description,
+        })),
       recentPayments: paymentHistory.slice(0, 10),
     });
-    
   } catch (error: any) {
     logger.error('Failed to get patient billing', error);
     return NextResponse.json(
@@ -191,35 +191,32 @@ export async function POST(
     // Verify auth
     const authResult = await verifyAuth(req);
     if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     const user = authResult.user;
-    
+
     const { id } = await params;
     const patientId = parseInt(id);
-    
+
     if (isNaN(patientId)) {
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
-    
+
     const body = await req.json();
     const validated = addCreditSchema.parse(body);
-    
+
     // Get patient
     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
-    
+
     const currentMetadata = (patient as any).metadata || {};
     const currentBalance = currentMetadata.creditBalance || 0;
-    
+
     let newBalance: number;
     let balanceChange: number;
-    
+
     switch (validated.type) {
       case 'credit':
         balanceChange = validated.amount;
@@ -234,7 +231,7 @@ export async function POST(
         newBalance = validated.amount;
         break;
     }
-    
+
     // Update patient sourceMetadata with credit balance
     await prisma.patient.update({
       where: { id: patientId },
@@ -257,13 +254,17 @@ export async function POST(
         },
       },
     });
-    
+
     // If apply to invoice is specified, apply the credit
     if (validated.applyToInvoice && validated.type === 'credit') {
       const invoiceManager = createInvoiceManager(user.clinicId);
-      await invoiceManager.applyCredit(validated.applyToInvoice, validated.amount, validated.description);
+      await invoiceManager.applyCredit(
+        validated.applyToInvoice,
+        validated.amount,
+        validated.description
+      );
     }
-    
+
     logger.info('Patient credit updated', {
       patientId,
       type: validated.type,
@@ -271,7 +272,7 @@ export async function POST(
       previousBalance: currentBalance,
       newBalance,
     });
-    
+
     return NextResponse.json({
       success: true,
       previousBalance: currentBalance,
@@ -279,7 +280,6 @@ export async function POST(
       change: balanceChange,
       message: `${validated.type === 'credit' ? 'Credit added' : validated.type === 'debit' ? 'Debit applied' : 'Balance adjusted'} successfully`,
     });
-    
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -287,11 +287,8 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     logger.error('Failed to add patient credit', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to add credit' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to add credit' }, { status: 500 });
   }
 }

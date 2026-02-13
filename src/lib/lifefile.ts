@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosInstance } from 'axios';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
@@ -20,13 +20,13 @@ export type LifefileCredentials = {
 
 // Required env vars (legacy - for backwards compatibility)
 const REQUIRED_ENV = [
-  "LIFEFILE_BASE_URL",
-  "LIFEFILE_USERNAME",
-  "LIFEFILE_PASSWORD",
-  "LIFEFILE_VENDOR_ID",
-  "LIFEFILE_PRACTICE_ID",
-  "LIFEFILE_LOCATION_ID",
-  "LIFEFILE_NETWORK_ID",
+  'LIFEFILE_BASE_URL',
+  'LIFEFILE_USERNAME',
+  'LIFEFILE_PASSWORD',
+  'LIFEFILE_VENDOR_ID',
+  'LIFEFILE_PRACTICE_ID',
+  'LIFEFILE_LOCATION_ID',
+  'LIFEFILE_NETWORK_ID',
 ] as const;
 
 // Cache for clinic-specific clients
@@ -38,7 +38,7 @@ const clientCache = new Map<string, AxiosInstance>();
 export function getEnvCredentials(): LifefileCredentials | null {
   const missing = REQUIRED_ENV.filter((key: any) => !process.env[key]);
   if (missing.length > 0) {
-    logger.warn(`Missing Lifefile environment variables: ${missing.join(", ")}`);
+    logger.warn(`Missing Lifefile environment variables: ${missing.join(', ')}`);
     return null;
   }
 
@@ -68,11 +68,11 @@ function createClient(credentials: LifefileCredentials): AxiosInstance {
       password: credentials.password,
     },
     headers: {
-      "X-Vendor-ID": credentials.vendorId,
-      "X-Practice-ID": credentials.practiceId,
-      "X-Location-ID": credentials.locationId,
-      "X-API-Network-ID": credentials.networkId,
-      "Content-Type": "application/json",
+      'X-Vendor-ID': credentials.vendorId,
+      'X-Practice-ID': credentials.practiceId,
+      'X-Location-ID': credentials.locationId,
+      'X-API-Network-ID': credentials.networkId,
+      'Content-Type': 'application/json',
     },
     timeout: 20000,
   });
@@ -80,7 +80,7 @@ function createClient(credentials: LifefileCredentials): AxiosInstance {
   client.interceptors.response.use(
     (res: any) => res,
     (error: AxiosError) => {
-      logger.error("[LIFEFILE ERROR]", {
+      logger.error('[LIFEFILE ERROR]', {
         url: error.config?.url,
         status: error.response?.status,
         data: error.response?.data,
@@ -115,9 +115,7 @@ function getClient(credentials: LifefileCredentials): AxiosInstance {
 function getLegacyClient(): AxiosInstance {
   const credentials = getEnvCredentials();
   if (!credentials) {
-    throw new Error(
-      `Missing Lifefile environment variables: ${REQUIRED_ENV.join(", ")}`
-    );
+    throw new Error(`Missing Lifefile environment variables: ${REQUIRED_ENV.join(', ')}`);
   }
   return getClient(credentials);
 }
@@ -148,7 +146,7 @@ async function callLifefile<T = any>(
       }
       throw new Error(
         `[Lifefile:${context}] ${err.response?.status} ${
-          JSON.stringify(err.response?.data ?? errorMessage) ?? "unknown error"
+          JSON.stringify(err.response?.data ?? errorMessage) ?? 'unknown error'
         }`
       );
     }
@@ -156,7 +154,7 @@ async function callLifefile<T = any>(
 }
 
 export type LifefileOrderRx = {
-  rxType?: "new" | "refill";
+  rxType?: 'new' | 'refill';
   rxNumber?: number;
   drugName: string;
   drugStrength?: string;
@@ -168,7 +166,7 @@ export type LifefileOrderRx = {
   refills?: number | string;
   dateWritten?: string;
   daysSupply?: number;
-  scheduleCode?: "2" | "3" | "4" | "5" | "L" | "O";
+  scheduleCode?: '2' | '3' | '4' | '5' | 'L' | 'O';
   clinicalDifferenceStatement?: string;
 };
 
@@ -221,7 +219,7 @@ export type LifefileOrderPayload = {
       email?: string;
     };
     shipping?: {
-      recipientType?: "clinic" | "patient";
+      recipientType?: 'clinic' | 'patient';
       recipientFirstName?: string;
       recipientLastName?: string;
       recipientPhone?: string;
@@ -236,7 +234,7 @@ export type LifefileOrderPayload = {
       service?: number;
     };
     billing?: {
-      payorType?: "pat" | "doc";
+      payorType?: 'pat' | 'doc';
     };
     rxs: LifefileOrderRx[];
     document?: {
@@ -270,7 +268,7 @@ export type LifefileModifyResponse = {
 // Supported cancellation reasons
 export const CANCELLATION_REASONS = [
   'patient_request',
-  'provider_request', 
+  'provider_request',
   'duplicate_order',
   'incorrect_medication',
   'incorrect_dosage',
@@ -278,10 +276,10 @@ export const CANCELLATION_REASONS = [
   'incorrect_patient_info',
   'insurance_issue',
   'cost_issue',
-  'other'
+  'other',
 ] as const;
 
-export type CancellationReason = typeof CANCELLATION_REASONS[number];
+export type CancellationReason = (typeof CANCELLATION_REASONS)[number];
 
 /**
  * Create Lifefile API methods with optional clinic-specific credentials
@@ -289,41 +287,41 @@ export type CancellationReason = typeof CANCELLATION_REASONS[number];
 export function createLifefileClient(credentials?: LifefileCredentials) {
   return {
     createPatient: (data: any) =>
-      callLifefile((client: any) => client.post("/patients", data), "createPatient", credentials),
+      callLifefile((client: any) => client.post('/patients', data), 'createPatient', credentials),
 
     createPrescription: (data: any) =>
       callLifefile(
-        (client: any) => client.post("/prescriptions", data),
-        "createPrescription",
+        (client: any) => client.post('/prescriptions', data),
+        'createPrescription',
         credentials
       ),
 
     addMedication: (id: string | number, data: any) =>
       callLifefile(
         (client: any) => client.post(`/prescriptions/${id}/medications`, data),
-        "addMedication",
+        'addMedication',
         credentials
       ),
 
     attachPdf: (id: string | number, data: any) =>
       callLifefile(
         (client: any) => client.post(`/prescriptions/${id}/attachments`, data),
-        "attachPdf",
+        'attachPdf',
         credentials
       ),
 
     createOrder: (data: any) =>
-      callLifefile((client: any) => client.post("/orders", data), "createOrder", credentials),
+      callLifefile((client: any) => client.post('/orders', data), 'createOrder', credentials),
 
     createFullOrder: (payload: LifefileOrderPayload) =>
       callLifefile<LifefileOrderResponse>(
-        (client: any) => client.post("/order", payload),
-        "createFullOrder",
+        (client: any) => client.post('/order', payload),
+        'createFullOrder',
         credentials
       ),
 
     getOrderStatus: (orderId: string | number) =>
-      callLifefile((client: any) => client.get(`/order/${orderId}`), "getOrderStatus", credentials),
+      callLifefile((client: any) => client.get(`/order/${orderId}`), 'getOrderStatus', credentials),
 
     /**
      * Cancel an order that was previously submitted to Lifefile
@@ -334,11 +332,12 @@ export function createLifefileClient(credentials?: LifefileCredentials) {
      */
     cancelOrder: (orderId: string | number, reason?: string, notes?: string) =>
       callLifefile<LifefileCancelResponse>(
-        (client: any) => client.post(`/order/${orderId}/cancel`, { 
-          reason: reason || 'provider_request',
-          notes: notes || '',
-        }),
-        "cancelOrder",
+        (client: any) =>
+          client.post(`/order/${orderId}/cancel`, {
+            reason: reason || 'provider_request',
+            notes: notes || '',
+          }),
+        'cancelOrder',
         credentials
       ),
 
@@ -348,7 +347,7 @@ export function createLifefileClient(credentials?: LifefileCredentials) {
     deleteOrder: (orderId: string | number) =>
       callLifefile<LifefileCancelResponse>(
         (client: any) => client.delete(`/order/${orderId}`),
-        "deleteOrder",
+        'deleteOrder',
         credentials
       ),
 
@@ -359,30 +358,33 @@ export function createLifefileClient(credentials?: LifefileCredentials) {
     voidOrder: (orderId: string | number, reason?: string) =>
       callLifefile<LifefileCancelResponse>(
         (client: any) => client.post(`/order/${orderId}/void`, { reason }),
-        "voidOrder",
+        'voidOrder',
         credentials
       ),
 
     /**
      * Modify an existing order (if supported by Lifefile)
      * Note: May require order to be in specific status
-     * @param orderId - The Lifefile order ID  
+     * @param orderId - The Lifefile order ID
      * @param modifications - Fields to update
      */
     modifyOrder: (orderId: string | number, modifications: Partial<LifefileOrderPayload>) =>
       callLifefile<LifefileModifyResponse>(
         (client: any) => client.patch(`/order/${orderId}`, modifications),
-        "modifyOrder",
+        'modifyOrder',
         credentials
       ),
 
     /**
      * Update shipping information for an order
      */
-    updateOrderShipping: (orderId: string | number, shipping: LifefileOrderPayload['order']['shipping']) =>
+    updateOrderShipping: (
+      orderId: string | number,
+      shipping: LifefileOrderPayload['order']['shipping']
+    ) =>
       callLifefile<LifefileModifyResponse>(
         (client: any) => client.patch(`/order/${orderId}/shipping`, shipping),
-        "updateOrderShipping",
+        'updateOrderShipping',
         credentials
       ),
 
@@ -392,7 +394,7 @@ export function createLifefileClient(credentials?: LifefileCredentials) {
     addOrderNotes: (orderId: string | number, notes: string) =>
       callLifefile<LifefileModifyResponse>(
         (client: any) => client.post(`/order/${orderId}/notes`, { notes }),
-        "addOrderNotes",
+        'addOrderNotes',
         credentials
       ),
 

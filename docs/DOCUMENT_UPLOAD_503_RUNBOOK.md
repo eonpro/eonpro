@@ -14,8 +14,8 @@ In **Vercel Dashboard** → your project (eonpro) → **Settings** → **Environ
 | `AWS_ACCESS_KEY_ID` | ✅ | `AKIA...` | IAM user access key. |
 | `AWS_SECRET_ACCESS_KEY` | ✅ | (secret) | IAM user secret key. |
 | `AWS_REGION` | ✅ | `us-east-2` | Region where the bucket lives. Must match bucket. |
-| `AWS_S3_DOCUMENTS_BUCKET_NAME` | ✅ | `wellmedr-documents` | Primary bucket for patient documents. Must match `AWS_REGION`. |
-| `AWS_S3_BUCKET_NAME` | Fallback | `wellmedr-documents` | Used if `AWS_S3_DOCUMENTS_BUCKET_NAME` is not set. |
+| `AWS_S3_DOCUMENTS_BUCKET_NAME` | ✅ | `wellmedr-documents-{ACCOUNT_ID}` | Primary bucket (e.g. `wellmedr-documents-147997129811`). Run `./scripts/aws/create-wellmedr-documents-bucket.sh` to create. |
+| `AWS_S3_BUCKET_NAME` | Fallback | same | Used if `AWS_S3_DOCUMENTS_BUCKET_NAME` is not set. |
 
 **No other variables are required** for basic document upload. `AWS_KMS_KEY_ID` and `AWS_CLOUDFRONT_URL` are optional.
 

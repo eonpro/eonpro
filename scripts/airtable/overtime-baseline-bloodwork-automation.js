@@ -85,9 +85,11 @@ const payload = {
     "current-medications": getCellValue("Current Medications"),
     "allergies": getCellValue("Allergies"),
     
-    // PROMO CODE
-    "PROMO CODE": getCellValue("PROMO CODE") || getCellValue("Promo Code") || getCellValue("Influencer Code"),
-    "influencer-code": getCellValue("Influencer Code"),
+    // PROMO CODE - Prefer "Who recommended OT Mens Health to you?" (Airtable column)
+    "Who reccomended OT Mens Health to you?": getCellValue("Who reccomended OT Mens Health to you?"),
+    "Who recommended OT Mens Health to you?": getCellValue("Who recommended OT Mens Health to you?"),
+    "PROMO CODE": getCellValue("Who reccomended OT Mens Health to you?") || getCellValue("Who recommended OT Mens Health to you?") || getCellValue("PROMO CODE") || getCellValue("Promo Code") || getCellValue("Influencer Code"),
+    "influencer-code": getCellValue("Who reccomended OT Mens Health to you?") || getCellValue("Who recommended OT Mens Health to you?") || getCellValue("Influencer Code"),
     
     // Checkout
     "Checkout Completed": getCellValue("Checkout Completed") === "true" || 

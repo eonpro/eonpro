@@ -176,8 +176,8 @@ export async function triggerAutomation(
         delayMinutes: config.delayMinutes,
         priority: priority || EmailPriority.NORMAL,
       });
-      return { 
-        success: true, 
+      return {
+        success: true,
         scheduledId: scheduledEmail.id,
         messageId: `scheduled-${scheduledEmail.id}`,
       };
@@ -222,7 +222,9 @@ interface ScheduleEmailParams {
 /**
  * Schedule an email for later delivery using the ScheduledEmail table
  */
-async function scheduleEmail(params: ScheduleEmailParams): Promise<{ id: number; scheduledFor: Date }> {
+async function scheduleEmail(
+  params: ScheduleEmailParams
+): Promise<{ id: number; scheduledFor: Date }> {
   const scheduledFor = new Date(Date.now() + params.delayMinutes * 60 * 1000);
 
   // Store in ScheduledEmail table for cron job to process
@@ -490,8 +492,8 @@ export async function getAutomationStats(days: number = 30): Promise<{
 
   // Calculate statistics
   const totalSent = logs.length;
-  const successCount = logs.filter(
-    (log) => ['SENT', 'DELIVERED', 'OPENED', 'CLICKED'].includes(log.status)
+  const successCount = logs.filter((log) =>
+    ['SENT', 'DELIVERED', 'OPENED', 'CLICKED'].includes(log.status)
   ).length;
 
   // Group by trigger

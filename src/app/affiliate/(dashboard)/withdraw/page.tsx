@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Withdraw Page
- * 
+ *
  * Clean, simple withdrawal experience with instant feedback.
  * Supports bank transfer and PayPal.
  */
@@ -74,8 +74,8 @@ export default function WithdrawPage() {
   };
 
   const amountCents = Math.round(parseFloat(amount || '0') * 100);
-  const isValidAmount = amountCents >= displayData.minWithdrawal && 
-                        amountCents <= displayData.availableBalance;
+  const isValidAmount =
+    amountCents >= displayData.minWithdrawal && amountCents <= displayData.availableBalance;
 
   const handleAmountChange = (value: string) => {
     // Only allow numbers and one decimal point
@@ -132,8 +132,8 @@ export default function WithdrawPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
       </div>
     );
   }
@@ -142,32 +142,45 @@ export default function WithdrawPage() {
   if (!displayData.payoutMethod) {
     return (
       <div className="min-h-screen">
-        <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
-          <div className="max-w-3xl mx-auto flex items-center gap-4">
+        <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+          <div className="mx-auto flex max-w-3xl items-center gap-4">
             <Link href="/affiliate" className="text-gray-400 hover:text-gray-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </Link>
             <h1 className="text-xl font-semibold text-gray-900">Withdraw</h1>
           </div>
         </header>
 
-        <div className="max-w-3xl mx-auto px-6 py-12 text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        <div className="mx-auto max-w-3xl px-6 py-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+            <svg
+              className="h-8 w-8 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Add a payout method</h2>
-          <p className="text-gray-500 mb-6">
+          <h2 className="mb-2 text-xl font-semibold text-gray-900">Add a payout method</h2>
+          <p className="mb-6 text-gray-500">
             You need to add a bank account or PayPal to withdraw funds.
           </p>
           <Link
             href="/affiliate/account/payout-method"
-            className="inline-block px-6 py-3 bg-gray-900 text-white font-medium rounded-xl
-                     hover:bg-gray-800 transition-colors"
+            className="inline-block rounded-xl bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
           >
             Add Payout Method
           </Link>
@@ -180,33 +193,44 @@ export default function WithdrawPage() {
   if (displayData.pendingPayout) {
     return (
       <div className="min-h-screen">
-        <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
-          <div className="max-w-3xl mx-auto flex items-center gap-4">
+        <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+          <div className="mx-auto flex max-w-3xl items-center gap-4">
             <Link href="/affiliate" className="text-gray-400 hover:text-gray-600">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </Link>
             <h1 className="text-xl font-semibold text-gray-900">Withdraw</h1>
           </div>
         </header>
 
-        <div className="max-w-3xl mx-auto px-6 py-12 text-center">
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div className="mx-auto max-w-3xl px-6 py-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-100">
+            <svg
+              className="h-8 w-8 text-yellow-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Payout in progress</h2>
-          <p className="text-gray-500 mb-4">
+          <h2 className="mb-2 text-xl font-semibold text-gray-900">Payout in progress</h2>
+          <p className="mb-4 text-gray-500">
             You have a pending withdrawal of {formatCurrency(displayData.pendingPayout.amount)}.
             Please wait for it to complete before requesting another.
           </p>
-          <Link
-            href="/affiliate/earnings"
-            className="text-gray-900 font-medium hover:underline"
-          >
+          <Link href="/affiliate/earnings" className="font-medium text-gray-900 hover:underline">
             View payout status
           </Link>
         </div>
@@ -217,21 +241,26 @@ export default function WithdrawPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex items-center gap-4">
-          <button 
-            onClick={() => step === 'confirm' ? setStep('amount') : router.back()}
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-3xl items-center gap-4">
+          <button
+            onClick={() => (step === 'confirm' ? setStep('amount') : router.back())}
             className="text-gray-400 hover:text-gray-600"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h1 className="text-xl font-semibold text-gray-900">Withdraw</h1>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-6">
+      <div className="mx-auto max-w-3xl px-6 py-6">
         <AnimatePresence mode="wait">
           {/* Amount Step */}
           {step === 'amount' && (
@@ -243,64 +272,70 @@ export default function WithdrawPage() {
               className="space-y-6"
             >
               {/* Available Balance */}
-              <div className="text-center py-4">
-                <p className="text-gray-500 text-sm mb-1">Available balance</p>
+              <div className="py-4 text-center">
+                <p className="mb-1 text-sm text-gray-500">Available balance</p>
                 <p className="text-3xl font-semibold text-gray-900">
                   {formatCurrency(displayData.availableBalance)}
                 </p>
               </div>
 
               {/* Amount Input */}
-              <div className="bg-white rounded-2xl p-6">
-                <label className="block text-sm text-gray-500 mb-3">Amount to withdraw</label>
+              <div className="rounded-2xl bg-white p-6">
+                <label className="mb-3 block text-sm text-gray-500">Amount to withdraw</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">
+                    $
+                  </span>
                   <input
                     type="text"
                     inputMode="decimal"
                     value={amount}
                     onChange={(e) => handleAmountChange(e.target.value)}
                     placeholder="0"
-                    className="w-full pl-10 pr-4 py-4 text-3xl font-semibold text-center rounded-xl
-                             border-2 border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors"
+                    className="w-full rounded-xl border-2 border-gray-200 py-4 pl-10 pr-4 text-center text-3xl font-semibold transition-colors focus:border-gray-900 focus:ring-0"
                   />
                 </div>
 
                 {/* Quick amounts */}
-                <div className="flex gap-2 mt-4">
+                <div className="mt-4 flex gap-2">
                   {[2500, 5000, 10000].map((cents) => (
                     <button
                       key={cents}
                       onClick={() => handleQuickAmount(cents)}
                       disabled={cents > displayData.availableBalance}
-                      className="flex-1 py-2 text-sm font-medium rounded-lg border border-gray-200
-                               hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {formatCurrency(cents)}
                     </button>
                   ))}
                   <button
                     onClick={() => handleQuickAmount(displayData.availableBalance)}
-                    className="flex-1 py-2 text-sm font-medium rounded-lg border border-gray-200
-                             hover:bg-gray-50 transition-colors"
+                    className="flex-1 rounded-lg border border-gray-200 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
                   >
                     All
                   </button>
                 </div>
 
-                {error && (
-                  <p className="mt-3 text-red-500 text-sm text-center">{error}</p>
-                )}
+                {error && <p className="mt-3 text-center text-sm text-red-500">{error}</p>}
               </div>
 
               {/* Payout Method */}
-              <div className="bg-white rounded-2xl p-4">
+              <div className="rounded-2xl bg-white p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                      <svg
+                        className="h-5 w-5 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                        />
                       </svg>
                     </div>
                     <div>
@@ -314,7 +349,10 @@ export default function WithdrawPage() {
                       </p>
                     </div>
                   </div>
-                  <Link href="/affiliate/account/payout-method" className="text-sm text-gray-500 hover:text-gray-700">
+                  <Link
+                    href="/affiliate/account/payout-method"
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
                     Change
                   </Link>
                 </div>
@@ -324,8 +362,7 @@ export default function WithdrawPage() {
               <button
                 onClick={handleContinue}
                 disabled={!amount || parseFloat(amount) <= 0}
-                className="w-full py-4 bg-gray-900 text-white font-medium rounded-xl
-                         hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
+                className="w-full rounded-xl bg-gray-900 py-4 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400"
               >
                 Continue
               </button>
@@ -345,14 +382,14 @@ export default function WithdrawPage() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-6"
             >
-              <div className="bg-white rounded-2xl p-6 text-center">
-                <p className="text-gray-500 text-sm mb-2">You&apos;re withdrawing</p>
-                <p className="text-4xl font-semibold text-gray-900 mb-6">
+              <div className="rounded-2xl bg-white p-6 text-center">
+                <p className="mb-2 text-sm text-gray-500">You&apos;re withdrawing</p>
+                <p className="mb-6 text-4xl font-semibold text-gray-900">
                   {formatCurrency(amountCents)}
                 </p>
 
-                <div className="bg-gray-50 rounded-xl p-4 text-left">
-                  <div className="flex items-center justify-between mb-3">
+                <div className="rounded-xl bg-gray-50 p-4 text-left">
+                  <div className="mb-3 flex items-center justify-between">
                     <span className="text-gray-500">To</span>
                     <span className="font-medium text-gray-900">
                       {displayData.payoutMethod?.type === 'bank'
@@ -360,13 +397,15 @@ export default function WithdrawPage() {
                         : displayData.payoutMethod?.email}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="mb-3 flex items-center justify-between">
                     <span className="text-gray-500">Fee</span>
                     <span className="font-medium text-green-600">Free</span>
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between border-t border-gray-200 pt-3">
                     <span className="text-gray-500">You&apos;ll receive</span>
-                    <span className="font-semibold text-gray-900">{formatCurrency(amountCents)}</span>
+                    <span className="font-semibold text-gray-900">
+                      {formatCurrency(amountCents)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -374,20 +413,18 @@ export default function WithdrawPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="w-full py-4 bg-gray-900 text-white font-medium rounded-xl
-                         hover:bg-gray-800 disabled:bg-gray-400 transition-colors
-                         flex items-center justify-center"
+                className="flex w-full items-center justify-center rounded-xl bg-gray-900 py-4 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400"
               >
                 {isSubmitting ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : (
                   'Confirm Withdrawal'
                 )}
               </button>
 
               <p className="text-center text-xs text-gray-400">
-                By confirming, you agree to our withdrawal terms.
-                Funds typically arrive within 2-3 business days.
+                By confirming, you agree to our withdrawal terms. Funds typically arrive within 2-3
+                business days.
               </p>
             </motion.div>
           )}
@@ -398,23 +435,31 @@ export default function WithdrawPage() {
               key="success"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-12"
+              className="py-12 text-center"
             >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: 'spring', duration: 0.5 }}
-                className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
+                className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100"
               >
-                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="h-10 w-10 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </motion.div>
 
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Withdrawal requested
-              </h2>
-              <p className="text-gray-500 mb-8">
+              <h2 className="mb-2 text-2xl font-semibold text-gray-900">Withdrawal requested</h2>
+              <p className="mb-8 text-gray-500">
                 {formatCurrency(amountCents)} is on its way to your account.
                 <br />
                 Expected arrival: 2-3 business days.
@@ -423,14 +468,13 @@ export default function WithdrawPage() {
               <div className="space-y-3">
                 <Link
                   href="/affiliate/earnings"
-                  className="block w-full py-3 bg-gray-900 text-white font-medium rounded-xl
-                           hover:bg-gray-800 transition-colors"
+                  className="block w-full rounded-xl bg-gray-900 py-3 font-medium text-white transition-colors hover:bg-gray-800"
                 >
                   View Payout Status
                 </Link>
                 <Link
                   href="/affiliate"
-                  className="block w-full py-3 text-gray-600 font-medium hover:text-gray-900 transition-colors"
+                  className="block w-full py-3 font-medium text-gray-600 transition-colors hover:text-gray-900"
                 >
                   Back to Dashboard
                 </Link>

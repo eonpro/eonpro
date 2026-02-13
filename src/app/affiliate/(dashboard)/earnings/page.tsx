@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Earnings Page
- * 
+ *
  * Detailed earnings view with transaction history,
  * filterable by date range and status.
  */
@@ -77,7 +77,9 @@ const StatusBadge = ({ status }: { status: string }) => {
   };
 
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${styles[status] || 'bg-gray-50 text-gray-700'}`}>
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${styles[status] || 'bg-gray-50 text-gray-700'}`}
+    >
       {status}
     </span>
   );
@@ -120,15 +122,15 @@ export default function EarningsPage() {
     payouts: [],
   };
 
-  const filteredCommissions = displayData.commissions.filter(c => {
+  const filteredCommissions = displayData.commissions.filter((c) => {
     if (filter === 'all') return true;
     return c.status === filter;
   });
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
       </div>
     );
   }
@@ -136,28 +138,28 @@ export default function EarningsPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+        <div className="mx-auto max-w-3xl">
           <h1 className="text-xl font-semibold text-gray-900">Earnings</h1>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
         {/* Balance Summary */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6"
+          className="rounded-2xl bg-white p-6"
         >
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <p className="text-gray-500 text-sm mb-1">Available</p>
+              <p className="mb-1 text-sm text-gray-500">Available</p>
               <p className="text-3xl font-semibold text-gray-900">
                 {formatCurrency(displayData.summary.availableBalance)}
               </p>
             </div>
             <div>
-              <p className="text-gray-500 text-sm mb-1">Pending</p>
+              <p className="mb-1 text-sm text-gray-500">Pending</p>
               <p className="text-3xl font-semibold text-yellow-600">
                 {formatCurrency(displayData.summary.pendingBalance)}
               </p>
@@ -167,20 +169,21 @@ export default function EarningsPage() {
           {displayData.summary.availableBalance >= 5000 && (
             <Link
               href="/affiliate/withdraw"
-              className="mt-6 block w-full py-3 bg-gray-900 text-white font-medium rounded-xl text-center
-                       hover:bg-gray-800 transition-colors"
+              className="mt-6 block w-full rounded-xl bg-gray-900 py-3 text-center font-medium text-white transition-colors hover:bg-gray-800"
             >
               Withdraw Funds
             </Link>
           )}
 
           {displayData.nextPayout && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-xl">
+            <div className="mt-4 rounded-xl bg-gray-50 p-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Next scheduled payout</span>
-                <span className="font-medium text-gray-900">{formatDate(displayData.nextPayout.date)}</span>
+                <span className="font-medium text-gray-900">
+                  {formatDate(displayData.nextPayout.date)}
+                </span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="mt-1 text-xs text-gray-400">
                 Estimated: {formatCurrency(displayData.nextPayout.estimatedAmount)}
               </p>
             </div>
@@ -189,14 +192,14 @@ export default function EarningsPage() {
 
         {/* Lifetime Stats */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-5">
-            <p className="text-gray-500 text-sm mb-1">Lifetime Earned</p>
+          <div className="rounded-2xl bg-white p-5">
+            <p className="mb-1 text-sm text-gray-500">Lifetime Earned</p>
             <p className="text-xl font-semibold text-gray-900">
               {formatCurrency(displayData.summary.lifetimeEarnings)}
             </p>
           </div>
-          <div className="bg-white rounded-2xl p-5">
-            <p className="text-gray-500 text-sm mb-1">Total Paid Out</p>
+          <div className="rounded-2xl bg-white p-5">
+            <p className="mb-1 text-sm text-gray-500">Total Paid Out</p>
             <p className="text-xl font-semibold text-gray-900">
               {formatCurrency(displayData.summary.lifetimePaid)}
             </p>
@@ -204,14 +207,13 @@ export default function EarningsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl overflow-hidden">
+        <div className="overflow-hidden rounded-2xl bg-white">
           <div className="flex border-b border-gray-100">
             {(['commissions', 'payouts'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-4 text-sm font-medium transition-colors relative
-                  ${activeTab === tab ? 'text-gray-900' : 'text-gray-400'}`}
+                className={`relative flex-1 py-4 text-sm font-medium transition-colors ${activeTab === tab ? 'text-gray-900' : 'text-gray-400'}`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 {activeTab === tab && (
@@ -234,17 +236,17 @@ export default function EarningsPage() {
                 exit={{ opacity: 0 }}
               >
                 {/* Filters */}
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                   <div className="flex gap-2 overflow-x-auto">
                     {(['all', 'pending', 'approved', 'paid'] as FilterType[]).map((f) => (
                       <button
                         key={f}
                         onClick={() => setFilter(f)}
-                        className={`px-3 py-1.5 text-sm rounded-full whitespace-nowrap transition-colors
-                          ${filter === f 
-                            ? 'bg-gray-900 text-white' 
+                        className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors ${
+                          filter === f
+                            ? 'bg-gray-900 text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
+                        }`}
                       >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
                       </button>
@@ -261,7 +263,7 @@ export default function EarningsPage() {
                   ) : (
                     filteredCommissions.map((commission) => (
                       <div key={commission.id} className="px-4 py-4">
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="mb-2 flex items-start justify-between">
                           <div>
                             <p className="font-medium text-gray-900">
                               {formatCurrency(commission.amount)}
@@ -277,7 +279,7 @@ export default function EarningsPage() {
                           <span>Code: {commission.refCode}</span>
                         </div>
                         {commission.status === 'pending' && commission.holdUntil && (
-                          <p className="text-xs text-yellow-600 mt-2">
+                          <p className="mt-2 text-xs text-yellow-600">
                             Available after {formatDate(commission.holdUntil)}
                           </p>
                         )}
@@ -303,7 +305,7 @@ export default function EarningsPage() {
                 ) : (
                   displayData.payouts.map((payout) => (
                     <div key={payout.id} className="px-4 py-4">
-                      <div className="flex items-start justify-between mb-2">
+                      <div className="mb-2 flex items-start justify-between">
                         <div>
                           <p className="font-medium text-gray-900">
                             {formatCurrency(payout.netAmount)}
@@ -314,9 +316,7 @@ export default function EarningsPage() {
                       </div>
                       <div className="flex items-center justify-between text-xs text-gray-400">
                         <span>{formatDate(payout.createdAt)}</span>
-                        {payout.fee > 0 && (
-                          <span>Fee: {formatCurrency(payout.fee)}</span>
-                        )}
+                        {payout.fee > 0 && <span>Fee: {formatCurrency(payout.fee)}</span>}
                       </div>
                     </div>
                   ))
@@ -327,17 +327,26 @@ export default function EarningsPage() {
         </div>
 
         {/* Info Card */}
-        <div className="bg-[#fdf6e3] rounded-2xl p-4">
+        <div className="rounded-2xl bg-[#fdf6e3] p-4">
           <div className="flex gap-3">
-            <svg className="w-5 h-5 text-[#cab172] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#cab172]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <div className="text-sm">
-              <p className="font-medium text-[#6b5c2e] mb-1">How commissions work</p>
+              <p className="mb-1 font-medium text-[#6b5c2e]">How commissions work</p>
               <p className="text-[#8b7a42]">
-                Commissions are held for 14 days to account for refunds, then automatically 
-                become available for withdrawal. Payouts are processed weekly.
+                Commissions are held for 14 days to account for refunds, then automatically become
+                available for withdrawal. Payouts are processed weekly.
               </p>
             </div>
           </div>

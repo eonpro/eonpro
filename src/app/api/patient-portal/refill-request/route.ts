@@ -1,9 +1,9 @@
 /**
  * Patient Refill Request API
  * ==========================
- * 
+ *
  * Allows patients to view their refill schedule and request early refills.
- * 
+ *
  * GET - Get patient's refill queue and history
  * POST - Request an early refill
  */
@@ -172,7 +172,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Check if patient can request early refill
     const hasPendingRefills = refillQueue.length > 0;
-    const canRequestEarly = subscriptions.length > 0 && !refillQueue.some((r: RefillQueueItem) => r.requestedEarly);
+    const canRequestEarly =
+      subscriptions.length > 0 && !refillQueue.some((r: RefillQueueItem) => r.requestedEarly);
 
     // Transform refill queue for frontend
     const upcomingRefills = refillQueue.map((refill: RefillQueueItem) => ({
@@ -187,11 +188,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       nextRefillDate: refill.nextRefillDate,
       isEarlyRequest: refill.requestedEarly,
       paymentStatus: refill.paymentVerified ? 'verified' : 'pending',
-      approvalStatus: refill.adminApproved === true
-        ? 'approved'
-        : refill.adminApproved === false
-        ? 'rejected'
-        : 'pending',
+      approvalStatus:
+        refill.adminApproved === true
+          ? 'approved'
+          : refill.adminApproved === false
+            ? 'rejected'
+            : 'pending',
     }));
 
     // Transform refill history for frontend
@@ -216,7 +218,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         id: sub.id,
         planName: sub.planName,
         vialCount: sub.vialCount,
-        intervalDays: sub.refillIntervalDays || (sub.vialCount === 6 ? 180 : sub.vialCount === 3 ? 90 : 30),
+        intervalDays:
+          sub.refillIntervalDays || (sub.vialCount === 6 ? 180 : sub.vialCount === 3 ? 90 : 30),
         nextBillingDate: sub.nextBillingDate,
         currentPeriodEnd: sub.currentPeriodEnd,
       })),

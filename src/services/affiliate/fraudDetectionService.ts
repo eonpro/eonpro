@@ -1,6 +1,6 @@
 /**
  * Affiliate Fraud Detection Service
- * 
+ *
  * Detects fraudulent affiliate activity including:
  * - Self-referral (affiliate referring themselves)
  * - Duplicate IP conversions
@@ -147,7 +147,7 @@ async function checkSelfReferral(
   // Check IP match (if we have affiliate's recent IPs)
   if (ipAddress) {
     const ipHash = hashIp(ipAddress);
-    
+
     // Check if affiliate has logged in from this IP recently
     // This would require tracking affiliate login IPs - simplified for now
     const recentTouchesFromIp = await prisma.affiliateTouch.count({
@@ -309,10 +309,7 @@ async function checkVelocitySpike(
 /**
  * Check IP risk (proxy, VPN, TOR, datacenter)
  */
-async function checkIpRisk(
-  ipAddress: string,
-  config: FraudConfig
-): Promise<FraudAlert | null> {
+async function checkIpRisk(ipAddress: string, config: FraudConfig): Promise<FraudAlert | null> {
   const ipIntel = await analyzeIp(ipAddress);
 
   // Check blocked types
@@ -427,9 +424,7 @@ async function checkRefundRate(
 /**
  * Main fraud check function
  */
-export async function performFraudCheck(
-  request: FraudCheckRequest
-): Promise<FraudCheckResult> {
+export async function performFraudCheck(request: FraudCheckRequest): Promise<FraudCheckResult> {
   const { clinicId, affiliateId, ipAddress, patientEmail } = request;
 
   // Get fraud config
@@ -464,9 +459,7 @@ export async function performFraudCheck(
       checkVelocitySpike(clinicId, affiliateId, config),
 
       // IP risk check
-      ipAddress
-        ? checkIpRisk(ipAddress, config)
-        : null,
+      ipAddress ? checkIpRisk(ipAddress, config) : null,
 
       // Refund rate check
       checkRefundRate(clinicId, affiliateId, config),
@@ -500,10 +493,10 @@ export async function performFraudCheck(
 
     // Determine recommendation
     let recommendation: 'approve' | 'review' | 'reject' = 'approve';
-    
-    if (alerts.some(a => a.severity === 'CRITICAL')) {
+
+    if (alerts.some((a) => a.severity === 'CRITICAL')) {
       recommendation = 'reject';
-    } else if (totalRiskScore >= 50 || alerts.some(a => a.severity === 'HIGH')) {
+    } else if (totalRiskScore >= 50 || alerts.some((a) => a.severity === 'HIGH')) {
       recommendation = 'review';
     } else if (totalRiskScore >= 25) {
       recommendation = 'review';
@@ -603,7 +596,7 @@ export async function processFraudCheckResult(
   }
 
   // Suspend affiliate on critical alerts
-  if (config.autoSuspendOnCritical && result.alerts.some(a => a.severity === 'CRITICAL')) {
+  if (config.autoSuspendOnCritical && result.alerts.some((a) => a.severity === 'CRITICAL')) {
     await prisma.affiliate.update({
       where: { id: affiliateId },
       data: { status: 'SUSPENDED' },

@@ -105,7 +105,7 @@ describe('Stripe Invoice Service', () => {
   describe('createInvoice', () => {
     it('should create an invoice with line items', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       const mockStripeInvoice = {
         id: 'in_test123',
         number: 'INV-001',
@@ -119,7 +119,7 @@ describe('Stripe Invoice Service', () => {
       mockStripeClient.invoices.create.mockResolvedValue(mockStripeInvoice);
       mockStripeClient.invoices.finalizeInvoice.mockResolvedValue(mockStripeInvoice);
       mockStripeClient.invoiceItems.create.mockResolvedValue({});
-      
+
       vi.mocked(prisma.invoice.create).mockResolvedValue({
         id: 1,
         stripeInvoiceId: 'in_test123',
@@ -131,9 +131,7 @@ describe('Stripe Invoice Service', () => {
       const result = await StripeInvoiceService.createInvoice({
         patientId: 1,
         description: 'Test invoice',
-        lineItems: [
-          { description: 'Consultation', amount: 10000 },
-        ],
+        lineItems: [{ description: 'Consultation', amount: 10000 }],
       });
 
       expect(result.invoice).toBeDefined();
@@ -161,10 +159,7 @@ describe('Stripe Invoice Service', () => {
         { description: 'Item 2', amount: 15000 },
       ];
 
-      const totalAmount = lineItems.reduce(
-        (sum, item) => sum + item.amount,
-        0
-      );
+      const totalAmount = lineItems.reduce((sum, item) => sum + item.amount, 0);
 
       expect(totalAmount).toBe(25000); // 10000 + 15000
     });
@@ -173,7 +168,7 @@ describe('Stripe Invoice Service', () => {
   describe('sendInvoice', () => {
     it('should send invoice via Stripe', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
         id: 1,
         stripeInvoiceId: 'in_send123',
@@ -186,17 +181,19 @@ describe('Stripe Invoice Service', () => {
 
     it('should throw error if invoice not found', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null);
 
-      await expect(StripeInvoiceService.sendInvoice(999)).rejects.toThrow('Invoice with ID 999 not found');
+      await expect(StripeInvoiceService.sendInvoice(999)).rejects.toThrow(
+        'Invoice with ID 999 not found'
+      );
     });
   });
 
   describe('voidInvoice', () => {
     it('should void invoice in Stripe and database', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
         id: 1,
         stripeInvoiceId: 'in_void123',
@@ -215,7 +212,7 @@ describe('Stripe Invoice Service', () => {
   describe('updateFromWebhook', () => {
     it('should update invoice status from webhook', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
         id: 1,
         stripeInvoiceId: 'in_webhook123',
@@ -252,7 +249,7 @@ describe('Stripe Invoice Service', () => {
     it('should handle missing invoice gracefully', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
       const { logger } = await import('@/lib/logger');
-      
+
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null);
 
       const stripeInvoice: Partial<Stripe.Invoice> = {
@@ -270,7 +267,7 @@ describe('Stripe Invoice Service', () => {
   describe('getPatientInvoices', () => {
     it('should return patient invoices ordered by date', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-      
+
       const mockInvoices = [
         { id: 1, patientId: 1, createdAt: new Date('2024-01-15') },
         { id: 2, patientId: 1, createdAt: new Date('2024-01-10') },
@@ -294,10 +291,12 @@ describe('Stripe Invoice Service', () => {
       const consultationInvoice = {
         patientId: 1,
         description: 'Medical Consultation',
-        lineItems: [{
-          description: 'Telehealth Consultation - Weight Management Program',
-          amount: 15000,
-        }],
+        lineItems: [
+          {
+            description: 'Telehealth Consultation - Weight Management Program',
+            amount: 15000,
+          },
+        ],
         autoSend: true,
       };
 
@@ -311,7 +310,7 @@ describe('Stripe Invoice Service', () => {
         { name: 'B12 Injection', amount: 2500 },
       ];
 
-      const lineItems = medications.map(med => ({
+      const lineItems = medications.map((med) => ({
         description: `Prescription: ${med.name}`,
         amount: med.amount,
       }));
@@ -326,7 +325,7 @@ describe('Stripe Invoice Service', () => {
         { name: 'Lipid Panel', amount: 5000 },
       ];
 
-      const lineItems = tests.map(test => ({
+      const lineItems = tests.map((test) => ({
         description: `Lab Test: ${test.name}`,
         amount: test.amount,
       }));
@@ -347,7 +346,7 @@ describe('Stripe Webhook Handler', () => {
   describe('Signature Verification', () => {
     it('should reject requests without signature', async () => {
       const { POST } = await import('@/app/api/stripe/webhook/route');
-      
+
       const request = new Request('http://localhost/api/stripe/webhook', {
         method: 'POST',
         body: JSON.stringify({ type: 'test' }),
@@ -357,7 +356,7 @@ describe('Stripe Webhook Handler', () => {
       });
 
       const response = await POST(request as any);
-      
+
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.error).toContain('signature');
@@ -365,7 +364,7 @@ describe('Stripe Webhook Handler', () => {
 
     it('should reject invalid signature', async () => {
       const { POST } = await import('@/app/api/stripe/webhook/route');
-      
+
       mockStripeClient.webhooks.constructEvent.mockImplementation(() => {
         throw new Error('Invalid signature');
       });
@@ -382,12 +381,12 @@ describe('Stripe Webhook Handler', () => {
       // Mock headers() to return the signature
       vi.doMock('next/headers', () => ({
         headers: async () => ({
-          get: (name: string) => name === 'stripe-signature' ? 'invalid_signature' : null,
+          get: (name: string) => (name === 'stripe-signature' ? 'invalid_signature' : null),
         }),
       }));
 
       const response = await POST(request as any);
-      
+
       expect(response.status).toBe(400);
     });
   });
@@ -396,7 +395,7 @@ describe('Stripe Webhook Handler', () => {
     it('should handle invoice.payment_succeeded event', async () => {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
       const updateFromWebhookSpy = vi.spyOn(StripeInvoiceService, 'updateFromWebhook');
-      
+
       vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ id: 1 } as any);
       vi.mocked(prisma.invoice.update).mockResolvedValue({ id: 1 } as any);
 
@@ -417,10 +416,10 @@ describe('Stripe Webhook Handler', () => {
 describe('Stripe Status Mapping', () => {
   it('should map all Stripe invoice statuses correctly', async () => {
     const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-    
+
     // Access private method via testing
     const mapStripeStatus = (StripeInvoiceService as any).mapStripeStatus;
-    
+
     expect(mapStripeStatus('draft')).toBe('DRAFT');
     expect(mapStripeStatus('open')).toBe('OPEN');
     expect(mapStripeStatus('paid')).toBe('PAID');
@@ -438,19 +437,15 @@ describe('Error Handling', () => {
     );
 
     // Verify the mock rejects
-    await expect(
-      mockStripeClient.invoices.create({})
-    ).rejects.toThrow('Stripe API error');
+    await expect(mockStripeClient.invoices.create({})).rejects.toThrow('Stripe API error');
   });
 
   it('should handle database errors gracefully', async () => {
-    vi.mocked(prisma.invoice.create).mockRejectedValue(
-      new Error('Database connection error')
-    );
+    vi.mocked(prisma.invoice.create).mockRejectedValue(new Error('Database connection error'));
 
     // Verify the mock rejects
-    await expect(
-      prisma.invoice.create({ data: {} as any })
-    ).rejects.toThrow('Database connection error');
+    await expect(prisma.invoice.create({ data: {} as any })).rejects.toThrow(
+      'Database connection error'
+    );
   });
 });

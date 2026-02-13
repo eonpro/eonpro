@@ -1,7 +1,7 @@
 /**
  * Order Cancellation API
  * POST /api/orders/[id]/cancel
- * 
+ *
  * Cancels an order that was sent to Lifefile.
  * Only works for orders that haven't entered fulfillment yet.
  */
@@ -18,7 +18,10 @@ import { platformFeeService } from '@/services/billing';
 
 // Request validation schema
 const cancelOrderSchema = z.object({
-  reason: z.enum(CANCELLATION_REASONS as unknown as [string, ...string[]]).optional().default('provider_request'),
+  reason: z
+    .enum(CANCELLATION_REASONS as unknown as [string, ...string[]])
+    .optional()
+    .default('provider_request'),
   notes: z.string().max(1000).optional(),
 });
 
@@ -47,272 +50,270 @@ const NON_CANCELLABLE_STATUSES = [
   'out_for_delivery',
 ];
 
-export const POST = withAuthParams(async (
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext
-) => {
-  const startTime = Date.now();
-  
-  try {
-    const resolvedParams = await context.params;
-    const orderId = parseInt(resolvedParams.id, 10);
+export const POST = withAuthParams(
+  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+    const startTime = Date.now();
 
-    if (isNaN(orderId)) {
-      return NextResponse.json(
-        { error: 'Invalid order ID' },
-        { status: 400 }
-      );
-    }
-
-    // Only providers and admins can cancel orders
-    if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
-      return NextResponse.json(
-        { error: 'Only providers and administrators can cancel orders' },
-        { status: 403 }
-      );
-    }
-
-    // Parse request body
-    // Parse body - validation happens below
-    let body: Record<string, unknown> = {};
     try {
-      body = await req.json();
-    } catch {
-      // Empty body handled by schema validation below
-    }
-    const parseResult = cancelOrderSchema.safeParse(body);
-    
-    if (!parseResult.success) {
-      return NextResponse.json(
-        { error: 'Invalid request', details: parseResult.error.issues },
-        { status: 400 }
-      );
-    }
+      const resolvedParams = await context.params;
+      const orderId = parseInt(resolvedParams.id, 10);
 
-    const { reason, notes } = parseResult.data;
+      if (isNaN(orderId)) {
+        return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
+      }
 
-    // Determine clinic context
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+      // Only providers and admins can cancel orders
+      if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+        return NextResponse.json(
+          { error: 'Only providers and administrators can cancel orders' },
+          { status: 403 }
+        );
+      }
 
-    // Fetch order with clinic context
-    const order = await runWithClinicContext(clinicId, async () => {
-      return prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          provider: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          clinic: {
-            select: {
-              id: true,
-              name: true,
-              lifefileEnabled: true,
-            },
-          },
-          rxs: true,
-        },
-      });
-    });
-
-    if (!order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if already cancelled
-    if (order.cancelledAt) {
-      return NextResponse.json(
-        { 
-          error: 'Order already cancelled',
-          cancelledAt: order.cancelledAt,
-          cancellationReason: order.cancellationReason,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if order status allows cancellation
-    const currentStatus = (order.status || '').toLowerCase();
-    
-    if (NON_CANCELLABLE_STATUSES.includes(currentStatus)) {
-      return NextResponse.json(
-        { 
-          error: 'Order cannot be cancelled',
-          message: `Orders with status "${order.status}" cannot be cancelled. The order may already be in fulfillment or shipped.`,
-          currentStatus: order.status,
-        },
-        { status: 400 }
-      );
-    }
-
-    logger.info(`[ORDER CANCEL] User ${user.id} requesting cancellation for order ${orderId}`, {
-      orderId,
-      lifefileOrderId: order.lifefileOrderId,
-      currentStatus: order.status,
-      reason,
-    });
-
-    // Attempt to cancel in Lifefile if we have a Lifefile order ID
-    let lifefileCancelResponse: any = null;
-    let lifefileError: string | null = null;
-
-    if (order.lifefileOrderId && order.clinic?.lifefileEnabled) {
+      // Parse request body
+      // Parse body - validation happens below
+      let body: Record<string, unknown> = {};
       try {
-        // Get clinic-specific Lifefile client
-        const lifefileClient = order.clinicId 
-          ? await getClinicLifefileClient(order.clinicId)
-          : lifefile;
+        body = await req.json();
+      } catch {
+        // Empty body handled by schema validation below
+      }
+      const parseResult = cancelOrderSchema.safeParse(body);
 
-        // Try to cancel the order in Lifefile
-        logger.info(`[ORDER CANCEL] Calling Lifefile cancel API for order ${order.lifefileOrderId}`);
-        
+      if (!parseResult.success) {
+        return NextResponse.json(
+          { error: 'Invalid request', details: parseResult.error.issues },
+          { status: 400 }
+        );
+      }
+
+      const { reason, notes } = parseResult.data;
+
+      // Determine clinic context
+      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+
+      // Fetch order with clinic context
+      const order = await runWithClinicContext(clinicId, async () => {
+        return prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            provider: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+            clinic: {
+              select: {
+                id: true,
+                name: true,
+                lifefileEnabled: true,
+              },
+            },
+            rxs: true,
+          },
+        });
+      });
+
+      if (!order) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      }
+
+      // Check if already cancelled
+      if (order.cancelledAt) {
+        return NextResponse.json(
+          {
+            error: 'Order already cancelled',
+            cancelledAt: order.cancelledAt,
+            cancellationReason: order.cancellationReason,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check if order status allows cancellation
+      const currentStatus = (order.status || '').toLowerCase();
+
+      if (NON_CANCELLABLE_STATUSES.includes(currentStatus)) {
+        return NextResponse.json(
+          {
+            error: 'Order cannot be cancelled',
+            message: `Orders with status "${order.status}" cannot be cancelled. The order may already be in fulfillment or shipped.`,
+            currentStatus: order.status,
+          },
+          { status: 400 }
+        );
+      }
+
+      logger.info(`[ORDER CANCEL] User ${user.id} requesting cancellation for order ${orderId}`, {
+        orderId,
+        lifefileOrderId: order.lifefileOrderId,
+        currentStatus: order.status,
+        reason,
+      });
+
+      // Attempt to cancel in Lifefile if we have a Lifefile order ID
+      let lifefileCancelResponse: any = null;
+      let lifefileError: string | null = null;
+
+      if (order.lifefileOrderId && order.clinic?.lifefileEnabled) {
         try {
-          lifefileCancelResponse = await lifefileClient.cancelOrder(
-            order.lifefileOrderId,
-            reason,
-            notes
+          // Get clinic-specific Lifefile client
+          const lifefileClient = order.clinicId
+            ? await getClinicLifefileClient(order.clinicId)
+            : lifefile;
+
+          // Try to cancel the order in Lifefile
+          logger.info(
+            `[ORDER CANCEL] Calling Lifefile cancel API for order ${order.lifefileOrderId}`
           );
-          logger.info(`[ORDER CANCEL] Lifefile cancel response:`, lifefileCancelResponse);
-        } catch (cancelErr: any) {
-          // Try alternative endpoints if primary fails
-          logger.warn(`[ORDER CANCEL] Primary cancel endpoint failed, trying alternatives...`);
-          
+
           try {
-            lifefileCancelResponse = await lifefileClient.voidOrder(order.lifefileOrderId, reason);
-          } catch (voidErr: any) {
+            lifefileCancelResponse = await lifefileClient.cancelOrder(
+              order.lifefileOrderId,
+              reason,
+              notes
+            );
+            logger.info(`[ORDER CANCEL] Lifefile cancel response:`, lifefileCancelResponse);
+          } catch (cancelErr: any) {
+            // Try alternative endpoints if primary fails
+            logger.warn(`[ORDER CANCEL] Primary cancel endpoint failed, trying alternatives...`);
+
             try {
-              lifefileCancelResponse = await lifefileClient.deleteOrder(order.lifefileOrderId);
-            } catch (deleteErr: any) {
-              // All attempts failed
-              lifefileError = cancelErr.message || 'Lifefile cancellation failed';
-              logger.error(`[ORDER CANCEL] All Lifefile cancel attempts failed:`, {
-                cancelErr: cancelErr.message,
-                voidErr: voidErr?.message,
-                deleteErr: deleteErr?.message,
-              });
+              lifefileCancelResponse = await lifefileClient.voidOrder(
+                order.lifefileOrderId,
+                reason
+              );
+            } catch (voidErr: any) {
+              try {
+                lifefileCancelResponse = await lifefileClient.deleteOrder(order.lifefileOrderId);
+              } catch (deleteErr: any) {
+                // All attempts failed
+                lifefileError = cancelErr.message || 'Lifefile cancellation failed';
+                logger.error(`[ORDER CANCEL] All Lifefile cancel attempts failed:`, {
+                  cancelErr: cancelErr.message,
+                  voidErr: voidErr?.message,
+                  deleteErr: deleteErr?.message,
+                });
+              }
             }
           }
+        } catch (err: any) {
+          lifefileError = err.message || 'Failed to connect to Lifefile';
+          logger.error(`[ORDER CANCEL] Lifefile client error:`, err);
         }
-      } catch (err: any) {
-        lifefileError = err.message || 'Failed to connect to Lifefile';
-        logger.error(`[ORDER CANCEL] Lifefile client error:`, err);
       }
-    }
 
-    // Update order in database regardless of Lifefile response
-    // (We still want to track the cancellation attempt in our system)
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        cancelledAt: new Date(),
-        cancelledBy: user.id,
-        cancellationReason: reason,
-        cancellationNotes: notes,
-        lifefileCancelResponse: lifefileCancelResponse 
-          ? JSON.stringify(lifefileCancelResponse) 
-          : lifefileError ? JSON.stringify({ error: lifefileError }) : null,
-        status: 'cancelled',
-      },
-    });
-
-    // Create order event for audit trail
-    await prisma.orderEvent.create({
-      data: {
-        orderId: orderId,
-        lifefileOrderId: order.lifefileOrderId,
-        eventType: 'order_cancelled',
-        payload: {
-          reason,
-          notes,
+      // Update order in database regardless of Lifefile response
+      // (We still want to track the cancellation attempt in our system)
+      const updatedOrder = await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          cancelledAt: new Date(),
           cancelledBy: user.id,
-          cancelledByEmail: user.email,
-          lifefileResponse: lifefileCancelResponse,
-          lifefileError,
-        } as any,
-        note: `Order cancelled by ${user.email}: ${reason}${notes ? ` - ${notes}` : ''}`,
-      },
-    });
-
-    // ENTERPRISE: Void any compensation event associated with this order
-    try {
-      await providerCompensationService.voidCompensation(
-        orderId,
-        `Order cancelled: ${reason}${notes ? ` - ${notes}` : ''}`,
-        user.id
-      );
-      logger.info('[ORDER CANCEL] Compensation event voided', { orderId });
-    } catch (compError) {
-      // Don't fail the cancellation if compensation voiding fails
-      logger.error('[ORDER CANCEL] Failed to void compensation event', {
-        orderId,
-        error: compError instanceof Error ? compError.message : 'Unknown error',
+          cancellationReason: reason,
+          cancellationNotes: notes,
+          lifefileCancelResponse: lifefileCancelResponse
+            ? JSON.stringify(lifefileCancelResponse)
+            : lifefileError
+              ? JSON.stringify({ error: lifefileError })
+              : null,
+          status: 'cancelled',
+        },
       });
-    }
 
-    // PLATFORM BILLING: Void any platform fee associated with this order
-    try {
-      const voidedFee = await platformFeeService.voidFeeByOrder(
-        orderId,
-        `Order cancelled: ${reason}${notes ? ` - ${notes}` : ''}`,
-        user.id
-      );
-      if (voidedFee) {
-        logger.info('[ORDER CANCEL] Platform fee voided', { orderId, feeEventId: voidedFee.id });
+      // Create order event for audit trail
+      await prisma.orderEvent.create({
+        data: {
+          orderId: orderId,
+          lifefileOrderId: order.lifefileOrderId,
+          eventType: 'order_cancelled',
+          payload: {
+            reason,
+            notes,
+            cancelledBy: user.id,
+            cancelledByEmail: user.email,
+            lifefileResponse: lifefileCancelResponse,
+            lifefileError,
+          } as any,
+          note: `Order cancelled by ${user.email}: ${reason}${notes ? ` - ${notes}` : ''}`,
+        },
+      });
+
+      // ENTERPRISE: Void any compensation event associated with this order
+      try {
+        await providerCompensationService.voidCompensation(
+          orderId,
+          `Order cancelled: ${reason}${notes ? ` - ${notes}` : ''}`,
+          user.id
+        );
+        logger.info('[ORDER CANCEL] Compensation event voided', { orderId });
+      } catch (compError) {
+        // Don't fail the cancellation if compensation voiding fails
+        logger.error('[ORDER CANCEL] Failed to void compensation event', {
+          orderId,
+          error: compError instanceof Error ? compError.message : 'Unknown error',
+        });
       }
-    } catch (feeError) {
-      // Don't fail the cancellation if fee voiding fails
-      logger.error('[ORDER CANCEL] Failed to void platform fee', {
-        orderId,
-        error: feeError instanceof Error ? feeError.message : 'Unknown error',
+
+      // PLATFORM BILLING: Void any platform fee associated with this order
+      try {
+        const voidedFee = await platformFeeService.voidFeeByOrder(
+          orderId,
+          `Order cancelled: ${reason}${notes ? ` - ${notes}` : ''}`,
+          user.id
+        );
+        if (voidedFee) {
+          logger.info('[ORDER CANCEL] Platform fee voided', { orderId, feeEventId: voidedFee.id });
+        }
+      } catch (feeError) {
+        // Don't fail the cancellation if fee voiding fails
+        logger.error('[ORDER CANCEL] Failed to void platform fee', {
+          orderId,
+          error: feeError instanceof Error ? feeError.message : 'Unknown error',
+        });
+      }
+
+      const processingTime = Date.now() - startTime;
+
+      return NextResponse.json({
+        success: true,
+        message: lifefileError
+          ? 'Order cancelled locally but Lifefile cancellation may have failed. Please verify with pharmacy.'
+          : 'Order cancelled successfully',
+        order: {
+          id: updatedOrder.id,
+          status: updatedOrder.status,
+          cancelledAt: updatedOrder.cancelledAt,
+          cancellationReason: updatedOrder.cancellationReason,
+          lifefileOrderId: order.lifefileOrderId,
+        },
+        patient: {
+          id: order.patient.id,
+          name: `${order.patient.firstName} ${order.patient.lastName}`,
+        },
+        lifefileResponse: lifefileCancelResponse,
+        lifefileError,
+        warning: lifefileError
+          ? 'Lifefile cancellation failed. Please contact the pharmacy directly to confirm cancellation.'
+          : undefined,
+        processingTime: `${processingTime}ms`,
       });
+    } catch (error: any) {
+      logger.error('[ORDER CANCEL] Error:', error);
+      return NextResponse.json(
+        { error: 'Failed to cancel order', message: error.message },
+        { status: 500 }
+      );
     }
-
-    const processingTime = Date.now() - startTime;
-
-    return NextResponse.json({
-      success: true,
-      message: lifefileError 
-        ? 'Order cancelled locally but Lifefile cancellation may have failed. Please verify with pharmacy.'
-        : 'Order cancelled successfully',
-      order: {
-        id: updatedOrder.id,
-        status: updatedOrder.status,
-        cancelledAt: updatedOrder.cancelledAt,
-        cancellationReason: updatedOrder.cancellationReason,
-        lifefileOrderId: order.lifefileOrderId,
-      },
-      patient: {
-        id: order.patient.id,
-        name: `${order.patient.firstName} ${order.patient.lastName}`,
-      },
-      lifefileResponse: lifefileCancelResponse,
-      lifefileError,
-      warning: lifefileError 
-        ? 'Lifefile cancellation failed. Please contact the pharmacy directly to confirm cancellation.'
-        : undefined,
-      processingTime: `${processingTime}ms`,
-    });
-
-  } catch (error: any) {
-    logger.error('[ORDER CANCEL] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to cancel order', message: error.message },
-      { status: 500 }
-    );
   }
-});
+);

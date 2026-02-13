@@ -112,16 +112,13 @@ export class NotFoundError extends AppError {
   public readonly resourceType?: string;
   public readonly resourceId?: string | number;
 
-  constructor(
-    resourceType?: string,
-    resourceId?: string | number,
-    message?: string
-  ) {
+  constructor(resourceType?: string, resourceId?: string | number, message?: string) {
     let defaultMessage = 'Resource not found';
     if (resourceType) {
-      defaultMessage = resourceId !== undefined
-        ? `${resourceType} not found: ${String(resourceId)}`
-        : `${resourceType} not found`;
+      defaultMessage =
+        resourceId !== undefined
+          ? `${resourceType} not found: ${String(resourceId)}`
+          : `${resourceType} not found`;
     }
 
     super(message ?? defaultMessage, 'NOT_FOUND', 404, true, {
@@ -149,10 +146,7 @@ export class ConflictError extends AppError {
 export class ValidationError extends AppError {
   public readonly errors: ValidationErrorDetail[];
 
-  constructor(
-    message = 'Validation failed',
-    errors: ValidationErrorDetail[] = []
-  ) {
+  constructor(message = 'Validation failed', errors: ValidationErrorDetail[] = []) {
     super(message, 'VALIDATION_ERROR', 422, true, { errors });
     this.errors = errors;
   }
@@ -204,11 +198,7 @@ export class InternalError extends AppError {
 export class ExternalServiceError extends AppError {
   public readonly serviceName: string;
 
-  constructor(
-    serviceName: string,
-    message?: string,
-    context?: Record<string, unknown>
-  ) {
+  constructor(serviceName: string, message?: string, context?: Record<string, unknown>) {
     super(
       message ?? `External service error: ${serviceName}`,
       'EXTERNAL_SERVICE_ERROR',
@@ -240,10 +230,7 @@ export class ServiceUnavailableError extends AppError {
  * Database operation error
  */
 export class DatabaseError extends AppError {
-  constructor(
-    message = 'Database operation failed',
-    context?: Record<string, unknown>
-  ) {
+  constructor(message = 'Database operation failed', context?: Record<string, unknown>) {
     super(message, 'DATABASE_ERROR', 500, true, context);
   }
 }
@@ -366,6 +353,5 @@ export const Errors = {
   rateLimit: (retryAfter?: number) => new RateLimitError(undefined, retryAfter),
   internal: (message?: string) => new InternalError(message),
   database: (message?: string) => new DatabaseError(message),
-  external: (service: string, message?: string) =>
-    new ExternalServiceError(service, message),
+  external: (service: string, message?: string) => new ExternalServiceError(service, message),
 } as const;

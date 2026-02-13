@@ -188,7 +188,7 @@ function getLuminance(hex: string): number {
   if (!rgb) return 0.5;
 
   const [r, g, b] = rgb.split(', ').map(Number);
-  const [rs, gs, bs] = [r, g, b].map(c => {
+  const [rs, gs, bs] = [r, g, b].map((c) => {
     c = c / 255;
     return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
   });
@@ -200,7 +200,10 @@ function getLuminance(hex: string): number {
  * Determine the best text color (light/dark) for a given background
  * Returns 'light' for white text, 'dark' for black text
  */
-export function getContrastTextColor(bgColor: string, mode: 'auto' | 'light' | 'dark' = 'auto'): 'light' | 'dark' {
+export function getContrastTextColor(
+  bgColor: string,
+  mode: 'auto' | 'light' | 'dark' = 'auto'
+): 'light' | 'dark' {
   if (mode === 'light') return 'light';
   if (mode === 'dark') return 'dark';
 
@@ -222,7 +225,10 @@ interface ClinicBrandingProviderProps {
 function generateCssVariables(branding: ClinicBranding): Record<string, string> {
   // Calculate text colors for each background
   const primaryTextColor = getContrastTextColor(branding.primaryColor, branding.buttonTextColor);
-  const secondaryTextColor = getContrastTextColor(branding.secondaryColor, branding.buttonTextColor);
+  const secondaryTextColor = getContrastTextColor(
+    branding.secondaryColor,
+    branding.buttonTextColor
+  );
   const accentTextColor = getContrastTextColor(branding.accentColor, branding.buttonTextColor);
 
   return {
@@ -274,26 +280,34 @@ export function ClinicBrandingProvider({
 
       // FIRST: Check domain to determine if this is a white-labeled subdomain
       if (isBrowser) {
-        try {
-          const domain = window.location.hostname;
+        const domain = window.location.hostname;
+        const isMainAppDomain =
+          domain.includes('app.eonpro.io') ||
+          domain === 'app.eonpro.io' ||
+          domain === 'localhost' ||
+          domain.startsWith('localhost:');
 
+        // Main app domain always uses EONPRO branding; skip API call to avoid timeouts
+        if (isMainAppDomain) {
+          setBranding(defaultBranding);
+          return;
+        }
+
+        try {
           // Add timeout to prevent hanging
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-          const resolveResponse = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`, {
-            signal: controller.signal,
-          });
+          const resolveResponse = await fetch(
+            `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
+            {
+              signal: controller.signal,
+            }
+          );
           clearTimeout(timeoutId);
 
           if (resolveResponse.ok) {
             const resolveData = await resolveResponse.json();
-
-            // If this is the main app domain (app.eonpro.io), always use default EONPRO branding
-            if (resolveData.isMainApp) {
-              setBranding(defaultBranding);
-              return;
-            }
 
             // If domain resolves to a specific clinic, use that clinic's branding
             if (resolveData.clinicId) {
@@ -325,10 +339,11 @@ export function ClinicBrandingProvider({
             // Only use user's clinicId if we couldn't resolve from domain
             // AND we're not on a known main app domain
             const domain = window.location.hostname;
-            const isMainAppDomain = domain.includes('app.eonpro.io') ||
-                                    domain === 'app.eonpro.io' ||
-                                    domain === 'localhost' ||
-                                    domain.startsWith('localhost:');
+            const isMainAppDomain =
+              domain.includes('app.eonpro.io') ||
+              domain === 'app.eonpro.io' ||
+              domain === 'localhost' ||
+              domain.startsWith('localhost:');
             if (!isMainAppDomain) {
               cId = userData.clinicId;
             }
@@ -437,7 +452,9 @@ export function ClinicBrandingProvider({
 
       // Update apple-touch-icon if iconUrl is provided (for PWA/mobile)
       if (branding.iconUrl) {
-        let appleTouchIcon = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+        let appleTouchIcon = document.querySelector(
+          "link[rel='apple-touch-icon']"
+        ) as HTMLLinkElement;
         if (appleTouchIcon) {
           appleTouchIcon.href = branding.iconUrl;
         } else {

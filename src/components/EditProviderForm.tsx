@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import SignaturePadCanvas from "@/components/SignaturePadCanvas";
-import { US_STATE_OPTIONS } from "@/lib/usStates";
-import { useState, useEffect } from "react";
-import ProviderPasswordSetup from "./ProviderPasswordSetup";
-import { Building2 } from "lucide-react";
+import SignaturePadCanvas from '@/components/SignaturePadCanvas';
+import { US_STATE_OPTIONS } from '@/lib/usStates';
+import { useState, useEffect } from 'react';
+import ProviderPasswordSetup from './ProviderPasswordSetup';
+import { Building2 } from 'lucide-react';
 
 type Clinic = {
   id: number;
@@ -37,13 +37,13 @@ type Props = {
 export default function EditProviderForm({ provider }: Props) {
   const [form, setForm] = useState({
     ...provider,
-    titleLine: provider.titleLine ?? "",
-    licenseState: provider.licenseState ?? "",
-    licenseNumber: provider.licenseNumber ?? "",
-    dea: provider.dea ?? "",
-    email: provider.email ?? "",
-    phone: provider.phone ?? "",
-    signatureDataUrl: provider.signatureDataUrl ?? "",
+    titleLine: provider.titleLine ?? '',
+    licenseState: provider.licenseState ?? '',
+    licenseNumber: provider.licenseNumber ?? '',
+    dea: provider.dea ?? '',
+    email: provider.email ?? '',
+    phone: provider.phone ?? '',
+    signatureDataUrl: provider.signatureDataUrl ?? '',
     clinicId: provider.clinicId ?? null,
   });
   const [saving, setSaving] = useState(false);
@@ -71,7 +71,7 @@ export default function EditProviderForm({ provider }: Props) {
   }, []);
 
   const update = (key: keyof typeof form, value: string | null) => {
-    setForm((prev: any) => ({ ...prev, [key]: value ?? "" }));
+    setForm((prev: any) => ({ ...prev, [key]: value ?? '' }));
   };
 
   const handleSignatureUpload = async (file: File) => {
@@ -88,20 +88,20 @@ export default function EditProviderForm({ provider }: Props) {
       setSaving(true);
       setMessage(null);
       const res = await fetch(`/api/providers/${provider.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? "Failed to update provider");
+        throw new Error(data.error ?? 'Failed to update provider');
       }
-      setMessage("Provider updated.");
+      setMessage('Provider updated.');
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    setMessage(errorMessage ?? "Failed to update provider");
+      // @ts-ignore
+
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setMessage(errorMessage ?? 'Failed to update provider');
     } finally {
       setSaving(false);
     }
@@ -111,37 +111,35 @@ export default function EditProviderForm({ provider }: Props) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">
-            NPI
-          </label>
-          <input className="border p-2 w-full bg-gray-100" value={form.npi} disabled />
+          <label className="mb-1 block text-xs uppercase tracking-wide text-gray-500">NPI</label>
+          <input className="w-full border bg-gray-100 p-2" value={form.npi} disabled />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">
+          <label className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
             Professional Title
           </label>
           <input
-            className="border p-2 w-full"
-            value={form.titleLine ?? ""}
-            onChange={(e: any) => update("titleLine", e.target.value)}
+            className="w-full border p-2"
+            value={form.titleLine ?? ''}
+            onChange={(e: any) => update('titleLine', e.target.value)}
           />
         </div>
         <input
           className="border p-2"
           placeholder="First Name"
           value={form.firstName}
-          onChange={(e: any) => update("firstName", e.target.value)}
+          onChange={(e: any) => update('firstName', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="Last Name"
           value={form.lastName}
-          onChange={(e: any) => update("lastName", e.target.value)}
+          onChange={(e: any) => update('lastName', e.target.value)}
         />
         <select
           className="border p-2"
-          value={form.licenseState ?? ""}
-          onChange={(e: any) => update("licenseState", e.target.value)}
+          value={form.licenseState ?? ''}
+          onChange={(e: any) => update('licenseState', e.target.value)}
         >
           <option value="">License State</option>
           {US_STATE_OPTIONS.map((state: any) => (
@@ -153,42 +151,42 @@ export default function EditProviderForm({ provider }: Props) {
         <input
           className="border p-2"
           placeholder="License Number"
-          value={form.licenseNumber ?? ""}
-          onChange={(e: any) => update("licenseNumber", e.target.value)}
+          value={form.licenseNumber ?? ''}
+          onChange={(e: any) => update('licenseNumber', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="DEA Number"
-          value={form.dea ?? ""}
-          onChange={(e: any) => update("dea", e.target.value)}
+          value={form.dea ?? ''}
+          onChange={(e: any) => update('dea', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="Email"
-          value={form.email ?? ""}
-          onChange={(e: any) => update("email", e.target.value)}
+          value={form.email ?? ''}
+          onChange={(e: any) => update('email', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="Phone"
-          value={form.phone ?? ""}
-          onChange={(e: any) => update("phone", e.target.value)}
+          value={form.phone ?? ''}
+          onChange={(e: any) => update('phone', e.target.value)}
         />
-        
+
         {/* Clinic Assignment */}
         <div className="col-span-2">
-          <label className="block text-xs text-gray-500 uppercase tracking-wide mb-1">
-            <Building2 className="inline h-3 w-3 mr-1" />
+          <label className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
+            <Building2 className="mr-1 inline h-3 w-3" />
             Assigned Clinic
           </label>
           <select
-            className="border p-2 w-full rounded"
-            value={form.clinicId ?? ""}
+            className="w-full rounded border p-2"
+            value={form.clinicId ?? ''}
             onChange={(e: any) => {
               const val = e.target.value;
-              setForm((prev: any) => ({ 
-                ...prev, 
-                clinicId: val ? parseInt(val, 10) : null 
+              setForm((prev: any) => ({
+                ...prev,
+                clinicId: val ? parseInt(val, 10) : null,
               }));
             }}
             disabled={loadingClinics}
@@ -201,21 +199,19 @@ export default function EditProviderForm({ provider }: Props) {
             ))}
           </select>
           {provider.clinic && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="mt-1 text-xs text-gray-500">
               Currently assigned to: <strong>{provider.clinic.name}</strong>
             </p>
           )}
         </div>
 
         <div className="col-span-2 space-y-2">
-          <p className="text-sm font-medium text-gray-600">
-            Provider Signature (upload or draw)
-          </p>
+          <p className="text-sm font-medium text-gray-600">Provider Signature (upload or draw)</p>
           <div className="flex gap-3">
             <button
               type="button"
-              className={`px-3 py-1 rounded border ${
-                useSignaturePad ? "bg-[#17aa7b] text-white" : ""
+              className={`rounded border px-3 py-1 ${
+                useSignaturePad ? 'bg-[#17aa7b] text-white' : ''
               }`}
               onClick={() => setUseSignaturePad(true)}
             >
@@ -223,8 +219,8 @@ export default function EditProviderForm({ provider }: Props) {
             </button>
             <button
               type="button"
-              className={`px-3 py-1 rounded border ${
-                !useSignaturePad ? "bg-[#17aa7b] text-white" : ""
+              className={`rounded border px-3 py-1 ${
+                !useSignaturePad ? 'bg-[#17aa7b] text-white' : ''
               }`}
               onClick={() => setUseSignaturePad(false)}
             >
@@ -233,7 +229,7 @@ export default function EditProviderForm({ provider }: Props) {
           </div>
           {useSignaturePad ? (
             <SignaturePadCanvas
-              onChange={(dataUrl: any) => update("signatureDataUrl", dataUrl)}
+              onChange={(dataUrl: any) => update('signatureDataUrl', dataUrl)}
               initialSignature={form.signatureDataUrl ?? undefined}
             />
           ) : (
@@ -244,22 +240,17 @@ export default function EditProviderForm({ provider }: Props) {
                 const file = event.target.files?.[0];
                 if (!file) return;
                 const base64 = await handleSignatureUpload(file);
-                update("signatureDataUrl", base64);
+                update('signatureDataUrl', base64);
               }}
             />
           )}
         </div>
       </div>
       <div className="flex items-center space-x-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="btn-primary"
-        >
-          {saving ? "Saving..." : "Save Changes"}
+        <button type="button" onClick={save} disabled={saving} className="btn-primary">
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
-        
+
         <ProviderPasswordSetup
           providerId={provider.id}
           providerName={`Dr. ${form.firstName} ${form.lastName}`}
@@ -267,8 +258,7 @@ export default function EditProviderForm({ provider }: Props) {
           onPasswordSet={() => setMessage('Password updated successfully')}
         />
       </div>
-      {message && <p className="text-sm text-gray-600 mt-2">{message}</p>}
+      {message && <p className="mt-2 text-sm text-gray-600">{message}</p>}
     </div>
   );
 }
-

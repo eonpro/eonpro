@@ -1,6 +1,6 @@
 /**
  * AWS SES Email Validation API Endpoint
- * 
+ *
  * Validates email addresses and checks if they can receive emails
  */
 
@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email address is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email address is required' }, { status: 400 });
     }
 
     // Validate email format
@@ -26,7 +23,7 @@ export async function POST(request: NextRequest) {
     // - If email is blacklisted
     // - If email has bounced before
     // - If domain has valid MX records
-    
+
     return NextResponse.json({
       email,
       valid,
@@ -39,13 +36,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Validate] Error:', error);
-    
-    return NextResponse.json(
-      { error: errorMessage || 'Validation failed' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: errorMessage || 'Validation failed' }, { status: 500 });
   }
 }

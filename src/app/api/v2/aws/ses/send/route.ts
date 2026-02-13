@@ -1,17 +1,13 @@
 /**
  * AWS SES Send Email API Endpoint
- * 
+ *
  * Sends single or bulk emails through AWS SES
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { sendEmail, sendBulkEmails, mockSESService } from '@/lib/integrations/aws/sesService';
 import {
-  sendEmail, 
-  sendBulkEmails,
-  mockSESService,
-} from '@/lib/integrations/aws/sesService';
-import { 
   EmailTemplate,
   EmailPriority,
   isSESEnabled,
@@ -23,17 +19,14 @@ import { isFeatureEnabled } from '@/lib/features';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Single email
     if (body.to) {
       // Validate required fields
       if (!body.to) {
-        return NextResponse.json(
-          { error: 'Recipient email is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Recipient email is required' }, { status: 400 });
       }
-      
+
       // Validate email format
       const recipients = Array.isArray(body.to) ? body.to : [body.to];
       for (const email of recipients) {
@@ -44,7 +37,7 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-      
+
       // Check if feature is enabled
       if (!isFeatureEnabled('AWS_SES_EMAIL')) {
         // Use mock service
@@ -61,21 +54,18 @@ export async function POST(request: NextRequest) {
           priority: body.priority as EmailPriority,
           tags: body.tags,
         });
-        
+
         return NextResponse.json({
           ...result,
           message: 'Using mock SES service (feature not enabled)',
         });
       }
-      
+
       // Check if SES is configured
       if (!isSESEnabled()) {
-        return NextResponse.json(
-          { error: SES_ERRORS.NOT_CONFIGURED },
-          { status: 503 }
-        );
+        return NextResponse.json({ error: SES_ERRORS.NOT_CONFIGURED }, { status: 503 });
       }
-      
+
       // Send email
       const result = await sendEmail({
         to: body.to,
@@ -90,17 +80,17 @@ export async function POST(request: NextRequest) {
         priority: body.priority as EmailPriority,
         tags: body.tags,
       });
-      
+
       if (result.status === 'failed') {
         return NextResponse.json(
           { error: result.error || SES_ERRORS.SEND_FAILED },
           { status: 500 }
         );
       }
-      
+
       return NextResponse.json(result);
     }
-    
+
     // Bulk emails
     if (body.recipients && body.template) {
       // Validate recipients
@@ -110,7 +100,7 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      
+
       for (const recipient of body.recipients) {
         if (!validateEmail(recipient.email)) {
           return NextResponse.json(
@@ -119,12 +109,12 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-      
+
       // Check if feature is enabled
       if (!isFeatureEnabled('AWS_SES_EMAIL')) {
         // Use mock service for bulk
         const mockResults = await Promise.all(
-          body.recipients.map((r: any) => 
+          body.recipients.map((r: any) =>
             mockSESService.sendEmail({
               to: r.email,
               template: body.template,
@@ -132,31 +122,28 @@ export async function POST(request: NextRequest) {
             })
           )
         );
-        
+
         return NextResponse.json({
           results: mockResults,
           message: 'Using mock SES service (feature not enabled)',
         });
       }
-      
+
       // Check if SES is configured
       if (!isSESEnabled()) {
-        return NextResponse.json(
-          { error: SES_ERRORS.NOT_CONFIGURED },
-          { status: 503 }
-        );
+        return NextResponse.json({ error: SES_ERRORS.NOT_CONFIGURED }, { status: 503 });
       }
-      
+
       // Send bulk emails
       const results = await sendBulkEmails(
         body.recipients,
         body.template as EmailTemplate,
         body.defaultData
       );
-      
+
       const successful = results.filter((r: any) => r.status === 'sent').length;
       const failed = results.filter((r: any) => r.status === 'failed').length;
-      
+
       return NextResponse.json({
         results,
         summary: {
@@ -166,20 +153,20 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-    
+
     return NextResponse.json(
-      { error: 'Invalid request. Provide either "to" for single email or "recipients" for bulk email.' },
+      {
+        error:
+          'Invalid request. Provide either "to" for single email or "recipients" for bulk email.',
+      },
       { status: 400 }
     );
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Send] Error:', error);
-    
-    return NextResponse.json(
-      { error: errorMessage || SES_ERRORS.SEND_FAILED },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: errorMessage || SES_ERRORS.SEND_FAILED }, { status: 500 });
   }
 }

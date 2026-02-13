@@ -2,7 +2,12 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { generateSOAPNote, type SOAPGenerationInput } from './openaiService';
-import type { Patient as PrismaPatient, PatientDocument, Provider as PrismaProvider, SOAPNote as PrismaSOAPNote } from '@prisma/client';
+import type {
+  Patient as PrismaPatient,
+  PatientDocument,
+  Provider as PrismaProvider,
+  SOAPNote as PrismaSOAPNote,
+} from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { decryptPHI, decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
@@ -17,12 +22,14 @@ export const createSOAPNoteSchema = z.object({
   patientId: z.number(),
   intakeDocumentId: z.number().optional(),
   generateFromIntake: z.boolean().default(false),
-  manualContent: z.object({
-    subjective: z.string(),
-    objective: z.string(),
-    assessment: z.string(),
-    plan: z.string(),
-  }).optional(),
+  manualContent: z
+    .object({
+      subjective: z.string(),
+      objective: z.string(),
+      assessment: z.string(),
+      plan: z.string(),
+    })
+    .optional(),
 });
 
 export const approveSOAPNoteSchema = z.object({
@@ -54,14 +61,16 @@ export async function generateSOAPFromIntake(
   const rawPatient = await prisma.patient.findUnique({
     where: { id: patientId },
     include: {
-      documents: intakeDocumentId ? {
-        where: { id: intakeDocumentId }
-      } : {
-        where: { category: 'MEDICAL_INTAKE_FORM' },
-        orderBy: { createdAt: 'desc' },
-        take: 1
-      }
-    }
+      documents: intakeDocumentId
+        ? {
+            where: { id: intakeDocumentId },
+          }
+        : {
+            where: { category: 'MEDICAL_INTAKE_FORM' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+    },
   });
 
   if (!rawPatient) {
@@ -73,7 +82,10 @@ export async function generateSOAPFromIntake(
   // encrypted names will appear in the SOAP note text
   const patient = {
     ...rawPatient,
-    ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+    ...decryptPatientPHI(
+      rawPatient as Record<string, unknown>,
+      DEFAULT_PHI_FIELDS as unknown as string[]
+    ),
   };
 
   logger.debug('[SOAP Service] Decrypted patient PHI for SOAP generation', {
@@ -84,7 +96,7 @@ export async function generateSOAPFromIntake(
 
   // Prevent creating SOAP notes for test/dummy patients
   // Use decrypted values for the check
-  const isTestPatient = 
+  const isTestPatient =
     patient.firstName?.toLowerCase() === 'unknown' ||
     patient.lastName?.toLowerCase() === 'unknown' ||
     patient.firstName?.toLowerCase().includes('test') ||
@@ -106,23 +118,24 @@ export async function generateSOAPFromIntake(
   // Parse intake data
   let intakeData: any = {};
   let structuredData: any = {};
-  
+
   try {
     // If the document has external URL, it might be a PDF
     // For now, we'll assume we have normalized data stored
     if (intakeDocument.data) {
       let dataStr = '';
-      
+
       // Check if data is stored as comma-separated bytes or as a proper Buffer
       // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-      const rawDataStr = typeof intakeDocument.data === 'string' 
-        ? intakeDocument.data 
-        : intakeDocument.data instanceof Uint8Array
-        ? Buffer.from(intakeDocument.data).toString('utf8')
-        : Buffer.isBuffer(intakeDocument.data) 
-        ? intakeDocument.data.toString('utf8')
-        : JSON.stringify(intakeDocument.data);
-        
+      const rawDataStr =
+        typeof intakeDocument.data === 'string'
+          ? intakeDocument.data
+          : intakeDocument.data instanceof Uint8Array
+            ? Buffer.from(intakeDocument.data).toString('utf8')
+            : Buffer.isBuffer(intakeDocument.data)
+              ? intakeDocument.data.toString('utf8')
+              : JSON.stringify(intakeDocument.data);
+
       if (rawDataStr.match(/^\d+,\d+,\d+/)) {
         // Data is stored as comma-separated byte values
         const bytes = rawDataStr.split(',').map((b: string) => parseInt(b.trim()));
@@ -131,10 +144,10 @@ export async function generateSOAPFromIntake(
         // Data is stored as a proper string
         dataStr = rawDataStr;
       }
-      
+
       logger.debug('[SOAP Service] Raw data preview:', { preview: dataStr.substring(0, 100) });
       const parsedData = JSON.parse(dataStr);
-      
+
       // If the data has an answers array, transform it to a structured format
       if (parsedData.answers && Array.isArray(parsedData.answers)) {
         parsedData.answers.forEach((answer: any) => {
@@ -145,11 +158,15 @@ export async function generateSOAPFromIntake(
       } else {
         intakeData = parsedData;
       }
-      
-      logger.debug('[SOAP Service] Parsed intake data with fields:', { fields: Object.keys(intakeData).slice(0, 10).join(', ') });
+
+      logger.debug('[SOAP Service] Parsed intake data with fields:', {
+        fields: Object.keys(intakeData).slice(0, 10).join(', '),
+      });
     }
   } catch (error: unknown) {
-    logger.error('Error parsing intake data:', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Error parsing intake data:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     // Fallback to basic patient info
     intakeData = {
       firstName: patient.firstName,
@@ -165,18 +182,21 @@ export async function generateSOAPFromIntake(
     intakeData,
     patientName: `${patient.firstName} ${patient.lastName}`,
     dateOfBirth: patient.dob,
-    chiefComplaint: intakeData["How would your life change by losing weight?"] || 
-                    intakeData.chiefComplaint || 
-                    intakeData.reasonForVisit || 
-                    "Weight loss evaluation",
+    chiefComplaint:
+      intakeData['How would your life change by losing weight?'] ||
+      intakeData.chiefComplaint ||
+      intakeData.reasonForVisit ||
+      'Weight loss evaluation',
   };
 
   logger.debug('[SOAP Service] Generating SOAP note for patient:', { value: patient.id });
-  logger.debug('[SOAP Service] Intake data sample:', { sample: JSON.stringify(soapInput.intakeData, null, 2).slice(0, 500) });
-  
+  logger.debug('[SOAP Service] Intake data sample:', {
+    sample: JSON.stringify(soapInput.intakeData, null, 2).slice(0, 500),
+  });
+
   try {
     const generatedSOAP = await generateSOAPNote(soapInput);
-    
+
     // Store in database
     const soapNote = await prisma.sOAPNote.create({
       data: {
@@ -199,21 +219,30 @@ export async function generateSOAPFromIntake(
     });
 
     logger.debug('[SOAP Service] SOAP note created successfully:', { value: soapNote.id });
-    
+
     return soapNote;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
-    const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string }).code : undefined;
+    const errorStatus =
+      error && typeof error === 'object' && 'status' in error
+        ? (error as { status: number }).status
+        : undefined;
+    const errorCode =
+      error && typeof error === 'object' && 'code' in error
+        ? (error as { code: string }).code
+        : undefined;
 
-    logger.error('[SOAP Service] Error generating SOAP note:', { 
+    logger.error('[SOAP Service] Error generating SOAP note:', {
       error: errorMessage,
       status: errorStatus,
       code: errorCode,
     });
-    
+
     // Preserve the original error status for proper handling upstream
-    const newError = new Error(`Failed to generate SOAP note: ${errorMessage}`) as Error & { status?: number; code?: string };
+    const newError = new Error(`Failed to generate SOAP note: ${errorMessage}`) as Error & {
+      status?: number;
+      code?: string;
+    };
     newError.status = errorStatus;
     newError.code = errorCode;
     throw newError;
@@ -243,11 +272,14 @@ export async function createManualSOAPNote(
   // Decrypt patient PHI for test patient check
   const patient = {
     ...rawPatient,
-    ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+    ...decryptPatientPHI(
+      rawPatient as Record<string, unknown>,
+      DEFAULT_PHI_FIELDS as unknown as string[]
+    ),
   };
 
   // Prevent creating SOAP notes for test/dummy patients
-  const isTestPatient = 
+  const isTestPatient =
     patient.firstName?.toLowerCase() === 'unknown' ||
     patient.lastName?.toLowerCase() === 'unknown' ||
     patient.firstName?.toLowerCase().includes('test') ||
@@ -275,7 +307,7 @@ export async function createManualSOAPNote(
   });
 
   logger.debug('[SOAP Service] Manual SOAP note created:', { id: soapNote.id });
-  
+
   return soapNote;
 }
 
@@ -344,7 +376,7 @@ export async function approveSOAPNote(
   });
 
   logger.debug('[SOAP Service] SOAP note approved by provider:', { value: providerId });
-  
+
   return updatedNote;
 }
 
@@ -380,7 +412,7 @@ export async function lockSOAPNote(
   });
 
   logger.debug('[SOAP Service] SOAP note locked:', { value: soapNoteId });
-  
+
   return lockedNote;
 }
 
@@ -452,7 +484,7 @@ export async function editApprovedSOAPNote(
   });
 
   logger.debug('[SOAP Service] Approved SOAP note edited:', { value: soapNoteId });
-  
+
   return updatedNote;
 }
 
@@ -466,7 +498,7 @@ export async function getPatientSOAPNotes(
   // Get all SOAP notes for the patient
   // Simplified filter - show all notes, let the UI handle display
   const allSoapNotes = await prisma.sOAPNote.findMany({
-    where: { 
+    where: {
       patientId,
     },
     include: {
@@ -480,17 +512,17 @@ export async function getPatientSOAPNotes(
   // Light filtering - only exclude obvious test/placeholder notes
   const filteredNotes = allSoapNotes.filter((note: any) => {
     const subjective = note.subjective?.toLowerCase() || '';
-    
+
     // Only exclude if subjective is completely empty or placeholder
     if (!note.subjective || note.subjective.trim().length < 10) {
       return false;
     }
-    
+
     // Exclude obvious placeholder content
     if (subjective === 'test' || subjective === 'placeholder') {
       return false;
     }
-    
+
     return true;
   });
 
@@ -514,19 +546,18 @@ export async function getPatientSOAPNotes(
 /**
  * Get single SOAP note with details
  */
-export async function getSOAPNoteById(
-  soapNoteId: number,
-  includeRevisions = false
-): Promise<any> {
+export async function getSOAPNoteById(soapNoteId: number, includeRevisions = false): Promise<any> {
   const soapNote = await prisma.sOAPNote.findUnique({
     where: { id: soapNoteId },
     include: {
       patient: true,
       approvedByProvider: true,
       intakeDocument: true,
-      revisions: includeRevisions ? {
-        orderBy: { createdAt: 'desc' },
-      } : false,
+      revisions: includeRevisions
+        ? {
+            orderBy: { createdAt: 'desc' },
+          }
+        : false,
     },
   });
 
@@ -543,24 +574,26 @@ export async function getSOAPNoteById(
 export function formatSOAPNote(soapNote: any): string {
   const patient = soapNote.patient;
   const provider = soapNote.approvedByProvider;
-  
+
   // Calculate age from DOB
   let age = '';
   if (patient?.dob) {
     const birthDate = new Date(patient.dob);
     const today = new Date();
-    age = String(Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+    age = String(
+      Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    );
   }
-  
+
   // Format date
   const dateOfService = new Date(soapNote.createdAt).toLocaleDateString('en-US', {
     month: '2-digit',
     day: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   });
-  
+
   let formatted = `SOAP NOTE – TELEHEALTH WEIGHT MANAGEMENT\n\n`;
-  
+
   if (patient) {
     formatted += `Patient Name: ${patient.firstName} ${patient.lastName}\n`;
     formatted += `DOB: ${patient.dob ? new Date(patient.dob).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'Not provided'}\n`;
@@ -578,43 +611,43 @@ export function formatSOAPNote(soapNote: any): string {
       formatted += `Location: ${[patient.city, patient.state].filter(Boolean).join(', ')}\n`;
     }
   }
-  
+
   formatted += `Date of Service: ${dateOfService}\n`;
   formatted += `Encounter Type: Asynchronous Telehealth Evaluation\n`;
-  
+
   if (provider) {
     formatted += `Provider: ${provider.firstName} ${provider.lastName}, ${provider.titleLine || 'Licensed Prescribing Provider (MD/DO/NP/PA)'}\n`;
   } else {
     formatted += `Provider: Licensed Prescribing Provider (MD/DO/NP/PA)\n`;
   }
-  
+
   formatted += `Reason for Visit: Medical weight management evaluation and treatment consideration\n`;
-  
+
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
-  
+
   formatted += `S – SUBJECTIVE\n\n`;
   formatted += `${soapNote.subjective}\n`;
-  
+
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
-  
+
   formatted += `O – OBJECTIVE\n\n`;
   formatted += `${soapNote.objective}\n`;
-  
+
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
-  
+
   formatted += `A – ASSESSMENT\n\n`;
   formatted += `${soapNote.assessment}\n`;
-  
+
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
-  
+
   formatted += `P – PLAN\n\n`;
   formatted += `${soapNote.plan}\n`;
-  
+
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
-  
+
   formatted += `PROVIDER ATTESTATION\n\n`;
   formatted += `I attest that I personally reviewed the patient's intake, medical history, and responses. Based on my clinical judgment, compounded GLP-1 therapy with appropriate adjunctive support is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.\n\n`;
-  
+
   formatted += `Electronic Signature: __________________________\n`;
   if (provider) {
     formatted += `Provider Name, Credentials: ${provider.firstName} ${provider.lastName}, ${provider.titleLine || ''}\n`;
@@ -624,11 +657,11 @@ export function formatSOAPNote(soapNote: any): string {
     formatted += `License #: ____________________\n`;
   }
   formatted += `Date: ${dateOfService}\n`;
-  
+
   if (soapNote.status === 'APPROVED' && soapNote.approvedAt) {
     formatted += `\n${'='.repeat(60)}\n`;
     formatted += `Electronically signed and approved on: ${new Date(soapNote.approvedAt).toLocaleString()}\n`;
   }
-  
+
   return formatted;
 }

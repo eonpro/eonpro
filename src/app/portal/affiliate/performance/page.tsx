@@ -60,15 +60,18 @@ export default function PerformancePage() {
     const fetchData = async () => {
       setLoading(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-      
+
       try {
         const [summaryRes, trendsRes] = await Promise.all([
           fetch(`/api/affiliate/summary?period=${period}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(`/api/affiliate/trends?granularity=day&days=${period === '7d' ? 7 : period === '30d' ? 30 : 90}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
+          fetch(
+            `/api/affiliate/trends?granularity=day&days=${period === '7d' ? 7 : period === '30d' ? 30 : 90}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          ),
         ]);
 
         if (summaryRes.ok && trendsRes.ok) {
@@ -79,12 +82,17 @@ export default function PerformancePage() {
             summary: {
               totalConversions: summaryData.summary?.conversionsCount || 0,
               totalRevenueCents: summaryData.summary?.revenueTotalCents || 0,
-              totalCommissionCents: (summaryData.summary?.commissionPendingCents || 0) + 
-                                   (summaryData.summary?.commissionApprovedCents || 0) +
-                                   (summaryData.summary?.commissionPaidCents || 0),
-              avgConversionValue: summaryData.summary?.conversionsCount > 0 
-                ? Math.round((summaryData.summary?.revenueTotalCents || 0) / summaryData.summary.conversionsCount)
-                : 0,
+              totalCommissionCents:
+                (summaryData.summary?.commissionPendingCents || 0) +
+                (summaryData.summary?.commissionApprovedCents || 0) +
+                (summaryData.summary?.commissionPaidCents || 0),
+              avgConversionValue:
+                summaryData.summary?.conversionsCount > 0
+                  ? Math.round(
+                      (summaryData.summary?.revenueTotalCents || 0) /
+                        summaryData.summary.conversionsCount
+                    )
+                  : 0,
             },
             comparison: {
               conversionsChange: Math.random() * 40 - 10, // Placeholder
@@ -129,9 +137,7 @@ export default function PerformancePage() {
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-4 py-2 text-sm font-medium transition-all ${
-                period === p
-                  ? 'bg-violet-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                period === p ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : '90 Days'}
@@ -149,9 +155,11 @@ export default function PerformancePage() {
               <Users className="h-6 w-6" />
             </div>
             {data?.comparison.conversionsChange !== undefined && (
-              <div className={`flex items-center gap-1 text-sm font-medium ${
-                data.comparison.conversionsChange >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <div
+                className={`flex items-center gap-1 text-sm font-medium ${
+                  data.comparison.conversionsChange >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
                 {data.comparison.conversionsChange >= 0 ? (
                   <ArrowUpRight className="h-4 w-4" />
                 ) : (
@@ -176,9 +184,11 @@ export default function PerformancePage() {
               <TrendingUp className="h-6 w-6" />
             </div>
             {data?.comparison.revenueChange !== undefined && (
-              <div className={`flex items-center gap-1 text-sm font-medium ${
-                data.comparison.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <div
+                className={`flex items-center gap-1 text-sm font-medium ${
+                  data.comparison.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
                 {data.comparison.revenueChange >= 0 ? (
                   <ArrowUpRight className="h-4 w-4" />
                 ) : (
@@ -203,9 +213,11 @@ export default function PerformancePage() {
               <DollarSign className="h-6 w-6" />
             </div>
             {data?.comparison.commissionChange !== undefined && (
-              <div className={`flex items-center gap-1 text-sm font-medium ${
-                data.comparison.commissionChange >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <div
+                className={`flex items-center gap-1 text-sm font-medium ${
+                  data.comparison.commissionChange >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}
+              >
                 {data.comparison.commissionChange >= 0 ? (
                   <ArrowUpRight className="h-4 w-4" />
                 ) : (
@@ -241,48 +253,50 @@ export default function PerformancePage() {
 
       {/* Trend Chart */}
       <div className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">
-          Daily Performance
-        </h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">Daily Performance</h2>
         {data?.trends && data.trends.length > 0 ? (
           <div className="space-y-2">
             {/* Simple bar chart visualization */}
             <div className="grid gap-1">
-              {data.trends.slice(0, 14).reverse().map((day, i) => {
-                const conversions = typeof day.conversions === 'number' ? day.conversions : 0;
-                const maxConversions = Math.max(
-                  ...data.trends.slice(0, 14).map(d => 
-                    typeof d.conversions === 'number' ? d.conversions : 0
-                  ),
-                  1
-                );
-                const width = (conversions / maxConversions) * 100;
-                
-                return (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="w-16 text-xs text-gray-500">
-                      {new Date(day.date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                      })}
-                    </span>
-                    <div className="flex-1">
-                      <div 
-                        className="h-6 rounded-r bg-violet-500 transition-all"
-                        style={{ width: `${Math.max(width, 2)}%` }}
-                      />
-                    </div>
-                    <span className="w-20 text-right text-sm font-medium text-gray-700">
-                      {typeof day.conversions === 'number' ? day.conversions : day.conversions} conv.
-                    </span>
-                    {day.commissionCents !== null && (
-                      <span className="w-24 text-right text-sm text-green-600">
-                        +{formatCurrency(day.commissionCents)}
+              {data.trends
+                .slice(0, 14)
+                .reverse()
+                .map((day, i) => {
+                  const conversions = typeof day.conversions === 'number' ? day.conversions : 0;
+                  const maxConversions = Math.max(
+                    ...data.trends
+                      .slice(0, 14)
+                      .map((d) => (typeof d.conversions === 'number' ? d.conversions : 0)),
+                    1
+                  );
+                  const width = (conversions / maxConversions) * 100;
+
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="w-16 text-xs text-gray-500">
+                        {new Date(day.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
                       </span>
-                    )}
-                  </div>
-                );
-              })}
+                      <div className="flex-1">
+                        <div
+                          className="h-6 rounded-r bg-violet-500 transition-all"
+                          style={{ width: `${Math.max(width, 2)}%` }}
+                        />
+                      </div>
+                      <span className="w-20 text-right text-sm font-medium text-gray-700">
+                        {typeof day.conversions === 'number' ? day.conversions : day.conversions}{' '}
+                        conv.
+                      </span>
+                      {day.commissionCents !== null && (
+                        <span className="w-24 text-right text-sm text-green-600">
+                          +{formatCurrency(day.commissionCents)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </div>
         ) : (
@@ -295,9 +309,7 @@ export default function PerformancePage() {
       {/* Tier Progress */}
       {data?.tierProgress && (
         <div className="rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Tier Progress
-          </h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Tier Progress</h2>
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <div className="mb-2 flex items-center justify-between">
@@ -309,9 +321,7 @@ export default function PerformancePage() {
               {data.tierProgress.nextTier && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Next Tier</span>
-                  <span className="font-semibold text-gray-700">
-                    {data.tierProgress.nextTier}
-                  </span>
+                  <span className="font-semibold text-gray-700">{data.tierProgress.nextTier}</span>
                 </div>
               )}
             </div>
@@ -323,7 +333,7 @@ export default function PerformancePage() {
                     <span className="font-medium">{data.tierProgress.conversionsProgress}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-white">
-                    <div 
+                    <div
                       className="h-full rounded-full bg-violet-500 transition-all"
                       style={{ width: `${data.tierProgress.conversionsProgress}%` }}
                     />
@@ -335,7 +345,7 @@ export default function PerformancePage() {
                     <span className="font-medium">{data.tierProgress.revenueProgress}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-white">
-                    <div 
+                    <div
                       className="h-full rounded-full bg-violet-500 transition-all"
                       style={{ width: `${data.tierProgress.revenueProgress}%` }}
                     />

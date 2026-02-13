@@ -566,7 +566,10 @@ All errors follow this format:
           scheduledAt: { type: 'string', format: 'date-time' },
           duration: { type: 'integer', description: 'Duration in minutes' },
           type: { type: 'string', enum: ['in-person', 'telehealth', 'phone'] },
-          status: { type: 'string', enum: ['scheduled', 'confirmed', 'completed', 'cancelled', 'no-show'] },
+          status: {
+            type: 'string',
+            enum: ['scheduled', 'confirmed', 'completed', 'cancelled', 'no-show'],
+          },
           notes: { type: 'string' },
         },
       },

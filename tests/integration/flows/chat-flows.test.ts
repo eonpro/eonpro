@@ -40,13 +40,13 @@ const mockPrismaChatMessage = {
     return Promise.resolve(newMessage);
   }),
   findUnique: vi.fn((args) => {
-    const message = chatMessages.find(m => m.id === args.where.id);
+    const message = chatMessages.find((m) => m.id === args.where.id);
     return Promise.resolve(message || null);
   }),
   findMany: vi.fn((args) => {
     let results = [...chatMessages];
     if (args.where?.patientId) {
-      results = results.filter(m => m.patientId === args.where.patientId);
+      results = results.filter((m) => m.patientId === args.where.patientId);
     }
     if (args.orderBy?.createdAt === 'desc') {
       results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -54,24 +54,24 @@ const mockPrismaChatMessage = {
     if (args.take) {
       results = results.slice(0, args.take);
     }
-    return Promise.resolve(results.map(m => ({ ...m, replyTo: null })));
+    return Promise.resolve(results.map((m) => ({ ...m, replyTo: null })));
   }),
   count: vi.fn((args) => {
     let results = [...chatMessages];
     if (args.where?.patientId) {
-      results = results.filter(m => m.patientId === args.where.patientId);
+      results = results.filter((m) => m.patientId === args.where.patientId);
     }
     if (args.where?.direction) {
-      results = results.filter(m => m.direction === args.where.direction);
+      results = results.filter((m) => m.direction === args.where.direction);
     }
     if (args.where?.readAt === null) {
-      results = results.filter(m => m.readAt === null);
+      results = results.filter((m) => m.readAt === null);
     }
     return Promise.resolve(results.length);
   }),
   updateMany: vi.fn((args) => {
     let count = 0;
-    chatMessages.forEach(m => {
+    chatMessages.forEach((m) => {
       if (args.where?.patientId && m.patientId !== args.where.patientId) return;
       if (args.where?.direction && m.direction !== args.where.direction) return;
       if (args.where?.readAt === null && m.readAt !== null) return;
@@ -84,7 +84,7 @@ const mockPrismaChatMessage = {
     return Promise.resolve({ count });
   }),
   update: vi.fn((args) => {
-    const message = chatMessages.find(m => m.id === args.where.id);
+    const message = chatMessages.find((m) => m.id === args.where.id);
     if (message) {
       Object.assign(message, args.data);
     }
@@ -126,7 +126,7 @@ vi.mock('@/lib/integrations/twilio/smsService', () => ({
     smsSentMessages.push(args);
     return Promise.resolve({ success: true, messageId: `SM${Date.now()}` });
   }),
-  formatPhoneNumber: vi.fn((phone) => phone.startsWith('+') ? phone : `+1${phone}`),
+  formatPhoneNumber: vi.fn((phone) => (phone.startsWith('+') ? phone : `+1${phone}`)),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -243,14 +243,16 @@ describe('Chat E2E Flows', () => {
 
       const { POST } = await import('@/app/api/patient-chat/route');
 
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Test message',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Test message',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Verify message was stored
       expect(chatMessages.length).toBeGreaterThan(0);
@@ -266,26 +268,30 @@ describe('Chat E2E Flows', () => {
 
       const { POST } = await import('@/app/api/patient-chat/route');
 
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Question from patient',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Question from patient',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Staff replies
       setMockUser(mockStaff);
 
-      const response = await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Here is the answer to your question.',
-          channel: 'WEB',
-        },
-      }));
+      const response = await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Here is the answer to your question.',
+            channel: 'WEB',
+          },
+        })
+      );
 
       const data = await response.json();
 
@@ -300,14 +306,16 @@ describe('Chat E2E Flows', () => {
 
       const { POST } = await import('@/app/api/patient-chat/route');
 
-      const response = await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Your lab results are ready. Please call us.',
-          channel: 'SMS',
-        },
-      }));
+      const response = await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Your lab results are ready. Please call us.',
+            channel: 'SMS',
+          },
+        })
+      );
 
       expect(response.status).toBe(201);
 
@@ -324,36 +332,42 @@ describe('Chat E2E Flows', () => {
 
       // Patient asks question
       setMockUser(mockPatientUser);
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'What time is my appointment?',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'What time is my appointment?',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Staff responds
       setMockUser(mockStaff);
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Your appointment is at 2:00 PM tomorrow.',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Your appointment is at 2:00 PM tomorrow.',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Patient follows up
       setMockUser(mockPatientUser);
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Thank you! Should I bring anything?',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Thank you! Should I bring anything?',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Verify all messages were stored
       expect(chatMessages).toHaveLength(3);
@@ -371,14 +385,16 @@ describe('Chat E2E Flows', () => {
 
       // Patient sends messages
       setMockUser(mockPatientUser);
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Message 1',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Message 1',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Verify message was created without readAt
       expect(chatMessages).toHaveLength(1);
@@ -390,14 +406,16 @@ describe('Chat E2E Flows', () => {
 
       // Staff sends message
       setMockUser(mockStaff);
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'Message from staff',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'Message from staff',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Message should exist
       expect(chatMessages).toHaveLength(1);
@@ -411,14 +429,16 @@ describe('Chat E2E Flows', () => {
 
       // Patient asks question
       setMockUser(mockPatientUser);
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'I need help with my medication.',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'I need help with my medication.',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Nurse responds
       setMockUser({
@@ -426,14 +446,16 @@ describe('Chat E2E Flows', () => {
         id: 10,
         email: 'nurse@clinic.com',
       });
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'I can help with that. What medication?',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'I can help with that. What medication?',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Doctor follows up
       setMockUser({
@@ -442,20 +464,22 @@ describe('Chat E2E Flows', () => {
         role: 'provider',
         clinicId: 1,
       });
-      await POST(createMockRequest({
-        method: 'POST',
-        body: {
-          patientId: 1,
-          message: 'I have reviewed your chart and adjusted the dosage.',
-          channel: 'WEB',
-        },
-      }));
+      await POST(
+        createMockRequest({
+          method: 'POST',
+          body: {
+            patientId: 1,
+            message: 'I have reviewed your chart and adjusted the dosage.',
+            channel: 'WEB',
+          },
+        })
+      );
 
       // Verify all messages were created
       expect(chatMessages).toHaveLength(3);
 
       // Verify different senders
-      const senderTypes = chatMessages.map(m => m.senderType);
+      const senderTypes = chatMessages.map((m) => m.senderType);
       expect(senderTypes).toContain('PATIENT');
       expect(senderTypes).toContain('STAFF');
       expect(senderTypes).toContain('PROVIDER');

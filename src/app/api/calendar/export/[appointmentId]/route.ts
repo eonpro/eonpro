@@ -1,6 +1,6 @@
 /**
  * Single Appointment iCal Export
- * 
+ *
  * Generates downloadable .ics file for a single appointment.
  * Can be used by patients or providers to add appointments to their calendar.
  */
@@ -24,15 +24,12 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteContext)
     if (!context) {
       return NextResponse.json({ error: 'Invalid route context' }, { status: 400 });
     }
-    
+
     const { appointmentId } = await context.params;
     const id = parseInt(appointmentId);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid appointment ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid appointment ID' }, { status: 400 });
     }
 
     // Get appointment and verify access
@@ -44,19 +41,16 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteContext)
         patientId: true,
         providerId: true,
         patient: {
-          select: { id: true }
+          select: { id: true },
         },
         provider: {
-          select: { id: true, user: { select: { id: true } } }
-        }
-      }
+          select: { id: true, user: { select: { id: true } } },
+        },
+      },
     });
 
     if (!appointment) {
-      return NextResponse.json(
-        { error: 'Appointment not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
     // Check access
@@ -66,10 +60,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteContext)
     const isSuperAdmin = user.role === 'super_admin';
 
     if (!isProvider && !isPatient && !isClinicAdmin && !isSuperAdmin) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Determine if we should include patient name
@@ -80,10 +71,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteContext)
     const icsContent = await generateAppointmentICS(id, includePatientName);
 
     if (!icsContent) {
-      return NextResponse.json(
-        { error: 'Failed to generate calendar file' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to generate calendar file' }, { status: 500 });
     }
 
     // Return as downloadable file
@@ -99,10 +87,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteContext)
     logger.error('Failed to export appointment to iCal', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to export appointment' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to export appointment' }, { status: 500 });
   }
 }
 

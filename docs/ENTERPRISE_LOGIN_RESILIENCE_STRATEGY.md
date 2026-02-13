@@ -153,6 +153,7 @@ Login failures have recurring causes: browser extensions, database pool exhausti
 
 ## References
 
+- `docs/PLATFORM_RESILIENCE_LONG_TERM_PLAN.md` — **Master plan** for high-scale medical platform (auth, DB, API, observability, phased roadmap)
 - `docs/TROUBLESHOOTING.md` — Login stuck, 503, provider 503
 - `docs/LOGIN_EXTENSION_ERRORS_RESOLUTION.md` — Extension-related issues
 - `docs/FIX_LOGIN_500_405.md` — Clinic resolve 500, auth 405

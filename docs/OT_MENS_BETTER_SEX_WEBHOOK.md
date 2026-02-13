@@ -43,109 +43,109 @@ curl -X POST "https://eonpro-kappa.vercel.app/api/integrations/overtime/sync/tbl
 
 ### Patient Identity Fields
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Response ID` | Primary field / Submission ID | Single line text |
-| `First name` | Patient's first name | Single line text |
-| `Last name` | Patient's last name | Single line text |
-| `email` | Patient's email | Email |
-| `phone number` | Phone number | Phone number |
-| `DOB` | Date of birth | Single line text |
-| `Gender` | Gender | Single select |
-| `State` | State of residence | Single line text |
+| Airtable Field | Description                   | Type             |
+| -------------- | ----------------------------- | ---------------- |
+| `Response ID`  | Primary field / Submission ID | Single line text |
+| `First name`   | Patient's first name          | Single line text |
+| `Last name`    | Patient's last name           | Single line text |
+| `email`        | Patient's email               | Email            |
+| `phone number` | Phone number                  | Phone number     |
+| `DOB`          | Date of birth                 | Single line text |
+| `Gender`       | Gender                        | Single select    |
+| `State`        | State of residence            | Single line text |
 
 ### Address Fields
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Address` | Full address | Single line text |
-| `Address [Street]` | Street address | Single line text |
-| `Address [house]` | House number | Single line text |
-| `Address [City]` | City | Single line text |
-| `Address [State]` | State | Single line text |
-| `Address [Country]` | Country | Single line text |
-| `Address [Zip]` | ZIP code | Single line text |
-| `apartment#` | Apartment/Unit number | Single line text |
+| Airtable Field      | Description           | Type             |
+| ------------------- | --------------------- | ---------------- |
+| `Address`           | Full address          | Single line text |
+| `Address [Street]`  | Street address        | Single line text |
+| `Address [house]`   | House number          | Single line text |
+| `Address [City]`    | City                  | Single line text |
+| `Address [State]`   | State                 | Single line text |
+| `Address [Country]` | Country               | Single line text |
+| `Address [Zip]`     | ZIP code              | Single line text |
+| `apartment#`        | Apartment/Unit number | Single line text |
 
 ### Body Metrics
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Height [feet]` | Height in feet | Number |
+| Airtable Field    | Description      | Type   |
+| ----------------- | ---------------- | ------ |
+| `Height [feet]`   | Height in feet   | Number |
 | `Height [inches]` | Height in inches | Number |
-| `starting weight` | Starting weight | Number |
+| `starting weight` | Starting weight  | Number |
 
 ### Symptoms & Sexual Health
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Symptoms` | Current symptoms | Single line text |
-| `How long have you notice` | Symptom duration | Single line text |
+| Airtable Field                            | Description       | Type             |
+| ----------------------------------------- | ----------------- | ---------------- |
+| `Symptoms`                                | Current symptoms  | Single line text |
+| `How long have you notice`                | Symptom duration  | Single line text |
 | `How often do these sexual issues occur?` | Symptom frequency | Single line text |
-| `goals` | Treatment goals | Single line text |
+| `goals`                                   | Treatment goals   | Single line text |
 
 ### Physical Activity & Lifestyle
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
+| Airtable Field    | Description             | Type             |
+| ----------------- | ----------------------- | ---------------- |
 | `Physical Active` | Physical activity level | Single line text |
-| `Smoke/Nicotine` | Smoking/nicotine use | Single line text |
-| `Drinking` | Alcohol consumption | Single line text |
+| `Smoke/Nicotine`  | Smoking/nicotine use    | Single line text |
+| `Drinking`        | Alcohol consumption     | Single line text |
 
 ### Cardiovascular Health (Critical for ED Medications)
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Heart condition` | Heart condition history | Single line text |
-| `Chest Pains` | Chest pain history | Single line text |
+| Airtable Field                        | Description                               | Type             |
+| ------------------------------------- | ----------------------------------------- | ---------------- |
+| `Heart condition`                     | Heart condition history                   | Single line text |
+| `Chest Pains`                         | Chest pain history                        | Single line text |
 | `meds with nitrates or nitroglycerin` | Nitrate medication use (CONTRAINDICATION) | Single line text |
 
 ### Chronic Conditions
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Chronic Disease` | Has chronic disease | Single line text |
-| `Chronic Illnesses` | Chronic illness details | Single line text |
+| Airtable Field        | Description                 | Type             |
+| --------------------- | --------------------------- | ---------------- |
+| `Chronic Disease`     | Has chronic disease         | Single line text |
+| `Chronic Illnesses`   | Chronic illness details     | Single line text |
 | `Specific Conditions` | Specific medical conditions | Single line text |
-| `Cancer` | Cancer history | Single line text |
+| `Cancer`              | Cancer history              | Single line text |
 
 ### Medications & Allergies
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Medications` | Current medications | Single line text |
+| Airtable Field        | Description              | Type             |
+| --------------------- | ------------------------ | ---------------- |
+| `Medications`         | Current medications      | Single line text |
 | `List of Medications` | Detailed medication list | Single line text |
-| `Allergies` | Has allergies | Single line text |
-| `Which allergies` | Allergy details | Single line text |
+| `Allergies`           | Has allergies            | Single line text |
+| `Which allergies`     | Allergy details          | Single line text |
 
 ### Lab Work
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `Labwork` | Recent lab work status | Single line text |
+| Airtable Field | Description            | Type             |
+| -------------- | ---------------------- | ---------------- |
+| `Labwork`      | Recent lab work status | Single line text |
 
 ### Referral & Marketing
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `How did you hear about us?` | Marketing attribution | Single line text |
+| Airtable Field                           | Description                      | Type             |
+| ---------------------------------------- | -------------------------------- | ---------------- |
+| `How did you hear about us?`             | Marketing attribution            | Single line text |
 | `Who reccomended OT Mens Health to you?` | Referrer (note typo in Airtable) | Single line text |
-| `Referrer` | Referrer URL | Single line text |
+| `Referrer`                               | Referrer URL                     | Single line text |
 
 ### Consent & Metadata
 
-| Airtable Field | Description | Type |
-|----------------|-------------|------|
-| `18+ Consent` | Age verification | Checkbox |
-| `Consent Forms` | Consent forms signed | Checkbox |
-| `marketing consent` | Marketing consent | Checkbox |
-| `Heyflow ID` | Heyflow flow identifier | Single line text |
-| `A/B Test ID` | A/B test identifier | Single line text |
-| `A/B Test Version` | A/B test version | Single line text |
-| `URL` | Source URL | Single select |
-| `URL with parameters` | Full URL with tracking | Single line text |
-| `IntakeQ Client ID` | IntakeQ integration ID | Number |
-| `IntakeQ Status` | IntakeQ sync status | Single line text |
+| Airtable Field        | Description             | Type             |
+| --------------------- | ----------------------- | ---------------- |
+| `18+ Consent`         | Age verification        | Checkbox         |
+| `Consent Forms`       | Consent forms signed    | Checkbox         |
+| `marketing consent`   | Marketing consent       | Checkbox         |
+| `Heyflow ID`          | Heyflow flow identifier | Single line text |
+| `A/B Test ID`         | A/B test identifier     | Single line text |
+| `A/B Test Version`    | A/B test version        | Single line text |
+| `URL`                 | Source URL              | Single select    |
+| `URL with parameters` | Full URL with tracking  | Single line text |
+| `IntakeQ Client ID`   | IntakeQ integration ID  | Number           |
+| `IntakeQ Status`      | IntakeQ sync status     | Single line text |
 
 ---
 
@@ -193,9 +193,11 @@ curl -X POST "https://eonpro-kappa.vercel.app/api/integrations/overtime/sync/tbl
 
 ## Contraindication Alert
 
-**CRITICAL**: Patients using nitrate medications (nitroglycerin, isosorbide, etc.) CANNOT use PDE5 inhibitors (Viagra, Cialis, etc.) due to dangerous hypotension risk.
+**CRITICAL**: Patients using nitrate medications (nitroglycerin, isosorbide, etc.) CANNOT use PDE5
+inhibitors (Viagra, Cialis, etc.) due to dangerous hypotension risk.
 
-The field `meds with nitrates or nitroglycerin` must be checked before prescribing any ED medication.
+The field `meds with nitrates or nitroglycerin` must be checked before prescribing any ED
+medication.
 
 ---
 
@@ -237,7 +239,9 @@ The field `meds with nitrates or nitroglycerin` must be checked before prescribi
 
 ## Treatment Detection
 
-The webhook automatically detects the treatment type as `better_sex` if any of these fields are present:
+The webhook automatically detects the treatment type as `better_sex` if any of these fields are
+present:
+
 - `How often do these sexual issues occur?`
 - `How long have you notice`
 - `meds with nitrates or nitroglycerin`
@@ -252,10 +256,10 @@ Or explicitly set `treatmentType: "better_sex"` in the payload.
 
 ## Two Tables to Sync
 
-| Treatment | Table ID | Sync Endpoint |
-|-----------|----------|---------------|
+| Treatment       | Table ID            | Sync Endpoint                                            |
+| --------------- | ------------------- | -------------------------------------------------------- |
 | **Weight Loss** | `tblnznnhTgy5Li66k` | `POST /api/integrations/overtime/sync/tblnznnhTgy5Li66k` |
-| **Better Sex** | `tblwZg0EuVlmz0I01` | `POST /api/integrations/overtime/sync/tblwZg0EuVlmz0I01` |
+| **Better Sex**  | `tblwZg0EuVlmz0I01` | `POST /api/integrations/overtime/sync/tblwZg0EuVlmz0I01` |
 
 ### Sync Both Tables
 

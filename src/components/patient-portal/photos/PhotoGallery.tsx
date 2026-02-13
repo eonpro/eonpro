@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Photo Gallery Component
@@ -248,16 +248,21 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
   const statusConfig = VERIFICATION_STATUS_CONFIG[photo.verificationStatus];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/95">
       {/* Header */}
       <div className="flex items-center justify-between p-4 text-white">
         <div className="flex items-center gap-4">
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 transition-colors hover:bg-white/10"
+          >
             <X className="h-6 w-6" />
           </button>
           <div>
             <p className="font-medium">{PHOTO_TYPE_LABELS[photo.type]}</p>
-            <p className="text-sm text-gray-400">{format(parseISO(photo.takenAt), 'MMM d, yyyy')}</p>
+            <p className="text-sm text-gray-400">
+              {format(parseISO(photo.takenAt), 'MMM d, yyyy')}
+            </p>
           </div>
         </div>
 
@@ -269,15 +274,15 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
           {/* Zoom Controls */}
           <button
             onClick={() => setZoom((z) => Math.max(z - 0.5, 1))}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="rounded-full p-2 transition-colors hover:bg-white/10"
             disabled={zoom <= 1}
           >
             <ZoomOut className="h-5 w-5" />
           </button>
-          <span className="text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
+          <span className="w-12 text-center text-sm">{Math.round(zoom * 100)}%</span>
           <button
             onClick={() => setZoom((z) => Math.min(z + 0.5, 4))}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="rounded-full p-2 transition-colors hover:bg-white/10"
             disabled={zoom >= 4}
           >
             <ZoomIn className="h-5 w-5" />
@@ -288,7 +293,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
             <a
               href={photo.s3Url}
               download
-              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              className="rounded-full p-2 transition-colors hover:bg-white/10"
             >
               <Download className="h-5 w-5" />
             </a>
@@ -298,10 +303,14 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
           {onDelete && (
             <button
               onClick={handleDelete}
-              className="p-2 hover:bg-red-500/20 text-red-400 rounded-full transition-colors"
+              className="rounded-full p-2 text-red-400 transition-colors hover:bg-red-500/20"
               disabled={isDeleting}
             >
-              {isDeleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
+              {isDeleting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Trash2 className="h-5 w-5" />
+              )}
             </button>
           )}
         </div>
@@ -310,7 +319,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
       {/* Image Container */}
       <div
         ref={containerRef}
-        className="flex-1 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+        className="flex flex-1 cursor-grab items-center justify-center overflow-hidden active:cursor-grabbing"
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -321,7 +330,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
           <img
             src={photo.s3Url}
             alt={photo.title || 'Photo'}
-            className="max-w-full max-h-full object-contain select-none"
+            className="max-h-full max-w-full select-none object-contain"
             style={{
               transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
               transition: isDragging ? 'none' : 'transform 0.2s ease-out',
@@ -330,7 +339,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
           />
         ) : (
           <div className="flex flex-col items-center text-gray-400">
-            <AlertCircle className="h-12 w-12 mb-2" />
+            <AlertCircle className="mb-2 h-12 w-12" />
             <p>Image unavailable</p>
           </div>
         )}
@@ -339,7 +348,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
         {hasPrev && (
           <button
             onClick={() => onNavigate(currentIndex - 1)}
-            className="absolute left-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute left-4 rounded-full bg-white/10 p-3 transition-colors hover:bg-white/20"
           >
             <ChevronLeft className="h-8 w-8 text-white" />
           </button>
@@ -347,7 +356,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
         {hasNext && (
           <button
             onClick={() => onNavigate(currentIndex + 1)}
-            className="absolute right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute right-4 rounded-full bg-white/10 p-3 transition-colors hover:bg-white/20"
           >
             <ChevronRight className="h-8 w-8 text-white" />
           </button>
@@ -355,7 +364,7 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
       </div>
 
       {/* Footer Info */}
-      <div className="p-4 bg-black/50 text-white">
+      <div className="bg-black/50 p-4 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {photo.weight && (
@@ -365,12 +374,12 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
               </div>
             )}
             {photo.verificationStatus !== 'NOT_APPLICABLE' && (
-              <span className={`text-xs px-2 py-1 rounded-full ${statusConfig.color}`}>
+              <span className={`rounded-full px-2 py-1 text-xs ${statusConfig.color}`}>
                 {statusConfig.label}
               </span>
             )}
           </div>
-          {photo.notes && <p className="text-sm text-gray-400 max-w-md truncate">{photo.notes}</p>}
+          {photo.notes && <p className="max-w-md truncate text-sm text-gray-400">{photo.notes}</p>}
         </div>
       </div>
     </div>
@@ -397,7 +406,7 @@ function PhotoCard({ photo, onClick, showWeight }: PhotoCardProps) {
   return (
     <div
       onClick={onClick}
-      className="group relative aspect-square rounded-xl overflow-hidden bg-gray-100 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+      className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-gray-100 transition-all hover:ring-2 hover:ring-blue-500"
     >
       {/* Loading State */}
       {!loaded && !error && (
@@ -411,7 +420,7 @@ function PhotoCard({ photo, onClick, showWeight }: PhotoCardProps) {
         <img
           src={imageUrl}
           alt={photo.title || 'Photo'}
-          className={`w-full h-full object-cover transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          className={`h-full w-full object-cover transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}
         />
@@ -422,30 +431,32 @@ function PhotoCard({ photo, onClick, showWeight }: PhotoCardProps) {
       )}
 
       {/* Hover Overlay */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+      <div className="absolute inset-0 bg-black/0 transition-all group-hover:bg-black/20" />
 
       {/* Type Badge */}
-      <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 rounded-full text-xs text-white">
+      <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white">
         {PHOTO_TYPE_LABELS[photo.type]}
       </div>
 
       {/* Verification Status Badge */}
       {photo.verificationStatus !== 'NOT_APPLICABLE' && (
-        <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs ${statusConfig.color}`}>
+        <div
+          className={`absolute right-2 top-2 rounded-full px-2 py-1 text-xs ${statusConfig.color}`}
+        >
           {statusConfig.label}
         </div>
       )}
 
       {/* Weight Badge (for progress photos) */}
       {showWeight && photo.weight && (
-        <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 rounded-full text-xs text-white flex items-center gap-1">
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs text-white">
           <Scale className="h-3 w-3" />
           {formatWeight(photo.weight)}
         </div>
       )}
 
       {/* Date Badge */}
-      <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 rounded-full text-xs text-white">
+      <div className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-xs text-white">
         {format(parseISO(photo.takenAt), 'MMM d')}
       </div>
     </div>
@@ -474,10 +485,13 @@ export function PhotoGallery({
   const [typeFilter, setTypeFilter] = useState<PatientPhotoType | 'all'>('all');
 
   // Filter photos
-  const filteredPhotos = typeFilter === 'all' ? photos : photos.filter((p) => p.type === typeFilter);
+  const filteredPhotos =
+    typeFilter === 'all' ? photos : photos.filter((p) => p.type === typeFilter);
 
   // Group photos by date
-  const photoGroups = showDateGroups ? groupPhotosByDate(filteredPhotos) : [{ label: '', photos: filteredPhotos }];
+  const photoGroups = showDateGroups
+    ? groupPhotosByDate(filteredPhotos)
+    : [{ label: '', photos: filteredPhotos }];
 
   // Get unique photo types for filter
   const availableTypes = Array.from(new Set(photos.map((p) => p.type)));
@@ -502,9 +516,9 @@ export function PhotoGallery({
   if (error) {
     return (
       <div className={`flex flex-col items-center justify-center py-12 ${className}`}>
-        <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-        <p className="text-red-600 font-medium">Failed to load photos</p>
-        <p className="text-gray-500 text-sm">{error}</p>
+        <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
+        <p className="font-medium text-red-600">Failed to load photos</p>
+        <p className="text-sm text-gray-500">{error}</p>
       </div>
     );
   }
@@ -513,8 +527,8 @@ export function PhotoGallery({
   if (!loading && photos.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center py-12 ${className}`}>
-        <ImageIcon className="h-12 w-12 text-gray-300 mb-4" />
-        <p className="text-gray-500 font-medium">{emptyMessage}</p>
+        <ImageIcon className="mb-4 h-12 w-12 text-gray-300" />
+        <p className="font-medium text-gray-500">{emptyMessage}</p>
       </div>
     );
   }
@@ -523,11 +537,11 @@ export function PhotoGallery({
     <div className={className}>
       {/* Filters */}
       {showFilters && availableTypes.length > 1 && (
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
-          <Filter className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2">
+          <Filter className="h-4 w-4 flex-shrink-0 text-gray-400" />
           <button
             onClick={() => setTypeFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               typeFilter === 'all'
                 ? 'bg-blue-100 text-blue-700'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -539,7 +553,7 @@ export function PhotoGallery({
             <button
               key={type}
               onClick={() => setTypeFilter(type)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 typeFilter === type
                   ? 'bg-blue-100 text-blue-700'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -557,14 +571,14 @@ export function PhotoGallery({
           <div key={group.label || groupIndex}>
             {/* Group Label */}
             {showDateGroups && group.label && (
-              <div className="flex items-center gap-2 mb-3">
+              <div className="mb-3 flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
                 <h3 className="text-sm font-medium text-gray-600">{group.label}</h3>
               </div>
             )}
 
             {/* Photo Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {group.photos.map((photo, photoIndex) => (
                 <PhotoCard
                   key={photo.id}
@@ -587,10 +601,10 @@ export function PhotoGallery({
 
       {/* Load More */}
       {hasMore && onLoadMore && !loading && (
-        <div className="flex justify-center mt-6">
+        <div className="mt-6 flex justify-center">
           <button
             onClick={onLoadMore}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors"
+            className="rounded-lg bg-gray-100 px-6 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-200"
           >
             Load More
           </button>

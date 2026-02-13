@@ -23,7 +23,15 @@ export interface Setting {
   id: string;
   name: string;
   description: string;
-  type: 'boolean' | 'string' | 'number' | 'select' | 'multiselect' | 'json' | 'password' | 'api_key';
+  type:
+    | 'boolean'
+    | 'string'
+    | 'number'
+    | 'select'
+    | 'multiselect'
+    | 'json'
+    | 'password'
+    | 'api_key';
   value?: any;
   defaultValue?: any;
   options?: { label: string; value: any }[];
@@ -65,7 +73,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
             description: 'The base URL of your platform',
             type: 'string',
             defaultValue: 'https://lifefile.com',
-            validation: { 
+            validation: {
               required: true,
               pattern: '^https?://.+',
             },
@@ -125,7 +133,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
       },
     ],
   },
-  
+
   {
     id: 'integrations',
     name: 'Integrations',
@@ -335,7 +343,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
       },
     ],
   },
-  
+
   {
     id: 'developer',
     name: 'Developer Tools',
@@ -460,7 +468,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
       },
     ],
   },
-  
+
   {
     id: 'security',
     name: 'Security',
@@ -552,7 +560,7 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
       },
     ],
   },
-  
+
   {
     id: 'users',
     name: 'User Management',
@@ -584,9 +592,9 @@ export const SETTINGS_CATEGORIES: SettingCategory[] = [
             name: 'Default Role',
             description: 'Default role for new users',
             type: 'select',
-            defaultValue: "patient",
+            defaultValue: 'patient',
             options: [
-              { label: 'Patient', value: "patient" },
+              { label: 'Patient', value: 'patient' },
               { label: 'Staff', value: 'staff' },
               { label: 'Support', value: 'support' },
             ],

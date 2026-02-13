@@ -165,7 +165,7 @@ async function handler(request: NextRequest) {
     logger.error(`[CLINIC_RESOLVE_GET] Error ${errorId} - returning default branding:`, {
       error: errMessage,
       prismaCode: errCode,
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       domain: domainParam,
       url: request.url,
     });

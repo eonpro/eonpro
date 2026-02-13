@@ -82,7 +82,10 @@ async function checkDatabase(): Promise<HealthCheck> {
       prisma.patient.count(),
       DB_HEALTH_TIMEOUT_MS,
       'Query timed out'
-    ).catch(() => null);
+    ).catch((err) => {
+      logger.debug('[Health] Patient count check failed', { error: err instanceof Error ? err.message : String(err) });
+      return null;
+    });
 
     if (patientCount === null) {
       return {
@@ -188,7 +191,7 @@ async function checkStripe(): Promise<HealthCheck> {
       };
     }
 
-    const Stripe = require('stripe');
+    const { default: Stripe } = await import('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2026-01-28.clover',
     });
@@ -228,7 +231,7 @@ async function checkTwilio(): Promise<HealthCheck> {
       };
     }
 
-    const twilio = require('twilio');
+    const { default: twilio } = await import('twilio');
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
     // Verify account
@@ -259,7 +262,7 @@ async function checkCache(): Promise<HealthCheck> {
   const start = Date.now();
   try {
     // Try to import and check Redis
-    const cache = require('@/lib/cache/redis').default;
+    const { default: cache } = await import('@/lib/cache/redis');
 
     if (!cache.isReady()) {
       return {
@@ -307,7 +310,7 @@ async function checkOpenAI(): Promise<HealthCheck> {
       };
     }
 
-    const OpenAI = require('openai');
+    const { default: OpenAI } = await import('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // Quick models list to verify API key
@@ -409,20 +412,17 @@ async function checkAPIRoutes(): Promise<HealthCheck> {
   const results: { route: string; status: string }[] = [];
 
   try {
-    // Check patients API (basic connectivity)
-    const patientCount = await prisma.patient.count();
+    // Check all tables in parallel
+    const [patientCount, clinicCount, invoiceCount, productCount] = await Promise.all([
+      prisma.patient.count(),
+      prisma.clinic.count(),
+      prisma.invoice.count(),
+      prisma.product.count(),
+    ]);
+
     results.push({ route: '/api/patients', status: 'ok' });
-
-    // Check clinics exist
-    const clinicCount = await prisma.clinic.count();
     results.push({ route: '/api/clinics', status: clinicCount > 0 ? 'ok' : 'no data' });
-
-    // Check invoices table
-    const invoiceCount = await prisma.invoice.count();
     results.push({ route: '/api/invoices', status: 'ok' });
-
-    // Check products table
-    const productCount = await prisma.product.count();
     results.push({ route: '/api/products', status: 'ok' });
 
     const allOk = results.every((r) => r.status === 'ok' || r.status === 'no data');

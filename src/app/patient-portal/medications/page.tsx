@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
+import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { logger } from '@/lib/logger';
 import {
   Pill,
   Clock,
@@ -66,6 +70,7 @@ export default function MedicationsPage() {
   const [newReminder, setNewReminder] = useState({ dayOfWeek: 3, time: '08:00' });
   const [showSuccess, setShowSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,19 +78,17 @@ export default function MedicationsPage() {
       const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (!userJson) return;
       try {
-        const userData = JSON.parse(userJson);
+        const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
+        if (!userData) return;
         let pid: number | null = userData.patientId ?? null;
         if (pid == null && userData.role?.toLowerCase() === 'patient') {
-          const meRes = await fetch('/api/auth/me', {
-            headers: getAuthHeaders(),
-            credentials: 'include',
-          });
+          const meRes = await portalFetch('/api/auth/me');
           if (meRes.ok && !cancelled) {
-            const meData = await meRes.json();
-            const fromMe = meData?.user?.patientId;
+            const meData = await safeParseJson(meRes);
+            const fromMe = (meData as { user?: { patientId?: number } } | null)?.user?.patientId;
             if (typeof fromMe === 'number' && fromMe > 0) {
               pid = fromMe;
-              localStorage.setItem('user', JSON.stringify({ ...userData, patientId: fromMe }));
+              setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: fromMe }));
             }
           }
         }
@@ -95,7 +98,9 @@ export default function MedicationsPage() {
       }
     };
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -105,23 +110,36 @@ export default function MedicationsPage() {
   }, [patientId]);
 
   const loadData = async () => {
+    setLoadError(null);
     // Production: medications list from API when available; until then empty (reminders still work)
     setMedications([]);
 
     if (patientId) {
       try {
-        const response = await fetch(
-          `/api/patient-progress/medication-reminders?patientId=${patientId}`,
-          { headers: getAuthHeaders(), credentials: 'include' }
+        const response = await portalFetch(
+          `/api/patient-progress/medication-reminders?patientId=${patientId}`
         );
+        const err = getPortalResponseError(response);
+        if (err) {
+          setLoadError(err);
+          setLoading(false);
+          return;
+        }
         if (response.ok) {
-          const result = await response.json();
-          // Handle both array format and { data: [...] } format
-          const data = Array.isArray(result) ? result : (result.data || []);
+          const result = await safeParseJson(response);
+          const data =
+            result !== null
+              ? Array.isArray(result)
+                ? result
+                : (result as { data?: unknown[] })?.data ?? []
+              : [];
           setReminders(data);
         }
       } catch (error) {
-        console.error('Failed to fetch reminders:', error);
+        logger.error('Failed to fetch reminders', {
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+        setLoadError('Failed to load reminders. Please try again.');
       }
     }
     setLoading(false);
@@ -130,15 +148,14 @@ export default function MedicationsPage() {
   const addReminder = async () => {
     const medicationName = selectedMed
       ? `${selectedMed.name} ${selectedMed.dosage}`
-      : (customMedicationName?.trim() || '');
+      : customMedicationName?.trim() || '';
     if (!medicationName || !patientId) return;
 
     setSaving(true);
     try {
-      const response = await fetch('/api/patient-progress/medication-reminders', {
+      const response = await portalFetch('/api/patient-progress/medication-reminders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           medicationName,
@@ -149,8 +166,10 @@ export default function MedicationsPage() {
       });
 
       if (response.ok) {
-        const savedReminder = await response.json();
-        setReminders((prev) => [...prev, savedReminder]);
+        const savedReminder = await safeParseJson(response);
+        if (savedReminder !== null && typeof savedReminder === 'object') {
+          setReminders((prev) => [...prev, savedReminder as Reminder]);
+        }
         setShowReminderModal(false);
         setSelectedMed(null);
         setCustomMedicationName('');
@@ -158,7 +177,9 @@ export default function MedicationsPage() {
         setTimeout(() => setShowSuccess(''), 3000);
       }
     } catch (error) {
-      console.error('Error saving reminder:', error);
+      logger.error('Error saving reminder', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setSaving(false);
     }
@@ -166,10 +187,8 @@ export default function MedicationsPage() {
 
   const removeReminder = async (id: number) => {
     try {
-      const response = await fetch(`/api/patient-progress/medication-reminders?id=${id}`, {
+      const response = await portalFetch(`/api/patient-progress/medication-reminders?id=${id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
-        credentials: 'include',
       });
       if (response.ok) {
         setReminders((prev) => prev.filter((r) => r.id !== id));
@@ -177,11 +196,16 @@ export default function MedicationsPage() {
         setTimeout(() => setShowSuccess(''), 2000);
       }
     } catch (error) {
-      console.error('Error removing reminder:', error);
+      logger.error('Error removing reminder', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 
-  const generateICS = (med: { name: string; dosage?: string; instructions?: string }, reminder: Reminder) => {
+  const generateICS = (
+    med: { name: string; dosage?: string; instructions?: string },
+    reminder: Reminder
+  ) => {
     const [hours, minutes] = reminder.timeOfDay.split(':').map(Number);
     const today = new Date();
     const eventDate = new Date(today);
@@ -242,6 +266,22 @@ END:VCALENDAR`;
             <Check className="h-4 w-4" />
           </div>
           <span className="font-medium">{showSuccess}</span>
+        </div>
+      )}
+
+      {loadError && (
+        <div
+          className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/medications`)}&reason=session_expired`}
+            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+          >
+            Log in
+          </Link>
         </div>
       )}
 
@@ -314,10 +354,7 @@ END:VCALENDAR`;
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() =>
-                          generateICS(
-                            { name: reminder.medicationName, instructions: '' },
-                            reminder
-                          )
+                          generateICS({ name: reminder.medicationName, instructions: '' }, reminder)
                         }
                         className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
                         title="Download to calendar"

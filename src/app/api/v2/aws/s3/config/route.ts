@@ -1,6 +1,6 @@
 /**
  * AWS S3 Configuration API Endpoint
- * 
+ *
  * Returns current S3 configuration status
  */
 
@@ -25,9 +25,9 @@ export async function GET(request: NextRequest) {
       hasCloudFront: !!s3Config.cloudFrontUrl,
       hasKmsKey: !!s3Config.kmsKeyId,
     },
-    message: enabled 
+    message: enabled
       ? 'S3 is fully configured and enabled'
-      : !featureEnabled 
+      : !featureEnabled
         ? 'Feature flag AWS_S3_STORAGE is not enabled'
         : 'S3 credentials are not fully configured',
   });

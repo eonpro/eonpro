@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Activity, CheckCircle, AlertCircle, Clock, TrendingUp, ExternalLink } from "lucide-react";
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { Activity, CheckCircle, AlertCircle, Clock, TrendingUp, ExternalLink } from 'lucide-react';
 import { logger } from '@/lib/logger';
 
 interface WebhookStatsData {
@@ -32,17 +32,17 @@ export default function WebhookStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/webhooks/heyflow-intake-v2");
+        const res = await fetch('/api/webhooks/heyflow-intake-v2');
         if (!res.ok) {
-          throw new Error("Failed to fetch webhook stats");
+          throw new Error('Failed to fetch webhook stats');
         }
         const data = await res.json();
         setStats(data.stats);
       } catch (err: any) {
-    // @ts-ignore
-   
-        logger.error("Failed to fetch webhook stats:", err);
-        setError("Failed to load webhook statistics");
+        // @ts-ignore
+
+        logger.error('Failed to fetch webhook stats:', err);
+        setError('Failed to load webhook statistics');
       } finally {
         setLoading(false);
       }
@@ -56,12 +56,12 @@ export default function WebhookStats() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="rounded-lg bg-white p-6 shadow-sm">
         <div className="animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="mb-4 h-6 w-1/3 rounded bg-gray-200"></div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
             {[1, 2, 3, 4, 5].map((i: any) => (
-              <div key={i} className="h-20 bg-gray-100 rounded"></div>
+              <div key={i} className="h-20 rounded bg-gray-100"></div>
             ))}
           </div>
         </div>
@@ -71,20 +71,20 @@ export default function WebhookStats() {
 
   if (error || !stats) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-lg bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Webhook Activity</h3>
-          <Link 
-            href="/webhooks/monitor" 
-            className="text-sm text-[#4fa77e] hover:underline flex items-center gap-1"
+          <Link
+            href="/webhooks/monitor"
+            className="flex items-center gap-1 text-sm text-[#4fa77e] hover:underline"
           >
             View Monitor
             <ExternalLink className="h-3 w-3" />
           </Link>
         </div>
-        <div className="text-center text-gray-500 py-8">
-          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-          <p>{error || "No webhook data available"}</p>
+        <div className="py-8 text-center text-gray-500">
+          <AlertCircle className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+          <p>{error || 'No webhook data available'}</p>
         </div>
       </div>
     );
@@ -92,17 +92,17 @@ export default function WebhookStats() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "SUCCESS":
-        return "text-green-600 bg-green-100";
-      case "INVALID_AUTH":
-        return "text-yellow-600 bg-yellow-100";
-      case "INVALID_PAYLOAD":
-        return "text-orange-600 bg-orange-100";
-      case "ERROR":
-      case "PROCESSING_ERROR":
-        return "text-red-600 bg-red-100";
+      case 'SUCCESS':
+        return 'text-green-600 bg-green-100';
+      case 'INVALID_AUTH':
+        return 'text-yellow-600 bg-yellow-100';
+      case 'INVALID_PAYLOAD':
+        return 'text-orange-600 bg-orange-100';
+      case 'ERROR':
+      case 'PROCESSING_ERROR':
+        return 'text-red-600 bg-red-100';
       default:
-        return "text-gray-600 bg-gray-100";
+        return 'text-gray-600 bg-gray-100';
     }
   };
 
@@ -116,24 +116,24 @@ export default function WebhookStats() {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return "Just now";
+
+    if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
     return `${Math.floor(diffMins / 1440)}d ago`;
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-lg bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="h-5 w-5 text-[#4fa77e]" />
           <h3 className="text-lg font-semibold">Webhook Activity</h3>
           <span className="text-xs text-gray-500">(Last 7 days)</span>
         </div>
-        <Link 
-          href="/webhooks/monitor" 
-          className="text-sm text-[#4fa77e] hover:underline flex items-center gap-1"
+        <Link
+          href="/webhooks/monitor"
+          className="flex items-center gap-1 text-sm text-[#4fa77e] hover:underline"
         >
           Open Monitor
           <ExternalLink className="h-3 w-3" />
@@ -141,8 +141,8 @@ export default function WebhookStats() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-gray-50 rounded-lg p-3">
+      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+        <div className="rounded-lg bg-gray-50 p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-600">Total</p>
@@ -152,7 +152,7 @@ export default function WebhookStats() {
           </div>
         </div>
 
-        <div className="bg-green-50 rounded-lg p-3">
+        <div className="rounded-lg bg-green-50 p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-600">Success</p>
@@ -162,7 +162,7 @@ export default function WebhookStats() {
           </div>
         </div>
 
-        <div className="bg-red-50 rounded-lg p-3">
+        <div className="rounded-lg bg-red-50 p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-600">Failed</p>
@@ -174,7 +174,7 @@ export default function WebhookStats() {
           </div>
         </div>
 
-        <div className="bg-blue-50 rounded-lg p-3">
+        <div className="rounded-lg bg-blue-50 p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-600">Success Rate</p>
@@ -184,7 +184,7 @@ export default function WebhookStats() {
           </div>
         </div>
 
-        <div className="bg-purple-50 rounded-lg p-3">
+        <div className="rounded-lg bg-purple-50 p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-600">Avg Time</p>
@@ -200,32 +200,35 @@ export default function WebhookStats() {
       {/* Recent Activity */}
       {stats.recentLogs && stats.recentLogs.length > 0 && (
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Webhooks</h4>
+          <h4 className="mb-2 text-sm font-medium text-gray-700">Recent Webhooks</h4>
           <div className="space-y-2">
             {stats.recentLogs.slice(0, 5).map((log: any) => (
-              <div key={log.id} className="flex items-center justify-between py-2 border-b last:border-0">
+              <div
+                key={log.id}
+                className="flex items-center justify-between border-b py-2 last:border-0"
+              >
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(log.status)}`}>
+                  <span
+                    className={`rounded px-2 py-1 text-xs font-medium ${getStatusColor(log.status)}`}
+                  >
                     {log.status}
                   </span>
                   <span className="text-sm text-gray-600">
-                    {log.endpoint.replace("/api/webhooks/", "")}
+                    {log.endpoint.replace('/api/webhooks/', '')}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-gray-500">
-                  {log.processingTimeMs && (
-                    <span>{formatTime(log.processingTimeMs)}</span>
-                  )}
+                  {log.processingTimeMs && <span>{formatTime(log.processingTimeMs)}</span>}
                   <span>{formatDate(log.createdAt)}</span>
                 </div>
               </div>
             ))}
           </div>
-          
+
           {stats.total > 5 && (
-            <Link 
-              href="/webhooks/monitor" 
-              className="block text-center text-sm text-[#4fa77e] hover:underline mt-3"
+            <Link
+              href="/webhooks/monitor"
+              className="mt-3 block text-center text-sm text-[#4fa77e] hover:underline"
             >
               View all {stats.total} webhooks →
             </Link>
@@ -235,14 +238,14 @@ export default function WebhookStats() {
 
       {/* Alert for failures */}
       {stats.total > 0 && stats.successRate < 80 && (
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
           <div className="flex items-center gap-2 text-sm text-yellow-800">
             <AlertCircle className="h-4 w-4" />
             <span>
-              Success rate is below 80%. Check the{" "}
-              <Link href="/webhooks/monitor" className="underline font-medium">
+              Success rate is below 80%. Check the{' '}
+              <Link href="/webhooks/monitor" className="font-medium underline">
                 webhook monitor
-              </Link>{" "}
+              </Link>{' '}
               for details.
             </span>
           </div>

@@ -124,9 +124,11 @@ export default function SuperAdminAffiliateDetailPage() {
   }, [affiliateId]);
 
   const getAuthToken = () => {
-    return localStorage.getItem('auth-token') ||
-           localStorage.getItem('super_admin-token') ||
-           localStorage.getItem('SUPER_ADMIN-token');
+    return (
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('SUPER_ADMIN-token')
+    );
   };
 
   const fetchAffiliate = async () => {
@@ -135,7 +137,7 @@ export default function SuperAdminAffiliateDetailPage() {
 
     try {
       const res = await fetch(`/api/super-admin/affiliates/${affiliateId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
@@ -166,11 +168,11 @@ export default function SuperAdminAffiliateDetailPage() {
 
   const fetchAffiliateStats = async () => {
     const token = getAuthToken();
-    
+
     try {
       // Try to fetch stats from the main affiliates endpoint
       const res = await fetch(`/api/super-admin/affiliates`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -193,10 +195,10 @@ export default function SuperAdminAffiliateDetailPage() {
 
   const fetchAvailablePlans = async (clinicId: number) => {
     const token = getAuthToken();
-    
+
     try {
       const res = await fetch(`/api/super-admin/affiliates`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -222,7 +224,7 @@ export default function SuperAdminAffiliateDetailPage() {
       const res = await fetch(`/api/super-admin/affiliates/${affiliateId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(editForm),
@@ -248,7 +250,7 @@ export default function SuperAdminAffiliateDetailPage() {
   const handleCopyCode = async (code: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${code}`;
-    
+
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
@@ -267,7 +269,7 @@ export default function SuperAdminAffiliateDetailPage() {
 
   const getCurrentPlan = () => {
     if (!affiliate?.planAssignments?.length) return null;
-    return affiliate.planAssignments.find(pa => !pa.effectiveTo)?.commissionPlan || null;
+    return affiliate.planAssignments.find((pa) => !pa.effectiveTo)?.commissionPlan || null;
   };
 
   if (loading) {
@@ -281,13 +283,13 @@ export default function SuperAdminAffiliateDetailPage() {
   if (error && !affiliate) {
     return (
       <div className="p-6">
-        <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
-          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Affiliate</h2>
-          <p className="text-red-600 mb-4">{error}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-400" />
+          <h2 className="mb-2 text-lg font-semibold text-red-800">Error Loading Affiliate</h2>
+          <p className="mb-4 text-red-600">{error}</p>
           <button
             onClick={() => router.back()}
-            className="text-red-600 hover:text-red-800 font-medium"
+            className="font-medium text-red-600 hover:text-red-800"
           >
             Go Back
           </button>
@@ -306,38 +308,35 @@ export default function SuperAdminAffiliateDetailPage() {
       <div className="mb-6 flex items-start gap-4">
         <button
           onClick={() => router.back()}
-          className="mt-1 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="mt-1 rounded-lg p-2 transition-colors hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600" />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {affiliate.displayName}
-          </h1>
-          <div className="flex items-center gap-3 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">{affiliate.displayName}</h1>
+          <div className="mt-1 flex items-center gap-3">
             <span className="text-sm text-gray-500">{affiliate.user.email}</span>
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}>
+            <span
+              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}
+            >
               {affiliate.status}
             </span>
           </div>
         </div>
-        <Link
-          href="/super-admin/affiliates"
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
+        <Link href="/super-admin/affiliates" className="text-sm text-gray-500 hover:text-gray-700">
           View All Affiliates
         </Link>
       </div>
 
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="mb-4 rounded-lg bg-green-50 border border-green-200 p-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
           <Check className="h-5 w-5 text-green-600" />
           <span className="text-green-800">{successMessage}</span>
         </div>
       )}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
           <AlertCircle className="h-5 w-5 text-red-600" />
           <span className="text-red-800">{error}</span>
           <button onClick={() => setError(null)} className="ml-auto">
@@ -365,7 +364,9 @@ export default function SuperAdminAffiliateDetailPage() {
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRevenueCents)}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(stats.totalRevenueCents)}
+              </p>
               <p className="text-sm text-gray-500">Total Revenue</p>
             </div>
           </div>
@@ -376,7 +377,9 @@ export default function SuperAdminAffiliateDetailPage() {
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalCommissionCents)}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(stats.totalCommissionCents)}
+              </p>
               <p className="text-sm text-gray-500">Total Earned</p>
             </div>
           </div>
@@ -400,10 +403,10 @@ export default function SuperAdminAffiliateDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {/* Affiliate Information */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Affiliate Information</h2>
               {!editMode ? (
                 <button
@@ -439,7 +442,7 @@ export default function SuperAdminAffiliateDetailPage() {
                   <input
                     type="text"
                     value={editForm.displayName}
-                    onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -447,7 +450,7 @@ export default function SuperAdminAffiliateDetailPage() {
                   <label className="block text-sm font-medium text-gray-700">Status</label>
                   <select
                     value={editForm.status}
-                    onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   >
                     <option value="ACTIVE">Active</option>
@@ -462,7 +465,7 @@ export default function SuperAdminAffiliateDetailPage() {
                     <input
                       type="text"
                       value={editForm.firstName}
-                      onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                   </div>
@@ -471,7 +474,7 @@ export default function SuperAdminAffiliateDetailPage() {
                     <input
                       type="text"
                       value={editForm.lastName}
-                      onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                   </div>
@@ -481,7 +484,7 @@ export default function SuperAdminAffiliateDetailPage() {
                   <input
                     type="email"
                     value={editForm.email}
-                    onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -491,7 +494,11 @@ export default function SuperAdminAffiliateDetailPage() {
                     disabled={saving}
                     className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                   >
-                    {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {saving ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
                     {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
@@ -505,7 +512,9 @@ export default function SuperAdminAffiliateDetailPage() {
                 <div>
                   <dt className="text-sm text-gray-500">Status</dt>
                   <dd>
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}>
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}
+                    >
                       {affiliate.status}
                     </span>
                   </dd>
@@ -526,7 +535,9 @@ export default function SuperAdminAffiliateDetailPage() {
                 </div>
                 <div>
                   <dt className="text-sm text-gray-500">Created</dt>
-                  <dd className="text-gray-900">{new Date(affiliate.createdAt).toLocaleDateString()}</dd>
+                  <dd className="text-gray-900">
+                    {new Date(affiliate.createdAt).toLocaleDateString()}
+                  </dd>
                 </div>
               </dl>
             )}
@@ -534,10 +545,10 @@ export default function SuperAdminAffiliateDetailPage() {
 
           {/* Ref Codes */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Referral Codes</h2>
               <span className="text-sm text-gray-500">
-                {affiliate.refCodes.filter(r => r.isActive).length} active
+                {affiliate.refCodes.filter((r) => r.isActive).length} active
               </span>
             </div>
 
@@ -546,12 +557,14 @@ export default function SuperAdminAffiliateDetailPage() {
                 {affiliate.refCodes.map((ref) => (
                   <div
                     key={ref.id}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
+                    className={`flex items-center justify-between rounded-lg p-3 ${
                       ref.isActive ? 'bg-gray-50' : 'bg-gray-100 opacity-60'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <LinkIcon className={`h-5 w-5 ${ref.isActive ? 'text-[#4fa77e]' : 'text-gray-400'}`} />
+                      <LinkIcon
+                        className={`h-5 w-5 ${ref.isActive ? 'text-[#4fa77e]' : 'text-gray-400'}`}
+                      />
                       <div>
                         <code className="font-mono font-medium text-gray-900">{ref.refCode}</code>
                         <p className="text-xs text-gray-500">
@@ -560,12 +573,10 @@ export default function SuperAdminAffiliateDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {!ref.isActive && (
-                        <span className="text-xs text-gray-500">Inactive</span>
-                      )}
+                      {!ref.isActive && <span className="text-xs text-gray-500">Inactive</span>}
                       <button
                         onClick={() => handleCopyCode(ref.refCode)}
-                        className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 border border-gray-200"
+                        className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
                       >
                         {copiedCode === ref.refCode ? (
                           <>
@@ -584,8 +595,8 @@ export default function SuperAdminAffiliateDetailPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <LinkIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <div className="py-8 text-center">
+                <LinkIcon className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                 <p className="text-gray-500">No referral codes</p>
               </div>
             )}
@@ -596,13 +607,13 @@ export default function SuperAdminAffiliateDetailPage() {
         <div className="space-y-6">
           {/* Clinic */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3">Clinic</h3>
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="h-10 w-10 rounded-lg bg-[#4fa77e] flex items-center justify-center text-white font-bold">
+            <h3 className="mb-3 font-semibold text-gray-900">Clinic</h3>
+            <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#4fa77e] font-bold text-white">
                 {affiliate.clinic.name.charAt(0)}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">{affiliate.clinic.name}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-gray-900">{affiliate.clinic.name}</p>
                 <p className="text-sm text-gray-500">{affiliate.clinic.subdomain}.eonpro.io</p>
               </div>
             </div>
@@ -616,46 +627,68 @@ export default function SuperAdminAffiliateDetailPage() {
 
           {/* Commission Plan */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3">Commission Plan</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Commission Plan</h3>
             {currentPlan ? (
-              <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="rounded-lg bg-gray-50 p-3">
                 <p className="font-medium text-gray-900">{currentPlan.name}</p>
                 <div className="mt-2 text-sm text-gray-600">
                   {(() => {
-                    const hasSeperateRates = currentPlan.initialPercentBps !== null || 
+                    const hasSeperateRates =
+                      currentPlan.initialPercentBps !== null ||
                       currentPlan.initialFlatAmountCents !== null ||
                       currentPlan.recurringPercentBps !== null ||
                       currentPlan.recurringFlatAmountCents !== null;
-                    
+
                     if (hasSeperateRates) {
-                      const initialRate = currentPlan.planType === 'PERCENT' 
-                        ? formatPercent(currentPlan.initialPercentBps ?? currentPlan.percentBps ?? 0)
-                        : formatCurrency(currentPlan.initialFlatAmountCents ?? currentPlan.flatAmountCents ?? 0);
-                      const recurringRate = currentPlan.planType === 'PERCENT'
-                        ? formatPercent(currentPlan.recurringPercentBps ?? currentPlan.percentBps ?? 0)
-                        : formatCurrency(currentPlan.recurringFlatAmountCents ?? currentPlan.flatAmountCents ?? 0);
-                      
+                      const initialRate =
+                        currentPlan.planType === 'PERCENT'
+                          ? formatPercent(
+                              currentPlan.initialPercentBps ?? currentPlan.percentBps ?? 0
+                            )
+                          : formatCurrency(
+                              currentPlan.initialFlatAmountCents ?? currentPlan.flatAmountCents ?? 0
+                            );
+                      const recurringRate =
+                        currentPlan.planType === 'PERCENT'
+                          ? formatPercent(
+                              currentPlan.recurringPercentBps ?? currentPlan.percentBps ?? 0
+                            )
+                          : formatCurrency(
+                              currentPlan.recurringFlatAmountCents ??
+                                currentPlan.flatAmountCents ??
+                                0
+                            );
+
                       return (
                         <>
-                          <p>Initial: <span className="font-medium">{initialRate}</span></p>
-                          <p>Recurring: <span className="font-medium">{recurringRate}</span></p>
+                          <p>
+                            Initial: <span className="font-medium">{initialRate}</span>
+                          </p>
+                          <p>
+                            Recurring: <span className="font-medium">{recurringRate}</span>
+                          </p>
                         </>
                       );
                     }
-                    
-                    const rate = currentPlan.planType === 'PERCENT' && currentPlan.percentBps
-                      ? formatPercent(currentPlan.percentBps)
-                      : currentPlan.flatAmountCents
-                        ? formatCurrency(currentPlan.flatAmountCents)
-                        : 'N/A';
-                    
-                    return <p>Rate: <span className="font-medium">{rate}</span></p>;
+
+                    const rate =
+                      currentPlan.planType === 'PERCENT' && currentPlan.percentBps
+                        ? formatPercent(currentPlan.percentBps)
+                        : currentPlan.flatAmountCents
+                          ? formatCurrency(currentPlan.flatAmountCents)
+                          : 'N/A';
+
+                    return (
+                      <p>
+                        Rate: <span className="font-medium">{rate}</span>
+                      </p>
+                    );
                   })()}
                 </div>
               </div>
             ) : (
-              <div className="text-center py-4">
-                <DollarSign className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+              <div className="py-4 text-center">
+                <DollarSign className="mx-auto mb-2 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No commission plan assigned</p>
               </div>
             )}
@@ -663,18 +696,18 @@ export default function SuperAdminAffiliateDetailPage() {
 
           {/* Quick Actions */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3">Quick Actions</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Quick Actions</h3>
             <div className="space-y-2">
               <button
                 onClick={() => setEditMode(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex w-full items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
               >
                 <Pencil className="h-4 w-4" />
                 Edit Affiliate
               </button>
               <Link
                 href={`/super-admin/commission-plans`}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                className="flex w-full items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
               >
                 <DollarSign className="h-4 w-4" />
                 Manage Plans
@@ -684,15 +717,19 @@ export default function SuperAdminAffiliateDetailPage() {
 
           {/* Dates */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-900 mb-3">Activity</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Activity</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Created</span>
-                <span className="text-gray-900">{new Date(affiliate.createdAt).toLocaleDateString()}</span>
+                <span className="text-gray-900">
+                  {new Date(affiliate.createdAt).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Last Updated</span>
-                <span className="text-gray-900">{new Date(affiliate.updatedAt).toLocaleDateString()}</span>
+                <span className="text-gray-900">
+                  {new Date(affiliate.updatedAt).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Last Login</span>

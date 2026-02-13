@@ -1,9 +1,10 @@
 # EONPRO TELEHEALTH PLATFORM
+
 ## Technical Due Diligence Report
 
 **Date:** January 21, 2026  
 **Classification:** CONFIDENTIAL - M&A TECHNICAL REVIEW  
-**Prepared By:** Principal Software Architect / Former CTO / Due Diligence Lead  
+**Prepared By:** Principal Software Architect / Former CTO / Due Diligence Lead
 
 ---
 
@@ -11,17 +12,19 @@
 
 **Buyer Readiness Score: 72/100**
 
-This platform demonstrates **solid engineering fundamentals** with notable strengths in security architecture, multi-tenant isolation, and modern technology choices. However, several issues must be addressed before institutional-grade acquisition.
+This platform demonstrates **solid engineering fundamentals** with notable strengths in security
+architecture, multi-tenant isolation, and modern technology choices. However, several issues must be
+addressed before institutional-grade acquisition.
 
-| Category | Score | Status |
-|----------|-------|--------|
-| Architecture | 78/100 | 🟡 Good with gaps |
+| Category            | Score  | Status                          |
+| ------------------- | ------ | ------------------------------- |
+| Architecture        | 78/100 | 🟡 Good with gaps               |
 | Security/Compliance | 75/100 | 🟡 HIPAA-capable but incomplete |
-| Scalability | 70/100 | 🟡 Adequate for current scale |
-| Code Quality | 74/100 | 🟡 Good but inconsistent |
-| DevOps/Infra | 80/100 | 🟢 Strong foundation |
-| Documentation | 68/100 | 🟡 Needs improvement |
-| Business Risk | 65/100 | 🟠 Several red flags |
+| Scalability         | 70/100 | 🟡 Adequate for current scale   |
+| Code Quality        | 74/100 | 🟡 Good but inconsistent        |
+| DevOps/Infra        | 80/100 | 🟢 Strong foundation            |
+| Documentation       | 68/100 | 🟡 Needs improvement            |
+| Business Risk       | 65/100 | 🟠 Several red flags            |
 
 ---
 
@@ -69,6 +72,7 @@ This platform demonstrates **solid engineering fundamentals** with notable stren
 ### 1.2 Service Boundaries Analysis
 
 **🟢 GREEN FLAGS:**
+
 - Clear separation between API routes (235+ endpoints)
 - Modular service layer (`/services/` directory)
 - Domain-driven organization (billing, clinical, AI)
@@ -76,6 +80,7 @@ This platform demonstrates **solid engineering fundamentals** with notable stren
 - AsyncLocalStorage for request-scoped clinic context (thread-safe)
 
 **🔴 RED FLAGS:**
+
 - **Monolithic deployment** - No microservice extraction path
 - **Tight coupling** - Many API routes directly import Prisma
 - **Missing service discovery** - Hardcoded service connections
@@ -83,22 +88,24 @@ This platform demonstrates **solid engineering fundamentals** with notable stren
 
 ### 1.3 Single Points of Failure
 
-| Component | Risk Level | Mitigation Status |
-|-----------|------------|-------------------|
-| PostgreSQL | HIGH | No documented failover |
-| Redis | MEDIUM | Graceful degradation exists |
-| Stripe Integration | HIGH | Webhook retry implemented |
-| Lifefile (e-Rx) | CRITICAL | No alternative pharmacy network |
+| Component          | Risk Level | Mitigation Status               |
+| ------------------ | ---------- | ------------------------------- |
+| PostgreSQL         | HIGH       | No documented failover          |
+| Redis              | MEDIUM     | Graceful degradation exists     |
+| Stripe Integration | HIGH       | Webhook retry implemented       |
+| Lifefile (e-Rx)    | CRITICAL   | No alternative pharmacy network |
 
 ### 1.4 Architecture Decision Records
 
 **Technology Choices (Justified):**
+
 - Next.js 16.1 App Router - Modern, server components, edge-ready
 - Prisma 6.19 - Type-safe ORM, excellent DX
 - React 19.2 - Latest stable with concurrent features
 - TypeScript Strict Mode - Catches errors at compile time
 
 **Architecture Patterns Used:**
+
 - Multi-tenant row-level isolation via clinicId
 - Proxy pattern for clinic filtering (PrismaWithClinicFilter)
 - Middleware chain for auth/rate-limiting/validation
@@ -111,12 +118,14 @@ This platform demonstrates **solid engineering fundamentals** with notable stren
 ### 2.1 Database Design Assessment
 
 **Schema Statistics:**
+
 - 80+ Prisma models
 - 40+ documented indexes
 - Multi-tenant via `clinicId` foreign keys
 - Comprehensive enum definitions
 
 **🟢 GREEN FLAGS:**
+
 - Well-designed Prisma models with proper relations
 - Comprehensive indexing strategy
 - Multi-tenant isolation pattern implemented
@@ -126,6 +135,7 @@ This platform demonstrates **solid engineering fundamentals** with notable stren
 **🔴 RED FLAGS:**
 
 1. **Optional clinicId on critical models:**
+
 ```prisma
 model Patient {
   clinicId Int?  // 🔴 Should be required for multi-tenant
@@ -143,11 +153,12 @@ model Patient {
    - Defense-in-depth gap
 
 4. **PHI stored as plain strings:**
+
 ```prisma
 model Patient {
   dob       String    // 🔴 PHI - not encrypted
   phone     String    // 🔴 PHI - not encrypted
-  email     String    // 🔴 PHI - not encrypted  
+  email     String    // 🔴 PHI - not encrypted
   address1  String    // 🔴 PHI - not encrypted
 }
 ```
@@ -155,33 +166,36 @@ model Patient {
 ### 2.2 PHI Data Handling - CRITICAL
 
 **Encryption Implementation Exists:**
+
 ```typescript
 // src/lib/security/phi-encryption.ts
-export function encryptPHI(text: string): string | null
-export function decryptPHI(encryptedData: string): string | null
+export function encryptPHI(text: string): string | null;
+export function decryptPHI(encryptedData: string): string | null;
 ```
 
-**🔴 CRITICAL FINDING:**
-PHI encryption utilities exist but are **NOT systematically applied** to database operations. Patient PII (DOB, phone, email, address) is stored in plaintext.
+**🔴 CRITICAL FINDING:** PHI encryption utilities exist but are **NOT systematically applied** to
+database operations. Patient PII (DOB, phone, email, address) is stored in plaintext.
 
 **Evidence from schema:**
+
 - No `encryptedDob`, `encryptedPhone` fields
 - `PaymentMethod.encryptedCardNumber` exists (cards ARE encrypted)
 - Patient PHI fields are plain `String` types
 
 ### 2.3 Encryption Status Matrix
 
-| Data Type | Transit | Rest (App) | Rest (DB) | Status |
-|-----------|---------|------------|-----------|--------|
-| Payment Cards | ✅ TLS | ✅ AES-256 | ✅ Encrypted fields | 🟢 Compliant |
-| Patient PHI | ✅ TLS | ❌ Not applied | ❌ Plaintext | 🔴 Non-compliant |
-| JWT Tokens | ✅ TLS | ✅ HMAC signed | N/A | 🟢 Compliant |
-| API Keys | ✅ TLS | ✅ Hashed | ✅ Hashed fields | 🟢 Compliant |
-| 2FA Secrets | ✅ TLS | ✅ Encrypted | ✅ Encrypted field | 🟢 Compliant |
+| Data Type     | Transit | Rest (App)     | Rest (DB)           | Status           |
+| ------------- | ------- | -------------- | ------------------- | ---------------- |
+| Payment Cards | ✅ TLS  | ✅ AES-256     | ✅ Encrypted fields | 🟢 Compliant     |
+| Patient PHI   | ✅ TLS  | ❌ Not applied | ❌ Plaintext        | 🔴 Non-compliant |
+| JWT Tokens    | ✅ TLS  | ✅ HMAC signed | N/A                 | 🟢 Compliant     |
+| API Keys      | ✅ TLS  | ✅ Hashed      | ✅ Hashed fields    | 🟢 Compliant     |
+| 2FA Secrets   | ✅ TLS  | ✅ Encrypted   | ✅ Encrypted field  | 🟢 Compliant     |
 
 ### 2.4 Multi-Tenant Isolation Assessment
 
 **Implementation:**
+
 ```typescript
 // src/lib/db.ts
 class PrismaWithClinicFilter {
@@ -196,12 +210,14 @@ class PrismaWithClinicFilter {
 ```
 
 **🟢 Strengths:**
+
 - AsyncLocalStorage for thread-safe context
 - Defense-in-depth validation on query results
 - Automatic clinicId injection on creates
 - Logging of cross-clinic access attempts
 
 **🔴 Weaknesses:**
+
 - `BYPASS_CLINIC_FILTER` env var exists
 - Global fallback for backwards compatibility
 - Raw SQL queries bypass filtering entirely
@@ -209,14 +225,14 @@ class PrismaWithClinicFilter {
 
 ### 2.5 Data Lifecycle Concerns
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| Data Retention Policy | 🟡 Configured | `AUDIT_LOG_RETENTION_DAYS: 2190` |
-| Automated Retention | 🔴 Not Implemented | No cron job for data purge |
-| PHI Deletion | 🔴 Missing | No documented right-to-delete flow |
-| Backup Schedule | 🔴 Unknown | Not in codebase |
-| Backup Encryption | 🔴 Unknown | Not documented |
-| Backup Testing | 🔴 Unknown | No restore procedure |
+| Requirement           | Status             | Evidence                           |
+| --------------------- | ------------------ | ---------------------------------- |
+| Data Retention Policy | 🟡 Configured      | `AUDIT_LOG_RETENTION_DAYS: 2190`   |
+| Automated Retention   | 🔴 Not Implemented | No cron job for data purge         |
+| PHI Deletion          | 🔴 Missing         | No documented right-to-delete flow |
+| Backup Schedule       | 🔴 Unknown         | Not in codebase                    |
+| Backup Encryption     | 🔴 Unknown         | Not documented                     |
+| Backup Testing        | 🔴 Unknown         | No restore procedure               |
 
 ---
 
@@ -225,12 +241,14 @@ class PrismaWithClinicFilter {
 ### 3.1 Authentication Architecture
 
 **Implementation Stack:**
+
 - JWT via `jose` library (industry standard)
 - bcryptjs for password hashing (12 rounds)
 - TOTP for 2FA via `otpauth`
 - Redis-backed session store
 
 **🟢 GREEN FLAGS:**
+
 - Token versioning for mass revocation
 - 32+ character secret requirements
 - Weak pattern detection in secrets
@@ -242,6 +260,7 @@ class PrismaWithClinicFilter {
 **🔴 RED FLAGS:**
 
 1. **Debug endpoints accessible:**
+
 ```typescript
 // src/app/api/debug/token/route.ts
 export async function GET(req: NextRequest) {
@@ -251,26 +270,28 @@ export async function GET(req: NextRequest) {
 ```
 
 2. **Test user creation in production possible:**
+
 ```typescript
 // src/app/api/admin/create-test-user/route.ts
-if (process.env.NODE_ENV === 'production' && 
-    !process.env.ALLOW_TEST_USER_CREATION) {
+if (process.env.NODE_ENV === 'production' && !process.env.ALLOW_TEST_USER_CREATION) {
   // Can be bypassed with env var
 }
 ```
 
 3. **Demo token check disabled:**
+
 ```typescript
 // src/lib/auth/middleware.ts
 function isDemoToken(token: string): boolean {
   // DISABLED: This was causing false positives
-  return false;  // 🔴 Check disabled
+  return false; // 🔴 Check disabled
 }
 ```
 
 ### 3.2 Authorization Model
 
 **RBAC Hierarchy:**
+
 ```
 super_admin
     └── admin
@@ -282,12 +303,14 @@ super_admin
 ```
 
 **🟢 Strengths:**
+
 - Role-based access on routes
 - Clinic-scoped permissions via UserClinic
 - Permission arrays in JWT tokens
 - Role validation on token decode
 
 **🔴 Weaknesses:**
+
 - No attribute-based access control (ABAC)
 - No resource-level permissions (all-or-nothing)
 - No data classification (all PHI treated equally)
@@ -298,11 +321,12 @@ super_admin
 **🔴 CRITICAL FINDINGS:**
 
 1. **Hardcoded credentials in repository:**
+
 ```typescript
 // scripts/seed-production.ts
 const hashedPassword = await bcrypt.hash('admin123', 12);
 
-// scripts/create-test-admin.ts  
+// scripts/create-test-admin.ts
 const password = 'EonMeds2024!';
 
 // tests/e2e/critical-flows.spec.ts
@@ -310,10 +334,11 @@ const TEST_ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD || 'Test123!@#';
 ```
 
 2. **Kubernetes secrets template in repo:**
+
 ```yaml
 # infrastructure/kubernetes/secrets.yaml
-JWT_SECRET: "REPLACE_WITH_SECURE_VALUE"  # Template committed
-DATABASE_URL: "postgresql://user:password@host:5432/dbname"
+JWT_SECRET: 'REPLACE_WITH_SECURE_VALUE' # Template committed
+DATABASE_URL: 'postgresql://user:password@host:5432/dbname'
 ```
 
 3. **No external secrets integration documented**
@@ -324,26 +349,29 @@ DATABASE_URL: "postgresql://user:password@host:5432/dbname"
 ### 3.4 Rate Limiting
 
 **Implementation:**
+
 ```typescript
 // src/lib/rateLimit.ts
 export const strictRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 5,                      // 5 attempts
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts
 });
 
 export const standardRateLimit = rateLimit({
-  windowMs: 60 * 1000,  // 1 minute
-  max: 60,               // 60 requests
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests
 });
 ```
 
 **🟢 Strengths:**
+
 - Redis-backed distributed limiting
 - LRU cache fallback for dev
 - Per-IP, per-user, per-API-key tiers
 - Proper 429 responses with Retry-After
 
 **🔴 Weaknesses:**
+
 - Not consistently applied to all routes
 - No circuit breaker pattern
 - No adaptive rate limiting
@@ -351,17 +379,27 @@ export const standardRateLimit = rateLimit({
 ### 3.5 Audit Logging Assessment
 
 **Implementation:**
+
 ```typescript
 // src/lib/audit/hipaa-audit.ts
 export enum AuditEventType {
-  PHI_VIEW, PHI_CREATE, PHI_UPDATE, PHI_DELETE,
-  LOGIN, LOGOUT, LOGIN_FAILED, PASSWORD_CHANGE,
-  EMERGENCY_ACCESS, BREAK_GLASS, SECURITY_ALERT,
+  PHI_VIEW,
+  PHI_CREATE,
+  PHI_UPDATE,
+  PHI_DELETE,
+  LOGIN,
+  LOGOUT,
+  LOGIN_FAILED,
+  PASSWORD_CHANGE,
+  EMERGENCY_ACCESS,
+  BREAK_GLASS,
+  SECURITY_ALERT,
   // 20+ event types
 }
 ```
 
 **🟢 Strengths:**
+
 - Comprehensive event taxonomy
 - SHA-256 hash for tamper detection
 - Request context extraction (IP, UA, session)
@@ -371,6 +409,7 @@ export enum AuditEventType {
 **🔴 CRITICAL WEAKNESSES:**
 
 1. **Logs not persisted to database:**
+
 ```typescript
 // src/lib/audit/hipaa-audit.ts
 logger.api('AUDIT', context.eventType, { ...auditData });
@@ -378,6 +417,7 @@ logger.api('AUDIT', context.eventType, { ...auditData });
 ```
 
 2. **Query function not implemented:**
+
 ```typescript
 export async function queryAuditLogs(filters): Promise<any[]> {
   // This would query from database
@@ -391,35 +431,35 @@ export async function queryAuditLogs(filters): Promise<any[]> {
 
 ### 3.6 HIPAA Compliance Gap Analysis
 
-| HIPAA Control | Requirement | Implementation | Gap |
-|---------------|-------------|----------------|-----|
-| §164.312(a)(1) | Unique User ID | ✅ Implemented | None |
-| §164.312(a)(2)(i) | Emergency Access | 🟡 Event type exists | No procedure |
-| §164.312(a)(2)(ii) | Auto Logoff | ✅ 4hr timeout | None |
-| §164.312(a)(2)(iii) | Encryption | 🔴 Partial | PHI not encrypted at rest |
-| §164.312(a)(2)(iv) | Audit Controls | 🔴 Incomplete | Logs not queryable |
-| §164.312(b) | Audit Logs | 🔴 Incomplete | Not retained 6 years |
-| §164.312(c)(1) | Integrity Controls | 🟡 Partial | No checksums on data |
-| §164.312(c)(2) | Auth of PHI | 🔴 Missing | No digital signatures |
-| §164.312(d) | Person Authentication | ✅ 2FA available | None |
-| §164.312(e)(1) | Transmission Security | ✅ TLS 1.3 | None |
-| §164.312(e)(2)(i) | Integrity Controls | ✅ TLS | None |
-| §164.312(e)(2)(ii) | Encryption | ✅ TLS | None |
+| HIPAA Control       | Requirement           | Implementation       | Gap                       |
+| ------------------- | --------------------- | -------------------- | ------------------------- |
+| §164.312(a)(1)      | Unique User ID        | ✅ Implemented       | None                      |
+| §164.312(a)(2)(i)   | Emergency Access      | 🟡 Event type exists | No procedure              |
+| §164.312(a)(2)(ii)  | Auto Logoff           | ✅ 4hr timeout       | None                      |
+| §164.312(a)(2)(iii) | Encryption            | 🔴 Partial           | PHI not encrypted at rest |
+| §164.312(a)(2)(iv)  | Audit Controls        | 🔴 Incomplete        | Logs not queryable        |
+| §164.312(b)         | Audit Logs            | 🔴 Incomplete        | Not retained 6 years      |
+| §164.312(c)(1)      | Integrity Controls    | 🟡 Partial           | No checksums on data      |
+| §164.312(c)(2)      | Auth of PHI           | 🔴 Missing           | No digital signatures     |
+| §164.312(d)         | Person Authentication | ✅ 2FA available     | None                      |
+| §164.312(e)(1)      | Transmission Security | ✅ TLS 1.3           | None                      |
+| §164.312(e)(2)(i)   | Integrity Controls    | ✅ TLS               | None                      |
+| §164.312(e)(2)(ii)  | Encryption            | ✅ TLS               | None                      |
 
 **Overall HIPAA Readiness: 60%**
 
 ### 3.7 Attack Surface Analysis
 
-| Vector | Exposure | Mitigation | Risk |
-|--------|----------|------------|------|
-| SQL Injection | Low | Prisma parameterized | 🟢 Low |
-| XSS | Medium | React escaping | 🟢 Low |
-| CSRF | Medium | SameSite cookies | 🟢 Low |
-| Auth Bypass | Medium | JWT verification | 🟡 Medium |
-| IDOR | High | Clinic filtering | 🟡 Medium |
-| Info Disclosure | High | Debug endpoints | 🔴 High |
-| Privilege Escalation | Medium | Role validation | 🟡 Medium |
-| API Abuse | Medium | Rate limiting | 🟢 Low |
+| Vector               | Exposure | Mitigation           | Risk      |
+| -------------------- | -------- | -------------------- | --------- |
+| SQL Injection        | Low      | Prisma parameterized | 🟢 Low    |
+| XSS                  | Medium   | React escaping       | 🟢 Low    |
+| CSRF                 | Medium   | SameSite cookies     | 🟢 Low    |
+| Auth Bypass          | Medium   | JWT verification     | 🟡 Medium |
+| IDOR                 | High     | Clinic filtering     | 🟡 Medium |
+| Info Disclosure      | High     | Debug endpoints      | 🔴 High   |
+| Privilege Escalation | Medium   | Role validation      | 🟡 Medium |
+| API Abuse            | Medium   | Rate limiting        | 🟢 Low    |
 
 ---
 
@@ -428,6 +468,7 @@ export async function queryAuditLogs(filters): Promise<any[]> {
 ### 4.1 Current Capacity Analysis
 
 **Infrastructure Configuration:**
+
 ```yaml
 # Kubernetes HPA
 minReplicas: 3
@@ -437,31 +478,34 @@ targetMemory: 80%
 ```
 
 **Database Connections:**
+
 ```typescript
 // Connection pool sizing
-const poolSize = (CPU_COUNT * 2) + 1;  // Auto-optimized
+const poolSize = CPU_COUNT * 2 + 1; // Auto-optimized
 ```
 
 ### 4.2 Scaling Bottlenecks
 
-| Load Level | Component | Issue | Mitigation |
-|------------|-----------|-------|------------|
-| 10x | API | None expected | HPA handles |
-| 10x | Database | Connection exhaustion | Need PgBouncer |
-| 10x | Redis | None expected | Cluster mode |
-| 100x | API | Single region latency | Multi-region needed |
-| 100x | Database | Write throughput | Read replicas + sharding |
-| 100x | Lifefile API | Rate limits unknown | Vendor negotiation |
+| Load Level | Component    | Issue                 | Mitigation               |
+| ---------- | ------------ | --------------------- | ------------------------ |
+| 10x        | API          | None expected         | HPA handles              |
+| 10x        | Database     | Connection exhaustion | Need PgBouncer           |
+| 10x        | Redis        | None expected         | Cluster mode             |
+| 100x       | API          | Single region latency | Multi-region needed      |
+| 100x       | Database     | Write throughput      | Read replicas + sharding |
+| 100x       | Lifefile API | Rate limits unknown   | Vendor negotiation       |
 
 ### 4.3 Background Processing
 
 **BullMQ Configuration Exists:**
+
 ```typescript
 // src/lib/queue/jobQueue.ts
 // 5 TODOs indicate incomplete implementation
 ```
 
 **🔴 Concerns:**
+
 - Queue system underutilized
 - Synchronous API calls to external services
 - No dead letter queue handling documented
@@ -471,25 +515,27 @@ const poolSize = (CPU_COUNT * 2) + 1;  // Auto-optimized
 
 **🔴 CRITICAL GAPS:**
 
-| DR Requirement | Status | Notes |
-|----------------|--------|-------|
-| RTO Definition | ❌ Missing | No documented target |
-| RPO Definition | ❌ Missing | No documented target |
-| Backup Procedure | ❓ Unknown | Not in codebase |
-| Restore Procedure | ❌ Missing | Not documented |
-| Failover Process | ❌ Missing | Single region |
-| DR Testing | ❌ Missing | No evidence |
-| Runbook | ❌ Missing | Not found |
+| DR Requirement    | Status     | Notes                |
+| ----------------- | ---------- | -------------------- |
+| RTO Definition    | ❌ Missing | No documented target |
+| RPO Definition    | ❌ Missing | No documented target |
+| Backup Procedure  | ❓ Unknown | Not in codebase      |
+| Restore Procedure | ❌ Missing | Not documented       |
+| Failover Process  | ❌ Missing | Single region        |
+| DR Testing        | ❌ Missing | No evidence          |
+| Runbook           | ❌ Missing | Not found            |
 
 ### 4.5 Reliability Patterns
 
 **🟢 Implemented:**
+
 - Graceful degradation (Redis → LRU fallback)
 - Webhook retry (Stripe 3-day retry)
 - Health endpoints (/api/health, /api/ready)
 - Pod disruption budget (minAvailable: 2)
 
 **🔴 Missing:**
+
 - Circuit breaker pattern
 - Bulkhead isolation
 - Chaos engineering
@@ -503,6 +549,7 @@ const poolSize = (CPU_COUNT * 2) + 1;  // Auto-optimized
 ### 5.1 CI/CD Pipeline
 
 **GitHub Actions Stages:**
+
 1. Lint & Type Check
 2. Security Scan (Snyk, Semgrep, TruffleHog, CodeQL)
 3. Unit & Integration Tests
@@ -512,6 +559,7 @@ const poolSize = (CPU_COUNT * 2) + 1;  // Auto-optimized
 7. Quality Gate
 
 **🟢 GREEN FLAGS:**
+
 - Comprehensive security scanning
 - Parallel job execution
 - Artifact caching (GHA cache)
@@ -521,16 +569,18 @@ const poolSize = (CPU_COUNT * 2) + 1;  // Auto-optimized
 **🔴 RED FLAGS:**
 
 1. **Security scans don't block deployment:**
+
 ```yaml
 - name: Run npm audit
   run: npm audit --production --audit-level=high
-  continue-on-error: true  # 🔴 Non-blocking
+  continue-on-error: true # 🔴 Non-blocking
 
 - name: Run Snyk security scan
-  continue-on-error: true  # 🔴 Non-blocking
+  continue-on-error: true # 🔴 Non-blocking
 ```
 
 2. **Quality gate allows security failures:**
+
 ```yaml
 if [[ "${{ needs.security.result }}" == "failure" ]]; then
   echo "⚠️ Security scan found issues (allowed to continue)"
@@ -540,33 +590,34 @@ fi
 
 ### 5.2 Infrastructure as Code Status
 
-| Component | IaC | Tool | Status |
-|-----------|-----|------|--------|
-| Kubernetes Deployment | ✅ Yes | YAML | Complete |
-| Kubernetes Services | ✅ Yes | YAML | Complete |
-| Kubernetes HPA | ✅ Yes | YAML | Complete |
-| Kubernetes PDB | ✅ Yes | YAML | Complete |
-| Kubernetes Ingress | ✅ Yes | YAML | Complete |
-| Database | ❌ No | Manual | Gap |
-| Redis | ❌ No | Manual | Gap |
-| Secrets | 🟡 Template | External Secrets recommended | Gap |
-| Monitoring | 🟡 Partial | Prometheus annotations | Incomplete |
-| Alerting | ❌ No | Manual | Gap |
+| Component             | IaC         | Tool                         | Status     |
+| --------------------- | ----------- | ---------------------------- | ---------- |
+| Kubernetes Deployment | ✅ Yes      | YAML                         | Complete   |
+| Kubernetes Services   | ✅ Yes      | YAML                         | Complete   |
+| Kubernetes HPA        | ✅ Yes      | YAML                         | Complete   |
+| Kubernetes PDB        | ✅ Yes      | YAML                         | Complete   |
+| Kubernetes Ingress    | ✅ Yes      | YAML                         | Complete   |
+| Database              | ❌ No       | Manual                       | Gap        |
+| Redis                 | ❌ No       | Manual                       | Gap        |
+| Secrets               | 🟡 Template | External Secrets recommended | Gap        |
+| Monitoring            | 🟡 Partial  | Prometheus annotations       | Incomplete |
+| Alerting              | ❌ No       | Manual                       | Gap        |
 
 ### 5.3 Environment Separation
 
-| Environment | Status | Isolation |
-|-------------|--------|-----------|
-| Development | ✅ Exists | Local SQLite |
-| Test | ✅ Exists | PostgreSQL in CI |
-| Staging | 🟡 Template | env.staging.template |
-| Production | 🟡 Template | env.production.template |
+| Environment | Status      | Isolation               |
+| ----------- | ----------- | ----------------------- |
+| Development | ✅ Exists   | Local SQLite            |
+| Test        | ✅ Exists   | PostgreSQL in CI        |
+| Staging     | 🟡 Template | env.staging.template    |
+| Production  | 🟡 Template | env.production.template |
 
 **🔴 Concern:** No evidence of staging environment actually deployed.
 
 ### 5.4 Observability
 
 **Logging:**
+
 ```typescript
 // src/lib/logger.ts
 class Logger {
@@ -576,12 +627,14 @@ class Logger {
 ```
 
 **🟢 Implemented:**
+
 - Sentry error tracking
 - Structured logging
 - Prometheus metrics endpoints
 - Request ID tracing headers
 
 **🔴 Missing:**
+
 - Centralized log aggregation (ELK, Splunk)
 - APM (Datadog, New Relic)
 - Distributed tracing (Jaeger, Zipkin)
@@ -591,6 +644,7 @@ class Logger {
 ### 5.5 Deployment Safety
 
 **🟢 Implemented:**
+
 - Rolling updates (maxUnavailable: 0)
 - Startup/Liveness/Readiness probes
 - Pod anti-affinity
@@ -598,6 +652,7 @@ class Logger {
 - Non-root container
 
 **🔴 Missing:**
+
 - Canary deployments
 - Blue-green deployments
 - Feature flags for rollout
@@ -631,14 +686,15 @@ class Logger {
 
 **High-Risk Debt:**
 
-| File | Count | Risk |
-|------|-------|------|
-| `src/lib/queue/jobQueue.ts` | 5 | Job processing incomplete |
-| `src/lib/audit/hipaa-audit.ts` | 4 | Audit system incomplete |
-| `src/lib/realtime/websocket.ts` | 2 | Real-time features incomplete |
-| `src/lib/integrations/twilio/smsService.ts` | 3 | SMS integration gaps |
+| File                                        | Count | Risk                          |
+| ------------------------------------------- | ----- | ----------------------------- |
+| `src/lib/queue/jobQueue.ts`                 | 5     | Job processing incomplete     |
+| `src/lib/audit/hipaa-audit.ts`              | 4     | Audit system incomplete       |
+| `src/lib/realtime/websocket.ts`             | 2     | Real-time features incomplete |
+| `src/lib/integrations/twilio/smsService.ts` | 3     | SMS integration gaps          |
 
 **Acceptable Debt:**
+
 - Calendar sync enhancements
 - UI/UX improvements
 - Performance optimizations
@@ -646,6 +702,7 @@ class Logger {
 ### 6.3 Test Coverage Analysis
 
 **Test Distribution:**
+
 ```
 tests/
 ├── api/           # 3 files  - API route tests
@@ -660,6 +717,7 @@ tests/
 **🔴 CRITICAL GAP:** Only **1 security test file** for a HIPAA-regulated application.
 
 **Missing Test Categories:**
+
 - PHI encryption/decryption flow tests
 - Multi-tenant isolation penetration tests
 - RBAC boundary tests
@@ -688,12 +746,14 @@ tests/
 ### 6.5 Dependency Health
 
 **Package.json Analysis:**
+
 - Next.js 16.1.0 - Latest ✅
 - React 19.2.1 - Latest ✅
 - Prisma 6.19.0 - Latest ✅
 - TypeScript 5.4.2 - Current ✅
 
 **Security Audit Status:**
+
 - `npm audit` runs in CI
 - Non-blocking (continue-on-error: true)
 
@@ -703,16 +763,16 @@ tests/
 
 ### 7.1 Immediate Buyer Concerns
 
-| Risk | Severity | Est. Remediation | Cost |
-|------|----------|------------------|------|
-| PHI not encrypted at rest | 🔴 Critical | 2-4 weeks | $30-50k |
-| Audit logs not queryable | 🔴 Critical | 1-2 weeks | $15-25k |
-| Debug endpoints accessible | 🔴 High | 1 day | $2k |
-| Hardcoded credentials | 🔴 High | 1 day | $2k |
-| No DR documentation | 🟠 Medium | 1-2 weeks | $10-20k |
-| Security scans non-blocking | 🟠 Medium | 1 day | $2k |
-| HIPAA compliance gaps | 🔴 Critical | 4-8 weeks | $50-80k |
-| Missing security tests | 🔴 High | 2-3 weeks | $20-30k |
+| Risk                        | Severity    | Est. Remediation | Cost    |
+| --------------------------- | ----------- | ---------------- | ------- |
+| PHI not encrypted at rest   | 🔴 Critical | 2-4 weeks        | $30-50k |
+| Audit logs not queryable    | 🔴 Critical | 1-2 weeks        | $15-25k |
+| Debug endpoints accessible  | 🔴 High     | 1 day            | $2k     |
+| Hardcoded credentials       | 🔴 High     | 1 day            | $2k     |
+| No DR documentation         | 🟠 Medium   | 1-2 weeks        | $10-20k |
+| Security scans non-blocking | 🟠 Medium   | 1 day            | $2k     |
+| HIPAA compliance gaps       | 🔴 Critical | 4-8 weeks        | $50-80k |
+| Missing security tests      | 🔴 High     | 2-3 weeks        | $20-30k |
 
 **Total Estimated Remediation: $130,000 - $210,000**
 
@@ -739,21 +799,23 @@ tests/
 
 ### 7.3 Vendor Dependency Risk
 
-| Vendor | Criticality | Lock-in | Alternative | Switch Cost |
-|--------|-------------|---------|-------------|-------------|
-| Lifefile | 🔴 Critical | High | None documented | 3-6 months |
-| Stripe | 🟠 High | Medium | Adyen, Braintree | 1-2 months |
-| Twilio | 🟡 Medium | Low | Vonage, MessageBird | 2-4 weeks |
-| OpenAI | 🟢 Low | Low | Anthropic, Azure | 1-2 weeks |
-| AWS S3 | 🟠 High | Medium | GCS, Azure Blob | 1 month |
-| AWS KMS | 🟠 High | Medium | HashiCorp Vault | 2-4 weeks |
-| Sentry | 🟢 Low | Low | Datadog, Bugsnag | 1 week |
+| Vendor   | Criticality | Lock-in | Alternative         | Switch Cost |
+| -------- | ----------- | ------- | ------------------- | ----------- |
+| Lifefile | 🔴 Critical | High    | None documented     | 3-6 months  |
+| Stripe   | 🟠 High     | Medium  | Adyen, Braintree    | 1-2 months  |
+| Twilio   | 🟡 Medium   | Low     | Vonage, MessageBird | 2-4 weeks   |
+| OpenAI   | 🟢 Low      | Low     | Anthropic, Azure    | 1-2 weeks   |
+| AWS S3   | 🟠 High     | Medium  | GCS, Azure Blob     | 1 month     |
+| AWS KMS  | 🟠 High     | Medium  | HashiCorp Vault     | 2-4 weeks   |
+| Sentry   | 🟢 Low      | Low     | Datadog, Bugsnag    | 1 week      |
 
-**🔴 CRITICAL:** Lifefile is a single point of failure for prescription fulfillment with no documented alternative pharmacy network or contingency plan.
+**🔴 CRITICAL:** Lifefile is a single point of failure for prescription fulfillment with no
+documented alternative pharmacy network or contingency plan.
 
 ### 7.4 Intellectual Property Assessment
 
 **Proprietary Components:**
+
 - Multi-tenant clinic isolation layer
 - HIPAA audit framework
 - AI-powered SOAP note generation
@@ -761,6 +823,7 @@ tests/
 - Pricing engine with discount rules
 
 **Open Source Dependencies:**
+
 - All major dependencies are MIT/Apache licensed
 - No GPL contamination detected
 - License compliance check in CI
@@ -769,13 +832,13 @@ tests/
 
 **Current State → Enterprise Scale:**
 
-| Metric | Current | 10x Growth | Required Changes |
-|--------|---------|------------|------------------|
-| Users | ~1,000 | 10,000 | HPA handles |
-| Clinics | ~10 | 100 | Database partitioning |
-| Transactions/day | ~100 | 1,000 | Queue processing |
-| Data Volume | ~10GB | 100GB | Read replicas |
-| Response Time | <500ms | <500ms | CDN + caching |
+| Metric           | Current | 10x Growth | Required Changes      |
+| ---------------- | ------- | ---------- | --------------------- |
+| Users            | ~1,000  | 10,000     | HPA handles           |
+| Clinics          | ~10     | 100        | Database partitioning |
+| Transactions/day | ~100    | 1,000      | Queue processing      |
+| Data Volume      | ~10GB   | 100GB      | Read replicas         |
+| Response Time    | <500ms  | <500ms     | CDN + caching         |
 
 ---
 
@@ -854,11 +917,11 @@ tests/
 
 ### C. Risk Rating Definitions
 
-| Rating | Definition |
-|--------|------------|
-| 🟢 Low | Acceptable risk, standard remediation |
-| 🟡 Medium | Should be addressed, not blocking |
-| 🟠 High | Significant risk, timeline required |
+| Rating      | Definition                            |
+| ----------- | ------------------------------------- |
+| 🟢 Low      | Acceptable risk, standard remediation |
+| 🟡 Medium   | Should be addressed, not blocking     |
+| 🟠 High     | Significant risk, timeline required   |
 | 🔴 Critical | Blocking issue, must fix before close |
 
 ---
@@ -912,6 +975,6 @@ With P0 items addressed, score would improve to **82/100**.
 
 ---
 
-*Report prepared by: Senior Software Architecture Analysis*  
-*Analysis Date: January 21, 2026*  
-*Classification: CONFIDENTIAL - M&A Technical Review*
+_Report prepared by: Senior Software Architecture Analysis_  
+_Analysis Date: January 21, 2026_  
+_Classification: CONFIDENTIAL - M&A Technical Review_

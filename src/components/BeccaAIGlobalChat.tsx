@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import BeccaAIChat from './BeccaAIChat';
 import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { getStoredUser } from '@/lib/auth/stored-role';
 
 interface BeccaAIGlobalChatProps {
   userEmail?: string;
@@ -29,15 +30,15 @@ function BeccaButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="group relative w-14 h-14 rounded-full bg-white shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center border border-gray-100 hover:scale-105"
+      className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-gray-100 bg-white shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
       aria-label="Open Becca AI"
     >
       {/* Pulse ring */}
-      <span className="absolute inset-0 rounded-full bg-[#17aa7b]/20 animate-ping" />
+      <span className="absolute inset-0 animate-ping rounded-full bg-[#17aa7b]/20" />
 
       {/* Logo */}
       <svg
-        className="w-8 h-8 relative z-10"
+        className="relative z-10 h-8 w-8"
         viewBox="0 0 200 200"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -56,7 +57,7 @@ function BeccaButton({ onClick }: { onClick: () => void }) {
       </svg>
 
       {/* Hover tooltip */}
-      <span className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+      <span className="pointer-events-none absolute left-full ml-3 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
         Ask Becca AI
       </span>
     </button>
@@ -79,7 +80,6 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
 
     const checkAuth = () => {
       const authToken = getLocalStorageItem('auth-token');
-      const user = getLocalStorageItem('user');
 
       if (!authToken) {
         setIsAuthenticated(false);
@@ -89,31 +89,11 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
         return;
       }
 
-      let role: string | null = null;
-      let email = '';
-      let clinic: number | null = null;
-
-      if (user) {
-        try {
-          const userData = JSON.parse(user);
-          role = userData.role?.toLowerCase();
-          email = userData.email || '';
-          clinic = userData.clinicId || null;
-        } catch (e) {
-          // Ignore parsing errors
-        }
-      }
-
-      if (!role || !clinic) {
-        try {
-          const payload = JSON.parse(atob(authToken.split('.')[1]));
-          role = role || payload.role?.toLowerCase();
-          email = email || payload.email;
-          clinic = clinic || payload.clinicId;
-        } catch (e) {
-          // Can't decode token
-        }
-      }
+      // Use stored user (set at login); do not decode JWT for auth
+      const stored = getStoredUser();
+      const role = stored?.role ? (stored.role as string).toLowerCase() : null;
+      const email = (stored?.email as string) ?? '';
+      let clinic: number | null = (stored?.clinicId as number) ?? null;
 
       // Fallback: Check for selected-clinic cookie (with SSR guard)
       if (!clinic && isBrowser && document?.cookie) {
@@ -191,8 +171,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
   };
 
   // Visibility checks
-  const isPublicPage =
-    PUBLIC_PAGES.some((page) => pathname?.startsWith(page)) || pathname === '/';
+  const isPublicPage = PUBLIC_PAGES.some((page) => pathname?.startsWith(page)) || pathname === '/';
   const hasAllowedRole = userRole && ALLOWED_ROLES.includes(userRole);
 
   if (!isAuthenticated || isPublicPage || !hasAllowedRole) {
@@ -212,18 +191,14 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
 
       {/* Chat panel - clean, modern design */}
       {showChat && (
-        <div className="fixed bottom-4 left-[88px] z-[9999] animate-slideUp">
-          <div className="w-[380px] h-[540px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200/50 flex flex-col">
+        <div className="animate-slideUp fixed bottom-4 left-[88px] z-[9999]">
+          <div className="flex h-[540px] w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-white to-gray-50">
+            <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-white to-gray-50 px-4 py-3">
               <div className="flex items-center gap-3">
                 {/* Logo */}
-                <div className="w-9 h-9 rounded-full bg-[#17aa7b]/10 flex items-center justify-center">
-                  <svg
-                    className="w-6 h-6"
-                    viewBox="0 0 200 200"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#17aa7b]/10">
+                  <svg className="h-6 w-6" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                     <path
                       fill="#17aa7b"
                       d="M189.75 96.06c0 48.469-39.565 87.76-88.37 87.76s-88.37-39.291-88.37-87.76S52.575 8.3 101.38 8.3s88.37 39.291 88.37 87.76"
@@ -239,7 +214,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
                   </svg>
                 </div>
                 <div>
-                  <h2 className="font-semibold text-gray-900 text-sm">Becca AI</h2>
+                  <h2 className="text-sm font-semibold text-gray-900">Becca AI</h2>
                   <p className="text-xs text-gray-500">Medical Assistant</p>
                 </div>
               </div>
@@ -247,10 +222,10 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
               {/* Close button */}
               <button
                 onClick={() => setShowChat(false)}
-                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-gray-100"
               >
                 <svg
-                  className="w-5 h-5 text-gray-500"
+                  className="h-5 w-5 text-gray-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -267,10 +242,10 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
 
             {/* Patient context badge */}
             {patientInfo?.name && (
-              <div className="px-4 py-2 bg-[#17aa7b]/5 border-b border-[#17aa7b]/10">
+              <div className="border-b border-[#17aa7b]/10 bg-[#17aa7b]/5 px-4 py-2">
                 <div className="flex items-center gap-2 text-sm">
                   <svg
-                    className="w-4 h-4 text-[#17aa7b]"
+                    className="h-4 w-4 text-[#17aa7b]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -282,7 +257,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     />
                   </svg>
-                  <span className="text-[#17aa7b] font-medium">{patientInfo.name}</span>
+                  <span className="font-medium text-[#17aa7b]">{patientInfo.name}</span>
                 </div>
               </div>
             )}

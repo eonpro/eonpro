@@ -20,6 +20,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { fetchStripeCustomerData } from '@/services/stripe/paymentMatchingService';
+import { handleApiError, ForbiddenError } from '@/domains/shared/errors';
 
 interface SyncResult {
   patientId: number;
@@ -61,15 +62,12 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
 }
 
 async function handlePost(req: NextRequest, user: AuthUser): Promise<NextResponse> {
-  // Only super_admin can run bulk sync
-  if (user.role !== 'super_admin' && user.role !== 'admin') {
-    return NextResponse.json(
-      { error: 'Only admins can run bulk sync' },
-      { status: 403 }
-    );
-  }
-
   try {
+    // Only super_admin can run bulk sync
+    if (user.role !== 'super_admin' && user.role !== 'admin') {
+      throw new ForbiddenError('Only admins can run bulk sync');
+    }
+
     // Parse optional body - use defaults if empty/invalid
     let body: Record<string, unknown> = {};
     try {
@@ -177,8 +175,11 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
           if (!dryRun) {
             // Determine new profile status
             const hasRealEmail = updates.email || !patient.email.includes('@placeholder.local');
-            const hasRealName = (updates.firstName && updates.firstName !== 'Unknown') ||
-                               (patient.firstName !== 'Unknown' && updates.lastName && updates.lastName !== 'Customer');
+            const hasRealName =
+              (updates.firstName && updates.firstName !== 'Unknown') ||
+              (patient.firstName !== 'Unknown' &&
+                updates.lastName &&
+                updates.lastName !== 'Customer');
             const newProfileStatus = hasRealEmail && hasRealName ? 'ACTIVE' : 'PENDING_COMPLETION';
 
             await prisma.patient.update({
@@ -186,8 +187,9 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
               data: {
                 ...updates,
                 profileStatus: newProfileStatus,
-                notes: patient.notes?.replace('⚠️ PENDING COMPLETION:', '✅ SYNCED FROM STRIPE:') ||
-                       `✅ SYNCED FROM STRIPE on ${new Date().toISOString()}`,
+                notes:
+                  patient.notes?.replace('⚠️ PENDING COMPLETION:', '✅ SYNCED FROM STRIPE:') ||
+                  `✅ SYNCED FROM STRIPE on ${new Date().toISOString()}`,
               },
             });
           }
@@ -206,9 +208,9 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
     }
 
     // Summary
-    const updated = results.filter(r => r.updated).length;
-    const failed = results.filter(r => r.error).length;
-    const noChanges = results.filter(r => !r.updated && !r.error).length;
+    const updated = results.filter((r) => r.updated).length;
+    const failed = results.filter((r) => r.error).length;
+    const noChanges = results.filter((r) => !r.updated && !r.error).length;
 
     logger.info('[Sync Stripe Profiles] Bulk sync completed', {
       total: results.length,
@@ -241,14 +243,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
       results,
     });
   } catch (error) {
-    logger.error('[Sync Stripe Profiles] Error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      userId: user.id,
-    });
-    return NextResponse.json(
-      { error: 'Failed to sync profiles' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/admin/sync-stripe-profiles' });
   }
 }
 

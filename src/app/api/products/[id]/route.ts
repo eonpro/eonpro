@@ -17,10 +17,24 @@ const updateSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   shortDescription: z.string().optional().nullable(),
-  category: z.enum(['SERVICE', 'MEDICATION', 'SUPPLEMENT', 'LAB_TEST', 'PROCEDURE', 'PACKAGE', 'MEMBERSHIP', 'OTHER']).optional(),
+  category: z
+    .enum([
+      'SERVICE',
+      'MEDICATION',
+      'SUPPLEMENT',
+      'LAB_TEST',
+      'PROCEDURE',
+      'PACKAGE',
+      'MEMBERSHIP',
+      'OTHER',
+    ])
+    .optional(),
   price: z.number().min(0).optional(),
   billingType: z.enum(['ONE_TIME', 'RECURRING']).optional(),
-  billingInterval: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM']).optional().nullable(),
+  billingInterval: z
+    .enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM'])
+    .optional()
+    .nullable(),
   billingIntervalCount: z.number().min(1).optional(),
   trialDays: z.number().min(0).optional().nullable(),
   isActive: z.boolean().optional(),
@@ -46,7 +60,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext
     }
 
     const where: any = { id: productId };
-    
+
     // Clinic access control
     if (user.role !== 'super_admin' && user.clinicId) {
       where.clinicId = user.clinicId;
@@ -109,7 +123,12 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
     }
 
     // If price changed for recurring, need to create new price (Stripe doesn't allow price updates)
-    if (validated.price !== undefined && validated.price !== existingProduct.price && existingProduct.stripeProductId && process.env.STRIPE_SECRET_KEY) {
+    if (
+      validated.price !== undefined &&
+      validated.price !== existingProduct.price &&
+      existingProduct.stripeProductId &&
+      process.env.STRIPE_SECRET_KEY
+    ) {
       try {
         // Archive old price
         if (existingProduct.stripePriceId) {
@@ -128,21 +147,21 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
 
         if (billingType === 'RECURRING' && billingInterval) {
           const intervalMap: Record<string, Stripe.PriceCreateParams.Recurring.Interval> = {
-            'WEEKLY': 'week',
-            'MONTHLY': 'month',
-            'QUARTERLY': 'month',
-            'SEMI_ANNUAL': 'month',
-            'ANNUAL': 'year',
-            'CUSTOM': 'month',
+            WEEKLY: 'week',
+            MONTHLY: 'month',
+            QUARTERLY: 'month',
+            SEMI_ANNUAL: 'month',
+            ANNUAL: 'year',
+            CUSTOM: 'month',
           };
 
           const intervalCountMap: Record<string, number> = {
-            'WEEKLY': 1,
-            'MONTHLY': 1,
-            'QUARTERLY': 3,
-            'SEMI_ANNUAL': 6,
-            'ANNUAL': 1,
-            'CUSTOM': validated.billingIntervalCount || existingProduct.billingIntervalCount || 1,
+            WEEKLY: 1,
+            MONTHLY: 1,
+            QUARTERLY: 3,
+            SEMI_ANNUAL: 6,
+            ANNUAL: 1,
+            CUSTOM: validated.billingIntervalCount || existingProduct.billingIntervalCount || 1,
           };
 
           priceData.recurring = {

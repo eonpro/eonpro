@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth';
 import { ticketService } from '@/domains/ticket';
 import { handleApiError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Check if the error indicates a missing table or schema issue
@@ -39,15 +40,10 @@ export const GET = withAuth(async (request, user) => {
 
     // Clinic ID (super admin can view any clinic)
     const clinicIdParam = searchParams.get('clinicId');
-    const clinicId = clinicIdParam 
-      ? parseInt(clinicIdParam, 10) 
-      : user.clinicId;
+    const clinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : user.clinicId;
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     const userContext = {
@@ -63,7 +59,7 @@ export const GET = withAuth(async (request, user) => {
   } catch (error) {
     // If schema is out of sync, return empty stats
     if (isSchemaMismatchError(error)) {
-      console.warn('[API] Tickets Stats - schema mismatch detected, returning empty stats');
+      logger.warn('[API] Tickets Stats - schema mismatch detected, returning empty stats');
       return NextResponse.json({
         stats: {
           total: 0,

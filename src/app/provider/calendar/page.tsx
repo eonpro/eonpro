@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { logger } from '../../../lib/logger';
 
-import { useSearchParams } from "next/navigation";
-import ProviderCalendar from "@/components/ProviderCalendar";
-import CalendarSync from "@/components/CalendarSync";
-import AppointmentModal from "@/components/AppointmentModal";
-import { Calendar, Clock, Video, Users, Bell, Settings, Plus, Loader2 } from "lucide-react";
+import { useSearchParams } from 'next/navigation';
+import ProviderCalendar from '@/components/ProviderCalendar';
+import CalendarSync from '@/components/CalendarSync';
+import AppointmentModal from '@/components/AppointmentModal';
+import { Calendar, Clock, Video, Users, Bell, Settings, Plus, Loader2 } from 'lucide-react';
 
 interface Appointment {
   id: number;
@@ -63,12 +63,15 @@ function ProviderCalendarContent() {
       const transformedAppointments: Appointment[] = (data.appointments || []).map((apt: any) => ({
         id: apt.id,
         patientId: apt.patientId,
-        patientName: apt.patient ? `${apt.patient.firstName} ${apt.patient.lastName}` : 'Unknown Patient',
+        patientName: apt.patient
+          ? `${apt.patient.firstName} ${apt.patient.lastName}`
+          : 'Unknown Patient',
         patientEmail: apt.patient?.email || '',
         patientPhone: apt.patient?.phone || '',
         date: new Date(apt.startTime),
         duration: apt.duration || 30,
-        type: apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
+        type:
+          apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
         zoomLink: apt.zoomJoinUrl || apt.videoLink,
         zoomMeetingId: apt.zoomMeetingId,
         status: apt.status?.toLowerCase() || 'scheduled',
@@ -126,19 +129,23 @@ function ProviderCalendarContent() {
 
     if (appointmentData.id) {
       // Check if this is an update or a new appointment
-      const existingIndex = appointments.findIndex(apt => apt.id === appointmentData.id);
+      const existingIndex = appointments.findIndex((apt) => apt.id === appointmentData.id);
 
       if (existingIndex >= 0) {
         // Update existing appointment in state
-        setAppointments(prev =>
-          prev.map(apt => apt.id === appointmentData.id ? {
-            ...apt,
-            ...appointmentData,
-          } : apt)
+        setAppointments((prev) =>
+          prev.map((apt) =>
+            apt.id === appointmentData.id
+              ? {
+                  ...apt,
+                  ...appointmentData,
+                }
+              : apt
+          )
         );
       } else {
         // Add new appointment to state
-        setAppointments(prev => [...prev, appointmentData]);
+        setAppointments((prev) => [...prev, appointmentData]);
       }
     }
 
@@ -153,33 +160,36 @@ function ProviderCalendarContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
+      <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6 text-[#4fa77e]" />
+            <Calendar className="h-6 w-6 text-[#4fa77e]" />
             <h1 className="text-2xl font-bold text-gray-900">Provider Calendar</h1>
-            {isLoading && (
-              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
-            )}
+            {isLoading && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* Quick Stats */}
-            <div className="flex items-center gap-6 mr-6">
+            <div className="mr-6 flex items-center gap-6">
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-900">
-                  {appointments.filter(apt => 
-                    apt.date.toDateString() === new Date().toDateString()
-                  ).length}
+                  {
+                    appointments.filter(
+                      (apt) => apt.date.toDateString() === new Date().toDateString()
+                    ).length
+                  }
                 </p>
                 <p className="text-xs text-gray-600">Today</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-900">
-                  {appointments.filter(apt => 
-                    apt.date >= new Date() && 
-                    apt.date <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                  ).length}
+                  {
+                    appointments.filter(
+                      (apt) =>
+                        apt.date >= new Date() &&
+                        apt.date <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                    ).length
+                  }
                 </p>
                 <p className="text-xs text-gray-600">This Week</p>
               </div>
@@ -188,17 +198,17 @@ function ProviderCalendarContent() {
             {/* Action Buttons */}
             <button
               onClick={() => setShowSyncSettings(!showSyncSettings)}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-50"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="h-4 w-4" />
               <span className="text-sm font-medium">Calendar Sync</span>
             </button>
-            
+
             <button
               onClick={() => handleCreateAppointment()}
-              className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660]"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               <span className="text-sm font-medium">New Appointment</span>
             </button>
           </div>
@@ -206,7 +216,7 @@ function ProviderCalendarContent() {
 
         {/* Calendar Sync Settings */}
         {showSyncSettings && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 border-t pt-4">
             <CalendarSync onClose={() => setShowSyncSettings(false)} />
           </div>
         )}
@@ -216,77 +226,74 @@ function ProviderCalendarContent() {
       <div className="flex gap-6 p-6">
         {/* Sidebar - Today's Schedule */}
         <div className="w-80 flex-shrink-0">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-900 mb-4">Today's Schedule</h3>
-            
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="mb-4 font-semibold text-gray-900">Today's Schedule</h3>
+
             <div className="space-y-3">
               {appointments
-                .filter(apt => apt.date.toDateString() === new Date().toDateString())
+                .filter((apt) => apt.date.toDateString() === new Date().toDateString())
                 .sort((a, b) => a.date.getTime() - b.date.getTime())
-                .map(apt => (
+                .map((apt) => (
                   <div
                     key={apt.id}
-                    className="p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:border-[#4fa77e] transition-colors"
+                    className="cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:border-[#4fa77e]"
                     onClick={() => handleEditAppointment(apt)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Clock className="w-3 h-3 text-gray-500" />
+                        <div className="mb-1 flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-gray-500" />
                           <span className="text-sm font-medium">
-                            {apt.date.toLocaleTimeString('en-US', { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
+                            {apt.date.toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
                             })}
                           </span>
-                          <span className="text-xs text-gray-500">
-                            ({apt.duration} min)
-                          </span>
+                          <span className="text-xs text-gray-500">({apt.duration} min)</span>
                         </div>
                         <p className="font-medium text-gray-900">{apt.patientName}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Video className="w-3 h-3 text-blue-500" />
+                        <div className="mt-2 flex items-center gap-2">
+                          <Video className="h-3 w-3 text-blue-500" />
                           <span className="text-xs text-blue-600">Telehealth</span>
                         </div>
                       </div>
                       {apt.status === 'confirmed' && (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
                           Confirmed
                         </span>
                       )}
                     </div>
                   </div>
                 ))}
-              
-              {appointments.filter(apt => 
-                apt.date.toDateString() === new Date().toDateString()
-              ).length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
+
+              {appointments.filter((apt) => apt.date.toDateString() === new Date().toDateString())
+                .length === 0 && (
+                <p className="py-4 text-center text-sm text-gray-500">
                   No appointments scheduled for today
                 </p>
               )}
             </div>
 
             {/* Upcoming Appointments */}
-            <div className="mt-6 pt-4 border-t">
-              <h4 className="font-medium text-gray-700 mb-3">Upcoming</h4>
+            <div className="mt-6 border-t pt-4">
+              <h4 className="mb-3 font-medium text-gray-700">Upcoming</h4>
               <div className="space-y-2">
                 {appointments
-                  .filter(apt => apt.date > new Date())
+                  .filter((apt) => apt.date > new Date())
                   .sort((a, b) => a.date.getTime() - b.date.getTime())
                   .slice(0, 3)
-                  .map(apt => (
-                    <div 
-                      key={apt.id} 
-                      className="text-sm cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  .map((apt) => (
+                    <div
+                      key={apt.id}
+                      className="cursor-pointer rounded p-2 text-sm hover:bg-gray-50"
                       onClick={() => handleEditAppointment(apt)}
                     >
                       <p className="font-medium">{apt.patientName}</p>
                       <p className="text-xs text-gray-500">
                         {apt.date.toLocaleDateString()} at{' '}
-                        {apt.date.toLocaleTimeString('en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
+                        {apt.date.toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
                         })}
                       </p>
                     </div>
@@ -295,17 +302,17 @@ function ProviderCalendarContent() {
             </div>
 
             {/* Quick Actions */}
-            <div className="mt-6 pt-4 border-t space-y-2">
-              <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-500" />
+            <div className="mt-6 space-y-2 border-t pt-4">
+              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">
+                <Users className="h-4 w-4 text-gray-500" />
                 <span>Manage Patients</span>
               </button>
-              <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2">
-                <Bell className="w-4 h-4 text-gray-500" />
+              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">
+                <Bell className="h-4 w-4 text-gray-500" />
                 <span>Notification Settings</span>
               </button>
-              <button className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2">
-                <Video className="w-4 h-4 text-gray-500" />
+              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">
+                <Video className="h-4 w-4 text-gray-500" />
                 <span>Zoom Settings</span>
               </button>
             </div>
@@ -324,13 +331,10 @@ function ProviderCalendarContent() {
 
       {/* Error Banner */}
       {error && (
-        <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800 text-sm">
+        <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm text-red-800">
             {error}
-            <button
-              onClick={fetchAppointments}
-              className="ml-2 underline hover:no-underline"
-            >
+            <button onClick={fetchAppointments} className="ml-2 underline hover:no-underline">
               Try again
             </button>
           </p>
@@ -358,17 +362,19 @@ function ProviderCalendarContent() {
 
 export default function ProviderCalendarPage() {
   return (
-    <Suspense fallback={
-      <div className="p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="flex space-x-6">
-            <div className="w-80 h-96 bg-gray-200 rounded"></div>
-            <div className="flex-1 h-96 bg-gray-200 rounded"></div>
+    <Suspense
+      fallback={
+        <div className="p-8">
+          <div className="animate-pulse">
+            <div className="mb-6 h-8 w-1/4 rounded bg-gray-200"></div>
+            <div className="flex space-x-6">
+              <div className="h-96 w-80 rounded bg-gray-200"></div>
+              <div className="h-96 flex-1 rounded bg-gray-200"></div>
+            </div>
           </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ProviderCalendarContent />
     </Suspense>
   );

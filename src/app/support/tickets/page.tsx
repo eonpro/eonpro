@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from 'react';
 import TicketManager from '@/components/TicketManager';
@@ -12,28 +12,22 @@ export default function TicketsPage() {
     // For now, mock the current user
     setCurrentUser({
       id: 1,
-      role: 'admin'
+      role: 'admin',
     });
   }, []);
 
   if (!currentUser) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <TicketManager 
-        currentUserId={currentUser.id} 
-        currentUserRole={currentUser.role} 
-      />
-      <InternalChat 
-        currentUserId={currentUser.id} 
-        currentUserRole={currentUser.role} 
-      />
+    <div className="flex h-screen flex-col">
+      <TicketManager currentUserId={currentUser.id} currentUserRole={currentUser.role} />
+      <InternalChat currentUserId={currentUser.id} currentUserRole={currentUser.role} />
     </div>
   );
 }

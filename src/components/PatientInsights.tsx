@@ -46,7 +46,10 @@ const ICON_MAP: Record<string, typeof Trophy> = {
   sparkles: Sparkles,
 };
 
-const TYPE_STYLES: Record<Insight['type'], { bg: string; border: string; iconBg: string; iconColor: string }> = {
+const TYPE_STYLES: Record<
+  Insight['type'],
+  { bg: string; border: string; iconBg: string; iconColor: string }
+> = {
   achievement: {
     bg: 'bg-yellow-50',
     border: 'border-yellow-200',
@@ -120,7 +123,7 @@ export function PatientInsights() {
     return (
       <div className="space-y-3">
         {[1, 2].map((i) => (
-          <div key={i} className="animate-pulse bg-gray-100 rounded-xl h-24" />
+          <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-100" />
         ))}
       </div>
     );
@@ -128,7 +131,7 @@ export function PatientInsights() {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
         <p className="text-sm">{error}</p>
       </div>
     );
@@ -140,8 +143,8 @@ export function PatientInsights() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-5 h-5" style={{ color: primaryColor }} />
+      <div className="mb-2 flex items-center gap-2">
+        <Sparkles className="h-5 w-5" style={{ color: primaryColor }} />
         <h3 className="font-semibold text-gray-900">Personalized Insights</h3>
       </div>
 
@@ -152,32 +155,34 @@ export function PatientInsights() {
         return (
           <div
             key={insight.id}
-            className={`${style.bg} ${style.border} border rounded-xl p-4 transition-all`}
+            className={`${style.bg} ${style.border} rounded-xl border p-4 transition-all`}
           >
             <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-full ${style.iconBg} flex items-center justify-center flex-shrink-0`}>
-                <IconComponent className={`w-5 h-5 ${style.iconColor}`} />
+              <div
+                className={`h-10 w-10 rounded-full ${style.iconBg} flex flex-shrink-0 items-center justify-center`}
+              >
+                <IconComponent className={`h-5 w-5 ${style.iconColor}`} />
               </div>
 
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <h4 className="font-semibold text-gray-900">{insight.title}</h4>
-                <p className="text-sm text-gray-600 mt-0.5">{insight.message}</p>
+                <p className="mt-0.5 text-sm text-gray-600">{insight.message}</p>
 
                 {insight.actionUrl && (
                   <Link
                     href={insight.actionUrl}
-                    className="inline-flex items-center gap-1 text-sm font-medium mt-2 hover:underline"
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-medium hover:underline"
                     style={{ color: primaryColor }}
                   >
                     {insight.actionLabel || 'Learn More'}
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="h-4 w-4" />
                   </Link>
                 )}
               </div>
 
               <button
                 onClick={() => dismissInsight(insight.id)}
-                className="text-gray-400 hover:text-gray-600 text-xs"
+                className="text-xs text-gray-400 hover:text-gray-600"
               >
                 Dismiss
               </button>
@@ -226,7 +231,7 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
         const data = await res.json();
         setResponse(data.message);
       } else {
-        setResponse('Sorry, I couldn\'t process that. Please try again.');
+        setResponse("Sorry, I couldn't process that. Please try again.");
       }
     } catch (error) {
       setResponse('Sorry, something went wrong. Please try again.');
@@ -239,23 +244,23 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-4 md:bottom-6 md:right-6 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white hover:scale-105 transition-transform"
+        className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 md:bottom-6 md:right-6"
         style={{ backgroundColor: primaryColor }}
       >
-        <Sparkles className="w-6 h-6" />
+        <Sparkles className="h-6 w-6" />
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-24 right-4 md:bottom-6 md:right-6 z-40 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+    <div className="fixed bottom-24 right-4 z-40 w-80 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl md:bottom-6 md:right-6">
       {/* Header */}
       <div
-        className="p-4 text-white flex items-center justify-between"
+        className="flex items-center justify-between p-4 text-white"
         style={{ backgroundColor: primaryColor }}
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5" />
+          <Sparkles className="h-5 w-5" />
           <span className="font-semibold">Ask Becca</span>
         </div>
         <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white">
@@ -264,10 +269,10 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
       </div>
 
       {/* Content */}
-      <div className="p-4 max-h-64 overflow-y-auto">
+      <div className="max-h-64 overflow-y-auto p-4">
         {response ? (
           <div className="space-y-3">
-            <div className="bg-gray-100 rounded-xl p-3 text-sm text-gray-700">{response}</div>
+            <div className="rounded-xl bg-gray-100 p-3 text-sm text-gray-700">{response}</div>
             <button
               onClick={() => setResponse(null)}
               className="text-sm font-medium hover:underline"
@@ -286,7 +291,7 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
                 <button
                   key={suggestion}
                   onClick={() => sendMessage(suggestion)}
-                  className="w-full text-left text-sm px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 transition-colors"
+                  className="w-full rounded-lg bg-gray-50 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
                   disabled={loading}
                 >
                   {suggestion}
@@ -299,7 +304,7 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
 
       {/* Input */}
       {!response && (
-        <div className="p-3 border-t border-gray-100">
+        <div className="border-t border-gray-100 p-3">
           <div className="flex gap-2">
             <input
               type="text"
@@ -307,14 +312,14 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && message && sendMessage(message)}
               placeholder="Type your question..."
-              className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-opacity-50"
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-opacity-50"
               style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
               disabled={loading}
             />
             <button
               onClick={() => message && sendMessage(message)}
               disabled={!message || loading}
-              className="px-4 py-2 text-white rounded-lg font-medium disabled:opacity-50"
+              className="rounded-lg px-4 py-2 font-medium text-white disabled:opacity-50"
               style={{ backgroundColor: primaryColor }}
             >
               {loading ? '...' : 'Ask'}

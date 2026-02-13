@@ -82,7 +82,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         });
       }
     } catch (ucError) {
-      console.warn('UserClinic table may not exist:', ucError);
+      logger.warn('UserClinic table may not exist', { error: ucError instanceof Error ? ucError.message : String(ucError) });
       // Fall back to legacy clinic assignment
     }
 
@@ -120,7 +120,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         };
       }
     } catch (sessionError) {
-      console.warn('Could not fetch session data:', sessionError);
+      logger.warn('Could not fetch session data', { error: sessionError instanceof Error ? sessionError.message : String(sessionError) });
     }
 
     // Get login history (last 10 logins)
@@ -141,7 +141,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
       });
     } catch (historyError) {
-      console.warn('Could not fetch login history:', historyError);
+      logger.warn('Could not fetch login history', { error: historyError instanceof Error ? historyError.message : String(historyError) });
     }
 
     // Get user stats
@@ -162,7 +162,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         accountCreated: lastLogin?.createdAt,
       };
     } catch (statsError) {
-      console.warn('Could not fetch user stats:', statsError);
+      logger.warn('Could not fetch user stats', { error: statsError instanceof Error ? statsError.message : String(statsError) });
     }
 
     return NextResponse.json({
@@ -180,7 +180,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       stats: userStats,
     });
   } catch (error: any) {
-    console.error('Error fetching user clinics:', error);
+    logger.error('Error fetching user clinics', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: error.message || 'Failed to fetch user clinics' },
       { status: 500 }
@@ -300,7 +300,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         },
       });
     } catch (e: any) {
-      console.warn('Could not create UserClinic record:', e.message);
+      logger.warn('Could not create UserClinic record', { error: e.message });
       // Fallback: update user's clinicId
       await prisma.user.update({
         where: { id: userId },
@@ -313,7 +313,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       message: `User added to ${clinic.name}`,
     });
   } catch (error: any) {
-    console.error('Error adding user to clinic:', error);
+    logger.error('Error adding user to clinic', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: error.message || 'Failed to add user to clinic' },
       { status: 500 }
@@ -365,7 +365,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
       message: 'User removed from clinic',
     });
   } catch (error: any) {
-    console.error('Error removing user from clinic:', error);
+    logger.error('Error removing user from clinic', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: error.message || 'Failed to remove user from clinic' },
       { status: 500 }

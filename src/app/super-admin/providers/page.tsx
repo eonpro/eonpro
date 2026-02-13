@@ -91,7 +91,9 @@ export default function SuperAdminProvidersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClinic, setSelectedClinic] = useState<number | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'assigned' | 'unassigned'>('all');
-  const [providerStatusFilter, setProviderStatusFilter] = useState<'ACTIVE' | 'ARCHIVED' | 'all'>('ACTIVE');
+  const [providerStatusFilter, setProviderStatusFilter] = useState<'ACTIVE' | 'ARCHIVED' | 'all'>(
+    'ACTIVE'
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -158,16 +160,18 @@ export default function SuperAdminProvidersPage() {
   }, [page, statusFilter, selectedClinic, providerStatusFilter]);
 
   const getAuthToken = () => {
-    return localStorage.getItem('auth-token') ||
-           localStorage.getItem('super_admin-token') ||
-           localStorage.getItem('SUPER_ADMIN-token');
+    return (
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('SUPER_ADMIN-token')
+    );
   };
 
   const fetchClinics = async () => {
     const token = getAuthToken();
     try {
       const res = await fetch('/api/super-admin/clinics', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -192,7 +196,7 @@ export default function SuperAdminProvidersPage() {
       params.set('providerStatus', providerStatusFilter);
 
       const res = await fetch(`/api/super-admin/providers?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
@@ -229,7 +233,7 @@ export default function SuperAdminProvidersPage() {
       const response = await fetch('/api/super-admin/providers', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -289,7 +293,7 @@ export default function SuperAdminProvidersPage() {
         `/api/super-admin/providers/${deletingProvider.id}${hasData ? '?force=true' : ''}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -324,13 +328,10 @@ export default function SuperAdminProvidersPage() {
 
     try {
       const isArchived = archivingProvider.status === 'ARCHIVED';
-      const response = await fetch(
-        `/api/super-admin/providers/${archivingProvider.id}/archive`,
-        {
-          method: isArchived ? 'DELETE' : 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        }
-      );
+      const response = await fetch(`/api/super-admin/providers/${archivingProvider.id}/archive`, {
+        method: isArchived ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (!response.ok) {
         const data = await response.json();
@@ -348,10 +349,10 @@ export default function SuperAdminProvidersPage() {
   };
 
   const toggleClinicSelection = (clinicId: number) => {
-    setCreateForm(f => ({
+    setCreateForm((f) => ({
       ...f,
       clinicIds: f.clinicIds.includes(clinicId)
-        ? f.clinicIds.filter(id => id !== clinicId)
+        ? f.clinicIds.filter((id) => id !== clinicId)
         : [...f.clinicIds, clinicId],
     }));
   };
@@ -391,7 +392,7 @@ export default function SuperAdminProvidersPage() {
         const registryFirst = data.result.basic.firstName || data.result.basic.first_name || '';
         const registryLast = data.result.basic.lastName || data.result.basic.last_name || '';
 
-        setCreateForm(f => ({
+        setCreateForm((f) => ({
           ...f,
           firstName: f.firstName || registryFirst,
           lastName: f.lastName || registryLast,
@@ -411,15 +412,15 @@ export default function SuperAdminProvidersPage() {
   // Reset NPI verification when NPI changes
   const handleNpiChange = (value: string) => {
     const numericValue = value.replace(/\D/g, '');
-    setCreateForm(f => ({ ...f, npi: numericValue }));
+    setCreateForm((f) => ({ ...f, npi: numericValue }));
     setNpiVerified(false);
     setNpiVerificationResult(null);
   };
 
   // Calculate stats
-  const assignedCount = providers.filter(p => p.clinicCount > 0).length;
-  const unassignedCount = providers.filter(p => p.clinicCount === 0).length;
-  const archivedCount = providers.filter(p => p.status === 'ARCHIVED').length;
+  const assignedCount = providers.filter((p) => p.clinicCount > 0).length;
+  const unassignedCount = providers.filter((p) => p.clinicCount === 0).length;
+  const archivedCount = providers.filter((p) => p.status === 'ARCHIVED').length;
 
   if (loading) {
     return (
@@ -448,8 +449,8 @@ export default function SuperAdminProvidersPage() {
 
       {/* Error Banner */}
       {fetchError && (
-        <div className="mb-6 rounded-xl border bg-red-50 border-red-200 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-red-500" />
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
           <div className="flex-1">
             <p className="font-medium text-red-800">{fetchError}</p>
           </div>
@@ -458,7 +459,7 @@ export default function SuperAdminProvidersPage() {
               setLoading(true);
               fetchProviders();
             }}
-            className="p-1.5 rounded-lg hover:bg-white/50 text-red-600"
+            className="rounded-lg p-1.5 text-red-600 hover:bg-white/50"
             title="Retry"
           >
             <RefreshCw className="h-4 w-4" />
@@ -508,7 +509,7 @@ export default function SuperAdminProvidersPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {providers.filter(p => p.hasLinkedUser).length}
+                {providers.filter((p) => p.hasLinkedUser).length}
               </p>
               <p className="text-sm text-gray-500">With User Account</p>
             </div>
@@ -519,7 +520,7 @@ export default function SuperAdminProvidersPage() {
             setProviderStatusFilter(providerStatusFilter === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED');
             setPage(1);
           }}
-          className="rounded-xl bg-white p-4 shadow-sm hover:bg-gray-50 transition-colors text-left"
+          className="rounded-xl bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50"
         >
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-gray-100 p-2 text-gray-600">
@@ -530,7 +531,9 @@ export default function SuperAdminProvidersPage() {
                 {providerStatusFilter === 'ARCHIVED' ? 'View Active' : 'View Archived'}
               </p>
               <p className="text-sm text-gray-500">
-                {providerStatusFilter === 'ARCHIVED' ? 'Show active providers' : 'Show archived providers'}
+                {providerStatusFilter === 'ARCHIVED'
+                  ? 'Show active providers'
+                  : 'Show archived providers'}
               </p>
             </div>
           </div>
@@ -566,7 +569,7 @@ export default function SuperAdminProvidersPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         </div>
         <div className="relative">
           <select
@@ -581,7 +584,7 @@ export default function SuperAdminProvidersPage() {
             <option value="assigned">Assigned</option>
             <option value="unassigned">Unassigned</option>
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         </div>
         <div className="relative">
           <select
@@ -596,15 +599,17 @@ export default function SuperAdminProvidersPage() {
             <option value="ARCHIVED">Archived Only</option>
             <option value="all">All Providers</option>
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         </div>
       </div>
 
       {/* Status Banner */}
       {providerStatusFilter === 'ARCHIVED' && (
-        <div className="mb-4 rounded-lg bg-gray-100 border border-gray-200 p-3 flex items-center gap-3">
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-100 p-3">
           <Archive className="h-5 w-5 text-gray-500" />
-          <span className="text-gray-700">Viewing archived providers. These providers are inactive and hidden from normal views.</span>
+          <span className="text-gray-700">
+            Viewing archived providers. These providers are inactive and hidden from normal views.
+          </span>
         </div>
       )}
 
@@ -666,7 +671,7 @@ export default function SuperAdminProvidersPage() {
                           key={pc.id}
                           className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
                             pc.isPrimary
-                              ? 'bg-[#4fa77e]/10 text-[#4fa77e] font-medium'
+                              ? 'bg-[#4fa77e]/10 font-medium text-[#4fa77e]'
                               : 'bg-gray-100 text-gray-700'
                           }`}
                         >
@@ -686,7 +691,7 @@ export default function SuperAdminProvidersPage() {
                       <span className="text-[10px] text-gray-400">(Legacy)</span>
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-400 italic">Unassigned</span>
+                    <span className="text-sm italic text-gray-400">Unassigned</span>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
@@ -755,7 +760,9 @@ export default function SuperAdminProvidersPage() {
                           ? 'hover:text-green-600'
                           : 'hover:text-amber-600'
                       }`}
-                      title={provider.status === 'ARCHIVED' ? 'Unarchive provider' : 'Archive provider'}
+                      title={
+                        provider.status === 'ARCHIVED' ? 'Unarchive provider' : 'Archive provider'
+                      }
                     >
                       {provider.status === 'ARCHIVED' ? (
                         <ArchiveRestore className="h-4 w-4" />
@@ -783,7 +790,7 @@ export default function SuperAdminProvidersPage() {
             <p className="mt-2 text-gray-500">No providers found</p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="mt-4 text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+              className="mt-4 font-medium text-[#4fa77e] hover:text-[#3d8a66]"
             >
               Add your first provider
             </button>
@@ -798,14 +805,14 @@ export default function SuperAdminProvidersPage() {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
               >
                 Previous
               </button>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
               >
@@ -819,8 +826,8 @@ export default function SuperAdminProvidersPage() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Create Provider</h2>
               <button
                 onClick={() => {
@@ -829,7 +836,7 @@ export default function SuperAdminProvidersPage() {
                   setNpiVerificationResult(null);
                   setCreateError(null);
                 }}
-                className="p-1 rounded hover:bg-gray-100"
+                className="rounded p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -843,7 +850,7 @@ export default function SuperAdminProvidersPage() {
                     type="text"
                     required
                     value={createForm.firstName}
-                    onChange={(e) => setCreateForm(f => ({ ...f, firstName: e.target.value }))}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -853,7 +860,7 @@ export default function SuperAdminProvidersPage() {
                     type="text"
                     required
                     value={createForm.lastName}
-                    onChange={(e) => setCreateForm(f => ({ ...f, lastName: e.target.value }))}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -873,19 +880,19 @@ export default function SuperAdminProvidersPage() {
                       placeholder="10-digit NPI number"
                       className={`w-full rounded-lg border px-3 py-2 font-mono focus:outline-none focus:ring-1 ${
                         npiVerified
-                          ? 'border-green-500 focus:border-green-500 focus:ring-green-500 bg-green-50'
+                          ? 'border-green-500 bg-green-50 focus:border-green-500 focus:ring-green-500'
                           : 'border-gray-300 focus:border-[#4fa77e] focus:ring-[#4fa77e]'
                       }`}
                     />
                     {npiVerified && (
-                      <Shield className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />
+                      <Shield className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-green-600" />
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={handleVerifyNpi}
                     disabled={verifyingNpi || createForm.npi.length !== 10}
-                    className="px-3 py-2 text-sm font-medium rounded-lg bg-[#4fa77e]/10 text-[#4fa77e] hover:bg-[#4fa77e]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#4fa77e]/10 px-3 py-2 text-sm font-medium text-[#4fa77e] hover:bg-[#4fa77e]/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {verifyingNpi ? (
                       <>
@@ -901,28 +908,36 @@ export default function SuperAdminProvidersPage() {
                   </button>
                 </div>
                 {npiVerificationResult && (
-                  <div className={`mt-2 p-3 rounded-lg text-sm ${
-                    npiVerified
-                      ? 'bg-green-50 border border-green-200'
-                      : 'bg-red-50 border border-red-200'
-                  }`}>
+                  <div
+                    className={`mt-2 rounded-lg p-3 text-sm ${
+                      npiVerified
+                        ? 'border border-green-200 bg-green-50'
+                        : 'border border-red-200 bg-red-50'
+                    }`}
+                  >
                     {npiVerified ? (
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-green-800 font-medium">
+                        <div className="flex items-center gap-2 font-medium text-green-800">
                           <Check className="h-4 w-4" />
                           NPI Verified - Provider Found
                         </div>
                         {npiVerificationResult.basic && (
-                          <p className="text-green-700 text-xs">
-                            Registry Name: {npiVerificationResult.basic.namePrefix && `${npiVerificationResult.basic.namePrefix} `}
-                            {npiVerificationResult.basic.firstName || npiVerificationResult.basic.first_name}{' '}
-                            {npiVerificationResult.basic.lastName || npiVerificationResult.basic.last_name}
-                            {npiVerificationResult.basic.credential && `, ${npiVerificationResult.basic.credential}`}
+                          <p className="text-xs text-green-700">
+                            Registry Name:{' '}
+                            {npiVerificationResult.basic.namePrefix &&
+                              `${npiVerificationResult.basic.namePrefix} `}
+                            {npiVerificationResult.basic.firstName ||
+                              npiVerificationResult.basic.first_name}{' '}
+                            {npiVerificationResult.basic.lastName ||
+                              npiVerificationResult.basic.last_name}
+                            {npiVerificationResult.basic.credential &&
+                              `, ${npiVerificationResult.basic.credential}`}
                           </p>
                         )}
                         {npiVerificationResult.addresses?.[0] && (
-                          <p className="text-green-600 text-xs">
-                            Location: {npiVerificationResult.addresses[0].city}, {npiVerificationResult.addresses[0].state}
+                          <p className="text-xs text-green-600">
+                            Location: {npiVerificationResult.addresses[0].city},{' '}
+                            {npiVerificationResult.addresses[0].state}
                           </p>
                         )}
                       </div>
@@ -935,7 +950,8 @@ export default function SuperAdminProvidersPage() {
                   </div>
                 )}
                 <p className="mt-1 text-xs text-gray-500">
-                  Click &quot;Verify&quot; to check NPI with the national registry and auto-fill provider details
+                  Click &quot;Verify&quot; to check NPI with the national registry and auto-fill
+                  provider details
                 </p>
               </div>
 
@@ -944,7 +960,7 @@ export default function SuperAdminProvidersPage() {
                 <input
                   type="email"
                   value={createForm.email}
-                  onChange={(e) => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -954,7 +970,7 @@ export default function SuperAdminProvidersPage() {
                 <input
                   type="tel"
                   value={createForm.phone}
-                  onChange={(e) => setCreateForm(f => ({ ...f, phone: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -964,7 +980,7 @@ export default function SuperAdminProvidersPage() {
                 <input
                   type="text"
                   value={createForm.titleLine}
-                  onChange={(e) => setCreateForm(f => ({ ...f, titleLine: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, titleLine: e.target.value }))}
                   placeholder="e.g., MD, Family Medicine"
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
@@ -977,7 +993,9 @@ export default function SuperAdminProvidersPage() {
                     type="text"
                     maxLength={2}
                     value={createForm.licenseState}
-                    onChange={(e) => setCreateForm(f => ({ ...f, licenseState: e.target.value.toUpperCase() }))}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({ ...f, licenseState: e.target.value.toUpperCase() }))
+                    }
                     placeholder="TX"
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
@@ -987,7 +1005,9 @@ export default function SuperAdminProvidersPage() {
                   <input
                     type="text"
                     value={createForm.licenseNumber}
-                    onChange={(e) => setCreateForm(f => ({ ...f, licenseNumber: e.target.value }))}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({ ...f, licenseNumber: e.target.value }))
+                    }
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -998,59 +1018,61 @@ export default function SuperAdminProvidersPage() {
                 <input
                   type="text"
                   value={createForm.dea}
-                  onChange={(e) => setCreateForm(f => ({ ...f, dea: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, dea: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
 
               {/* Clinic Assignment */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Assign to Clinics (optional)
                 </label>
-                <p className="text-xs text-gray-500 mb-2">
-                  Select clinics this provider should have access to. You can add more clinics later.
+                <p className="mb-2 text-xs text-gray-500">
+                  Select clinics this provider should have access to. You can add more clinics
+                  later.
                 </p>
-                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-gray-200">
                   {clinics.map((clinic) => (
                     <button
                       key={clinic.id}
                       type="button"
                       onClick={() => toggleClinicSelection(clinic.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${
+                      className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${
                         createForm.clinicIds.includes(clinic.id) ? 'bg-[#4fa77e]/5' : ''
                       }`}
                     >
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                        createForm.clinicIds.includes(clinic.id)
-                          ? 'bg-[#4fa77e] border-[#4fa77e]'
-                          : 'border-gray-300'
-                      }`}>
+                      <div
+                        className={`flex h-5 w-5 items-center justify-center rounded border ${
+                          createForm.clinicIds.includes(clinic.id)
+                            ? 'border-[#4fa77e] bg-[#4fa77e]'
+                            : 'border-gray-300'
+                        }`}
+                      >
                         {createForm.clinicIds.includes(clinic.id) && (
                           <Check className="h-3 w-3 text-white" />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{clinic.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">{clinic.name}</p>
                         <p className="text-xs text-gray-500">{clinic.subdomain}.eonpro.io</p>
                       </div>
                       {createForm.clinicIds[0] === clinic.id && (
-                        <span className="text-xs text-[#4fa77e] font-medium">Primary</span>
+                        <span className="text-xs font-medium text-[#4fa77e]">Primary</span>
                       )}
                     </button>
                   ))}
                 </div>
                 {createForm.clinicIds.length > 0 && (
                   <p className="mt-2 text-xs text-gray-500">
-                    {createForm.clinicIds.length} clinic(s) selected. First selected will be primary.
+                    {createForm.clinicIds.length} clinic(s) selected. First selected will be
+                    primary.
                   </p>
                 )}
               </div>
 
               {createError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {createError}
-                </div>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</div>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -1083,40 +1105,42 @@ export default function SuperAdminProvidersPage() {
       {showDeleteModal && deletingProvider && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
-            <div className="flex items-center justify-center mb-4">
+            <div className="mb-4 flex items-center justify-center">
               <div className="rounded-full bg-red-100 p-3">
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
-              Delete Provider?
-            </h2>
+            <h2 className="mb-2 text-center text-xl font-bold text-gray-900">Delete Provider?</h2>
 
-            <p className="text-gray-600 text-center mb-4">
+            <p className="mb-4 text-center text-gray-600">
               Are you sure you want to <strong>permanently delete</strong>{' '}
-              <strong>{deletingProvider.firstName} {deletingProvider.lastName}</strong>?
-              This action cannot be undone.
+              <strong>
+                {deletingProvider.firstName} {deletingProvider.lastName}
+              </strong>
+              ? This action cannot be undone.
             </p>
 
-            {((deletingProvider._count?.orders ?? 0) > 0 || (deletingProvider._count?.appointments ?? 0) > 0) && (
-              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+            {((deletingProvider._count?.orders ?? 0) > 0 ||
+              (deletingProvider._count?.appointments ?? 0) > 0) && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm text-amber-800">
-                  <strong>Warning:</strong> This provider has {deletingProvider._count?.orders ?? 0} order(s)
-                  and {deletingProvider._count?.appointments ?? 0} appointment(s). Deleting will remove
-                  all associated data.
+                  <strong>Warning:</strong> This provider has {deletingProvider._count?.orders ?? 0}{' '}
+                  order(s) and {deletingProvider._count?.appointments ?? 0} appointment(s). Deleting
+                  will remove all associated data.
                 </p>
               </div>
             )}
 
-            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
+            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
               <p className="text-sm text-blue-800">
-                <strong>Tip:</strong> Consider archiving instead if you want to keep the historical data.
+                <strong>Tip:</strong> Consider archiving instead if you want to keep the historical
+                data.
               </p>
             </div>
 
             {deleteError && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
                 {deleteError}
               </div>
             )}
@@ -1146,12 +1170,12 @@ export default function SuperAdminProvidersPage() {
       {showArchiveModal && archivingProvider && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
-            <div className="flex items-center justify-center mb-4">
-              <div className={`rounded-full p-3 ${
-                archivingProvider.status === 'ARCHIVED'
-                  ? 'bg-green-100'
-                  : 'bg-amber-100'
-              }`}>
+            <div className="mb-4 flex items-center justify-center">
+              <div
+                className={`rounded-full p-3 ${
+                  archivingProvider.status === 'ARCHIVED' ? 'bg-green-100' : 'bg-amber-100'
+                }`}
+              >
                 {archivingProvider.status === 'ARCHIVED' ? (
                   <ArchiveRestore className="h-6 w-6 text-green-600" />
                 ) : (
@@ -1160,37 +1184,41 @@ export default function SuperAdminProvidersPage() {
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+            <h2 className="mb-2 text-center text-xl font-bold text-gray-900">
               {archivingProvider.status === 'ARCHIVED' ? 'Unarchive' : 'Archive'} Provider?
             </h2>
 
-            <p className="text-gray-600 text-center mb-4">
+            <p className="mb-4 text-center text-gray-600">
               {archivingProvider.status === 'ARCHIVED' ? (
                 <>
                   Are you sure you want to restore{' '}
-                  <strong>{archivingProvider.firstName} {archivingProvider.lastName}</strong>?
-                  They will be able to access the system again.
+                  <strong>
+                    {archivingProvider.firstName} {archivingProvider.lastName}
+                  </strong>
+                  ? They will be able to access the system again.
                 </>
               ) : (
                 <>
                   Are you sure you want to archive{' '}
-                  <strong>{archivingProvider.firstName} {archivingProvider.lastName}</strong>?
-                  They will be hidden from normal views and unable to access the system.
+                  <strong>
+                    {archivingProvider.firstName} {archivingProvider.lastName}
+                  </strong>
+                  ? They will be hidden from normal views and unable to access the system.
                 </>
               )}
             </p>
 
             {archivingProvider.status !== 'ARCHIVED' && (
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> Archiving preserves all historical data (orders, appointments, notes).
-                  You can unarchive this provider at any time.
+                  <strong>Note:</strong> Archiving preserves all historical data (orders,
+                  appointments, notes). You can unarchive this provider at any time.
                 </p>
               </div>
             )}
 
             {archiveError && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
                 {archiveError}
               </div>
             )}
@@ -1214,9 +1242,12 @@ export default function SuperAdminProvidersPage() {
                 }`}
               >
                 {archiving
-                  ? (archivingProvider.status === 'ARCHIVED' ? 'Restoring...' : 'Archiving...')
-                  : (archivingProvider.status === 'ARCHIVED' ? 'Unarchive' : 'Archive')
-                }
+                  ? archivingProvider.status === 'ARCHIVED'
+                    ? 'Restoring...'
+                    : 'Archiving...'
+                  : archivingProvider.status === 'ARCHIVED'
+                    ? 'Unarchive'
+                    : 'Archive'}
               </button>
             </div>
           </div>

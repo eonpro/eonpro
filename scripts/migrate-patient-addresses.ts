@@ -28,10 +28,9 @@ import {
   parseAddressString,
   normalizeState,
   normalizeZip,
-  validateAndStandardizeAddress,
-  isSmartyStreetsConfigured,
-  logAddressValidationEvent,
 } from '../src/lib/address';
+import { validateAndStandardizeAddress, isSmartyStreetsConfigured } from '../src/lib/address/smartystreets';
+import { logAddressValidationEvent } from '../src/lib/address/analytics';
 
 const prisma = new PrismaClient();
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { clientLogger } from '@/lib/clientLogger';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { getAuthToken, isServerlessEnvironment } from '@/lib/utils/auth-token';
 import { apiGet, apiFetch } from '@/lib/api/fetch';
@@ -129,7 +130,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   useEffect(() => {
     if (isBrowser) {
       isServerless.current = isServerlessEnvironment();
-      console.debug(
+      clientLogger.debug(
         '[Notifications] Environment:',
         isServerless.current ? 'serverless (polling mode)' : 'standard (WebSocket + polling)'
       );
@@ -186,7 +187,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         });
 
         lastFetchTime.current = Date.now();
-        console.debug('[Notifications] Fetched:', {
+        clientLogger.debug('[Notifications] Fetched:', {
           count: data.notifications?.length ?? 0,
           unread: data.unreadCount ?? 0,
           total: data.total ?? 0,
@@ -208,7 +209,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         if (error instanceof Error && error.name === 'AbortError') {
           return; // Request was cancelled
         }
-        console.error('Failed to fetch notifications:', error);
+        clientLogger.error('Failed to fetch notifications:', error);
         setState((prev) => ({
           ...prev,
           loading: false,
@@ -240,7 +241,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       setState((prev) => ({ ...prev, unreadCount: data.count ?? 0 }));
     } catch (error) {
       // Silent fail for count - non-critical
-      console.debug('Failed to fetch unread count:', error);
+      clientLogger.debug('Failed to fetch unread count:', error);
     }
   }, []);
 
@@ -284,7 +285,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
         }
       } catch (error) {
-        console.error('Failed to mark notification as read:', error);
+        clientLogger.error('Failed to mark notification as read:', error);
         // Revert optimistic update on error would require storing previous state
         // For now, just refetch to sync
         fetchUnreadCount();
@@ -322,7 +323,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
         }
       } catch (error) {
-        console.error('Failed to mark notifications as read:', error);
+        clientLogger.error('Failed to mark notifications as read:', error);
         fetchUnreadCount();
       }
     },
@@ -361,7 +362,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
         }
       } catch (error) {
-        console.error('Failed to mark all notifications as read:', error);
+        clientLogger.error('Failed to mark all notifications as read:', error);
         fetchUnreadCount();
       }
     },
@@ -401,7 +402,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           setState((prev) => ({ ...prev, unreadCount: data.unreadCount ?? prev.unreadCount }));
         }
       } catch (error) {
-        console.error('Failed to archive notifications:', error);
+        clientLogger.error('Failed to archive notifications:', error);
         // Refetch to restore state on error
         fetchNotifications(1, false);
       }
@@ -435,7 +436,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
       ? Math.min(refreshInterval, SERVERLESS_POLLING_INTERVAL)
       : refreshInterval;
 
-    console.debug(
+    clientLogger.debug(
       '[Notifications] Polling interval set to:',
       effectiveInterval,
       'ms',
@@ -443,12 +444,12 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     );
 
     const interval = setInterval(() => {
-      console.debug('[Notifications] Polling...');
+      clientLogger.debug('[Notifications] Polling...');
       fetchUnreadCount();
 
       // On serverless, also do a full fetch periodically to catch new notifications
       if (isServerless.current && Date.now() - lastFetchTime.current > 60000) {
-        console.debug('[Notifications] Full refresh on serverless...');
+        clientLogger.debug('[Notifications] Full refresh on serverless...');
         fetchNotifications(1, false);
       }
     }, effectiveInterval);

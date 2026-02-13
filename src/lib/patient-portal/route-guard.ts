@@ -11,14 +11,18 @@ import type { NavModuleId } from './registry';
  * e.g. /portal -> home, /portal/ -> home, /portal/appointments -> appointments, /portal/calculators/bmi -> calculators
  */
 export function getNavModuleIdForPath(pathname: string, basePath: string): NavModuleId | null {
-  const normalized = pathname.startsWith(basePath) ? pathname : basePath + pathname.replace(/^\//, '');
+  const normalized = pathname.startsWith(basePath)
+    ? pathname
+    : basePath + pathname.replace(/^\//, '');
   if (!normalized.startsWith(basePath)) return null;
   // Treat trailing slash as base path (home)
   const normalizedTrimmed = normalized.replace(/\/$/, '') || normalized;
   const pathForMatch = normalizedTrimmed === basePath ? basePath : normalized;
 
   // Sort by pathSuffix length desc so /subscription matches before '' (home)
-  const sorted = [...NAV_MODULES].sort((a, b) => (b.pathSuffix?.length ?? 0) - (a.pathSuffix?.length ?? 0));
+  const sorted = [...NAV_MODULES].sort(
+    (a, b) => (b.pathSuffix?.length ?? 0) - (a.pathSuffix?.length ?? 0)
+  );
 
   for (const m of sorted) {
     const full = basePath + m.pathSuffix;

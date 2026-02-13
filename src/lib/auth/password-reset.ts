@@ -18,7 +18,7 @@ const PASSWORD_REQUIREMENTS = {
   requireUppercase: true,
   requireLowercase: true,
   requireNumbers: true,
-  requireSpecialChars: true
+  requireSpecialChars: true,
 };
 
 interface PasswordResetResult {
@@ -43,30 +43,30 @@ export async function initiatePasswordReset(
     // Find user by email
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
-      select: { 
-        id: true, 
-        email: true, 
+      select: {
+        id: true,
+        email: true,
         firstName: true,
         status: true,
-        lockedUntil: true
-      }
+        lockedUntil: true,
+      },
     });
 
     // Always return success even if user not found (security best practice)
     if (!user) {
       logger.security('Password reset attempted for non-existent email', { email, ipAddress });
-      return { 
-        success: true, 
-        message: 'If an account exists, a reset link has been sent' 
+      return {
+        success: true,
+        message: 'If an account exists, a reset link has been sent',
       };
     }
 
     // Check if account is locked
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       logger.security('Password reset attempted for locked account', { userId: user.id, email });
-      return { 
-        success: true, 
-        message: 'If an account exists, a reset link has been sent' 
+      return {
+        success: true,
+        message: 'If an account exists, a reset link has been sent',
       };
     }
 
@@ -82,8 +82,8 @@ export async function initiatePasswordReset(
         userId: user.id,
         token: hashedToken,
         expiresAt,
-        ipAddress
-      }
+        ipAddress,
+      },
     });
 
     // Create audit log
@@ -91,13 +91,13 @@ export async function initiatePasswordReset(
       data: {
         userId: user.id,
         action: 'PASSWORD_RESET_REQUESTED',
-        details: { 
+        details: {
           email,
           ipAddress,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
-        ipAddress
-      }
+        ipAddress,
+      },
     });
 
     // Send reset email
@@ -105,16 +105,16 @@ export async function initiatePasswordReset(
     await sendPasswordResetEmail(user.email, user.firstName, resetUrl);
 
     logger.security('Password reset initiated', { userId: user.id, email });
-    
-    return { 
-      success: true, 
-      message: 'Reset link sent to email address' 
+
+    return {
+      success: true,
+      message: 'Reset link sent to email address',
     };
   } catch (error) {
     logger.error('Password reset initiation failed', error as Error);
-    return { 
-      success: false, 
-      error: 'Failed to initiate password reset' 
+    return {
+      success: false,
+      error: 'Failed to initiate password reset',
     };
   }
 }
@@ -125,15 +125,15 @@ export async function initiatePasswordReset(
 export async function verifyResetToken(token: string): Promise<boolean> {
   try {
     const hashedToken = hashToken(token);
-    
+
     const resetToken = await prisma.passwordResetToken.findFirst({
       where: {
         token: hashedToken,
         used: false,
         expiresAt: {
-          gt: new Date()
-        }
-      }
+          gt: new Date(),
+        },
+      },
     });
 
     return !!resetToken;
@@ -155,18 +155,18 @@ export async function resetPasswordWithToken(
   try {
     // Validate passwords match
     if (newPassword !== confirmPassword) {
-      return { 
-        success: false, 
-        error: 'Passwords do not match' 
+      return {
+        success: false,
+        error: 'Passwords do not match',
       };
     }
 
     // Validate password strength
     const validation = validatePasswordStrength(newPassword);
     if (!validation.isValid) {
-      return { 
-        success: false, 
-        error: validation.errors.join('. ') 
+      return {
+        success: false,
+        error: validation.errors.join('. '),
       };
     }
 
@@ -177,19 +177,19 @@ export async function resetPasswordWithToken(
         token: hashedToken,
         used: false,
         expiresAt: {
-          gt: new Date()
-        }
+          gt: new Date(),
+        },
       },
       include: {
-        user: true
-      }
+        user: true,
+      },
     });
 
     if (!resetToken) {
       logger.security('Invalid or expired reset token used', { ipAddress });
-      return { 
-        success: false, 
-        error: 'Invalid or expired reset token' 
+      return {
+        success: false,
+        error: 'Invalid or expired reset token',
       };
     }
 
@@ -203,8 +203,8 @@ export async function resetPasswordWithToken(
         passwordHash,
         lastPasswordChange: new Date(),
         failedLoginAttempts: 0,
-        lockedUntil: null
-      }
+        lockedUntil: null,
+      },
     });
 
     // Mark token as used
@@ -212,13 +212,13 @@ export async function resetPasswordWithToken(
       where: { id: resetToken.id },
       data: {
         used: true,
-        usedAt: new Date()
-      }
+        usedAt: new Date(),
+      },
     });
 
     // Invalidate all existing sessions for security
     await prisma.userSession.deleteMany({
-      where: { userId: resetToken.userId }
+      where: { userId: resetToken.userId },
     });
 
     // Create audit log
@@ -228,29 +228,29 @@ export async function resetPasswordWithToken(
         action: 'PASSWORD_RESET_COMPLETED',
         details: {
           ipAddress,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
-        ipAddress
-      }
+        ipAddress,
+      },
     });
 
     // Send confirmation email
     await sendPasswordResetConfirmation(resetToken.user.email, resetToken.user.firstName);
 
-    logger.security('Password reset completed', { 
-      userId: resetToken.userId, 
-      email: resetToken.user.email 
+    logger.security('Password reset completed', {
+      userId: resetToken.userId,
+      email: resetToken.user.email,
     });
 
-    return { 
-      success: true, 
-      message: 'Password has been reset successfully' 
+    return {
+      success: true,
+      message: 'Password has been reset successfully',
     };
   } catch (error) {
     logger.error('Password reset failed', error as Error);
-    return { 
-      success: false, 
-      error: 'Failed to reset password' 
+    return {
+      success: false,
+      error: 'Failed to reset password',
     };
   }
 }
@@ -268,18 +268,18 @@ export async function changePassword(
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { 
-        id: true, 
+      select: {
+        id: true,
         passwordHash: true,
         email: true,
-        firstName: true
-      }
+        firstName: true,
+      },
     });
 
     if (!user) {
-      return { 
-        success: false, 
-        error: 'User not found' 
+      return {
+        success: false,
+        error: 'User not found',
       };
     }
 
@@ -287,27 +287,27 @@ export async function changePassword(
     const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isValidPassword) {
       await logFailedPasswordChange(userId, ipAddress);
-      return { 
-        success: false, 
-        error: 'Current password is incorrect' 
+      return {
+        success: false,
+        error: 'Current password is incorrect',
       };
     }
 
     // Validate new password
     const validation = validatePasswordStrength(newPassword);
     if (!validation.isValid) {
-      return { 
-        success: false, 
-        error: validation.errors.join('. ') 
+      return {
+        success: false,
+        error: validation.errors.join('. '),
       };
     }
 
     // Check password history (prevent reuse)
     const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
     if (isSamePassword) {
-      return { 
-        success: false, 
-        error: 'New password cannot be the same as current password' 
+      return {
+        success: false,
+        error: 'New password cannot be the same as current password',
       };
     }
 
@@ -317,8 +317,8 @@ export async function changePassword(
       where: { id: userId },
       data: {
         passwordHash,
-        lastPasswordChange: new Date()
-      }
+        lastPasswordChange: new Date(),
+      },
     });
 
     // Create audit log
@@ -328,10 +328,10 @@ export async function changePassword(
         action: 'PASSWORD_CHANGED',
         details: {
           ipAddress,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         },
-        ipAddress
-      }
+        ipAddress,
+      },
     });
 
     // Send notification email
@@ -339,15 +339,15 @@ export async function changePassword(
 
     logger.security('Password changed successfully', { userId, email: user.email });
 
-    return { 
-      success: true, 
-      message: 'Password changed successfully' 
+    return {
+      success: true,
+      message: 'Password changed successfully',
     };
   } catch (error) {
     logger.error('Password change failed', error as Error);
-    return { 
-      success: false, 
-      error: 'Failed to change password' 
+    return {
+      success: false,
+      error: 'Failed to change password',
     };
   }
 }
@@ -380,13 +380,13 @@ export function validatePasswordStrength(password: string): PasswordValidation {
 
   // Check for common weak passwords
   const weakPasswords = ['password', '12345678', 'qwerty', 'admin', 'letmein'];
-  if (weakPasswords.some(weak => password.toLowerCase().includes(weak))) {
+  if (weakPasswords.some((weak) => password.toLowerCase().includes(weak))) {
     errors.push('Password is too common or weak');
   }
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 }
 
@@ -397,8 +397,8 @@ function hashToken(token: string): string {
 }
 
 async function sendPasswordResetEmail(
-  email: string, 
-  firstName: string, 
+  email: string,
+  firstName: string,
   resetUrl: string
 ): Promise<void> {
   await sendEmail({
@@ -412,14 +412,11 @@ async function sendPasswordResetEmail(
       <p>If you didn't request this, please ignore this email.</p>
       <hr>
       <p><small>For security, this link can only be used once.</small></p>
-    `
+    `,
   });
 }
 
-async function sendPasswordResetConfirmation(
-  email: string,
-  firstName: string
-): Promise<void> {
+async function sendPasswordResetConfirmation(email: string, firstName: string): Promise<void> {
   await sendEmail({
     to: email,
     subject: 'Password Reset Successful - EONPRO',
@@ -428,14 +425,11 @@ async function sendPasswordResetConfirmation(
       <p>Your password has been successfully reset.</p>
       <p>If you didn't make this change, please contact support immediately.</p>
       <p>For security reasons, all your previous sessions have been logged out.</p>
-    `
+    `,
   });
 }
 
-async function sendPasswordChangeNotification(
-  email: string,
-  firstName: string
-): Promise<void> {
+async function sendPasswordChangeNotification(email: string, firstName: string): Promise<void> {
   await sendEmail({
     to: email,
     subject: 'Password Changed - EONPRO',
@@ -443,14 +437,11 @@ async function sendPasswordChangeNotification(
       <h2>Hello ${firstName},</h2>
       <p>Your password has been successfully changed.</p>
       <p>If you didn't make this change, please reset your password immediately and contact support.</p>
-    `
+    `,
   });
 }
 
-async function logFailedPasswordChange(
-  userId: number,
-  ipAddress?: string
-): Promise<void> {
+async function logFailedPasswordChange(userId: number, ipAddress?: string): Promise<void> {
   await prisma.auditLog.create({
     data: {
       userId,
@@ -458,9 +449,9 @@ async function logFailedPasswordChange(
       details: {
         reason: 'Invalid current password',
         ipAddress,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
-      ipAddress
-    }
+      ipAddress,
+    },
   });
 }

@@ -2,7 +2,7 @@
 
 /**
  * Clinic Provider Routing Configuration Page
- * 
+ *
  * Enterprise feature for configuring provider routing, SOAP approval modes,
  * and per-script compensation tracking for a clinic.
  */
@@ -67,7 +67,7 @@ const ROUTING_STRATEGIES = [
   {
     value: 'STATE_LICENSE_MATCH',
     label: 'State License Match',
-    description: 'Auto-assign to providers licensed in patient\'s state',
+    description: "Auto-assign to providers licensed in patient's state",
     icon: Target,
   },
   {
@@ -128,9 +128,7 @@ export default function ClinicRoutingPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `/api/super-admin/clinics/${clinicId}/routing-config`
-      );
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/routing-config`);
 
       if (!response.ok) {
         const data = await response.json();
@@ -159,20 +157,17 @@ export default function ClinicRoutingPage() {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch(
-        `/api/super-admin/clinics/${clinicId}/routing-config`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            routingEnabled: config.routingEnabled,
-            compensationEnabled: config.compensationEnabled,
-            routingStrategy: config.routingStrategy,
-            soapApprovalMode: config.soapApprovalMode,
-            autoAssignOnPayment: config.autoAssignOnPayment,
-          }),
-        }
-      );
+      const response = await fetch(`/api/super-admin/clinics/${clinicId}/routing-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routingEnabled: config.routingEnabled,
+          compensationEnabled: config.compensationEnabled,
+          routingStrategy: config.routingStrategy,
+          soapApprovalMode: config.soapApprovalMode,
+          autoAssignOnPayment: config.autoAssignOnPayment,
+        }),
+      });
 
       if (!response.ok) {
         const data = await response.json();
@@ -194,7 +189,7 @@ export default function ClinicRoutingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="flex items-center gap-3 text-gray-600">
           <RefreshCw className="h-6 w-6 animate-spin" />
           <span>Loading configuration...</span>
@@ -206,13 +201,13 @@ export default function ClinicRoutingPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href={`/super-admin/clinics/${clinicId}`}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
               </Link>
@@ -223,15 +218,13 @@ export default function ClinicRoutingPage() {
                     Provider Routing & Compensation
                   </h1>
                 </div>
-                <p className="text-gray-500 text-sm mt-1">
-                  {clinic?.name || 'Loading...'}
-                </p>
+                <p className="mt-1 text-sm text-gray-500">{clinic?.name || 'Loading...'}</p>
               </div>
             </div>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
             >
               {saving ? (
                 <>
@@ -250,17 +243,17 @@ export default function ClinicRoutingPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Alerts */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <span className="text-red-700">{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <span className="text-green-700">{success}</span>
           </div>
@@ -268,15 +261,15 @@ export default function ClinicRoutingPage() {
 
         <div className="space-y-6">
           {/* Feature Enable Toggles */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
               <Settings className="h-5 w-5 text-gray-500" />
               Feature Settings
             </h2>
 
             <div className="space-y-4">
               {/* Provider Routing Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
                 <div className="flex items-center gap-3">
                   <Users className="h-5 w-5 text-blue-600" />
                   <div>
@@ -286,33 +279,27 @@ export default function ClinicRoutingPage() {
                     </p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative inline-flex cursor-pointer items-center">
                   <input
                     type="checkbox"
                     checked={config.routingEnabled}
-                    onChange={(e) =>
-                      setConfig({ ...config, routingEnabled: e.target.checked })
-                    }
-                    className="sr-only peer"
+                    onChange={(e) => setConfig({ ...config, routingEnabled: e.target.checked })}
+                    className="peer sr-only"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                  <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-teal-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300"></div>
                 </label>
               </div>
 
               {/* Compensation Tracking Toggle */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-gray-50 p-4">
                 <div className="flex items-center gap-3">
                   <DollarSign className="h-5 w-5 text-green-600" />
                   <div>
-                    <p className="font-medium text-gray-900">
-                      Compensation Tracking
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Track per-script earnings for providers
-                    </p>
+                    <p className="font-medium text-gray-900">Compensation Tracking</p>
+                    <p className="text-sm text-gray-500">Track per-script earnings for providers</p>
                   </div>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                <label className="relative inline-flex cursor-pointer items-center">
                   <input
                     type="checkbox"
                     checked={config.compensationEnabled}
@@ -322,9 +309,9 @@ export default function ClinicRoutingPage() {
                         compensationEnabled: e.target.checked,
                       })
                     }
-                    className="sr-only peer"
+                    className="peer sr-only"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                  <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-teal-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300"></div>
                 </label>
               </div>
             </div>
@@ -332,13 +319,13 @@ export default function ClinicRoutingPage() {
 
           {/* Routing Strategy */}
           {config.routingEnabled && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <Shuffle className="h-5 w-5 text-gray-500" />
                 Routing Strategy
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {ROUTING_STRATEGIES.map((strategy) => {
                   const Icon = strategy.icon;
                   return (
@@ -350,7 +337,7 @@ export default function ClinicRoutingPage() {
                           routingStrategy: strategy.value as RoutingConfig['routingStrategy'],
                         })
                       }
-                      className={`p-4 rounded-lg border-2 text-left transition-colors ${
+                      className={`rounded-lg border-2 p-4 text-left transition-colors ${
                         config.routingStrategy === strategy.value
                           ? 'border-teal-600 bg-teal-50'
                           : 'border-gray-200 hover:border-gray-300'
@@ -391,20 +378,16 @@ export default function ClinicRoutingPage() {
               </div>
 
               {/* Auto-assign on payment */}
-              {['STATE_LICENSE_MATCH', 'ROUND_ROBIN'].includes(
-                config.routingStrategy
-              ) && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+              {['STATE_LICENSE_MATCH', 'ROUND_ROBIN'].includes(config.routingStrategy) && (
+                <div className="mt-4 border-t border-gray-200 pt-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">
-                        Auto-assign on Payment
-                      </p>
+                      <p className="font-medium text-gray-900">Auto-assign on Payment</p>
                       <p className="text-sm text-gray-500">
                         Automatically assign prescriptions when invoice is paid
                       </p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <label className="relative inline-flex cursor-pointer items-center">
                       <input
                         type="checkbox"
                         checked={config.autoAssignOnPayment}
@@ -414,9 +397,9 @@ export default function ClinicRoutingPage() {
                             autoAssignOnPayment: e.target.checked,
                           })
                         }
-                        className="sr-only peer"
+                        className="peer sr-only"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                      <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-teal-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300"></div>
                     </label>
                   </div>
                 </div>
@@ -426,17 +409,17 @@ export default function ClinicRoutingPage() {
 
           {/* SOAP Note Approval Mode */}
           {config.routingEnabled && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <FileText className="h-5 w-5 text-gray-500" />
                 SOAP Note Approval Mode
               </h2>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 flex items-start gap-3">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <Info className="mt-0.5 h-5 w-5 text-blue-600" />
                 <p className="text-sm text-blue-700">
-                  This setting controls whether providers must have an approved
-                  SOAP note before they can write a prescription.
+                  This setting controls whether providers must have an approved SOAP note before
+                  they can write a prescription.
                 </p>
               </div>
 
@@ -450,7 +433,7 @@ export default function ClinicRoutingPage() {
                         soapApprovalMode: mode.value as RoutingConfig['soapApprovalMode'],
                       })
                     }
-                    className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
+                    className={`w-full rounded-lg border-2 p-4 text-left transition-colors ${
                       config.soapApprovalMode === mode.value
                         ? 'border-teal-600 bg-teal-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -458,18 +441,14 @@ export default function ClinicRoutingPage() {
                   >
                     <p
                       className={`font-medium ${
-                        config.soapApprovalMode === mode.value
-                          ? 'text-teal-900'
-                          : 'text-gray-900'
+                        config.soapApprovalMode === mode.value ? 'text-teal-900' : 'text-gray-900'
                       }`}
                     >
                       {mode.label}
                     </p>
                     <p
                       className={`text-sm ${
-                        config.soapApprovalMode === mode.value
-                          ? 'text-teal-700'
-                          : 'text-gray-500'
+                        config.soapApprovalMode === mode.value ? 'text-teal-700' : 'text-gray-500'
                       }`}
                     >
                       {mode.description}
@@ -482,19 +461,18 @@ export default function ClinicRoutingPage() {
 
           {/* Compensation Plans */}
           {config.compensationEnabled && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <DollarSign className="h-5 w-5 text-gray-500" />
                 Provider Compensation Plans
               </h2>
 
               {compensationPlans.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <DollarSign className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <div className="py-8 text-center text-gray-500">
+                  <DollarSign className="mx-auto mb-3 h-12 w-12 text-gray-300" />
                   <p>No compensation plans configured yet.</p>
-                  <p className="text-sm mt-1">
-                    Set compensation rates for individual providers in the Admin
-                    panel.
+                  <p className="mt-1 text-sm">
+                    Set compensation rates for individual providers in the Admin panel.
                   </p>
                 </div>
               ) : (
@@ -502,51 +480,48 @@ export default function ClinicRoutingPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
                           Provider
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
                           NPI
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">
                           Rate per Script
                         </th>
-                        <th className="text-center py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">
                           Status
                         </th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
                           Effective From
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {compensationPlans.map((plan) => (
-                        <tr
-                          key={plan.id}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          <td className="py-3 px-4 font-medium text-gray-900">
+                        <tr key={plan.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
                             {plan.providerName}
                           </td>
-                          <td className="py-3 px-4 font-mono text-sm text-gray-500">
+                          <td className="px-4 py-3 font-mono text-sm text-gray-500">
                             {plan.providerNpi}
                           </td>
-                          <td className="py-3 px-4 text-right font-semibold text-green-600">
+                          <td className="px-4 py-3 text-right font-semibold text-green-600">
                             {plan.flatRateFormatted}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="px-4 py-3 text-center">
                             {plan.isActive ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
                                 <CheckCircle2 className="h-3 w-3" />
                                 Active
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
                                 Inactive
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-500">
+                          <td className="px-4 py-3 text-sm text-gray-500">
                             {new Date(plan.effectiveFrom).toLocaleDateString()}
                           </td>
                         </tr>

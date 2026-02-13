@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document summarizes the features implemented to bring EONPRO closer to feature parity with [Healthie](https://www.gethealthie.com/intake-onboarding).
+This document summarizes the features implemented to bring EONPRO closer to feature parity with
+[Healthie](https://www.gethealthie.com/intake-onboarding).
 
 ---
 
@@ -13,6 +14,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 **Location:** `src/lib/scheduling/`
 
 **Features:**
+
 - Provider availability management (by day of week)
 - Time slot generation with conflict detection
 - Appointment creation, updates, cancellation
@@ -23,10 +25,12 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 - Time-off management
 
 **API Endpoints:**
+
 - `GET/POST/PATCH/DELETE /api/scheduling/appointments`
 - `GET/POST/PUT/DELETE /api/scheduling/availability`
 
 **Database Models:**
+
 - `Appointment`
 - `AppointmentTypeConfig`
 - `ProviderAvailability`
@@ -39,6 +43,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 **Location:** `src/lib/scheduling/appointment-reminder.service.ts`
 
 **Features:**
+
 - Automated SMS reminders via Twilio (24 hours & 2 hours before)
 - Email reminder support (ready for SendGrid/SES integration)
 - Configurable reminder timing
@@ -47,20 +52,25 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 - Confirmation SMS when appointment is confirmed
 
 **API Endpoints:**
+
 - `POST /api/scheduling/reminders/process` (cron job)
 - `GET /api/scheduling/reminders/process` (stats)
 
 **Vercel Cron Configuration:**
+
 ```json
 {
-  "crons": [{
-    "path": "/api/scheduling/reminders/process",
-    "schedule": "*/5 * * * *"
-  }]
+  "crons": [
+    {
+      "path": "/api/scheduling/reminders/process",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }
 ```
 
 **Environment Variables:**
+
 - `CRON_SECRET` - Authorization secret for cron endpoint
 
 ---
@@ -70,6 +80,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 **Location:** `src/lib/billing/superbill.service.ts`
 
 **Features:**
+
 - Create superbills with CPT and ICD-10 codes
 - PDF generation with full patient/provider information
 - Pre-loaded common CPT codes for telehealth and weight loss
@@ -79,16 +90,19 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 - Billing code lookup and management
 
 **API Endpoints:**
+
 - `GET/POST/PATCH /api/billing/superbills`
 - `GET?format=pdf /api/billing/superbills` (download PDF)
 - `GET/POST/DELETE /api/billing/codes`
 
 **Database Models:**
+
 - `Superbill`
 - `SuperbillItem`
 - `BillingCode`
 
 **Pre-loaded CPT Codes:**
+
 - E&M codes (99201-99215)
 - Telephone E/M (99441-99443)
 - Preventive counseling (99401-99404)
@@ -96,6 +110,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 - Medical nutrition therapy (97802-97804)
 
 **Pre-loaded ICD-10 Codes:**
+
 - Obesity codes (E66.xx)
 - BMI codes (Z68.xx)
 - Dietary counseling (Z71.3)
@@ -107,6 +122,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 **Location:** `src/lib/care-plans/care-plan.service.ts`
 
 **Features:**
+
 - Create care plans from templates or custom
 - Goal tracking with progress monitoring
 - Activity tracking with instructions
@@ -116,6 +132,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 - Care plan templates for common programs
 
 **Pre-built Templates:**
+
 1. **Weight Loss Program** (90 days)
    - Goals: Target weight, diet quality, physical activity, medication compliance
    - Activities: Daily weigh-in, medication, food logging, exercise, hydration
@@ -125,10 +142,12 @@ This document summarizes the features implemented to bring EONPRO closer to feat
    - Activities: Medication, symptom journal, lab work
 
 **API Endpoints:**
+
 - `GET/POST/PATCH /api/care-plans`
 - `GET/POST/PATCH /api/care-plans/progress`
 
 **Database Models:**
+
 - `CarePlan`
 - `CarePlanTemplate`
 - `CarePlanGoal`
@@ -142,6 +161,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 **Location:** `src/lib/intake-forms/conditional-logic.ts`
 
 **Features:**
+
 - Show/hide questions based on answers to other questions
 - Multiple condition operators:
   - `equals`, `not_equals`
@@ -155,6 +175,7 @@ This document summarizes the features implemented to bring EONPRO closer to feat
 - Validation only for visible questions
 
 **Usage Example:**
+
 ```typescript
 import { conditionalLogic } from '@/lib/intake-forms/conditional-logic';
 
@@ -172,6 +193,7 @@ const showForFemale = conditionalLogic()
 ```
 
 **ConditionalLogic Schema:**
+
 ```typescript
 {
   rules: [
@@ -193,6 +215,7 @@ const showForFemale = conditionalLogic()
 **Location:** `src/app/api/patient-portal/`
 
 #### Document Upload
+
 - Patients can upload documents to their profile
 - Document categorization (medical records, lab results, insurance, etc.)
 - Size limit: 10MB per file
@@ -200,9 +223,11 @@ const showForFemale = conditionalLogic()
 - Delete functionality for patient-uploaded documents only
 
 **API Endpoints:**
+
 - `GET/POST/DELETE /api/patient-portal/documents`
 
 #### Self-Scheduling
+
 - View available providers
 - View available time slots
 - Book appointments
@@ -211,6 +236,7 @@ const showForFemale = conditionalLogic()
 - Cancel appointments (24-hour policy)
 
 **API Endpoints:**
+
 - `GET /api/patient-portal/appointments?action=available-slots`
 - `GET /api/patient-portal/appointments?action=appointment-types`
 - `GET /api/patient-portal/appointments?action=providers`
@@ -245,6 +271,7 @@ CarePlanProgress
 ```
 
 New enums:
+
 ```prisma
 AppointmentStatus
 AppointmentModeType
@@ -269,12 +296,12 @@ GoalStatus
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `CRON_SECRET` | Authorization secret for cron endpoints |
-| `TWILIO_ACCOUNT_SID` | Twilio account SID for SMS |
-| `TWILIO_AUTH_TOKEN` | Twilio auth token |
-| `TWILIO_PHONE_NUMBER` | Twilio phone number for sending SMS |
+| Variable              | Description                             |
+| --------------------- | --------------------------------------- |
+| `CRON_SECRET`         | Authorization secret for cron endpoints |
+| `TWILIO_ACCOUNT_SID`  | Twilio account SID for SMS              |
+| `TWILIO_AUTH_TOKEN`   | Twilio auth token                       |
+| `TWILIO_PHONE_NUMBER` | Twilio phone number for sending SMS     |
 
 ---
 
@@ -283,6 +310,7 @@ GoalStatus
 **Location:** `src/lib/ai-scribe/`
 
 **Features:**
+
 - Real-time audio transcription using OpenAI Whisper
 - Speaker diarization (provider vs patient)
 - Automatic SOAP note generation from transcripts
@@ -291,14 +319,17 @@ GoalStatus
 - Telehealth session integration (Zoom support)
 
 **API Endpoints:**
+
 - `POST /api/ai-scribe/transcribe` - Transcribe audio or manage sessions
 - `POST /api/ai-scribe/generate-soap` - Generate SOAP from transcript
 
 **Components:**
+
 - `BeccaAIScribe.tsx` - Main scribe interface with live transcription
 - `BeccaAIScribeButton.tsx` - Launch button for telehealth appointments
 
 **Services:**
+
 - `transcription.service.ts` - Whisper integration and session management
 - `soap-from-transcript.service.ts` - GPT-4 SOAP generation
 - `telehealth-integration.ts` - Zoom webhook handling
@@ -308,6 +339,7 @@ GoalStatus
 **Location:** `src/lib/calendar-sync/`
 
 **Features:**
+
 - Google Calendar OAuth2 integration
 - Microsoft Outlook Calendar integration
 - Two-way synchronization (appointments ↔ external calendar)
@@ -316,29 +348,35 @@ GoalStatus
 - Provider settings UI for managing connections
 
 **API Endpoints:**
+
 - `GET /api/calendar-sync` - Get integration status, stats, or events
 - `POST /api/calendar-sync` - Connect, sync, or import
 - `PATCH /api/calendar-sync` - Update sync settings
 - `DELETE /api/calendar-sync` - Disconnect calendar
 
 **OAuth Callbacks:**
+
 - `/api/calendar-sync/google/callback` - Google OAuth redirect
 - `/api/calendar-sync/outlook/callback` - Microsoft OAuth redirect
 
 **Components:**
+
 - `CalendarIntegrations.tsx` - Provider settings UI
 
 **Services:**
+
 - `google-calendar.service.ts` - Google Calendar API
 - `outlook-calendar.service.ts` - Microsoft Graph API
 - `calendar-sync.service.ts` - Unified sync service
 
 **Dependencies:**
+
 - `googleapis` - Google Calendar API client
 - `@azure/msal-node` - Microsoft Authentication Library
 - `@microsoft/microsoft-graph-client` - Microsoft Graph API client
 
 **Environment Variables Required:**
+
 ```
 # Google Calendar
 GOOGLE_CLIENT_ID=
@@ -371,6 +409,7 @@ To fully match Healthie's capabilities, consider implementing:
 ## Testing
 
 Run the services tests:
+
 ```bash
 npm run test:unit -- src/lib/scheduling
 npm run test:unit -- src/lib/billing
@@ -379,4 +418,4 @@ npm run test:unit -- src/lib/care-plans
 
 ---
 
-*Last Updated: December 2024*
+_Last Updated: December 2024_

@@ -1,6 +1,6 @@
 /**
  * Notification Service
- * 
+ *
  * Handles in-app notifications for providers and admins with:
  * - CRUD operations for notifications
  * - Real-time WebSocket push
@@ -13,11 +13,11 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import webSocketService, { EventType } from '@/lib/realtime/websocket';
 import { sendTemplatedEmail, EmailTemplate, EmailPriority } from '@/lib/email';
-import type { 
-  NotificationCategory, 
-  NotificationPriority, 
+import type {
+  NotificationCategory,
+  NotificationPriority,
   Notification,
-  Prisma 
+  Prisma,
 } from '@prisma/client';
 
 // ============================================================================
@@ -190,9 +190,10 @@ class NotificationService {
       };
 
       // Map notification priority to email priority
-      const emailPriority = notification.priority === 'URGENT' || notification.priority === 'HIGH'
-        ? EmailPriority.HIGH
-        : EmailPriority.NORMAL;
+      const emailPriority =
+        notification.priority === 'URGENT' || notification.priority === 'HIGH'
+          ? EmailPriority.HIGH
+          : EmailPriority.NORMAL;
 
       await sendTemplatedEmail({
         to: user.email,
@@ -226,23 +227,19 @@ class NotificationService {
    */
   private pushNotification(notification: Notification): void {
     try {
-      webSocketService.sendToUser(
-        String(notification.userId),
-        EventType.NOTIFICATION_PUSH,
-        {
-          notification: {
-            id: notification.id,
-            category: notification.category,
-            priority: notification.priority,
-            title: notification.title,
-            message: notification.message,
-            actionUrl: notification.actionUrl,
-            metadata: notification.metadata,
-            createdAt: notification.createdAt,
-            isRead: notification.isRead,
-          },
-        }
-      );
+      webSocketService.sendToUser(String(notification.userId), EventType.NOTIFICATION_PUSH, {
+        notification: {
+          id: notification.id,
+          category: notification.category,
+          priority: notification.priority,
+          title: notification.title,
+          message: notification.message,
+          actionUrl: notification.actionUrl,
+          metadata: notification.metadata,
+          createdAt: notification.createdAt,
+          isRead: notification.isRead,
+        },
+      });
     } catch (error) {
       // Non-blocking - log but don't throw
       logger.debug('WebSocket push failed (user may be offline)', {
@@ -257,7 +254,7 @@ class NotificationService {
   async notifyProviders(input: BroadcastNotificationInput): Promise<number> {
     try {
       // Get all provider users in the clinic
-      const providerUsers = await prisma.user.findMany({
+      const providerUsers = (await prisma.user.findMany({
         where: {
           OR: [
             { clinicId: input.clinicId },
@@ -267,7 +264,7 @@ class NotificationService {
           status: 'ACTIVE',
         },
         select: { id: true },
-      }) as { id: number }[];
+      })) as { id: number }[];
 
       if (providerUsers.length === 0) {
         logger.debug('No providers to notify', { clinicId: input.clinicId });
@@ -322,7 +319,7 @@ class NotificationService {
   async notifyAdmins(input: BroadcastNotificationInput): Promise<number> {
     try {
       // Get all admin users in the clinic
-      const adminUsers = await prisma.user.findMany({
+      const adminUsers = (await prisma.user.findMany({
         where: {
           OR: [
             { clinicId: input.clinicId },
@@ -332,7 +329,7 @@ class NotificationService {
           status: 'ACTIVE',
         },
         select: { id: true },
-      }) as { id: number }[];
+      })) as { id: number }[];
 
       if (adminUsers.length === 0) {
         logger.debug('No admins to notify', { clinicId: input.clinicId });

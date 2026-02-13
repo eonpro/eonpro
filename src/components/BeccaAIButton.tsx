@@ -17,7 +17,7 @@ export default function BeccaAIButton({
   className = '',
 }: BeccaAIButtonProps) {
   const [loadError, setLoadError] = useState(false);
-  
+
   const sizeClasses = {
     small: 'w-16 h-16',
     medium: 'w-20 h-20',
@@ -33,7 +33,7 @@ export default function BeccaAIButton({
   return (
     <div
       onClick={onClick}
-      className={`relative cursor-pointer hover:scale-110 transition-transform ${sizeClasses[size]} ${className} flex items-center justify-center`}
+      className={`relative cursor-pointer transition-transform hover:scale-110 ${sizeClasses[size]} ${className} flex items-center justify-center`}
       title="Becca AI Assistant"
     >
       {!loadError ? (
@@ -46,24 +46,24 @@ export default function BeccaAIButton({
         />
       ) : (
         // Fallback icon if Lottie fails to load
-        <div className="bg-white rounded-full p-3 flex items-center justify-center">
-          <svg 
+        <div className="flex items-center justify-center rounded-full bg-white p-3">
+          <svg
             className={`${iconSizes[size]} text-[#4fa77e]`}
-            fill="none" 
-            stroke="currentColor" 
+            fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4z" 
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-4l-4 4z"
             />
           </svg>
         </div>
       )}
       {showPulse && (
-        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse z-10 border-2 border-white"></span>
+        <span className="absolute -right-1 -top-1 z-10 h-4 w-4 animate-pulse rounded-full border-2 border-white bg-red-500"></span>
       )}
     </div>
   );

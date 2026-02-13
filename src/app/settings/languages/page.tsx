@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
 /**
  * Language Settings Page
- * 
+ *
  * Configure language preferences and translations
  */
 
@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from '@/lib/i18n/useTranslation';
-import { 
+import {
   SUPPORTED_LANGUAGES,
   LanguageCode,
   isMultiLanguageEnabled,
@@ -33,7 +33,8 @@ import {
 import { Feature } from '@/components/Feature';
 
 export default function LanguageSettingsPage() {
-  const { t, language, changeLanguage, formatDate, formatTime, formatCurrency, formatNumber } = useTranslation();
+  const { t, language, changeLanguage, formatDate, formatTime, formatCurrency, formatNumber } =
+    useTranslation();
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(language);
   const [autoDetect, setAutoDetect] = useState(false);
   const [translateMedical, setTranslateMedical] = useState(true);
@@ -58,7 +59,7 @@ export default function LanguageSettingsPage() {
   return (
     <Feature feature="MULTI_LANGUAGE">
       <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -68,80 +69,73 @@ export default function LanguageSettingsPage() {
               </div>
               <LanguageSwitcher variant="dropdown" />
             </div>
-            <p className="text-gray-600 mt-2">
+            <p className="mt-2 text-gray-600">
               Configure language preferences and regional settings
             </p>
           </div>
 
           {/* Feature Status Alert */}
           {!isMultiLanguageEnabled() && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 flex items-start">
-              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="mb-6 flex items-start rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+              <AlertCircle className="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
               <div>
                 <h3 className="text-sm font-medium text-yellow-800">Feature Disabled</h3>
-                <p className="text-sm text-yellow-700 mt-1">
-                  Multi-language support is currently disabled. Enable it in your environment variables by setting MULTI_LANGUAGE=true.
+                <p className="mt-1 text-sm text-yellow-700">
+                  Multi-language support is currently disabled. Enable it in your environment
+                  variables by setting MULTI_LANGUAGE=true.
                 </p>
               </div>
             </div>
           )}
 
           {/* Main Settings */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-            <div className="px-6 py-4 border-b">
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="border-b px-6 py-4">
               <h2 className="text-lg font-semibold">Language Preference</h2>
             </div>
-            
+
             <div className="p-6">
               {/* Current Language */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Current Language
                 </label>
-                <div className="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <span className="text-3xl mr-3">{getLanguageDetails(language)?.flag}</span>
+                <div className="flex items-center rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <span className="mr-3 text-3xl">{getLanguageDetails(language)?.flag}</span>
                   <div>
                     <p className="font-medium text-gray-900">
                       {getLanguageDetails(language)?.nativeName}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      {getLanguageDetails(language)?.name}
-                    </p>
+                    <p className="text-sm text-gray-600">{getLanguageDetails(language)?.name}</p>
                   </div>
                 </div>
               </div>
 
               {/* Language Grid */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="mb-3 block text-sm font-medium text-gray-700">
                   Available Languages
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
                   {SUPPORTED_LANGUAGES.map((lang: any) => (
                     <button
                       key={lang.code}
                       onClick={() => handleLanguageSelect(lang.code as LanguageCode)}
                       disabled={!isMultiLanguageEnabled() && lang.code !== 'en'}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
+                      className={`rounded-lg border-2 p-3 text-left transition-all ${
                         selectedLang === lang.code
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
-                      } ${!isMultiLanguageEnabled() && lang.code !== 'en' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${!isMultiLanguageEnabled() && lang.code !== 'en' ? 'cursor-not-allowed opacity-50' : ''}`}
                     >
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="mb-1 flex items-center justify-between">
                         <span className="text-2xl">{lang.flag}</span>
-                        {selectedLang === lang.code && (
-                          <Check className="w-4 h-4 text-blue-600" />
-                        )}
+                        {selectedLang === lang.code && <Check className="h-4 w-4 text-blue-600" />}
                       </div>
-                      <p className="text-xs font-medium text-gray-900">
-                        {lang.nativeName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {lang.name}
-                      </p>
+                      <p className="text-xs font-medium text-gray-900">{lang.nativeName}</p>
+                      <p className="text-xs text-gray-500">{lang.name}</p>
                       {'rtl' in lang && lang.rtl && (
-                        <span className="inline-block mt-1 px-1.5 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">
+                        <span className="mt-1 inline-block rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-700">
                           RTL
                         </span>
                       )}
@@ -151,18 +145,20 @@ export default function LanguageSettingsPage() {
               </div>
 
               {/* Settings Options */}
-              <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-4 border-t pt-4">
                 <label className="flex items-center justify-between">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
                       checked={autoDetect}
                       onChange={(e: any) => setAutoDetect(e.target.checked)}
-                      className="mr-3 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      className="mr-3 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div>
                       <p className="text-sm font-medium text-gray-900">Auto-detect language</p>
-                      <p className="text-xs text-gray-500">Automatically set language based on browser settings</p>
+                      <p className="text-xs text-gray-500">
+                        Automatically set language based on browser settings
+                      </p>
                     </div>
                   </div>
                 </label>
@@ -173,11 +169,13 @@ export default function LanguageSettingsPage() {
                       type="checkbox"
                       checked={translateMedical}
                       onChange={(e: any) => setTranslateMedical(e.target.checked)}
-                      className="mr-3 h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                      className="mr-3 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div>
                       <p className="text-sm font-medium text-gray-900">Translate medical terms</p>
-                      <p className="text-xs text-gray-500">Show medical terminology in selected language</p>
+                      <p className="text-xs text-gray-500">
+                        Show medical terminology in selected language
+                      </p>
                     </div>
                   </div>
                 </label>
@@ -186,32 +184,34 @@ export default function LanguageSettingsPage() {
           </div>
 
           {/* Regional Formats */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
             <button
               onClick={() => setShowRegionalFormats(!showRegionalFormats)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              className="flex w-full items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50"
             >
               <h2 className="text-lg font-semibold">Regional Formats</h2>
-              <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${showRegionalFormats ? 'rotate-90' : ''}`} />
+              <ChevronRight
+                className={`h-5 w-5 text-gray-400 transition-transform ${showRegionalFormats ? 'rotate-90' : ''}`}
+              />
             </button>
-            
+
             {showRegionalFormats && (
-              <div className="px-6 pb-6 border-t">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              <div className="border-t px-6 pb-6">
+                <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Date Format */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Date Format</h3>
+                    <h3 className="mb-2 text-sm font-medium text-gray-700">Date Format</h3>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <div className="flex items-center">
-                          <Calendar className="w-4 h-4 text-gray-500 mr-2" />
+                          <Calendar className="mr-2 h-4 w-4 text-gray-500" />
                           <span className="text-sm">Format:</span>
                         </div>
                         <span className="text-sm font-medium">
                           {LOCALE_FORMATS[language]?.dateFormat || 'MM/DD/YYYY'}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <span className="text-sm">Example:</span>
                         <span className="text-sm font-medium">{formatDate(sampleDate)}</span>
                       </div>
@@ -220,18 +220,18 @@ export default function LanguageSettingsPage() {
 
                   {/* Time Format */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Time Format</h3>
+                    <h3 className="mb-2 text-sm font-medium text-gray-700">Time Format</h3>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <div className="flex items-center">
-                          <Clock className="w-4 h-4 text-gray-500 mr-2" />
+                          <Clock className="mr-2 h-4 w-4 text-gray-500" />
                           <span className="text-sm">Format:</span>
                         </div>
                         <span className="text-sm font-medium">
                           {LOCALE_FORMATS[language]?.timeFormat || '12h'}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <span className="text-sm">Example:</span>
                         <span className="text-sm font-medium">{formatTime(sampleDate)}</span>
                       </div>
@@ -240,38 +240,40 @@ export default function LanguageSettingsPage() {
 
                   {/* Currency Format */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Currency Format</h3>
+                    <h3 className="mb-2 text-sm font-medium text-gray-700">Currency Format</h3>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 text-gray-500 mr-2" />
+                          <DollarSign className="mr-2 h-4 w-4 text-gray-500" />
                           <span className="text-sm">Currency:</span>
                         </div>
                         <span className="text-sm font-medium">
                           {LOCALE_FORMATS[language]?.currency || 'USD'}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <span className="text-sm">Example:</span>
-                        <span className="text-sm font-medium">{formatCurrency(sampleCurrency)}</span>
+                        <span className="text-sm font-medium">
+                          {formatCurrency(sampleCurrency)}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Number Format */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Number Format</h3>
+                    <h3 className="mb-2 text-sm font-medium text-gray-700">Number Format</h3>
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <div className="flex items-center">
-                          <Hash className="w-4 h-4 text-gray-500 mr-2" />
+                          <Hash className="mr-2 h-4 w-4 text-gray-500" />
                           <span className="text-sm">Locale:</span>
                         </div>
                         <span className="text-sm font-medium">
                           {LOCALE_FORMATS[language]?.numberFormat || 'en-US'}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                         <span className="text-sm">Example:</span>
                         <span className="text-sm font-medium">{formatNumber(sampleNumber)}</span>
                       </div>
@@ -281,12 +283,16 @@ export default function LanguageSettingsPage() {
 
                 {/* First Day of Week */}
                 <div className="mt-4">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div className="flex items-center justify-between rounded bg-gray-50 p-3">
                     <span className="text-sm">First day of week:</span>
                     <span className="text-sm font-medium">
-                      {LOCALE_FORMATS[language]?.firstDayOfWeek === 0 ? 'Sunday' :
-                       LOCALE_FORMATS[language]?.firstDayOfWeek === 1 ? 'Monday' :
-                       LOCALE_FORMATS[language]?.firstDayOfWeek === 6 ? 'Saturday' : 'Sunday'}
+                      {LOCALE_FORMATS[language]?.firstDayOfWeek === 0
+                        ? 'Sunday'
+                        : LOCALE_FORMATS[language]?.firstDayOfWeek === 1
+                          ? 'Monday'
+                          : LOCALE_FORMATS[language]?.firstDayOfWeek === 6
+                            ? 'Saturday'
+                            : 'Sunday'}
                     </span>
                   </div>
                 </div>
@@ -295,55 +301,57 @@ export default function LanguageSettingsPage() {
           </div>
 
           {/* Translation Management */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-            <div className="px-6 py-4 border-b">
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="border-b px-6 py-4">
               <h2 className="text-lg font-semibold">Translation Management</h2>
             </div>
-            
+
             <div className="p-6">
               <div className="space-y-4">
-                <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <button className="flex w-full items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100">
                   <div className="flex items-center">
-                    <Download className="w-5 h-5 text-gray-600 mr-3" />
+                    <Download className="mr-3 h-5 w-5 text-gray-600" />
                     <div className="text-left">
                       <p className="text-sm font-medium text-gray-900">Export Translations</p>
-                      <p className="text-xs text-gray-500">Download translation files for editing</p>
+                      <p className="text-xs text-gray-500">
+                        Download translation files for editing
+                      </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
                 </button>
 
-                <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <button className="flex w-full items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100">
                   <div className="flex items-center">
-                    <Upload className="w-5 h-5 text-gray-600 mr-3" />
+                    <Upload className="mr-3 h-5 w-5 text-gray-600" />
                     <div className="text-left">
                       <p className="text-sm font-medium text-gray-900">Import Translations</p>
                       <p className="text-xs text-gray-500">Upload custom translation files</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
                 </button>
 
-                <button className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <button className="flex w-full items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100">
                   <div className="flex items-center">
-                    <Languages className="w-5 h-5 text-gray-600 mr-3" />
+                    <Languages className="mr-3 h-5 w-5 text-gray-600" />
                     <div className="text-left">
                       <p className="text-sm font-medium text-gray-900">Translation Coverage</p>
                       <p className="text-xs text-gray-500">View translation completion status</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
                 </button>
               </div>
 
               {/* Translation Stats */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-6 rounded-lg bg-blue-50 p-4">
                 <div className="flex items-start">
-                  <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <Info className="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
                   <div>
                     <h3 className="text-sm font-medium text-blue-900">Translation Quality</h3>
-                    <p className="text-sm text-blue-800 mt-1">
-                      Medical terminology has been professionally reviewed for accuracy. 
+                    <p className="mt-1 text-sm text-blue-800">
+                      Medical terminology has been professionally reviewed for accuracy.
                       Patient-facing content is available in {SUPPORTED_LANGUAGES.length} languages.
                     </p>
                     <div className="mt-2 grid grid-cols-3 gap-4">
@@ -367,39 +375,39 @@ export default function LanguageSettingsPage() {
           </div>
 
           {/* Developer Tools */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b">
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="border-b px-6 py-4">
               <h2 className="text-lg font-semibold">Developer Tools</h2>
             </div>
-            
+
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <a
                   href="/test/languages"
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                 >
                   <div className="flex items-center">
-                    <Settings className="w-5 h-5 text-gray-600 mr-3" />
+                    <Settings className="mr-3 h-5 w-5 text-gray-600" />
                     <div className="text-left">
                       <p className="text-sm font-medium text-gray-900">Test Suite</p>
                       <p className="text-xs text-gray-500">Run language tests</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
                 </a>
 
                 <a
                   href="/admin/features"
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                 >
                   <div className="flex items-center">
-                    <Settings className="w-5 h-5 text-gray-600 mr-3" />
+                    <Settings className="mr-3 h-5 w-5 text-gray-600" />
                     <div className="text-left">
                       <p className="text-sm font-medium text-gray-900">Feature Flags</p>
                       <p className="text-xs text-gray-500">Enable/disable features</p>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
                 </a>
               </div>
             </div>

@@ -25,11 +25,7 @@ import type {
   CreateOrderEventInput,
   Rx,
 } from '../types';
-import {
-  NotFoundError,
-  ForbiddenError,
-  ValidationError,
-} from '../../shared/errors';
+import { NotFoundError, ForbiddenError, ValidationError } from '../../shared/errors';
 import type { UserContext } from '../../shared/types';
 
 /**
@@ -227,7 +223,7 @@ export const orderService = {
     logger.info('[OrderService] updated order status', {
       orderId: id,
       status,
-      updatedBy: userContext.email,
+      updatedBy: userContext.id,
     });
 
     return order;
@@ -277,11 +273,7 @@ export const orderService = {
   /**
    * Mark order as error
    */
-  async markError(
-    id: number,
-    errorMessage: string,
-    userContext?: UserContext
-  ): Promise<Order> {
+  async markError(id: number, errorMessage: string, userContext?: UserContext): Promise<Order> {
     const order = await orderRepository.update(id, {
       status: 'error',
       errorMessage,
@@ -310,10 +302,7 @@ export const orderService = {
   /**
    * Get events for an order
    */
-  async getOrderEvents(
-    orderId: number,
-    userContext: UserContext
-  ): Promise<OrderEvent[]> {
+  async getOrderEvents(orderId: number, userContext: UserContext): Promise<OrderEvent[]> {
     // Verify access
     await this.getById(orderId, userContext);
 
@@ -358,15 +347,9 @@ export const orderService = {
   /**
    * Get orders for a specific patient
    */
-  async getPatientOrders(
-    patientId: number,
-    userContext: UserContext
-  ): Promise<OrderWithDetails[]> {
+  async getPatientOrders(patientId: number, userContext: UserContext): Promise<OrderWithDetails[]> {
     // Patient can only see own orders
-    if (
-      userContext.role === 'patient' &&
-      userContext.patientId !== patientId
-    ) {
+    if (userContext.role === 'patient' && userContext.patientId !== patientId) {
       throw new ForbiddenError('You can only view your own orders');
     }
 
@@ -415,8 +398,7 @@ export const orderService = {
    * Get order count by status
    */
   async getStatusCounts(userContext: UserContext): Promise<Record<string, number>> {
-    const clinicId =
-      userContext.role === 'super_admin' ? undefined : userContext.clinicId;
+    const clinicId = userContext.role === 'super_admin' ? undefined : userContext.clinicId;
 
     if (!clinicId && userContext.role !== 'super_admin') {
       return {};

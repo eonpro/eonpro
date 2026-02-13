@@ -22,7 +22,7 @@ export const GET = withAuth(
       const result = await runWithClinicContext(clinicId, async () => {
         // Build where clause
         const where: any = {};
-        
+
         if (status && status !== 'all') {
           where.status = status.toUpperCase();
         }
@@ -55,10 +55,10 @@ export const GET = withAuth(
         const totalCount = await prisma.sOAPNote.count({ where });
 
         // Transform to include patient name
-        const transformedNotes = soapNotes.map((note: typeof soapNotes[number]) => ({
+        const transformedNotes = soapNotes.map((note: (typeof soapNotes)[number]) => ({
           id: note.id,
           patientId: note.patientId,
-          patientName: note.patient 
+          patientName: note.patient
             ? `${note.patient.firstName} ${note.patient.lastName}`.trim()
             : 'Unknown Patient',
           subjective: note.subjective,

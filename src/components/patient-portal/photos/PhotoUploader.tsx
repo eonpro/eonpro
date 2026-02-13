@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Photo Uploader Component
@@ -74,7 +74,14 @@ interface PhotoUploaderProps {
 
 const DEFAULT_MAX_SIZE_MB = 15;
 const DEFAULT_MAX_PHOTOS = 5;
-const DEFAULT_ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const DEFAULT_ACCEPTED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+];
 const COMPRESSION_QUALITY = 0.85;
 const MAX_DIMENSION = 2048; // Max width/height after compression
 
@@ -256,7 +263,8 @@ export function PhotoUploader({
           throw new Error(error.error || 'Failed to get upload URL');
         }
 
-        const { uploadUrl, s3Key, thumbnailUploadUrl, thumbnailKey } = await presignedResponse.json();
+        const { uploadUrl, s3Key, thumbnailUploadUrl, thumbnailKey } =
+          await presignedResponse.json();
 
         // Upload to S3
         const uploadResponse = await fetch(uploadUrl, {
@@ -488,9 +496,9 @@ export function PhotoUploader({
     <div className={`space-y-4 ${className}`}>
       {/* Guidelines */}
       {showGuidelines && guidelines.length > 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-800 mb-2">Photo Guidelines</h4>
-          <ul className="text-sm text-blue-700 space-y-1">
+        <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+          <h4 className="mb-2 text-sm font-medium text-blue-800">Photo Guidelines</h4>
+          <ul className="space-y-1 text-sm text-blue-700">
             {guidelines.map((guideline, index) => (
               <li key={index} className="flex items-start gap-2">
                 <span className="text-blue-500">•</span>
@@ -503,25 +511,22 @@ export function PhotoUploader({
 
       {/* Upload Zone */}
       {canUploadMore && (
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           {/* Drag & Drop Zone */}
           <div
             {...getRootProps()}
-            className={`
-              flex-1 relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
-              ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}
-            `}
+            className={`relative flex-1 cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-all ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'} `}
           >
             <input {...getInputProps()} />
-            <Upload className="mx-auto h-10 w-10 text-gray-400 mb-3" />
+            <Upload className="mx-auto mb-3 h-10 w-10 text-gray-400" />
             {isDragActive ? (
-              <p className="text-blue-600 font-medium">Drop photo here...</p>
+              <p className="font-medium text-blue-600">Drop photo here...</p>
             ) : (
               <>
-                <p className="text-gray-600 font-medium">Drag & drop or tap to browse</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {maxPhotos - photos.length} photo{maxPhotos - photos.length !== 1 ? 's' : ''} remaining • Max{' '}
-                  {maxSizeMB}MB
+                <p className="font-medium text-gray-600">Drag & drop or tap to browse</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {maxPhotos - photos.length} photo{maxPhotos - photos.length !== 1 ? 's' : ''}{' '}
+                  remaining • Max {maxSizeMB}MB
                 </p>
               </>
             )}
@@ -531,7 +536,7 @@ export function PhotoUploader({
           {showCameraButton && (
             <button
               onClick={openCamera}
-              className="flex-shrink-0 flex flex-col items-center justify-center gap-2 w-full sm:w-32 py-4 bg-gray-100 hover:bg-gray-200 rounded-xl border-2 border-gray-200 transition-all"
+              className="flex w-full flex-shrink-0 flex-col items-center justify-center gap-2 rounded-xl border-2 border-gray-200 bg-gray-100 py-4 transition-all hover:bg-gray-200 sm:w-32"
             >
               <Camera className="h-8 w-8 text-gray-600" />
               <span className="text-sm font-medium text-gray-700">Camera</span>
@@ -542,36 +547,34 @@ export function PhotoUploader({
 
       {/* Photo Preview Grid */}
       {photos.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {photos.map((photo) => (
             <div
               key={photo.id}
-              className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200"
+              className="relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-100"
             >
               <img
                 src={photo.preview}
                 alt="Preview"
-                className={`w-full h-full object-cover ${
-                  photo.status === 'uploading' || photo.status === 'compressing'
-                    ? 'opacity-50'
-                    : ''
+                className={`h-full w-full object-cover ${
+                  photo.status === 'uploading' || photo.status === 'compressing' ? 'opacity-50' : ''
                 }`}
               />
 
               {/* Status Overlay */}
               <div className="absolute inset-0 flex items-center justify-center">
                 {(photo.status === 'uploading' || photo.status === 'compressing') && (
-                  <div className="bg-black/50 rounded-full p-3">
+                  <div className="rounded-full bg-black/50 p-3">
                     <Loader2 className="h-6 w-6 animate-spin text-white" />
                   </div>
                 )}
                 {photo.status === 'success' && (
-                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
+                  <div className="absolute right-2 top-2 rounded-full bg-green-500 p-1">
                     <CheckCircle className="h-4 w-4 text-white" />
                   </div>
                 )}
                 {photo.status === 'error' && (
-                  <div className="bg-red-500/90 rounded-full p-3">
+                  <div className="rounded-full bg-red-500/90 p-3">
                     <AlertCircle className="h-6 w-6 text-white" />
                   </div>
                 )}
@@ -582,7 +585,7 @@ export function PhotoUploader({
                 {photo.status === 'error' && (
                   <button
                     onClick={() => retryUpload(photo.id)}
-                    className="p-2 bg-white/90 rounded-full shadow-md hover:bg-white transition-all"
+                    className="rounded-full bg-white/90 p-2 shadow-md transition-all hover:bg-white"
                     title="Retry upload"
                   >
                     <RefreshCw className="h-4 w-4 text-gray-700" />
@@ -590,7 +593,7 @@ export function PhotoUploader({
                 )}
                 <button
                   onClick={() => removePhoto(photo.id)}
-                  className="p-2 bg-white/90 rounded-full shadow-md hover:bg-white transition-all"
+                  className="rounded-full bg-white/90 p-2 shadow-md transition-all hover:bg-white"
                   title="Remove photo"
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
@@ -599,7 +602,7 @@ export function PhotoUploader({
 
               {/* Error Message */}
               {photo.status === 'error' && photo.error && (
-                <div className="absolute bottom-0 inset-x-0 bg-red-500/90 text-white text-xs p-2 text-center">
+                <div className="absolute inset-x-0 bottom-0 bg-red-500/90 p-2 text-center text-xs text-white">
                   {photo.error}
                 </div>
               )}
@@ -610,26 +613,29 @@ export function PhotoUploader({
 
       {/* Camera Modal */}
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col">
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
           {/* Camera Header */}
-          <div className="flex items-center justify-between p-4 bg-black/80 shrink-0">
-            <button onClick={closeCamera} className="p-2 text-white hover:bg-white/20 rounded-full">
+          <div className="flex shrink-0 items-center justify-between bg-black/80 p-4">
+            <button onClick={closeCamera} className="rounded-full p-2 text-white hover:bg-white/20">
               <X className="h-6 w-6" />
             </button>
-            <span className="text-white font-medium">Take Photo</span>
-            <button onClick={switchCamera} className="p-2 text-white hover:bg-white/20 rounded-full">
+            <span className="font-medium text-white">Take Photo</span>
+            <button
+              onClick={switchCamera}
+              className="rounded-full p-2 text-white hover:bg-white/20"
+            >
               <RotateCcw className="h-6 w-6" />
             </button>
           </div>
 
           {/* Video Feed - flex-1 so button stays visible above browser chrome */}
-          <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              className="max-w-full max-h-full object-contain w-full h-full"
+              className="h-full max-h-full w-full max-w-full object-contain"
               onLoadedMetadata={(e) => {
                 const v = e.currentTarget;
                 v.play().catch(() => {});
@@ -639,14 +645,14 @@ export function PhotoUploader({
 
           {/* Capture Button - safe-area so not cut off by mobile browser bar (PWA/webview) */}
           <div
-            className="shrink-0 pt-6 px-6 bg-black/80 flex justify-center"
+            className="flex shrink-0 justify-center bg-black/80 px-6 pt-6"
             style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))' }}
           >
             <button
               onClick={capturePhoto}
-              className="w-20 h-20 rounded-full bg-white border-4 border-gray-300 hover:scale-105 transition-transform flex items-center justify-center"
+              className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gray-300 bg-white transition-transform hover:scale-105"
             >
-              <div className="w-16 h-16 rounded-full bg-white border-2 border-gray-400" />
+              <div className="h-16 w-16 rounded-full border-2 border-gray-400 bg-white" />
             </button>
           </div>
 
@@ -657,9 +663,9 @@ export function PhotoUploader({
 
       {/* Upload Limit Reached */}
       {!canUploadMore && (
-        <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
-          <ImageIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-          <p className="text-gray-600 font-medium">Maximum photos reached</p>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 py-4 text-center">
+          <ImageIcon className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+          <p className="font-medium text-gray-600">Maximum photos reached</p>
           <p className="text-sm text-gray-500">Remove a photo to upload another</p>
         </div>
       )}

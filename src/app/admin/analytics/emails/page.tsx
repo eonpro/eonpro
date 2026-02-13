@@ -86,9 +86,7 @@ export default function EmailAnalyticsPage() {
     setError(null);
 
     try {
-      const token =
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('auth-token');
+      const token = localStorage.getItem('admin-token') || localStorage.getItem('auth-token');
 
       const response = await fetch(`/api/admin/email-analytics?days=${days}`, {
         headers: {
@@ -115,7 +113,7 @@ export default function EmailAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     );
@@ -123,12 +121,12 @@ export default function EmailAnalyticsPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg bg-red-50 border border-red-200 p-6 text-center">
-        <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+        <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-red-500" />
         <p className="text-red-700">{error}</p>
         <button
           onClick={fetchData}
-          className="mt-4 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+          className="mt-4 rounded-lg bg-red-100 px-4 py-2 text-red-700 hover:bg-red-200"
         >
           Retry
         </button>
@@ -146,12 +144,10 @@ export default function EmailAnalyticsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Email Analytics</h1>
-          <p className="text-gray-500 mt-1">
-            Track email delivery, opens, and engagement
-          </p>
+          <p className="mt-1 text-gray-500">Track email delivery, opens, and engagement</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2">
             <Calendar className="h-4 w-4 text-gray-400" />
             <select
               value={days}
@@ -164,17 +160,14 @@ export default function EmailAnalyticsPage() {
               <option value={365}>Last year</option>
             </select>
           </div>
-          <button
-            onClick={fetchData}
-            className="p-2 bg-white border rounded-lg hover:bg-gray-50"
-          >
+          <button onClick={fetchData} className="rounded-lg border bg-white p-2 hover:bg-gray-50">
             <RefreshCw className="h-4 w-4 text-gray-600" />
           </button>
         </div>
       </div>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           title="Total Sent"
           value={overview.totalSent.toLocaleString()}
@@ -208,7 +201,7 @@ export default function EmailAnalyticsPage() {
       </div>
 
       {/* Engagement Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatCard
           title="Open Rate"
           value={`${overview.openRate}%`}
@@ -232,37 +225,33 @@ export default function EmailAnalyticsPage() {
       </div>
 
       {/* Charts and Tables Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Daily Volume Chart */}
-        <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Daily Volume</h3>
+        <div className="rounded-xl border bg-white p-6">
+          <h3 className="mb-4 font-semibold text-gray-900">Daily Volume</h3>
           <div className="h-64">
             <DailyChart data={byDay} />
           </div>
         </div>
 
         {/* By Template */}
-        <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">By Template</h3>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+        <div className="rounded-xl border bg-white p-6">
+          <h3 className="mb-4 font-semibold text-gray-900">By Template</h3>
+          <div className="max-h-64 space-y-3 overflow-y-auto">
             {byTemplate.length === 0 ? (
-              <p className="text-gray-500 text-sm">No data available</p>
+              <p className="text-sm text-gray-500">No data available</p>
             ) : (
-              byTemplate.map((template) => (
-                <TemplateRow key={template.template} data={template} />
-              ))
+              byTemplate.map((template) => <TemplateRow key={template.template} data={template} />)
             )}
           </div>
         </div>
       </div>
 
       {/* Recent Bounces */}
-      <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">
-          Recent Bounces & Complaints
-        </h3>
+      <div className="rounded-xl border bg-white p-6">
+        <h3 className="mb-4 font-semibold text-gray-900">Recent Bounces & Complaints</h3>
         {recentBounces.length === 0 ? (
-          <p className="text-gray-500 text-sm">No recent bounces or complaints</p>
+          <p className="text-sm text-gray-500">No recent bounces or complaints</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -280,7 +269,7 @@ export default function EmailAnalyticsPage() {
                     <td className="py-2 text-gray-900">{bounce.email}</td>
                     <td className="py-2">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        className={`rounded-full px-2 py-1 text-xs font-medium ${
                           bounce.status === 'BOUNCED'
                             ? 'bg-red-100 text-red-700'
                             : 'bg-orange-100 text-orange-700'
@@ -290,10 +279,7 @@ export default function EmailAnalyticsPage() {
                       </span>
                     </td>
                     <td className="py-2 text-gray-600">
-                      {bounce.bounceType ||
-                        bounce.complaintType ||
-                        bounce.bounceSubType ||
-                        '-'}
+                      {bounce.bounceType || bounce.complaintType || bounce.bounceSubType || '-'}
                     </td>
                     <td className="py-2 text-gray-500">
                       {new Date(bounce.date).toLocaleDateString()}
@@ -334,9 +320,9 @@ function StatCard({ title, value, subValue, icon: Icon, color, trend }: StatCard
   };
 
   return (
-    <div className="bg-white rounded-xl border p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
+    <div className="rounded-xl border bg-white p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <div className={`rounded-lg p-2 ${colorClasses[color]}`}>
           <Icon className="h-4 w-4" />
         </div>
         {trend && (
@@ -355,7 +341,7 @@ function StatCard({ title, value, subValue, icon: Icon, color, trend }: StatCard
       </div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
       <p className="text-sm text-gray-500">{title}</p>
-      {subValue && <p className="text-xs text-gray-400 mt-1">{subValue}</p>}
+      {subValue && <p className="mt-1 text-xs text-gray-400">{subValue}</p>}
     </div>
   );
 }
@@ -365,18 +351,13 @@ interface TemplateRowProps {
 }
 
 function TemplateRow({ data }: TemplateRowProps) {
-  const deliveryRate =
-    data.count > 0 ? Math.round((data.delivered / data.count) * 100) : 0;
+  const deliveryRate = data.count > 0 ? Math.round((data.delivered / data.count) * 100) : 0;
 
   return (
-    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+    <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
       <div>
-        <p className="font-medium text-gray-900 capitalize">
-          {data.template.replace(/_/g, ' ')}
-        </p>
-        <p className="text-xs text-gray-500">
-          {data.count.toLocaleString()} sent
-        </p>
+        <p className="font-medium capitalize text-gray-900">{data.template.replace(/_/g, ' ')}</p>
+        <p className="text-xs text-gray-500">{data.count.toLocaleString()} sent</p>
       </div>
       <div className="text-right">
         <p className="font-medium text-gray-900">{deliveryRate}%</p>
@@ -393,39 +374,34 @@ interface DailyChartProps {
 function DailyChart({ data }: DailyChartProps) {
   if (data.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-500">
-        No data available
-      </div>
+      <div className="flex h-full items-center justify-center text-gray-500">No data available</div>
     );
   }
 
   const maxValue = Math.max(...data.map((d) => d.sent), 1);
 
   return (
-    <div className="h-full flex items-end gap-1">
+    <div className="flex h-full items-end gap-1">
       {data.map((day) => {
         const height = (day.sent / maxValue) * 100;
         const bouncedHeight = day.sent > 0 ? (day.bounced / day.sent) * height : 0;
 
         return (
-          <div
-            key={day.date}
-            className="flex-1 flex flex-col items-center group relative"
-          >
-            <div className="w-full flex flex-col-reverse" style={{ height: '200px' }}>
+          <div key={day.date} className="group relative flex flex-1 flex-col items-center">
+            <div className="flex w-full flex-col-reverse" style={{ height: '200px' }}>
               <div
-                className="w-full bg-blue-500 rounded-t transition-all group-hover:bg-blue-600"
+                className="w-full rounded-t bg-blue-500 transition-all group-hover:bg-blue-600"
                 style={{ height: `${height}%` }}
               >
                 {bouncedHeight > 0 && (
                   <div
-                    className="w-full bg-red-400 rounded-t"
+                    className="w-full rounded-t bg-red-400"
                     style={{ height: `${bouncedHeight}%` }}
                   />
                 )}
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-1 truncate max-w-full">
+            <p className="mt-1 max-w-full truncate text-xs text-gray-400">
               {new Date(day.date).toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -433,7 +409,7 @@ function DailyChart({ data }: DailyChartProps) {
             </p>
 
             {/* Tooltip */}
-            <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+            <div className="absolute bottom-full z-10 mb-2 hidden whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white group-hover:block">
               {day.sent} sent, {day.bounced} bounced
             </div>
           </div>

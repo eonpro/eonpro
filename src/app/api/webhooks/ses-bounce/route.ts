@@ -104,14 +104,13 @@ export async function POST(req: NextRequest) {
   try {
     // Parse the SNS message
     const body = await req.text();
-    let snsMessage: SNSMessage;
-
-    try {
-      snsMessage = JSON.parse(body);
-    } catch {
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const snsParsed = safeParseJsonString<SNSMessage>(body);
+    if (snsParsed === null) {
       logger.error('[SES Webhook] Invalid JSON payload');
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
+    const snsMessage = snsParsed;
 
     logger.info('[SES Webhook] Received message', {
       type: snsMessage.Type,
@@ -151,17 +150,15 @@ export async function POST(req: NextRequest) {
       }
 
       case 'Notification': {
-        // Parse the SES notification
-        let sesNotification: SESNotification;
-        try {
-          sesNotification = JSON.parse(snsMessage.Message);
-        } catch {
+        const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+        const sesNotification = safeParseJsonString<SESNotification>(snsMessage.Message);
+        if (sesNotification === null) {
           logger.error('[SES Webhook] Invalid SES notification payload');
           return NextResponse.json({ error: 'Invalid notification payload' }, { status: 400 });
         }
 
         await processNotification(sesNotification);
-        
+
         const elapsedMs = Date.now() - startTime;
         return NextResponse.json({
           status: 'processed',
@@ -234,7 +231,10 @@ function buildStringToSign(message: SNSMessage): string {
     fields.push('Timestamp', message.Timestamp);
     fields.push('TopicArn', message.TopicArn);
     fields.push('Type', message.Type);
-  } else if (message.Type === 'SubscriptionConfirmation' || message.Type === 'UnsubscribeConfirmation') {
+  } else if (
+    message.Type === 'SubscriptionConfirmation' ||
+    message.Type === 'UnsubscribeConfirmation'
+  ) {
     fields.push('Message', message.Message);
     fields.push('MessageId', message.MessageId);
     fields.push('SubscribeURL', message.SubscribeURL || '');

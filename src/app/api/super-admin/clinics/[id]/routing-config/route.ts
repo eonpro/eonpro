@@ -1,6 +1,6 @@
 /**
  * Super Admin - Clinic Routing Configuration API
- * 
+ *
  * GET  - Get routing configuration for a clinic
  * PUT  - Update routing configuration for a clinic
  */
@@ -15,12 +15,9 @@ import { z } from 'zod';
 const routingConfigSchema = z.object({
   routingEnabled: z.boolean().optional(),
   compensationEnabled: z.boolean().optional(),
-  routingStrategy: z.enum([
-    'STATE_LICENSE_MATCH',
-    'ROUND_ROBIN',
-    'MANUAL_ASSIGNMENT',
-    'PROVIDER_CHOICE',
-  ]).optional(),
+  routingStrategy: z
+    .enum(['STATE_LICENSE_MATCH', 'ROUND_ROBIN', 'MANUAL_ASSIGNMENT', 'PROVIDER_CHOICE'])
+    .optional(),
   soapApprovalMode: z.enum(['REQUIRED', 'ADVISORY', 'DISABLED']).optional(),
   autoAssignOnPayment: z.boolean().optional(),
 });
@@ -33,20 +30,13 @@ interface RouteContext {
  * GET /api/super-admin/clinics/[id]/routing-config
  * Get routing configuration for a clinic
  */
-async function handleGet(
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext
-) {
+async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext) {
   try {
     const params = await context.params;
     const clinicId = parseInt(params.id, 10);
 
     if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
     // Verify clinic exists
@@ -56,10 +46,7 @@ async function handleGet(
     });
 
     if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
     logger.info('[SUPER-ADMIN-ROUTING] Getting routing config', {
@@ -70,9 +57,8 @@ async function handleGet(
     const config = await providerRoutingService.getRoutingConfig(clinicId);
 
     // Get compensation plans for this clinic
-    const compensationPlans = await providerCompensationService.getClinicCompensationPlans(
-      clinicId
-    );
+    const compensationPlans =
+      await providerCompensationService.getClinicCompensationPlans(clinicId);
 
     return NextResponse.json({
       clinic: {
@@ -126,20 +112,13 @@ async function handleGet(
  * PUT /api/super-admin/clinics/[id]/routing-config
  * Update routing configuration for a clinic
  */
-async function handlePut(
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext
-) {
+async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext) {
   try {
     const params = await context.params;
     const clinicId = parseInt(params.id, 10);
 
     if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
     // Verify clinic exists
@@ -149,10 +128,7 @@ async function handlePut(
     });
 
     if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
     const body = await req.json();
@@ -171,11 +147,7 @@ async function handlePut(
       config: parsed.data,
     });
 
-    const config = await providerRoutingService.upsertRoutingConfig(
-      clinicId,
-      parsed.data,
-      user.id
-    );
+    const config = await providerRoutingService.upsertRoutingConfig(clinicId, parsed.data, user.id);
 
     logger.info('[SUPER-ADMIN-ROUTING] Routing config updated', {
       clinicId,
@@ -185,7 +157,7 @@ async function handlePut(
         compensationEnabled: config.compensationEnabled,
         routingStrategy: config.routingStrategy,
       },
-      updatedBy: user.email,
+      updatedBy: user.id,
     });
 
     return NextResponse.json({
@@ -213,28 +185,24 @@ async function handlePut(
   }
 }
 
-export const GET = withSuperAdminAuth(
-  async (req: NextRequest, user: AuthUser) => {
-    const context = { params: Promise.resolve({ id: '' }) };
-    // Extract ID from URL
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const clinicIdIndex = pathParts.indexOf('clinics') + 1;
-    const clinicId = pathParts[clinicIdIndex];
-    context.params = Promise.resolve({ id: clinicId });
-    return handleGet(req, user, context);
-  }
-);
+export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+  const context = { params: Promise.resolve({ id: '' }) };
+  // Extract ID from URL
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split('/');
+  const clinicIdIndex = pathParts.indexOf('clinics') + 1;
+  const clinicId = pathParts[clinicIdIndex];
+  context.params = Promise.resolve({ id: clinicId });
+  return handleGet(req, user, context);
+});
 
-export const PUT = withSuperAdminAuth(
-  async (req: NextRequest, user: AuthUser) => {
-    const context = { params: Promise.resolve({ id: '' }) };
-    // Extract ID from URL
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
-    const clinicIdIndex = pathParts.indexOf('clinics') + 1;
-    const clinicId = pathParts[clinicIdIndex];
-    context.params = Promise.resolve({ id: clinicId });
-    return handlePut(req, user, context);
-  }
-);
+export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+  const context = { params: Promise.resolve({ id: '' }) };
+  // Extract ID from URL
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split('/');
+  const clinicIdIndex = pathParts.indexOf('clinics') + 1;
+  const clinicId = pathParts[clinicIdIndex];
+  context.params = Promise.resolve({ id: clinicId });
+  return handlePut(req, user, context);
+});

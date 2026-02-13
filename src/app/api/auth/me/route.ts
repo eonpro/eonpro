@@ -1,12 +1,12 @@
 /**
  * Auth Me Route
  * =============
- * 
+ *
  * GET /api/auth/me
  * Returns the current authenticated user's profile information.
- * 
+ *
  * Used by frontend components to get user details and role.
- * 
+ *
  * @module api/auth/me
  */
 
@@ -102,13 +102,18 @@ export const GET = withAuth(
         }
       } catch (error: unknown) {
         // UserClinic table might not have entries
-        logger.warn('[Auth/Me] UserClinic lookup failed', { error: error instanceof Error ? error.message : 'Unknown error', userId: user.id });
+        logger.warn('[Auth/Me] UserClinic lookup failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          userId: user.id,
+        });
         if (userData.clinic) {
-          clinics = [{
-            ...userData.clinic,
-            role: userData.role,
-            isPrimary: true,
-          }];
+          clinics = [
+            {
+              ...userData.clinic,
+              role: userData.role,
+              isPrimary: true,
+            },
+          ];
         }
       }
 
@@ -139,7 +144,7 @@ export const GET = withAuth(
       });
     } catch (error) {
       logger.error('[Auth/Me] Error fetching user', { error, userId: user.id });
-      
+
       // Return basic info from token if database lookup fails
       return NextResponse.json({
         user: {
@@ -153,5 +158,17 @@ export const GET = withAuth(
     }
   },
   // All authenticated users can access their own profile
-  { roles: ['super_admin', 'admin', 'provider', 'influencer', 'affiliate', 'patient', 'staff', 'support', 'sales_rep'] }
+  {
+    roles: [
+      'super_admin',
+      'admin',
+      'provider',
+      'influencer',
+      'affiliate',
+      'patient',
+      'staff',
+      'support',
+      'sales_rep',
+    ],
+  }
 );

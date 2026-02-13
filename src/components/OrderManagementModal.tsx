@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState, Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
+import { useState, Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
 
 type Order = {
   id: number;
@@ -29,20 +29,28 @@ type OrderManagementModalProps = {
 };
 
 const CANCELLATION_REASONS = [
-  { value: "patient_request", label: "Patient requested cancellation" },
-  { value: "provider_request", label: "Provider requested cancellation" },
-  { value: "duplicate_order", label: "Duplicate order" },
-  { value: "incorrect_medication", label: "Incorrect medication" },
-  { value: "incorrect_dosage", label: "Incorrect dosage" },
-  { value: "incorrect_quantity", label: "Incorrect quantity" },
-  { value: "incorrect_patient_info", label: "Incorrect patient information" },
-  { value: "insurance_issue", label: "Insurance issue" },
-  { value: "cost_issue", label: "Cost/pricing issue" },
-  { value: "other", label: "Other reason" },
+  { value: 'patient_request', label: 'Patient requested cancellation' },
+  { value: 'provider_request', label: 'Provider requested cancellation' },
+  { value: 'duplicate_order', label: 'Duplicate order' },
+  { value: 'incorrect_medication', label: 'Incorrect medication' },
+  { value: 'incorrect_dosage', label: 'Incorrect dosage' },
+  { value: 'incorrect_quantity', label: 'Incorrect quantity' },
+  { value: 'incorrect_patient_info', label: 'Incorrect patient information' },
+  { value: 'insurance_issue', label: 'Insurance issue' },
+  { value: 'cost_issue', label: 'Cost/pricing issue' },
+  { value: 'other', label: 'Other reason' },
 ];
 
 // Statuses that can be cancelled
-const CANCELLABLE_STATUSES = ["pending", "sent", "submitted", "received", "processing", "awaiting_webhook", "error"];
+const CANCELLABLE_STATUSES = [
+  'pending',
+  'sent',
+  'submitted',
+  'received',
+  'processing',
+  'awaiting_webhook',
+  'error',
+];
 
 export default function OrderManagementModal({
   order,
@@ -50,33 +58,33 @@ export default function OrderManagementModal({
   onClose,
   onSuccess,
 }: OrderManagementModalProps) {
-  const [activeTab, setActiveTab] = useState<"cancel" | "modify">("cancel");
+  const [activeTab, setActiveTab] = useState<'cancel' | 'modify'>('cancel');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   // Cancellation form state
-  const [cancellationReason, setCancellationReason] = useState("provider_request");
-  const [cancellationNotes, setCancellationNotes] = useState("");
+  const [cancellationReason, setCancellationReason] = useState('provider_request');
+  const [cancellationNotes, setCancellationNotes] = useState('');
 
   // Modification form state
   const [shippingChanges, setShippingChanges] = useState({
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    recipientPhone: "",
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    recipientPhone: '',
   });
-  const [modificationNotes, setModificationNotes] = useState("");
+  const [modificationNotes, setModificationNotes] = useState('');
 
-  const canCancel = order.status 
+  const canCancel = order.status
     ? CANCELLABLE_STATUSES.includes(order.status.toLowerCase()) && !order.cancelledAt
     : false;
 
   const handleCancel = async () => {
     if (!canCancel) {
-      setError("This order cannot be cancelled");
+      setError('This order cannot be cancelled');
       return;
     }
 
@@ -86,8 +94,8 @@ export default function OrderManagementModal({
 
     try {
       const response = await fetch(`/api/orders/${order.id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reason: cancellationReason,
           notes: cancellationNotes || undefined,
@@ -97,18 +105,18 @@ export default function OrderManagementModal({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || "Failed to cancel order");
+        throw new Error(data.error || data.message || 'Failed to cancel order');
       }
 
-      setSuccess(data.warning || "Order cancelled successfully");
-      
+      setSuccess(data.warning || 'Order cancelled successfully');
+
       // Wait a moment to show success message, then close
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Failed to cancel order");
+      setError(err.message || 'Failed to cancel order');
     } finally {
       setLoading(false);
     }
@@ -129,15 +137,15 @@ export default function OrderManagementModal({
 
     // Check if there are any modifications
     if (Object.keys(shipping).length === 0 && !modificationNotes.trim()) {
-      setError("Please provide at least one modification");
+      setError('Please provide at least one modification');
       setLoading(false);
       return;
     }
 
     try {
       const response = await fetch(`/api/orders/${order.id}/modify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           shipping: Object.keys(shipping).length > 0 ? shipping : undefined,
           notes: modificationNotes.trim() || undefined,
@@ -147,18 +155,18 @@ export default function OrderManagementModal({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || data.message || "Failed to modify order");
+        throw new Error(data.error || data.message || 'Failed to modify order');
       }
 
-      setSuccess(data.warning || "Order modified successfully");
-      
+      setSuccess(data.warning || 'Order modified successfully');
+
       // Wait a moment to show success message, then close
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Failed to modify order");
+      setError(err.message || 'Failed to modify order');
     } finally {
       setLoading(false);
     }
@@ -166,17 +174,17 @@ export default function OrderManagementModal({
 
   const handleClose = () => {
     // Reset form state
-    setCancellationReason("provider_request");
-    setCancellationNotes("");
+    setCancellationReason('provider_request');
+    setCancellationNotes('');
     setShippingChanges({
-      addressLine1: "",
-      addressLine2: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      recipientPhone: "",
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      recipientPhone: '',
     });
-    setModificationNotes("");
+    setModificationNotes('');
     setError(null);
     setSuccess(null);
     onClose();
@@ -221,16 +229,18 @@ export default function OrderManagementModal({
                   </div>
                   <div className="mt-1 flex justify-between">
                     <span className="text-gray-500">Status:</span>
-                    <span className={`font-medium ${
-                      order.cancelledAt ? "text-red-600" : "text-gray-900"
-                    }`}>
-                      {order.cancelledAt ? "Cancelled" : order.status || "Unknown"}
+                    <span
+                      className={`font-medium ${
+                        order.cancelledAt ? 'text-red-600' : 'text-gray-900'
+                      }`}
+                    >
+                      {order.cancelledAt ? 'Cancelled' : order.status || 'Unknown'}
                     </span>
                   </div>
                   <div className="mt-1 flex justify-between">
                     <span className="text-gray-500">Medications:</span>
                     <span className="font-medium">
-                      {order.rxs.map(rx => rx.medName).join(", ") || "—"}
+                      {order.rxs.map((rx) => rx.medName).join(', ') || '—'}
                     </span>
                   </div>
                 </div>
@@ -239,21 +249,21 @@ export default function OrderManagementModal({
                 <div className="mt-4 border-b border-gray-200">
                   <nav className="-mb-px flex space-x-4">
                     <button
-                      onClick={() => setActiveTab("cancel")}
+                      onClick={() => setActiveTab('cancel')}
                       className={`pb-2 text-sm font-medium ${
-                        activeTab === "cancel"
-                          ? "border-b-2 border-red-500 text-red-600"
-                          : "text-gray-500 hover:text-gray-700"
+                        activeTab === 'cancel'
+                          ? 'border-b-2 border-red-500 text-red-600'
+                          : 'text-gray-500 hover:text-gray-700'
                       }`}
                     >
                       Cancel Order
                     </button>
                     <button
-                      onClick={() => setActiveTab("modify")}
+                      onClick={() => setActiveTab('modify')}
                       className={`pb-2 text-sm font-medium ${
-                        activeTab === "modify"
-                          ? "border-b-2 border-blue-500 text-blue-600"
-                          : "text-gray-500 hover:text-gray-700"
+                        activeTab === 'modify'
+                          ? 'border-b-2 border-blue-500 text-blue-600'
+                          : 'text-gray-500 hover:text-gray-700'
                       }`}
                     >
                       Modify Shipping
@@ -263,13 +273,23 @@ export default function OrderManagementModal({
 
                 {/* Tab Content */}
                 <div className="mt-4">
-                  {activeTab === "cancel" ? (
+                  {activeTab === 'cancel' ? (
                     <div className="space-y-4">
                       {!canCancel ? (
                         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                           <div className="flex items-start">
-                            <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            <svg
+                              className="h-5 w-5 text-yellow-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
                             </svg>
                             <div className="ml-3">
                               <p className="text-sm font-medium text-yellow-800">
@@ -277,8 +297,8 @@ export default function OrderManagementModal({
                               </p>
                               <p className="mt-1 text-sm text-yellow-700">
                                 {order.cancelledAt
-                                  ? "This order has already been cancelled."
-                                  : "This order is already in fulfillment or has been shipped. Contact the pharmacy directly for assistance."}
+                                  ? 'This order has already been cancelled.'
+                                  : 'This order is already in fulfillment or has been shipped. Contact the pharmacy directly for assistance.'}
                               </p>
                             </div>
                           </div>
@@ -317,8 +337,9 @@ export default function OrderManagementModal({
 
                           <div className="rounded-lg border border-red-200 bg-red-50 p-4">
                             <p className="text-sm text-red-700">
-                              <strong>Warning:</strong> Cancelling this order will attempt to notify Lifefile.
-                              If the order is already being processed, the pharmacy may need to be contacted directly.
+                              <strong>Warning:</strong> Cancelling this order will attempt to notify
+                              Lifefile. If the order is already being processed, the pharmacy may
+                              need to be contacted directly.
                             </p>
                           </div>
                         </>
@@ -327,7 +348,8 @@ export default function OrderManagementModal({
                   ) : (
                     <div className="space-y-4">
                       <p className="text-sm text-gray-600">
-                        Update shipping information for this order. Only orders that haven't shipped yet can be modified.
+                        Update shipping information for this order. Only orders that haven't shipped
+                        yet can be modified.
                       </p>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -338,7 +360,12 @@ export default function OrderManagementModal({
                           <input
                             type="text"
                             value={shippingChanges.addressLine1}
-                            onChange={(e) => setShippingChanges({ ...shippingChanges, addressLine1: e.target.value })}
+                            onChange={(e) =>
+                              setShippingChanges({
+                                ...shippingChanges,
+                                addressLine1: e.target.value,
+                              })
+                            }
                             placeholder="New address (leave blank to keep current)"
                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                           />
@@ -351,33 +378,38 @@ export default function OrderManagementModal({
                           <input
                             type="text"
                             value={shippingChanges.addressLine2}
-                            onChange={(e) => setShippingChanges({ ...shippingChanges, addressLine2: e.target.value })}
+                            onChange={(e) =>
+                              setShippingChanges({
+                                ...shippingChanges,
+                                addressLine2: e.target.value,
+                              })
+                            }
                             placeholder="Apt, Suite, etc."
                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            City
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700">City</label>
                           <input
                             type="text"
                             value={shippingChanges.city}
-                            onChange={(e) => setShippingChanges({ ...shippingChanges, city: e.target.value })}
+                            onChange={(e) =>
+                              setShippingChanges({ ...shippingChanges, city: e.target.value })
+                            }
                             placeholder="City"
                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            State
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700">State</label>
                           <input
                             type="text"
                             value={shippingChanges.state}
-                            onChange={(e) => setShippingChanges({ ...shippingChanges, state: e.target.value })}
+                            onChange={(e) =>
+                              setShippingChanges({ ...shippingChanges, state: e.target.value })
+                            }
                             placeholder="State"
                             maxLength={2}
                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -391,7 +423,9 @@ export default function OrderManagementModal({
                           <input
                             type="text"
                             value={shippingChanges.zipCode}
-                            onChange={(e) => setShippingChanges({ ...shippingChanges, zipCode: e.target.value })}
+                            onChange={(e) =>
+                              setShippingChanges({ ...shippingChanges, zipCode: e.target.value })
+                            }
                             placeholder="ZIP Code"
                             maxLength={10}
                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -399,13 +433,16 @@ export default function OrderManagementModal({
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            Phone
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700">Phone</label>
                           <input
                             type="tel"
                             value={shippingChanges.recipientPhone}
-                            onChange={(e) => setShippingChanges({ ...shippingChanges, recipientPhone: e.target.value })}
+                            onChange={(e) =>
+                              setShippingChanges({
+                                ...shippingChanges,
+                                recipientPhone: e.target.value,
+                              })
+                            }
                             placeholder="Phone number"
                             className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                           />
@@ -450,8 +487,8 @@ export default function OrderManagementModal({
                   >
                     Close
                   </button>
-                  
-                  {activeTab === "cancel" && canCancel && (
+
+                  {activeTab === 'cancel' && canCancel && (
                     <button
                       type="button"
                       onClick={handleCancel}
@@ -460,19 +497,34 @@ export default function OrderManagementModal({
                     >
                       {loading ? (
                         <>
-                          <svg className="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          <svg
+                            className="mr-2 h-4 w-4 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
                           </svg>
                           Cancelling...
                         </>
                       ) : (
-                        "Cancel Order"
+                        'Cancel Order'
                       )}
                     </button>
                   )}
-                  
-                  {activeTab === "modify" && (
+
+                  {activeTab === 'modify' && (
                     <button
                       type="button"
                       onClick={handleModify}
@@ -481,14 +533,29 @@ export default function OrderManagementModal({
                     >
                       {loading ? (
                         <>
-                          <svg className="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          <svg
+                            className="mr-2 h-4 w-4 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
                           </svg>
                           Saving...
                         </>
                       ) : (
-                        "Save Changes"
+                        'Save Changes'
                       )}
                     </button>
                   )}

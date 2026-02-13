@@ -1,6 +1,6 @@
 /**
  * Super Admin Affiliate Analytics API
- * 
+ *
  * Cross-clinic analytics for affiliate performance:
  * - Total codes, conversions, revenue across all clinics
  * - Per-clinic breakdown
@@ -164,16 +164,27 @@ async function handler(req: NextRequest): Promise<Response> {
       totalClinics: clinics.length,
       totalAffiliates: await prisma.affiliate.count(),
       activeAffiliates: await prisma.affiliate.count({ where: { status: 'ACTIVE' } }),
-      totalCodes: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalCodes, 0),
-      totalClicks: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalClicks, 0),
-      totalConversions: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalConversions, 0),
-      totalRevenue: clinicBreakdown.reduce((sum: number, c: ClinicBreakdown) => sum + c.totalRevenue, 0),
+      totalCodes: clinicBreakdown.reduce(
+        (sum: number, c: ClinicBreakdown) => sum + c.totalCodes,
+        0
+      ),
+      totalClicks: clinicBreakdown.reduce(
+        (sum: number, c: ClinicBreakdown) => sum + c.totalClicks,
+        0
+      ),
+      totalConversions: clinicBreakdown.reduce(
+        (sum: number, c: ClinicBreakdown) => sum + c.totalConversions,
+        0
+      ),
+      totalRevenue: clinicBreakdown.reduce(
+        (sum: number, c: ClinicBreakdown) => sum + c.totalRevenue,
+        0
+      ),
       avgConversionRate: 0,
     };
-    
-    totals.avgConversionRate = totals.totalClicks > 0
-      ? (totals.totalConversions / totals.totalClicks) * 100
-      : 0;
+
+    totals.avgConversionRate =
+      totals.totalClicks > 0 ? (totals.totalConversions / totals.totalClicks) * 100 : 0;
 
     // Get top performing codes globally
     logger.info('[SuperAdmin Analytics] Fetching ref codes');
@@ -240,9 +251,7 @@ async function handler(req: NextRequest): Promise<Response> {
     );
 
     // Sort by conversions and take top 10
-    const topCodes = topCodesWithMetrics
-      .sort((a, b) => b.conversions - a.conversions)
-      .slice(0, 10);
+    const topCodes = topCodesWithMetrics.sort((a, b) => b.conversions - a.conversions).slice(0, 10);
 
     // Get daily trends for the period
     logger.info('[SuperAdmin Analytics] Calculating trends');
@@ -291,7 +300,9 @@ async function handler(req: NextRequest): Promise<Response> {
 
     const response: CrossClinicAnalyticsResponse = {
       totals,
-      clinicBreakdown: clinicBreakdown.sort((a: ClinicBreakdown, b: ClinicBreakdown) => b.totalConversions - a.totalConversions),
+      clinicBreakdown: clinicBreakdown.sort(
+        (a: ClinicBreakdown, b: ClinicBreakdown) => b.totalConversions - a.totalConversions
+      ),
       topCodes,
       trends,
     };
@@ -302,10 +313,7 @@ async function handler(req: NextRequest): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to fetch analytics data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch analytics data' }, { status: 500 });
   }
 }
 

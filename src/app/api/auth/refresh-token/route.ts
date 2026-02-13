@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, SignJWT } from 'jose';
-import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
+import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { logger } from '@/lib/logger';
 import { basePrisma as prisma } from '@/lib/db';
 import {
@@ -29,14 +29,22 @@ async function refreshTokenHandler(req: NextRequest) {
 
     const refreshToken = authHeader.slice(7);
 
-    // Verify refresh token
+    // Verify refresh token — use JWT_REFRESH_SECRET; fall back to JWT_SECRET for
+    // tokens issued before the secret separation (graceful migration).
     let payload;
     try {
-      const result = await jwtVerify(refreshToken, JWT_SECRET);
+      const result = await jwtVerify(refreshToken, JWT_REFRESH_SECRET);
       payload = result.payload;
-    } catch (error: unknown) {
-      logger.warn('Invalid refresh token attempt');
-      return NextResponse.json({ error: 'Invalid or expired refresh token' }, { status: 401 });
+    } catch {
+      // Fallback: try the old shared secret for tokens issued before the migration
+      try {
+        const fallbackResult = await jwtVerify(refreshToken, JWT_SECRET);
+        payload = fallbackResult.payload;
+        logger.warn('Refresh token verified with legacy JWT_SECRET — will rotate to JWT_REFRESH_SECRET');
+      } catch {
+        logger.warn('Invalid refresh token attempt');
+        return NextResponse.json({ error: 'Invalid or expired refresh token' }, { status: 401 });
+      }
     }
 
     // Check if it's a refresh token
@@ -71,7 +79,7 @@ async function refreshTokenHandler(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.provider)
         .sign(JWT_SECRET);
 
-      // Create new refresh token
+      // Create new refresh token (signed with dedicated refresh secret)
       const newRefreshToken = await new SignJWT({
         id: providerUser.id,
         type: 'refresh',
@@ -79,7 +87,7 @@ async function refreshTokenHandler(req: NextRequest) {
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_SECRET);
+        .sign(JWT_REFRESH_SECRET);
 
       logger.info('Token refreshed for provider', { userId: providerUser.id });
 
@@ -114,7 +122,7 @@ async function refreshTokenHandler(req: NextRequest) {
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.influencer)
         .sign(JWT_SECRET);
 
-      // Create new refresh token
+      // Create new refresh token (signed with dedicated refresh secret)
       const newRefreshToken = await new SignJWT({
         id: influencerUser.id,
         type: 'refresh',
@@ -122,7 +130,7 @@ async function refreshTokenHandler(req: NextRequest) {
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_SECRET);
+        .sign(JWT_REFRESH_SECRET);
 
       logger.info('Token refreshed for influencer', { userId: influencerUser.id });
 
@@ -178,7 +186,7 @@ async function refreshTokenHandler(req: NextRequest) {
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_SECRET);
+        .sign(JWT_REFRESH_SECRET);
 
       await rotateSessionRefreshToken(session.id, newRefreshToken);
 
@@ -245,7 +253,7 @@ async function refreshTokenHandler(req: NextRequest) {
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_SECRET);
+        .sign(JWT_REFRESH_SECRET);
 
       logger.info(`Token refreshed for admin`);
 

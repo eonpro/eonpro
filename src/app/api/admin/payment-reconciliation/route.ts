@@ -42,38 +42,38 @@ export async function GET(req: NextRequest) {
       where.status = status;
     }
 
-    const reconciliations = await prisma.paymentReconciliation.findMany({
-      where,
-      include: {
-        patient: {
-          select: { id: true, firstName: true, lastName: true, email: true },
+    const [reconciliations, stats, failedWebhooks] = await Promise.all([
+      prisma.paymentReconciliation.findMany({
+        where,
+        include: {
+          patient: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          invoice: {
+            select: { id: true, amount: true, status: true },
+          },
         },
-        invoice: {
-          select: { id: true, amount: true, status: true },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+      // Get summary stats
+      prisma.paymentReconciliation.groupBy({
+        by: ['status'],
+        where: { createdAt: { gte: since } },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      // Get failed webhook logs (ERROR, INVALID_AUTH, INVALID_PAYLOAD, PROCESSING_ERROR)
+      prisma.webhookLog.findMany({
+        where: {
+          source: 'stripe',
+          status: { in: ['ERROR', 'INVALID_AUTH', 'INVALID_PAYLOAD', 'PROCESSING_ERROR'] },
+          createdAt: { gte: since },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
-
-    // Get summary stats
-    const stats = await prisma.paymentReconciliation.groupBy({
-      by: ['status'],
-      where: { createdAt: { gte: since } },
-      _count: true,
-      _sum: { amount: true },
-    });
-
-    // Get failed webhook logs (ERROR, INVALID_AUTH, INVALID_PAYLOAD, PROCESSING_ERROR)
-    const failedWebhooks = await prisma.webhookLog.findMany({
-      where: {
-        source: 'stripe',
-        status: { in: ['ERROR', 'INVALID_AUTH', 'INVALID_PAYLOAD', 'PROCESSING_ERROR'] },
-        createdAt: { gte: since },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
 
     // Calculate totals
     const summary = {

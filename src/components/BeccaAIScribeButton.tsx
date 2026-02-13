@@ -31,22 +31,22 @@ export default function BeccaAIScribeButton({
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg shadow-lg hover:shadow-xl hover:from-emerald-600 hover:to-teal-600 transition-all ${className}`}
+        className={`flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-white shadow-lg transition-all hover:from-emerald-600 hover:to-teal-600 hover:shadow-xl ${className}`}
         title="Start AI Scribe"
       >
-        <Mic className="w-4 h-4" />
+        <Mic className="h-4 w-4" />
         <span>AI Scribe</span>
       </button>
 
       {/* Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="relative">
             <button
               onClick={() => setIsOpen(false)}
-              className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 z-10"
+              className="absolute -right-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-lg hover:bg-gray-100"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
             <BeccaAIScribe
               patientId={patientId}

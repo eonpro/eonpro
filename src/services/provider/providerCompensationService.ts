@@ -1,16 +1,16 @@
 /**
  * Provider Compensation Service
  * =============================
- * 
+ *
  * Enterprise feature for tracking per-script provider compensation.
  * Handles earnings recording, calculation, reporting, and (future) payout integration.
- * 
+ *
  * @module services/provider/providerCompensationService
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { 
+import type {
   CompensationEventStatus,
   CompensationType,
   ProviderCompensationPlan,
@@ -137,9 +137,7 @@ export const providerCompensationService = {
   /**
    * Get all compensation plans for a clinic
    */
-  async getClinicCompensationPlans(
-    clinicId: number
-  ): Promise<CompensationPlanWithProvider[]> {
+  async getClinicCompensationPlans(clinicId: number): Promise<CompensationPlanWithProvider[]> {
     const plans = await prisma.providerCompensationPlan.findMany({
       where: { clinicId },
       include: {
@@ -191,7 +189,9 @@ export const providerCompensationService = {
 
     if (compensationType === 'PERCENTAGE' || compensationType === 'HYBRID') {
       if (percentBps === undefined || percentBps < 0 || percentBps > 10000) {
-        throw new Error('Percentage (0-100%) is required for PERCENTAGE or HYBRID compensation types');
+        throw new Error(
+          'Percentage (0-100%) is required for PERCENTAGE or HYBRID compensation types'
+        );
       }
     }
 
@@ -268,7 +268,7 @@ export const providerCompensationService = {
         },
       },
     });
-    
+
     // Get invoice separately (Invoice -> Order, not Order -> Invoice)
     const invoice = await prisma.invoice.findFirst({
       where: { orderId },
@@ -405,11 +405,7 @@ export const providerCompensationService = {
   /**
    * Void compensation for a cancelled order
    */
-  async voidCompensation(
-    orderId: number,
-    reason: string,
-    actorId?: number
-  ): Promise<void> {
+  async voidCompensation(orderId: number, reason: string, actorId?: number): Promise<void> {
     const event = await prisma.providerCompensationEvent.findUnique({
       where: { orderId },
     });
@@ -453,10 +449,7 @@ export const providerCompensationService = {
   /**
    * Approve compensation events for payout
    */
-  async approveCompensation(
-    eventIds: number[],
-    actorId: number
-  ): Promise<number> {
+  async approveCompensation(eventIds: number[], actorId: number): Promise<number> {
     const result = await prisma.providerCompensationEvent.updateMany({
       where: {
         id: { in: eventIds },
@@ -750,12 +743,15 @@ export const providerCompensationService = {
     });
 
     // Calculate summary
-    const providerMap = new Map<number, {
-      name: string;
-      prescriptions: number;
-      soapNotes: number;
-      earningsCents: number;
-    }>();
+    const providerMap = new Map<
+      number,
+      {
+        name: string;
+        prescriptions: number;
+        soapNotes: number;
+        earningsCents: number;
+      }
+    >();
 
     for (const event of events) {
       const existing = providerMap.get(event.providerId) || {
@@ -819,9 +815,15 @@ export const providerCompensationService = {
       .sort((a, b) => a.period.localeCompare(b.period));
 
     const summary = {
-      totalPrescriptions: events.reduce((sum: number, e: typeof events[0]) => sum + e.prescriptionCount, 0),
+      totalPrescriptions: events.reduce(
+        (sum: number, e: (typeof events)[0]) => sum + e.prescriptionCount,
+        0
+      ),
       totalSOAPNotes: soapNotes.length,
-      totalEarningsCents: events.reduce((sum: number, e: typeof events[0]) => sum + e.amountCents, 0),
+      totalEarningsCents: events.reduce(
+        (sum: number, e: (typeof events)[0]) => sum + e.amountCents,
+        0
+      ),
       providerCount: providerMap.size,
     };
 

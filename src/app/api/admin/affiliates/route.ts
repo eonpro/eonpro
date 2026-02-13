@@ -1,9 +1,9 @@
 /**
  * Admin Affiliates API
- * 
+ *
  * GET  /api/admin/affiliates - List affiliates for clinic
  * POST /api/admin/affiliates - Create new affiliate
- * 
+ *
  * @security Super Admin or Admin only
  */
 
@@ -14,245 +14,259 @@ import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
 
 // GET - List affiliates for clinic
-export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
-  try {
-    const { searchParams } = new URL(req.url);
-    const clinicId = user.role === 'super_admin' 
-      ? searchParams.get('clinicId') ? parseInt(searchParams.get('clinicId')!) : undefined
-      : user.clinicId;
+export const GET = withAuth(
+  async (req: NextRequest, user: AuthUser) => {
+    try {
+      const { searchParams } = new URL(req.url);
+      const clinicId =
+        user.role === 'super_admin'
+          ? searchParams.get('clinicId')
+            ? parseInt(searchParams.get('clinicId')!)
+            : undefined
+          : user.clinicId;
 
-    if (!clinicId && user.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
+      if (!clinicId && user.role !== 'super_admin') {
+        return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
+      }
+
+      const affiliates = await prisma.affiliate.findMany({
+        where: clinicId ? { clinicId } : {},
+        include: {
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+              lastLogin: true,
+              status: true,
+            },
+          },
+          refCodes: {
+            select: {
+              id: true,
+              refCode: true,
+              isActive: true,
+            },
+          },
+          planAssignments: {
+            where: {
+              OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }],
+            },
+            include: {
+              commissionPlan: {
+                select: {
+                  id: true,
+                  name: true,
+                  planType: true,
+                  flatAmountCents: true,
+                  percentBps: true,
+                  // Separate initial/recurring rates
+                  initialPercentBps: true,
+                  initialFlatAmountCents: true,
+                  recurringPercentBps: true,
+                  recurringFlatAmountCents: true,
+                },
+              },
+            },
+            orderBy: { effectiveFrom: 'desc' },
+            take: 1,
+          },
+          _count: {
+            select: {
+              commissionEvents: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Get aggregated stats for each affiliate
+      const affiliatesWithStats = await Promise.all(
+        affiliates.map(async (affiliate: (typeof affiliates)[number]) => {
+          const stats = await prisma.affiliateCommissionEvent.aggregate({
+            where: { affiliateId: affiliate.id },
+            _sum: {
+              commissionAmountCents: true,
+              eventAmountCents: true,
+            },
+            _count: true,
+          });
+
+          return {
+            id: affiliate.id,
+            displayName: affiliate.displayName,
+            status: affiliate.status,
+            createdAt: affiliate.createdAt,
+            user: affiliate.user,
+            refCodes: affiliate.refCodes,
+            currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
+            stats: {
+              totalConversions: stats._count,
+              totalRevenueCents: stats._sum.eventAmountCents || 0,
+              totalCommissionCents: stats._sum.commissionAmountCents || 0,
+            },
+          };
+        })
+      );
+
+      return NextResponse.json({
+        affiliates: affiliatesWithStats,
+        total: affiliatesWithStats.length,
+      });
+    } catch (error) {
+      logger.error('[Admin Affiliates] Error listing affiliates', error);
+      return NextResponse.json({ error: 'Failed to list affiliates' }, { status: 500 });
     }
-
-    const affiliates = await prisma.affiliate.findMany({
-      where: clinicId ? { clinicId } : {},
-      include: {
-        user: {
-          select: {
-            email: true,
-            firstName: true,
-            lastName: true,
-            lastLogin: true,
-            status: true,
-          }
-        },
-        refCodes: {
-          select: {
-            id: true,
-            refCode: true,
-            isActive: true,
-          }
-        },
-        planAssignments: {
-          where: {
-            OR: [
-              { effectiveTo: null },
-              { effectiveTo: { gte: new Date() } }
-            ]
-          },
-          include: {
-            commissionPlan: {
-              select: {
-                id: true,
-                name: true,
-                planType: true,
-                flatAmountCents: true,
-                percentBps: true,
-                // Separate initial/recurring rates
-                initialPercentBps: true,
-                initialFlatAmountCents: true,
-                recurringPercentBps: true,
-                recurringFlatAmountCents: true,
-              }
-            }
-          },
-          orderBy: { effectiveFrom: 'desc' },
-          take: 1,
-        },
-        _count: {
-          select: {
-            commissionEvents: true
-          }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    // Get aggregated stats for each affiliate
-    const affiliatesWithStats = await Promise.all(
-      affiliates.map(async (affiliate: typeof affiliates[number]) => {
-        const stats = await prisma.affiliateCommissionEvent.aggregate({
-          where: { affiliateId: affiliate.id },
-          _sum: {
-            commissionAmountCents: true,
-            eventAmountCents: true,
-          },
-          _count: true,
-        });
-
-        return {
-          id: affiliate.id,
-          displayName: affiliate.displayName,
-          status: affiliate.status,
-          createdAt: affiliate.createdAt,
-          user: affiliate.user,
-          refCodes: affiliate.refCodes,
-          currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
-          stats: {
-            totalConversions: stats._count,
-            totalRevenueCents: stats._sum.eventAmountCents || 0,
-            totalCommissionCents: stats._sum.commissionAmountCents || 0,
-          }
-        };
-      })
-    );
-
-    return NextResponse.json({
-      affiliates: affiliatesWithStats,
-      total: affiliatesWithStats.length,
-    });
-
-  } catch (error) {
-    logger.error('[Admin Affiliates] Error listing affiliates', error);
-    return NextResponse.json({ error: 'Failed to list affiliates' }, { status: 500 });
-  }
-}, { roles: ['super_admin', 'admin'] });
+  },
+  { roles: ['super_admin', 'admin'] }
+);
 
 // POST - Create new affiliate
-export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
-  try {
-    const body = await req.json();
-    const {
-      clinicId: bodyClinicId,
-      email,
-      password,
-      firstName,
-      lastName,
-      displayName,
-      initialRefCode,
-      commissionPlanId,
-    } = body;
+export const POST = withAuth(
+  async (req: NextRequest, user: AuthUser) => {
+    try {
+      const body = await req.json();
+      const {
+        clinicId: bodyClinicId,
+        email,
+        password,
+        firstName,
+        lastName,
+        displayName,
+        initialRefCode,
+        commissionPlanId,
+      } = body;
 
-    // Determine clinic ID
-    const clinicId = user.role === 'super_admin' && bodyClinicId
-      ? bodyClinicId
-      : user.clinicId;
+      // Determine clinic ID
+      const clinicId = user.role === 'super_admin' && bodyClinicId ? bodyClinicId : user.clinicId;
 
-    if (!clinicId) {
-      return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
-    }
-
-    // Validate required fields
-    if (!email || !password || !displayName) {
-      return NextResponse.json({ 
-        error: 'Email, password, and displayName are required' 
-      }, { status: 400 });
-    }
-
-    // Check if user with email already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
-    });
-
-    if (existingUser) {
-      return NextResponse.json({ 
-        error: 'User with this email already exists' 
-      }, { status: 409 });
-    }
-
-    // Check if ref code is unique in clinic (if provided)
-    if (initialRefCode) {
-      const existingRefCode = await prisma.affiliateRefCode.findUnique({
-        where: {
-          clinicId_refCode: {
-            clinicId,
-            refCode: initialRefCode.toUpperCase(),
-          }
-        }
-      });
-
-      if (existingRefCode) {
-        return NextResponse.json({ 
-          error: 'Ref code already exists in this clinic' 
-        }, { status: 409 });
+      if (!clinicId) {
+        return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
       }
-    }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
+      // Validate required fields
+      if (!email || !password || !displayName) {
+        return NextResponse.json(
+          {
+            error: 'Email, password, and displayName are required',
+          },
+          { status: 400 }
+        );
+      }
 
-    // Create user and affiliate in transaction
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Create user account
-      const newUser = await tx.user.create({
-        data: {
-          email: email.toLowerCase(),
-          passwordHash,
-          firstName: firstName || displayName.split(' ')[0] || 'Affiliate',
-          lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
-          role: 'AFFILIATE',
-          clinicId,
-          status: 'ACTIVE',
-        }
+      // Check if user with email already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
       });
 
-      // Create affiliate profile
-      const newAffiliate = await tx.affiliate.create({
-        data: {
-          clinicId,
-          userId: newUser.id,
-          displayName,
-          status: 'ACTIVE',
-        }
-      });
+      if (existingUser) {
+        return NextResponse.json(
+          {
+            error: 'User with this email already exists',
+          },
+          { status: 409 }
+        );
+      }
 
-      // Create initial ref code if provided
+      // Check if ref code is unique in clinic (if provided)
       if (initialRefCode) {
-        await tx.affiliateRefCode.create({
+        const existingRefCode = await prisma.affiliateRefCode.findUnique({
+          where: {
+            clinicId_refCode: {
+              clinicId,
+              refCode: initialRefCode.toUpperCase(),
+            },
+          },
+        });
+
+        if (existingRefCode) {
+          return NextResponse.json(
+            {
+              error: 'Ref code already exists in this clinic',
+            },
+            { status: 409 }
+          );
+        }
+      }
+
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      // Create user and affiliate in transaction
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Create user account
+        const newUser = await tx.user.create({
+          data: {
+            email: email.toLowerCase(),
+            passwordHash,
+            firstName: firstName || displayName.split(' ')[0] || 'Affiliate',
+            lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
+            role: 'AFFILIATE',
+            clinicId,
+            status: 'ACTIVE',
+          },
+        });
+
+        // Create affiliate profile
+        const newAffiliate = await tx.affiliate.create({
           data: {
             clinicId,
-            affiliateId: newAffiliate.id,
-            refCode: initialRefCode.toUpperCase(),
-            isActive: true,
-          }
+            userId: newUser.id,
+            displayName,
+            status: 'ACTIVE',
+          },
         });
-      }
 
-      // Assign commission plan if provided
-      if (commissionPlanId) {
-        await tx.affiliatePlanAssignment.create({
-          data: {
-            clinicId,
-            affiliateId: newAffiliate.id,
-            commissionPlanId,
-            effectiveFrom: new Date(),
-          }
-        });
-      }
+        // Create initial ref code if provided
+        if (initialRefCode) {
+          await tx.affiliateRefCode.create({
+            data: {
+              clinicId,
+              affiliateId: newAffiliate.id,
+              refCode: initialRefCode.toUpperCase(),
+              isActive: true,
+            },
+          });
+        }
 
-      return { user: newUser, affiliate: newAffiliate };
-    });
+        // Assign commission plan if provided
+        if (commissionPlanId) {
+          await tx.affiliatePlanAssignment.create({
+            data: {
+              clinicId,
+              affiliateId: newAffiliate.id,
+              commissionPlanId,
+              effectiveFrom: new Date(),
+            },
+          });
+        }
 
-    logger.info('[Admin Affiliates] Created new affiliate', {
-      affiliateId: result.affiliate.id,
-      userId: result.user.id,
-      clinicId,
-      createdBy: user.id,
-    });
+        return { user: newUser, affiliate: newAffiliate };
+      });
 
-    return NextResponse.json({
-      success: true,
-      affiliate: {
-        id: result.affiliate.id,
-        displayName: result.affiliate.displayName,
-        email: result.user.email,
-        status: result.affiliate.status,
-      }
-    }, { status: 201 });
+      logger.info('[Admin Affiliates] Created new affiliate', {
+        affiliateId: result.affiliate.id,
+        userId: result.user.id,
+        clinicId,
+        createdBy: user.id,
+      });
 
-  } catch (error) {
-    logger.error('[Admin Affiliates] Error creating affiliate', error);
-    return NextResponse.json({ error: 'Failed to create affiliate' }, { status: 500 });
-  }
-}, { roles: ['super_admin', 'admin'] });
+      return NextResponse.json(
+        {
+          success: true,
+          affiliate: {
+            id: result.affiliate.id,
+            displayName: result.affiliate.displayName,
+            email: result.user.email,
+            status: result.affiliate.status,
+          },
+        },
+        { status: 201 }
+      );
+    } catch (error) {
+      logger.error('[Admin Affiliates] Error creating affiliate', error);
+      return NextResponse.json({ error: 'Failed to create affiliate' }, { status: 500 });
+    }
+  },
+  { roles: ['super_admin', 'admin'] }
+);

@@ -1,88 +1,95 @@
 /**
  * API v1 Intakes Endpoint
- * 
+ *
  * Receives intake submissions from external platforms.
  * This is an alternative to the webhook endpoint, used by the EMR client.
- * 
+ *
  * POST /api/v1/intakes - Submit an intake
  */
 
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
-import { normalizeMedLinkPayload } from "@/lib/medlink/intakeNormalizer";
-import { generateIntakePdf } from "@/services/intakePdfService";
-import { storeIntakePdf } from "@/services/storage/intakeStorage";
-import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
+import { generateIntakePdf } from '@/services/intakePdfService';
+import { storeIntakePdf } from '@/services/storage/intakeStorage';
+import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logger } from '@/lib/logger';
-import { PatientDocumentCategory } from "@prisma/client";
+import { PatientDocumentCategory } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   const requestId = `v1-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   const startTime = Date.now();
-  
+
   logger.info(`[V1 INTAKES ${requestId}] Received intake submission`);
-  
+
   // Verify authentication
-  const secret = req.headers.get("x-webhook-secret") || 
-                 req.headers.get("x-api-secret") ||
-                 req.headers.get("authorization")?.replace("Bearer ", "");
-  
+  const secret =
+    req.headers.get('x-webhook-secret') ||
+    req.headers.get('x-api-secret') ||
+    req.headers.get('authorization')?.replace('Bearer ', '');
+
   const expectedSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-  
+
   if (!expectedSecret) {
-    return Response.json({ 
-      success: false, 
-      error: "Server not configured" 
-    }, { status: 500 });
+    return Response.json(
+      {
+        success: false,
+        error: 'Server not configured',
+      },
+      { status: 500 }
+    );
   }
-  
+
   if (!secret || secret !== expectedSecret) {
-    return Response.json({ 
-      success: false, 
-      error: "Unauthorized" 
-    }, { status: 401 });
+    return Response.json(
+      {
+        success: false,
+        error: 'Unauthorized',
+      },
+      { status: 401 }
+    );
   }
-  
+
   try {
     const payload = await req.json();
-    
+
     // Normalize the payload
     const normalized = normalizeMedLinkPayload(payload);
-    
+
     // Find EONMEDS clinic (use select for backwards compatibility)
     const clinic = await prisma.clinic.findFirst({
-      where: { 
+      where: {
         OR: [
-          { subdomain: "eonmeds" },
-          { name: { contains: "EONMEDS", mode: "insensitive" } },
-          { name: { contains: "EONMeds", mode: "insensitive" } },
-        ]
+          { subdomain: 'eonmeds' },
+          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
+          { name: { contains: 'EONMeds', mode: 'insensitive' } },
+        ],
       },
       select: { id: true, name: true, subdomain: true },
     });
-    
+
     const clinicId = clinic?.id || 3;
-    
+
     // Extract patient data from normalized intake
     const patientData = normalized.patient;
-    
+
     // Create or update patient
     let patient = await prisma.patient.findFirst({
-      where: { 
+      where: {
         clinicId,
-        email: patientData.email 
+        email: patientData.email,
       },
     });
-    
+
     const isNewPatient = !patient;
-    
+
     if (patient) {
       // Get existing tags safely
       const existingTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
-      const updatedTags = existingTags.includes("v1-intake") 
-        ? existingTags 
-        : [...existingTags, "v1-intake"];
-      
+      const updatedTags = existingTags.includes('v1-intake')
+        ? existingTags
+        : [...existingTags, 'v1-intake'];
+
       patient = await prisma.patient.update({
         where: { id: patient.id },
         data: {
@@ -101,28 +108,28 @@ export async function POST(req: NextRequest) {
       });
     } else {
       const patientCount = await prisma.patient.count();
-      const patientId = String(patientCount + 1).padStart(6, "0");
-      
+      const patientId = String(patientCount + 1).padStart(6, '0');
+
       patient = await prisma.patient.create({
         data: {
           patientId,
-          firstName: patientData.firstName || "Unknown",
-          lastName: patientData.lastName || "Patient",
+          firstName: patientData.firstName || 'Unknown',
+          lastName: patientData.lastName || 'Patient',
           email: patientData.email || `unknown-${Date.now()}@intake.local`,
-          phone: patientData.phone || "",
-          dob: patientData.dob || "1900-01-01",
-          gender: patientData.gender || "Unknown",
-          address1: patientData.address1 || "",
-          city: patientData.city || "",
-          state: patientData.state || "",
-          zip: patientData.zip || "",
+          phone: patientData.phone || '',
+          dob: patientData.dob || '1900-01-01',
+          gender: patientData.gender || 'Unknown',
+          address1: patientData.address1 || '',
+          city: patientData.city || '',
+          state: patientData.state || '',
+          zip: patientData.zip || '',
           clinicId,
-          source: "api",
-          tags: ["v1-intake", "complete-intake"],
+          source: 'api',
+          tags: ['v1-intake', 'complete-intake'],
         },
       });
     }
-    
+
     // Generate PDF
     let documentId: number | null = null;
     try {
@@ -132,23 +139,23 @@ export async function POST(req: NextRequest) {
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
       });
-      
+
       // Prepare intake data to store
       const intakeDataToStore = {
         submissionId: normalized.submissionId,
         sections: normalized.sections,
         answers: normalized.answers || [],
-        source: "v1-intakes",
+        source: 'v1-intakes',
         receivedAt: new Date().toISOString(),
       };
-      
+
       const doc = await prisma.patientDocument.create({
         data: {
           patientId: patient.id,
           clinicId,
           filename: stored.filename,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          mimeType: "application/pdf",
+          mimeType: 'application/pdf',
           // Store intake JSON for display on Intake tab
           data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           sourceSubmissionId: normalized.submissionId,
@@ -159,7 +166,7 @@ export async function POST(req: NextRequest) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
       logger.warn(`[V1 INTAKES ${requestId}] PDF generation failed:`, { error: errMsg });
     }
-    
+
     // Generate SOAP Note
     let soapNoteId: number | null = null;
     if (documentId) {
@@ -171,10 +178,10 @@ export async function POST(req: NextRequest) {
         logger.warn(`[V1 INTAKES ${requestId}] SOAP generation failed:`, { error: errMsg });
       }
     }
-    
+
     const duration = Date.now() - startTime;
     logger.info(`[V1 INTAKES ${requestId}] Success in ${duration}ms`);
-    
+
     return Response.json({
       success: true,
       requestId,
@@ -184,18 +191,23 @@ export async function POST(req: NextRequest) {
         documentId,
         soapNoteId,
         isNewPatient,
-        clinic: clinic?.name || "EONMEDS",
+        clinic: clinic?.name || 'EONMEDS',
       },
       processingTime: `${duration}ms`,
     });
-    
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(`[V1 INTAKES ${requestId}] Error:`, error instanceof Error ? error : new Error(errorMessage));
-    return Response.json({
-      success: false,
-      error: errorMessage,
-      requestId,
-    }, { status: 500 });
+    logger.error(
+      `[V1 INTAKES ${requestId}] Error:`,
+      error instanceof Error ? error : new Error(errorMessage)
+    );
+    return Response.json(
+      {
+        success: false,
+        error: errorMessage,
+        requestId,
+      },
+      { status: 500 }
+    );
   }
 }

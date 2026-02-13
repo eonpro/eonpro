@@ -1,22 +1,19 @@
 /**
  * Account Unlock API
- * 
+ *
  * Self-service endpoint for users to unlock their accounts
  * after being rate-limited. Uses email OTP verification.
- * 
+ *
  * POST /api/auth/unlock-account/request - Request unlock code
  * POST /api/auth/unlock-account/verify - Verify code and unlock
- * 
+ *
  * @module api/auth/unlock-account
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { 
-  authRateLimiter, 
-  adminGetRateLimitStatus,
-} from '@/lib/security/enterprise-rate-limiter';
+import { authRateLimiter, adminGetRateLimitStatus } from '@/lib/security/enterprise-rate-limiter';
 import { sendEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
 
@@ -58,10 +55,10 @@ function cleanExpiredOTPs(): void {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const clientIp = authRateLimiter.getClientIp(req);
-  
+
   try {
     const body = await req.json();
-    
+
     // Determine action based on body
     if ('code' in body) {
       return verifyUnlockCode(req, body, clientIp);
@@ -70,35 +67,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   } catch (error) {
     logger.error('[UnlockAccount] Error', { error, ip: clientIp });
-    return NextResponse.json(
-      { error: 'An error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An error occurred' }, { status: 500 });
   }
 }
 
 async function requestUnlockCode(
-  req: NextRequest, 
-  body: unknown, 
+  req: NextRequest,
+  body: unknown,
   clientIp: string
 ): Promise<NextResponse> {
   // Validate input
   const validation = requestUnlockSchema.safeParse(body);
   if (!validation.success) {
-    return NextResponse.json(
-      { error: 'Invalid email address' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
   }
 
   const { email } = validation.data;
 
   // Check if account is actually rate-limited
   const status = await adminGetRateLimitStatus(clientIp, email);
-  const isLocked = 
-    status.ipEntry?.blocked || 
-    status.emailEntry?.blocked || 
-    status.comboEntry?.blocked;
+  const isLocked =
+    status.ipEntry?.blocked || status.emailEntry?.blocked || status.comboEntry?.blocked;
 
   if (!isLocked) {
     // Don't reveal if account exists or not
@@ -125,12 +114,13 @@ async function requestUnlockCode(
   // Rate limit unlock requests (prevent abuse)
   const unlockRequestKey = `unlock:${email.toLowerCase()}`;
   const existingOtp = otpStore.get(unlockRequestKey);
-  
+
   if (existingOtp && existingOtp.expires > Date.now()) {
     const secondsRemaining = Math.ceil((existingOtp.expires - Date.now()) / 1000);
-    if (secondsRemaining > 240) { // Only allow resend after 1 minute
+    if (secondsRemaining > 240) {
+      // Only allow resend after 1 minute
       return NextResponse.json(
-        { 
+        {
           error: 'Please wait before requesting another code',
           retryAfter: secondsRemaining - 240,
         },
@@ -179,11 +169,11 @@ async function requestUnlockCode(
       ip: clientIp,
     });
   } catch (emailError) {
-    logger.error('[UnlockAccount] Failed to send email', { 
+    logger.error('[UnlockAccount] Failed to send email', {
       error: emailError,
       email: email.substring(0, 3) + '***',
     });
-    
+
     return NextResponse.json(
       { error: 'Failed to send unlock code. Please try again or contact support.' },
       { status: 500 }
@@ -205,10 +195,7 @@ async function verifyUnlockCode(
   // Validate input
   const validation = verifyUnlockSchema.safeParse(body);
   if (!validation.success) {
-    return NextResponse.json(
-      { error: 'Invalid code format' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid code format' }, { status: 400 });
   }
 
   const { email, code } = validation.data;
@@ -246,9 +233,9 @@ async function verifyUnlockCode(
   if (storedOtp.code !== code) {
     storedOtp.attempts++;
     otpStore.set(unlockRequestKey, storedOtp);
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Invalid code',
         attemptsRemaining: 5 - storedOtp.attempts,
       },
@@ -258,7 +245,7 @@ async function verifyUnlockCode(
 
   // Code is valid - clear rate limits
   await authRateLimiter.clearRateLimit(clientIp, email);
-  
+
   // Delete used OTP
   otpStore.delete(unlockRequestKey);
 
@@ -275,20 +262,22 @@ async function verifyUnlockCode(
   });
 
   if (user) {
-    await prisma.userAuditLog.create({
-      data: {
-        userId: user.id,
-        action: 'ACCOUNT_UNLOCKED',
-        ipAddress: clientIp,
-        userAgent: req.headers.get('user-agent'),
-        details: {
-          method: 'email_otp',
-          unlockedAt: new Date().toISOString(),
+    await prisma.userAuditLog
+      .create({
+        data: {
+          userId: user.id,
+          action: 'ACCOUNT_UNLOCKED',
+          ipAddress: clientIp,
+          userAgent: req.headers.get('user-agent'),
+          details: {
+            method: 'email_otp',
+            unlockedAt: new Date().toISOString(),
+          },
         },
-      },
-    }).catch((err) => {
-      logger.warn('[UnlockAccount] Failed to create audit log', { error: err });
-    });
+      })
+      .catch((err) => {
+        logger.warn('[UnlockAccount] Failed to create audit log', { error: err });
+      });
   }
 
   return NextResponse.json({

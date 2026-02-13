@@ -2,24 +2,53 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { logger } from '@/lib/logger';
+import type { LayoutUser } from '@/types/common';
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { 
-  Menu, X, Bell, User, LogOut, MessageSquare, CalendarPlus,
-  Heart, Calendar, Pill, TestTube, FileText, Package, CreditCard,
-  ChevronRight, Shield, Phone, AlertCircle, Clock, Activity, Camera
+import {
+  Menu,
+  X,
+  Bell,
+  User,
+  LogOut,
+  MessageSquare,
+  CalendarPlus,
+  Heart,
+  Calendar,
+  Pill,
+  TestTube,
+  FileText,
+  Package,
+  CreditCard,
+  ChevronRight,
+  Shield,
+  Phone,
+  AlertCircle,
+  Clock,
+  Activity,
+  Camera,
 } from 'lucide-react';
 
 // Icon mapping
 const iconMap: Record<string, any> = {
-  Heart, Calendar, Pill, TestTube, FileText, MessageSquare, 
-  Package, CreditCard, User, CalendarPlus, Camera
+  Heart,
+  Calendar,
+  Pill,
+  TestTube,
+  FileText,
+  MessageSquare,
+  Package,
+  CreditCard,
+  User,
+  CalendarPlus,
+  Camera,
 };
 
 interface PatientLayoutProps {
   children: React.ReactNode;
-  userData?: any;
+  userData?: LayoutUser | null;
 }
 
 interface HealthMetric {
@@ -65,7 +94,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
   };
 
   const handleQuickAction = (action: string) => {
-    switch(action) {
+    switch (action) {
       case 'book-appointment':
         router.push(`${PATIENT_PORTAL_PATH}/appointments?action=book`);
         break;
@@ -84,7 +113,15 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err: unknown) => {
+        logger.debug('Logout API call failed (continuing with redirect)', {
+          message: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -94,32 +131,37 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
   };
 
   const getReminderIcon = (type: string) => {
-    switch(type) {
-      case 'medication': return Pill;
-      case 'appointment': return Calendar;
-      case 'lab': return TestTube;
-      case 'refill': return Package;
-      default: return AlertCircle;
+    switch (type) {
+      case 'medication':
+        return Pill;
+      case 'appointment':
+        return Calendar;
+      case 'lab':
+        return TestTube;
+      case 'refill':
+        return Package;
+      default:
+        return AlertCircle;
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Patient-Friendly Header */}
-      <header className="bg-white shadow-sm border-b border-blue-200">
+      <header className="border-b border-blue-200 bg-white shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex h-16 items-center justify-between">
             {/* Left section */}
             <div className="flex items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 lg:hidden"
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 lg:hidden"
               >
                 <Menu className="h-6 w-6" />
               </button>
-              
+
               {/* Logo */}
-              <div className="flex items-center ml-2 lg:ml-0">
+              <div className="ml-2 flex items-center lg:ml-0">
                 <img
                   src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
                   alt="EONPRO logo"
@@ -131,20 +173,16 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
             {/* Right section */}
             <div className="flex items-center space-x-4">
               {/* Quick Actions - Visible on desktop */}
-              <div className="hidden lg:flex items-center space-x-3">
+              <div className="hidden items-center space-x-3 lg:flex">
                 {config.navigation.quick?.map((action) => {
                   const Icon = iconMap[action.icon];
                   return (
                     <button
                       key={action.action}
                       onClick={() => handleQuickAction(action.action)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center
-                        ${action.color === 'green' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''}
-                        ${action.color === 'blue' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''}
-                        ${action.color === 'purple' ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : ''}
-                      `}
+                      className={`flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${action.color === 'green' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''} ${action.color === 'blue' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''} ${action.color === 'purple' ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : ''} `}
                     >
-                      <Icon className="h-4 w-4 mr-2" />
+                      <Icon className="mr-2 h-4 w-4" />
                       {action.label}
                     </button>
                   );
@@ -152,19 +190,19 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
               </div>
 
               {/* Emergency Contact */}
-              <button className="hidden md:flex items-center px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                <Phone className="h-4 w-4 mr-2" />
+              <button className="hidden items-center rounded-lg bg-red-100 px-3 py-1.5 text-red-700 transition-colors hover:bg-red-200 md:flex">
+                <Phone className="mr-2 h-4 w-4" />
                 <span className="text-sm font-medium">Emergency</span>
               </button>
 
               {/* Messages */}
-              <button 
+              <button
                 onClick={() => router.push(`${PATIENT_PORTAL_PATH}/messages`)}
                 className="relative p-2 text-gray-500 hover:text-gray-700"
               >
                 <MessageSquare className="h-6 w-6" />
                 {unreadMessages > 0 && (
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full">
+                  <span className="absolute right-0 top-0 inline-flex -translate-y-1/2 translate-x-1/2 transform items-center justify-center rounded-full bg-red-500 px-2 py-1 text-xs font-bold leading-none text-white">
                     {unreadMessages}
                   </span>
                 )}
@@ -177,14 +215,14 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
 
               {/* Profile Menu */}
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowProfile(!showProfile)}
-                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center space-x-3 rounded-lg p-2 transition-colors hover:bg-gray-100"
                 >
-                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 font-semibold text-white">
                     {userData?.firstName?.[0] || 'P'}
                   </div>
-                  <div className="hidden md:block text-left">
+                  <div className="hidden text-left md:block">
                     <p className="text-sm font-medium text-gray-900">
                       {userData?.firstName} {userData?.lastName}
                     </p>
@@ -196,28 +234,34 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
 
                 {/* Profile Dropdown */}
                 {showProfile && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="p-4 border-b border-gray-200">
+                  <div className="absolute right-0 z-50 mt-2 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="border-b border-gray-200 p-4">
                       <p className="text-sm font-medium text-gray-900">
                         {userData?.firstName} {userData?.lastName}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">{userData?.email}</p>
+                      <p className="mt-1 text-xs text-gray-500">{userData?.email}</p>
                     </div>
                     <div className="py-1">
-                      <Link href={`${PATIENT_PORTAL_PATH}/settings`} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <User className="h-4 w-4 mr-2" />
+                      <Link
+                        href={`${PATIENT_PORTAL_PATH}/settings`}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <User className="mr-2 h-4 w-4" />
                         My Profile
                       </Link>
-                      <Link href={`${PATIENT_PORTAL_PATH}/settings?tab=security`} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        <Shield className="h-4 w-4 mr-2" />
+                      <Link
+                        href={`${PATIENT_PORTAL_PATH}/settings?tab=security`}
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <Shield className="mr-2 h-4 w-4" />
                         Privacy & Security
                       </Link>
-                      <button 
+                      <button
                         type="button"
                         onClick={handleLogout}
-                        className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
-                        <LogOut className="h-4 w-4 mr-2" />
+                        <LogOut className="mr-2 h-4 w-4" />
                         Sign Out
                       </button>
                     </div>
@@ -229,28 +273,37 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
         </div>
 
         {/* Health Metrics Bar */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-t border-blue-100">
+        <div className="border-t border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
           <div className="flex items-center justify-between overflow-x-auto">
             <div className="flex items-center space-x-6">
               {healthMetrics.map((metric, index) => (
                 <div key={index} className="flex items-center whitespace-nowrap">
                   <div className="mr-3">
                     <p className="text-xs text-gray-500">{metric.label}</p>
-                    <p className={`text-sm font-semibold ${
-                      metric.color === 'green' ? 'text-green-700' : 
-                      metric.color === 'blue' ? 'text-blue-700' : 
-                      'text-purple-700'
-                    }`}>
+                    <p
+                      className={`text-sm font-semibold ${
+                        metric.color === 'green'
+                          ? 'text-green-700'
+                          : metric.color === 'blue'
+                            ? 'text-blue-700'
+                            : 'text-purple-700'
+                      }`}
+                    >
                       {metric.value}
                     </p>
                   </div>
                   {metric.trend === 'up' && <Activity className="h-4 w-4 text-green-500" />}
-                  {metric.trend === 'down' && <Activity className="h-4 w-4 text-blue-500 rotate-180" />}
+                  {metric.trend === 'down' && (
+                    <Activity className="h-4 w-4 rotate-180 text-blue-500" />
+                  )}
                   {metric.trend === 'stable' && <Activity className="h-4 w-4 text-gray-400" />}
                 </div>
               ))}
             </div>
-            <Link href={`${PATIENT_PORTAL_PATH}/health-score`} className="text-sm text-blue-600 hover:text-blue-700 font-medium whitespace-nowrap">
+            <Link
+              href={`${PATIENT_PORTAL_PATH}/health-score`}
+              className="whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
               View Full Summary →
             </Link>
           </div>
@@ -258,9 +311,11 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
       </header>
 
       {/* Mobile Navigation */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${mobileMenuOpen ? '' : 'pointer-events-none'}`}>
+      <div
+        className={`fixed inset-0 z-50 lg:hidden ${mobileMenuOpen ? '' : 'pointer-events-none'}`}
+      >
         {/* Overlay */}
-        <div 
+        <div
           className={`fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ${
             mobileMenuOpen ? 'opacity-100' : 'opacity-0'
           }`}
@@ -268,10 +323,12 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
         />
 
         {/* Sidebar */}
-        <nav className={`fixed top-0 left-0 bottom-0 flex flex-col w-80 max-w-sm bg-white transition-transform ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+        <nav
+          className={`fixed bottom-0 left-0 top-0 flex w-80 max-w-sm flex-col bg-white transition-transform ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
             <span className="text-lg font-semibold text-gray-900">Menu</span>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2">
               <X className="h-6 w-6 text-gray-500" />
@@ -282,19 +339,19 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
               {config.navigation.primary.map((item) => {
                 const Icon = iconMap[item.icon] || Heart;
                 const isActive = pathname === item.path;
-                
+
                 return (
                   <Link
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`flex items-center rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                       isActive
                         ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <Icon className="h-5 w-5 mr-3" />
+                    <Icon className="mr-3 h-5 w-5" />
                     {item.label}
                   </Link>
                 );
@@ -305,25 +362,25 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
       </div>
 
       {/* Desktop Navigation */}
-      <nav className="hidden lg:block bg-white border-b border-gray-200 shadow-sm">
+      <nav className="hidden border-b border-gray-200 bg-white shadow-sm lg:block">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1">
               {config.navigation.primary.map((item) => {
                 const Icon = iconMap[item.icon] || Heart;
                 const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
-                
+
                 return (
                   <Link
                     key={item.path}
                     href={item.path}
-                    className={`flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    className={`flex items-center border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                       isActive
                         ? 'border-blue-500 text-blue-700'
-                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                        : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
                     }`}
                   >
-                    <Icon className="h-4 w-4 mr-2" />
+                    <Icon className="mr-2 h-4 w-4" />
                     {item.label}
                   </Link>
                 );
@@ -336,49 +393,50 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
       {/* Main Content */}
       <main className="lg:mt-0">
         {/* Reminders Section */}
-        {reminders.length > 0 && (pathname === PATIENT_PORTAL_PATH || pathname === '/patient-portal') && (
-          <div className="bg-white border-b border-gray-200">
-            <div className="px-4 sm:px-6 lg:px-8 py-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Today's Reminders</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {reminders.map((reminder) => {
-                  const ReminderIcon = getReminderIcon(reminder.type);
-                  return (
-                    <div 
-                      key={reminder.id}
-                      className={`flex items-center p-3 rounded-lg border ${
-                        reminder.urgent 
-                          ? 'border-red-200 bg-red-50' 
-                          : 'border-gray-200 bg-white'
-                      }`}
-                    >
-                      <div className={`p-2 rounded-lg ${
-                        reminder.urgent ? 'bg-red-100' : 'bg-blue-100'
-                      }`}>
-                        <ReminderIcon className={`h-5 w-5 ${
-                          reminder.urgent ? 'text-red-600' : 'text-blue-600'
-                        }`} />
+        {reminders.length > 0 &&
+          (pathname === PATIENT_PORTAL_PATH || pathname === '/patient-portal') && (
+            <div className="border-b border-gray-200 bg-white">
+              <div className="px-4 py-4 sm:px-6 lg:px-8">
+                <h3 className="mb-3 text-sm font-semibold text-gray-900">Today's Reminders</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {reminders.map((reminder) => {
+                    const ReminderIcon = getReminderIcon(reminder.type);
+                    return (
+                      <div
+                        key={reminder.id}
+                        className={`flex items-center rounded-lg border p-3 ${
+                          reminder.urgent ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <div
+                          className={`rounded-lg p-2 ${
+                            reminder.urgent ? 'bg-red-100' : 'bg-blue-100'
+                          }`}
+                        >
+                          <ReminderIcon
+                            className={`h-5 w-5 ${
+                              reminder.urgent ? 'text-red-600' : 'text-blue-600'
+                            }`}
+                          />
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{reminder.title}</p>
+                          <p className="mt-1 flex items-center text-xs text-gray-500">
+                            <Clock className="mr-1 h-3 w-3" />
+                            {reminder.time}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
                       </div>
-                      <div className="ml-3 flex-1">
-                        <p className="text-sm font-medium text-gray-900">{reminder.title}</p>
-                        <p className="text-xs text-gray-500 flex items-center mt-1">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {reminder.time}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Page Content */}
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          {children}
-        </div>
+        <div className="px-4 py-8 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>
   );

@@ -38,20 +38,22 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
 
     const { stripe, stripeAccountId, clinicId, isPlatformAccount } = context;
     const { searchParams } = new URL(request.url);
-    
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const startingAfter = searchParams.get('starting_after') || undefined;
     const status = searchParams.get('status') || undefined;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    
+
     // Build date filter
-    const createdFilter: Stripe.RangeQueryParam | undefined = 
-      startDate || endDate ? {
-        ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
-        ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
-      } : undefined;
-    
+    const createdFilter: Stripe.RangeQueryParam | undefined =
+      startDate || endDate
+        ? {
+            ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
+            ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
+          }
+        : undefined;
+
     const disputeParams: Stripe.DisputeListParams = {
       limit,
       ...(startingAfter && { starting_after: startingAfter }),
@@ -65,7 +67,7 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
       : disputeParams;
 
     const disputes = await stripe.disputes.list(listOptions as Stripe.DisputeListParams);
-    
+
     // Calculate statistics
     let totalDisputed = 0;
     let totalWon = 0;
@@ -74,27 +76,29 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
     let lostCount = 0;
     let pendingCount = 0;
     const reasonBreakdown: Record<string, number> = {};
-    
+
     const formattedDisputes = disputes.data
-      .filter(d => !status || d.status === status)
-      .map(dispute => {
+      .filter((d) => !status || d.status === status)
+      .map((dispute) => {
         totalDisputed += dispute.amount;
-        
+
         if (dispute.status === 'won') {
           totalWon += dispute.amount;
           wonCount++;
         } else if (dispute.status === 'lost') {
           totalLost += dispute.amount;
           lostCount++;
-        } else if (['needs_response', 'under_review', 'warning_needs_response'].includes(dispute.status)) {
+        } else if (
+          ['needs_response', 'under_review', 'warning_needs_response'].includes(dispute.status)
+        ) {
           pendingCount++;
         }
-        
+
         reasonBreakdown[dispute.reason] = (reasonBreakdown[dispute.reason] || 0) + 1;
-        
+
         const charge = dispute.charge as Stripe.Charge | null;
         const paymentIntent = dispute.payment_intent as Stripe.PaymentIntent | null;
-        
+
         return {
           id: dispute.id,
           amount: dispute.amount,
@@ -105,21 +109,22 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
           reasonDisplay: formatDisputeReason(dispute.reason),
           created: dispute.created,
           createdAt: new Date(dispute.created * 1000).toISOString(),
-          evidenceDueBy: dispute.evidence_details?.due_by 
+          evidenceDueBy: dispute.evidence_details?.due_by
             ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
             : null,
           hasEvidence: dispute.evidence_details?.has_evidence || false,
           submissionCount: dispute.evidence_details?.submission_count || 0,
           isRefundable: dispute.is_charge_refundable,
           chargeId: typeof dispute.charge === 'string' ? dispute.charge : charge?.id,
-          paymentIntentId: typeof dispute.payment_intent === 'string' ? dispute.payment_intent : paymentIntent?.id,
+          paymentIntentId:
+            typeof dispute.payment_intent === 'string' ? dispute.payment_intent : paymentIntent?.id,
           customerEmail: charge?.billing_details?.email || null,
           customerName: charge?.billing_details?.name || null,
           metadata: dispute.metadata,
           networkReasonCode: dispute.network_reason_code,
         };
       });
-    
+
     const summary = {
       total: formattedDisputes.length,
       totalDisputed,
@@ -135,21 +140,24 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
         amountFormatted: formatCurrency(totalLost),
       },
       pending: pendingCount,
-      winRate: wonCount + lostCount > 0 
-        ? ((wonCount / (wonCount + lostCount)) * 100).toFixed(1) + '%'
-        : 'N/A',
-      byReason: Object.entries(reasonBreakdown).map(([reason, count]) => ({
-        reason,
-        reasonDisplay: formatDisputeReason(reason),
-        count,
-      })).sort((a, b) => b.count - a.count),
+      winRate:
+        wonCount + lostCount > 0
+          ? ((wonCount / (wonCount + lostCount)) * 100).toFixed(1) + '%'
+          : 'N/A',
+      byReason: Object.entries(reasonBreakdown)
+        .map(([reason, count]) => ({
+          reason,
+          reasonDisplay: formatDisputeReason(reason),
+          count,
+        }))
+        .sort((a, b) => b.count - a.count),
     };
-    
+
     logger.info('[STRIPE DISPUTES] Retrieved disputes', {
       count: formattedDisputes.length,
       pending: pendingCount,
     });
-    
+
     return NextResponse.json({
       success: true,
       disputes: formattedDisputes,
@@ -157,14 +165,15 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
       pagination: {
         hasMore: disputes.has_more,
         limit,
-        ...(formattedDisputes.length > 0 && { lastId: formattedDisputes[formattedDisputes.length - 1].id }),
+        ...(formattedDisputes.length > 0 && {
+          lastId: formattedDisputes[formattedDisputes.length - 1].id,
+        }),
       },
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE DISPUTES] Error:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch disputes' },
       { status: 500 }
@@ -178,7 +187,7 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
+
     // Get clinic's Stripe context
     const { context, error, notConnected } = await getStripeContextForRequest(request, user);
     if (error) return error;
@@ -186,18 +195,15 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
       return getNotConnectedResponse(context?.clinicId);
     }
     const { stripe } = context;
-    
+
     const body = await request.json();
-    
+
     const { disputeId, evidence } = body;
-    
+
     if (!disputeId) {
-      return NextResponse.json(
-        { error: 'disputeId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'disputeId is required' }, { status: 400 });
     }
-    
+
     // Update dispute with evidence
     const dispute = await stripe.disputes.update(disputeId, {
       evidence: {
@@ -214,12 +220,12 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
       },
       submit: evidence?.submit || false,
     });
-    
+
     logger.info('[STRIPE DISPUTES] Evidence submitted', {
       disputeId,
       submitted: evidence?.submit,
     });
-    
+
     return NextResponse.json({
       success: true,
       dispute: {
@@ -230,10 +236,9 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
       },
       message: evidence?.submit ? 'Evidence submitted' : 'Evidence saved (not submitted)',
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE DISPUTES] Error submitting evidence:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to submit evidence' },
       { status: 500 }
@@ -246,20 +251,20 @@ export const POST = withAuth(submitDisputeEvidenceHandler);
 
 function formatDisputeReason(reason: string): string {
   const reasonMap: Record<string, string> = {
-    'bank_cannot_process': 'Bank Cannot Process',
-    'check_returned': 'Check Returned',
-    'credit_not_processed': 'Credit Not Processed',
-    'customer_initiated': 'Customer Initiated',
-    'debit_not_authorized': 'Debit Not Authorized',
-    'duplicate': 'Duplicate Charge',
-    'fraudulent': 'Fraudulent',
-    'general': 'General',
-    'incorrect_account_details': 'Incorrect Account Details',
-    'insufficient_funds': 'Insufficient Funds',
-    'product_not_received': 'Product Not Received',
-    'product_unacceptable': 'Product Unacceptable',
-    'subscription_canceled': 'Subscription Canceled',
-    'unrecognized': 'Unrecognized',
+    bank_cannot_process: 'Bank Cannot Process',
+    check_returned: 'Check Returned',
+    credit_not_processed: 'Credit Not Processed',
+    customer_initiated: 'Customer Initiated',
+    debit_not_authorized: 'Debit Not Authorized',
+    duplicate: 'Duplicate Charge',
+    fraudulent: 'Fraudulent',
+    general: 'General',
+    incorrect_account_details: 'Incorrect Account Details',
+    insufficient_funds: 'Insufficient Funds',
+    product_not_received: 'Product Not Received',
+    product_unacceptable: 'Product Unacceptable',
+    subscription_canceled: 'Subscription Canceled',
+    unrecognized: 'Unrecognized',
   };
-  return reasonMap[reason] || reason.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return reasonMap[reason] || reason.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }

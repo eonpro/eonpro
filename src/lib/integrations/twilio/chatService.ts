@@ -1,6 +1,6 @@
 /**
  * Twilio Chat Service - Client Side
- * 
+ *
  * Handles Twilio Conversations API for real-time messaging
  * This file is safe to import in client components
  */
@@ -33,7 +33,7 @@ export class ChatClientManager {
       }
 
       this.client = new ConversationsClient(token);
-      
+
       // Set up event listeners (no await needed for .on() methods)
       this.client.on('initialized', () => {
         logger.debug('[CHAT] Client initialized');
@@ -74,10 +74,9 @@ export class ChatClientManager {
           });
         }
       });
-
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Initialization error:', error);
       throw error;
     }
@@ -130,8 +129,8 @@ export class ChatClientManager {
         return data.token;
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to fetch new token:', error);
     }
     return null;
@@ -150,8 +149,8 @@ export class ChatClientManager {
       let conversation = await this.client.getConversationByUniqueName(uniqueName);
       return conversation;
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       // Create new conversation if doesn't exist
       try {
         const conversation = await this.client.createConversation({
@@ -166,7 +165,7 @@ export class ChatClientManager {
 
         // Join the conversation
         await conversation.join();
-        
+
         return conversation;
       } catch (createError: any) {
         logger.error('[CHAT] Failed to create conversation:', { value: createError });
@@ -182,8 +181,8 @@ export class ChatClientManager {
     try {
       await conversation.sendMessage(text, attributes);
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to send message:', error);
       throw error;
     }
@@ -208,8 +207,8 @@ export class ChatClientManager {
 
       await conversation.sendMessage(formData);
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to send file:', error);
       throw error;
     }
@@ -222,8 +221,8 @@ export class ChatClientManager {
     try {
       await conversation.updateLastReadMessageIndex(messageIndex);
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to mark as read:', error);
     }
   }
@@ -235,37 +234,42 @@ export class ChatClientManager {
     try {
       await conversation.typing();
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to send typing indicator:', error);
     }
   }
 
   // Get conversation history
-  async getMessages(conversation: any, limit: number = CHAT_CONFIG.MESSAGE_PAGE_SIZE): Promise<any[]> {
+  async getMessages(
+    conversation: any,
+    limit: number = CHAT_CONFIG.MESSAGE_PAGE_SIZE
+  ): Promise<any[]> {
     if (!conversation) return [];
 
     try {
       const messages = await conversation.getMessages(limit);
       return messages.items;
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to get messages:', error);
       return [];
     }
   }
 
   // Get online participants
-  async getOnlineParticipants(conversation: { getParticipants: () => Promise<unknown[]> } | null): Promise<unknown[]> {
+  async getOnlineParticipants(
+    conversation: { getParticipants: () => Promise<unknown[]> } | null
+  ): Promise<unknown[]> {
     if (!conversation) return [];
 
     try {
       const participants = await conversation.getParticipants();
       return participants.filter((p: any) => p.user?.isOnline);
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to get participants:', error);
       return [];
     }
@@ -278,8 +282,8 @@ export class ChatClientManager {
     try {
       await conversation.leave();
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to leave conversation:', error);
     }
   }
@@ -336,7 +340,7 @@ export class MockChatService {
     };
 
     this.messages.push(message);
-    
+
     const conversation = this.conversations.get(conversationId);
     if (conversation) {
       conversation.messages.push(message);
@@ -360,7 +364,7 @@ export class MockChatService {
   // Simulate typing indicator
   async sendTyping(conversationId: string, user: string): Promise<void> {
     logger.debug(`[MOCK_CHAT] ${user} is typing in ${conversationId}`);
-    
+
     // Simulate typing indicator timeout
     setTimeout(() => {
       logger.debug(`[MOCK_CHAT] ${user} stopped typing in ${conversationId}`);

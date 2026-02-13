@@ -2,7 +2,7 @@
  * Validate Clinic Code API
  * =========================
  * Validates a clinic invite code for patient self-registration
- * 
+ *
  * POST /api/auth/validate-clinic-code
  * Body: { code: string }
  */
@@ -22,19 +22,19 @@ async function handler(req: NextRequest): Promise<Response> {
   try {
     const body = await req.json();
     const validated = validateCodeSchema.safeParse(body);
-    
+
     if (!validated.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: validated.error.issues },
         { status: 400 }
       );
     }
-    
+
     const { code } = validated.data;
-    
+
     // Normalize code to uppercase for case-insensitive matching
     const normalizedCode = code.trim().toUpperCase();
-    
+
     // Find the invite code
     const inviteCode = await prisma.clinicInviteCode.findUnique({
       where: { code: normalizedCode },
@@ -49,7 +49,7 @@ async function handler(req: NextRequest): Promise<Response> {
         },
       },
     });
-    
+
     // Check if code exists
     if (!inviteCode) {
       logger.warn('Invalid clinic code attempted', { code: normalizedCode });
@@ -58,15 +58,17 @@ async function handler(req: NextRequest): Promise<Response> {
         { status: 404 }
       );
     }
-    
+
     // Check if code is active
     if (!inviteCode.isActive) {
       return NextResponse.json(
-        { error: 'This clinic code is no longer active. Please contact the clinic for a new code.' },
+        {
+          error: 'This clinic code is no longer active. Please contact the clinic for a new code.',
+        },
         { status: 400 }
       );
     }
-    
+
     // Check if code has expired
     if (inviteCode.expiresAt && new Date() > inviteCode.expiresAt) {
       return NextResponse.json(
@@ -74,15 +76,18 @@ async function handler(req: NextRequest): Promise<Response> {
         { status: 400 }
       );
     }
-    
+
     // Check if usage limit reached
     if (inviteCode.usageLimit !== null && inviteCode.usageCount >= inviteCode.usageLimit) {
       return NextResponse.json(
-        { error: 'This clinic code has reached its usage limit. Please contact the clinic for a new code.' },
+        {
+          error:
+            'This clinic code has reached its usage limit. Please contact the clinic for a new code.',
+        },
         { status: 400 }
       );
     }
-    
+
     // Check if clinic is active
     if (inviteCode.clinic.status !== 'ACTIVE') {
       return NextResponse.json(
@@ -90,12 +95,12 @@ async function handler(req: NextRequest): Promise<Response> {
         { status: 400 }
       );
     }
-    
-    logger.info('Clinic code validated successfully', { 
-      code: normalizedCode, 
-      clinicId: inviteCode.clinicId 
+
+    logger.info('Clinic code validated successfully', {
+      code: normalizedCode,
+      clinicId: inviteCode.clinicId,
     });
-    
+
     // Return clinic info (limited for security)
     return NextResponse.json({
       success: true,
@@ -106,13 +111,9 @@ async function handler(req: NextRequest): Promise<Response> {
       },
       code: normalizedCode,
     });
-    
   } catch (error: any) {
     logger.error('Error validating clinic code', { error: error.message });
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
 }
 

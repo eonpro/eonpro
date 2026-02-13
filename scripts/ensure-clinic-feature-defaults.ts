@@ -11,13 +11,10 @@
  *   npx tsx scripts/ensure-clinic-feature-defaults.ts --dry-run
  */
 
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { DEFAULT_CLINIC_FEATURES } from '../src/lib/clinic/feature-defaults';
 
 const prisma = new PrismaClient();
-
-const DEFAULT_FEATURES: Record<string, boolean> = {
-  BLOODWORK_LABS: true, // Labs tab on patient profile
-};
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
@@ -36,7 +33,7 @@ async function main() {
     const merged: Record<string, unknown> = { ...current };
     let changed = false;
 
-    for (const [key, defaultValue] of Object.entries(DEFAULT_FEATURES)) {
+    for (const [key, defaultValue] of Object.entries(DEFAULT_CLINIC_FEATURES)) {
       if (current[key] === undefined) {
         merged[key] = defaultValue;
         changed = true;
@@ -51,7 +48,7 @@ async function main() {
       if (!dryRun) {
         await prisma.clinic.update({
           where: { id: clinic.id },
-          data: { features: merged },
+          data: { features: merged as Prisma.InputJsonValue },
         });
       }
     }

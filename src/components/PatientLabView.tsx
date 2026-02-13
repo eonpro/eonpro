@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { getAuthHeaders as getAuthHeadersFromUtil } from '@/lib/utils/auth-token';
+import { apiFetch } from '@/lib/api/fetch';
 
 const PRIMARY = 'var(--brand-primary, #4fa77e)';
 
@@ -180,10 +181,9 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const res = await fetch(`/api/patients/${patientId}/bloodwork/upload`, {
+        const res = await apiFetch(`/api/patients/${patientId}/bloodwork/upload`, {
           method: 'POST',
           credentials: 'include',
-          headers: getAuthHeaders(),
           body: formData,
         });
         const data = await res.json().catch(() => ({}));
@@ -197,7 +197,11 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
               'Upload failed. The patient name on the report may not match this profile.'
           );
         }
-      } catch (e) {
+      } catch (e: unknown) {
+        if ((e as { isAuthError?: boolean })?.isAuthError) {
+          // Session expired - SessionExpirationHandler modal will show
+          return;
+        }
         logger.error('Bloodwork upload error', { error: e });
         setUploadError('Upload failed. Please try again.');
       } finally {

@@ -1,27 +1,21 @@
 /**
  * Shipment Schedule Service
  * ==========================
- * 
+ *
  * Manages multi-shipment scheduling for packages that exceed medication Beyond Use Date (BUD).
- * 
+ *
  * Key Concepts:
  * - Medications typically have a 90-day BUD (Beyond Use Date)
  * - 6-month packages require 2 shipments (initial + 90 days)
  * - 12-month packages require 4 shipments (initial + 90, 180, 270 days)
- * 
+ *
  * This service creates all RefillQueue entries upfront when a multi-month package is purchased,
  * allowing for automated reminders and processing at the appropriate intervals.
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type {
-  RefillQueue,
-  RefillStatus,
-  Subscription,
-  Patient,
-  Clinic,
-} from '@prisma/client';
+import type { RefillQueue, RefillStatus, Subscription, Patient, Clinic } from '@prisma/client';
 
 // ============================================================================
 // Types
@@ -112,13 +106,13 @@ export function calculateShipmentDates(
   budDays: number = DEFAULT_BUD_DAYS
 ): Date[] {
   const dates: Date[] = [];
-  
+
   for (let i = 0; i < totalShipments; i++) {
     const shipmentDate = new Date(startDate);
-    shipmentDate.setDate(shipmentDate.getDate() + (i * budDays));
+    shipmentDate.setDate(shipmentDate.getDate() + i * budDays);
     dates.push(shipmentDate);
   }
-  
+
   return dates;
 }
 
@@ -126,9 +120,7 @@ export function calculateShipmentDates(
  * Get package months from subscription data
  * Parses plan name or category to determine package duration
  */
-export function getPackageMonthsFromSubscription(
-  subscription: Subscription
-): number {
+export function getPackageMonthsFromSubscription(subscription: Subscription): number {
   // Check vialCount first (6 vials = 6 months)
   if (subscription.vialCount) {
     return subscription.vialCount;
@@ -137,26 +129,22 @@ export function getPackageMonthsFromSubscription(
   // Parse from planName (e.g., "Semaglutide 6 Month", "12-Month Package")
   const planName = subscription.planName?.toLowerCase() || '';
   const planId = subscription.planId?.toLowerCase() || '';
-  
+
   // Look for month patterns
-  const monthPatterns = [
-    /(\d+)\s*month/i,
-    /(\d+)month/i,
-    /(\d+)-month/i,
-  ];
-  
+  const monthPatterns = [/(\d+)\s*month/i, /(\d+)month/i, /(\d+)-month/i];
+
   for (const pattern of monthPatterns) {
     const match = planName.match(pattern) || planId.match(pattern);
     if (match) {
       return parseInt(match[1], 10);
     }
   }
-  
+
   // Check for common plan categories
   if (planId.includes('annual') || planId.includes('12month')) return 12;
   if (planId.includes('6month') || planId.includes('semester')) return 6;
   if (planId.includes('3month') || planId.includes('quarterly')) return 3;
-  
+
   // Default to vialCount-based calculation or 1 month
   return subscription.vialCount || 1;
 }
@@ -274,7 +262,7 @@ export async function createShipmentScheduleForSubscription(
     packageMonths,
     totalShipments,
     budDays: effectiveBudDays,
-    shipmentIds: shipments.map(s => s.id),
+    shipmentIds: shipments.map((s) => s.id),
   });
 
   return {
@@ -352,7 +340,7 @@ export async function createShipmentSchedule(
     packageMonths,
     totalShipments,
     budDays,
-    shipmentIds: shipments.map(s => s.id),
+    shipmentIds: shipments.map((s) => s.id),
   });
 
   return {
@@ -360,6 +348,118 @@ export async function createShipmentSchedule(
     totalShipments,
     scheduleInterval: budDays,
   };
+}
+
+// ============================================================================
+// Invoice-Based Refill Scheduling (Airtable / WellMedR)
+// ============================================================================
+
+export interface ScheduleRefillsFromInvoiceInput {
+  clinicId: number;
+  patientId: number;
+  invoiceId: number;
+  /** Medication name (e.g. Tirzepatide 2.5mg, Semaglutide 0.25mg) */
+  medicationName: string;
+  medicationStrength?: string;
+  medicationForm?: string;
+  /** Plan duration: 6-month, 12-month, etc. */
+  planName: string;
+  /** Date of original prescription (payment date). Future refills are 90, 180, 270 days from this. */
+  prescriptionDate: Date;
+  budDays?: number;
+}
+
+/**
+ * Schedule future RefillQueue entries for 6-month and 12-month packages paid via invoice (e.g. Airtable).
+ * Pharmacy can only ship 3 months at a time (90-day BUD), so:
+ * - 6-month package: 1 future refill at 90 days
+ * - 12-month package: 3 future refills at 90, 180, 270 days
+ *
+ * The initial prescription is handled by the Invoice → Rx Queue flow. This creates only the FUTURE refills.
+ */
+export async function scheduleFutureRefillsFromInvoice(
+  input: ScheduleRefillsFromInvoiceInput
+): Promise<RefillQueue[]> {
+  const {
+    clinicId,
+    patientId,
+    invoiceId,
+    medicationName,
+    medicationStrength,
+    medicationForm,
+    planName,
+    prescriptionDate,
+    budDays = DEFAULT_BUD_DAYS,
+  } = input;
+
+  const packageMonths = parsePackageMonthsFromPlan(planName);
+  if (packageMonths < 4) {
+    return [];
+  }
+
+  const totalShipments = calculateShipmentsNeeded(packageMonths, budDays);
+  const futureShipmentsCount = totalShipments - 1; // Skip initial (handled by invoice)
+  if (futureShipmentsCount <= 0) return [];
+
+  const shipmentDates = calculateShipmentDates(prescriptionDate, totalShipments, budDays);
+
+  const refills = await prisma.$transaction(async (tx) => {
+    const created: RefillQueue[] = [];
+    let parentRefillId: number | null = null;
+
+    for (let i = 1; i < totalShipments; i++) {
+      const shipmentNumber = i + 1;
+
+      const refill = await tx.refillQueue.create({
+        data: {
+          clinicId,
+          patientId,
+          invoiceId,
+          vialCount: 3,
+          refillIntervalDays: budDays,
+          nextRefillDate: shipmentDates[i],
+          status: 'SCHEDULED',
+          medicationName,
+          medicationStrength,
+          medicationForm,
+          planName,
+          shipmentNumber,
+          totalShipments,
+          parentRefillId,
+          budDays,
+        },
+      });
+
+      if (!parentRefillId) parentRefillId = refill.id;
+      created.push(refill);
+    }
+
+    return created;
+  });
+
+  logger.info('[ShipmentSchedule] Scheduled future refills from invoice', {
+    clinicId,
+    patientId,
+    invoiceId,
+    packageMonths,
+    futureRefills: refills.length,
+    dates: refills.map((r) => r.nextRefillDate),
+  });
+
+  return refills;
+}
+
+function parsePackageMonthsFromPlan(planName: string): number {
+  const lower = (planName || '').toLowerCase();
+  const m12 = /12\s*month|12month|annual|yearly|1\s*year/.exec(lower);
+  if (m12) return 12;
+  const m6 = /6\s*month|6month|semester|semi-?annual/.exec(lower);
+  if (m6) return 6;
+  const m3 = /3\s*month|3month|quarterly/.exec(lower);
+  if (m3) return 3;
+  const m1 = /1\s*month|1month|monthly/.exec(lower);
+  if (m1) return 1;
+  return 0;
 }
 
 /**
@@ -435,7 +535,7 @@ export async function getUpcomingShipments(
   });
 
   // Calculate days until due for each shipment
-  return shipments.map(shipment => ({
+  return shipments.map((shipment) => ({
     ...shipment,
     daysUntilDue: Math.ceil(
       (shipment.nextRefillDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -477,7 +577,7 @@ export async function getShipmentsNeedingReminder(
     orderBy: { nextRefillDate: 'asc' },
   });
 
-  return shipments.map(shipment => ({
+  return shipments.map((shipment) => ({
     ...shipment,
     daysUntilDue: Math.ceil(
       (shipment.nextRefillDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -488,9 +588,7 @@ export async function getShipmentsNeedingReminder(
 /**
  * Get all shipments in a series (by parent refill ID)
  */
-export async function getShipmentSeries(
-  parentRefillId: number
-): Promise<RefillQueue[]> {
+export async function getShipmentSeries(parentRefillId: number): Promise<RefillQueue[]> {
   // Get the parent refill
   const parentRefill = await prisma.refillQueue.findUnique({
     where: { id: parentRefillId },
@@ -517,7 +615,15 @@ export async function getPatientShipmentSchedule(
   includeCompleted: boolean = false
 ): Promise<RefillQueue[]> {
   const statusFilter: RefillStatus[] = includeCompleted
-    ? ['SCHEDULED', 'PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER', 'PRESCRIBED', 'COMPLETED']
+    ? [
+        'SCHEDULED',
+        'PENDING_PAYMENT',
+        'PENDING_ADMIN',
+        'APPROVED',
+        'PENDING_PROVIDER',
+        'PRESCRIBED',
+        'COMPLETED',
+      ]
     : ['SCHEDULED', 'PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER'];
 
   return prisma.refillQueue.findMany({
@@ -526,10 +632,7 @@ export async function getPatientShipmentSchedule(
       status: { in: statusFilter },
       totalShipments: { gt: 1 }, // Only multi-shipment schedules
     },
-    orderBy: [
-      { parentRefillId: 'asc' },
-      { shipmentNumber: 'asc' },
-    ],
+    orderBy: [{ parentRefillId: 'asc' }, { shipmentNumber: 'asc' }],
     include: {
       subscription: true,
     },
@@ -539,9 +642,7 @@ export async function getPatientShipmentSchedule(
 /**
  * Mark reminder as sent for a shipment
  */
-export async function markReminderSent(
-  refillId: number
-): Promise<RefillQueue> {
+export async function markReminderSent(refillId: number): Promise<RefillQueue> {
   return prisma.refillQueue.update({
     where: { id: refillId },
     data: { reminderSentAt: new Date() },
@@ -551,9 +652,7 @@ export async function markReminderSent(
 /**
  * Mark patient as notified for a shipment
  */
-export async function markPatientNotified(
-  refillId: number
-): Promise<RefillQueue> {
+export async function markPatientNotified(refillId: number): Promise<RefillQueue> {
   return prisma.refillQueue.update({
     where: { id: refillId },
     data: { patientNotifiedAt: new Date() },
@@ -597,10 +696,7 @@ export async function cancelRemainingShipments(
 ): Promise<number> {
   const result = await prisma.refillQueue.updateMany({
     where: {
-      OR: [
-        { id: parentRefillId },
-        { parentRefillId },
-      ],
+      OR: [{ id: parentRefillId }, { parentRefillId }],
       status: 'SCHEDULED',
     },
     data: {

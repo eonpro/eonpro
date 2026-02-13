@@ -1,6 +1,6 @@
 /**
  * Finance Reconciliation API
- * 
+ *
  * GET /api/finance/reconciliation
  * Returns payment reconciliation data and statistics
  */
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     return withClinicContext(clinicId, async () => {
       const today = startOfDay(new Date());
-      
+
       // Get unmatched payments (payments without a patientId or with matching issues)
       const unmatchedPayments = await prisma.payment.findMany({
         where: {
@@ -64,21 +64,23 @@ export async function GET(request: NextRequest) {
       });
 
       // Transform unmatched payments
-      const transformedPayments = unmatchedPayments.map((payment: typeof unmatchedPayments[number]) => {
-        const metadata = payment.metadata as Record<string, unknown> | null;
-        return {
-          id: payment.id,
-          stripePaymentId: payment.stripePaymentIntentId || `local_${payment.id}`,
-          amount: payment.amount,
-          email: (metadata?.email as string) || '',
-          name: (metadata?.name as string) || null,
-          date: payment.createdAt.toISOString(),
-          status: 'pending' as const,
-          confidence: 0,
-          suggestedPatientId: null,
-          suggestedPatientName: null,
-        };
-      });
+      const transformedPayments = unmatchedPayments.map(
+        (payment: (typeof unmatchedPayments)[number]) => {
+          const metadata = payment.metadata as Record<string, unknown> | null;
+          return {
+            id: payment.id,
+            stripePaymentId: payment.stripePaymentIntentId || `local_${payment.id}`,
+            amount: payment.amount,
+            email: (metadata?.email as string) || '',
+            name: (metadata?.name as string) || null,
+            date: payment.createdAt.toISOString(),
+            status: 'pending' as const,
+            confidence: 0,
+            suggestedPatientId: null,
+            suggestedPatientName: null,
+          };
+        }
+      );
 
       // Calculate auto-match rate
       const totalPayments = await prisma.payment.count({
@@ -98,9 +100,8 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      const autoMatchRate = totalPayments > 0 
-        ? Math.round((matchedPayments / totalPayments) * 1000) / 10 
-        : 0;
+      const autoMatchRate =
+        totalPayments > 0 ? Math.round((matchedPayments / totalPayments) * 1000) / 10 : 0;
 
       return NextResponse.json({
         stats: {
@@ -116,9 +117,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch reconciliation data', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch reconciliation data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch reconciliation data' }, { status: 500 });
   }
 }

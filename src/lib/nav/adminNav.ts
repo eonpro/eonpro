@@ -32,13 +32,22 @@ export const clinicsNavConfig: AdminNavItemConfig = {
   iconKey: 'Building2',
 };
 
+/** Control Center (monitoring): super_admin only – platform health and all functions. */
+export const controlCenterNavConfig: AdminNavItemConfig = {
+  path: '/admin/monitoring',
+  label: 'Control Center',
+  iconKey: 'Gauge',
+};
+
 /**
- * Returns admin nav config for the given role. Inserts Clinics after RX Queue for super_admin.
+ * Returns admin nav config for the given role. Inserts Clinics after RX Queue for super_admin;
+ * adds Control Center at the end for super_admin only.
  */
 export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
   const items = [...baseAdminNavConfig];
   if (role === 'super_admin') {
     items.splice(4, 0, clinicsNavConfig);
+    items.push(controlCenterNavConfig);
   }
   return items;
 }

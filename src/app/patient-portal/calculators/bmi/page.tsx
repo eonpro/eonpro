@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import { ArrowLeft, Info, Target, TrendingDown, Sparkles } from 'lucide-react';
 
 interface BMICategory {
@@ -217,7 +218,7 @@ export default function BMICalculatorPage() {
                     style={{
                       backgroundColor: cat.bgColor,
                       ...(category?.label === cat.label &&
-                        ({ '--tw-ring-color': cat.color } as any)),
+                        ringColorStyle(cat.color)),
                     }}
                   >
                     <div className="flex items-center gap-3">

@@ -9,8 +9,15 @@ export default function UnauthorizedPage() {
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('provider-token');
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
@@ -21,50 +28,47 @@ export default function UnauthorizedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#efece7] flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <ShieldX className="w-8 h-8 text-red-600" />
+    <div className="flex min-h-screen items-center justify-center bg-[#efece7] px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+          <ShieldX className="h-8 w-8 text-red-600" />
         </div>
-        
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Access Denied
-        </h1>
-        
-        <p className="text-gray-600 mb-8">
-          You don&apos;t have permission to access this page. Please contact your administrator if you believe this is an error.
+
+        <h1 className="mb-2 text-2xl font-bold text-gray-900">Access Denied</h1>
+
+        <p className="mb-8 text-gray-600">
+          You don&apos;t have permission to access this page. Please contact your administrator if
+          you believe this is an error.
         </p>
-        
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
           <button
             onClick={() => router.back()}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-2.5 text-gray-700 transition-colors hover:bg-gray-50"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Go Back
           </button>
-          
+
           <button
             onClick={() => router.push('/')}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d8a65] transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2.5 text-white transition-colors hover:bg-[#3d8a65]"
           >
-            <Home className="w-4 h-4" />
+            <Home className="h-4 w-4" />
             Home
           </button>
-          
+
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-red-300 text-red-600 rounded-xl hover:bg-red-50 transition-colors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 px-4 py-2.5 text-red-600 transition-colors hover:bg-red-50"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="h-4 w-4" />
             Logout
           </button>
         </div>
-        
-        <p className="text-xs text-gray-400 mt-8">
-          Error Code: 403 Forbidden
-        </p>
+
+        <p className="mt-8 text-xs text-gray-400">Error Code: 403 Forbidden</p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 /**
  * Affiliate Tier Service
- * 
+ *
  * Manages affiliate tier evaluation, upgrades, and bonuses.
  * Tiers provide:
  * - Increased commission rates
@@ -53,7 +53,7 @@ export async function getPlanTiers(planId: number): Promise<TierInfo[]> {
     orderBy: { level: 'asc' },
   });
 
-  return tiers.map((tier: typeof tiers[number]) => ({
+  return tiers.map((tier: (typeof tiers)[number]) => ({
     id: tier.id,
     name: tier.name,
     level: tier.level,
@@ -139,7 +139,10 @@ export async function evaluateAffiliateTier(
     revenueCents: affiliate.lifetimeRevenueCents,
     revenueNeeded: targetTier?.minRevenueCents || 0,
     revenueProgress: targetTier?.minRevenueCents
-      ? Math.min(100, Math.round((affiliate.lifetimeRevenueCents / targetTier.minRevenueCents) * 100))
+      ? Math.min(
+          100,
+          Math.round((affiliate.lifetimeRevenueCents / targetTier.minRevenueCents) * 100)
+        )
       : 100,
   };
 
@@ -191,12 +194,10 @@ export async function checkAndProcessTierUpgrade(
 
   // Check if this is an upgrade from current tier
   const currentTier = affiliate.currentTierId
-    ? tiers.find(t => t.id === affiliate.currentTierId)
+    ? tiers.find((t) => t.id === affiliate.currentTierId)
     : null;
 
-  const isUpgrade = qualifiedTier && (
-    !currentTier || qualifiedTier.level > currentTier.level
-  );
+  const isUpgrade = qualifiedTier && (!currentTier || qualifiedTier.level > currentTier.level);
 
   if (!isUpgrade) {
     return {
@@ -250,22 +251,21 @@ export async function getTierLeaderboard(
   clinicId: number,
   planId: number,
   limit: number = 10
-): Promise<Array<{
-  affiliateId: number;
-  displayName: string;
-  tier: TierInfo | null;
-  conversions: number;
-  revenueCents: number;
-}>> {
+): Promise<
+  Array<{
+    affiliateId: number;
+    displayName: string;
+    tier: TierInfo | null;
+    conversions: number;
+    revenueCents: number;
+  }>
+> {
   const affiliates = await prisma.affiliate.findMany({
     where: {
       clinicId,
       status: 'ACTIVE',
     },
-    orderBy: [
-      { lifetimeRevenueCents: 'desc' },
-      { lifetimeConversions: 'desc' },
-    ],
+    orderBy: [{ lifetimeRevenueCents: 'desc' }, { lifetimeConversions: 'desc' }],
     take: limit,
     select: {
       id: true,
@@ -278,9 +278,9 @@ export async function getTierLeaderboard(
 
   // Get all tiers for lookup
   const tiers = await getPlanTiers(planId);
-  const tierMap = new Map(tiers.map(t => [t.id, t]));
+  const tierMap = new Map(tiers.map((t) => [t.id, t]));
 
-  return affiliates.map((affiliate: typeof affiliates[number]) => ({
+  return affiliates.map((affiliate: (typeof affiliates)[number]) => ({
     affiliateId: affiliate.id,
     displayName: affiliate.displayName,
     tier: affiliate.currentTierId ? tierMap.get(affiliate.currentTierId) || null : null,
@@ -292,7 +292,10 @@ export async function getTierLeaderboard(
 /**
  * Recalculate tier for all affiliates (maintenance job)
  */
-export async function recalculateAllTiers(clinicId: number, planId: number): Promise<{
+export async function recalculateAllTiers(
+  clinicId: number,
+  planId: number
+): Promise<{
   processed: number;
   upgraded: number;
   downgraded: number;
@@ -345,7 +348,7 @@ export async function recalculateAllTiers(clinicId: number, planId: number): Pro
       } else if (currentTierId && !correctTierId) {
         downgraded++;
       } else if (currentTierId && correctTierId) {
-        const currentLevel = tiers.find(t => t.id === currentTierId)?.level || 0;
+        const currentLevel = tiers.find((t) => t.id === currentTierId)?.level || 0;
         const correctLevel = correctTier?.level || 0;
         if (correctLevel > currentLevel) {
           upgraded++;

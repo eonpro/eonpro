@@ -1,22 +1,22 @@
 /**
  * DATA INTEGRITY MONITORING API
- * 
+ *
  * CRITICAL ENDPOINT for monitoring database health and data integrity
- * 
+ *
  * This endpoint:
  * 1. Validates database schema matches expected structure
  * 2. Checks for orphaned records
  * 3. Verifies critical data can be queried
  * 4. Detects duplicate/inconsistent data
- * 
+ *
  * Should be monitored continuously in production
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { validateDatabaseSchema, SchemaValidationResult } from '@/lib/database/schema-validator';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -67,52 +67,58 @@ interface RecordCountsResult {
   products: number;
 }
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest, user: AuthUser) {
   const startTime = Date.now();
-  
+
   try {
-    // Verify admin authentication - data integrity checks expose database structure
-    const auth = await verifyAuth(request);
-    if (!auth.success || !auth.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const allowedRoles = ['super_admin', 'admin'];
-    if (!allowedRoles.includes(auth.user.role)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
     logger.info('[DataIntegrity] Starting comprehensive data integrity check', {
-      initiatedBy: auth.user.email,
+      initiatedBy: user.email,
     });
 
-    // 1. Schema Validation
-    const schemaResult = await validateDatabaseSchema(prisma);
+    const isSuperAdmin = user.role === 'super_admin';
+    const scopeClinicId =
+      isSuperAdmin
+        ? (await basePrisma.clinic.findFirst({ select: { id: true } }))?.id
+        : user.clinicId ?? getClinicContext();
+    if (scopeClinicId == null) {
+      return NextResponse.json(
+        { error: 'No clinic context available for query tests and counts' },
+        { status: 400 }
+      );
+    }
 
-    // 2. Test Critical Data Queries
-    const dataQueryResult = await testCriticalQueries();
+    // 1. Schema Validation (orphan checks scoped to clinic when not super_admin)
+    const schemaResult = await validateDatabaseSchema(
+      prisma,
+      isSuperAdmin ? undefined : scopeClinicId
+    );
 
-    // 3. Check Data Integrity
-    const dataIntegrityResult = await checkDataIntegrity();
+    // 2. Test Critical Data Queries (run inside tenant context to avoid TenantContextRequiredError)
+    const dataQueryResult = await runWithClinicContext(scopeClinicId, () => testCriticalQueries());
 
-    // 4. Get Record Counts
-    const countsResult = await getRecordCounts();
+    // 3. Check Data Integrity (scoped to clinic unless super_admin; raw SQL includes clinicId filter)
+    const dataIntegrityResult = await checkDataIntegrity(
+      isSuperAdmin ? undefined : scopeClinicId
+    );
+
+    // 4. Get Record Counts (scoped to same clinic)
+    const countsResult = await runWithClinicContext(scopeClinicId, () => getRecordCounts());
 
     // Calculate summary
-    const criticalIssues = 
-      (schemaResult.errors.filter(e => e.severity === 'CRITICAL').length) +
-      (dataIntegrityResult.issues.filter(i => i.severity === 'critical').length) +
-      (dataQueryResult.testedQueries.filter(q => !q.success).length);
+    const criticalIssues =
+      schemaResult.errors.filter((e) => e.severity === 'CRITICAL').length +
+      dataIntegrityResult.issues.filter((i) => i.severity === 'critical').length +
+      dataQueryResult.testedQueries.filter((q) => !q.success).length;
 
-    const warnings = 
-      (schemaResult.errors.filter(e => e.severity !== 'CRITICAL').length) +
-      (schemaResult.warnings.length) +
-      (dataIntegrityResult.issues.filter(i => i.severity === 'warning').length);
+    const warnings =
+      schemaResult.errors.filter((e) => e.severity !== 'CRITICAL').length +
+      schemaResult.warnings.length +
+      dataIntegrityResult.issues.filter((i) => i.severity === 'warning').length;
 
-    const totalChecks = 
-      schemaResult.tablesChecked + 
-      dataQueryResult.testedQueries.length + 
-      dataIntegrityResult.issues.length + 
+    const totalChecks =
+      schemaResult.tablesChecked +
+      dataQueryResult.testedQueries.length +
+      dataIntegrityResult.issues.length +
       Object.keys(countsResult).length;
 
     const passed = totalChecks - criticalIssues - warnings;
@@ -148,31 +154,35 @@ export async function GET(request: NextRequest) {
     // Set appropriate status code
     const statusCode = status === 'critical' ? 503 : status === 'degraded' ? 200 : 200;
 
-    return NextResponse.json(result, { 
+    return NextResponse.json(result, {
       status: statusCode,
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'X-Integrity-Status': status,
         'X-Check-Duration': `${duration}ms`,
-      }
+      },
     });
-
   } catch (error: any) {
     logger.error('[DataIntegrity] Check failed', { error: error.message });
 
-    return NextResponse.json({
-      status: 'critical',
-      timestamp: new Date().toISOString(),
-      error: 'Operation failed',
-      summary: {
-        totalChecks: 0,
-        passed: 0,
-        warnings: 0,
-        critical: 1,
+    return NextResponse.json(
+      {
+        status: 'critical',
+        timestamp: new Date().toISOString(),
+        error: 'Operation failed',
+        summary: {
+          totalChecks: 0,
+          passed: 0,
+          warnings: 0,
+          critical: 1,
+        },
       },
-    }, { status: 503 });
+      { status: 503 }
+    );
   }
 }
+
+export const GET = withAdminAuth(handleGet);
 
 async function testCriticalQueries(): Promise<DataQueryResult> {
   const testedQueries: DataQueryResult['testedQueries'] = [];
@@ -281,22 +291,34 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
   }
 
   return {
-    passed: testedQueries.every(q => q.success),
+    passed: testedQueries.every((q) => q.success),
     testedQueries,
   };
 }
 
-async function checkDataIntegrity(): Promise<DataIntegrityResult> {
+async function checkDataIntegrity(clinicId?: number): Promise<DataIntegrityResult> {
   const issues: DataIntegrityResult['issues'] = [];
+  const { Prisma } = await import('@prisma/client');
 
   try {
+    // Tenant-scoped: only check within clinic unless super_admin (clinicId undefined). Raw SQL includes clinicId to prevent cross-tenant leakage.
+    const clinicFilter =
+      clinicId != null ? Prisma.sql`AND i."clinicId" = ${clinicId}` : Prisma.sql``;
+    const clinicFilterPay =
+      clinicId != null ? Prisma.sql`AND pay."clinicId" = ${clinicId}` : Prisma.sql``;
+    const clinicFilterSub =
+      clinicId != null ? Prisma.sql`AND s."clinicId" = ${clinicId}` : Prisma.sql``;
+
     // Check for orphaned invoices (patient doesn't exist)
-    const orphanedInvoices = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    const orphanedInvoices = await prisma.$queryRaw<Array<{ count: bigint }>>(
+      Prisma.sql`
       SELECT COUNT(*) as count FROM "Invoice" i
       LEFT JOIN "Patient" p ON i."patientId" = p.id
       WHERE p.id IS NULL AND i."patientId" IS NOT NULL
-    `;
-    
+      ${clinicFilter}
+    `
+    );
+
     const orphanedInvoiceCount = Number(orphanedInvoices[0]?.count || 0);
     if (orphanedInvoiceCount > 0) {
       issues.push({
@@ -308,12 +330,15 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
     }
 
     // Check for orphaned payments
-    const orphanedPayments = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    const orphanedPayments = await prisma.$queryRaw<Array<{ count: bigint }>>(
+      Prisma.sql`
       SELECT COUNT(*) as count FROM "Payment" pay
       LEFT JOIN "Invoice" i ON pay."invoiceId" = i.id
       WHERE i.id IS NULL AND pay."invoiceId" IS NOT NULL
-    `;
-    
+      ${clinicFilterPay}
+    `
+    );
+
     const orphanedPaymentCount = Number(orphanedPayments[0]?.count || 0);
     if (orphanedPaymentCount > 0) {
       issues.push({
@@ -325,14 +350,17 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
     }
 
     // Check for duplicate active subscriptions per patient
-    const duplicateSubs = await prisma.$queryRaw<Array<{ patientId: number; count: bigint }>>`
-      SELECT "patientId", COUNT(*) as count 
-      FROM "Subscription" 
-      WHERE status = 'ACTIVE'
-      GROUP BY "patientId" 
+    const duplicateSubs = await prisma.$queryRaw<Array<{ patientId: number; count: bigint }>>(
+      Prisma.sql`
+      SELECT s."patientId", COUNT(*) as count 
+      FROM "Subscription" s
+      WHERE s.status = 'ACTIVE'
+      ${clinicFilterSub}
+      GROUP BY s."patientId" 
       HAVING COUNT(*) > 1
-    `;
-    
+    `
+    );
+
     if (duplicateSubs.length > 0) {
       issues.push({
         type: 'DUPLICATE_SUBSCRIPTIONS',
@@ -349,7 +377,7 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
         amountPaid: 0,
       },
     });
-    
+
     if (zeroPaidInvoices > 0) {
       issues.push({
         type: 'INVALID_PAID_INVOICES',
@@ -362,7 +390,6 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
     // NOTE: Patient.clinicId is now required in schema (NOT NULL constraint)
     // All patients must belong to a clinic - this is enforced at database level
     // No need to check for unassigned patients as the constraint prevents them
-
   } catch (error: any) {
     issues.push({
       type: 'CHECK_FAILED',
@@ -373,7 +400,7 @@ async function checkDataIntegrity(): Promise<DataIntegrityResult> {
   }
 
   return {
-    passed: issues.filter(i => i.severity === 'critical').length === 0,
+    passed: issues.filter((i) => i.severity === 'critical').length === 0,
     issues,
   };
 }

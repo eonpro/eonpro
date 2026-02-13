@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document describes the enterprise-grade infrastructure setup for the EONPRO telehealth platform, including deployment, monitoring, security, and operational procedures.
+This document describes the enterprise-grade infrastructure setup for the EONPRO telehealth
+platform, including deployment, monitoring, security, and operational procedures.
 
 ## Table of Contents
 
@@ -55,17 +56,17 @@ This document describes the enterprise-grade infrastructure setup for the EONPRO
 
 ### Component Summary
 
-| Component | Purpose | Technology |
-|-----------|---------|------------|
-| CDN + WAF | Edge caching, DDoS protection | CloudFlare / AWS CloudFront |
-| Load Balancer | Traffic distribution | Kubernetes Ingress (NGINX) |
-| Application | Next.js application | Node.js 20 |
-| Database | Primary data store | PostgreSQL 14+ |
-| Cache | Session & data cache | Redis 7 |
-| Object Storage | Document storage | AWS S3 |
-| Job Queue | Background processing | BullMQ + Redis |
-| Monitoring | Observability | Prometheus + Grafana |
-| Logging | Centralized logs | Elasticsearch / CloudWatch |
+| Component      | Purpose                       | Technology                  |
+| -------------- | ----------------------------- | --------------------------- |
+| CDN + WAF      | Edge caching, DDoS protection | CloudFlare / AWS CloudFront |
+| Load Balancer  | Traffic distribution          | Kubernetes Ingress (NGINX)  |
+| Application    | Next.js application           | Node.js 20                  |
+| Database       | Primary data store            | PostgreSQL 14+              |
+| Cache          | Session & data cache          | Redis 7                     |
+| Object Storage | Document storage              | AWS S3                      |
+| Job Queue      | Background processing         | BullMQ + Redis              |
+| Monitoring     | Observability                 | Prometheus + Grafana        |
+| Logging        | Centralized logs              | Elasticsearch / CloudWatch  |
 
 ---
 
@@ -73,8 +74,8 @@ This document describes the enterprise-grade infrastructure setup for the EONPRO
 
 ### Option 1: Vercel (Recommended for Most Cases)
 
-**Pros:** Zero-ops, automatic scaling, global edge network
-**Cons:** Limited customization, potential vendor lock-in
+**Pros:** Zero-ops, automatic scaling, global edge network **Cons:** Limited customization,
+potential vendor lock-in
 
 ```bash
 # Deploy to Vercel
@@ -83,8 +84,8 @@ vercel --prod
 
 ### Option 2: Kubernetes
 
-**Pros:** Full control, multi-cloud capable, enterprise features
-**Cons:** Higher operational complexity
+**Pros:** Full control, multi-cloud capable, enterprise features **Cons:** Higher operational
+complexity
 
 ```bash
 # Apply Kubernetes manifests
@@ -97,8 +98,7 @@ kubectl get svc -n eonpro
 
 ### Option 3: Docker Compose (Development/Small Scale)
 
-**Pros:** Simple, portable, good for development
-**Cons:** Single host, limited scaling
+**Pros:** Simple, portable, good for development **Cons:** Single host, limited scaling
 
 ```bash
 # Start all services
@@ -159,14 +159,14 @@ GET /api/ready      - Readiness check (includes dependencies)
 
 ### Key Metrics
 
-| Metric | Alert Threshold | Severity |
-|--------|-----------------|----------|
-| Error Rate | > 5% | Critical |
-| P95 Latency | > 2s | Warning |
-| CPU Usage | > 80% | Warning |
-| Memory Usage | > 85% | Warning |
-| Failed Logins | > 10/min | Warning |
-| PHI Access Denied | > 5/min | Critical |
+| Metric            | Alert Threshold | Severity |
+| ----------------- | --------------- | -------- |
+| Error Rate        | > 5%            | Critical |
+| P95 Latency       | > 2s            | Warning  |
+| CPU Usage         | > 80%           | Warning  |
+| Memory Usage      | > 85%           | Warning  |
+| Failed Logins     | > 10/min        | Warning  |
+| PHI Access Denied | > 5/min         | Critical |
 
 ### Grafana Dashboards
 
@@ -203,11 +203,11 @@ GET /api/ready      - Readiness check (includes dependencies)
 
 ### Deployment Environments
 
-| Environment | Branch | Auto-Deploy | URL |
-|-------------|--------|-------------|-----|
-| Development | feature/* | Yes | PR preview |
-| Staging | develop | Yes | staging.eonpro.health |
-| Production | main | Manual approval | app.eonpro.health |
+| Environment | Branch     | Auto-Deploy     | URL                   |
+| ----------- | ---------- | --------------- | --------------------- |
+| Development | feature/\* | Yes             | PR preview            |
+| Staging     | develop    | Yes             | staging.eonpro.health |
+| Production  | main       | Manual approval | app.eonpro.health     |
 
 ---
 
@@ -215,10 +215,10 @@ GET /api/ready      - Readiness check (includes dependencies)
 
 ### Backup Strategy
 
-| Data | Frequency | Retention | Location |
-|------|-----------|-----------|----------|
-| Database | Hourly | 30 days | Cross-region S3 |
-| Documents | Real-time | Indefinite | S3 (versioned) |
+| Data       | Frequency | Retention       | Location          |
+| ---------- | --------- | --------------- | ----------------- |
+| Database   | Hourly    | 30 days         | Cross-region S3   |
+| Documents  | Real-time | Indefinite      | S3 (versioned)    |
 | Audit Logs | Real-time | 6 years (HIPAA) | Immutable storage |
 
 ### Recovery Procedures
@@ -280,12 +280,12 @@ vercel rollback
 
 ## Support Contacts
 
-| Role | Contact | Escalation |
-|------|---------|------------|
-| On-Call Engineer | PagerDuty | Automatic |
-| Security Team | security@eonpro.health | Slack #security |
-| Database Admin | dba@eonpro.health | Phone |
-| Compliance Officer | compliance@eonpro.health | Email |
+| Role               | Contact                  | Escalation      |
+| ------------------ | ------------------------ | --------------- |
+| On-Call Engineer   | PagerDuty                | Automatic       |
+| Security Team      | security@eonpro.health   | Slack #security |
+| Database Admin     | dba@eonpro.health        | Phone           |
+| Compliance Officer | compliance@eonpro.health | Email           |
 
 ---
 
@@ -316,5 +316,4 @@ See `env.production.template` for complete list of environment variables.
 
 ---
 
-*Last Updated: December 2025*
-*Version: 2.0*
+_Last Updated: December 2025_ _Version: 2.0_

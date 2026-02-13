@@ -12,6 +12,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
 import { PhotoUploader } from '@/components/patient-portal/photos';
 import {
   Shield,
@@ -102,12 +104,18 @@ const VERIFICATION_STATUS: Record<
   },
 };
 
-const UPLOAD_STEPS: { step: UploadStep; type: PatientPhotoType; label: string; description: string; icon: React.ElementType }[] = [
+const UPLOAD_STEPS: {
+  step: UploadStep;
+  type: PatientPhotoType;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+}[] = [
   {
     step: 'ID_FRONT',
     type: 'ID_FRONT',
     label: 'Front of ID',
-    description: 'Driver\'s license, state ID, or passport',
+    description: "Driver's license, state ID, or passport",
     icon: CreditCard,
   },
   {
@@ -127,7 +135,7 @@ const UPLOAD_STEPS: { step: UploadStep; type: PatientPhotoType; label: string; d
 ];
 
 const ID_GUIDELINES = [
-  'Use your government-issued ID (driver\'s license, state ID, or passport)',
+  "Use your government-issued ID (driver's license, state ID, or passport)",
   'Make sure all text is clearly readable',
   'Capture the entire ID without cropping edges',
   'Avoid glare or reflections on the ID',
@@ -161,14 +169,20 @@ export default function IDVerificationPage() {
   const fetchPhotos = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/patient-portal/photos?type=ID_FRONT&type=ID_BACK&type=SELFIE');
-      
+      const response = await portalFetch(
+        '/api/patient-portal/photos?type=ID_FRONT&type=ID_BACK&type=SELFIE'
+      );
+
       if (!response.ok) {
         throw new Error('Failed to load verification status');
       }
 
-      const data = await response.json();
-      const verificationPhotos = (data.photos || []).filter((p: Photo) =>
+      const data = await safeParseJson(response);
+      const photos =
+        data !== null && typeof data === 'object' && 'photos' in data
+          ? (data as { photos?: Photo[] }).photos ?? []
+          : [];
+      const verificationPhotos = photos.filter((p: Photo) =>
         ['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(p.type)
       );
 
@@ -266,15 +280,15 @@ export default function IDVerificationPage() {
   if (error) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
-        <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-        <p className="text-red-600 font-medium mb-2">Error</p>
-        <p className="text-gray-500 text-sm mb-4">{error}</p>
+        <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
+        <p className="mb-2 font-medium text-red-600">Error</p>
+        <p className="mb-4 text-sm text-gray-500">{error}</p>
         <button
           onClick={() => {
             setError(null);
             fetchPhotos();
           }}
-          className="px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-medium"
+          className="rounded-lg bg-red-100 px-4 py-2 font-medium text-red-700 hover:bg-red-200"
         >
           Try Again
         </button>
@@ -291,7 +305,7 @@ export default function IDVerificationPage() {
       <div className="min-h-[100dvh] px-4 py-6">
         {/* Success Toast */}
         {showSuccess && (
-          <div className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl animate-in slide-in-from-top-2">
+          <div className="animate-in slide-in-from-top-2 fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
               <CheckCircle className="h-4 w-4" />
             </div>
@@ -306,7 +320,7 @@ export default function IDVerificationPage() {
               setCurrentStep(null);
               setIsUploading(false);
             }}
-            className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="-ml-2 rounded-full p-2 transition-colors hover:bg-gray-100"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -335,7 +349,7 @@ export default function IDVerificationPage() {
     <div className="min-h-[100dvh] px-4 py-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="mb-2 flex items-center gap-3">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-xl"
             style={{ backgroundColor: `${primaryColor}20` }}
@@ -350,16 +364,16 @@ export default function IDVerificationPage() {
       </div>
 
       {/* Overall Status Card */}
-      <div className={`rounded-2xl ${statusConfig.bgColor} p-5 mb-6`}>
+      <div className={`rounded-2xl ${statusConfig.bgColor} mb-6 p-5`}>
         <div className="flex items-start gap-4">
           <div className={`flex h-12 w-12 items-center justify-center rounded-full bg-white`}>
             <statusConfig.icon className={`h-6 w-6 ${statusConfig.color}`} />
           </div>
           <div className="flex-1">
             <p className={`font-semibold ${statusConfig.color}`}>{statusConfig.label}</p>
-            <p className="text-sm text-gray-600 mt-1">{statusConfig.description}</p>
+            <p className="mt-1 text-sm text-gray-600">{statusConfig.description}</p>
             {overallStatus === 'VERIFIED' && photos[0]?.verifiedAt && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="mt-2 text-xs text-gray-500">
                 Verified on {format(parseISO(photos[0].verifiedAt), 'MMM d, yyyy')}
               </p>
             )}
@@ -368,7 +382,7 @@ export default function IDVerificationPage() {
       </div>
 
       {/* Document Status List */}
-      <div className="space-y-3 mb-6">
+      <div className="mb-6 space-y-3">
         {UPLOAD_STEPS.map((step) => {
           const photo = getPhotoByType(step.type);
           const StepIcon = step.icon;
@@ -379,7 +393,7 @@ export default function IDVerificationPage() {
           return (
             <div
               key={step.step}
-              className="rounded-xl bg-white p-4 shadow-sm border border-gray-100"
+              className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -446,9 +460,9 @@ export default function IDVerificationPage() {
       {/* Info Card */}
       <div className="mt-6 rounded-2xl bg-blue-50 p-5">
         <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
           <div>
-            <p className="font-medium text-blue-900 mb-2">Why we need this</p>
+            <p className="mb-2 font-medium text-blue-900">Why we need this</p>
             <ul className="space-y-1 text-sm text-blue-700">
               <li>• Required by healthcare regulations</li>
               <li>• Protects your medical information</li>
@@ -463,7 +477,7 @@ export default function IDVerificationPage() {
       {overallStatus === 'PENDING' || overallStatus === 'IN_REVIEW' ? (
         <button
           onClick={fetchPhotos}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3 text-gray-500 hover:text-gray-700 text-sm font-medium"
+          className="mt-4 flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
         >
           <RefreshCw className="h-4 w-4" />
           Check verification status

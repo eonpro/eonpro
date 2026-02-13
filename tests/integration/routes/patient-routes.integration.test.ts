@@ -48,21 +48,21 @@ describe('Patient Routes Business Logic Characterization', () => {
     it('BEHAVIOR: Admin can access any patient in clinic', () => {
       const user: MockUser = { id: 1, role: 'admin', clinicId: 1 };
       const patient: MockPatient = { id: 100, clinicId: 1 };
-      
+
       expect(canAccessPatient(user, patient)).toBe(true);
     });
 
     it('BEHAVIOR: Provider can access any patient in clinic', () => {
       const user: MockUser = { id: 1, role: 'provider', clinicId: 1 };
       const patient: MockPatient = { id: 100, clinicId: 1 };
-      
+
       expect(canAccessPatient(user, patient)).toBe(true);
     });
 
     it('BEHAVIOR: Staff can access any patient in clinic', () => {
       const user: MockUser = { id: 1, role: 'staff', clinicId: 1 };
       const patient: MockPatient = { id: 100, clinicId: 1 };
-      
+
       expect(canAccessPatient(user, patient)).toBe(true);
     });
 
@@ -70,7 +70,7 @@ describe('Patient Routes Business Logic Characterization', () => {
       const user: MockUser = { id: 1, role: 'patient', patientId: 100, clinicId: 1 };
       const ownRecord: MockPatient = { id: 100, clinicId: 1 };
       const otherRecord: MockPatient = { id: 200, clinicId: 1 };
-      
+
       expect(canAccessPatient(user, ownRecord)).toBe(true);
       expect(canAccessPatient(user, otherRecord)).toBe(false);
     });
@@ -125,9 +125,9 @@ describe('Patient Routes Business Logic Characterization', () => {
     it('BEHAVIOR: Detects changed fields', () => {
       const before = { firstName: 'John', lastName: 'Doe', email: 'john@example.com' };
       const after = { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' };
-      
+
       const diff = diffPatient(before, after, ['firstName', 'lastName', 'email']);
-      
+
       expect(diff).toEqual({
         firstName: { before: 'John', after: 'Jane' },
         email: { before: 'john@example.com', after: 'jane@example.com' },
@@ -137,19 +137,19 @@ describe('Patient Routes Business Logic Characterization', () => {
     it('BEHAVIOR: Returns empty when no changes', () => {
       const before = { firstName: 'John', lastName: 'Doe' };
       const after = { firstName: 'John', lastName: 'Doe' };
-      
+
       const diff = diffPatient(before, after, ['firstName', 'lastName']);
-      
+
       expect(diff).toEqual({});
     });
 
     it('BEHAVIOR: Only diffs specified fields', () => {
       const before = { firstName: 'John', lastName: 'Doe', secret: 'old' };
       const after = { firstName: 'John', lastName: 'Smith', secret: 'new' };
-      
+
       // Only track firstName and lastName, not secret
       const diff = diffPatient(before, after, ['firstName', 'lastName']);
-      
+
       expect(diff).toEqual({
         lastName: { before: 'Doe', after: 'Smith' },
       });
@@ -183,7 +183,7 @@ describe('Patient Routes Business Logic Characterization', () => {
 
     it('BEHAVIOR: Related records deleted before patient', () => {
       const patientIndex = DELETION_ORDER.indexOf('patient');
-      
+
       // All these must come before patient
       expect(DELETION_ORDER.indexOf('order')).toBeLessThan(patientIndex);
       expect(DELETION_ORDER.indexOf('appointment')).toBeLessThan(patientIndex);
@@ -193,7 +193,7 @@ describe('Patient Routes Business Logic Characterization', () => {
     it('BEHAVIOR: Order events deleted before orders', () => {
       const orderIndex = DELETION_ORDER.indexOf('order');
       const eventIndex = DELETION_ORDER.indexOf('orderEvent');
-      
+
       expect(eventIndex).toBeLessThan(orderIndex);
     });
   });
@@ -204,8 +204,19 @@ describe('Patient Routes Business Logic Characterization', () => {
 
     // Audit fields that get tracked
     const AUDIT_FIELDS = [
-      'firstName', 'lastName', 'dob', 'gender', 'phone', 'email',
-      'address1', 'address2', 'city', 'state', 'zip', 'notes', 'tags',
+      'firstName',
+      'lastName',
+      'dob',
+      'gender',
+      'phone',
+      'email',
+      'address1',
+      'address2',
+      'city',
+      'state',
+      'zip',
+      'notes',
+      'tags',
     ];
 
     it('BEHAVIOR: PHI fields are specified correctly', () => {
@@ -224,10 +235,21 @@ describe('Patient Routes Business Logic Characterization', () => {
     it('BEHAVIOR: Audit tracks all editable patient fields', () => {
       // These are the user-editable fields
       const editableFields = [
-        'firstName', 'lastName', 'dob', 'gender', 'phone', 'email',
-        'address1', 'address2', 'city', 'state', 'zip', 'notes', 'tags',
+        'firstName',
+        'lastName',
+        'dob',
+        'gender',
+        'phone',
+        'email',
+        'address1',
+        'address2',
+        'city',
+        'state',
+        'zip',
+        'notes',
+        'tags',
       ];
-      
+
       editableFields.forEach((field) => {
         expect(AUDIT_FIELDS).toContain(field);
       });
@@ -251,18 +273,15 @@ describe('Patient Routes Business Logic Characterization', () => {
 
     it('BEHAVIOR: Validation errors include details array', () => {
       const response = createValidationError(['email: Invalid email']);
-      
+
       expect(response.error).toBe('Validation failed');
       expect(response.details).toEqual(['email: Invalid email']);
       expect(response.message).toBe('email: Invalid email');
     });
 
     it('BEHAVIOR: Multiple errors are joined with semicolon', () => {
-      const response = createValidationError([
-        'firstName: Required',
-        'email: Invalid email',
-      ]);
-      
+      const response = createValidationError(['firstName: Required', 'email: Invalid email']);
+
       expect(response.message).toBe('firstName: Required; email: Invalid email');
     });
   });

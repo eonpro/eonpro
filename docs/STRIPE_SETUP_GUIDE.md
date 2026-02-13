@@ -2,7 +2,8 @@
 
 ## Quick Fix for "Cannot read properties of undefined" Error
 
-If you encounter the error: `Cannot read properties of undefined (reading 'match')` from Stripe, follow these steps:
+If you encounter the error: `Cannot read properties of undefined (reading 'match')` from Stripe,
+follow these steps:
 
 ### 1. Add Your Stripe Keys to Environment Variables
 
@@ -65,10 +66,10 @@ npm run dev
 
 Use these test cards in development:
 
-| Card Number | Description |
-|------------|-------------|
-| `4242 4242 4242 4242` | Success |
-| `4000 0000 0000 0002` | Generic decline |
+| Card Number           | Description             |
+| --------------------- | ----------------------- |
+| `4242 4242 4242 4242` | Success                 |
+| `4000 0000 0000 0002` | Generic decline         |
 | `4000 0025 0000 3155` | Requires authentication |
 
 Use any future date for expiry and any 3-digit CVC.
@@ -77,11 +78,13 @@ Use any future date for expiry and any 3-digit CVC.
 
 ### Error: Stripe is not configured
 
-**Solution**: The component will show a yellow warning box with instructions. Add your Stripe publishable key to `.env.local`.
+**Solution**: The component will show a yellow warning box with instructions. Add your Stripe
+publishable key to `.env.local`.
 
 ### Error: Payment fails
 
 **Possible causes**:
+
 1. Using live keys in test mode (or vice versa)
 2. Incorrect price IDs
 3. Network issues
@@ -107,4 +110,5 @@ Use any future date for expiry and any 3-digit CVC.
 - Check `/docs/STRIPE_SUBSCRIPTIONS.md` for integration details
 
 ---
-*Last Updated: November 24, 2024*
+
+_Last Updated: November 24, 2024_

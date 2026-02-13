@@ -1,6 +1,6 @@
 /**
  * Provider Performance Reports API
- * 
+ *
  * GET - Get provider performance report with prescription and SOAP note metrics
  */
 
@@ -14,7 +14,7 @@ type DateRangePeriod = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'ytd';
 /**
  * GET /api/reports/provider-performance
  * Get provider performance report
- * 
+ *
  * Query params:
  * - clinicId: required for admin (super admin can access all)
  * - period: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'ytd' | 'custom'
@@ -35,7 +35,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Determine clinic ID
     let clinicId: number | undefined;
-    
+
     if (user.role === 'super_admin') {
       clinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : undefined;
     } else {
@@ -43,10 +43,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     logger.info('[REPORTS] Getting provider performance', {
@@ -61,7 +58,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Calculate date range
     let dateRange;
-    
+
     if (period === 'custom') {
       if (!startDateParam || !endDateParam) {
         return NextResponse.json(
@@ -79,7 +76,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Determine groupBy based on period if not specified
     let groupBy: 'day' | 'week' | 'month' = groupByParam || 'day';
-    
+
     if (!groupByParam) {
       switch (period) {
         case 'day':
@@ -101,8 +98,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         default:
           // For custom, determine based on range
           const rangeDays = Math.ceil(
-            (dateRange.endDate.getTime() - dateRange.startDate.getTime()) /
-              (1000 * 60 * 60 * 24)
+            (dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)
           );
           if (rangeDays <= 31) {
             groupBy = 'day';

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useCallback } from "react";
-import SignaturePad from "signature_pad";
+import { useEffect, useRef, useCallback } from 'react';
+import SignaturePad from 'signature_pad';
 import { logger } from '@/lib/logger';
 
 type Props = {
@@ -19,7 +19,7 @@ export default function SignaturePadCanvas({ onChange, initialSignature }: Props
         onChange(null);
       } else {
         const dataUrl = padRef.current.toDataURL();
-        logger.debug("Signature captured:", { preview: dataUrl.substring(0, 50) });
+        logger.debug('Signature captured:', { preview: dataUrl.substring(0, 50) });
         onChange(dataUrl);
       }
     }
@@ -34,25 +34,25 @@ export default function SignaturePadCanvas({ onChange, initialSignature }: Props
       try {
         pad.fromDataURL(initialSignature);
       } catch (err: any) {
-    // @ts-ignore
-   
-        logger.warn("Unable to load initial signature", err);
+        // @ts-ignore
+
+        logger.warn('Unable to load initial signature', err);
       }
     }
 
     // Capture signature after each stroke
     const handleStrokeEnd = () => {
-      logger.debug("Stroke ended, updating signature");
+      logger.debug('Stroke ended, updating signature');
       updateSignature();
     };
 
     // Listen to both stroke end and after update events
     // @ts-ignore
-    pad.addEventListener("endStroke", handleStrokeEnd);
-    
+    pad.addEventListener('endStroke', handleStrokeEnd);
+
     return () => {
       // @ts-ignore
-      pad.removeEventListener("endStroke", handleStrokeEnd);
+      pad.removeEventListener('endStroke', handleStrokeEnd);
       pad.off();
     };
   }, [initialSignature, updateSignature]);
@@ -73,18 +73,13 @@ export default function SignaturePadCanvas({ onChange, initialSignature }: Props
         ref={canvasRef}
         width={400}
         height={150}
-        className="border rounded bg-white"
+        className="rounded border bg-white"
         onMouseUp={captureSignature}
         onTouchEnd={captureSignature}
       />
-      <button
-        type="button"
-        onClick={clear}
-        className="mt-2 text-sm underline text-gray-600"
-      >
+      <button type="button" onClick={clear} className="mt-2 text-sm text-gray-600 underline">
         Clear Signature
       </button>
     </div>
   );
 }
-

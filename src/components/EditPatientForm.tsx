@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { AddressInput, AddressData } from "@/components/AddressAutocomplete";
-import { formatDobInput } from "@/lib/format";
-import { US_STATE_OPTIONS } from "@/lib/usStates";
-import { ChangeEvent, useState } from "react";
+import { AddressInput, AddressData } from '@/components/AddressAutocomplete';
+import { formatDobInput } from '@/lib/format';
+import { US_STATE_OPTIONS } from '@/lib/usStates';
+import { ChangeEvent, useState } from 'react';
 import { Patient, Provider, Order } from '@/types/models';
 import { logger } from '@/lib/logger';
 
 const GENDER_OPTIONS = [
-  { value: "Male", label: "Male" },
-  { value: "Female", label: "Female" },
-  { value: "Other", label: "Other" },
+  { value: 'Male', label: 'Male' },
+  { value: 'Female', label: 'Female' },
+  { value: 'Other', label: 'Other' },
 ];
 
 // Normalize gender from database format to dropdown format
@@ -58,20 +58,20 @@ type Props = {
 const parseTags = (input: string): string[] =>
   input
     .split(/[\s,]+/)
-    .map((tag: any) => tag.replace(/^#/, "").trim().toLowerCase())
+    .map((tag: any) => tag.replace(/^#/, '').trim().toLowerCase())
     .filter(Boolean);
 
 const formatTagsInput = (tags?: string[] | null) =>
   Array.isArray(tags) && tags.length > 0
-    ? tags.map((tag: any) => (tag.startsWith("#") ? tag : `#${tag}`)).join(" ")
-    : "";
+    ? tags.map((tag: any) => (tag.startsWith('#') ? tag : `#${tag}`)).join(' ')
+    : '';
 
 export default function EditPatientForm({ patient, documents }: Props) {
   const [form, setForm] = useState({
     ...patient,
     gender: normalizeGenderForDropdown(patient.gender),
-    address2: patient.address2 ?? "",
-    notes: patient.notes ?? "",
+    address2: patient.address2 ?? '',
+    notes: patient.notes ?? '',
   });
   const [tagsInput, setTagsInput] = useState(formatTagsInput(patient.tags));
   const [saving, setSaving] = useState(false);
@@ -84,12 +84,12 @@ export default function EditPatientForm({ patient, documents }: Props) {
   };
 
   const save = async () => {
-    if (!["Male", "Female", "Other"].includes(form.gender)) {
-      setMessage("Select patient gender before saving.");
+    if (!['Male', 'Female', 'Other'].includes(form.gender)) {
+      setMessage('Select patient gender before saving.');
       return;
     }
     if (!form.state) {
-      setMessage("Select a state before saving.");
+      setMessage('Select a state before saving.');
       return;
     }
     try {
@@ -129,7 +129,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
       }
 
       if (!token) {
-        setMessage("Session expired. Please log in again.");
+        setMessage('Session expired. Please log in again.');
         // Redirect to login after a brief delay
         setTimeout(() => {
           window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
@@ -138,10 +138,10 @@ export default function EditPatientForm({ patient, documents }: Props) {
       }
 
       const res = await fetch(`/api/patients/${patient.id}`, {
-        method: "PATCH",
+        method: 'PATCH',
         credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -151,20 +151,21 @@ export default function EditPatientForm({ patient, documents }: Props) {
         const data = await res.json();
         // If 401, the token is likely expired
         if (res.status === 401) {
-          setMessage("Session expired. Please log in again.");
+          setMessage('Session expired. Please log in again.');
           setTimeout(() => {
-            window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+            window.location.href =
+              '/login?redirect=' + encodeURIComponent(window.location.pathname);
           }, 1500);
           return;
         }
-        throw new Error(data.error ?? "Failed to update patient");
+        throw new Error(data.error ?? 'Failed to update patient');
       }
-      setMessage("Patient updated successfully!");
+      setMessage('Patient updated successfully!');
       // Refresh the page to show updated data
       setTimeout(() => window.location.reload(), 1000);
     } catch (err: any) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setMessage(errorMessage ?? "Failed to update patient");
+      setMessage(errorMessage ?? 'Failed to update patient');
     } finally {
       setSaving(false);
     }
@@ -176,34 +177,35 @@ export default function EditPatientForm({ patient, documents }: Props) {
     try {
       setUploading(true);
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append('file', file);
       // Get auth token (check all possible storage keys)
-      const token = localStorage.getItem('auth-token') ||
-                    localStorage.getItem('token') ||
-                    localStorage.getItem('super_admin-token') ||
-                    localStorage.getItem('SUPER_ADMIN-token') ||
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('provider-token') ||
-                    localStorage.getItem('staff-token');
-      const authHeaders: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('SUPER_ADMIN-token') ||
+        localStorage.getItem('admin-token') ||
+        localStorage.getItem('provider-token') ||
+        localStorage.getItem('staff-token');
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
       const res = await fetch(`/api/patients/${patient.id}/documents`, {
-        method: "POST",
+        method: 'POST',
         credentials: 'include',
         headers: authHeaders,
         body: formData,
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error ?? "Failed to upload document");
+        throw new Error(data.error ?? 'Failed to upload document');
       }
       setDocs((prev: any) => [data.document, ...prev]);
-      event.target.value = "";
+      event.target.value = '';
     } catch (err: any) {
-    // @ts-ignore
+      // @ts-ignore
 
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    setMessage(errorMessage ?? "Failed to upload document");
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setMessage(errorMessage ?? 'Failed to upload document');
     } finally {
       setUploading(false);
     }
@@ -216,24 +218,24 @@ export default function EditPatientForm({ patient, documents }: Props) {
           className="border p-2"
           placeholder="First Name"
           value={form.firstName}
-          onChange={(e: any) => update("firstName", e.target.value)}
+          onChange={(e: any) => update('firstName', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="Last Name"
           value={form.lastName}
-          onChange={(e: any) => update("lastName", e.target.value)}
+          onChange={(e: any) => update('lastName', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="DOB MM/DD/YYYY"
           value={form.dob}
-          onChange={(e: any) => update("dob", formatDobInput(e.target.value))}
+          onChange={(e: any) => update('dob', formatDobInput(e.target.value))}
         />
         <select
           className="border p-2"
           value={form.gender}
-          onChange={(e: any) => update("gender", e.target.value)}
+          onChange={(e: any) => update('gender', e.target.value)}
         >
           <option value="">Gender</option>
           {GENDER_OPTIONS.map((option: any) => (
@@ -246,25 +248,25 @@ export default function EditPatientForm({ patient, documents }: Props) {
           className="border p-2"
           placeholder="Phone"
           value={form.phone}
-          onChange={(e: any) => update("phone", e.target.value)}
+          onChange={(e: any) => update('phone', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="Email"
           value={form.email}
-          onChange={(e: any) => update("email", e.target.value)}
+          onChange={(e: any) => update('email', e.target.value)}
         />
         <div className="col-span-2">
           <AddressInput
             value={form.address1}
             onChange={(value: string, parsed?: AddressData) => {
               if (parsed) {
-                update("address1", parsed.address1);
-                update("city", parsed.city);
-                update("state", parsed.state);
-                update("zip", parsed.zip);
+                update('address1', parsed.address1);
+                update('city', parsed.city);
+                update('state', parsed.state);
+                update('zip', parsed.zip);
               } else {
-                update("address1", value);
+                update('address1', value);
               }
             }}
             placeholder="Address Line 1"
@@ -272,21 +274,21 @@ export default function EditPatientForm({ patient, documents }: Props) {
           />
         </div>
         <input
-          className="border p-2 col-span-2"
+          className="col-span-2 border p-2"
           placeholder="Apartment / Suite"
-          value={form.address2 ?? ""}
-          onChange={(e: any) => update("address2", e.target.value)}
+          value={form.address2 ?? ''}
+          onChange={(e: any) => update('address2', e.target.value)}
         />
         <input
           className="border p-2"
           placeholder="City"
           value={form.city}
-          onChange={(e: any) => update("city", e.target.value)}
+          onChange={(e: any) => update('city', e.target.value)}
         />
         <select
           className="border p-2"
           value={form.state}
-          onChange={(e: any) => update("state", e.target.value)}
+          onChange={(e: any) => update('state', e.target.value)}
         >
           <option value="">State</option>
           {US_STATE_OPTIONS.map((state: any) => (
@@ -299,52 +301,40 @@ export default function EditPatientForm({ patient, documents }: Props) {
           className="border p-2"
           placeholder="ZIP"
           value={form.zip}
-          onChange={(e: any) => update("zip", e.target.value)}
+          onChange={(e: any) => update('zip', e.target.value)}
         />
         <textarea
-          className="border p-2 col-span-2"
+          className="col-span-2 border p-2"
           rows={4}
           placeholder="Patient notes (optional)"
           value={form.notes}
-          onChange={(e: any) => update("notes", e.target.value)}
+          onChange={(e: any) => update('notes', e.target.value)}
         />
         <div className="col-span-2">
           <input
-            className="border p-2 w-full"
+            className="w-full border p-2"
             placeholder="Hashtags (e.g. #weightloss #peptide)"
             value={tagsInput}
             onChange={(e: any) => setTagsInput(e.target.value)}
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Separate tags with spaces or commas.
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Separate tags with spaces or commas.</p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={save}
-        disabled={saving}
-        className="btn-primary"
-      >
-        {saving ? "Saving..." : "Save Changes"}
+      <button type="button" onClick={save} disabled={saving} className="btn-primary">
+        {saving ? 'Saving...' : 'Save Changes'}
       </button>
       {message && <p className="text-sm text-gray-600">{message}</p>}
 
-      <div className="border rounded-lg p-4 mt-4">
+      <div className="mt-4 rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <h4 className="font-semibold">Intake Documents</h4>
-          <label className="text-sm text-[#4fa77e] cursor-pointer">
-            <input
-              type="file"
-              accept=".pdf,image/*"
-              className="hidden"
-              onChange={handleUpload}
-            />
-            {uploading ? "Uploading…" : "Upload file"}
+          <label className="cursor-pointer text-sm text-[#4fa77e]">
+            <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleUpload} />
+            {uploading ? 'Uploading…' : 'Upload file'}
           </label>
         </div>
         {docs.length === 0 ? (
-          <p className="text-sm text-gray-500 mt-2">No documents uploaded yet.</p>
+          <p className="mt-2 text-sm text-gray-500">No documents uploaded yet.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {docs.map((doc: any) => (
@@ -358,21 +348,24 @@ export default function EditPatientForm({ patient, documents }: Props) {
                     {new Date(doc.createdAt).toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {doc.category ?? "OTHER"}
-                    {doc.sourceSubmissionId ? ` • ${doc.sourceSubmissionId}` : ""}
+                    {doc.category ?? 'OTHER'}
+                    {doc.sourceSubmissionId ? ` • ${doc.sourceSubmissionId}` : ''}
                   </p>
                 </div>
                 <button
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('auth-token') || '';
-                      const response = await fetch(`/api/patients/${patient.id}/documents/${doc.id}`, {
-                        credentials: 'include',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                      });
+                      const response = await fetch(
+                        `/api/patients/${patient.id}/documents/${doc.id}`,
+                        {
+                          credentials: 'include',
+                          headers: { Authorization: `Bearer ${token}` },
+                        }
+                      );
                       if (response.ok) {
                         const blob = await response.blob();
-                        window.open(URL.createObjectURL(blob), "_blank");
+                        window.open(URL.createObjectURL(blob), '_blank');
                       } else {
                         alert('Failed to view document');
                       }
@@ -393,4 +386,3 @@ export default function EditPatientForm({ patient, documents }: Props) {
     </div>
   );
 }
-

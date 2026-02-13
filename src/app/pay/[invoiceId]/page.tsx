@@ -33,7 +33,7 @@ export default function PaymentPage() {
   const params = useParams();
   const router = useRouter();
   const invoiceId = params.invoiceId as string;
-  
+
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,26 +44,25 @@ export default function PaymentPage() {
       try {
         const res = await fetch(`/api/pay/${invoiceId}`);
         const data = await res.json();
-        
+
         if (!res.ok) {
           setError(data.error || 'Invoice not found');
           return;
         }
-        
+
         setInvoice(data.invoice);
-        
+
         // If Stripe URL exists and invoice is still payable, redirect
         if (data.invoice.stripeInvoiceUrl && data.invoice.status === 'OPEN') {
           window.location.href = data.invoice.stripeInvoiceUrl;
         }
-        
       } catch (err: any) {
         setError(err.message || 'Failed to load invoice');
       } finally {
         setLoading(false);
       }
     }
-    
+
     if (invoiceId) {
       fetchInvoice();
     }
@@ -84,9 +83,9 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-600"></div>
           <p className="text-gray-600">Loading invoice...</p>
         </div>
       </div>
@@ -95,15 +94,27 @@ export default function PaymentPage() {
 
   if (error || !invoice) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+            <svg
+              className="h-8 w-8 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Invoice Not Found</h1>
-          <p className="text-gray-600">{error || 'This invoice may have been paid or is no longer available.'}</p>
+          <h1 className="mb-2 text-2xl font-bold text-gray-800">Invoice Not Found</h1>
+          <p className="text-gray-600">
+            {error || 'This invoice may have been paid or is no longer available.'}
+          </p>
         </div>
       </div>
     );
@@ -111,18 +122,30 @@ export default function PaymentPage() {
 
   if (invoice.status === 'PAID') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+            <svg
+              className="h-8 w-8 text-emerald-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Payment Complete</h1>
-          <p className="text-gray-600 mb-4">Thank you! This invoice has been paid.</p>
-          <div className="bg-gray-50 rounded-lg p-4">
+          <h1 className="mb-2 text-2xl font-bold text-gray-800">Payment Complete</h1>
+          <p className="mb-4 text-gray-600">Thank you! This invoice has been paid.</p>
+          <div className="rounded-lg bg-gray-50 p-4">
             <p className="text-sm text-gray-500">Amount Paid</p>
-            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(invoice.amountPaid || invoice.amount)}</p>
+            <p className="text-2xl font-bold text-emerald-600">
+              {formatCurrency(invoice.amountPaid || invoice.amount)}
+            </p>
           </div>
         </div>
       </div>
@@ -131,14 +154,24 @@ export default function PaymentPage() {
 
   if (invoice.status === 'VOID' || invoice.status === 'UNCOLLECTIBLE') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+            <svg
+              className="h-8 w-8 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+              />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Invoice Cancelled</h1>
+          <h1 className="mb-2 text-2xl font-bold text-gray-800">Invoice Cancelled</h1>
           <p className="text-gray-600">This invoice is no longer valid.</p>
         </div>
       </div>
@@ -146,44 +179,42 @@ export default function PaymentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 py-12 px-4">
-      <div className="max-w-lg mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 px-4 py-12">
+      <div className="mx-auto max-w-lg">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-800">
             {invoice.clinic?.name || 'EON Medical'}
           </h1>
-          <p className="text-gray-600 mt-2">Secure Payment</p>
+          <p className="mt-2 text-gray-600">Secure Payment</p>
         </div>
 
         {/* Invoice Card */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-xl">
           {/* Amount Header */}
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-6 text-white text-center">
-            <p className="text-emerald-100 text-sm mb-1">Amount Due</p>
-            <p className="text-4xl font-bold">{formatCurrency(invoice.amountDue || invoice.amount)}</p>
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-6 text-center text-white">
+            <p className="mb-1 text-sm text-emerald-100">Amount Due</p>
+            <p className="text-4xl font-bold">
+              {formatCurrency(invoice.amountDue || invoice.amount)}
+            </p>
             {invoice.dueDate && (
-              <p className="text-emerald-100 text-sm mt-2">
-                Due {formatDate(invoice.dueDate)}
-              </p>
+              <p className="mt-2 text-sm text-emerald-100">Due {formatDate(invoice.dueDate)}</p>
             )}
           </div>
 
           {/* Patient Info */}
-          <div className="p-6 border-b">
+          <div className="border-b p-6">
             <p className="text-sm text-gray-500">Invoice for</p>
             <p className="text-lg font-semibold text-gray-800">
               {invoice.patient.firstName} {invoice.patient.lastName}
             </p>
-            {invoice.description && (
-              <p className="text-gray-600 mt-1">{invoice.description}</p>
-            )}
+            {invoice.description && <p className="mt-1 text-gray-600">{invoice.description}</p>}
           </div>
 
           {/* Line Items */}
           {invoice.lineItems && invoice.lineItems.length > 0 && (
-            <div className="p-6 border-b">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Details</h3>
+            <div className="border-b p-6">
+              <h3 className="mb-3 text-sm font-semibold uppercase text-gray-500">Details</h3>
               <div className="space-y-3">
                 {invoice.lineItems.map((item, index) => (
                   <div key={index} className="flex justify-between">
@@ -191,15 +222,13 @@ export default function PaymentPage() {
                       {item.description}
                       {item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
                     </span>
-                    <span className="font-medium text-gray-800">
-                      {formatCurrency(item.amount)}
-                    </span>
+                    <span className="font-medium text-gray-800">{formatCurrency(item.amount)}</span>
                   </div>
                 ))}
               </div>
-              <div className="border-t mt-4 pt-4 flex justify-between">
+              <div className="mt-4 flex justify-between border-t pt-4">
                 <span className="font-semibold text-gray-800">Total</span>
-                <span className="font-bold text-emerald-600 text-lg">
+                <span className="text-lg font-bold text-emerald-600">
                   {formatCurrency(invoice.amount)}
                 </span>
               </div>
@@ -211,16 +240,16 @@ export default function PaymentPage() {
             {invoice.stripeInvoiceUrl ? (
               <a
                 href={invoice.stripeInvoiceUrl}
-                className="block w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-4 px-6 rounded-xl font-semibold text-center hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg hover:shadow-xl"
+                className="block w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-4 text-center font-semibold text-white shadow-lg transition-all hover:from-emerald-600 hover:to-teal-600 hover:shadow-xl"
               >
                 Pay with Card
               </a>
             ) : (
               <div className="text-center">
-                <p className="text-gray-600 mb-4">
+                <p className="mb-4 text-gray-600">
                   Please contact our office to complete your payment.
                 </p>
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="rounded-lg bg-gray-50 p-4">
                   <p className="text-sm text-gray-500">Invoice #</p>
                   <p className="font-mono text-lg">{invoice.id}</p>
                 </div>
@@ -229,16 +258,21 @@ export default function PaymentPage() {
           </div>
 
           {/* Security Badge */}
-          <div className="bg-gray-50 px-6 py-4 flex items-center justify-center gap-2 text-sm text-gray-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <div className="flex items-center justify-center gap-2 bg-gray-50 px-6 py-4 text-sm text-gray-500">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
             </svg>
             <span>Secured by Stripe</span>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-gray-500 text-sm mt-6">
+        <p className="mt-6 text-center text-sm text-gray-500">
           Questions? Contact {invoice.clinic?.name || 'our office'}
         </p>
       </div>

@@ -12,10 +12,13 @@ import { logger } from '@/lib/logger';
  * This ensures users can only access data they're authorized to see
  */
 export function createSecurityMiddleware(): unknown {
-  return async (params: { model?: string; action?: string; args?: { where?: Record<string, unknown> } }, next: (params: unknown) => Promise<unknown>) => {
+  return async (
+    params: { model?: string; action?: string; args?: { where?: Record<string, unknown> } },
+    next: (params: unknown) => Promise<unknown>
+  ) => {
     // Get current user from async context (requires AsyncLocalStorage)
     const user = await getCurrentUser();
-    
+
     if (!user) {
       // No user context, proceed without filtering (for system operations)
       return next(params);
@@ -26,23 +29,23 @@ export function createSecurityMiddleware(): unknown {
       case 'Patient':
         params = await filterPatientAccess(params, user);
         break;
-      
+
       case 'Order':
         params = await filterOrderAccess(params, user);
         break;
-      
+
       case 'SOAPNote':
         params = await filterSOAPNoteAccess(params, user);
         break;
-      
+
       case 'Provider':
         params = await filterProviderAccess(params, user);
         break;
-      
+
       case 'Influencer':
         params = await filterInfluencerAccess(params, user);
         break;
-      
+
       case 'Invoice':
       case 'Payment':
       case 'Subscription':
@@ -64,7 +67,7 @@ export function createSecurityMiddleware(): unknown {
  * IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
  */
 async function filterPatientAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === "admin") {
+  if ((user.role as string) === 'admin') {
     // Admins see everything
     return params;
   }
@@ -82,7 +85,10 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
       params.next = async (modifiedParams: any) => {
         const result = await originalNext(modifiedParams);
         if (result && result.providerId !== user.providerId) {
-          logger.warn(`Provider ${user.email} attempted to access patient not assigned to them`);
+          logger.warn('Provider attempted to access patient not assigned to them', {
+            userId: user.id,
+            providerId: user.providerId,
+          });
           return null; // Return null if not authorized
         }
         return result;
@@ -100,7 +106,7 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
     // Patients only see their own data
     const patientId = user.patientId;
     if (!patientId) {
-      logger.error(`Patient user ${user.email} has no patientId`);
+      logger.error('Patient user has no patientId', { userId: user.id });
       throw new Error('Invalid patient context');
     }
 
@@ -116,14 +122,14 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
       };
     } else if (params.action === 'update' || params.action === 'delete') {
       // Patients cannot modify their own records
-      logger.warn(`Patient ${user.email} attempted to modify patient data`);
+      logger.warn('Patient attempted to modify patient data', { userId: user.id });
       throw new Error('Patients cannot modify patient records');
     }
   }
 
   if (user.role === 'influencer') {
     // Influencers cannot access patient data directly
-    logger.warn(`Influencer ${user.email} attempted to access patient data`);
+    logger.warn('Influencer attempted to access patient data', { userId: user.id });
     throw new Error('Influencers cannot access patient data');
   }
 
@@ -135,7 +141,7 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
  * IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
  */
 async function filterOrderAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === "admin") {
+  if ((user.role as string) === 'admin') {
     return params;
   }
 
@@ -176,7 +182,7 @@ async function filterOrderAccess(params: any, user: any): Promise<any> {
  * IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
  */
 async function filterSOAPNoteAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === "admin") {
+  if ((user.role as string) === 'admin') {
     return params;
   }
 
@@ -185,10 +191,7 @@ async function filterSOAPNoteAccess(params: any, user: any): Promise<any> {
     if (params.action === 'findMany' || params.action === 'count') {
       params.args.where = {
         ...params.args.where,
-        OR: [
-          { providerId: user.providerId },
-          { patient: { providerId: user.providerId } },
-        ],
+        OR: [{ providerId: user.providerId }, { patient: { providerId: user.providerId } }],
       };
     }
   }
@@ -202,7 +205,7 @@ async function filterSOAPNoteAccess(params: any, user: any): Promise<any> {
         status: 'APPROVED', // Only show approved notes to patients
       };
     }
-    
+
     // Patients cannot create/update/delete SOAP notes
     if (['create', 'update', 'delete'].includes(params.action)) {
       throw new Error('Patients cannot modify SOAP notes');
@@ -216,7 +219,7 @@ async function filterSOAPNoteAccess(params: any, user: any): Promise<any> {
  * Filter provider data based on user role
  */
 async function filterProviderAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === "admin") {
+  if ((user.role as string) === 'admin') {
     // Admins see all provider data
     return params;
   }
@@ -273,7 +276,7 @@ async function filterProviderAccess(params: any, user: any): Promise<any> {
         licenseState: true,
       };
     }
-    
+
     // Cannot modify provider data
     if (['create', 'update', 'delete'].includes(params.action)) {
       throw new Error('Insufficient permissions to modify provider data');
@@ -287,7 +290,7 @@ async function filterProviderAccess(params: any, user: any): Promise<any> {
  * Filter influencer data based on user role
  */
 async function filterInfluencerAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === "admin") {
+  if ((user.role as string) === 'admin') {
     return params;
   }
 
@@ -316,7 +319,7 @@ async function filterInfluencerAccess(params: any, user: any): Promise<any> {
  * Filter billing data (invoices, payments, subscriptions) based on user role
  */
 async function filterBillingAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === "admin") {
+  if ((user.role as string) === 'admin') {
     return params;
   }
 
@@ -357,7 +360,7 @@ async function filterBillingAccess(params: any, user: any): Promise<any> {
 function shouldAuditAccess(params: any): boolean {
   const auditableModels = ['Patient', 'Provider', 'Order', 'SOAPNote', 'Invoice', 'Payment'];
   const auditableActions = ['findUnique', 'findFirst', 'create', 'update', 'delete'];
-  
+
   return auditableModels.includes(params.model) && auditableActions.includes(params.action);
 }
 
@@ -378,7 +381,7 @@ async function logDataAccess(params: any, user: any): Promise<void> {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to log data access:', error);
   }
 }

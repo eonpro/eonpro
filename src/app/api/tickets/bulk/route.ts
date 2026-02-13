@@ -63,17 +63,11 @@ export const POST = withAuth(async (request, user) => {
 
     // Bulk update operation
     if (!body.ticketIds || !Array.isArray(body.ticketIds) || body.ticketIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Ticket IDs array is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Ticket IDs array is required' }, { status: 400 });
     }
 
     if (!body.updates || Object.keys(body.updates).length === 0) {
-      return NextResponse.json(
-        { error: 'Updates object is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Updates object is required' }, { status: 400 });
     }
 
     // Limit bulk operations

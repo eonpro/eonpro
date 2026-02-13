@@ -63,12 +63,9 @@ export const GET = withProviderAuth(async (req: NextRequest, user) => {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to get form templates', error);
-    return NextResponse.json(
-      { error: 'Failed to get form templates' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get form templates' }, { status: 500 });
   }
 });
 
@@ -79,7 +76,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user) => {
 export const POST = withProviderAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
-    
+
     // Validate the request body
     const parsed = createTemplateSchema.safeParse(body);
     if (!parsed.success) {
@@ -90,10 +87,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     }
 
     const providerId = user.role === 'provider' ? user.providerId : body.providerId;
-    
+
     const template = await createFormTemplate(
-      parsed.data as any,  // Type assertion since we validated with zod
-      user.id || undefined,  // Make sure it's undefined if not present
+      parsed.data as any, // Type assertion since we validated with zod
+      user.id || undefined, // Make sure it's undefined if not present
       providerId || undefined
     );
 
@@ -103,11 +100,8 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to create form template', error);
-    return NextResponse.json(
-      { error: 'Failed to create form template' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create form template' }, { status: 500 });
   }
 });

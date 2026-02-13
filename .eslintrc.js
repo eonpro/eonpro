@@ -124,6 +124,16 @@ module.exports = {
     "import/no-duplicates": "error",
     "import/no-cycle": "error",
     "no-duplicate-imports": "off",
+
+    // Edge safety: no next/dist/* internal imports (use next/server instead)
+    "no-restricted-imports": ["error", {
+      patterns: [
+        {
+          group: ["next/dist/*", "next/dist/**"],
+          message: "Do not import from next/dist/*. Use next/server for Edge runtime types."
+        }
+      ]
+    }],
     
     // Security Rules
     "security/detect-object-injection": "warn",
@@ -185,6 +195,13 @@ module.exports = {
       files: ["*.d.ts"],
       rules: {
         "@typescript-eslint/no-explicit-any": "off"
+      }
+    },
+    {
+      // Legacy shim — no longer needed but keep override until file is removed
+      files: ["src/lib/edge/next-server-shim.ts"],
+      rules: {
+        "no-restricted-imports": "off"
       }
     }
   ],

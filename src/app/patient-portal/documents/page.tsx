@@ -2,7 +2,9 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { logger } from '../../../lib/logger';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
+import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 
 import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -41,19 +43,20 @@ export default function PatientPortalDocuments() {
         return;
       }
       try {
-        const userData = JSON.parse(userJson);
+        const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
+        if (!userData) {
+          if (!cancelled) router.push(PATIENT_PORTAL_PATH);
+          return;
+        }
         let pid: number | null = userData.patientId ?? null;
         if (pid == null && userData.role?.toLowerCase() === 'patient') {
-          const meRes = await fetch('/api/auth/me', {
-            headers: getAuthHeaders(),
-            credentials: 'include',
-          });
+          const meRes = await portalFetch('/api/auth/me');
           if (meRes.ok && !cancelled) {
-            const meData = await meRes.json();
-            const fromMe = meData?.user?.patientId;
+            const meData = await safeParseJson(meRes);
+            const fromMe = (meData as { user?: { patientId?: number } } | null)?.user?.patientId;
             if (typeof fromMe === 'number' && fromMe > 0) {
               pid = fromMe;
-              localStorage.setItem('user', JSON.stringify({ ...userData, patientId: fromMe }));
+              setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: fromMe }));
             }
           }
         }
@@ -65,7 +68,9 @@ export default function PatientPortalDocuments() {
     };
 
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   // Fetch existing documents on component mount
@@ -76,13 +81,19 @@ export default function PatientPortalDocuments() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`/api/patients/${patientId}/documents`, {
-          headers: getAuthHeaders(),
-          credentials: 'include',
-        });
+        const response = await portalFetch(`/api/patients/${patientId}/documents`);
+        const sessionError = getPortalResponseError(response);
+        if (sessionError) {
+          setError(sessionError);
+          return;
+        }
         if (response.ok) {
-          const data = await response.json();
-          setDocuments(data);
+          const data = await safeParseJson(response);
+          if (data !== null && Array.isArray(data)) {
+            setDocuments(data);
+          } else {
+            setError('Failed to load documents. Please try again.');
+          }
         } else {
           setError('Failed to load documents. Please try again.');
         }
@@ -109,22 +120,23 @@ export default function PatientPortalDocuments() {
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isUploading) return;
     if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
     } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
-  }, []);
+  }, [isUploading]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
+    if (isUploading) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFiles(e.dataTransfer.files);
     }
-  }, []);
+  }, [isUploading]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
@@ -161,10 +173,8 @@ export default function PatientPortalDocuments() {
         });
       }, 200);
 
-      const response = await fetch(`/api/patients/${patientId}/documents`, {
+      const response = await portalFetch(`/api/patients/${patientId}/documents`, {
         method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include',
         body: formData,
       });
 
@@ -172,9 +182,10 @@ export default function PatientPortalDocuments() {
       setUploadProgress(100);
 
       if (response.ok) {
-        const newDocuments = await response.json();
-        setDocuments([...documents, ...newDocuments]);
-
+        const newDocuments = await safeParseJson(response);
+        if (newDocuments !== null && Array.isArray(newDocuments)) {
+          setDocuments([...documents, ...newDocuments]);
+        }
         // Reset after successful upload
         setTimeout(() => {
           setIsUploading(false);
@@ -201,10 +212,8 @@ export default function PatientPortalDocuments() {
     }
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/documents/${documentId}`, {
+      const response = await portalFetch(`/api/patients/${patientId}/documents/${documentId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
-        credentials: 'include',
       });
 
       if (response.ok) {
@@ -222,10 +231,7 @@ export default function PatientPortalDocuments() {
     if (!patientId) return;
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}`, {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      const response = await portalFetch(`/api/patients/${patientId}/documents/${doc.id}`);
 
       if (response.ok) {
         // Create a blob URL and open in new tab
@@ -233,11 +239,17 @@ export default function PatientPortalDocuments() {
         const url = window.URL.createObjectURL(blob);
         window.open(url, '_blank');
       } else {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        alert(`Failed to view document: ${error.error || 'Unknown error'}`);
+        const errBody = await safeParseJson(response);
+        const errMsg =
+          errBody !== null && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: unknown }).error)
+            : 'Unknown error';
+        alert(`Failed to view document: ${errMsg}`);
       }
-    } catch (error: any) {
-      logger.error('View error:', error);
+    } catch (error: unknown) {
+      logger.error('View error', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       alert('Failed to view document. Please try again.');
     }
   };
@@ -246,10 +258,7 @@ export default function PatientPortalDocuments() {
     if (!patientId) return;
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      const response = await portalFetch(`/api/patients/${patientId}/documents/${doc.id}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -287,17 +296,33 @@ export default function PatientPortalDocuments() {
   }
 
   if (error) {
+    const isSessionExpired = error === SESSION_EXPIRED_MESSAGE;
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 max-w-md text-center">
-          <p className="font-medium mb-2">Error Loading Documents</p>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div
+          className={`max-w-md rounded-lg border p-4 text-center ${
+            isSessionExpired ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <p className="mb-2 font-medium">{isSessionExpired ? 'Session Expired' : 'Error Loading Documents'}</p>
           <p className="text-sm">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {isSessionExpired ? (
+              <Link
+                href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=session_expired`}
+                className="rounded-lg bg-amber-200 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-300"
+              >
+                Log in
+              </Link>
+            ) : (
+              <button
+                onClick={() => window.location.reload()}
+                className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-red-200"
+              >
+                Try Again
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -363,8 +388,8 @@ export default function PatientPortalDocuments() {
 
           <div
             className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-              dragActive ? 'border-[#4fa77e] bg-green-50' : 'border-gray-300 hover:border-gray-400'
-            }`}
+              dragActive && !isUploading ? 'border-[#4fa77e] bg-green-50' : 'border-gray-300 hover:border-gray-400'
+            } ${isUploading ? 'pointer-events-none opacity-90' : ''}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -374,6 +399,7 @@ export default function PatientPortalDocuments() {
               type="file"
               id="file-upload"
               multiple
+              disabled={isUploading}
               onChange={handleChange}
               className="hidden"
               accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"

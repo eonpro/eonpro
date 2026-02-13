@@ -2,10 +2,10 @@
  * CREATE TEST USER API
  * ====================
  * Creates a test admin user (protected by init key)
- * 
+ *
  * ⚠️ SECURITY: This endpoint is DISABLED in production environments.
  * No environment variable can override this restriction.
- * 
+ *
  * POST /api/admin/create-test-user?key=<DB_INIT_KEY>
  */
 
@@ -28,17 +28,17 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
-    
+
     // Security check - Requires DB_INIT_KEY env var, no fallback
     const expectedKey = process.env.DB_INIT_KEY;
     if (!expectedKey) {
       logger.error('[CREATE-TEST-USER] DB_INIT_KEY not configured');
       return NextResponse.json({ error: 'Endpoint not configured' }, { status: 500 });
     }
-    
+
     const { searchParams } = new URL(req.url);
     const initKey = searchParams.get('key');
-    
+
     if (initKey !== expectedKey) {
       logger.warn('[CREATE-TEST-USER] Invalid init key provided');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -57,9 +57,7 @@ export async function POST(req: NextRequest) {
     // Find or create clinic
     let clinic = await prisma.clinic.findFirst({
       where: {
-        OR: [
-          { name: { contains: clinicName || 'EONMEDS', mode: 'insensitive' } },
-        ],
+        OR: [{ name: { contains: clinicName || 'EONMEDS', mode: 'insensitive' } }],
       },
     });
 
@@ -97,7 +95,7 @@ export async function POST(req: NextRequest) {
           status: 'ACTIVE',
         },
       });
-      logger.info('Updated existing user', { userId: user.id, email: user.email });
+      logger.info('Updated existing user', { userId: user.id });
     } else {
       // Create new user
       user = await prisma.user.create({
@@ -111,7 +109,7 @@ export async function POST(req: NextRequest) {
           clinicId: clinic.id,
         },
       });
-      logger.info('Created new user', { userId: user.id, email: user.email });
+      logger.info('Created new user', { userId: user.id });
     }
 
     // Handle phone number - create or update provider
@@ -152,7 +150,10 @@ export async function POST(req: NextRequest) {
         data: { providerId: provider.id },
       });
 
-      logger.info('Created/updated provider with phone', { providerId: provider.id, phone: fullPhone });
+      logger.info('Created/updated provider with phone', {
+        providerId: provider.id,
+        phone: fullPhone,
+      });
     }
 
     return NextResponse.json({
@@ -176,12 +177,8 @@ export async function POST(req: NextRequest) {
         phone: phone || 'Not set',
       },
     });
-
   } catch (error: any) {
     logger.error('Error creating test user', { error: error.message });
-    return NextResponse.json(
-      { error: 'Failed to create user' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }

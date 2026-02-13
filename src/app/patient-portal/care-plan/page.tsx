@@ -21,6 +21,8 @@ import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import NextLink from 'next/link';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 
 interface CarePlanGoal {
   id: number;
@@ -81,11 +83,17 @@ export default function CarePlanPage() {
         return;
       }
       if (res.ok) {
-        const data = await res.json();
-        setCarePlan(data.carePlan);
+        const data = await safeParseJson(res);
+        const plan =
+          data !== null && typeof data === 'object' && 'carePlan' in data
+            ? (data as { carePlan?: CarePlan }).carePlan
+            : null;
+        setCarePlan(plan ?? null);
       }
     } catch (error) {
-      console.error('Failed to fetch care plan:', error);
+      logger.error('Failed to fetch care plan', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setLoading(false);
     }
@@ -103,7 +111,9 @@ export default function CarePlanPage() {
         fetchCarePlan(); // Refresh
       }
     } catch (error) {
-      console.error('Failed to complete activity:', error);
+      logger.error('Failed to complete care plan activity', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 

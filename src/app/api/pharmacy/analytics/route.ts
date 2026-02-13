@@ -12,9 +12,9 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
 
     // Default to last 7 days
     const endDate = endDateParam ? new Date(endDateParam) : new Date();
-    const startDate = startDateParam ? 
-      new Date(startDateParam) : 
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const startDate = startDateParam
+      ? new Date(startDateParam)
+      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const report = await generateFulfillmentReport(
       startDate,
@@ -24,7 +24,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
 
     // Get order counts
     const where: any = {
-      createdAt: { gte: startDate, lte: endDate }
+      createdAt: { gte: startDate, lte: endDate },
     };
     if (pharmacy && pharmacy !== 'all') {
       where.pharmacyName = pharmacy;
@@ -37,11 +37,15 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
     });
 
     const totalOrders = counts.reduce((sum: number, c: { _count: number }) => sum + c._count, 0);
-    const completedOrders = counts.find((c: { currentStatus: string }) => c.currentStatus === "DELIVERED")?._count || 0;
+    const completedOrders =
+      counts.find((c: { currentStatus: string }) => c.currentStatus === 'DELIVERED')?._count || 0;
     const pendingOrders = counts
-      .filter((c: { currentStatus: string }) => ['PENDING', 'PROCESSING', 'SHIPPED'].includes(c.currentStatus))
+      .filter((c: { currentStatus: string }) =>
+        ['PENDING', 'PROCESSING', 'SHIPPED'].includes(c.currentStatus)
+      )
       .reduce((sum: number, c: { _count: number }) => sum + c._count, 0);
-    const cancelledOrders = counts.find((c: { currentStatus: string }) => c.currentStatus === "CANCELLED")?._count || 0;
+    const cancelledOrders =
+      counts.find((c: { currentStatus: string }) => c.currentStatus === 'CANCELLED')?._count || 0;
 
     return NextResponse.json({
       ...report,
@@ -50,11 +54,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
       pendingOrders,
       cancelledOrders,
     });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to fetch analytics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
   }
 });

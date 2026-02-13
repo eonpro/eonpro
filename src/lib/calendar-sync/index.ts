@@ -1,6 +1,6 @@
 /**
  * Calendar Sync Module Exports
- * 
+ *
  * Two-way calendar synchronization with Google Calendar and Outlook
  */
 

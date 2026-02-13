@@ -44,7 +44,9 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
             source: log.source,
           }));
           // Sort by date ascending (oldest first)
-          formattedData.sort((a: WeightEntry, b: WeightEntry) => a.date.getTime() - b.date.getTime());
+          formattedData.sort(
+            (a: WeightEntry, b: WeightEntry) => a.date.getTime() - b.date.getTime()
+          );
           setWeightData(formattedData);
         }
       } catch (error) {
@@ -64,9 +66,8 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
   const currentWeight = weightData.length > 0 ? weightData[weightData.length - 1].weight : null;
   const weightChange = startingWeight && currentWeight ? currentWeight - startingWeight : null;
   const checkIns = weightData.length;
-  const percentChange = startingWeight && weightChange
-    ? ((weightChange / startingWeight) * 100).toFixed(1)
-    : null;
+  const percentChange =
+    startingWeight && weightChange ? ((weightChange / startingWeight) * 100).toFixed(1) : null;
 
   // If no weight data, show placeholder with link to progress tab
   if (!loading && weightData.length === 0) {
@@ -74,9 +75,9 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
       <div className="mt-6 flex h-48 items-center justify-center rounded-xl bg-[#efece7] p-4">
         <Link
           href={`/patients/${patientId}?tab=progress`}
-          className="text-center text-gray-500 transition-colors group"
+          className="group text-center text-gray-500 transition-colors"
         >
-          <BarChart3 className="mx-auto mb-2 h-8 w-8 opacity-50 group-hover:opacity-80 transition-opacity" />
+          <BarChart3 className="mx-auto mb-2 h-8 w-8 opacity-50 transition-opacity group-hover:opacity-80" />
           <p className="text-sm font-medium group-hover:text-gray-700">Weight Progress Tracking</p>
           <p className="text-xs">No weight data yet. View Progress tab to add entries →</p>
         </Link>
@@ -113,7 +114,7 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
         </div>
         <Link
           href={`/patients/${patientId}?tab=progress`}
-          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          className="text-xs text-gray-500 transition-colors hover:text-gray-700"
         >
           View full chart →
         </Link>
@@ -136,7 +137,8 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
                   : 'text-gray-600'
             }`}
           >
-            {parseFloat(percentChange) > 0 ? '+' : ''}{percentChange}% since start
+            {parseFloat(percentChange) > 0 ? '+' : ''}
+            {percentChange}% since start
           </span>
         </div>
       )}
@@ -180,7 +182,9 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
 
         {/* Check-ins */}
         <div className="rounded-lg bg-white p-3 text-center">
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Check-ins</p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Check-ins
+          </p>
           <p className="text-lg font-bold text-gray-900">{checkIns}</p>
           <p className="text-xs text-gray-400">total</p>
         </div>

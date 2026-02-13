@@ -256,7 +256,10 @@ describe('Provider Routes Business Logic Characterization', () => {
   });
 
   describe('Password Setting', () => {
-    function validatePassword(password: string, confirmPassword: string): {
+    function validatePassword(
+      password: string,
+      confirmPassword: string
+    ): {
       valid: boolean;
       errors: string[];
     } {
@@ -399,7 +402,9 @@ describe('Provider Routes Business Logic Characterization', () => {
       issues?: Array<{ message: string; path?: string[] }>;
     }
 
-    function createValidationErrorResponse(issues: Array<{ message: string; path?: string[] }>): ErrorResponse {
+    function createValidationErrorResponse(
+      issues: Array<{ message: string; path?: string[] }>
+    ): ErrorResponse {
       return {
         error: issues[0]?.message ?? 'Invalid provider payload',
         issues,

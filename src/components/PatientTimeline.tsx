@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { format } from "date-fns";
+import { useState } from 'react';
+import { format } from 'date-fns';
 
 export interface TimelineEvent {
   id: string;
@@ -36,7 +36,11 @@ const getSourceLabel = (source?: string): string => {
   }
 };
 
-export default function PatientTimeline({ events, patientCreatedAt, patientSource }: PatientTimelineProps) {
+export default function PatientTimeline({
+  events,
+  patientCreatedAt,
+  patientSource,
+}: PatientTimelineProps) {
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
 
   const toggleEvent = (eventId: string) => {
@@ -56,9 +60,9 @@ export default function PatientTimeline({ events, patientCreatedAt, patientSourc
       date: patientCreatedAt,
       type: 'creation' as const,
       title: 'Patient created',
-      description: getSourceLabel(patientSource)
+      description: getSourceLabel(patientSource),
     } as TimelineEvent,
-    ...events
+    ...events,
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const getEventColor = (type: TimelineEvent['type']) => {
@@ -83,47 +87,48 @@ export default function PatientTimeline({ events, patientCreatedAt, patientSourc
   };
 
   return (
-    <div className="bg-white rounded-lg p-4 border border-gray-200">
-      <h3 className="font-semibold text-gray-900 mb-4">Timeline</h3>
-      
-      <div className="space-y-3 max-h-96 overflow-y-auto">
+    <div className="rounded-lg border border-gray-200 bg-white p-4">
+      <h3 className="mb-4 font-semibold text-gray-900">Timeline</h3>
+
+      <div className="max-h-96 space-y-3 overflow-y-auto">
         {allEvents.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">No events yet</p>
+          <p className="py-4 text-center text-sm text-gray-500">No events yet</p>
         ) : (
           allEvents.map((event, index) => (
-            <div 
-              key={event.id} 
+            <div
+              key={event.id}
               className={`relative flex items-start space-x-3 ${
                 index !== allEvents.length - 1 ? 'pb-3' : ''
               }`}
             >
               {/* Timeline line */}
               {index !== allEvents.length - 1 && (
-                <div className="absolute left-4 top-8 bottom-0 w-0.5 bg-gray-200" />
+                <div className="absolute bottom-0 left-4 top-8 w-0.5 bg-gray-200" />
               )}
-              
+
               {/* Event icon */}
-              <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 ${getEventColor(event.type)} z-10`}>
-              </div>
-              
+              <div
+                className={`h-8 w-8 flex-shrink-0 rounded-full border-2 ${getEventColor(event.type)} z-10`}
+              ></div>
+
               {/* Event content */}
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <button
                   onClick={() => event.description && toggleEvent(event.id)}
-                  className="text-left w-full group"
+                  className="group w-full text-left"
                 >
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-500">
-                      {format(event.date, 'MM/dd')}
-                    </span>
-                    <p className="text-sm font-medium text-gray-900 truncate group-hover:text-[#4fa77e] transition-colors">
+                    <span className="text-xs text-gray-500">{format(event.date, 'MM/dd')}</span>
+                    <p className="truncate text-sm font-medium text-gray-900 transition-colors group-hover:text-[#4fa77e]">
                       {event.title}
                     </p>
                   </div>
                   {event.description && (
-                    <p className={`text-xs text-gray-600 mt-1 ${
-                      expandedEvents.has(event.id) ? '' : 'truncate'
-                    }`}>
+                    <p
+                      className={`mt-1 text-xs text-gray-600 ${
+                        expandedEvents.has(event.id) ? '' : 'truncate'
+                      }`}
+                    >
                       {event.description}
                     </p>
                   )}

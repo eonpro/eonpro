@@ -28,9 +28,9 @@ function TypingIndicator() {
   return (
     <div className="flex items-center gap-1 px-1">
       <div className="flex gap-1">
-        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]" />
+        <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
       </div>
     </div>
   );
@@ -39,10 +39,21 @@ function TypingIndicator() {
 // Thinking state component
 function ThinkingState({ stage }: { stage: string }) {
   return (
-    <div className="flex items-center gap-2 text-gray-500 text-sm">
-      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    <div className="flex items-center gap-2 text-sm text-gray-500">
+      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
       </svg>
       <span className="animate-pulse">{stage}</span>
     </div>
@@ -50,13 +61,7 @@ function ThinkingState({ stage }: { stage: string }) {
 }
 
 // Message bubble component
-function MessageBubble({
-  message,
-  isLast,
-}: {
-  message: Message;
-  isLast: boolean;
-}) {
+function MessageBubble({ message, isLast }: { message: Message; isLast: boolean }) {
   const isUser = message.role === 'user';
 
   // Parse markdown-style formatting in the message
@@ -67,7 +72,7 @@ function MessageBubble({
       return (
         <>
           <div className="whitespace-pre-wrap">{mainContent.trim()}</div>
-          <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500 italic">
+          <div className="mt-3 border-t border-gray-200 pt-3 text-xs italic text-gray-500">
             {disclaimer?.replace(/\*/g, '').trim()}
           </div>
         </>
@@ -81,16 +86,12 @@ function MessageBubble({
       <div
         className={`max-w-[85%] px-4 py-2.5 ${
           isUser
-            ? 'bg-[#17aa7b] text-white rounded-[20px] rounded-br-[4px]'
-            : 'bg-[#f0f0f0] text-gray-900 rounded-[20px] rounded-bl-[4px]'
+            ? 'rounded-[20px] rounded-br-[4px] bg-[#17aa7b] text-white'
+            : 'rounded-[20px] rounded-bl-[4px] bg-[#f0f0f0] text-gray-900'
         } ${isLast && !isUser ? 'animate-fadeIn' : ''}`}
       >
         <div className="text-[15px] leading-relaxed">
-          {message.isStreaming ? (
-            <TypingIndicator />
-          ) : (
-            formatContent(message.content)
-          )}
+          {message.isStreaming ? <TypingIndicator /> : formatContent(message.content)}
         </div>
       </div>
     </div>
@@ -110,10 +111,10 @@ function QuickAction({
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm"
+      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm transition-all duration-200 hover:border-gray-300 hover:bg-gray-50"
     >
       {icon}
-      <span className="truncate max-w-[200px]">{label}</span>
+      <span className="max-w-[200px] truncate">{label}</span>
     </button>
   );
 }
@@ -207,10 +208,7 @@ export default function BeccaAIChat({
     setSuggestions([]);
 
     // Add streaming placeholder
-    setMessages((prev) => [
-      ...prev,
-      { role: 'assistant', content: '', isStreaming: true },
-    ]);
+    setMessages((prev) => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
 
     // Start thinking animation
     const thinkingPromise = simulateThinking();
@@ -341,21 +339,17 @@ export default function BeccaAIChat({
   };
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className}`}>
+    <div className={`flex h-full flex-col bg-white ${className}`}>
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.map((message, index) => (
-          <MessageBubble
-            key={index}
-            message={message}
-            isLast={index === messages.length - 1}
-          />
+          <MessageBubble key={index} message={message} isLast={index === messages.length - 1} />
         ))}
 
         {/* Thinking indicator */}
         {isLoading && thinkingStage && (
-          <div className="flex justify-start mb-3">
-            <div className="bg-[#f0f0f0] text-gray-900 rounded-[20px] rounded-bl-[4px] px-4 py-3">
+          <div className="mb-3 flex justify-start">
+            <div className="rounded-[20px] rounded-bl-[4px] bg-[#f0f0f0] px-4 py-3 text-gray-900">
               <ThinkingState stage={thinkingStage} />
             </div>
           </div>
@@ -363,13 +357,9 @@ export default function BeccaAIChat({
 
         {/* Quick suggestions */}
         {suggestions.length > 0 && !isLoading && (
-          <div className="flex flex-wrap gap-2 mt-2 mb-2">
+          <div className="mb-2 mt-2 flex flex-wrap gap-2">
             {suggestions.map((suggestion, index) => (
-              <QuickAction
-                key={index}
-                label={suggestion}
-                onClick={() => sendMessage(suggestion)}
-              />
+              <QuickAction key={index} label={suggestion} onClick={() => sendMessage(suggestion)} />
             ))}
           </div>
         )}
@@ -378,16 +368,16 @@ export default function BeccaAIChat({
       </div>
 
       {/* Input area - iMessage style */}
-      <div className="border-t border-gray-100 px-4 py-3 bg-white">
+      <div className="border-t border-gray-100 bg-white px-4 py-3">
         <div className="flex items-end gap-2">
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <textarea
               ref={inputRef}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Message Becca..."
-              className="w-full px-4 py-2.5 text-[15px] bg-[#f0f0f0] rounded-[20px] resize-none focus:outline-none focus:ring-2 focus:ring-[#17aa7b]/30 placeholder-gray-500 max-h-[120px]"
+              className="max-h-[120px] w-full resize-none rounded-[20px] bg-[#f0f0f0] px-4 py-2.5 text-[15px] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#17aa7b]/30"
               rows={1}
               disabled={isLoading}
             />
@@ -395,18 +385,13 @@ export default function BeccaAIChat({
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim() || isLoading}
-            className={`p-2.5 rounded-full transition-all duration-200 ${
+            className={`rounded-full p-2.5 transition-all duration-200 ${
               input.trim() && !isLoading
-                ? 'bg-[#17aa7b] text-white hover:bg-[#148f68] shadow-sm'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-[#17aa7b] text-white shadow-sm hover:bg-[#148f68]'
+                : 'cursor-not-allowed bg-gray-200 text-gray-400'
             }`}
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -419,10 +404,10 @@ export default function BeccaAIChat({
 
         {/* Footer actions */}
         {messages.length > 1 && (
-          <div className="flex justify-center mt-2">
+          <div className="mt-2 flex justify-center">
             <button
               onClick={clearChat}
-              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-xs text-gray-400 transition-colors hover:text-gray-600"
             >
               Clear conversation
             </button>

@@ -96,7 +96,10 @@ export async function ensureSoapNoteExists(
     // encrypted names will appear in the SOAP note text
     const patient = {
       ...rawPatient,
-      ...decryptPatientPHI(rawPatient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]),
+      ...decryptPatientPHI(
+        rawPatient as Record<string, unknown>,
+        DEFAULT_PHI_FIELDS as unknown as string[]
+      ),
     } as Patient;
 
     logger.debug('[SOAP-AUTOMATION] Decrypted patient PHI', {

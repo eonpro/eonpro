@@ -1,50 +1,50 @@
-import { NextRequest } from "next/server";
-import { PatientDocumentCategory, WebhookStatus } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { normalizeMedLinkPayload } from "@/lib/medlink/intakeNormalizer";
-import { upsertPatientFromIntake } from "@/lib/medlink/patientService";
-import { generateIntakePdf } from "@/services/intakePdfService";
-import { storeIntakePdf } from "@/services/storage/intakeStorage";
-import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
-import { logWebhookAttempt } from "@/lib/webhookLogger";
-import { trackReferral } from "@/services/influencerService";
-import { attributeFromIntake } from "@/services/affiliate/attributionService";
-import { extractPromoCode } from "@/lib/overtime/intakeNormalizer";
-import * as Sentry from "@sentry/nextjs";
+import { NextRequest } from 'next/server';
+import { PatientDocumentCategory, WebhookStatus } from '@prisma/client';
+import { prisma } from '@/lib/db';
+import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
+import { upsertPatientFromIntake } from '@/lib/medlink/patientService';
+import { generateIntakePdf } from '@/services/intakePdfService';
+import { storeIntakePdf } from '@/services/storage/intakeStorage';
+import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
+import { logWebhookAttempt } from '@/lib/webhookLogger';
+import { trackReferral } from '@/services/influencerService';
+import { attributeFromIntake } from '@/services/affiliate/attributionService';
+import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
+import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
+import { createHash } from 'crypto';
 
-const WEBHOOK_ENDPOINT = "/api/webhooks/heyflow-intake-v2";
+const WEBHOOK_ENDPOINT = '/api/webhooks/heyflow-intake-v2';
 
 // Enhanced authentication check with multiple provider support
-function authenticateWebhook(req: NextRequest): { 
-  isValid: boolean; 
-  authMethod?: string; 
+function authenticateWebhook(req: NextRequest): {
+  isValid: boolean;
+  authMethod?: string;
   errorDetails?: string;
 } {
   const configuredSecret = process.env.MEDLINK_WEBHOOK_SECRET || process.env.HEYFLOW_WEBHOOK_SECRET;
-  
+
   if (!configuredSecret) {
-    // In production, reject requests if no secret is configured
-    if (process.env.NODE_ENV === 'production') {
-      logger.error("[HEYFLOW V2] SECURITY: No webhook secret configured in production - rejecting request");
-      return { isValid: false, errorDetails: "Webhook secret not configured" };
-    }
-    logger.warn("[HEYFLOW V2] No webhook secret configured - accepting all requests (development mode)");
-    return { isValid: true, authMethod: "no-secret-dev" };
+    // Enterprise audit P0: never accept when secret is required but unset (all environments)
+    logger.error(
+      '[HEYFLOW V2] SECURITY: No webhook secret configured - rejecting request'
+    );
+    return { isValid: false, errorDetails: 'Webhook secret not configured' };
   }
 
   // Check all possible authentication headers
   const authHeaders = {
-    "x-heyflow-secret": req.headers.get("x-heyflow-secret"),
-    "x-heyflow-signature": req.headers.get("x-heyflow-signature"),
-    "x-webhook-secret": req.headers.get("x-webhook-secret"),
-    "x-medlink-secret": req.headers.get("x-medlink-secret"),
-    "authorization": req.headers.get("authorization"),
-    "x-api-key": req.headers.get("x-api-key"),
+    'x-heyflow-secret': req.headers.get('x-heyflow-secret'),
+    'x-heyflow-signature': req.headers.get('x-heyflow-signature'),
+    'x-webhook-secret': req.headers.get('x-webhook-secret'),
+    'x-medlink-secret': req.headers.get('x-medlink-secret'),
+    authorization: req.headers.get('authorization'),
+    'x-api-key': req.headers.get('x-api-key'),
   };
 
   // Log which headers are present
-  logger.debug("[HEYFLOW V2] Auth headers present:", 
+  logger.debug(
+    '[HEYFLOW V2] Auth headers present:',
     Object.entries(authHeaders)
       .filter(([_, value]) => value)
       .map(([key]) => key)
@@ -53,21 +53,23 @@ function authenticateWebhook(req: NextRequest): {
   // Check each possible authentication method
   for (const [header, value] of Object.entries(authHeaders)) {
     if (!value) continue;
-    
+
     // Direct match
     if (value === configuredSecret) {
       return { isValid: true, authMethod: header };
     }
-    
+
     // Bearer token match
-    if (header === "authorization" && value === `Bearer ${configuredSecret}`) {
-      return { isValid: true, authMethod: "authorization-bearer" };
+    if (header === 'authorization' && value === `Bearer ${configuredSecret}`) {
+      return { isValid: true, authMethod: 'authorization-bearer' };
     }
   }
 
-  return { 
-    isValid: false, 
-    errorDetails: `No matching authentication found. Headers present: ${Object.keys(authHeaders).filter((k: any) => authHeaders[k as keyof typeof authHeaders]).join(", ")}`
+  return {
+    isValid: false,
+    errorDetails: `No matching authentication found. Headers present: ${Object.keys(authHeaders)
+      .filter((k: any) => authHeaders[k as keyof typeof authHeaders])
+      .join(', ')}`,
   };
 }
 
@@ -83,50 +85,85 @@ export async function POST(req: NextRequest) {
 
   try {
     // === STEP 1: LOG REQUEST ===
-    logger.debug(`\n${"=".repeat(60)}`);
+    logger.debug(`\n${'='.repeat(60)}`);
     logger.debug(`[HEYFLOW V2] New webhook request at ${new Date().toISOString()}`);
     logger.debug(`[HEYFLOW V2] Method: ${req.method}`);
     logger.debug(`[HEYFLOW V2] URL: ${req.url}`);
-    
+
     // Log headers (with redaction)
-    logger.debug("[HEYFLOW V2] Headers:");
+    logger.debug('[HEYFLOW V2] Headers:');
     req.headers.forEach((value, key) => {
-      const shouldRedact = key.toLowerCase().includes("secret") || 
-                           key.toLowerCase().includes("auth") || 
-                           key.toLowerCase().includes("token");
-      logger.debug(`  ${key}: ${shouldRedact ? "[REDACTED]" : value}`);
+      const shouldRedact =
+        key.toLowerCase().includes('secret') ||
+        key.toLowerCase().includes('auth') ||
+        key.toLowerCase().includes('token');
+      logger.debug(`  ${key}: ${shouldRedact ? '[REDACTED]' : value}`);
     });
 
     // === STEP 2: AUTHENTICATE ===
     const authResult = authenticateWebhook(req);
     if (!authResult.isValid) {
-      logger.error("[HEYFLOW V2] Authentication failed:", authResult.errorDetails);
+      logger.error('[HEYFLOW V2] Authentication failed:', authResult.errorDetails);
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = authResult.errorDetails;
       await logWebhookAttempt(webhookLogData);
-      
-      return Response.json({ 
-        error: "Unauthorized", 
-        details: authResult.errorDetails 
-      }, { status: 401 });
+
+      return Response.json(
+        {
+          error: 'Unauthorized',
+          details: authResult.errorDetails,
+        },
+        { status: 401 }
+      );
     }
 
     logger.debug(`[HEYFLOW V2] Authentication successful via: ${authResult.authMethod}`);
 
+    // === STEP 2.5: IDEMPOTENCY CHECK ===
+    // Read body as text early so we can derive a stable idempotency key
+    const rawBody = await req.text();
+    const bodyHash = createHash('sha256').update(rawBody).digest('hex');
+    const idempotencyKey = `heyflow-intake-v2_${bodyHash}`;
+
+    const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
+      where: { key: idempotencyKey },
+    }).catch((err) => {
+      logger.warn('[HEYFLOW V2] Idempotency lookup failed, proceeding', { error: err instanceof Error ? err.message : String(err) });
+      return null;
+    });
+
+    if (existingIdempotencyRecord) {
+      logger.info('[HEYFLOW V2] Duplicate webhook detected, returning cached response', {
+        idempotencyKey,
+        originalCreatedAt: existingIdempotencyRecord.createdAt,
+      });
+      return Response.json(
+        { received: true, status: 'duplicate', originalResponse: existingIdempotencyRecord.responseBody },
+        { status: existingIdempotencyRecord.responseStatus }
+      );
+    }
+
     // === STEP 3: PARSE PAYLOAD ===
     try {
-      const rawBody = await req.text();
       logger.debug(`[HEYFLOW V2] Raw body length: ${rawBody.length} characters`);
-      
-      // Try to parse as JSON
-      payload = JSON.parse(rawBody);
+
+      const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+      const parsed = safeParseJsonString<Record<string, unknown>>(rawBody);
+      if (!parsed) {
+        webhookLogData.statusCode = 400;
+        return NextResponse.json(
+          { error: 'Invalid JSON payload', requestId: webhookLogData.requestId },
+          { status: 400 }
+        );
+      }
+      payload = parsed;
       webhookLogData.payload = payload;
-      
-      logger.debug("[HEYFLOW V2] Payload structure:");
+
+      logger.debug('[HEYFLOW V2] Payload structure:');
       logger.debug(`  Type: ${typeof payload}`);
-      logger.debug(`  Keys: ${Object.keys(payload).join(", ")}`);
-      
+      logger.debug(`  Keys: ${Object.keys(payload).join(', ')}`);
+
       // Log key payload fields for debugging
       if (payload.responseId) {
         logger.debug(`  Response ID: ${payload.responseId}`);
@@ -138,74 +175,79 @@ export async function POST(req: NextRequest) {
         logger.debug(`  Flow ID: ${payload.flowId}`);
       }
       if (payload.data) {
-        logger.debug(`  Data keys: ${Object.keys(payload.data).join(", ")}`);
+        logger.debug(`  Data keys: ${Object.keys(payload.data).join(', ')}`);
       }
       if (payload.answers && Array.isArray(payload.answers)) {
         logger.debug(`  Answers count: ${payload.answers.length}`);
       }
-      
+
       // Log first few answers for debugging
       if (payload.answers && payload.answers.length > 0) {
-        logger.debug("[HEYFLOW V2] Sample answers:");
+        logger.debug('[HEYFLOW V2] Sample answers:');
         payload.answers.slice(0, { value: 3 }).forEach((answer: any, i: number) => {
           logger.debug(`  [${i}] ${answer.label || answer.question}: ${answer.value}`);
         });
       }
-      
     } catch (parseError: any) {
-      logger.error("[HEYFLOW V2] Failed to parse JSON payload:", { value: parseError });
+      logger.error('[HEYFLOW V2] Failed to parse JSON payload:', { value: parseError });
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = `JSON parse error: ${parseError}`;
       await logWebhookAttempt(webhookLogData);
-      
-      return Response.json({ 
-        error: "Invalid JSON payload",
-        details: String(parseError)
-      }, { status: 400 });
+
+      return Response.json(
+        {
+          error: 'Invalid JSON payload',
+          details: String(parseError),
+        },
+        { status: 400 }
+      );
     }
 
     // === STEP 4: NORMALIZE PAYLOAD ===
     let normalized;
     try {
       normalized = normalizeMedLinkPayload(payload);
-      logger.debug("[HEYFLOW V2] Normalization successful:");
+      logger.debug('[HEYFLOW V2] Normalization successful:');
       logger.debug(`  Submission ID: ${normalized.submissionId}`);
       logger.debug(`  Sections: ${normalized.sections.length}`);
       logger.debug(`  Total answers: ${normalized.answers.length}`);
-      
+
       // Identify patient info
-      const patientFields = normalized.answers.filter((a: any) => 
-        a.label?.toLowerCase().includes("name") ||
-        a.label?.toLowerCase().includes("email") ||
-        a.label?.toLowerCase().includes("phone") ||
-        a.label?.toLowerCase().includes("birth") ||
-        a.label?.toLowerCase().includes("dob")
+      const patientFields = normalized.answers.filter(
+        (a: any) =>
+          a.label?.toLowerCase().includes('name') ||
+          a.label?.toLowerCase().includes('email') ||
+          a.label?.toLowerCase().includes('phone') ||
+          a.label?.toLowerCase().includes('birth') ||
+          a.label?.toLowerCase().includes('dob')
       );
-      
+
       if (patientFields.length > 0) {
-        logger.debug("[HEYFLOW V2] Patient fields found:");
+        logger.debug('[HEYFLOW V2] Patient fields found:');
         patientFields.forEach((field: any) => {
           logger.debug(`  ${field.label}: ${field.value}`);
         });
       }
-      
     } catch (normalizeError: any) {
-      logger.error("[HEYFLOW V2] Failed to normalize payload:", { value: normalizeError });
+      logger.error('[HEYFLOW V2] Failed to normalize payload:', { value: normalizeError });
       webhookLogData.status = WebhookStatus.PROCESSING_ERROR;
       webhookLogData.statusCode = 422;
       webhookLogData.errorMessage = `Normalization error: ${normalizeError}`;
       await logWebhookAttempt(webhookLogData);
-      
+
       // Log to Sentry
       Sentry.captureException(normalizeError, {
-        extra: { payload, endpoint: WEBHOOK_ENDPOINT }
+        extra: { payload, endpoint: WEBHOOK_ENDPOINT },
       });
-      
-      return Response.json({ 
-        error: "Failed to process payload structure",
-        details: String(normalizeError)
-      }, { status: 422 });
+
+      return Response.json(
+        {
+          error: 'Failed to process payload structure',
+          details: String(normalizeError),
+        },
+        { status: 422 }
+      );
     }
 
     // === STEP 5: PROCESS INTAKE ===
@@ -216,12 +258,12 @@ export async function POST(req: NextRequest) {
         sections: normalized.sections,
         answers: normalized.answers,
         patient: normalized.patient,
-        source: "heyflow-intake-v2",
+        source: 'heyflow-intake-v2',
         receivedAt: new Date().toISOString(),
       };
 
       // Upsert patient
-      logger.debug("[HEYFLOW V2] Creating/updating patient...");
+      logger.debug('[HEYFLOW V2] Creating/updating patient...');
       const patient = await upsertPatientFromIntake(normalized);
       logger.debug(`[HEYFLOW V2] Patient ID: ${patient.id}`);
 
@@ -234,7 +276,9 @@ export async function POST(req: NextRequest) {
           await trackReferral(patient.id, promoCode);
           logger.debug(`[HEYFLOW V2] Tracked referral in legacy system for code: ${promoCode}`);
         } catch (trackError: any) {
-          logger.warn(`[HEYFLOW V2] Failed to track referral in legacy system: ${trackError.message}`);
+          logger.warn(
+            `[HEYFLOW V2] Failed to track referral in legacy system: ${trackError.message}`
+          );
         }
         // Track in modern system (Affiliate/AffiliateTouch)
         try {
@@ -244,7 +288,12 @@ export async function POST(req: NextRequest) {
             select: { clinicId: true },
           });
           if (patientRecord?.clinicId) {
-            const result = await attributeFromIntake(patient.id, promoCode, patientRecord.clinicId, 'heyflow-v2');
+            const result = await attributeFromIntake(
+              patient.id,
+              promoCode,
+              patientRecord.clinicId,
+              'heyflow-v2'
+            );
             if (result) {
               logger.debug(`[HEYFLOW V2] Tracked attribution in modern system: ${result.refCode}`);
             }
@@ -255,18 +304,20 @@ export async function POST(req: NextRequest) {
       }
 
       // Generate PDF
-      logger.debug("[HEYFLOW V2] Generating PDF...");
+      logger.debug('[HEYFLOW V2] Generating PDF...');
       const pdfContent = await generateIntakePdf(normalized, patient);
       logger.debug(`[HEYFLOW V2] PDF generated: ${pdfContent.byteLength} bytes`);
 
       // Prepare PDF for database storage
-      logger.debug("[HEYFLOW V2] Preparing PDF for storage...");
+      logger.debug('[HEYFLOW V2] Preparing PDF for storage...');
       const stored = await storeIntakePdf({
         patientId: patient.id,
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
       });
-      logger.debug(`[HEYFLOW V2] PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`);
+      logger.debug(
+        `[HEYFLOW V2] PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`
+      );
 
       // Check for existing document
       const existingDocument = await prisma.patientDocument.findUnique({
@@ -286,13 +337,13 @@ export async function POST(req: NextRequest) {
           },
         });
       } else {
-        logger.debug("[HEYFLOW V2] Creating new document...");
+        logger.debug('[HEYFLOW V2] Creating new document...');
         patientDocument = await prisma.patientDocument.create({
           data: {
             patientId: patient.id,
             filename: stored.filename,
-            mimeType: "application/pdf",
-            source: "heyflow",
+            mimeType: 'application/pdf',
+            source: 'heyflow',
             sourceSubmissionId: normalized.submissionId,
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
@@ -304,19 +355,19 @@ export async function POST(req: NextRequest) {
       // Generate SOAP note asynchronously
       let soapNoteId = null;
       try {
-        logger.debug("[HEYFLOW V2] Generating SOAP note...");
+        logger.debug('[HEYFLOW V2] Generating SOAP note...');
         const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
         soapNoteId = soapNote.id;
         logger.debug(`[HEYFLOW V2] SOAP note generated: ${soapNoteId}`);
       } catch (soapError: any) {
-        logger.error("[HEYFLOW V2] Failed to generate SOAP note:", { value: soapError });
+        logger.error('[HEYFLOW V2] Failed to generate SOAP note:', { value: soapError });
         // Don't fail the webhook if SOAP generation fails
       }
 
       // === SUCCESS: Log and return ===
       const processingTimeMs = Date.now() - startTime;
       logger.debug(`[HEYFLOW V2] SUCCESS! Processing time: ${processingTimeMs}ms`);
-      
+
       const responseData = {
         success: true,
         patientId: patient.id,
@@ -346,72 +397,88 @@ export async function POST(req: NextRequest) {
             }),
           });
         } catch (notifyError: any) {
-          logger.error("[HEYFLOW V2] Notification failed:", { value: notifyError });
+          logger.error('[HEYFLOW V2] Notification failed:', { value: notifyError });
         }
       }
 
-      logger.debug(`${"=".repeat(60)}\n`);
-      return Response.json(responseData, { status: 200 });
+      // Record idempotency key for duplicate detection
+      await prisma.idempotencyRecord.create({
+        data: {
+          key: idempotencyKey,
+          resource: 'heyflow-intake-v2',
+          responseStatus: 200,
+          responseBody: responseData,
+        },
+      }).catch((err) => {
+        logger.warn('[HEYFLOW V2] Failed to store idempotency record', { error: err instanceof Error ? err.message : String(err) });
+      });
 
+      logger.debug(`${'='.repeat(60)}\n`);
+      return Response.json(responseData, { status: 200 });
     } catch (processingError: any) {
-      logger.error("[HEYFLOW V2] Processing error:", { value: processingError });
-      
+      logger.error('[HEYFLOW V2] Processing error:', { value: processingError });
+
       // Log to Sentry with full context
       Sentry.captureException(processingError, {
         extra: {
           payload,
           normalized,
           endpoint: WEBHOOK_ENDPOINT,
-        }
+        },
       });
-      
+
       webhookLogData.status = WebhookStatus.PROCESSING_ERROR;
       webhookLogData.statusCode = 500;
       webhookLogData.errorMessage = `Processing error: ${processingError}`;
       webhookLogData.processingTimeMs = Date.now() - startTime;
       await logWebhookAttempt(webhookLogData);
-      
-      logger.debug(`${"=".repeat(60)}\n`);
-      return Response.json({ 
-        error: "Failed to process intake",
-        details: String(processingError)
-      }, { status: 500 });
-    }
 
+      logger.debug(`${'='.repeat(60)}\n`);
+      return Response.json(
+        {
+          error: 'Failed to process intake',
+          details: String(processingError),
+        },
+        { status: 500 }
+      );
+    }
   } catch (unexpectedError: any) {
     // Catch-all for any unexpected errors
-    logger.error("[HEYFLOW V2] Unexpected error:", { value: unexpectedError });
-    
+    logger.error('[HEYFLOW V2] Unexpected error:', { value: unexpectedError });
+
     Sentry.captureException(unexpectedError, {
-      extra: { 
+      extra: {
         endpoint: WEBHOOK_ENDPOINT,
-        payload 
-      }
+        payload,
+      },
     });
-    
+
     webhookLogData.status = WebhookStatus.ERROR;
     webhookLogData.statusCode = 500;
     webhookLogData.errorMessage = `Unexpected error: ${unexpectedError}`;
     webhookLogData.processingTimeMs = Date.now() - startTime;
     await logWebhookAttempt(webhookLogData);
-    
-    logger.debug(`${"=".repeat(60)}\n`);
-    return Response.json({ 
-      error: "Internal server error",
-      details: String(unexpectedError)
-    }, { status: 500 });
+
+    logger.debug(`${'='.repeat(60)}\n`);
+    return Response.json(
+      {
+        error: 'Internal server error',
+        details: String(unexpectedError),
+      },
+      { status: 500 }
+    );
   }
 }
 
 // Health check endpoint
 export async function GET() {
-  const stats = await import("@/lib/webhookLogger").then(m => 
+  const stats = await import('@/lib/webhookLogger').then((m) =>
     m.getWebhookStats(WEBHOOK_ENDPOINT, 7)
   );
-  
+
   return Response.json({
     endpoint: WEBHOOK_ENDPOINT,
-    status: "active",
+    status: 'active',
     stats,
     timestamp: new Date().toISOString(),
   });

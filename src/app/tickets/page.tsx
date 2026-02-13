@@ -12,7 +12,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import {
   Plus as PlusIcon,
   Filter as FunnelIcon,
@@ -196,6 +195,10 @@ export default function TicketsPage() {
           setError('Session expired. Please log in again.');
           return;
         }
+        if (response.status === 403) {
+          setError('You do not have access to list tickets. Clinic context may be required.');
+          return;
+        }
         throw new Error('Failed to fetch tickets');
       }
 
@@ -233,7 +236,7 @@ export default function TicketsPage() {
     return date.toLocaleDateString();
   };
 
-  // Handle search
+  // Handle search (full-page nav so it works when client router is flaky)
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
@@ -243,7 +246,7 @@ export default function TicketsPage() {
       params.delete('search');
     }
     params.set('page', '1');
-    router.push(`/tickets?${params.toString()}`);
+    window.location.href = `/tickets?${params.toString()}`;
   };
 
   // Handle filter change
@@ -251,7 +254,7 @@ export default function TicketsPage() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Apply filters
+  // Apply filters (full-page nav)
   const applyFilters = () => {
     const params = new URLSearchParams();
     filters.status.forEach((s) => params.append('status', s));
@@ -261,7 +264,7 @@ export default function TicketsPage() {
     if (filters.hasSlaBreach) params.set('hasSlaBreach', 'true');
     if (searchQuery) params.set('search', searchQuery);
     params.set('page', '1');
-    router.push(`/tickets?${params.toString()}`);
+    window.location.href = `/tickets?${params.toString()}`;
     setShowFilters(false);
   };
 
@@ -275,7 +278,7 @@ export default function TicketsPage() {
       hasSlaBreach: false,
     });
     setSearchQuery('');
-    router.push('/tickets');
+    window.location.href = '/tickets';
     setShowFilters(false);
   };
 
@@ -287,13 +290,14 @@ export default function TicketsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Tickets</h1>
           <p className="text-sm text-gray-500">Manage support tickets and issue resolution</p>
         </div>
-        <Link
+        <a
           href="/tickets/new"
+          onClick={(e) => { e.preventDefault(); window.location.href = '/tickets/new'; }}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           <PlusIcon className="h-5 w-5" />
           New Ticket
-        </Link>
+        </a>
       </div>
 
       {/* Search and Filters */}
@@ -461,9 +465,18 @@ export default function TicketsPage() {
       {/* Error State */}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <div className="flex items-center gap-2 text-red-800">
-            <ExclamationTriangleIcon className="h-5 w-5" />
-            <span>{error}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-red-800">
+              <ExclamationTriangleIcon className="h-5 w-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setError(null); fetchTickets(); }}
+              className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100"
+            >
+              Try again
+            </button>
           </div>
         </div>
       )}
@@ -541,13 +554,14 @@ export default function TicketsPage() {
                         <>
                           <TagIcon className="h-12 w-12 text-gray-300" />
                           <p className="mt-2 text-sm text-gray-500">No tickets found</p>
-                          <Link
+                          <a
                             href="/tickets/new"
+                            onClick={(e) => { e.preventDefault(); window.location.href = '/tickets/new'; }}
                             className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
                           >
                             <PlusIcon className="h-4 w-4" />
                             Create your first ticket
-                          </Link>
+                          </a>
                         </>
                       )}
                     </div>
@@ -557,7 +571,7 @@ export default function TicketsPage() {
                 tickets.map((ticket) => (
                   <tr
                     key={ticket.id}
-                    onClick={() => router.push(`/tickets/${ticket.id}`)}
+                    onClick={() => { window.location.href = `/tickets/${ticket.id}`; }}
                     className="cursor-pointer hover:bg-gray-50"
                   >
                     <td className="px-6 py-4">
@@ -638,7 +652,7 @@ export default function TicketsPage() {
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString());
                   params.set('page', String(pagination.page - 1));
-                  router.push(`/tickets?${params.toString()}`);
+                  window.location.href = `/tickets?${params.toString()}`;
                 }}
                 disabled={pagination.page === 1}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -649,7 +663,7 @@ export default function TicketsPage() {
                 onClick={() => {
                   const params = new URLSearchParams(searchParams.toString());
                   params.set('page', String(pagination.page + 1));
-                  router.push(`/tickets?${params.toString()}`);
+                  window.location.href = `/tickets?${params.toString()}`;
                 }}
                 disabled={!pagination.hasMore}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"

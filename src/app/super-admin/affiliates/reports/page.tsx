@@ -2,7 +2,7 @@
 
 /**
  * Super Admin Affiliate Reports Page
- * 
+ *
  * Cross-clinic affiliate program performance and analytics
  */
 
@@ -95,7 +95,7 @@ export default function SuperAdminAffiliateReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'ytd'>('30d');
-  
+
   // Leaderboard state
   const [leaderboardMetric, setLeaderboardMetric] = useState<LeaderboardMetric>('conversions');
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
@@ -104,10 +104,10 @@ export default function SuperAdminAffiliateReportsPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    
+
     try {
       const response = await fetch(`/api/admin/affiliates/reports?period=${period}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -141,11 +141,11 @@ export default function SuperAdminAffiliateReportsPage() {
   const fetchLeaderboard = useCallback(async () => {
     setLeaderboardLoading(true);
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    
+
     try {
       const response = await fetch(
         `/api/admin/affiliates/leaderboard?metric=${leaderboardMetric}&period=${period}&limit=10`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.ok) {
@@ -230,7 +230,7 @@ export default function SuperAdminAffiliateReportsPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="mb-1 flex items-center gap-2">
             <Building2 className="h-5 w-5 text-violet-600" />
             <span className="text-sm font-medium text-violet-600">Cross-Clinic View</span>
           </div>
@@ -245,9 +245,7 @@ export default function SuperAdminAffiliateReportsPage() {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
-                  period === p
-                    ? 'bg-violet-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                  period === p ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {p === 'ytd' ? 'YTD' : p}
@@ -311,28 +309,24 @@ export default function SuperAdminAffiliateReportsPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Trend Chart */}
-        <div className="lg:col-span-2 rounded-xl bg-white p-5 shadow-sm">
+        <div className="rounded-xl bg-white p-5 shadow-sm lg:col-span-2">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Performance Trend</h2>
           {data?.trends && data.trends.length > 0 ? (
             <div className="space-y-2">
               {data.trends.slice(-14).map((day, i) => {
-                const maxConversions = Math.max(...data.trends.map(d => d.conversions), 1);
+                const maxConversions = Math.max(...data.trends.map((d) => d.conversions), 1);
                 const width = (day.conversions / maxConversions) * 100;
-                
+
                 return (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="w-12 text-xs text-gray-500">
-                      {formatDate(day.date)}
-                    </span>
+                    <span className="w-12 text-xs text-gray-500">{formatDate(day.date)}</span>
                     <div className="flex-1">
-                      <div 
+                      <div
                         className="h-5 rounded-r bg-violet-500 transition-all"
                         style={{ width: `${Math.max(width, 2)}%` }}
                       />
                     </div>
-                    <span className="w-16 text-right text-sm text-gray-700">
-                      {day.conversions}
-                    </span>
+                    <span className="w-16 text-right text-sm text-gray-700">{day.conversions}</span>
                     <span className="w-20 text-right text-sm text-green-600">
                       {formatCurrency(day.commissionCents)}
                     </span>
@@ -358,12 +352,17 @@ export default function SuperAdminAffiliateReportsPage() {
               data.topAffiliates.map((affiliate, i) => (
                 <div key={affiliate.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                      i === 0 ? 'bg-yellow-100 text-yellow-700' :
-                      i === 1 ? 'bg-gray-100 text-gray-700' :
-                      i === 2 ? 'bg-orange-100 text-orange-700' :
-                      'bg-gray-50 text-gray-500'
-                    }`}>
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                        i === 0
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : i === 1
+                            ? 'bg-gray-100 text-gray-700'
+                            : i === 2
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-50 text-gray-500'
+                      }`}
+                    >
                       {i + 1}
                     </span>
                     <div>
@@ -377,9 +376,7 @@ export default function SuperAdminAffiliateReportsPage() {
                 </div>
               ))
             ) : (
-              <div className="text-center text-gray-500 py-8">
-                No affiliate data available
-              </div>
+              <div className="py-8 text-center text-gray-500">No affiliate data available</div>
             )}
           </div>
         </div>
@@ -392,15 +389,17 @@ export default function SuperAdminAffiliateReportsPage() {
             <Trophy className="h-5 w-5 text-yellow-500" />
             <h2 className="text-lg font-semibold text-gray-900">Performance Leaderboard</h2>
           </div>
-          
+
           {/* Metric Tabs */}
           <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-            {([
-              { key: 'conversions', label: 'Conversions', icon: TrendingUp },
-              { key: 'revenue', label: 'Revenue', icon: DollarSign },
-              { key: 'clicks', label: 'Uses', icon: MousePointer },
-              { key: 'conversionRate', label: 'Conv. Rate', icon: Target },
-            ] as const).map(({ key, label, icon: Icon }) => (
+            {(
+              [
+                { key: 'conversions', label: 'Conversions', icon: TrendingUp },
+                { key: 'revenue', label: 'Revenue', icon: DollarSign },
+                { key: 'clicks', label: 'Uses', icon: MousePointer },
+                { key: 'conversionRate', label: 'Conv. Rate', icon: Target },
+              ] as const
+            ).map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => setLeaderboardMetric(key)}
@@ -427,45 +426,59 @@ export default function SuperAdminAffiliateReportsPage() {
               <div
                 key={entry.affiliateId}
                 className={`flex items-center gap-4 rounded-lg p-3 transition-colors ${
-                  index === 0 ? 'bg-yellow-50' :
-                  index === 1 ? 'bg-gray-50' :
-                  index === 2 ? 'bg-orange-50' :
-                  'hover:bg-gray-50'
+                  index === 0
+                    ? 'bg-yellow-50'
+                    : index === 1
+                      ? 'bg-gray-50'
+                      : index === 2
+                        ? 'bg-orange-50'
+                        : 'hover:bg-gray-50'
                 }`}
               >
                 {/* Rank Badge */}
-                <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                  index === 0 ? 'bg-yellow-400 text-yellow-900' :
-                  index === 1 ? 'bg-gray-300 text-gray-700' :
-                  index === 2 ? 'bg-orange-400 text-orange-900' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {index === 0 ? <Crown className="h-4 w-4" /> :
-                   index === 1 || index === 2 ? <Medal className="h-4 w-4" /> :
-                   entry.rank}
+                <div
+                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                    index === 0
+                      ? 'bg-yellow-400 text-yellow-900'
+                      : index === 1
+                        ? 'bg-gray-300 text-gray-700'
+                        : index === 2
+                          ? 'bg-orange-400 text-orange-900'
+                          : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {index === 0 ? (
+                    <Crown className="h-4 w-4" />
+                  ) : index === 1 || index === 2 ? (
+                    <Medal className="h-4 w-4" />
+                  ) : (
+                    entry.rank
+                  )}
                 </div>
 
                 {/* Affiliate Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{entry.displayName}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-gray-900">{entry.displayName}</p>
                   <p className="text-xs text-gray-500">
-                    {entry.refCodes.length > 0 
+                    {entry.refCodes.length > 0
                       ? `Codes: ${entry.refCodes.slice(0, 2).join(', ')}${entry.refCodes.length > 2 ? ` +${entry.refCodes.length - 2}` : ''}`
-                      : 'No codes'
-                    }
+                      : 'No codes'}
                   </p>
                 </div>
 
                 {/* Value */}
                 <div className="text-right">
-                  <p className={`font-bold ${
-                    index < 3 ? 'text-lg' : 'text-base'
-                  } ${
-                    leaderboardMetric === 'revenue' ? 'text-green-600' :
-                    leaderboardMetric === 'conversions' ? 'text-violet-600' :
-                    leaderboardMetric === 'clicks' ? 'text-blue-600' :
-                    'text-orange-600'
-                  }`}>
+                  <p
+                    className={`font-bold ${index < 3 ? 'text-lg' : 'text-base'} ${
+                      leaderboardMetric === 'revenue'
+                        ? 'text-green-600'
+                        : leaderboardMetric === 'conversions'
+                          ? 'text-violet-600'
+                          : leaderboardMetric === 'clicks'
+                            ? 'text-blue-600'
+                            : 'text-orange-600'
+                    }`}
+                  >
                     {entry.formattedValue}
                   </p>
                   <p className="text-xs text-gray-500">
@@ -474,14 +487,17 @@ export default function SuperAdminAffiliateReportsPage() {
                 </div>
 
                 {/* Progress Bar */}
-                <div className="hidden sm:block w-24">
-                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                <div className="hidden w-24 sm:block">
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        leaderboardMetric === 'revenue' ? 'bg-green-500' :
-                        leaderboardMetric === 'conversions' ? 'bg-violet-500' :
-                        leaderboardMetric === 'clicks' ? 'bg-blue-500' :
-                        'bg-orange-500'
+                        leaderboardMetric === 'revenue'
+                          ? 'bg-green-500'
+                          : leaderboardMetric === 'conversions'
+                            ? 'bg-violet-500'
+                            : leaderboardMetric === 'clicks'
+                              ? 'bg-blue-500'
+                              : 'bg-orange-500'
                       }`}
                       style={{ width: `${Math.min(entry.percentOfTotal * 2, 100)}%` }}
                     />
@@ -494,12 +510,14 @@ export default function SuperAdminAffiliateReportsPage() {
           <div className="flex h-48 flex-col items-center justify-center text-center">
             <Trophy className="mx-auto h-10 w-10 text-gray-300" />
             <p className="mt-2 text-gray-500">No leaderboard data available</p>
-            <p className="text-sm text-gray-400">Affiliates will appear here once they have activity</p>
+            <p className="text-sm text-gray-400">
+              Affiliates will appear here once they have activity
+            </p>
           </div>
         )}
 
         {/* View Code Performance Link */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="mt-4 border-t border-gray-100 pt-4">
           <a
             href="/super-admin/affiliates/code-performance"
             className="inline-flex items-center gap-2 text-sm text-violet-600 hover:text-violet-700"

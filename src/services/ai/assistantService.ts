@@ -17,24 +17,26 @@ import {
 function stripMarkdown(text: string): string {
   if (!text) return text;
 
-  return text
-    // Remove headers (# ## ### etc.)
-    .replace(/^#{1,6}\s+/gm, '')
-    // Remove bold/italic markers
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    // Remove markdown links [text](url) -> text
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Remove inline code backticks
-    .replace(/`([^`]+)`/g, '$1')
-    // Remove horizontal rules
-    .replace(/^---+$/gm, '')
-    .replace(/^\*\*\*+$/gm, '')
-    // Clean up multiple blank lines
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return (
+    text
+      // Remove headers (# ## ### etc.)
+      .replace(/^#{1,6}\s+/gm, '')
+      // Remove bold/italic markers
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/_([^_]+)_/g, '$1')
+      // Remove markdown links [text](url) -> text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      // Remove inline code backticks
+      .replace(/`([^`]+)`/g, '$1')
+      // Remove horizontal rules
+      .replace(/^---+$/gm, '')
+      .replace(/^\*\*\*+$/gm, '')
+      // Clean up multiple blank lines
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  );
 }
 
 /**
@@ -131,7 +133,11 @@ function tryDirectAnswer(
   }
 
   // Phone number queries
-  if (queryLower.includes('phone') || queryLower.includes('call') || queryLower.includes('contact number')) {
+  if (
+    queryLower.includes('phone') ||
+    queryLower.includes('call') ||
+    queryLower.includes('contact number')
+  ) {
     if (summary.phone) {
       return {
         answer: `${summary.name}'s phone number is ${summary.phone}.`,
@@ -159,7 +165,10 @@ function tryDirectAnswer(
   }
 
   // Address queries
-  if (queryLower.includes('address') || (queryLower.includes('where') && queryLower.includes('live'))) {
+  if (
+    queryLower.includes('address') ||
+    (queryLower.includes('where') && queryLower.includes('live'))
+  ) {
     if (summary.address && summary.address.trim() !== ', ,') {
       return {
         answer: `${summary.name}'s address is ${summary.address}.`,
@@ -187,7 +196,12 @@ function tryDirectAnswer(
   }
 
   // Tracking number queries
-  if (queryLower.includes('tracking') || queryLower.includes('shipment') || queryLower.includes('shipping') || queryLower.includes('delivery')) {
+  if (
+    queryLower.includes('tracking') ||
+    queryLower.includes('shipment') ||
+    queryLower.includes('shipping') ||
+    queryLower.includes('delivery')
+  ) {
     const trackingInfo = patientContext.tracking || [];
     const shippingUpdates = patientContext.shippingUpdates || [];
 
@@ -214,7 +228,9 @@ function tryDirectAnswer(
           parts.push(`- ${s.carrier}: ${s.trackingNumber}`);
           parts.push(`  Status: ${s.status}${s.statusDetail ? ` - ${s.statusDetail}` : ''}`);
           if (s.estimatedDelivery) {
-            parts.push(`  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`);
+            parts.push(
+              `  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`
+            );
           }
         });
       }
@@ -272,7 +288,9 @@ function tryDirectAnswer(
     // Check intake form/document data
     if (intakeVitals?.weight) {
       // Clean up the weight value (remove "lbs" if already present to avoid duplication)
-      const weightValue = String(intakeVitals.weight).replace(/\s*(lbs?|pounds?)$/i, '').trim();
+      const weightValue = String(intakeVitals.weight)
+        .replace(/\s*(lbs?|pounds?)$/i, '')
+        .trim();
       return {
         answer: `${summary.name}'s weight is ${weightValue} lbs.`,
         queryType: 'vitals',
@@ -352,7 +370,12 @@ function tryDirectAnswer(
   }
 
   // Prescription/medication queries
-  if (queryLower.includes('prescription') || queryLower.includes('medication') || queryLower.includes('rx') || queryLower.includes('medicine')) {
+  if (
+    queryLower.includes('prescription') ||
+    queryLower.includes('medication') ||
+    queryLower.includes('rx') ||
+    queryLower.includes('medicine')
+  ) {
     const orders = patient?.orders || [];
     if (orders.length > 0) {
       const parts: string[] = [];
@@ -387,7 +410,9 @@ function tryDirectAnswer(
 
   // General patient info/summary queries
   if (
-    (queryLower.includes('tell me about') || queryLower.includes('information') || queryLower.includes('details')) &&
+    (queryLower.includes('tell me about') ||
+      queryLower.includes('information') ||
+      queryLower.includes('details')) &&
     !queryLower.includes('prescription') &&
     !queryLower.includes('order') &&
     !queryLower.includes('soap')
@@ -502,7 +527,7 @@ async function findSimilarPatients(
   });
 
   // Calculate similarity scores for each patient
-  const scoredPatients: ScoredPatient[] = allPatients.map((patient: typeof allPatients[0]) => {
+  const scoredPatients: ScoredPatient[] = allPatients.map((patient: (typeof allPatients)[0]) => {
     const firstNameScore = similarityScore(firstName, patient.firstName || '');
     const lastNameScore = similarityScore(lastName, patient.lastName || '');
     // Also check if first/last names are swapped
@@ -535,7 +560,11 @@ async function findSimilarPatients(
  * CRITICAL: All queries MUST be filtered by clinicId for multi-tenant isolation
  * This prevents data leakage between clinics (HIPAA compliance requirement)
  */
-async function searchPatientData(query: string, clinicId: number, patientId?: number): Promise<any> {
+async function searchPatientData(
+  query: string,
+  clinicId: number,
+  patientId?: number
+): Promise<any> {
   const queryLower = query.toLowerCase();
 
   // SECURITY: Log all AI queries for audit trail
@@ -547,8 +576,12 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
 
   // Check for general platform statistics queries
   // SECURITY: Only count patients for the current clinic
-  if (queryLower.includes('how many patient') || queryLower.includes('total patient') ||
-      queryLower.includes('number of patient') || queryLower.includes('patient count')) {
+  if (
+    queryLower.includes('how many patient') ||
+    queryLower.includes('total patient') ||
+    queryLower.includes('number of patient') ||
+    queryLower.includes('patient count')
+  ) {
     const totalPatients = await prisma.patient.count({
       where: { clinicId }, // CRITICAL: Filter by clinic
     });
@@ -657,15 +690,15 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
         patientId,
         clinicId,
       });
-      
+
       targetPatient = await prisma.patient.findUnique({
         where: { id: patientId },
         include: patientIncludeConfig,
       });
-      
+
       if (targetPatient) {
         // Update clinicId to match the patient's actual clinic for data consistency
-        logger.info('[BeccaAI] Found patient by ID, using patient\'s clinicId', {
+        logger.info("[BeccaAI] Found patient by ID, using patient's clinicId", {
           patientId,
           requestedClinicId: clinicId,
           patientClinicId: targetPatient.clinicId,
@@ -734,8 +767,14 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
           const day = parseInt(dobParts[1]);
           const year = parseInt(dobParts[2]);
           const dobDate = new Date(year, month, day);
-          age = Math.floor((new Date().getTime() - dobDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
-          formattedDob = dobDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+          age = Math.floor(
+            (new Date().getTime() - dobDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+          );
+          formattedDob = dobDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
         }
       } catch (e: any) {
         // If parsing fails, just use the original string
@@ -952,11 +991,13 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
       shippingUpdates: shippingUpdates.length > 0 ? shippingUpdates : null,
       // Include vitals/health data
       vitals: {
-        latestWeight: latestWeight ? {
-          weight: latestWeight.weight,
-          unit: latestWeight.unit,
-          recordedAt: latestWeight.createdAt,
-        } : null,
+        latestWeight: latestWeight
+          ? {
+              weight: latestWeight.weight,
+              unit: latestWeight.unit,
+              recordedAt: latestWeight.createdAt,
+            }
+          : null,
         fromIntake: intakeVitals,
       },
       // Include intake form data summary
@@ -991,7 +1032,9 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
       similarPatients: similarPatients.length > 0 ? similarPatients : undefined,
       highConfidenceMatch: highConfidenceMatch ? bestMatch : undefined,
       message,
-      suggestions: similarPatients.map((p: ScoredPatient) => `${p.firstName} ${p.lastName}${p.dob ? ` (DOB: ${p.dob})` : ''}`),
+      suggestions: similarPatients.map(
+        (p: ScoredPatient) => `${p.firstName} ${p.lastName}${p.dob ? ` (DOB: ${p.dob})` : ''}`
+      ),
     };
   }
 
@@ -1057,7 +1100,11 @@ async function searchPatientData(query: string, clinicId: number, patientId?: nu
   }
 
   // Check for recent activity queries - SECURITY: All counts filtered by clinic
-  if (queryLower.includes('recent') || queryLower.includes('today') || queryLower.includes('pending')) {
+  if (
+    queryLower.includes('recent') ||
+    queryLower.includes('today') ||
+    queryLower.includes('pending')
+  ) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -1165,7 +1212,8 @@ export async function processAssistantQuery(
 
   if (!conversation) {
     // Create new conversation with clinic context for audit
-    const newSessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newSessionId =
+      sessionId || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     conversation = await prisma.aIConversation.create({
       data: {
         sessionId: newSessionId,
@@ -1192,7 +1240,10 @@ export async function processAssistantQuery(
   try {
     // Detect query category to determine if we need patient data
     const queryCategory = detectQueryCategory(query);
-    logger.debug('[BeccaAI] Query category detected', { queryCategory, query: query.substring(0, 50) });
+    logger.debug('[BeccaAI] Query category detected', {
+      queryCategory,
+      query: query.substring(0, 50),
+    });
 
     // Knowledge-based queries that don't require patient data lookup
     const knowledgeOnlyCategories: QueryCategory[] = [
@@ -1219,7 +1270,11 @@ export async function processAssistantQuery(
       conversation.patientId
     ) {
       // Search for relevant patient data - CRITICAL: Pass clinicId for isolation
-      patientContext = await searchPatientData(query, clinicId, patientId || conversation.patientId || undefined);
+      patientContext = await searchPatientData(
+        query,
+        clinicId,
+        patientId || conversation.patientId || undefined
+      );
 
       // Check if this is a simple demographic query that can be answered directly
       // This avoids sending PHI to OpenAI and provides faster, more accurate responses
@@ -1256,7 +1311,8 @@ export async function processAssistantQuery(
       patientContext = {
         type: 'knowledge_query',
         category: queryCategory,
-        message: 'This is a clinical/operational knowledge question. No patient data search was performed.',
+        message:
+          'This is a clinical/operational knowledge question. No patient data search was performed.',
       };
       logger.debug('[BeccaAI] Skipping patient data search for knowledge query', { queryCategory });
     }
@@ -1301,7 +1357,9 @@ export async function processAssistantQuery(
         content: finalAnswer,
         queryType,
         confidence: aiResponse.confidence,
-        citations: aiResponse.citations ? JSON.parse(JSON.stringify(aiResponse.citations)) : undefined,
+        citations: aiResponse.citations
+          ? JSON.parse(JSON.stringify(aiResponse.citations))
+          : undefined,
         promptTokens: aiResponse.usage?.promptTokens,
         completionTokens: aiResponse.usage?.completionTokens,
         estimatedCost: aiResponse.usage?.estimatedCost,
@@ -1321,7 +1379,6 @@ export async function processAssistantQuery(
       messageId: assistantMessage.id,
       citations: aiResponse.citations,
     };
-
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -1340,7 +1397,8 @@ export async function processAssistantQuery(
         data: {
           conversationId: conversation.id,
           role: 'assistant',
-          content: 'I apologize, but I encountered an error processing your request. Please try again or contact support if the issue persists.',
+          content:
+            'I apologize, but I encountered an error processing your request. Please try again or contact support if the issue persists.',
           queryType: 'error',
         },
       });

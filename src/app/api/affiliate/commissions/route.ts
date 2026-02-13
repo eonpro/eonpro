@@ -1,6 +1,6 @@
 /**
  * Affiliate Commissions API
- * 
+ *
  * Returns paginated commission events for the affiliate portal
  */
 
@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 interface CommissionEvent {
   id: string;
@@ -25,12 +26,12 @@ async function handler(req: NextRequest, user: AuthUser) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const status = searchParams.get('status');
-    
+
     const skip = (page - 1) * limit;
 
     // Build where clause
     const whereClause: any = {};
-    
+
     // Check if user is an affiliate
     if (user.affiliateId) {
       whereClause.affiliateId = user.affiliateId;
@@ -96,11 +97,8 @@ async function handler(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    console.error('[Commissions] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch commissions' },
-      { status: 500 }
-    );
+    logger.error('[Commissions] Error', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: 'Failed to fetch commissions' }, { status: 500 });
   }
 }
 

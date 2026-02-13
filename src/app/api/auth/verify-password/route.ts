@@ -26,10 +26,7 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
     // Validate input
     const validationResult = verifyPasswordSchema.safeParse(body);
     if (!validationResult.success) {
-      return NextResponse.json(
-        { error: 'Password is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Password is required' }, { status: 400 });
     }
 
     const { password } = validationResult.data;
@@ -42,10 +39,7 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
 
     if (!userData?.passwordHash) {
       logger.warn('[Verify Password] User has no password hash', { userId: user.id });
-      return NextResponse.json(
-        { error: 'Unable to verify password' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Unable to verify password' }, { status: 400 });
     }
 
     // Verify password
@@ -53,10 +47,7 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
 
     if (!isValid) {
       logger.warn('[Verify Password] Invalid password attempt', { userId: user.id });
-      return NextResponse.json(
-        { error: 'Invalid password' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
 
     logger.info('[Verify Password] Password verified successfully', { userId: user.id });
@@ -67,10 +58,7 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
     });
   } catch (error: any) {
     logger.error('[Verify Password] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to verify password' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to verify password' }, { status: 500 });
   }
 }
 

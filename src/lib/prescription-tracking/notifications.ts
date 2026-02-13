@@ -46,7 +46,15 @@ type PrescriptionStatus =
 type NotificationType = 'SMS' | 'CHAT' | 'EMAIL' | 'PUSH' | 'VOICE';
 
 /** Notification status values */
-type NotificationStatus = 'PENDING' | 'QUEUED' | 'SENDING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'CANCELLED' | 'READ';
+type NotificationStatus =
+  | 'PENDING'
+  | 'QUEUED'
+  | 'SENDING'
+  | 'SENT'
+  | 'DELIVERED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'READ';
 
 // Type for prisma models that may not be in the generated client yet
 interface PrescriptionNotificationRecord {
@@ -79,85 +87,85 @@ interface NotificationRuleRecord {
 // Notification templates for different statuses
 const NOTIFICATION_TEMPLATES = {
   SENT_TO_PHARMACY: {
-    sms: 'Your prescription {medication} has been sent to the pharmacy for processing. We\'ll update you when it\'s ready.',
-    chat: 'Great news! Your prescription for {medication} has been sent to the pharmacy. They\'ll start processing it shortly.',
+    sms: "Your prescription {medication} has been sent to the pharmacy for processing. We'll update you when it's ready.",
+    chat: "Great news! Your prescription for {medication} has been sent to the pharmacy. They'll start processing it shortly.",
     email: {
       subject: 'Prescription Sent to Pharmacy',
-      body: 'Your prescription {medication} has been successfully sent to the pharmacy for processing.'
-    }
+      body: 'Your prescription {medication} has been successfully sent to the pharmacy for processing.',
+    },
   },
   RECEIVED: {
     sms: 'The pharmacy has received your prescription {medication} and will begin processing it soon.',
     chat: 'Update: The pharmacy has received your prescription for {medication}. Processing will begin shortly.',
     email: {
       subject: 'Prescription Received by Pharmacy',
-      body: 'Good news! The pharmacy has received your prescription for {medication}.'
-    }
+      body: 'Good news! The pharmacy has received your prescription for {medication}.',
+    },
   },
   PROCESSING: {
     sms: 'Your prescription {medication} is being prepared by the pharmacy.',
     chat: 'Your prescription for {medication} is now being prepared by the pharmacy team.',
     email: {
       subject: 'Prescription Being Processed',
-      body: 'Your prescription for {medication} is currently being processed by the pharmacy.'
-    }
+      body: 'Your prescription for {medication} is currently being processed by the pharmacy.',
+    },
   },
   READY_FOR_PICKUP: {
     sms: 'Your prescription {medication} is ready for pickup at {pharmacy}. Please bring your ID.',
-    chat: 'Your prescription for {medication} is ready! You can pick it up at {pharmacy}. Don\'t forget to bring your ID.',
+    chat: "Your prescription for {medication} is ready! You can pick it up at {pharmacy}. Don't forget to bring your ID.",
     email: {
       subject: 'Prescription Ready for Pickup',
-      body: 'Your prescription for {medication} is ready for pickup at {pharmacy}.'
-    }
+      body: 'Your prescription for {medication} is ready for pickup at {pharmacy}.',
+    },
   },
   SHIPPED: {
     sms: 'Your prescription {medication} has shipped! Track it: {trackingUrl}. Est. delivery: {estimatedDelivery}',
     chat: '📦 Your prescription for {medication} is on its way!\n\nTracking: {trackingNumber}\nCarrier: {carrier}\nEstimated delivery: {estimatedDelivery}\n\nTrack your package: {trackingUrl}',
     email: {
       subject: 'Your Prescription Has Shipped',
-      body: 'Your prescription for {medication} has been shipped and is on its way to you.'
-    }
+      body: 'Your prescription for {medication} has been shipped and is on its way to you.',
+    },
   },
   OUT_FOR_DELIVERY: {
     sms: 'Your prescription {medication} is out for delivery today! Please be available to receive it.',
     chat: '🚚 Heads up! Your prescription for {medication} is out for delivery and should arrive today. Please make sure someone is available to receive it.',
     email: {
       subject: 'Your Prescription is Out for Delivery',
-      body: 'Your prescription for {medication} is out for delivery and will arrive today.'
-    }
+      body: 'Your prescription for {medication} is out for delivery and will arrive today.',
+    },
   },
   DELIVERED: {
     sms: 'Your prescription {medication} has been delivered. Please check your delivery location.',
     chat: 'Your prescription for {medication} has been delivered successfully! Please check your delivery location. If you have any issues, let us know.',
     email: {
       subject: 'Your Prescription Has Been Delivered',
-      body: 'Your prescription for {medication} has been delivered to your address.'
-    }
+      body: 'Your prescription for {medication} has been delivered to your address.',
+    },
   },
   CANCELLED: {
     sms: 'Your prescription {medication} has been cancelled. Please contact us if you have questions.',
     chat: 'Your prescription for {medication} has been cancelled. If this was unexpected, please contact us immediately.',
     email: {
       subject: 'Prescription Cancelled',
-      body: 'Your prescription for {medication} has been cancelled.'
-    }
+      body: 'Your prescription for {medication} has been cancelled.',
+    },
   },
   ON_HOLD: {
-    sms: 'Your prescription {medication} is on hold. We\'ll contact you with more information.',
-    chat: 'Your prescription for {medication} is temporarily on hold. We\'re working to resolve this and will update you soon.',
+    sms: "Your prescription {medication} is on hold. We'll contact you with more information.",
+    chat: "Your prescription for {medication} is temporarily on hold. We're working to resolve this and will update you soon.",
     email: {
       subject: 'Prescription On Hold',
-      body: 'Your prescription for {medication} is currently on hold.'
-    }
+      body: 'Your prescription for {medication} is currently on hold.',
+    },
   },
   FAILED: {
     sms: 'There was an issue with your prescription {medication}. Please contact us at {supportPhone}.',
     chat: 'There was an issue processing your prescription for {medication}. Please contact our support team at {supportPhone} for assistance.',
     email: {
       subject: 'Issue with Your Prescription',
-      body: 'There was an issue processing your prescription for {medication}. Please contact us for assistance.'
-    }
-  }
+      body: 'There was an issue processing your prescription for {medication}. Please contact us for assistance.',
+    },
+  },
 };
 
 /**
@@ -183,10 +191,10 @@ function populateTemplate(template: string, data: Record<string, any>): string {
  */
 function getTrackingUrl(carrier: string, trackingNumber: string): string {
   const carriers: Record<string, string> = {
-    'ups': `https://www.ups.com/track?tracknum=${trackingNumber}`,
-    'fedex': `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
-    'usps': `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`,
-    'dhl': `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
+    ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,
+    fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
+    usps: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`,
+    dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
   };
 
   return carriers[carrier.toLowerCase()] || '#';
@@ -196,7 +204,13 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
  * Send SMS notification via centralized SMS service
  * Handles TCPA compliance, rate limiting, and audit logging
  */
-async function sendSMS(phone: string, message: string, notificationId: number, patientId?: number, clinicId?: number): Promise<void> {
+async function sendSMS(
+  phone: string,
+  message: string,
+  notificationId: number,
+  patientId?: number,
+  clinicId?: number
+): Promise<void> {
   try {
     const result = await sendSMSCentralized({
       to: phone,
@@ -214,12 +228,12 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
           sentAt: new Date(),
           externalId: result.messageId,
           externalStatus: 'sent',
-        }
+        },
       });
 
       logger.info('SMS notification sent', {
         notificationId,
-        messageSid: result.messageId
+        messageSid: result.messageId,
       });
     } else if (result.blocked) {
       // Mark as cancelled if blocked (opt-out, quiet hours, rate limit)
@@ -228,12 +242,12 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
         data: {
           status: 'CANCELLED',
           errorMessage: result.blockReason,
-        }
+        },
       });
 
       logger.info('SMS notification blocked', {
         notificationId,
-        reason: result.blockReason
+        reason: result.blockReason,
       });
     } else {
       // Mark as failed
@@ -243,7 +257,7 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
           status: 'FAILED',
           failedAt: new Date(),
           errorMessage: result.error,
-        }
+        },
       });
 
       throw new Error(result.error || 'Failed to send SMS');
@@ -257,7 +271,7 @@ async function sendSMS(phone: string, message: string, notificationId: number, p
         status: 'FAILED',
         failedAt: new Date(),
         errorMessage: error.message,
-      }
+      },
     });
 
     throw error;
@@ -280,7 +294,7 @@ async function sendChatMessage(
         status: 'SENT',
         sentAt: new Date(),
         deliveredAt: new Date(), // Mark as delivered for chat
-      }
+      },
     });
 
     logger.info('Chat notification sent', { notificationId, patientId });
@@ -294,7 +308,7 @@ async function sendChatMessage(
         status: 'FAILED',
         failedAt: new Date(),
         errorMessage,
-      }
+      },
     });
 
     throw error;
@@ -316,10 +330,10 @@ export async function sendPrescriptionNotification(
         patient: true,
         order: {
           include: {
-            provider: true
-          }
-        }
-      }
+            provider: true,
+          },
+        },
+      },
     });
 
     if (!prescription) {
@@ -339,7 +353,7 @@ export async function sendPrescriptionNotification(
       where: {
         triggerStatus: status as PrescriptionStatus,
         isActive: true,
-      }
+      },
     });
 
     // If no rules, use default behavior
@@ -352,12 +366,13 @@ export async function sendPrescriptionNotification(
       pharmacy: prescription.pharmacyName || 'the pharmacy',
       trackingNumber: prescription.trackingNumber,
       carrier: prescription.carrier,
-      estimatedDelivery: prescription.estimatedDeliveryDate ?
-        prescription.estimatedDeliveryDate.toLocaleDateString() :
-        'soon',
-      trackingUrl: prescription.trackingNumber && prescription.carrier ?
-        getTrackingUrl(prescription.carrier, prescription.trackingNumber) :
-        '',
+      estimatedDelivery: prescription.estimatedDeliveryDate
+        ? prescription.estimatedDeliveryDate.toLocaleDateString()
+        : 'soon',
+      trackingUrl:
+        prescription.trackingNumber && prescription.carrier
+          ? getTrackingUrl(prescription.carrier, prescription.trackingNumber)
+          : '',
       supportPhone: process.env.SUPPORT_PHONE || '1-800-SUPPORT',
     };
 
@@ -376,7 +391,7 @@ export async function sendPrescriptionNotification(
           message: smsMessage,
           templateUsed: 'default',
           recipientPhone: decryptedPhone,
-        }
+        },
       });
 
       // Send SMS asynchronously via centralized service
@@ -386,7 +401,7 @@ export async function sendPrescriptionNotification(
         smsNotification.id,
         prescription.patient.id,
         prescription.order?.clinicId ?? undefined
-      ).catch(err => logger.error('SMS send failed', { error: err.message }));
+      ).catch((err) => logger.error('SMS send failed', { error: err.message }));
     }
 
     // Send chat notification
@@ -401,12 +416,13 @@ export async function sendPrescriptionNotification(
           message: chatMessage,
           templateUsed: 'default',
           recipientId: prescription.patient.id.toString(),
-        }
+        },
       });
 
       // Send chat message asynchronously
-      sendChatMessage(prescription.patient.id, chatMessage, chatNotification.id)
-        .catch(err => logger.error('Chat send failed', err));
+      sendChatMessage(prescription.patient.id, chatMessage, chatNotification.id).catch((err) =>
+        logger.error('Chat send failed', err)
+      );
     }
 
     logger.info('Prescription notifications queued', {
@@ -415,7 +431,6 @@ export async function sendPrescriptionNotification(
       sms: shouldSendSMS,
       chat: shouldSendChat,
     });
-
   } catch (error: any) {
     logger.error('Failed to send prescription notification', {
       prescriptionId,
@@ -435,7 +450,7 @@ export async function retryFailedNotifications(): Promise<void> {
         status: 'FAILED',
         createdAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
-        }
+        },
       },
       include: {
         prescription: {
@@ -444,10 +459,10 @@ export async function retryFailedNotifications(): Promise<void> {
               select: {
                 id: true,
                 clinicId: true,
-              }
-            }
-          }
-        }
+              },
+            },
+          },
+        },
       },
       take: 100,
     });
@@ -471,9 +486,8 @@ export async function retryFailedNotifications(): Promise<void> {
     }
 
     logger.info('Retried failed notifications', {
-      count: failedNotifications.length
+      count: failedNotifications.length,
     });
-
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to retry notifications', { error: errorMessage });

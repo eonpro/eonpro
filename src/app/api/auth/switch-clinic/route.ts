@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import { prisma } from '@/lib/db';
-import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
+import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
@@ -20,10 +20,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
     const { clinicId } = body;
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     // Super admins can switch to any clinic
@@ -35,10 +32,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
       });
 
       if (!clinic) {
-        return NextResponse.json(
-          { error: 'Clinic not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
       }
 
       // Issue new token without clinicId (super admin can access all)
@@ -67,10 +61,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
     }
 
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: 'You do not have access to this clinic' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'You do not have access to this clinic' }, { status: 403 });
     }
 
     // Get clinic details
@@ -80,10 +71,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
     });
 
     if (!clinic || !['ACTIVE', 'TRIAL'].includes(clinic.status || '')) {
-      return NextResponse.json(
-        { error: 'Clinic is not active' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Clinic is not active' }, { status: 403 });
     }
 
     // Get all user's clinics for the response
@@ -91,13 +79,9 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
 
     // Issue new token with the new clinicId
     return await issueNewToken(user, clinicId, userClinics);
-
   } catch (error: any) {
     logger.error('Error switching clinic:', error);
-    return NextResponse.json(
-      { error: 'Failed to switch clinic' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });
   }
 }
 
@@ -141,7 +125,7 @@ async function getUserClinics(userId: number, primaryClinicId?: number | null) {
     });
 
     for (const uc of userClinics) {
-      if (!clinics.find(c => c.id === uc.clinic.id)) {
+      if (!clinics.find((c) => c.id === uc.clinic.id)) {
         clinics.push({
           ...uc.clinic,
           role: uc.role,
@@ -151,7 +135,10 @@ async function getUserClinics(userId: number, primaryClinicId?: number | null) {
     }
   } catch (error: unknown) {
     // UserClinic might not exist
-    logger.warn('[Switch Clinic] UserClinic lookup failed', { error: error instanceof Error ? error.message : 'Unknown error', userId });
+    logger.warn('[Switch Clinic] UserClinic lookup failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId,
+    });
   }
 
   return clinics;
@@ -178,7 +165,8 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     },
   });
   if (userData) {
-    tokenPayload.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || user.email;
+    tokenPayload.name =
+      `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || user.email;
 
     // CRITICAL: Preserve providerId for multi-clinic providers
     // Priority: existing token > user.providerId > user.provider.id
@@ -197,7 +185,7 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
     .sign(JWT_SECRET);
 
-  // Create refresh token
+  // Create refresh token (signed with dedicated refresh secret)
   const refreshToken = await new SignJWT({
     id: user.id,
     type: 'refresh',
@@ -205,10 +193,10 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-    .sign(JWT_SECRET);
+    .sign(JWT_REFRESH_SECRET);
 
   // Get the active clinic details
-  const activeClinic = clinics.find(c => c.id === clinicId) || clinics[0];
+  const activeClinic = clinics.find((c) => c.id === clinicId) || clinics[0];
 
   // ENTERPRISE: Fetch provider's clinic assignments for multi-clinic support
   let providerClinics: Array<{

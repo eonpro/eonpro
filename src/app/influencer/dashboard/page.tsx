@@ -1,10 +1,19 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, Copy, Check, CreditCard, DollarSign, User, ChevronRight, Building2 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Loader2,
+  Copy,
+  Check,
+  CreditCard,
+  DollarSign,
+  User,
+  ChevronRight,
+  Building2,
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { logger } from '@/lib/logger';
 
 interface InfluencerStats {
@@ -42,24 +51,24 @@ export default function InfluencerDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/influencers/stats");
+      const res = await fetch('/api/influencers/stats');
       if (res.status === 401) {
-        router.push("/influencer/login");
+        router.push('/influencer/login');
         return;
       }
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to fetch influencer stats");
+        throw new Error(errorData.error || 'Failed to fetch influencer stats');
       }
       const data = await res.json();
       setStats(data.stats);
       setPromoCode(data.promoCode);
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error("Error fetching influencer stats:", err);
-      setError(errorMessage || "Failed to load dashboard data.");
+      // @ts-ignore
+
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('Error fetching influencer stats:', err);
+      setError(errorMessage || 'Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
@@ -81,25 +90,25 @@ export default function InfluencerDashboardPage() {
     try {
       // Get token from cookie for influencer logout
       const cookies = document.cookie.split(';');
-      const tokenCookie = cookies.find(c => c.trim().startsWith('influencer-token='));
+      const tokenCookie = cookies.find((c) => c.trim().startsWith('influencer-token='));
       const token = tokenCookie?.split('=')[1];
       if (token) {
         await fetch('/api/auth/logout', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         }).catch(() => {});
       }
     } catch {}
-    document.cookie = "influencer-token=; Max-Age=0; path=/";
+    document.cookie = 'influencer-token=; Max-Age=0; path=/';
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    window.location.href = "/influencer/login";
+    window.location.href = '/influencer/login';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-10 w-10 text-[#4fa77e] animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#4fa77e]" />
         <p className="ml-3 text-gray-600">Loading dashboard...</p>
       </div>
     );
@@ -107,11 +116,11 @@ export default function InfluencerDashboardPage() {
 
   if (error || !stats) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600">{error || "Failed to load data"}</p>
+          <p className="text-red-600">{error || 'Failed to load data'}</p>
           <button
-            onClick={() => router.push("/influencer/login")}
+            onClick={() => router.push('/influencer/login')}
             className="mt-4 text-[#4fa77e] hover:underline"
           >
             Go to Login
@@ -125,8 +134,8 @@ export default function InfluencerDashboardPage() {
     <div>
       {/* Header */}
       <header className="bg-transparent">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
+        <div className="mx-auto max-w-6xl px-4 py-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Image
                 src="https://static.wixstatic.com/media/c49a9b_3379db3991ba4ca48dcbb3a979570842~mv2.png"
@@ -142,10 +151,15 @@ export default function InfluencerDashboardPage() {
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center text-sm text-gray-600 hover:text-gray-900 transition"
+              className="flex items-center text-sm text-gray-600 transition hover:text-gray-900"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
               Logout
             </button>
@@ -153,19 +167,19 @@ export default function InfluencerDashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-6xl space-y-8 px-4 py-8">
         {/* Promo Code Section */}
-        <div className="bg-white rounded-lg shadow p-6 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-lg bg-white p-6 shadow">
           <div>
             <p className="text-lg font-semibold text-gray-700">Your Promo Code:</p>
-            <p className="text-3xl font-extrabold text-[#4fa77e] mt-1">{promoCode}</p>
+            <p className="mt-1 text-3xl font-extrabold text-[#4fa77e]">{promoCode}</p>
           </div>
           <button
             onClick={handleCopyPromoCode}
-            className="flex items-center px-4 py-2 bg-[#4fa77e] text-white rounded-md hover:bg-[#3a8a6b] transition"
+            className="flex items-center rounded-md bg-[#4fa77e] px-4 py-2 text-white transition hover:bg-[#3a8a6b]"
           >
-            {copied ? <Check className="h-5 w-5 mr-2" /> : <Copy className="h-5 w-5 mr-2" />}
-            {copied ? "Copied!" : "Copy Code"}
+            {copied ? <Check className="mr-2 h-5 w-5" /> : <Copy className="mr-2 h-5 w-5" />}
+            {copied ? 'Copied!' : 'Copy Code'}
           </button>
         </div>
 
@@ -174,24 +188,24 @@ export default function InfluencerDashboardPage() {
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition ${
+              className={`border-b-2 px-1 py-2 text-sm font-medium transition ${
                 activeTab === 'overview'
                   ? 'border-[#4fa77e] text-[#4fa77e]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
               }`}
             >
-              <DollarSign className="inline-block w-5 h-5 mr-2" />
+              <DollarSign className="mr-2 inline-block h-5 w-5" />
               Overview
             </button>
             <button
               onClick={() => setActiveTab('payouts')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm transition ${
+              className={`border-b-2 px-1 py-2 text-sm font-medium transition ${
                 activeTab === 'payouts'
                   ? 'border-[#4fa77e] text-[#4fa77e]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
               }`}
             >
-              <CreditCard className="inline-block w-5 h-5 mr-2" />
+              <CreditCard className="mr-2 inline-block h-5 w-5" />
               Payout Settings
             </button>
           </nav>
@@ -201,24 +215,30 @@ export default function InfluencerDashboardPage() {
         {activeTab === 'overview' ? (
           <>
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
               <StatCard title="Total Referrals" value={stats.totalReferrals || 0} />
               <StatCard title="Converted Referrals" value={stats.convertedReferrals || 0} />
-              <StatCard title="Conversion Rate" value={`${(stats.conversionRate || 0).toFixed(1)}%`} />
-              <StatCard title="Pending Earnings" value={`$${(stats.pendingEarnings || 0).toFixed(2)}`} />
+              <StatCard
+                title="Conversion Rate"
+                value={`${(stats.conversionRate || 0).toFixed(1)}%`}
+              />
+              <StatCard
+                title="Pending Earnings"
+                value={`$${(stats.pendingEarnings || 0).toFixed(2)}`}
+              />
               <StatCard title="Total Paid" value={`$${(stats.totalEarnings || 0).toFixed(2)}`} />
             </div>
 
             {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Recent Referrals</h3>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-lg bg-white p-6 shadow">
+                <h3 className="mb-4 text-xl font-semibold text-gray-800">Recent Referrals</h3>
                 {!stats.recentReferrals || stats.recentReferrals.length === 0 ? (
                   <p className="text-gray-500">No recent referrals yet.</p>
                 ) : (
                   <ul className="divide-y divide-gray-200">
                     {stats.recentReferrals.map((referral: any) => (
-                      <li key={referral.id} className="py-3 flex justify-between items-center">
+                      <li key={referral.id} className="flex items-center justify-between py-3">
                         <div>
                           <p className="text-sm font-medium text-gray-900">
                             {referral.patient.firstName} {referral.patient.lastName}
@@ -228,19 +248,19 @@ export default function InfluencerDashboardPage() {
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
                             referral.isConverted
-                              ? "bg-green-100 text-green-800"
+                              ? 'bg-green-100 text-green-800'
                               : new Date(referral.referralExpiresAt) < new Date()
-                              ? "bg-gray-100 text-gray-800"
-                              : "bg-yellow-100 text-yellow-800"
+                                ? 'bg-gray-100 text-gray-800'
+                                : 'bg-yellow-100 text-yellow-800'
                           }`}
                         >
-                          {referral.isConverted 
-                            ? "CONVERTED" 
-                            : new Date(referral.referralExpiresAt) < new Date() 
-                            ? "EXPIRED" 
-                            : "PENDING"}
+                          {referral.isConverted
+                            ? 'CONVERTED'
+                            : new Date(referral.referralExpiresAt) < new Date()
+                              ? 'EXPIRED'
+                              : 'PENDING'}
                         </span>
                       </li>
                     ))}
@@ -248,27 +268,28 @@ export default function InfluencerDashboardPage() {
                 )}
               </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-4 text-gray-800">Recent Commissions</h3>
+              <div className="rounded-lg bg-white p-6 shadow">
+                <h3 className="mb-4 text-xl font-semibold text-gray-800">Recent Commissions</h3>
                 {!stats.recentCommissions || stats.recentCommissions.length === 0 ? (
                   <p className="text-gray-500">No recent commissions yet.</p>
                 ) : (
                   <ul className="divide-y divide-gray-200">
                     {stats.recentCommissions.map((commission: any) => (
-                      <li key={commission.id} className="py-3 flex justify-between items-center">
+                      <li key={commission.id} className="flex items-center justify-between py-3">
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            Commission for Invoice: {commission.invoice?.stripeInvoiceNumber || "N/A"}
+                            Commission for Invoice:{' '}
+                            {commission.invoice?.stripeInvoiceNumber || 'N/A'}
                           </p>
                           <p className="text-xs text-gray-500">
                             Earned on {new Date(commission.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                         <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            commission.status === "PAID"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                            commission.status === 'PAID'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-blue-100 text-blue-800'
                           }`}
                         >
                           ${commission.amount.toFixed(2)} ({commission.status})
@@ -283,42 +304,48 @@ export default function InfluencerDashboardPage() {
         ) : (
           /* Payout Settings Tab */
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="rounded-lg bg-white p-6 shadow">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <Building2 className="h-12 w-12 text-[#4fa77e]" />
                   <div>
                     <h3 className="text-xl font-semibold text-gray-800">Bank Account Management</h3>
-                    <p className="text-sm text-gray-600 mt-1">Add and manage your bank accounts for commission payouts</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Add and manage your bank accounts for commission payouts
+                    </p>
                   </div>
                 </div>
                 <Link
                   href="/influencer/bank-accounts"
-                  className="flex items-center px-4 py-2 bg-[#4fa77e] text-white rounded-md hover:bg-[#3a8a6b] transition"
+                  className="flex items-center rounded-md bg-[#4fa77e] px-4 py-2 text-white transition hover:bg-[#3a8a6b]"
                 >
                   Manage Bank Accounts
-                  <ChevronRight className="h-5 w-5 ml-2" />
+                  <ChevronRight className="ml-2 h-5 w-5" />
                 </Link>
               </div>
             </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800">Payment Preferences</h3>
+
+            <div className="rounded-lg bg-white p-6 shadow">
+              <h3 className="mb-4 text-xl font-semibold text-gray-800">Payment Preferences</h3>
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-2">
+                <div className="flex items-center justify-between py-2">
                   <span className="text-gray-700">Minimum Payout Threshold</span>
                   <span className="font-semibold">$100.00</span>
                 </div>
-                <div className="flex justify-between items-center py-2">
+                <div className="flex items-center justify-between py-2">
                   <span className="text-gray-700">Payout Frequency</span>
                   <span className="font-semibold">Monthly</span>
                 </div>
-                <div className="flex justify-between items-center py-2">
+                <div className="flex items-center justify-between py-2">
                   <span className="text-gray-700">Next Payout Date</span>
-                  <span className="font-semibold">{new Date(new Date().setMonth(new Date().getMonth() + 1, 1)).toLocaleDateString()}</span>
+                  <span className="font-semibold">
+                    {new Date(
+                      new Date().setMonth(new Date().getMonth() + 1, 1)
+                    ).toLocaleDateString()}
+                  </span>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-4">
+              <p className="mt-4 text-xs text-gray-500">
                 Contact support to change your payment preferences
               </p>
             </div>
@@ -335,7 +362,7 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value }) => (
-  <div className="bg-white rounded-lg shadow p-5">
+  <div className="rounded-lg bg-white p-5 shadow">
     <p className="text-sm font-medium text-gray-500">{title}</p>
     <p className="mt-1 text-3xl font-semibold text-gray-900">{value}</p>
   </div>

@@ -145,7 +145,7 @@ export default function CommissionPlansPage() {
       plan.recurringPercentBps !== null ||
       plan.recurringFlatAmountCents !== null
     );
-    
+
     setFormData({
       name: plan.name,
       description: plan.description || '',
@@ -191,7 +191,7 @@ export default function CommissionPlansPage() {
       if (formData.planType === 'PERCENT') {
         body.percentBps = formData.percentBps;
         body.flatAmountCents = null;
-        
+
         if (formData.useSeperateRates) {
           body.initialPercentBps = formData.initialPercentBps;
           body.recurringPercentBps = formData.recurringPercentBps;
@@ -207,7 +207,7 @@ export default function CommissionPlansPage() {
         // FLAT
         body.flatAmountCents = formData.flatAmountCents;
         body.percentBps = null;
-        
+
         if (formData.useSeperateRates) {
           body.initialFlatAmountCents = formData.initialFlatAmountCents;
           body.recurringFlatAmountCents = formData.recurringFlatAmountCents;
@@ -221,10 +221,10 @@ export default function CommissionPlansPage() {
         }
       }
 
-      const url = editingPlan 
+      const url = editingPlan
         ? `/api/admin/commission-plans/${editingPlan.id}`
         : '/api/admin/commission-plans';
-      
+
       const method = editingPlan ? 'PATCH' : 'POST';
 
       const response = await fetch(url, {
@@ -288,7 +288,7 @@ export default function CommissionPlansPage() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => window.location.href = '/admin/affiliates'}
+          onClick={() => (window.location.href = '/admin/affiliates')}
           className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -316,8 +316,8 @@ export default function CommissionPlansPage() {
           <div className="text-sm text-blue-700">
             <p className="font-medium">Separate Initial &amp; Recurring Rates</p>
             <p className="mt-1">
-              You can now set different commission rates for initial/first payments vs recurring payments.
-              For example: 10% on first payment, 5% on monthly recurring payments.
+              You can now set different commission rates for initial/first payments vs recurring
+              payments. For example: 10% on first payment, 5% on monthly recurring payments.
             </p>
           </div>
         </div>
@@ -351,8 +351,10 @@ export default function CommissionPlansPage() {
             {/* Commission Rates */}
             <div className="mb-4 space-y-2">
               {/* Check if plan has separate rates */}
-              {(plan.initialPercentBps !== null || plan.initialFlatAmountCents !== null ||
-                plan.recurringPercentBps !== null || plan.recurringFlatAmountCents !== null) ? (
+              {plan.initialPercentBps !== null ||
+              plan.initialFlatAmountCents !== null ||
+              plan.recurringPercentBps !== null ||
+              plan.recurringFlatAmountCents !== null ? (
                 <>
                   <div className="flex items-center justify-between rounded-lg bg-violet-50 p-2">
                     <span className="text-sm text-violet-600">Initial Payment</span>
@@ -360,12 +362,12 @@ export default function CommissionPlansPage() {
                       {plan.planType === 'PERCENT' && plan.initialPercentBps !== null
                         ? formatPercent(plan.initialPercentBps)
                         : plan.initialFlatAmountCents !== null
-                        ? formatCurrency(plan.initialFlatAmountCents)
-                        : plan.percentBps
-                        ? formatPercent(plan.percentBps)
-                        : plan.flatAmountCents
-                        ? formatCurrency(plan.flatAmountCents)
-                        : 'N/A'}
+                          ? formatCurrency(plan.initialFlatAmountCents)
+                          : plan.percentBps
+                            ? formatPercent(plan.percentBps)
+                            : plan.flatAmountCents
+                              ? formatCurrency(plan.flatAmountCents)
+                              : 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between rounded-lg bg-blue-50 p-2">
@@ -377,12 +379,12 @@ export default function CommissionPlansPage() {
                       {plan.planType === 'PERCENT' && plan.recurringPercentBps !== null
                         ? formatPercent(plan.recurringPercentBps)
                         : plan.recurringFlatAmountCents !== null
-                        ? formatCurrency(plan.recurringFlatAmountCents)
-                        : plan.percentBps
-                        ? formatPercent(plan.percentBps)
-                        : plan.flatAmountCents
-                        ? formatCurrency(plan.flatAmountCents)
-                        : 'N/A'}
+                          ? formatCurrency(plan.recurringFlatAmountCents)
+                          : plan.percentBps
+                            ? formatPercent(plan.percentBps)
+                            : plan.flatAmountCents
+                              ? formatCurrency(plan.flatAmountCents)
+                              : 'N/A'}
                     </span>
                   </div>
                 </>
@@ -393,8 +395,8 @@ export default function CommissionPlansPage() {
                     {plan.planType === 'PERCENT' && plan.percentBps
                       ? formatPercent(plan.percentBps)
                       : plan.flatAmountCents
-                      ? formatCurrency(plan.flatAmountCents)
-                      : 'N/A'}
+                        ? formatCurrency(plan.flatAmountCents)
+                        : 'N/A'}
                   </span>
                 </div>
               )}
@@ -408,9 +410,7 @@ export default function CommissionPlansPage() {
                 </span>
               )}
               {plan.clawbackEnabled && (
-                <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">
-                  Clawback
-                </span>
+                <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">Clawback</span>
               )}
               {plan.holdDays > 0 && (
                 <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">
@@ -495,7 +495,9 @@ export default function CommissionPlansPage() {
                 <label className="block text-sm font-medium text-gray-700">Commission Type *</label>
                 <select
                   value={formData.planType}
-                  onChange={(e) => setFormData((f) => ({ ...f, planType: e.target.value as 'FLAT' | 'PERCENT' }))}
+                  onChange={(e) =>
+                    setFormData((f) => ({ ...f, planType: e.target.value as 'FLAT' | 'PERCENT' }))
+                  }
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 >
                   <option value="PERCENT">Percentage of Sale</option>
@@ -527,11 +529,15 @@ export default function CommissionPlansPage() {
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-8 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          %
+                        </span>
                       </>
                     ) : (
                       <>
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                          $
+                        </span>
                         <input
                           type="number"
                           required
@@ -558,11 +564,15 @@ export default function CommissionPlansPage() {
                   <input
                     type="checkbox"
                     checked={formData.useSeperateRates}
-                    onChange={(e) => setFormData((f) => ({ ...f, useSeperateRates: e.target.checked }))}
+                    onChange={(e) =>
+                      setFormData((f) => ({ ...f, useSeperateRates: e.target.checked }))
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <div>
-                    <span className="font-medium text-gray-900">Use separate rates for initial &amp; recurring</span>
+                    <span className="font-medium text-gray-900">
+                      Use separate rates for initial &amp; recurring
+                    </span>
                     <p className="text-sm text-gray-500">
                       Set different commission rates for first payment vs recurring payments
                     </p>
@@ -588,16 +598,22 @@ export default function CommissionPlansPage() {
                               onChange={(e) =>
                                 setFormData((f) => ({
                                   ...f,
-                                  initialPercentBps: Math.round(parseFloat(e.target.value || '0') * 100),
+                                  initialPercentBps: Math.round(
+                                    parseFloat(e.target.value || '0') * 100
+                                  ),
                                 }))
                               }
                               className="w-full rounded-lg border border-violet-300 bg-white px-3 py-2 pr-8 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              %
+                            </span>
                           </>
                         ) : (
                           <>
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              $
+                            </span>
                             <input
                               type="number"
                               min="0"
@@ -606,7 +622,9 @@ export default function CommissionPlansPage() {
                               onChange={(e) =>
                                 setFormData((f) => ({
                                   ...f,
-                                  initialFlatAmountCents: Math.round(parseFloat(e.target.value || '0') * 100),
+                                  initialFlatAmountCents: Math.round(
+                                    parseFloat(e.target.value || '0') * 100
+                                  ),
                                 }))
                               }
                               className="w-full rounded-lg border border-violet-300 bg-white py-2 pl-7 pr-3 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
@@ -634,16 +652,22 @@ export default function CommissionPlansPage() {
                               onChange={(e) =>
                                 setFormData((f) => ({
                                   ...f,
-                                  recurringPercentBps: Math.round(parseFloat(e.target.value || '0') * 100),
+                                  recurringPercentBps: Math.round(
+                                    parseFloat(e.target.value || '0') * 100
+                                  ),
                                 }))
                               }
                               className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 pr-8 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              %
+                            </span>
                           </>
                         ) : (
                           <>
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                              $
+                            </span>
                             <input
                               type="number"
                               min="0"
@@ -652,7 +676,9 @@ export default function CommissionPlansPage() {
                               onChange={(e) =>
                                 setFormData((f) => ({
                                   ...f,
-                                  recurringFlatAmountCents: Math.round(parseFloat(e.target.value || '0') * 100),
+                                  recurringFlatAmountCents: Math.round(
+                                    parseFloat(e.target.value || '0') * 100
+                                  ),
                                 }))
                               }
                               className="w-full rounded-lg border border-blue-300 bg-white py-2 pl-7 pr-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -672,7 +698,9 @@ export default function CommissionPlansPage() {
                   <input
                     type="checkbox"
                     checked={formData.recurringEnabled}
-                    onChange={(e) => setFormData((f) => ({ ...f, recurringEnabled: e.target.checked }))}
+                    onChange={(e) =>
+                      setFormData((f) => ({ ...f, recurringEnabled: e.target.checked }))
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <span className="text-sm text-gray-700">Enable recurring commissions</span>
@@ -680,13 +708,20 @@ export default function CommissionPlansPage() {
 
                 {formData.recurringEnabled && (
                   <div className="ml-7">
-                    <label className="block text-sm font-medium text-gray-700">Recurring Duration</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Recurring Duration
+                    </label>
                     <select
-                      value={formData.recurringMonths === null ? 'lifetime' : formData.recurringMonths.toString()}
+                      value={
+                        formData.recurringMonths === null
+                          ? 'lifetime'
+                          : formData.recurringMonths.toString()
+                      }
                       onChange={(e) =>
                         setFormData((f) => ({
                           ...f,
-                          recurringMonths: e.target.value === 'lifetime' ? null : parseInt(e.target.value),
+                          recurringMonths:
+                            e.target.value === 'lifetime' ? null : parseInt(e.target.value),
                         }))
                       }
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
@@ -704,13 +739,17 @@ export default function CommissionPlansPage() {
               {/* Other Settings */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Hold Period (days)</label>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Hold Period (days)
+                  </label>
                   <input
                     type="number"
                     min="0"
                     max="90"
                     value={formData.holdDays}
-                    onChange={(e) => setFormData((f) => ({ ...f, holdDays: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) =>
+                      setFormData((f) => ({ ...f, holdDays: parseInt(e.target.value) || 0 }))
+                    }
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                   <p className="mt-1 text-xs text-gray-500">Days before commission approved</p>
@@ -721,7 +760,9 @@ export default function CommissionPlansPage() {
                     <input
                       type="checkbox"
                       checked={formData.clawbackEnabled}
-                      onChange={(e) => setFormData((f) => ({ ...f, clawbackEnabled: e.target.checked }))}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, clawbackEnabled: e.target.checked }))
+                      }
                       className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                     />
                     <span className="text-sm text-gray-700">Enable clawback on refunds</span>
@@ -762,7 +803,8 @@ export default function CommissionPlansPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6">
             <h2 className="mb-2 text-xl font-bold text-gray-900">Delete Plan?</h2>
             <p className="mb-4 text-sm text-gray-600">
-              This will permanently delete this commission plan. Affiliates currently using this plan will need to be reassigned.
+              This will permanently delete this commission plan. Affiliates currently using this
+              plan will need to be reassigned.
             </p>
             <div className="flex gap-3">
               <button

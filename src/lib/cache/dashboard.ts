@@ -1,6 +1,10 @@
 /**
- * In-memory cache for admin dashboard per clinic (15-30s TTL).
- * Reduces DB load for repeat visits.
+ * In-memory cache for admin dashboard per clinic (20s TTL).
+ * Reduces DB load for repeat visits within a single serverless instance.
+ *
+ * NOTE (Serverless): This cache is per-instance and resets on cold start.
+ * That is acceptable for a short-lived performance optimisation — it is NOT
+ * used for security-sensitive operations (rate-limiting uses Redis).
  */
 
 import type { AdminDashboardPayload } from '@/lib/dashboard/admin-dashboard';

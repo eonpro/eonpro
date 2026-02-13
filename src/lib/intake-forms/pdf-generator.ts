@@ -1,11 +1,13 @@
 import puppeteer from 'puppeteer';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import fs from 'fs/promises';
-import path from 'path';
+import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { FileCategory } from '@/lib/integrations/aws/s3Config';
 
 // Helper to build sections array from submission (for PatientIntakeView display)
-function buildSectionsFromSubmission(submission: any): Array<{ title: string; entries: Array<{ id: string; label: string; value: any }> }> {
+function buildSectionsFromSubmission(
+  submission: any
+): Array<{ title: string; entries: Array<{ id: string; label: string; value: any }> }> {
   const sections: Record<string, Array<{ id: string; label: string; value: any }>> = {};
 
   for (const response of submission.responses || []) {
@@ -24,7 +26,9 @@ function buildSectionsFromSubmission(submission: any): Array<{ title: string; en
 }
 
 // Helper to build flat answers array from submission (for PatientIntakeView display)
-function buildAnswersFromSubmission(submission: any): Array<{ id: string; label: string; value: any }> {
+function buildAnswersFromSubmission(
+  submission: any
+): Array<{ id: string; label: string; value: any }> {
   return (submission.responses || []).map((response: any) => ({
     id: String(response.questionId),
     label: response.question?.questionText || 'Unknown Question',
@@ -50,16 +54,16 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
         template: {
           include: {
             questions: {
-              orderBy: { orderIndex: 'asc' }
-            }
-          }
+              orderBy: { orderIndex: 'asc' },
+            },
+          },
         },
         responses: {
           include: {
-            question: true
-          }
-        }
-      }
+            question: true,
+          },
+        },
+      },
     });
 
     if (!submission) {
@@ -72,12 +76,12 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     // Launch puppeteer and generate PDF
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    
+
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -85,15 +89,15 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
         top: '20mm',
         right: '20mm',
         bottom: '20mm',
-        left: '20mm'
-      }
+        left: '20mm',
+      },
     });
 
     await browser.close();
 
     // Save PDF to patient documents
     const fileName = `intake_form_${submission.template.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-    
+
     // Build intake data structure for display in Intake tab (same format as webhook intakes)
     const patientData = submission.patient;
     const intakeDataToStore = {
@@ -112,39 +116,51 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
       },
     };
 
-    // Create patient document record with intake data
+    // Upload PDF to S3 (serverless-safe — no ephemeral filesystem writes)
+    const s3Result = await uploadToS3({
+      file: pdfBuffer as Buffer,
+      fileName,
+      category: FileCategory.INTAKE_FORMS,
+      patientId: submission.patientId,
+      contentType: 'application/pdf',
+      metadata: {
+        submissionId: String(submissionId),
+        templateName: submission.template.name,
+      },
+    });
+
+    // Create patient document record with intake data and S3 location
+    // Store the S3 key in externalUrl (signed URLs expire; regenerate from key on access)
     await prisma.patientDocument.create({
       data: {
         patientId: submission.patientId,
         filename: fileName,
         mimeType: 'application/pdf',
         category: 'MEDICAL_INTAKE_FORM',
-        externalUrl: `/documents/intake-forms/${submissionId}.pdf`,
+        externalUrl: s3Result.key,
         source: 'System',
         sourceSubmissionId: String(submissionId),
         data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
-      }
+      },
     });
-
-    // Save PDF to file system (for production, use cloud storage)
-    const documentsDir = path.join(process.cwd(), 'public', 'documents', 'intake-forms');
-    await fs.mkdir(documentsDir, { recursive: true });
-    await fs.writeFile(path.join(documentsDir, `${submissionId}.pdf`), pdfBuffer);
 
     logger.info('Generated PDF for intake form submission', { submissionId });
 
     return pdfBuffer as Buffer;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to generate PDF', { error, submissionId });
     return null;
   }
 }
 
-function generateHTML(submission: any, options: { includeLogo: boolean; includeTimestamp: boolean }): string {
+function generateHTML(
+  submission: any,
+  options: { includeLogo: boolean; includeTimestamp: boolean }
+): string {
   const { template, patient, responses, submittedAt } = submission;
-  
+
   // Group responses by section
   const responsesByQuestion = new Map();
   responses.forEach((response: any) => {
@@ -159,7 +175,7 @@ function generateHTML(submission: any, options: { includeLogo: boolean; includeT
     }
     sections[section].push({
       ...question,
-      response: responsesByQuestion.get(question.id) || 'Not answered'
+      response: responsesByQuestion.get(question.id) || 'Not answered',
     });
   });
 
@@ -290,10 +306,14 @@ function generateHTML(submission: any, options: { includeLogo: boolean; includeT
         </div>
       </div>
 
-      ${Object.entries(sections).map(([sectionName, questions]) => `
+      ${Object.entries(sections)
+        .map(
+          ([sectionName, questions]) => `
         <div class="section">
           <h3>${sectionName}</h3>
-          ${questions.map((q: any) => `
+          ${questions
+            .map(
+              (q: any) => `
             <div class="question">
               <div class="question-text">
                 ${q.questionText}
@@ -303,19 +323,27 @@ function generateHTML(submission: any, options: { includeLogo: boolean; includeT
                 ${formatResponse(q.response, q.questionType)}
               </div>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
-      `).join('')}
+      `
+        )
+        .join('')}
 
       <div class="footer">
         <p>This form was submitted electronically through ${process.env.NEXT_PUBLIC_CLINIC_NAME || 'EONPro'}</p>
-        ${options.includeTimestamp ? `
+        ${
+          options.includeTimestamp
+            ? `
           <div class="timestamp">
             Submitted on: ${new Date(submittedAt).toLocaleString()}
             <br>
             Document generated on: ${new Date().toLocaleString()}
           </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
     </body>
     </html>
@@ -357,7 +385,7 @@ export async function generatePDFOnSubmission(submissionId: number): Promise<voi
     logger.info('PDF generated automatically for submission', { submissionId });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to auto-generate PDF', { error, submissionId });
   }
 }

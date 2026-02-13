@@ -1,9 +1,9 @@
 /**
  * User Profile Picture API
- * 
+ *
  * Handles profile picture upload, retrieval, and deletion for all user types.
  * Supports: SUPER_ADMIN, ADMIN, PROVIDER, INFLUENCER, AFFILIATE, PATIENT, STAFF, SUPPORT, SALES_REP
- * 
+ *
  * GET - Get current user's profile picture URL
  * POST - Upload/update profile picture (accepts multipart form data or generates presigned URL)
  * DELETE - Remove profile picture
@@ -13,16 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { 
-  uploadToS3, 
-  deleteFromS3, 
-  generateSignedUrl 
-} from '@/lib/integrations/aws/s3Service';
-import { 
-  FileCategory, 
-  STORAGE_CONFIG,
-  isS3Enabled 
-} from '@/lib/integrations/aws/s3Config';
+import { uploadToS3, deleteFromS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { FileCategory, STORAGE_CONFIG, isS3Enabled } from '@/lib/integrations/aws/s3Config';
 import { v4 as uuidv4 } from 'uuid';
 
 // Maximum file size for profile pictures (5MB)
@@ -84,17 +76,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to get profile picture' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get profile picture' }, { status: 500 });
   }
 }
 
 /**
  * POST /api/user/profile-picture
  * Upload or generate presigned URL for profile picture
- * 
+ *
  * Two modes:
  * 1. Direct upload: Send multipart form data with 'file' field
  * 2. Presigned URL: Send JSON { action: 'getUploadUrl', contentType: 'image/jpeg' }
@@ -106,7 +95,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     // Handle presigned URL request (JSON body)
     if (contentType.includes('application/json')) {
       const body = await req.json();
-      
+
       if (body.action === 'getUploadUrl') {
         // Validate content type
         if (!body.contentType || !ALLOWED_TYPES.includes(body.contentType)) {
@@ -215,7 +204,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       // Upload to S3
       const extension = file.type.split('/')[1].replace('jpeg', 'jpg');
       const fileName = `${uuidv4()}.${extension}`;
-      
+
       const result = await uploadToS3({
         file: buffer,
         fileName,
@@ -255,10 +244,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to upload profile picture' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to upload profile picture' }, { status: 500 });
   }
 }
 
@@ -275,10 +261,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
     });
 
     if (!currentUser?.avatarUrl) {
-      return NextResponse.json(
-        { error: 'No profile picture to delete' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'No profile picture to delete' }, { status: 404 });
     }
 
     // Delete from S3 if it's an S3 key
@@ -309,10 +292,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to delete profile picture' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete profile picture' }, { status: 500 });
   }
 }
 

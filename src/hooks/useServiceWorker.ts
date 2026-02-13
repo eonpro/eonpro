@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { clientLogger } from '@/lib/clientLogger';
 
 interface ServiceWorkerState {
   isSupported: boolean;
@@ -68,7 +69,7 @@ export function useServiceWorker(): UseServiceWorkerReturn {
           scope: '/patient-portal',
         });
 
-        console.log('[PWA] Service worker registered:', registration.scope);
+        clientLogger.log('[PWA] Service worker registered:', registration.scope);
 
         setState((s) => ({
           ...s,
@@ -85,7 +86,7 @@ export function useServiceWorker(): UseServiceWorkerReturn {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               // New update available
-              console.log('[PWA] New version available');
+              clientLogger.log('[PWA] New version available');
               setState((s) => ({ ...s, updateAvailable: true }));
             }
           });
@@ -93,7 +94,7 @@ export function useServiceWorker(): UseServiceWorkerReturn {
 
         // Listen for controller change (after skipWaiting)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log('[PWA] Controller changed, reloading...');
+          clientLogger.log('[PWA] Controller changed, reloading...');
           window.location.reload();
         });
 
@@ -102,7 +103,7 @@ export function useServiceWorker(): UseServiceWorkerReturn {
           setState((s) => ({ ...s, updateAvailable: true }));
         }
       } catch (error) {
-        console.error('[PWA] Service worker registration failed:', error);
+        clientLogger.error('[PWA] Service worker registration failed:', error);
         setState((s) => ({ ...s, installing: false }));
       }
     };
@@ -123,9 +124,9 @@ export function useServiceWorker(): UseServiceWorkerReturn {
 
     try {
       await state.registration.update();
-      console.log('[PWA] Checked for updates');
+      clientLogger.log('[PWA] Checked for updates');
     } catch (error) {
-      console.error('[PWA] Update check failed:', error);
+      clientLogger.error('[PWA] Update check failed:', error);
     }
   }, [state.registration]);
 
@@ -173,7 +174,7 @@ export function useOfflineStorage() {
     };
 
     request.onerror = () => {
-      console.error('[Offline] Failed to open database:', request.error);
+      clientLogger.error('[Offline] Failed to open database:', request.error);
     };
   }, []);
 

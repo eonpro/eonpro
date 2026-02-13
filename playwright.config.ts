@@ -159,6 +159,16 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
       },
     },
+
+    // Patient portal smoke (session-expired); no shared auth – logs in as patient
+    {
+      name: 'patient-portal-smoke',
+      testMatch: /.*patient-portal-session-expired\.e2e\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: undefined,
+      },
+    },
     
     // API tests
     {

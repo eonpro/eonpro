@@ -1,7 +1,9 @@
 # Email Architecture & Marketing Strategy
 
 ## Overview
-Lifefile uses a **dual-platform approach** for email communications, separating transactional emails from marketing campaigns for optimal performance, cost-efficiency, and maintainability.
+
+Lifefile uses a **dual-platform approach** for email communications, separating transactional emails
+from marketing campaigns for optimal performance, cost-efficiency, and maintainability.
 
 ## Current Architecture
 
@@ -53,7 +55,9 @@ Lifefile uses a **dual-platform approach** for email communications, separating 
 ## Why This Architecture?
 
 ### ✅ **Advantages**
-1. **Cost Optimization**: AWS SES for high-volume transactional ($0.10/1000) vs marketing platform for campaigns
+
+1. **Cost Optimization**: AWS SES for high-volume transactional ($0.10/1000) vs marketing platform
+   for campaigns
 2. **Specialized Tools**: Each platform does what it does best
 3. **Compliance**: Easier to maintain HIPAA compliance with separated systems
 4. **Deliverability**: Transactional emails maintain high reputation separate from marketing
@@ -61,23 +65,26 @@ Lifefile uses a **dual-platform approach** for email communications, separating 
 6. **Maintenance**: Marketing platform handles their own updates and features
 
 ### 📊 **Cost Comparison**
-| Volume/Month | AWS SES | SendGrid | Savings |
-|-------------|---------|----------|---------|
-| 10,000 emails | $1 | $15 | $14 |
-| 100,000 emails | $10 | $100 | $90 |
-| 1,000,000 emails | $100 | $500+ | $400+ |
+
+| Volume/Month     | AWS SES | SendGrid | Savings |
+| ---------------- | ------- | -------- | ------- |
+| 10,000 emails    | $1      | $15      | $14     |
+| 100,000 emails   | $10     | $100     | $90     |
+| 1,000,000 emails | $100    | $500+    | $400+   |
 
 ## Integration Points
 
 ### When You're Ready for Marketing Automation
 
 #### Step 1: Choose Your Platform
+
 - **SendGrid**: Best for developers, good API
 - **Klaviyo**: Best for e-commerce, advanced segmentation
 - **Mailchimp**: Best for ease of use, templates
 - **Customer.io**: Best for behavior-based automation
 
 #### Step 2: Light Integration (Recommended)
+
 ```javascript
 // Minimal integration points needed:
 
@@ -114,6 +121,7 @@ POST /api/webhooks/marketing/unsubscribe
 ```
 
 #### Step 3: Data to Sync
+
 ```javascript
 // SAFE to sync to marketing platform:
 ✅ Email address
@@ -137,6 +145,7 @@ POST /api/webhooks/marketing/unsubscribe
 ## Current Implementation Status
 
 ### ✅ **Completed**
+
 - AWS SES integration for transactional emails
 - 25+ email templates
 - Rate limiting and bounce handling
@@ -144,6 +153,7 @@ POST /api/webhooks/marketing/unsubscribe
 - Admin email center at `/communications/email`
 
 ### 🔄 **Ready When Needed**
+
 - Marketing platform integration points
 - Webhook endpoints for sync
 - Feature flags for enabling marketing
@@ -152,6 +162,7 @@ POST /api/webhooks/marketing/unsubscribe
 ## Quick Start Guide
 
 ### Using Transactional Emails (Available Now)
+
 ```typescript
 // Send appointment reminder
 await sesService.sendEmail({
@@ -160,12 +171,13 @@ await sesService.sendEmail({
   data: {
     patientName: 'John Doe',
     appointmentDate: '2024-02-01',
-    providerName: 'Dr. Smith'
-  }
+    providerName: 'Dr. Smith',
+  },
 });
 ```
 
 ### Adding Marketing Platform (When Ready)
+
 1. Sign up for SendGrid/Klaviyo account
 2. Get API credentials
 3. Add to `.env.local`:
@@ -182,12 +194,14 @@ await sesService.sendEmail({
 ## Security & Compliance
 
 ### HIPAA Considerations
+
 - ✅ Transactional emails can contain PHI (secured via AWS)
 - ⚠️ Marketing emails should NEVER contain PHI
 - ✅ Use patient IDs, not medical data, for segmentation
 - ✅ Maintain separate unsubscribe lists for each type
 
 ### Best Practices
+
 1. **Never mix** transactional and marketing in same email
 2. **Clear unsubscribe** options for marketing only
 3. **Audit trail** for all email sends
@@ -196,11 +210,13 @@ await sesService.sendEmail({
 ## Support & Resources
 
 ### AWS SES Resources
+
 - [AWS SES Documentation](https://docs.aws.amazon.com/ses/)
 - [HIPAA Compliance Guide](https://aws.amazon.com/compliance/hipaa-compliance/)
 - Current implementation: `/src/lib/integrations/aws/sesService.ts`
 
 ### Marketing Platform Resources
+
 - [SendGrid API Docs](https://docs.sendgrid.com/)
 - [Klaviyo API Docs](https://developers.klaviyo.com/)
 - [Mailchimp API Docs](https://mailchimp.com/developer/)
@@ -209,7 +225,8 @@ await sesService.sendEmail({
 
 **Date**: November 2024  
 **Decision**: Keep marketing emails on external platform  
-**Rationale**: 
+**Rationale**:
+
 - Saves 3-6 months of development time
 - Reduces maintenance burden
 - Leverages specialized tools
@@ -218,4 +235,5 @@ await sesService.sendEmail({
 
 ---
 
-*This architecture provides the best balance of functionality, compliance, and cost-efficiency for a healthcare platform.*
+_This architecture provides the best balance of functionality, compliance, and cost-efficiency for a
+healthcare platform._

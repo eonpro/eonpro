@@ -1,12 +1,12 @@
 /**
  * SAFE DATABASE QUERY WRAPPER
- * 
+ *
  * Wraps critical database queries with:
  * 1. Pre-query schema validation (optional)
  * 2. Automatic retry on transient failures
  * 3. Detailed error logging
  * 4. Query timeout protection
- * 
+ *
  * Use this for CRITICAL operations like:
  * - Fetching invoices/payments (billing data)
  * - Fetching prescriptions (patient safety)
@@ -65,18 +65,15 @@ export async function safeQuery<T>(
     try {
       const { prisma } = await import('@/lib/db');
       const { validateTableBeforeOperation } = await import('./schema-validator');
-      
-      const schemaResult = await validateTableBeforeOperation(
-        tableName as any,
-        prisma
-      );
-      
+
+      const schemaResult = await validateTableBeforeOperation(tableName as any, prisma);
+
       if (!schemaResult.valid) {
         logger.error(`[SafeQuery] Schema validation failed for ${operationName}`, {
           table: tableName,
           error: schemaResult.error,
         });
-        
+
         return {
           success: false,
           error: {
@@ -97,18 +94,18 @@ export async function safeQuery<T>(
   // Retry loop
   while (attempts < maxRetries) {
     attempts++;
-    
+
     try {
       // Execute with timeout
       const result = await Promise.race([
         queryFn(),
-        new Promise<never>((_, reject) => 
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Query timeout')), timeout)
         ),
       ]);
 
       const duration = Date.now() - startTime;
-      
+
       if (attempts > 1) {
         logger.info(`[SafeQuery] ${operationName} succeeded after ${attempts} attempts`, {
           duration,
@@ -121,13 +118,12 @@ export async function safeQuery<T>(
         attempts,
         duration,
       };
-
     } catch (error: any) {
       lastError = error;
-      
+
       // Determine if error is retryable
       const isRetryable = isRetryableError(error);
-      
+
       logger.warn(`[SafeQuery] ${operationName} attempt ${attempts} failed`, {
         error: error.message,
         retryable: isRetryable,
@@ -147,7 +143,7 @@ export async function safeQuery<T>(
 
   // All retries exhausted
   const duration = Date.now() - startTime;
-  
+
   logger.error(`[SafeQuery] ${operationName} failed after ${attempts} attempts`, {
     error: lastError?.message,
     duration,
@@ -218,7 +214,7 @@ export async function safePrescriptionQuery<T>(
  */
 function isRetryableError(error: Error): boolean {
   const message = error.message.toLowerCase();
-  
+
   // Retryable errors
   const retryablePatterns = [
     'connection',
@@ -230,7 +226,7 @@ function isRetryableError(error: Error): boolean {
     'deadlock',
     'lock wait timeout',
   ];
-  
+
   // Non-retryable errors
   const nonRetryablePatterns = [
     'does not exist',
@@ -258,7 +254,7 @@ function isRetryableError(error: Error): boolean {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

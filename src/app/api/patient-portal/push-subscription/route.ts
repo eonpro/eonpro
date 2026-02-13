@@ -65,14 +65,17 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       },
     });
 
-    logger.info('Push subscription registered', { patientId, endpoint: subscription.endpoint.slice(0, 50) });
+    logger.info('Push subscription registered', {
+      patientId,
+      endpoint: subscription.endpoint.slice(0, 50),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     const errorId = crypto.randomUUID().slice(0, 8);
     logger.error(`[PUSH_SUBSCRIPTION_POST] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       patientId: user.patientId,
     });
     return NextResponse.json(
@@ -105,18 +108,25 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
       },
     });
 
-    logger.info('Push subscription unregistered', { patientId: user.patientId, endpoint: endpoint.slice(0, 50) });
+    logger.info('Push subscription unregistered', {
+      patientId: user.patientId,
+      endpoint: endpoint.slice(0, 50),
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     const errorId = crypto.randomUUID().slice(0, 8);
     logger.error(`[PUSH_SUBSCRIPTION_DELETE] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       patientId: user.patientId,
     });
     return NextResponse.json(
-      { error: 'Failed to unregister subscription', errorId, code: 'SUBSCRIPTION_UNREGISTER_ERROR' },
+      {
+        error: 'Failed to unregister subscription',
+        errorId,
+        code: 'SUBSCRIPTION_UNREGISTER_ERROR',
+      },
       { status: 500 }
     );
   }
@@ -154,7 +164,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const errorId = crypto.randomUUID().slice(0, 8);
     logger.error(`[PUSH_SUBSCRIPTION_GET] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       patientId: user.patientId,
     });
     return NextResponse.json(

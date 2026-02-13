@@ -207,29 +207,32 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
 
         const sourceDetails: Record<string, { count: number; patients: unknown[] }> = {};
 
-        for (const group of patientsBySource) {
-          const patients = await prisma.patient.findMany({
-            where: {
-              ...clinicFilter,
-              source: group.source,
-              createdAt: { gte: start, lte: end },
-            },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              createdAt: true,
-            },
-            take: 50,
-            orderBy: { createdAt: 'desc' },
-          });
+        // Fetch patient details for all source groups in parallel
+        await Promise.all(
+          patientsBySource.map(async (group) => {
+            const patients = await prisma.patient.findMany({
+              where: {
+                ...clinicFilter,
+                source: group.source,
+                createdAt: { gte: start, lte: end },
+              },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                createdAt: true,
+              },
+              take: 50,
+              orderBy: { createdAt: 'desc' },
+            });
 
-          sourceDetails[group.source || 'unknown'] = {
-            count: group._count,
-            patients,
-          };
-        }
+            sourceDetails[group.source || 'unknown'] = {
+              count: group._count,
+              patients,
+            };
+          })
+        );
 
         return NextResponse.json({
           bySource: sourceDetails,

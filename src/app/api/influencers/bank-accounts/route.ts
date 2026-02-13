@@ -26,25 +26,24 @@ export async function GET(req: NextRequest) {
         isDefault: true,
         accountNumber: true,
         createdAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     // Decrypt account numbers and mask them for display
     const decryptedAccounts = bankAccounts.map((account: any) => ({
       ...account,
-      accountNumber: account.accountNumber ? `****${account.accountNumber.slice(-4)}` : '****'
+      accountNumber: account.accountNumber ? `****${account.accountNumber.slice(-4)}` : '****',
     }));
 
     return NextResponse.json(decryptedAccounts);
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Bank Accounts API] Error fetching bank accounts:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch bank accounts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch bank accounts' }, { status: 500 });
   }
 }
 
@@ -63,10 +62,7 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!bankName || !accountNumber || !routingNumber) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Encrypt sensitive data
@@ -77,7 +73,7 @@ export async function POST(req: NextRequest) {
     if (isDefault) {
       await prisma.influencerBankAccount.updateMany({
         where: { influencerId },
-        data: { isDefault: false }
+        data: { isDefault: false },
       });
     }
 
@@ -89,8 +85,8 @@ export async function POST(req: NextRequest) {
         accountNumber: encryptedAccountNumber,
         routingNumber: encryptedRoutingNumber,
         accountType: accountType || 'checking',
-        isDefault: isDefault || false
-      }
+        isDefault: isDefault || false,
+      },
     });
 
     return NextResponse.json({
@@ -100,17 +96,14 @@ export async function POST(req: NextRequest) {
         bankName: bankAccount.bankName,
         accountNumber: `****${accountNumber.slice(-4)}`,
         accountType: bankAccount.accountType,
-        isDefault: bankAccount.isDefault
-      }
+        isDefault: bankAccount.isDefault,
+      },
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Bank Accounts API] Error creating bank account:', error);
-    return NextResponse.json(
-      { error: 'Failed to create bank account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create bank account' }, { status: 500 });
   }
 }
 
@@ -128,42 +121,36 @@ export async function PATCH(req: NextRequest) {
     const { accountId, isDefault } = await req.json();
 
     if (!accountId) {
-      return NextResponse.json(
-        { error: 'Account ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Account ID is required' }, { status: 400 });
     }
 
     // Verify the account belongs to this influencer
     const account: any = await prisma.influencerBankAccount.findFirst({
       where: {
         id: accountId,
-        influencerId
-      }
+        influencerId,
+      },
     });
 
     if (!account) {
-      return NextResponse.json(
-        { error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
     // If setting as default, unset other defaults
     if (isDefault) {
       await prisma.influencerBankAccount.updateMany({
-        where: { 
+        where: {
           influencerId,
-          id: { not: accountId }
+          id: { not: accountId },
         },
-        data: { isDefault: false }
+        data: { isDefault: false },
       });
     }
 
     // Update the account
     const updatedAccount = await prisma.influencerBankAccount.update({
       where: { id: accountId },
-      data: { isDefault }
+      data: { isDefault },
     });
 
     return NextResponse.json({
@@ -172,17 +159,14 @@ export async function PATCH(req: NextRequest) {
         id: updatedAccount.id,
         bankName: updatedAccount.bankName,
         accountType: updatedAccount.accountType,
-        isDefault: updatedAccount.isDefault
-      }
+        isDefault: updatedAccount.isDefault,
+      },
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Bank Accounts API] Error updating bank account:', error);
-    return NextResponse.json(
-      { error: 'Failed to update bank account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update bank account' }, { status: 500 });
   }
 }
 
@@ -201,43 +185,34 @@ export async function DELETE(req: NextRequest) {
     const accountId = parseInt(searchParams.get('id') || '0');
 
     if (!accountId) {
-      return NextResponse.json(
-        { error: 'Account ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Account ID is required' }, { status: 400 });
     }
 
     // Verify the account belongs to this influencer
     const account: any = await prisma.influencerBankAccount.findFirst({
       where: {
         id: accountId,
-        influencerId
-      }
+        influencerId,
+      },
     });
 
     if (!account) {
-      return NextResponse.json(
-        { error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
     // Delete the account
     await prisma.influencerBankAccount.delete({
-      where: { id: accountId }
+      where: { id: accountId },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Bank account deleted successfully'
+      message: 'Bank account deleted successfully',
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Bank Accounts API] Error deleting bank account:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete bank account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete bank account' }, { status: 500 });
   }
 }

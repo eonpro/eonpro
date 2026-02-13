@@ -34,19 +34,13 @@ function calculateSLATimes(priority: string, createdAt: Date) {
 }
 
 // GET /api/internal/tickets/[id]/sla - Get SLA status
-async function getHandler(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+async function getHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const ticketId = parseInt(params.id);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const sla = await prisma.ticketSLA.findUnique({
@@ -58,27 +52,25 @@ async function getHandler(
             ticketNumber: true,
             priority: true,
             status: true,
-            createdAt: true
-          }
-        }
-      }
+            createdAt: true,
+          },
+        },
+      },
     });
 
     if (!sla) {
-      return NextResponse.json(
-        { error: 'SLA not found for this ticket' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'SLA not found for this ticket' }, { status: 404 });
     }
 
     // Calculate current status
     const now = new Date();
-    const timeToFirstResponse = sla.firstResponseDue 
+    const timeToFirstResponse = sla.firstResponseDue
       ? Math.floor((sla.firstResponseDue.getTime() - now.getTime()) / 60000)
       : null;
     const timeToResolution = Math.floor((sla.resolutionDue.getTime() - now.getTime()) / 60000);
-    
-    const firstResponseBreached = sla.firstResponseDue && !sla.firstResponseAt && now > sla.firstResponseDue;
+
+    const firstResponseBreached =
+      sla.firstResponseDue && !sla.firstResponseAt && now > sla.firstResponseDue;
     const resolutionBreached = !sla.resolvedAt && now > sla.resolutionDue;
 
     return NextResponse.json({
@@ -88,50 +80,38 @@ async function getHandler(
         resolutionBreached,
         timeToFirstResponse,
         timeToResolution,
-        isBreached: sla.breached || firstResponseBreached || resolutionBreached
-      }
+        isBreached: sla.breached || firstResponseBreached || resolutionBreached,
+      },
     });
   } catch (error) {
     logger.error('Error fetching SLA:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch SLA' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch SLA' }, { status: 500 });
   }
 }
 
 // POST /api/internal/tickets/[id]/sla - Create or update SLA
-async function postHandler(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+async function postHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const ticketId = parseInt(params.id);
     const body = await request.json();
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     // Get ticket details
     const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId }
+      where: { id: ticketId },
     });
 
     if (!ticket) {
-      return NextResponse.json(
-        { error: 'Ticket not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
     // Check if SLA already exists
     const existingSLA = await prisma.ticketSLA.findUnique({
-      where: { ticketId }
+      where: { ticketId },
     });
 
     const slaData = body.customSLA || calculateSLATimes(ticket.priority, ticket.createdAt);
@@ -141,11 +121,13 @@ async function postHandler(
       const updatedSLA = await prisma.ticketSLA.update({
         where: { ticketId },
         data: {
-          firstResponseDue: slaData.firstResponseDue ? new Date(slaData.firstResponseDue) : existingSLA.firstResponseDue,
+          firstResponseDue: slaData.firstResponseDue
+            ? new Date(slaData.firstResponseDue)
+            : existingSLA.firstResponseDue,
           resolutionDue: new Date(slaData.resolutionDue),
           breached: body.breached || existingSLA.breached,
-          breachReason: body.breachReason || existingSLA.breachReason
-        }
+          breachReason: body.breachReason || existingSLA.breachReason,
+        },
       });
 
       return NextResponse.json(updatedSLA);
@@ -156,47 +138,35 @@ async function postHandler(
           ticketId,
           firstResponseDue: slaData.firstResponseDue ? new Date(slaData.firstResponseDue) : null,
           resolutionDue: new Date(slaData.resolutionDue),
-          breached: false
-        }
+          breached: false,
+        },
       });
 
       return NextResponse.json(newSLA, { status: 201 });
     }
   } catch (error) {
     logger.error('Error managing SLA:', error);
-    return NextResponse.json(
-      { error: 'Failed to manage SLA' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to manage SLA' }, { status: 500 });
   }
 }
 
 // PATCH /api/internal/tickets/[id]/sla - Update SLA (e.g., mark first response)
-async function patchHandler(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+async function patchHandler(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const params = await context.params;
     const ticketId = parseInt(params.id);
     const body = await request.json();
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const sla = await prisma.ticketSLA.findUnique({
-      where: { ticketId }
+      where: { ticketId },
     });
 
     if (!sla) {
-      return NextResponse.json(
-        { error: 'SLA not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'SLA not found' }, { status: 404 });
     }
 
     const updateData: any = {};
@@ -205,7 +175,7 @@ async function patchHandler(
     // Mark first response
     if (body.markFirstResponse && !sla.firstResponseAt) {
       updateData.firstResponseAt = now;
-      
+
       // Check if breached
       if (sla.firstResponseDue && now > sla.firstResponseDue) {
         updateData.breached = true;
@@ -216,11 +186,11 @@ async function patchHandler(
     // Mark resolution
     if (body.markResolved && !sla.resolvedAt) {
       updateData.resolvedAt = now;
-      
+
       // Check if breached
       if (now > sla.resolutionDue) {
         updateData.breached = true;
-        updateData.breachReason = updateData.breachReason 
+        updateData.breachReason = updateData.breachReason
           ? `${updateData.breachReason}, Resolution SLA breached`
           : 'Resolution SLA breached';
       }
@@ -234,16 +204,13 @@ async function patchHandler(
 
     const updatedSLA = await prisma.ticketSLA.update({
       where: { ticketId },
-      data: updateData
+      data: updateData,
     });
 
     return NextResponse.json(updatedSLA);
   } catch (error) {
     logger.error('Error updating SLA:', error);
-    return NextResponse.json(
-      { error: 'Failed to update SLA' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update SLA' }, { status: 500 });
   }
 }
 

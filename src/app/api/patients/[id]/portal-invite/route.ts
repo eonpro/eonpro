@@ -39,7 +39,10 @@ const postHandler = withAuthParams(
 
       // Use request origin for invite link so it matches the domain (e.g. eonmeds.eonpro.io)
       const host = request.headers.get('host');
-      const proto = request.headers.get('x-forwarded-proto') || request.headers.get('x-forwarded-protocol') || 'https';
+      const proto =
+        request.headers.get('x-forwarded-proto') ||
+        request.headers.get('x-forwarded-protocol') ||
+        'https';
       const baseUrlOverride = host ? `${proto}://${host}` : undefined;
 
       const result = await createAndSendPortalInvite(id, 'manual', {
@@ -63,7 +66,10 @@ const postHandler = withAuthParams(
         }
         if (result.error === 'Patient has no phone number') {
           return NextResponse.json(
-            { error: 'This patient has no phone number. Add a phone number to send an invite via SMS.' },
+            {
+              error:
+                'This patient has no phone number. Add a phone number to send an invite via SMS.',
+            },
             { status: 400 }
           );
         }
@@ -76,7 +82,8 @@ const postHandler = withAuthParams(
           error: result.error,
         });
         const isSecuritySensitive =
-          result.error && /decryption|encryption|ENCRYPTION_KEY|key must be|key not/i.test(result.error);
+          result.error &&
+          /decryption|encryption|ENCRYPTION_KEY|key must be|key not/i.test(result.error);
         const safeMessage = isSecuritySensitive
           ? 'Unable to load patient contact details. Please try again or contact support.'
           : (result.error ?? 'Failed to send invite. Please try again.');

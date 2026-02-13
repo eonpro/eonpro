@@ -35,10 +35,7 @@ export async function GET(req: NextRequest) {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   if (!authResult.success && !isDevelopment) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const report: AIHealthReport = {
@@ -70,7 +67,9 @@ export async function GET(req: NextRequest) {
     // Check if API key format looks valid (starts with sk-)
     if (!apiKey.startsWith('sk-')) {
       report.status = 'degraded';
-      report.recommendations?.push('API key should start with "sk-". Verify it is correctly formatted.');
+      report.recommendations?.push(
+        'API key should start with "sk-". Verify it is correctly formatted.'
+      );
     }
 
     // Check 2: Model Configuration
@@ -94,11 +93,17 @@ export async function GET(req: NextRequest) {
       report.checks.errorDetails = `API connectivity failed: ${connectError.message}`;
 
       if (connectError.status === 401) {
-        report.recommendations?.push('API key is invalid or expired. Generate a new key at https://platform.openai.com/api-keys');
+        report.recommendations?.push(
+          'API key is invalid or expired. Generate a new key at https://platform.openai.com/api-keys'
+        );
       } else if (connectError.status === 429) {
-        report.recommendations?.push('Rate limit exceeded. Check your OpenAI usage at https://platform.openai.com/usage');
+        report.recommendations?.push(
+          'Rate limit exceeded. Check your OpenAI usage at https://platform.openai.com/usage'
+        );
       } else if (connectError.code === 'ECONNREFUSED' || connectError.code === 'ENOTFOUND') {
-        report.recommendations?.push('Network connectivity issue. Check if the server can reach api.openai.com');
+        report.recommendations?.push(
+          'Network connectivity issue. Check if the server can reach api.openai.com'
+        );
       }
 
       report.responseTime = Date.now() - startTime;
@@ -135,7 +140,9 @@ export async function GET(req: NextRequest) {
 
         if (completionError.code === 'insufficient_quota') {
           report.checks.errorDetails = 'OpenAI quota exceeded';
-          report.recommendations?.push('Your OpenAI account has exceeded its quota. Add payment method or upgrade plan.');
+          report.recommendations?.push(
+            'Your OpenAI account has exceeded its quota. Add payment method or upgrade plan.'
+          );
         } else if (completionError.status === 429) {
           report.checks.errorDetails = 'Rate limited during completion test';
           report.recommendations?.push('Too many requests. Wait a moment and try again.');

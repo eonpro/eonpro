@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Payout Method Page
- * 
+ *
  * Add/edit bank account or PayPal for payouts.
  */
 
@@ -69,9 +69,10 @@ export default function PayoutMethodPage() {
     setError(null);
 
     try {
-      const payload = selectedType === 'bank' 
-        ? { type: 'bank', ...bankForm }
-        : { type: 'paypal', email: paypalEmail };
+      const payload =
+        selectedType === 'bank'
+          ? { type: 'bank', ...bankForm }
+          : { type: 'paypal', email: paypalEmail };
 
       const res = await fetch('/api/affiliate/account/payout-method', {
         method: 'POST',
@@ -97,8 +98,8 @@ export default function PayoutMethodPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
       </div>
     );
   }
@@ -106,23 +107,28 @@ export default function PayoutMethodPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white px-6 py-4 border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto flex items-center gap-4">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-3xl items-center gap-4">
           <Link href="/affiliate/account" className="text-gray-400 hover:text-gray-600">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </Link>
           <h1 className="text-xl font-semibold text-gray-900">Payout Method</h1>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-6">
+      <div className="mx-auto max-w-3xl px-6 py-6">
         {success && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-800"
+            className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800"
           >
             Payout method saved successfully! Redirecting...
           </motion.div>
@@ -132,7 +138,7 @@ export default function PayoutMethodPage() {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800"
+            className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800"
           >
             {error}
           </motion.div>
@@ -143,28 +149,39 @@ export default function PayoutMethodPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-6"
+            className="rounded-2xl bg-white p-6"
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Current Method</h2>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                currentMethod.isVerified 
-                  ? 'bg-green-50 text-green-700' 
-                  : 'bg-yellow-50 text-yellow-700'
-              }`}>
+              <span
+                className={`rounded-full px-2 py-1 text-xs font-medium ${
+                  currentMethod.isVerified
+                    ? 'bg-green-50 text-green-700'
+                    : 'bg-yellow-50 text-yellow-700'
+                }`}
+              >
                 {currentMethod.isVerified ? 'Verified' : 'Pending Verification'}
               </span>
             </div>
 
-            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-4">
-              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
+            <div className="mb-4 flex items-center gap-4 rounded-xl bg-gray-50 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
                 {currentMethod.type === 'bank' ? (
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  <svg
+                    className="h-6 w-6 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
                   </svg>
                 ) : (
-                  <svg className="w-6 h-6 text-[#cab172]" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="h-6 w-6 text-[#cab172]" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}
@@ -175,7 +192,7 @@ export default function PayoutMethodPage() {
                     ? `${currentMethod.bankName || 'Bank Account'} ••••${currentMethod.last4}`
                     : currentMethod.email}
                 </p>
-                <p className="text-sm text-gray-500 capitalize">
+                <p className="text-sm capitalize text-gray-500">
                   {currentMethod.type === 'bank' ? 'Bank Transfer' : 'PayPal'}
                 </p>
               </div>
@@ -183,7 +200,7 @@ export default function PayoutMethodPage() {
 
             <button
               onClick={() => setIsEditing(true)}
-              className="w-full py-3 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+              className="w-full rounded-xl border border-gray-200 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               Change Payout Method
             </button>
@@ -197,41 +214,54 @@ export default function PayoutMethodPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-6 mb-4"
+              className="mb-4 rounded-2xl bg-white p-6"
             >
-              <h2 className="font-semibold text-gray-900 mb-4">Select Method</h2>
+              <h2 className="mb-4 font-semibold text-gray-900">Select Method</h2>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setSelectedType('bank')}
-                  className={`p-4 rounded-xl border-2 transition-all ${
+                  className={`rounded-xl border-2 p-4 transition-all ${
                     selectedType === 'bank'
                       ? 'border-gray-900 bg-gray-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <svg className="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  <svg
+                    className="mx-auto mb-2 h-8 w-8 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
                   </svg>
                   <p className="font-medium text-gray-900">Bank Account</p>
-                  <p className="text-xs text-gray-500 mt-1">2-3 business days</p>
+                  <p className="mt-1 text-xs text-gray-500">2-3 business days</p>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSelectedType('paypal')}
-                  className={`p-4 rounded-xl border-2 transition-all ${
+                  className={`rounded-xl border-2 p-4 transition-all ${
                     selectedType === 'paypal'
                       ? 'border-gray-900 bg-gray-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <svg className="w-8 h-8 mx-auto mb-2 text-[#cab172]" viewBox="0 0 24 24" fill="currentColor">
+                  <svg
+                    className="mx-auto mb-2 h-8 w-8 text-[#cab172]"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                   <p className="font-medium text-gray-900">PayPal</p>
-                  <p className="text-xs text-gray-500 mt-1">Instant transfer</p>
+                  <p className="mt-1 text-xs text-gray-500">Instant transfer</p>
                 </button>
               </div>
             </motion.div>
@@ -244,33 +274,40 @@ export default function PayoutMethodPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="bg-white rounded-2xl p-6 space-y-4"
+                  className="space-y-4 rounded-2xl bg-white p-6"
                 >
                   <h2 className="font-semibold text-gray-900">Bank Account Details</h2>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Account Holder Name
                     </label>
                     <input
                       type="text"
                       value={bankForm.accountHolderName}
-                      onChange={(e) => setBankForm({ ...bankForm, accountHolderName: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:ring-0"
+                      onChange={(e) =>
+                        setBankForm({ ...bankForm, accountHolderName: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-gray-900 focus:ring-0"
                       placeholder="John Doe"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Routing Number
                     </label>
                     <input
                       type="text"
                       value={bankForm.routingNumber}
-                      onChange={(e) => setBankForm({ ...bankForm, routingNumber: e.target.value.replace(/\D/g, '').slice(0, 9) })}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:ring-0"
+                      onChange={(e) =>
+                        setBankForm({
+                          ...bankForm,
+                          routingNumber: e.target.value.replace(/\D/g, '').slice(0, 9),
+                        })
+                      }
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-gray-900 focus:ring-0"
                       placeholder="123456789"
                       maxLength={9}
                       required
@@ -278,28 +315,33 @@ export default function PayoutMethodPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Account Number
                     </label>
                     <input
                       type="text"
                       value={bankForm.accountNumber}
-                      onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value.replace(/\D/g, '') })}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:ring-0"
+                      onChange={(e) =>
+                        setBankForm({
+                          ...bankForm,
+                          accountNumber: e.target.value.replace(/\D/g, ''),
+                        })
+                      }
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-gray-900 focus:ring-0"
                       placeholder="••••••••••••"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Account Type
                     </label>
                     <div className="flex gap-3">
                       <button
                         type="button"
                         onClick={() => setBankForm({ ...bankForm, accountType: 'checking' })}
-                        className={`flex-1 py-3 rounded-xl border transition-all ${
+                        className={`flex-1 rounded-xl border py-3 transition-all ${
                           bankForm.accountType === 'checking'
                             ? 'border-gray-900 bg-gray-50 font-medium'
                             : 'border-gray-200'
@@ -310,7 +352,7 @@ export default function PayoutMethodPage() {
                       <button
                         type="button"
                         onClick={() => setBankForm({ ...bankForm, accountType: 'savings' })}
-                        className={`flex-1 py-3 rounded-xl border transition-all ${
+                        className={`flex-1 rounded-xl border py-3 transition-all ${
                           bankForm.accountType === 'savings'
                             ? 'border-gray-900 bg-gray-50 font-medium'
                             : 'border-gray-200'
@@ -321,8 +363,8 @@ export default function PayoutMethodPage() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-[#fdf6e3] rounded-xl text-sm text-[#6b5c2e]">
-                    <p className="font-medium mb-1">Your information is secure</p>
+                  <div className="rounded-xl bg-[#fdf6e3] p-4 text-sm text-[#6b5c2e]">
+                    <p className="mb-1 font-medium">Your information is secure</p>
                     <p className="text-[#8b7a42]">
                       Bank details are encrypted and stored securely. We use bank-level security.
                     </p>
@@ -336,19 +378,19 @@ export default function PayoutMethodPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="bg-white rounded-2xl p-6 space-y-4"
+                  className="space-y-4 rounded-2xl bg-white p-6"
                 >
                   <h2 className="font-semibold text-gray-900">PayPal Details</h2>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       PayPal Email
                     </label>
                     <input
                       type="email"
                       value={paypalEmail}
                       onChange={(e) => setPaypalEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-900 focus:ring-0"
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:border-gray-900 focus:ring-0"
                       placeholder="your@email.com"
                       required
                     />
@@ -357,8 +399,8 @@ export default function PayoutMethodPage() {
                     </p>
                   </div>
 
-                  <div className="p-4 bg-[#fdf6e3] rounded-xl text-sm text-[#6b5c2e]">
-                    <p className="font-medium mb-1">Instant Payouts</p>
+                  <div className="rounded-xl bg-[#fdf6e3] p-4 text-sm text-[#6b5c2e]">
+                    <p className="mb-1 font-medium">Instant Payouts</p>
                     <p className="text-[#8b7a42]">
                       PayPal payouts are typically processed instantly once approved.
                     </p>
@@ -373,7 +415,7 @@ export default function PayoutMethodPage() {
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="flex-1 py-3 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 rounded-xl border border-gray-200 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -381,10 +423,10 @@ export default function PayoutMethodPage() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="flex-1 py-3 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 disabled:bg-gray-400 transition-colors flex items-center justify-center"
+                className="flex flex-1 items-center justify-center rounded-xl bg-gray-900 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400"
               >
                 {isSaving ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : (
                   'Save Payout Method'
                 )}

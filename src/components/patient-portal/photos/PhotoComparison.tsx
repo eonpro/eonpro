@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Photo Comparison Component
@@ -58,7 +58,10 @@ function formatWeight(weight: number | null): string {
   return `${weight.toFixed(1)} lbs`;
 }
 
-function calculateWeightChange(before: number | null, after: number | null): {
+function calculateWeightChange(
+  before: number | null,
+  after: number | null
+): {
   change: number;
   percentage: number;
   direction: 'loss' | 'gain' | 'none';
@@ -130,7 +133,7 @@ function SliderView({ beforeUrl, afterUrl, beforeLabel, afterLabel }: SliderView
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-[3/4] sm:aspect-square overflow-hidden rounded-xl cursor-ew-resize select-none"
+      className="relative aspect-[3/4] w-full cursor-ew-resize select-none overflow-hidden rounded-xl sm:aspect-square"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -143,19 +146,16 @@ function SliderView({ beforeUrl, afterUrl, beforeLabel, afterLabel }: SliderView
       <img
         src={afterUrl}
         alt="After"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
         draggable={false}
       />
 
       {/* Before Image (Clipped) */}
-      <div
-        className="absolute inset-0 overflow-hidden"
-        style={{ width: `${sliderPosition}%` }}
-      >
+      <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPosition}%` }}>
         <img
           src={beforeUrl}
           alt="Before"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
           style={{ width: `${containerRef.current?.offsetWidth || 100}px` }}
           draggable={false}
         />
@@ -163,20 +163,20 @@ function SliderView({ beforeUrl, afterUrl, beforeLabel, afterLabel }: SliderView
 
       {/* Slider Handle */}
       <div
-        className="absolute top-0 bottom-0 w-1 bg-white shadow-lg cursor-ew-resize"
+        className="absolute bottom-0 top-0 w-1 cursor-ew-resize bg-white shadow-lg"
         style={{ left: `${sliderPosition}%`, transform: 'translateX(-50%)' }}
       >
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center">
-          <ChevronLeft className="h-4 w-4 text-gray-600 -mr-1" />
-          <ChevronRight className="h-4 w-4 text-gray-600 -ml-1" />
+        <div className="absolute left-1/2 top-1/2 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg">
+          <ChevronLeft className="-mr-1 h-4 w-4 text-gray-600" />
+          <ChevronRight className="-ml-1 h-4 w-4 text-gray-600" />
         </div>
       </div>
 
       {/* Labels */}
-      <div className="absolute top-4 left-4 px-3 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+      <div className="absolute left-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
         {beforeLabel}
       </div>
-      <div className="absolute top-4 right-4 px-3 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+      <div className="absolute right-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
         {afterLabel}
       </div>
     </div>
@@ -211,30 +211,30 @@ function SideBySideView({
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-4">
       {/* Before */}
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-100">
-        <img src={beforeUrl} alt="Before" className="w-full h-full object-cover" />
-        <div className="absolute top-3 left-3 px-3 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
+        <img src={beforeUrl} alt="Before" className="h-full w-full object-cover" />
+        <div className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
           {beforeLabel}
         </div>
-        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-          <p className="text-white text-sm font-medium">{format(parseISO(beforeDate), 'MMM d, yyyy')}</p>
-          {beforeWeight && (
-            <p className="text-white/80 text-xs">{formatWeight(beforeWeight)}</p>
-          )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+          <p className="text-sm font-medium text-white">
+            {format(parseISO(beforeDate), 'MMM d, yyyy')}
+          </p>
+          {beforeWeight && <p className="text-xs text-white/80">{formatWeight(beforeWeight)}</p>}
         </div>
       </div>
 
       {/* After */}
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-gray-100">
-        <img src={afterUrl} alt="After" className="w-full h-full object-cover" />
-        <div className="absolute top-3 right-3 px-3 py-1.5 bg-black/60 rounded-full text-white text-sm font-medium">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
+        <img src={afterUrl} alt="After" className="h-full w-full object-cover" />
+        <div className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
           {afterLabel}
         </div>
-        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-          <p className="text-white text-sm font-medium">{format(parseISO(afterDate), 'MMM d, yyyy')}</p>
-          {afterWeight && (
-            <p className="text-white/80 text-xs">{formatWeight(afterWeight)}</p>
-          )}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+          <p className="text-sm font-medium text-white">
+            {format(parseISO(afterDate), 'MMM d, yyyy')}
+          </p>
+          {afterWeight && <p className="text-xs text-white/80">{formatWeight(afterWeight)}</p>}
         </div>
       </div>
     </div>
@@ -255,42 +255,38 @@ function OverlayView({ beforeUrl, afterUrl }: OverlayViewProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative aspect-[3/4] sm:aspect-square rounded-xl overflow-hidden bg-gray-100">
+      <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100 sm:aspect-square">
         {/* Before Image */}
-        <img
-          src={beforeUrl}
-          alt="Before"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+        <img src={beforeUrl} alt="Before" className="absolute inset-0 h-full w-full object-cover" />
         {/* After Image with opacity */}
         <img
           src={afterUrl}
           alt="After"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
           style={{ opacity: opacity / 100 }}
         />
 
         {/* Labels */}
-        <div className="absolute top-4 left-4 px-3 py-1.5 bg-black/60 rounded-full text-white text-sm">
+        <div className="absolute left-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-sm text-white">
           Before
         </div>
-        <div className="absolute top-4 right-4 px-3 py-1.5 bg-black/60 rounded-full text-white text-sm">
+        <div className="absolute right-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-sm text-white">
           After
         </div>
       </div>
 
       {/* Opacity Slider */}
       <div className="flex items-center gap-4 px-4">
-        <span className="text-sm text-gray-500 w-16">Before</span>
+        <span className="w-16 text-sm text-gray-500">Before</span>
         <input
           type="range"
           min="0"
           max="100"
           value={opacity}
           onChange={(e) => setOpacity(parseInt(e.target.value))}
-          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+          className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200"
         />
-        <span className="text-sm text-gray-500 w-16 text-right">After</span>
+        <span className="w-16 text-right text-sm text-gray-500">After</span>
       </div>
     </div>
   );
@@ -317,7 +313,7 @@ export function PhotoComparison({
 
   if (!beforeUrl || !afterUrl) {
     return (
-      <div className={`flex items-center justify-center p-8 bg-gray-100 rounded-xl ${className}`}>
+      <div className={`flex items-center justify-center rounded-xl bg-gray-100 p-8 ${className}`}>
         <p className="text-gray-500">Photos not available</p>
       </div>
     );
@@ -331,7 +327,7 @@ export function PhotoComparison({
           <h3 className="text-lg font-semibold text-gray-900">Progress Comparison</h3>
           {weightChange.direction !== 'none' && (
             <div
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-sm ${
+              className={`flex items-center gap-1 rounded-full px-2 py-1 text-sm ${
                 weightChange.direction === 'loss'
                   ? 'bg-green-100 text-green-700'
                   : 'bg-orange-100 text-orange-700'
@@ -350,10 +346,10 @@ export function PhotoComparison({
 
         <div className="flex items-center gap-2">
           {/* View Mode Buttons */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
+          <div className="flex rounded-lg bg-gray-100 p-1">
             <button
               onClick={() => setViewMode('slider')}
-              className={`p-2 rounded-md transition-colors ${
+              className={`rounded-md p-2 transition-colors ${
                 viewMode === 'slider' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'
               }`}
               title="Slider view"
@@ -362,7 +358,7 @@ export function PhotoComparison({
             </button>
             <button
               onClick={() => setViewMode('side-by-side')}
-              className={`p-2 rounded-md transition-colors ${
+              className={`rounded-md p-2 transition-colors ${
                 viewMode === 'side-by-side' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'
               }`}
               title="Side by side"
@@ -371,7 +367,7 @@ export function PhotoComparison({
             </button>
             <button
               onClick={() => setViewMode('overlay')}
-              className={`p-2 rounded-md transition-colors ${
+              className={`rounded-md p-2 transition-colors ${
                 viewMode === 'overlay' ? 'bg-white shadow-sm' : 'hover:bg-gray-200'
               }`}
               title="Overlay"
@@ -384,7 +380,7 @@ export function PhotoComparison({
           {showFullscreen && (
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-lg p-2 transition-colors hover:bg-gray-100"
             >
               <Maximize2 className="h-5 w-5" />
             </button>
@@ -392,7 +388,7 @@ export function PhotoComparison({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-lg p-2 transition-colors hover:bg-gray-100"
             >
               <X className="h-5 w-5" />
             </button>
@@ -423,33 +419,31 @@ export function PhotoComparison({
         />
       )}
 
-      {viewMode === 'overlay' && (
-        <OverlayView beforeUrl={beforeUrl} afterUrl={afterUrl} />
-      )}
+      {viewMode === 'overlay' && <OverlayView beforeUrl={beforeUrl} afterUrl={afterUrl} />}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-gray-500 mb-1">
+        <div className="rounded-lg bg-gray-50 p-4">
+          <div className="mb-1 flex items-center gap-2 text-gray-500">
             <Calendar className="h-4 w-4" />
             <span className="text-sm">Before</span>
           </div>
           <p className="font-medium">{format(parseISO(beforePhoto.takenAt), 'MMM d, yyyy')}</p>
           {beforePhoto.weight && (
-            <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
+            <div className="mt-1 flex items-center gap-1 text-sm text-gray-600">
               <Scale className="h-3 w-3" />
               {formatWeight(beforePhoto.weight)}
             </div>
           )}
         </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-gray-500 mb-1">
+        <div className="rounded-lg bg-gray-50 p-4">
+          <div className="mb-1 flex items-center gap-2 text-gray-500">
             <Calendar className="h-4 w-4" />
             <span className="text-sm">After</span>
           </div>
           <p className="font-medium">{format(parseISO(afterPhoto.takenAt), 'MMM d, yyyy')}</p>
           {afterPhoto.weight && (
-            <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
+            <div className="mt-1 flex items-center gap-1 text-sm text-gray-600">
               <Scale className="h-3 w-3" />
               {formatWeight(afterPhoto.weight)}
             </div>
@@ -462,8 +456,8 @@ export function PhotoComparison({
   // Fullscreen mode
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-auto">
-        <div className="max-w-4xl mx-auto p-4 sm:p-6">{content}</div>
+      <div className="fixed inset-0 z-50 overflow-auto bg-white">
+        <div className="mx-auto max-w-4xl p-4 sm:p-6">{content}</div>
       </div>
     );
   }

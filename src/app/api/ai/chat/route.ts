@@ -27,42 +27,38 @@ export async function POST(request: NextRequest) {
     // SECURITY: Get user from server-side auth headers (set by middleware)
     const user = getCurrentUser(request);
 
-    // SECURITY: Get clinic from multiple sources with fallbacks
-    // Priority: 1. User's assigned clinic, 2. Header/cookie, 3. Client-sent
-    let clinicId: number | undefined = user?.clinicId;
+    // SECURITY: Require authenticated user — never trust client-sent identity
+    if (!user) {
+      logger.warn('[BeccaAI] Unauthenticated request rejected', {
+        ip: request.headers.get('x-forwarded-for'),
+      });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // SECURITY: Get clinic from authenticated user or server-side context only
+    // Priority: 1. User's assigned clinic, 2. Header/cookie (set by middleware)
+    let clinicId: number | undefined = user.clinicId;
 
     if (!clinicId) {
       const requestClinicId = await getClinicIdFromRequest(request);
       clinicId = requestClinicId ?? undefined;
     }
 
-    // Fallback: Accept client-sent clinicId (from JWT/localStorage on frontend)
-    // This is safe because all database queries will still filter by this clinicId
-    // The worst case is a user sees data from a clinic they claim to be in
-    // But our auth middleware should have already validated their session
-    if (!clinicId && body.clinicId) {
-      const clientClinicId = typeof body.clinicId === 'string'
-        ? parseInt(body.clinicId, 10)
-        : body.clinicId;
-      if (!isNaN(clientClinicId) && clientClinicId > 0) {
-        clinicId = clientClinicId;
-        logger.debug('[BeccaAI] Using client-sent clinicId', {
-          clinicId,
-          userEmail: body.userEmail,
-        });
-      }
-    }
+    // SECURITY: Never trust client-sent clinicId — removed fallback to body.clinicId
+    // All clinic context must come from server-side auth
 
     // SECURITY: Require clinicId for multi-tenant isolation
     if (!clinicId) {
       logger.warn('[BeccaAI] Request rejected - no clinic context', {
-        userEmail: body.userEmail,
-        hasUser: !!user,
-        bodyClinicId: body.clinicId,
+        userId: user.id,
+        userEmail: user.email,
       });
       return NextResponse.json(
         { error: 'Unable to determine clinic. Please refresh the page and try again.' },
-        { status: 400 }  // Use 400 instead of 403 to avoid session expired trigger
+        { status: 400 }
       );
     }
 
@@ -100,7 +96,7 @@ export async function POST(request: NextRequest) {
       error: errorMessage,
       status: error.status,
       code: error.code,
-      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
     });
 
     if (error instanceof z.ZodError) {
@@ -157,28 +153,24 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    // SECURITY: Get clinic context from server-side auth
+    // SECURITY: Require authenticated user
     const user = getCurrentUser(request);
-    let clinicId: number | undefined = user?.clinicId;
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // SECURITY: Get clinic from server-side auth only — never from query params
+    let clinicId: number | undefined = user.clinicId;
 
     if (!clinicId) {
       const requestClinicId = await getClinicIdFromRequest(request);
       clinicId = requestClinicId ?? undefined;
     }
 
-    // Fallback: Check query param for clinicId
-    if (!clinicId) {
-      const { searchParams } = new URL(request.url);
-      const paramClinicId = searchParams.get('clinicId');
-      if (paramClinicId) {
-        clinicId = parseInt(paramClinicId, 10) || undefined;
-      }
-    }
-
     if (!clinicId) {
       return NextResponse.json(
         { error: 'Clinic context required' },
-        { status: 400 }  // Use 400 instead of 403
+        { status: 400 }
       );
     }
 
@@ -233,28 +225,24 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    // SECURITY: Get clinic context from server-side auth
+    // SECURITY: Require authenticated user
     const user = getCurrentUser(request);
-    let clinicId: number | undefined = user?.clinicId;
+    if (!user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // SECURITY: Get clinic from server-side auth only — never from query params
+    let clinicId: number | undefined = user.clinicId;
 
     if (!clinicId) {
       const requestClinicId = await getClinicIdFromRequest(request);
       clinicId = requestClinicId ?? undefined;
     }
 
-    // Fallback: Check query param for clinicId
-    if (!clinicId) {
-      const { searchParams } = new URL(request.url);
-      const paramClinicId = searchParams.get('clinicId');
-      if (paramClinicId) {
-        clinicId = parseInt(paramClinicId, 10) || undefined;
-      }
-    }
-
     if (!clinicId) {
       return NextResponse.json(
         { error: 'Clinic context required' },
-        { status: 400 }  // Use 400 instead of 403
+        { status: 400 }
       );
     }
 
@@ -262,10 +250,7 @@ export async function DELETE(request: NextRequest) {
     const sessionId = searchParams.get('sessionId');
 
     if (!sessionId) {
-      return NextResponse.json(
-        { error: 'sessionId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
     }
 
     await endConversation(sessionId, clinicId);

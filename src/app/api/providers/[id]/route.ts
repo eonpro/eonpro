@@ -53,10 +53,7 @@ const getProviderHandler = withAuthParams(
       const provider = await providerService.getById(id, userContext);
 
       if (!provider) {
-        return NextResponse.json(
-          { error: 'Provider not found or access denied' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Provider not found or access denied' }, { status: 404 });
       }
 
       return Response.json({ provider });

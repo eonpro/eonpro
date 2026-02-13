@@ -169,25 +169,35 @@ export default function ActiveShipmentTracker({
       {/* Main Card with Animated Border */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-[3px] shadow-2xl shadow-purple-500/20">
         {/* Animated shimmer effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer_3s_infinite]" />
+        <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
-        <div className="relative rounded-[21px] bg-white overflow-hidden">
+        <div className="relative overflow-hidden rounded-[21px] bg-white">
           {/* Header with Gradient */}
           <div className={`relative bg-gradient-to-r ${config.bgColor} px-6 py-5`}>
             {/* Floating particles effect */}
             <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute top-2 left-10 h-2 w-2 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0s' }} />
-              <div className="absolute top-4 right-20 h-3 w-3 rounded-full bg-white/20 animate-bounce" style={{ animationDelay: '0.5s' }} />
-              <div className="absolute bottom-3 left-1/3 h-2 w-2 rounded-full bg-white/25 animate-bounce" style={{ animationDelay: '1s' }} />
+              <div
+                className="absolute left-10 top-2 h-2 w-2 animate-bounce rounded-full bg-white/30"
+                style={{ animationDelay: '0s' }}
+              />
+              <div
+                className="absolute right-20 top-4 h-3 w-3 animate-bounce rounded-full bg-white/20"
+                style={{ animationDelay: '0.5s' }}
+              />
+              <div
+                className="absolute bottom-3 left-1/3 h-2 w-2 animate-bounce rounded-full bg-white/25"
+                style={{ animationDelay: '1s' }}
+              />
             </div>
 
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
                 {/* Animated Icon Container */}
                 <div className="relative">
-                  <div className="absolute inset-0 rounded-2xl bg-white/20 animate-ping" />
+                  <div className="absolute inset-0 animate-ping rounded-2xl bg-white/20" />
                   <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white/30 backdrop-blur-sm">
-                    {mainShipment.status === 'in_transit' || mainShipment.status === 'out_for_delivery' ? (
+                    {mainShipment.status === 'in_transit' ||
+                    mainShipment.status === 'out_for_delivery' ? (
                       <div className="animate-[truck_1s_ease-in-out_infinite]">
                         <Truck className="h-7 w-7 text-white" />
                       </div>
@@ -200,11 +210,9 @@ export default function ActiveShipmentTracker({
                 <div>
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-white/80" />
-                    <span className="text-sm font-medium text-white/90">
-                      {config.message}
-                    </span>
+                    <span className="text-sm font-medium text-white/90">{config.message}</span>
                   </div>
-                  <h2 className="text-xl font-bold text-white mt-0.5">
+                  <h2 className="mt-0.5 text-xl font-bold text-white">
                     {mainShipment.statusLabel}
                   </h2>
                 </div>
@@ -212,13 +220,9 @@ export default function ActiveShipmentTracker({
 
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white transition-all hover:bg-white/30 hover:scale-105"
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 text-white transition-all hover:scale-105 hover:bg-white/30"
               >
-                {expanded ? (
-                  <ChevronUp className="h-5 w-5" />
-                ) : (
-                  <ChevronDown className="h-5 w-5" />
-                )}
+                {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
               </button>
             </div>
 
@@ -253,13 +257,15 @@ export default function ActiveShipmentTracker({
                     const ItemIcon = item.icon;
 
                     return (
-                      <div key={idx} className="flex flex-col items-center relative">
+                      <div key={idx} className="relative flex flex-col items-center">
                         {/* Connector Line */}
                         {idx < 4 && (
-                          <div className="absolute left-[50%] top-5 w-full h-1 -z-10">
+                          <div className="absolute left-[50%] top-5 -z-10 h-1 w-full">
                             <div
                               className={`h-full transition-all duration-500 ${
-                                isCompleted ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : 'bg-gray-200'
+                                isCompleted
+                                  ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                                  : 'bg-gray-200'
                               }`}
                             />
                           </div>
@@ -271,12 +277,12 @@ export default function ActiveShipmentTracker({
                             isCompleted
                               ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                               : isCurrent
-                              ? 'bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30 scale-110'
-                              : 'bg-gray-100 text-gray-400'
+                                ? 'scale-110 bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+                                : 'bg-gray-100 text-gray-400'
                           }`}
                         >
                           {isCurrent && (
-                            <div className="absolute inset-0 rounded-full bg-purple-400 animate-ping opacity-30" />
+                            <div className="absolute inset-0 animate-ping rounded-full bg-purple-400 opacity-30" />
                           )}
                           {isCompleted ? (
                             <CheckCircle2 className="h-5 w-5" />
@@ -287,8 +293,12 @@ export default function ActiveShipmentTracker({
 
                         {/* Label */}
                         <span
-                          className={`mt-2 text-xs font-medium text-center ${
-                            isCurrent ? 'text-purple-600' : isCompleted ? 'text-emerald-600' : 'text-gray-400'
+                          className={`mt-2 text-center text-xs font-medium ${
+                            isCurrent
+                              ? 'text-purple-600'
+                              : isCompleted
+                                ? 'text-emerald-600'
+                                : 'text-gray-400'
                           }`}
                         >
                           {item.label}
@@ -300,15 +310,17 @@ export default function ActiveShipmentTracker({
               </div>
 
               {/* Info Cards Grid */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="mb-4 grid grid-cols-2 gap-3">
                 {/* Estimated Delivery */}
                 {mainShipment.estimatedDelivery && mainShipment.status !== 'delivered' && (
-                  <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 p-4 border border-emerald-100">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
+                    <div className="mb-1 flex items-center gap-2">
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
                         <Clock className="h-3.5 w-3.5 text-emerald-600" />
                       </div>
-                      <span className="text-xs font-medium text-emerald-600">Expected Delivery</span>
+                      <span className="text-xs font-medium text-emerald-600">
+                        Expected Delivery
+                      </span>
                     </div>
                     <p className="text-lg font-bold text-emerald-800">
                       {new Date(mainShipment.estimatedDelivery).toLocaleDateString('en-US', {
@@ -321,8 +333,8 @@ export default function ActiveShipmentTracker({
                 )}
 
                 {/* Carrier Info */}
-                <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 border border-blue-100">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                  <div className="mb-1 flex items-center gap-2">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
                       <Truck className="h-3.5 w-3.5 text-blue-600" />
                     </div>
@@ -334,14 +346,14 @@ export default function ActiveShipmentTracker({
 
               {/* Last Location */}
               {mainShipment.lastLocation && (
-                <div className="mb-4 flex items-start gap-3 rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 p-4 border border-purple-100">
+                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-purple-100 bg-gradient-to-r from-violet-50 to-purple-50 p-4">
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/10">
                     <MapPin className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-purple-600">Latest Update</p>
                     <p className="font-semibold text-purple-900">{mainShipment.lastLocation}</p>
-                    <p className="text-xs text-purple-500 mt-0.5">
+                    <p className="mt-0.5 text-xs text-purple-500">
                       {new Date(mainShipment.lastUpdate).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -355,12 +367,14 @@ export default function ActiveShipmentTracker({
 
               {/* Medication Contents */}
               <div className="mb-4 rounded-2xl bg-gray-50 p-4">
-                <p className="text-xs font-medium text-gray-500 mb-2">📦 Package Contents</p>
+                <p className="mb-2 text-xs font-medium text-gray-500">📦 Package Contents</p>
                 {mainShipment.items.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between">
                     <span className="font-semibold text-gray-800">
                       {item.name}
-                      {item.strength && <span className="text-gray-500 font-normal"> {item.strength}</span>}
+                      {item.strength && (
+                        <span className="font-normal text-gray-500"> {item.strength}</span>
+                      )}
                     </span>
                     {item.quantity > 1 && (
                       <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
@@ -384,7 +398,7 @@ export default function ActiveShipmentTracker({
                     href={mainShipment.trackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:shadow-xl hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98]"
                   >
                     <Truck className="h-5 w-5" />
                     Track on {mainShipment.carrier}
@@ -409,8 +423,8 @@ export default function ActiveShipmentTracker({
           href="/patient-portal/shipments"
           className="mt-3 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/50 p-4 text-sm font-semibold text-purple-700 transition-all hover:border-purple-300 hover:bg-purple-50"
         >
-          <Package className="h-5 w-5" />
-          +{activeShipments.length - 1} more shipment{activeShipments.length > 2 ? 's' : ''} on the way
+          <Package className="h-5 w-5" />+{activeShipments.length - 1} more shipment
+          {activeShipments.length > 2 ? 's' : ''} on the way
         </Link>
       )}
 
@@ -425,7 +439,8 @@ export default function ActiveShipmentTracker({
           }
         }
         @keyframes truck {
-          0%, 100% {
+          0%,
+          100% {
             transform: translateX(0);
           }
           25% {

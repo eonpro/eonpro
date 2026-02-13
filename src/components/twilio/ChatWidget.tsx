@@ -1,29 +1,29 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { isFeatureEnabled } from "@/lib/features";
-import { ChatClientManager, mockChatService } from "@/lib/integrations/twilio/chatService";
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { isFeatureEnabled } from '@/lib/features';
+import { ChatClientManager, mockChatService } from '@/lib/integrations/twilio/chatService';
 import { logger } from '@/lib/logger';
 import {
-  CHAT_CONFIG, 
-  SYSTEM_MESSAGES, 
+  CHAT_CONFIG,
+  SYSTEM_MESSAGES,
   PROVIDER_QUICK_RESPONSES,
   PATIENT_QUICK_RESPONSES,
-  ChatUserType 
-} from "@/lib/integrations/twilio/chatConfig";
+  ChatUserType,
+} from '@/lib/integrations/twilio/chatConfig';
 import { Patient, Provider, Order } from '@/types/models';
-import { 
-  MessageCircle, 
-  Send, 
-  Paperclip, 
-  X, 
+import {
+  MessageCircle,
+  Send,
+  Paperclip,
+  X,
   ChevronDown,
   Circle,
   CheckCheck,
   Image,
   File,
-  Clock
-} from "lucide-react";
+  Clock,
+} from 'lucide-react';
 
 interface ChatWidgetProps {
   userId: string;
@@ -52,18 +52,18 @@ export default function ChatWidget({
   userName,
   userType = ChatUserType.PATIENT,
   recipientId,
-  recipientName = "Healthcare Provider",
+  recipientName = 'Healthcare Provider',
   conversationId,
 }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState("");
+  const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [recipientTyping, setRecipientTyping] = useState(false);
   const [recipientOnline, setRecipientOnline] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [showQuickResponses, setShowQuickResponses] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatManagerRef = useRef<ChatClientManager | null>(null);
@@ -71,7 +71,7 @@ export default function ChatWidget({
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if feature is enabled
-  const isEnabled = isFeatureEnabled("TWILIO_CHAT");
+  const isEnabled = isFeatureEnabled('TWILIO_CHAT');
   const useMock = !isEnabled || process.env.TWILIO_USE_MOCK === 'true';
 
   // Initialize chat
@@ -97,7 +97,7 @@ export default function ChatWidget({
   }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const initializeChat = async () => {
@@ -107,13 +107,15 @@ export default function ChatWidget({
       if (useMock) {
         // Use mock service
         logger.debug('[CHAT] Using mock service');
-        
+
         // Create mock conversation
         const mockConversation = await mockChatService.createConversation(
-          conversationId || `${userId}-${recipientId}`, `Chat with ${recipientName}`);
-        
+          conversationId || `${userId}-${recipientId}`,
+          `Chat with ${recipientName}`
+        );
+
         conversationRef.current = mockConversation;
-        
+
         // Add welcome message
         const welcomeMsg: Message = {
           id: 'welcome',
@@ -133,13 +135,15 @@ export default function ChatWidget({
         if (tokenResponse.mock || tokenResponse.token?.startsWith('mock.')) {
           // Use mock service even if feature is enabled (configuration incomplete)
           logger.debug('[CHAT] Using mock service (configuration incomplete)');
-          
+
           // Create mock conversation
           const mockConversation = await mockChatService.createConversation(
-            conversationId || `${userId}-${recipientId}`, `Chat with ${recipientName}`);
-          
+            conversationId || `${userId}-${recipientId}`,
+            `Chat with ${recipientName}`
+          );
+
           conversationRef.current = mockConversation;
-          
+
           // Add welcome message
           const welcomeMsg: Message = {
             id: 'welcome',
@@ -155,7 +159,7 @@ export default function ChatWidget({
           // Initialize real Twilio chat
           const chatManager = new ChatClientManager(userId, userType);
           await chatManager.initialize(tokenResponse.token);
-          
+
           const conversation = await chatManager.getOrCreateConversation(
             conversationId || `${userId}-${recipientId}`,
             `Chat with ${recipientName}`,
@@ -190,7 +194,7 @@ export default function ChatWidget({
               isOwn: message.author === userId,
               type: message.attributes?.type || 'text',
             };
-            setMessages(prev => [...prev, newMessage]);
+            setMessages((prev) => [...prev, newMessage]);
           });
 
           chatManager.onTyping((participant: any, typing: boolean) => {
@@ -207,8 +211,8 @@ export default function ChatWidget({
         }
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Initialization failed:', error);
     } finally {
       setIsConnecting(false);
@@ -220,9 +224,9 @@ export default function ChatWidget({
       const response = await fetch('/api/v2/twilio/chat/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          identity: userId, 
-          userType 
+        body: JSON.stringify({
+          identity: userId,
+          userType,
         }),
       });
 
@@ -231,8 +235,8 @@ export default function ChatWidget({
         return data; // Return full response object
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to fetch token:', error);
     }
     return null;
@@ -242,7 +246,7 @@ export default function ChatWidget({
     if (!inputText.trim()) return;
 
     const messageText = inputText;
-    setInputText("");
+    setInputText('');
 
     try {
       if (useMock) {
@@ -262,20 +266,19 @@ export default function ChatWidget({
           isOwn: true,
           type: 'text',
         };
-        setMessages(prev => [...prev, newMessage]);
+        setMessages((prev) => [...prev, newMessage]);
       } else {
         // Send via Twilio
         if (chatManagerRef.current && conversationRef.current) {
-          await chatManagerRef.current.sendMessage(
-            conversationRef.current,
-            messageText,
-            { type: 'text', timestamp: new Date().toISOString() }
-          );
+          await chatManagerRef.current.sendMessage(conversationRef.current, messageText, {
+            type: 'text',
+            timestamp: new Date().toISOString(),
+          });
         }
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to send message:', error);
       setInputText(messageText); // Restore message on error
     }
@@ -322,15 +325,14 @@ export default function ChatWidget({
         await chatManagerRef.current.sendFile(conversationRef.current, file);
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[CHAT] Failed to send file:', error);
     }
   };
 
-  const quickResponses = userType === ChatUserType.PROVIDER 
-    ? PROVIDER_QUICK_RESPONSES 
-    : PATIENT_QUICK_RESPONSES;
+  const quickResponses =
+    userType === ChatUserType.PROVIDER ? PROVIDER_QUICK_RESPONSES : PATIENT_QUICK_RESPONSES;
 
   if (!isEnabled) {
     return null; // Don't show widget if feature is disabled
@@ -342,11 +344,11 @@ export default function ChatWidget({
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-all z-40"
+          className="fixed bottom-4 right-4 z-40 rounded-full bg-blue-600 p-4 text-white shadow-lg transition-all hover:bg-blue-700"
         >
           <MessageCircle className="h-6 w-6" />
           {messages.filter((m: any) => !m.read && !m.isOwn).length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
               {messages.filter((m: any) => !m.read && !m.isOwn).length}
             </span>
           )}
@@ -355,16 +357,16 @@ export default function ChatWidget({
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 w-96 h-[600px] bg-white rounded-lg shadow-2xl flex flex-col z-50">
+        <div className="fixed bottom-4 right-4 z-50 flex h-[600px] w-96 flex-col rounded-lg bg-white shadow-2xl">
           {/* Header */}
-          <div className="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-t-lg bg-blue-600 p-4 text-white">
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="w-10 h-10 bg-white text-blue-600 rounded-full flex items-center justify-center font-semibold">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white font-semibold text-blue-600">
                   {recipientName.charAt(0).toUpperCase()}
                 </div>
                 {recipientOnline && (
-                  <Circle className="absolute bottom-0 right-0 h-3 w-3 text-green-400 fill-green-400" />
+                  <Circle className="absolute bottom-0 right-0 h-3 w-3 fill-green-400 text-green-400" />
                 )}
               </div>
               <div>
@@ -376,20 +378,18 @@ export default function ChatWidget({
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="hover:bg-blue-700 rounded p-1 transition-colors"
+              className="rounded p-1 transition-colors hover:bg-blue-700"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4">
             {isConnecting ? (
-              <div className="text-center text-gray-500 py-8">
-                Connecting to chat...
-              </div>
+              <div className="py-8 text-center text-gray-500">Connecting to chat...</div>
             ) : messages.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
+              <div className="py-8 text-center text-gray-500">
                 No messages yet. Start the conversation!
               </div>
             ) : (
@@ -399,42 +399,40 @@ export default function ChatWidget({
                   className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
                 >
                   {message.type === 'system' ? (
-                    <div className="text-center text-xs text-gray-500 italic py-2 px-4">
+                    <div className="px-4 py-2 text-center text-xs italic text-gray-500">
                       {message.text}
                     </div>
                   ) : (
                     <div
                       className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        message.isOwn
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white border border-gray-200'
+                        message.isOwn ? 'bg-blue-600 text-white' : 'border border-gray-200 bg-white'
                       }`}
                     >
                       {message.type === 'image' && message.fileUrl && (
-                        <img 
-                          src={message.fileUrl} 
-                          alt={message.fileName} 
-                          className="max-w-full rounded mb-2"
+                        <img
+                          src={message.fileUrl}
+                          alt={message.fileName}
+                          className="mb-2 max-w-full rounded"
                         />
                       )}
                       {message.type === 'file' && (
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="mb-2 flex items-center gap-2">
                           <File className="h-4 w-4" />
                           <span className="text-sm underline">{message.fileName}</span>
                         </div>
                       )}
                       <p className="text-sm">{message.text}</p>
-                      <div className={`flex items-center gap-1 mt-1 text-xs ${
-                        message.isOwn ? 'text-blue-100' : 'text-gray-500'
-                      }`}>
+                      <div
+                        className={`mt-1 flex items-center gap-1 text-xs ${
+                          message.isOwn ? 'text-blue-100' : 'text-gray-500'
+                        }`}
+                      >
                         <Clock className="h-3 w-3" />
-                        {new Date(message.timestamp).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
+                        {new Date(message.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
                         })}
-                        {message.isOwn && message.read && (
-                          <CheckCheck className="h-3 w-3 ml-1" />
-                        )}
+                        {message.isOwn && message.read && <CheckCheck className="ml-1 h-3 w-3" />}
                       </div>
                     </div>
                   )}
@@ -443,11 +441,11 @@ export default function ChatWidget({
             )}
             {recipientTyping && (
               <div className="flex justify-start">
-                <div className="bg-gray-300 rounded-lg px-4 py-2">
+                <div className="rounded-lg bg-gray-300 px-4 py-2">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-100" />
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce delay-200" />
+                    <div className="h-2 w-2 animate-bounce rounded-full bg-gray-600" />
+                    <div className="h-2 w-2 animate-bounce rounded-full bg-gray-600 delay-100" />
+                    <div className="h-2 w-2 animate-bounce rounded-full bg-gray-600 delay-200" />
                   </div>
                 </div>
               </div>
@@ -466,7 +464,7 @@ export default function ChatWidget({
                       setInputText(response);
                       setShowQuickResponses(false);
                     }}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors"
+                    className="rounded-full bg-gray-100 px-3 py-1 text-xs transition-colors hover:bg-gray-200"
                   >
                     {response}
                   </button>
@@ -476,18 +474,18 @@ export default function ChatWidget({
           )}
 
           {/* Input */}
-          <div className="border-t bg-white p-4 rounded-b-lg">
+          <div className="rounded-b-lg border-t bg-white p-4">
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowQuickResponses(!showQuickResponses)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 transition-colors hover:text-gray-600"
                 title="Quick responses"
               >
                 <ChevronDown className="h-5 w-5" />
               </button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 transition-colors hover:text-gray-600"
                 title="Attach file"
               >
                 <Paperclip className="h-5 w-5" />
@@ -513,22 +511,22 @@ export default function ChatWidget({
                   }
                 }}
                 placeholder="Type a message..."
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 maxLength={CHAT_CONFIG.MAX_MESSAGE_LENGTH}
               />
               <button
                 onClick={sendMessage}
                 disabled={!inputText.trim()}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`rounded-lg p-2 transition-colors ${
                   inputText.trim()
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'cursor-not-allowed bg-gray-200 text-gray-400'
                 }`}
               >
                 <Send className="h-5 w-5" />
               </button>
             </div>
-            <div className="text-xs text-gray-500 mt-2 flex justify-between">
+            <div className="mt-2 flex justify-between text-xs text-gray-500">
               <span>
                 {useMock && '(Mock Mode) '}
                 {CHAT_CONFIG.MAX_MESSAGE_LENGTH - inputText.length} characters remaining

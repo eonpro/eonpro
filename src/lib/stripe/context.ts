@@ -53,10 +53,7 @@ export async function getStripeContextForRequest(
     if (!clinicId) {
       return {
         context: null,
-        error: NextResponse.json(
-          { error: 'Clinic context required' },
-          { status: 400 }
-        ),
+        error: NextResponse.json({ error: 'Clinic context required' }, { status: 400 }),
       };
     }
 

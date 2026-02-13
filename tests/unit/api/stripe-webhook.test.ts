@@ -176,6 +176,38 @@ describe('Stripe Webhook Handler', () => {
     });
   });
 
+  describe('Tenant-safe idempotency', () => {
+    const idempotencyKeyFormat = (clinicId: number, eventId: string) =>
+      `stripe:${clinicId}:${eventId}`;
+
+    it('uses key format stripe:${clinicId}:${eventId}', () => {
+      expect(idempotencyKeyFormat(1, 'ev_abc')).toBe('stripe:1:ev_abc');
+      expect(idempotencyKeyFormat(0, 'ev_xyz')).toBe('stripe:0:ev_xyz');
+      expect(idempotencyKeyFormat(99, 'ev_123')).toBe('stripe:99:ev_123');
+    });
+
+    it('same eventId for different clinicId yields different keys', () => {
+      const eventId = 'ev_same';
+      const key1 = idempotencyKeyFormat(1, eventId);
+      const key2 = idempotencyKeyFormat(2, eventId);
+      expect(key1).not.toBe(key2);
+      expect(key1).toBe('stripe:1:ev_same');
+      expect(key2).toBe('stripe:2:ev_same');
+    });
+
+    it('same eventId for same clinicId yields same key (retry is deduped)', () => {
+      const key1 = idempotencyKeyFormat(5, 'ev_retry');
+      const key2 = idempotencyKeyFormat(5, 'ev_retry');
+      expect(key1).toBe(key2);
+      expect(key2).toBe('stripe:5:ev_retry');
+    });
+
+    it('clinicId 0 is used when metadata.clinicId is missing', () => {
+      const key = idempotencyKeyFormat(0, 'ev_unknown');
+      expect(key).toBe('stripe:0:ev_unknown');
+    });
+  });
+
   describe('Webhook Response', () => {
     it('should return 200 for processed events', () => {
       const response = { received: true };

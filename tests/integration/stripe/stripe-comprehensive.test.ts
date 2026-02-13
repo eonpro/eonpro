@@ -137,10 +137,12 @@ vi.mock('@/lib/db', () => ({
       update: vi.fn(),
       findFirst: vi.fn(),
     },
-    $transaction: vi.fn((fn) => fn({
-      invoice: { update: vi.fn(), create: vi.fn() },
-      payment: { create: vi.fn(), update: vi.fn() },
-    })),
+    $transaction: vi.fn((fn) =>
+      fn({
+        invoice: { update: vi.fn(), create: vi.fn() },
+        payment: { create: vi.fn(), update: vi.fn() },
+      })
+    ),
   },
 }));
 
@@ -162,7 +164,11 @@ describe('Stripe Customer Operations', () => {
 
   describe('Customer Creation', () => {
     it('should create a customer with valid data', async () => {
-      const createCustomer = async (data: { email: string; name: string; metadata?: Record<string, string> }) => {
+      const createCustomer = async (data: {
+        email: string;
+        name: string;
+        metadata?: Record<string, string>;
+      }) => {
         return {
           id: `cus_${Date.now()}`,
           object: 'customer',
@@ -282,10 +288,13 @@ describe('Stripe Invoice Operations', () => {
     });
 
     it('should add line items to invoice', async () => {
-      const addLineItem = async (invoiceId: string, item: {
-        amount: number;
-        description: string;
-      }) => {
+      const addLineItem = async (
+        invoiceId: string,
+        item: {
+          amount: number;
+          description: string;
+        }
+      ) => {
         return {
           id: `ii_${Date.now()}`,
           invoice: invoiceId,
@@ -455,7 +464,7 @@ describe('Stripe Webhook Processing', () => {
     it('should reject expired signatures', () => {
       const isSignatureExpired = (timestamp: number, toleranceSeconds = 300) => {
         const now = Math.floor(Date.now() / 1000);
-        return (now - timestamp) > toleranceSeconds;
+        return now - timestamp > toleranceSeconds;
       };
 
       const recentTimestamp = Math.floor(Date.now() / 1000) - 60;
@@ -652,7 +661,7 @@ describe('Stripe Error Handling', () => {
 
     it('should handle card_declined error', () => {
       const error = new StripeError('Card declined', 'card_error', 'card_declined', 402);
-      
+
       expect(error.type).toBe('card_error');
       expect(error.code).toBe('card_declined');
       expect(error.statusCode).toBe(402);
@@ -660,14 +669,19 @@ describe('Stripe Error Handling', () => {
 
     it('should handle rate_limit error', () => {
       const error = new StripeError('Rate limit exceeded', 'rate_limit_error', undefined, 429);
-      
+
       expect(error.type).toBe('rate_limit_error');
       expect(error.statusCode).toBe(429);
     });
 
     it('should handle invalid_request_error', () => {
-      const error = new StripeError('Invalid customer', 'invalid_request_error', 'resource_missing', 404);
-      
+      const error = new StripeError(
+        'Invalid customer',
+        'invalid_request_error',
+        'resource_missing',
+        404
+      );
+
       expect(error.type).toBe('invalid_request_error');
       expect(error.code).toBe('resource_missing');
     });
@@ -676,7 +690,7 @@ describe('Stripe Error Handling', () => {
   describe('Error Recovery', () => {
     it('should retry on rate limit', async () => {
       let attempts = 0;
-      
+
       const retryableOperation = async () => {
         attempts++;
         if (attempts < 3) {

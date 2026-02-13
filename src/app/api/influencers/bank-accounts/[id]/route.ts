@@ -38,7 +38,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ message: 'Bank account deleted successfully' });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Influencer Bank Account API] Error deleting bank account:', error);
     return NextResponse.json({ error: 'Failed to delete bank account' }, { status: 500 });
   }

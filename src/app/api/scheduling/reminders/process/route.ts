@@ -1,13 +1,16 @@
 /**
  * Appointment Reminders Processing API
- * 
+ *
  * Cron job endpoint to process pending appointment reminders
  * Should be called by a scheduled task (e.g., Vercel Cron, AWS EventBridge)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { processPendingReminders, getReminderStats } from '@/lib/scheduling/appointment-reminder.service';
+import {
+  processPendingReminders,
+  getReminderStats,
+} from '@/lib/scheduling/appointment-reminder.service';
 
 // Verify cron secret for security
 function verifyCronSecret(request: NextRequest): boolean {
@@ -30,9 +33,9 @@ function verifyCronSecret(request: NextRequest): boolean {
 /**
  * POST /api/scheduling/reminders/process
  * Process all pending appointment reminders
- * 
+ *
  * This endpoint should be called by a cron job every minute
- * 
+ *
  * Vercel cron example (vercel.json):
  * {
  *   "crons": [{
@@ -46,10 +49,7 @@ export async function POST(request: NextRequest) {
     // Verify authorization
     if (!verifyCronSecret(request)) {
       logger.warn('Unauthorized cron request');
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     logger.info('Starting reminder processing cron job');
@@ -83,10 +83,7 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authorization
     if (!verifyCronSecret(request)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
@@ -105,9 +102,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get reminder stats', { error: errorMessage });
-    return NextResponse.json(
-      { error: 'Failed to get reminder stats' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get reminder stats' }, { status: 500 });
   }
 }

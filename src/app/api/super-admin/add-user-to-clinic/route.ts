@@ -65,7 +65,6 @@ async function handler(req: NextRequest) {
       message: `Added ${user.email} to ${clinic.name} as ${role}`,
       userClinic,
     });
-
   } catch (error: any) {
     logger.error('[ADD-USER-CLINIC] Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

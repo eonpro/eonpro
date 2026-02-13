@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Upload, FileText, ChevronRight, Activity, Heart, TestTube } from 'lucide-react';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
@@ -32,13 +33,21 @@ export default function PatientPortalBloodworkPage() {
 
   const fetchReports = useCallback(async () => {
     try {
-      const res = await fetch('/api/patient-portal/bloodwork', {
-        headers: getAuthHeaders() as HeadersInit,
-        credentials: 'include',
-      });
+      const res = await portalFetch('/api/patient-portal/bloodwork');
+      const sessionErr = getPortalResponseError(res);
+      if (sessionErr) {
+        setError(sessionErr);
+        setIsLoading(false);
+        return;
+      }
       if (res.ok) {
-        const data = await res.json();
-        setReports(data.reports ?? []);
+        const data = await safeParseJson(res);
+        const list =
+          data !== null && typeof data === 'object' && 'reports' in data
+            ? (data as { reports?: unknown[] }).reports
+            : undefined;
+        setReports(Array.isArray(list) ? list : []);
+        setError(null);
       }
     } catch {
       setReports([]);
@@ -64,18 +73,20 @@ export default function PatientPortalBloodworkPage() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        const res = await fetch('/api/patient-portal/bloodwork/upload', {
+        const res = await portalFetch('/api/patient-portal/bloodwork/upload', {
           method: 'POST',
           body: formData,
-          headers: getAuthHeaders() as HeadersInit,
-          credentials: 'include',
         });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success) {
+        const data = await safeParseJson(res);
+        if (res.ok && data !== null && typeof data === 'object' && 'success' in data && (data as { success?: boolean }).success) {
           setUploadSuccess(true);
           fetchReports();
         } else {
-          setError(data.error || t('bloodworkUploadError'));
+          const errMsg =
+            data !== null && typeof data === 'object' && 'error' in data
+              ? String((data as { error?: unknown }).error)
+              : t('bloodworkUploadError');
+          setError(errMsg);
         }
       } catch {
         setError(t('bloodworkUploadError'));
@@ -111,6 +122,20 @@ export default function PatientPortalBloodworkPage() {
   return (
     <div className="min-h-screen bg-gray-50/80 p-4 pb-24 md:p-6">
       <div className="mx-auto max-w-3xl">
+        {error === SESSION_EXPIRED_MESSAGE && (
+          <div
+            className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+            role="alert"
+          >
+            <p className="flex-1 text-sm font-medium text-amber-900">{error}</p>
+            <Link
+              href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/bloodwork`)}&reason=session_expired`}
+              className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+            >
+              Log in
+            </Link>
+          </div>
+        )}
         <h1 className="text-2xl font-bold text-gray-900">{t('bloodworkTitle')}</h1>
         <p className="mt-1 text-sm text-gray-600">{t('bloodworkSubtitle')}</p>
 
@@ -176,8 +201,8 @@ export default function PatientPortalBloodworkPage() {
                     <div>
                       <p className="font-medium text-gray-900">{r.labName}</p>
                       <p className="text-sm text-gray-500">
-                        {t('bloodworkReportDate')}: {formatDate(r.reportedAt ?? r.createdAt)} · {r.resultCount}{' '}
-                        {t('bloodworkBiomarkers')}
+                        {t('bloodworkReportDate')}: {formatDate(r.reportedAt ?? r.createdAt)} ·{' '}
+                        {r.resultCount} {t('bloodworkBiomarkers')}
                       </p>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 /**
  * Feature Flag System for Safe Integration Rollout
- * 
+ *
  * This system allows us to enable/disable features without code changes.
  * All new EONPRO integrations should be behind feature flags.
  */
@@ -11,20 +11,20 @@ export interface FeatureFlags {
   STRIPE_SUBSCRIPTIONS: boolean;
   STRIPE_CONNECT: boolean;
   SQUARE_PAYMENTS: boolean;
-  
+
   // Communication Features
   TWILIO_SMS: boolean;
   TWILIO_CHAT: boolean;
-  
+
   // Telehealth Features
   ZOOM_TELEHEALTH: boolean;
   ZOOM_WAITING_ROOM: boolean;
-  
+
   // AWS Features
   AWS_S3_STORAGE: boolean;
   AWS_SES_EMAIL: boolean;
   AWS_EVENTBRIDGE: boolean;
-  
+
   // Advanced Features
   DYNAMIC_FORMS: boolean;
   MULTI_LANGUAGE: boolean;
@@ -38,20 +38,20 @@ export const FEATURES: FeatureFlags = {
   STRIPE_SUBSCRIPTIONS: process.env.NEXT_PUBLIC_ENABLE_STRIPE_SUBSCRIPTIONS === 'true',
   STRIPE_CONNECT: process.env.NEXT_PUBLIC_ENABLE_STRIPE_CONNECT === 'true',
   SQUARE_PAYMENTS: process.env.NEXT_PUBLIC_ENABLE_SQUARE_PAYMENTS === 'true',
-  
+
   // Communication Features
   TWILIO_SMS: process.env.NEXT_PUBLIC_ENABLE_TWILIO_SMS === 'true',
   TWILIO_CHAT: process.env.NEXT_PUBLIC_ENABLE_TWILIO_CHAT === 'true',
-  
+
   // Telehealth Features
   ZOOM_TELEHEALTH: process.env.NEXT_PUBLIC_ENABLE_ZOOM_TELEHEALTH === 'true',
   ZOOM_WAITING_ROOM: process.env.NEXT_PUBLIC_ENABLE_ZOOM_WAITING_ROOM === 'true',
-  
+
   // AWS Features
   AWS_S3_STORAGE: process.env.NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE === 'true',
   AWS_SES_EMAIL: process.env.NEXT_PUBLIC_ENABLE_AWS_SES_EMAIL === 'true',
   AWS_EVENTBRIDGE: process.env.NEXT_PUBLIC_ENABLE_AWS_EVENTBRIDGE === 'true',
-  
+
   // Advanced Features
   DYNAMIC_FORMS: process.env.NEXT_PUBLIC_ENABLE_DYNAMIC_FORMS === 'true',
   MULTI_LANGUAGE: process.env.NEXT_PUBLIC_ENABLE_MULTI_LANGUAGE === 'true',
@@ -78,7 +78,9 @@ export function isAnyFeatureEnabled(...features: (keyof FeatureFlags)[]): boolea
 export const FEATURE_PRESETS = {
   development: {
     // Enable all features in development for testing
-    ALL_FEATURES: process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_ENABLE_ALL_FEATURES === 'true',
+    ALL_FEATURES:
+      process.env.NODE_ENV === 'development' &&
+      process.env.NEXT_PUBLIC_ENABLE_ALL_FEATURES === 'true',
   },
   staging: {
     // Enable stable features in staging

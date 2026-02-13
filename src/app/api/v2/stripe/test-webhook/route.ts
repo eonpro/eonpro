@@ -1,24 +1,32 @@
 /**
  * API endpoint to simulate Stripe webhook events for testing
+ * Requires authentication (admin/provider).
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { isFeatureEnabled } from "@/lib/features";
-import { prisma } from "@/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/auth/middleware';
+import { isFeatureEnabled } from '@/lib/features';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
   try {
-    // Check feature flag
-    if (!isFeatureEnabled("STRIPE_SUBSCRIPTIONS")) {
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (!isFeatureEnabled('STRIPE_SUBSCRIPTIONS')) {
       return NextResponse.json(
-        { error: "Stripe Subscriptions feature is not enabled" },
+        { error: 'Stripe Subscriptions feature is not enabled' },
         { status: 403 }
       );
     }
 
     const event = await req.json();
-    
+
     logger.debug('[STRIPE_WEBHOOK_TEST] Processing test event:', { value: event.type });
 
     // Simulate webhook processing
@@ -26,7 +34,7 @@ export async function POST(req: NextRequest) {
       switch (event.type) {
         case 'customer.subscription.created':
           logger.debug('[STRIPE_WEBHOOK_TEST] Subscription created:', event.data.object.id);
-          
+
           // Log to console for testing (audit table not available)
           logger.debug('[STRIPE_WEBHOOK_TEST] Would log to audit:', {
             action: 'SUBSCRIPTION_CREATED',
@@ -45,8 +53,11 @@ export async function POST(req: NextRequest) {
           break;
 
         case 'invoice.payment_succeeded':
-          logger.debug('[STRIPE_WEBHOOK_TEST] Payment succeeded for invoice:', event.data.object.id);
-          
+          logger.debug(
+            '[STRIPE_WEBHOOK_TEST] Payment succeeded for invoice:',
+            event.data.object.id
+          );
+
           // Simulate commission calculation (if applicable)
           try {
             const amount = event.data.object.amount_paid || 0;
@@ -70,7 +81,7 @@ export async function POST(req: NextRequest) {
 
         case 'checkout.session.completed':
           logger.debug('[STRIPE_WEBHOOK_TEST] Checkout session completed:', event.data.object.id);
-          
+
           // Simulate order creation (if applicable)
           const sessionId = event.data.object.id;
           const customerId = event.data.object.customer;
@@ -89,23 +100,22 @@ export async function POST(req: NextRequest) {
         processed: true,
         test: true,
       });
-
     } catch (processingError: any) {
-    const errorMessage = processingError instanceof Error ? processingError.message : String(processingError);
+      const errorMessage =
+        processingError instanceof Error ? processingError.message : String(processingError);
       logger.error('[STRIPE_WEBHOOK_TEST] Processing error:', { value: processingError });
       return NextResponse.json(
-        { error: "Webhook processing failed", details: errorMessage },
+        { error: 'Webhook processing failed', details: errorMessage },
         { status: 400 }
       );
     }
-
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_WEBHOOK_TEST] Error:', error);
     return NextResponse.json(
-      { error: "Failed to process test webhook", details: errorMessage },
+      { error: 'Failed to process test webhook', details: errorMessage },
       { status: 500 }
     );
   }

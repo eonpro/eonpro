@@ -145,19 +145,18 @@ export async function fetchStripeCustomerData(customerId: string): Promise<{
 
     if (!customerName && stripeCustomer.metadata) {
       // Check common metadata fields for name
-      customerName = stripeCustomer.metadata.name ||
-                    stripeCustomer.metadata.customer_name ||
-                    stripeCustomer.metadata.full_name ||
-                    stripeCustomer.metadata.fullName ||
-                    null;
+      customerName =
+        stripeCustomer.metadata.name ||
+        stripeCustomer.metadata.customer_name ||
+        stripeCustomer.metadata.full_name ||
+        stripeCustomer.metadata.fullName ||
+        null;
     }
 
     // Also check metadata for phone if not set
     let customerPhone: string | null = stripeCustomer.phone || null;
     if (!customerPhone && stripeCustomer.metadata) {
-      customerPhone = stripeCustomer.metadata.phone ||
-                     stripeCustomer.metadata.phone_number ||
-                     null;
+      customerPhone = stripeCustomer.metadata.phone || stripeCustomer.metadata.phone_number || null;
     }
 
     logger.debug('[PaymentMatching] Fetched Stripe customer data', {
@@ -166,23 +165,29 @@ export async function fetchStripeCustomerData(customerId: string): Promise<{
       hasEmail: !!stripeCustomer.email,
       hasPhone: !!customerPhone,
       hasAddress: !!stripeCustomer.address,
-      nameSource: stripeCustomer.name ? 'name' :
-                 stripeCustomer.description ? 'description' :
-                 stripeCustomer.metadata?.name ? 'metadata' : 'none',
+      nameSource: stripeCustomer.name
+        ? 'name'
+        : stripeCustomer.description
+          ? 'description'
+          : stripeCustomer.metadata?.name
+            ? 'metadata'
+            : 'none',
     });
 
     return {
       email: stripeCustomer.email,
       name: customerName,
       phone: customerPhone,
-      address: stripeCustomer.address ? {
-        line1: stripeCustomer.address.line1,
-        line2: stripeCustomer.address.line2,
-        city: stripeCustomer.address.city,
-        state: stripeCustomer.address.state,
-        postal_code: stripeCustomer.address.postal_code,
-        country: stripeCustomer.address.country,
-      } : null,
+      address: stripeCustomer.address
+        ? {
+            line1: stripeCustomer.address.line1,
+            line2: stripeCustomer.address.line2,
+            city: stripeCustomer.address.city,
+            state: stripeCustomer.address.state,
+            postal_code: stripeCustomer.address.postal_code,
+            country: stripeCustomer.address.country,
+          }
+        : null,
     };
   } catch (error) {
     logger.warn('[PaymentMatching] Failed to fetch Stripe customer', {
@@ -323,9 +328,7 @@ export interface PaymentProcessingResult {
 /**
  * Find a patient by Stripe customer ID
  */
-export async function findPatientByStripeCustomerId(
-  customerId: string
-): Promise<Patient | null> {
+export async function findPatientByStripeCustomerId(customerId: string): Promise<Patient | null> {
   return prisma.patient.findUnique({
     where: { stripeCustomerId: customerId },
   });
@@ -380,7 +383,7 @@ export async function findPatientByPhone(
   ].filter(Boolean) as string[];
 
   const where: { OR: { phone: { contains: string } }[]; clinicId?: number } = {
-    OR: phoneVariants.map(p => ({
+    OR: phoneVariants.map((p) => ({
       phone: { contains: p },
     })),
   };
@@ -576,7 +579,8 @@ export async function createPatientFromStripePayment(
       clinicId,
       firstName: firstName || 'Unknown',
       lastName: lastName || 'Customer',
-      email: paymentData.email || `stripe-${paymentData.customerId || Date.now()}@placeholder.local`,
+      email:
+        paymentData.email || `stripe-${paymentData.customerId || Date.now()}@placeholder.local`,
       phone: paymentData.phone || '',
       dob: '1900-01-01', // Placeholder - to be updated
       gender: 'unknown',
@@ -677,11 +681,13 @@ export async function createPaidInvoiceFromStripe(
         currency: paymentData.currency || 'usd',
         status: 'PAID' as InvoiceStatus,
         paidAt: paymentData.paidAt,
-        lineItems: [{
-          description,
-          amount: paymentData.amount,
-          quantity: 1,
-        }] as any,
+        lineItems: [
+          {
+            description,
+            amount: paymentData.amount,
+            quantity: 1,
+          },
+        ] as any,
         metadata: {
           source: 'stripe_webhook',
           paymentIntentId: paymentData.paymentIntentId,
@@ -739,18 +745,20 @@ export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePayme
   const chargeInvoice = chargeWithInvoice.invoice;
 
   // Try to get email from multiple sources
-  const email = billing?.email ||
-                charge.receipt_email ||
-                (charge.metadata?.email as string) ||
-                (charge.metadata?.customer_email as string) ||
-                null;
+  const email =
+    billing?.email ||
+    charge.receipt_email ||
+    (charge.metadata?.email as string) ||
+    (charge.metadata?.customer_email as string) ||
+    null;
 
   // Try to get name from multiple sources
-  let name = billing?.name ||
-             (charge.metadata?.name as string) ||
-             (charge.metadata?.customer_name as string) ||
-             (charge.metadata?.full_name as string) ||
-             null;
+  let name =
+    billing?.name ||
+    (charge.metadata?.name as string) ||
+    (charge.metadata?.customer_name as string) ||
+    (charge.metadata?.full_name as string) ||
+    null;
 
   // If still no name, try to extract from description
   if (!name && charge.description) {
@@ -761,28 +769,43 @@ export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePayme
   }
 
   // Try to get phone from multiple sources
-  const phone = billing?.phone ||
-                (charge.metadata?.phone as string) ||
-                (charge.metadata?.phone_number as string) ||
-                null;
+  const phone =
+    billing?.phone ||
+    (charge.metadata?.phone as string) ||
+    (charge.metadata?.phone_number as string) ||
+    null;
 
   // Try to get address from billing details
-  const address = billing?.address ? {
-    line1: billing.address.line1,
-    line2: billing.address.line2,
-    city: billing.address.city,
-    state: billing.address.state,
-    postal_code: billing.address.postal_code,
-    country: billing.address.country,
-  } : null;
+  const address = billing?.address
+    ? {
+        line1: billing.address.line1,
+        line2: billing.address.line2,
+        city: billing.address.city,
+        state: billing.address.state,
+        postal_code: billing.address.postal_code,
+        country: billing.address.country,
+      }
+    : null;
 
   logger.debug('[PaymentMatching] Extracted charge data', {
     chargeId: charge.id,
     hasEmail: !!email,
     hasName: !!name,
     hasPhone: !!phone,
-    emailSource: billing?.email ? 'billing' : charge.receipt_email ? 'receipt' : charge.metadata?.email ? 'metadata' : 'none',
-    nameSource: billing?.name ? 'billing' : charge.metadata?.name ? 'metadata' : charge.description ? 'description' : 'none',
+    emailSource: billing?.email
+      ? 'billing'
+      : charge.receipt_email
+        ? 'receipt'
+        : charge.metadata?.email
+          ? 'metadata'
+          : 'none',
+    nameSource: billing?.name
+      ? 'billing'
+      : charge.metadata?.name
+        ? 'metadata'
+        : charge.description
+          ? 'description'
+          : 'none',
   });
 
   return {
@@ -793,13 +816,17 @@ export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePayme
     amount: charge.amount,
     currency: charge.currency,
     description: charge.description || null,
-    paymentIntentId: typeof charge.payment_intent === 'string'
-      ? charge.payment_intent
-      : charge.payment_intent?.id || null,
+    paymentIntentId:
+      typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent?.id || null,
     chargeId: charge.id,
-    stripeInvoiceId: typeof chargeInvoice === 'string'
-      ? chargeInvoice
-      : (chargeInvoice && typeof chargeInvoice === 'object') ? chargeInvoice.id : null,
+    stripeInvoiceId:
+      typeof chargeInvoice === 'string'
+        ? chargeInvoice
+        : chargeInvoice && typeof chargeInvoice === 'object'
+          ? chargeInvoice.id
+          : null,
     metadata: charge.metadata || {},
     paidAt: new Date(charge.created * 1000),
     address,
@@ -820,25 +847,29 @@ export function extractPaymentDataFromPaymentIntent(
 ): StripePaymentData {
   // Get billing details from the first successful charge
   const charge = paymentIntent.latest_charge;
-  const chargeObj = typeof charge === 'object' ? charge as Stripe.Charge : null;
+  const chargeObj = typeof charge === 'object' ? (charge as Stripe.Charge) : null;
   const billing = chargeObj?.billing_details;
   // Access invoice field from PaymentIntent - exists at runtime but not in type definitions
-  const piWithInvoice = paymentIntent as Stripe.PaymentIntent & { invoice?: string | Stripe.Invoice | null };
+  const piWithInvoice = paymentIntent as Stripe.PaymentIntent & {
+    invoice?: string | Stripe.Invoice | null;
+  };
   const piInvoice = piWithInvoice.invoice;
 
   // Try to get email from multiple sources
-  const email = billing?.email ||
-                chargeObj?.receipt_email ||
-                (paymentIntent.metadata?.email as string) ||
-                (paymentIntent.metadata?.customer_email as string) ||
-                null;
+  const email =
+    billing?.email ||
+    chargeObj?.receipt_email ||
+    (paymentIntent.metadata?.email as string) ||
+    (paymentIntent.metadata?.customer_email as string) ||
+    null;
 
   // Try to get name from multiple sources
-  let name = billing?.name ||
-             (paymentIntent.metadata?.name as string) ||
-             (paymentIntent.metadata?.customer_name as string) ||
-             (paymentIntent.metadata?.full_name as string) ||
-             null;
+  let name =
+    billing?.name ||
+    (paymentIntent.metadata?.name as string) ||
+    (paymentIntent.metadata?.customer_name as string) ||
+    (paymentIntent.metadata?.full_name as string) ||
+    null;
 
   // If still no name, try to extract from description
   const description = paymentIntent.description || chargeObj?.description || null;
@@ -850,20 +881,23 @@ export function extractPaymentDataFromPaymentIntent(
   }
 
   // Try to get phone from multiple sources
-  const phone = billing?.phone ||
-                (paymentIntent.metadata?.phone as string) ||
-                (paymentIntent.metadata?.phone_number as string) ||
-                null;
+  const phone =
+    billing?.phone ||
+    (paymentIntent.metadata?.phone as string) ||
+    (paymentIntent.metadata?.phone_number as string) ||
+    null;
 
   // Try to get address from billing details
-  const address = billing?.address ? {
-    line1: billing.address.line1,
-    line2: billing.address.line2,
-    city: billing.address.city,
-    state: billing.address.state,
-    postal_code: billing.address.postal_code,
-    country: billing.address.country,
-  } : null;
+  const address = billing?.address
+    ? {
+        line1: billing.address.line1,
+        line2: billing.address.line2,
+        city: billing.address.city,
+        state: billing.address.state,
+        postal_code: billing.address.postal_code,
+        country: billing.address.country,
+      }
+    : null;
 
   logger.debug('[PaymentMatching] Extracted payment intent data', {
     paymentIntentId: paymentIntent.id,
@@ -871,13 +905,20 @@ export function extractPaymentDataFromPaymentIntent(
     hasName: !!name,
     hasPhone: !!phone,
     emailSource: billing?.email ? 'billing' : chargeObj?.receipt_email ? 'receipt' : 'metadata',
-    nameSource: billing?.name ? 'billing' : paymentIntent.metadata?.name ? 'metadata' : description ? 'description' : 'none',
+    nameSource: billing?.name
+      ? 'billing'
+      : paymentIntent.metadata?.name
+        ? 'metadata'
+        : description
+          ? 'description'
+          : 'none',
   });
 
   return {
-    customerId: typeof paymentIntent.customer === 'string'
-      ? paymentIntent.customer
-      : paymentIntent.customer?.id || null,
+    customerId:
+      typeof paymentIntent.customer === 'string'
+        ? paymentIntent.customer
+        : paymentIntent.customer?.id || null,
     email,
     name,
     phone,
@@ -886,9 +927,12 @@ export function extractPaymentDataFromPaymentIntent(
     description,
     paymentIntentId: paymentIntent.id,
     chargeId: typeof charge === 'string' ? charge : chargeObj?.id || null,
-    stripeInvoiceId: typeof piInvoice === 'string'
-      ? piInvoice
-      : (piInvoice && typeof piInvoice === 'object') ? piInvoice.id : null,
+    stripeInvoiceId:
+      typeof piInvoice === 'string'
+        ? piInvoice
+        : piInvoice && typeof piInvoice === 'object'
+          ? piInvoice.id
+          : null,
     metadata: paymentIntent.metadata || {},
     paidAt: new Date(paymentIntent.created * 1000),
     address,
@@ -909,18 +953,20 @@ export function extractPaymentDataFromCheckoutSession(
   const customerDetails = session.customer_details;
 
   // Try to get email from multiple sources
-  const email = customerDetails?.email ||
-                session.customer_email ||
-                (session.metadata?.email as string) ||
-                (session.metadata?.customer_email as string) ||
-                null;
+  const email =
+    customerDetails?.email ||
+    session.customer_email ||
+    (session.metadata?.email as string) ||
+    (session.metadata?.customer_email as string) ||
+    null;
 
   // Try to get name from multiple sources
-  let name = customerDetails?.name ||
-             (session.metadata?.name as string) ||
-             (session.metadata?.customer_name as string) ||
-             (session.metadata?.full_name as string) ||
-             null;
+  let name =
+    customerDetails?.name ||
+    (session.metadata?.name as string) ||
+    (session.metadata?.customer_name as string) ||
+    (session.metadata?.full_name as string) ||
+    null;
 
   // Try to extract name from description if present
   const description = session.metadata?.description || 'Checkout payment';
@@ -932,47 +978,57 @@ export function extractPaymentDataFromCheckoutSession(
   }
 
   // Try to get phone from multiple sources
-  const phone = customerDetails?.phone ||
-                (session.metadata?.phone as string) ||
-                (session.metadata?.phone_number as string) ||
-                null;
+  const phone =
+    customerDetails?.phone ||
+    (session.metadata?.phone as string) ||
+    (session.metadata?.phone_number as string) ||
+    null;
 
   // Get address from customer_details
-  const address = customerDetails?.address ? {
-    line1: customerDetails.address.line1,
-    line2: customerDetails.address.line2,
-    city: customerDetails.address.city,
-    state: customerDetails.address.state,
-    postal_code: customerDetails.address.postal_code,
-    country: customerDetails.address.country,
-  } : null;
+  const address = customerDetails?.address
+    ? {
+        line1: customerDetails.address.line1,
+        line2: customerDetails.address.line2,
+        city: customerDetails.address.city,
+        state: customerDetails.address.state,
+        postal_code: customerDetails.address.postal_code,
+        country: customerDetails.address.country,
+      }
+    : null;
 
   logger.debug('[PaymentMatching] Extracted checkout session data', {
     sessionId: session.id,
     hasEmail: !!email,
     hasName: !!name,
     hasPhone: !!phone,
-    emailSource: customerDetails?.email ? 'customer_details' : session.customer_email ? 'session' : 'metadata',
-    nameSource: customerDetails?.name ? 'customer_details' : session.metadata?.name ? 'metadata' : 'none',
+    emailSource: customerDetails?.email
+      ? 'customer_details'
+      : session.customer_email
+        ? 'session'
+        : 'metadata',
+    nameSource: customerDetails?.name
+      ? 'customer_details'
+      : session.metadata?.name
+        ? 'metadata'
+        : 'none',
   });
 
   return {
-    customerId: typeof session.customer === 'string'
-      ? session.customer
-      : session.customer?.id || null,
+    customerId:
+      typeof session.customer === 'string' ? session.customer : session.customer?.id || null,
     email,
     name,
     phone,
     amount: session.amount_total || 0,
     currency: session.currency || 'usd',
     description,
-    paymentIntentId: typeof session.payment_intent === 'string'
-      ? session.payment_intent
-      : session.payment_intent?.id || null,
+    paymentIntentId:
+      typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : session.payment_intent?.id || null,
     chargeId: null, // Not directly available from session
-    stripeInvoiceId: typeof session.invoice === 'string'
-      ? session.invoice
-      : session.invoice?.id || null,
+    stripeInvoiceId:
+      typeof session.invoice === 'string' ? session.invoice : session.invoice?.id || null,
     metadata: session.metadata || {},
     paidAt: new Date(session.created * 1000),
     address,
@@ -1001,12 +1057,16 @@ export async function processStripePayment(
         logger.debug('[PaymentMatching] Event already processed', { stripeEventId });
         return {
           success: true,
-          patient: existing.patientId ? await prisma.patient.findUnique({ where: { id: existing.patientId } }) : null,
-          invoice: existing.invoiceId ? await prisma.invoice.findUnique({ where: { id: existing.invoiceId } }) : null,
+          patient: existing.patientId
+            ? await prisma.patient.findUnique({ where: { id: existing.patientId } })
+            : null,
+          invoice: existing.invoiceId
+            ? await prisma.invoice.findUnique({ where: { id: existing.invoiceId } })
+            : null,
           matchResult: {
             patient: null,
             matchedBy: existing.matchedBy as PatientMatchResult['matchedBy'],
-            confidence: existing.matchConfidence as PatientMatchResult['confidence']
+            confidence: existing.matchConfidence as PatientMatchResult['confidence'],
           },
           patientCreated: existing.patientCreated,
         };
@@ -1090,7 +1150,9 @@ export async function processStripePayment(
         where: { id: patient.clinicId },
         select: { settings: true },
       });
-      const settings = (clinic?.settings as { patientPortal?: { autoInviteOnFirstPayment?: boolean } })?.patientPortal;
+      const settings = (
+        clinic?.settings as { patientPortal?: { autoInviteOnFirstPayment?: boolean } }
+      )?.patientPortal;
       if (settings?.autoInviteOnFirstPayment) {
         const { createAndSendPortalInvite } = await import('@/lib/portal-invite/service');
         await createAndSendPortalInvite(patient.id, 'first_payment');
@@ -1245,7 +1307,7 @@ export async function handleStripeRefund(
       data: {
         status: newStatus,
         metadata: {
-          ...(payment.metadata as Record<string, unknown> || {}),
+          ...((payment.metadata as Record<string, unknown>) || {}),
           refund: {
             refundId: refundData.refundId,
             amount: refundData.amount,
@@ -1269,7 +1331,7 @@ export async function handleStripeRefund(
           amountPaid: Math.max(0, newAmountPaid),
           amountDue: isFullRefund ? payment.invoice.amount || 0 : 0,
           metadata: {
-            ...(payment.invoice.metadata as Record<string, unknown> || {}),
+            ...((payment.invoice.metadata as Record<string, unknown>) || {}),
             refund: {
               refundId: refundData.refundId,
               amount: refundData.amount,
@@ -1322,16 +1384,15 @@ export function extractRefundDataFromCharge(charge: Stripe.Charge): RefundData |
 
   return {
     chargeId: charge.id,
-    paymentIntentId: typeof charge.payment_intent === 'string'
-      ? charge.payment_intent
-      : charge.payment_intent?.id || null,
+    paymentIntentId:
+      typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent?.id || null,
     refundId: latestRefund?.id || `refund_${charge.id}`,
     amount: charge.amount_refunded,
     reason: latestRefund?.reason || null,
     status: charge.refunded ? 'refunded' : 'partially_refunded',
-    refundedAt: latestRefund?.created
-      ? new Date(latestRefund.created * 1000)
-      : new Date(),
+    refundedAt: latestRefund?.created ? new Date(latestRefund.created * 1000) : new Date(),
   };
 }
 
@@ -1354,9 +1415,7 @@ export interface InvoiceSyncResult {
  * Sync an invoice's status and data from Stripe
  * Fetches the latest data from Stripe and updates our local record
  */
-export async function syncInvoiceFromStripe(
-  invoiceId: number
-): Promise<InvoiceSyncResult> {
+export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceSyncResult> {
   const stripe = getStripeClient();
   if (!stripe) {
     return { success: false, updated: false, error: 'Stripe not configured' };
@@ -1424,7 +1483,7 @@ export async function syncInvoiceFromStripe(
       if (invoice.status !== newStatus) {
         updates.status = newStatus as InvoiceStatus;
         updates.amountPaid = stripeCharge.amount - stripeCharge.amount_refunded;
-        updates.amountDue = isFullRefund ? (invoice.amount || 0) : 0;
+        updates.amountDue = isFullRefund ? invoice.amount || 0 : 0;
         changes.statusChanged = true;
         changes.amountChanged = true;
       }
@@ -1448,9 +1507,10 @@ export async function syncInvoiceFromStripe(
 
       // Try to get from customer object
       if ((!customerName || !customerEmail) && stripeCharge.customer) {
-        const customerId = typeof stripeCharge.customer === 'string'
-          ? stripeCharge.customer
-          : stripeCharge.customer.id;
+        const customerId =
+          typeof stripeCharge.customer === 'string'
+            ? stripeCharge.customer
+            : stripeCharge.customer.id;
         const customerData = await fetchStripeCustomerData(customerId);
         customerName = customerName || customerData.name;
         customerEmail = customerEmail || customerData.email;
@@ -1469,7 +1529,10 @@ export async function syncInvoiceFromStripe(
       if (customerName || customerEmail) {
         const patientUpdates: Record<string, string> = {};
 
-        if (customerName && (invoice.patient?.firstName === 'Unknown' || invoice.patient?.lastName === 'Customer')) {
+        if (
+          customerName &&
+          (invoice.patient?.firstName === 'Unknown' || invoice.patient?.lastName === 'Customer')
+        ) {
           const { firstName, lastName } = splitName(customerName);
           if (firstName) patientUpdates.firstName = firstName;
           if (lastName) patientUpdates.lastName = lastName;
@@ -1489,7 +1552,10 @@ export async function syncInvoiceFromStripe(
             data: {
               ...patientUpdates,
               profileStatus: 'ACTIVE', // Mark as complete since we have real data now
-              notes: invoice.patient.notes?.replace('⚠️ PENDING COMPLETION:', '✅ SYNCED FROM STRIPE:'),
+              notes: invoice.patient.notes?.replace(
+                '⚠️ PENDING COMPLETION:',
+                '✅ SYNCED FROM STRIPE:'
+              ),
             },
           });
           changes.customerUpdated = true;
@@ -1500,7 +1566,7 @@ export async function syncInvoiceFromStripe(
     // Apply invoice updates if any
     if (Object.keys(updates).length > 0) {
       updates.metadata = {
-        ...(invoice.metadata as Record<string, unknown> || {}),
+        ...((invoice.metadata as Record<string, unknown>) || {}),
         lastSyncedFromStripe: new Date().toISOString(),
         syncedChargeId: stripeCharge.id,
       };

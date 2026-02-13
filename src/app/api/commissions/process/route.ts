@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { processCommission } from "@/services/influencerService";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { processCommission } from '@/services/influencerService';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 
@@ -15,32 +15,27 @@ async function processCommissionHandler(req: NextRequest) {
 
     if (!invoiceId && !stripeInvoiceId) {
       return NextResponse.json(
-        { error: "Either invoiceId or stripeInvoiceId is required" },
+        { error: 'Either invoiceId or stripeInvoiceId is required' },
         { status: 400 }
       );
     }
 
     // Find the invoice
     const invoice: any = await prisma.invoice.findFirst({
-      where: invoiceId 
-        ? { id: invoiceId }
-        : { stripeInvoiceId: stripeInvoiceId! },
+      where: invoiceId ? { id: invoiceId } : { stripeInvoiceId: stripeInvoiceId! },
       include: {
-        patient: true
-      }
+        patient: true,
+      },
     });
 
     if (!invoice) {
-      return NextResponse.json(
-        { error: "Invoice not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
 
     // Process commission if invoice is paid
     if (invoice.status === 'PAID') {
       const commission = await processCommission(invoice.id);
-      
+
       if (commission) {
         logger.debug(`[Commission API] Commission processed for invoice ${invoice.id}`);
         return NextResponse.json({
@@ -49,28 +44,28 @@ async function processCommissionHandler(req: NextRequest) {
             id: commission.id,
             amount: commission.commissionAmount,
             influencerId: commission.influencerId,
-            status: commission.status
-          }
+            status: commission.status,
+          },
         });
       } else {
         return NextResponse.json({
           success: false,
-          message: "No active referral found or commission already processed"
+          message: 'No active referral found or commission already processed',
         });
       }
     } else {
       return NextResponse.json({
         success: false,
-        message: `Invoice is not paid (status: ${invoice.status})`
+        message: `Invoice is not paid (status: ${invoice.status})`,
       });
     }
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error("[Commission API] Error processing commission:", error);
+    logger.error('[Commission API] Error processing commission:', error);
     return NextResponse.json(
-      { error: errorMessage || "Failed to process commission" },
+      { error: errorMessage || 'Failed to process commission' },
       { status: 500 }
     );
   }
@@ -78,5 +73,5 @@ async function processCommissionHandler(req: NextRequest) {
 
 // Protected route - requires admin or super_admin role
 export const POST = withAuth(processCommissionHandler, {
-  roles: ['admin', 'super_admin']
+  roles: ['admin', 'super_admin'],
 });

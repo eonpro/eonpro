@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { notificationService } from '@/services/notification';
+import { invalidateNotificationsCountCache } from '@/app/api/notifications/count/route';
 import { z } from 'zod';
 import type { NotificationCategory } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // Validation Schemas
@@ -12,21 +14,45 @@ import type { NotificationCategory } from '@prisma/client';
 const getNotificationsSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   pageSize: z.coerce.number().min(1).max(100).default(20),
-  category: z.enum([
-    'PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM',
-    'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL', 'SHIPMENT'
-  ]).optional(),
-  isRead: z.enum(['true', 'false']).optional().transform(v => v === 'true' ? true : v === 'false' ? false : undefined),
-  isArchived: z.enum(['true', 'false']).optional().transform(v => v === 'true' ? true : v === 'false' ? false : undefined),
+  category: z
+    .enum([
+      'PRESCRIPTION',
+      'PATIENT',
+      'ORDER',
+      'SYSTEM',
+      'APPOINTMENT',
+      'MESSAGE',
+      'PAYMENT',
+      'REFILL',
+      'SHIPMENT',
+    ])
+    .optional(),
+  isRead: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === 'true' ? true : v === 'false' ? false : undefined)),
+  isArchived: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === 'true' ? true : v === 'false' ? false : undefined)),
 });
 
 const markReadSchema = z.object({
   notificationIds: z.array(z.number()).optional(),
   markAll: z.boolean().optional(),
-  category: z.enum([
-    'PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM',
-    'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL', 'SHIPMENT'
-  ]).optional(),
+  category: z
+    .enum([
+      'PRESCRIPTION',
+      'PATIENT',
+      'ORDER',
+      'SYSTEM',
+      'APPOINTMENT',
+      'MESSAGE',
+      'PAYMENT',
+      'REFILL',
+      'SHIPMENT',
+    ])
+    .optional(),
 });
 
 const archiveSchema = z.object({
@@ -54,10 +80,13 @@ async function getNotificationsHandler(req: NextRequest, user: AuthUser): Promis
     const parsed = getNotificationsSchema.safeParse(searchParams);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        error: 'Invalid query parameters',
-        details: parsed.error.flatten(),
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Invalid query parameters',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
     }
 
     const { page, pageSize, category, isRead, isArchived } = parsed.data;
@@ -82,16 +111,20 @@ async function getNotificationsHandler(req: NextRequest, user: AuthUser): Promis
       hasMore: result.hasMore,
     });
   } catch (error) {
-    // Log the full error for debugging
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorCode = (error as any)?.code || 'unknown';
+    const errorCode = (error as { code?: string })?.code || 'unknown';
+    const isPoolExhausted = errorCode === 'P2024';
 
-    console.error('[Notifications GET] Error details:', {
-      message: errorMessage,
-      code: errorCode,
-      name: error instanceof Error ? error.name : 'unknown',
-      userId: user.id,
-    });
+    if (isPoolExhausted) {
+      logger.warn('[Notifications GET] Connection pool busy (P2024), returning empty');
+    } else {
+      logger.error('[Notifications GET] Error details', {
+        message: errorMessage,
+        code: errorCode,
+        name: error instanceof Error ? error.name : 'unknown',
+        userId: user.id,
+      });
+    }
 
     // Check if this is a database/schema error
     const isSchemaError =
@@ -104,33 +137,39 @@ async function getNotificationsHandler(req: NextRequest, user: AuthUser): Promis
 
     if (isSchemaError) {
       // Schema mismatch - return empty with warning header
-      console.warn('[Notifications GET] Schema mismatch detected - migrations may be needed');
-      return NextResponse.json({
-        notifications: [],
-        unreadCount: 0,
-        total: 0,
-        page: 1,
-        pageSize: 20,
-        hasMore: false,
-        _warning: 'Notification feature requires database migration',
-      }, {
-        headers: {
-          'X-Notification-Warning': 'schema-mismatch',
+      logger.warn('[Notifications GET] Schema mismatch detected - migrations may be needed');
+      return NextResponse.json(
+        {
+          notifications: [],
+          unreadCount: 0,
+          total: 0,
+          page: 1,
+          pageSize: 20,
+          hasMore: false,
+          _warning: 'Notification feature requires database migration',
         },
-      });
+        {
+          headers: {
+            'X-Notification-Warning': 'schema-mismatch',
+          },
+        }
+      );
     }
 
-    // For other errors, still return empty data but with error info
-    // Notifications are non-critical - app should function without them
-    return NextResponse.json({
-      notifications: [],
+    // For other errors (including P2024 pool exhaustion), return empty so UI doesn't break
+    const body = {
+      notifications: [] as any[],
       unreadCount: 0,
       total: 0,
       page: 1,
       pageSize: 20,
       hasMore: false,
-      _error: process.env.NODE_ENV === 'development' ? errorMessage : 'Failed to load notifications',
-    });
+      _error:
+        process.env.NODE_ENV === 'development' ? errorMessage : 'Failed to load notifications',
+    };
+    const res = NextResponse.json(body);
+    if (isPoolExhausted) res.headers.set('Cache-Control', 'private, max-age=60');
+    return res;
   }
 }
 
@@ -149,10 +188,13 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
     const parsed = markReadSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        error: 'Invalid request body',
-        details: parsed.error.flatten(),
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
     }
 
     const { notificationIds, markAll, category } = parsed.data;
@@ -167,12 +209,15 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
     } else if (notificationIds && notificationIds.length > 0) {
       count = await notificationService.markManyAsRead(notificationIds, user.id);
     } else {
-      return NextResponse.json({
-        error: 'Either notificationIds or markAll must be provided',
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Either notificationIds or markAll must be provided',
+        },
+        { status: 400 }
+      );
     }
 
-    // Get updated unread count
+    await invalidateNotificationsCountCache(user.id);
     const unreadCount = await notificationService.getUnreadCount(user.id);
 
     return NextResponse.json({
@@ -181,7 +226,7 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
       unreadCount,
     });
   } catch (error) {
-    console.error('[Notifications PUT] Error:', error instanceof Error ? error.message : error);
+    logger.error('[Notifications PUT] Error', { error: error instanceof Error ? error.message : String(error) });
     // Return success on any error - notifications are non-critical
     return NextResponse.json({
       success: true,
@@ -204,17 +249,20 @@ async function archiveNotificationsHandler(req: NextRequest, user: AuthUser): Pr
     const parsed = archiveSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json({
-        error: 'Invalid request body',
-        details: parsed.error.flatten(),
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
     }
 
     const { notificationIds } = parsed.data;
 
     const count = await notificationService.archiveMany(notificationIds, user.id);
 
-    // Get updated unread count
+    await invalidateNotificationsCountCache(user.id);
     const unreadCount = await notificationService.getUnreadCount(user.id);
 
     return NextResponse.json({
@@ -223,7 +271,7 @@ async function archiveNotificationsHandler(req: NextRequest, user: AuthUser): Pr
       unreadCount,
     });
   } catch (error) {
-    console.error('[Notifications DELETE] Error:', error instanceof Error ? error.message : error);
+    logger.error('[Notifications DELETE] Error', { error: error instanceof Error ? error.message : String(error) });
     // Return success on any error - notifications are non-critical
     return NextResponse.json({
       success: true,

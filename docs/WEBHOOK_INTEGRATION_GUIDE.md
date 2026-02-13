@@ -28,12 +28,12 @@ Contact EONPRO support to receive your unique webhook secret for your clinic.
 
 Set these values in your platform's webhook settings:
 
-| Setting | Value |
-|---------|-------|
-| **URL** | `https://app.eonpro.io/api/webhooks/weightlossintake` |
-| **Method** | `POST` |
-| **Content-Type** | `application/json` |
-| **Secret Header** | `x-webhook-secret: YOUR_SECRET` |
+| Setting           | Value                                                 |
+| ----------------- | ----------------------------------------------------- |
+| **URL**           | `https://app.eonpro.io/api/webhooks/weightlossintake` |
+| **Method**        | `POST`                                                |
+| **Content-Type**  | `application/json`                                    |
+| **Secret Header** | `x-webhook-secret: YOUR_SECRET`                       |
 
 ### 3. Send a Test Request
 
@@ -57,6 +57,7 @@ curl -X POST https://app.eonpro.io/api/webhooks/weightlossintake \
 ### 4. Verify Success
 
 Response:
+
 ```json
 {
   "success": true,
@@ -78,16 +79,19 @@ Response:
 EONPRO webhooks support three authentication methods (use ONE):
 
 ### Option 1: x-webhook-secret Header (Recommended)
+
 ```
 x-webhook-secret: YOUR_SECRET_KEY
 ```
 
 ### Option 2: x-api-key Header
+
 ```
 x-api-key: YOUR_SECRET_KEY
 ```
 
 ### Option 3: Authorization Bearer
+
 ```
 Authorization: Bearer YOUR_SECRET_KEY
 ```
@@ -108,6 +112,7 @@ Authorization: Bearer YOUR_SECRET_KEY
 **Endpoint:** `POST /api/webhooks/weightlossintake`
 
 Receives patient intake form submissions and automatically:
+
 - Creates or updates patient records
 - Generates PDF intake forms
 - Tracks referral/promo codes
@@ -115,16 +120,17 @@ Receives patient intake form submissions and automatically:
 
 **Supported Submission Types:**
 
-| Type | Description | Patient Tags |
-|------|-------------|--------------|
-| `Complete` | Full intake completed | `complete-intake` |
-| `Partial` | User dropped off mid-form | `partial-lead`, `needs-followup` |
+| Type       | Description               | Patient Tags                     |
+| ---------- | ------------------------- | -------------------------------- |
+| `Complete` | Full intake completed     | `complete-intake`                |
+| `Partial`  | User dropped off mid-form | `partial-lead`, `needs-followup` |
 
 ---
 
 ## Payload Formats
 
-EONPRO accepts **multiple payload formats** automatically. Use whichever format your platform outputs.
+EONPRO accepts **multiple payload formats** automatically. Use whichever format your platform
+outputs.
 
 ### Format 1: Data Object (Recommended)
 
@@ -179,9 +185,7 @@ EONPRO accepts **multiple payload formats** automatically. Use whichever format 
     },
     {
       "title": "Contact",
-      "fields": [
-        { "id": "email", "value": "john@example.com" }
-      ]
+      "fields": [{ "id": "email", "value": "john@example.com" }]
     }
   ]
 }
@@ -207,18 +211,18 @@ EONPRO automatically maps fields from various naming conventions:
 
 ### Patient Core Fields
 
-| EONPRO Field | Accepted Names |
-|--------------|----------------|
-| `firstName` | `firstName`, `first_name`, `fname`, `First Name` |
-| `lastName` | `lastName`, `last_name`, `lname`, `Last Name` |
-| `email` | `email`, `email_address`, `emailAddress`, `Email` |
-| `phone` | `phone`, `phone_number`, `phoneNumber`, `mobile`, `cell` |
-| `dateOfBirth` | `dateOfBirth`, `date_of_birth`, `dob`, `birthDate`, `birthday` |
-| `gender` | `gender`, `sex` |
-| `streetAddress` | `streetAddress`, `street_address`, `address`, `address1` |
-| `city` | `city` |
-| `state` | `state`, `stateCode`, `state_code`, `province` |
-| `zipCode` | `zipCode`, `zip_code`, `zip`, `postalCode` |
+| EONPRO Field    | Accepted Names                                                 |
+| --------------- | -------------------------------------------------------------- |
+| `firstName`     | `firstName`, `first_name`, `fname`, `First Name`               |
+| `lastName`      | `lastName`, `last_name`, `lname`, `Last Name`                  |
+| `email`         | `email`, `email_address`, `emailAddress`, `Email`              |
+| `phone`         | `phone`, `phone_number`, `phoneNumber`, `mobile`, `cell`       |
+| `dateOfBirth`   | `dateOfBirth`, `date_of_birth`, `dob`, `birthDate`, `birthday` |
+| `gender`        | `gender`, `sex`                                                |
+| `streetAddress` | `streetAddress`, `street_address`, `address`, `address1`       |
+| `city`          | `city`                                                         |
+| `state`         | `state`, `stateCode`, `state_code`, `province`                 |
+| `zipCode`       | `zipCode`, `zip_code`, `zip`, `postalCode`                     |
 
 ### Date Formats Accepted
 
@@ -240,12 +244,12 @@ EONPRO automatically maps fields from various naming conventions:
 
 ### Response Codes
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| `200` | Success | Patient created/updated |
-| `400` | Bad Request | Check payload format |
-| `401` | Unauthorized | Check webhook secret |
-| `500` | Server Error | Contact support |
+| Code  | Meaning      | Action                  |
+| ----- | ------------ | ----------------------- |
+| `200` | Success      | Patient created/updated |
+| `400` | Bad Request  | Check payload format    |
+| `401` | Unauthorized | Check webhook secret    |
+| `500` | Server Error | Contact support         |
 
 ### Error Response Format
 
@@ -260,14 +264,14 @@ EONPRO automatically maps fields from various naming conventions:
 
 ### Error Codes
 
-| Code | Description | Solution |
-|------|-------------|----------|
-| `INVALID_SECRET` | Authentication failed | Check your webhook secret |
-| `NO_SECRET_CONFIGURED` | Server misconfigured | Contact support |
-| `INVALID_JSON` | Malformed JSON | Validate your JSON |
-| `CLINIC_NOT_FOUND` | Clinic not setup | Contact support |
-| `PATIENT_ERROR` | Failed to create patient | Check payload data |
-| `DB_ERROR` | Database error | Retry in a few seconds |
+| Code                   | Description              | Solution                  |
+| ---------------------- | ------------------------ | ------------------------- |
+| `INVALID_SECRET`       | Authentication failed    | Check your webhook secret |
+| `NO_SECRET_CONFIGURED` | Server misconfigured     | Contact support           |
+| `INVALID_JSON`         | Malformed JSON           | Validate your JSON        |
+| `CLINIC_NOT_FOUND`     | Clinic not setup         | Contact support           |
+| `PATIENT_ERROR`        | Failed to create patient | Check payload data        |
+| `DB_ERROR`             | Database error           | Retry in a few seconds    |
 
 ### Retry Strategy
 
@@ -281,17 +285,16 @@ async function sendWithRetry(payload, maxRetries = 3) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-webhook-secret': SECRET
+          'x-webhook-secret': SECRET,
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-      
+
       if (response.ok) return await response.json();
       if (response.status === 401) throw new Error('Auth failed');
-      
     } catch (err) {
       if (i === maxRetries - 1) throw err;
-      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+      await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, i)));
     }
   }
 }
@@ -381,7 +384,7 @@ let response = await fetch(WEBHOOK_URL, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'x-webhook-secret': SECRET
+    'x-webhook-secret': SECRET,
   },
   body: JSON.stringify({
     submissionId: record.id,
@@ -394,9 +397,9 @@ let response = await fetch(WEBHOOK_URL, {
       email: record.getCellValue('Email'),
       phone: record.getCellValue('Phone'),
       dateOfBirth: record.getCellValue('DOB'),
-      state: record.getCellValue('State')
-    }
-  })
+      state: record.getCellValue('State'),
+    },
+  }),
 });
 
 let result = await response.json();
@@ -431,11 +434,13 @@ console.log('EONPRO Response:', result);
 ### Issue: 401 Unauthorized
 
 **Causes:**
+
 - Wrong webhook secret
 - Missing secret header
 - Secret has extra spaces
 
 **Solution:**
+
 ```bash
 # Verify your secret works
 curl -I -X POST https://app.eonpro.io/api/webhooks/weightlossintake \
@@ -447,29 +452,30 @@ curl -I -X POST https://app.eonpro.io/api/webhooks/weightlossintake \
 ### Issue: Patient Not Created
 
 **Causes:**
+
 - Field names not recognized
 - Data in wrong format
 
-**Solution:**
-Check the `warnings` array in the response for field mapping issues.
+**Solution:** Check the `warnings` array in the response for field mapping issues.
 
 ### Issue: Duplicate Patients
 
 **Causes:**
+
 - Different submissionId for same person
 - Typo in email/phone
 
-**Solution:**
-EONPRO deduplicates by email, phone, or name+DOB. Ensure consistent data.
+**Solution:** EONPRO deduplicates by email, phone, or name+DOB. Ensure consistent data.
 
 ### Issue: PDF Not Generated
 
 **Causes:**
+
 - Large payload
 - Special characters
 
-**Solution:**
-Check `document` field in response. If null, PDF generation failed but patient was still created.
+**Solution:** Check `document` field in response. If null, PDF generation failed but patient was
+still created.
 
 ### Getting Help
 
@@ -516,4 +522,4 @@ Check `document` field in response. If null, PDF generation failed but patient w
 
 ---
 
-*Last Updated: January 2026 | EONPRO v2.0*
+_Last Updated: January 2026 | EONPRO v2.0_

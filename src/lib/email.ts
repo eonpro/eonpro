@@ -94,7 +94,8 @@ export interface EmailResult {
  * });
  */
 export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
-  const { to, subject, html, text, replyTo, userId, clinicId, sourceType, sourceId, skipLogging } = options;
+  const { to, subject, html, text, replyTo, userId, clinicId, sourceType, sourceId, skipLogging } =
+    options;
 
   // Validate recipients
   const recipients = Array.isArray(to) ? to : [to];
@@ -147,17 +148,19 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
       // Log email to database (non-blocking)
       if (!skipLogging) {
         for (const recipientEmail of recipients) {
-          emailLogService.logEmailSent({
-            recipientEmail,
-            recipientUserId: userId,
-            clinicId,
-            subject,
-            messageId: response.messageId,
-            sourceType,
-            sourceId,
-          }).catch((err) => {
-            logger.warn('Failed to log email send', { error: err.message });
-          });
+          emailLogService
+            .logEmailSent({
+              recipientEmail,
+              recipientUserId: userId,
+              clinicId,
+              subject,
+              messageId: response.messageId,
+              sourceType,
+              sourceId,
+            })
+            .catch((err) => {
+              logger.warn('Failed to log email send', { error: err.message });
+            });
         }
       }
 
@@ -222,7 +225,19 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
  * });
  */
 export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promise<EmailResult> {
-  const { to, template, data, subject, priority, replyTo, userId, clinicId, sourceType, sourceId, skipLogging } = options;
+  const {
+    to,
+    template,
+    data,
+    subject,
+    priority,
+    replyTo,
+    userId,
+    clinicId,
+    sourceType,
+    sourceId,
+    skipLogging,
+  } = options;
 
   // Validate recipients
   const recipients = Array.isArray(to) ? to : [to];
@@ -242,7 +257,10 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
       try {
         const isSuppressed = await emailLogService.isEmailSuppressed(email);
         if (isSuppressed) {
-          logger.warn('Email suppressed - recipient has bounced or complained', { email, template });
+          logger.warn('Email suppressed - recipient has bounced or complained', {
+            email,
+            template,
+          });
           return {
             success: false,
             error: `Email address ${email} is suppressed due to previous bounce or complaint`,
@@ -275,19 +293,21 @@ export async function sendTemplatedEmail(options: TemplatedEmailOptions): Promis
       // Log email to database (non-blocking)
       if (!skipLogging) {
         for (const recipientEmail of recipients) {
-          emailLogService.logEmailSent({
-            recipientEmail,
-            recipientUserId: userId,
-            clinicId,
-            subject: subject || template,
-            template,
-            templateData: data,
-            messageId: response.messageId,
-            sourceType,
-            sourceId,
-          }).catch((err) => {
-            logger.warn('Failed to log templated email send', { error: err.message });
-          });
+          emailLogService
+            .logEmailSent({
+              recipientEmail,
+              recipientUserId: userId,
+              clinicId,
+              subject: subject || template,
+              template,
+              templateData: data,
+              messageId: response.messageId,
+              sourceType,
+              sourceId,
+            })
+            .catch((err) => {
+              logger.warn('Failed to log templated email send', { error: err.message });
+            });
         }
       }
 

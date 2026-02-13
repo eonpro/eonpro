@@ -1,6 +1,6 @@
 /**
  * Appointments API
- * 
+ *
  * CRUD operations for appointments
  */
 
@@ -44,7 +44,18 @@ const updateAppointmentSchema = z.object({
   endTime: z.string().datetime().optional(),
   duration: z.number().optional(),
   type: z.enum(['IN_PERSON', 'VIDEO', 'PHONE']).optional(),
-  status: z.enum(['SCHEDULED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED']).optional(),
+  status: z
+    .enum([
+      'SCHEDULED',
+      'CONFIRMED',
+      'CHECKED_IN',
+      'IN_PROGRESS',
+      'COMPLETED',
+      'CANCELLED',
+      'NO_SHOW',
+      'RESCHEDULED',
+    ])
+    .optional(),
   reason: z.string().optional(),
   notes: z.string().optional(),
   internalNotes: z.string().optional(),
@@ -58,196 +69,186 @@ const updateAppointmentSchema = z.object({
  * List appointments with filters.
  * For provider users, defaults to their providerId when not specified in query.
  */
-export const GET = withAuth(
-  async (req: NextRequest, user) => {
-    try {
-      const searchParams = req.nextUrl.searchParams;
-      const clinicId = searchParams.get('clinicId');
-      let providerIdParam = searchParams.get('providerId');
-      const patientId = searchParams.get('patientId');
-      const status = searchParams.get('status');
+export const GET = withAuth(async (req: NextRequest, user) => {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const clinicId = searchParams.get('clinicId');
+    let providerIdParam = searchParams.get('providerId');
+    const patientId = searchParams.get('patientId');
+    const status = searchParams.get('status');
 
-      // For provider role, default to their providerId so they see only their appointments
-      if (!providerIdParam && user.role && String(user.role).toLowerCase() === 'provider' && user.providerId) {
-        providerIdParam = String(user.providerId);
-      }
+    // For provider role, default to their providerId so they see only their appointments
+    if (
+      !providerIdParam &&
+      user.role &&
+      String(user.role).toLowerCase() === 'provider' &&
+      user.providerId
+    ) {
+      providerIdParam = String(user.providerId);
+    }
 
-      // Support both 'date' (single day) and 'startDate/endDate' (range)
-      let startDate = searchParams.get('startDate');
-      let endDate = searchParams.get('endDate');
-      const singleDate = searchParams.get('date');
+    // Support both 'date' (single day) and 'startDate/endDate' (range)
+    let startDate = searchParams.get('startDate');
+    let endDate = searchParams.get('endDate');
+    const singleDate = searchParams.get('date');
 
-      // If single date provided, convert to start/end of that day
-      if (singleDate && !startDate && !endDate) {
-        const date = new Date(singleDate);
-        startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0).toISOString();
-        endDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
-      }
+    // If single date provided, convert to start/end of that day
+    if (singleDate && !startDate && !endDate) {
+      const date = new Date(singleDate);
+      startDate = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0,
+        0,
+        0
+      ).toISOString();
+      endDate = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23,
+        59,
+        59
+      ).toISOString();
+    }
 
-      if (!startDate || !endDate) {
-        return NextResponse.json(
-          { error: 'Either date or startDate/endDate are required' },
-          { status: 400 }
-        );
-      }
-
-      const appointments = await getAppointments({
-        clinicId: clinicId ? parseInt(clinicId) : (user.clinicId || undefined),
-        providerId: providerIdParam ? parseInt(providerIdParam) : undefined,
-        patientId: patientId ? parseInt(patientId) : undefined,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        status: status ? [status as AppointmentStatus] : undefined,
-      });
-
-      return NextResponse.json({ appointments });
-    } catch (error) {
-      const errMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errStack = error instanceof Error ? error.stack : undefined;
-      logger.error('Failed to fetch appointments', { error, message: errMessage });
+    if (!startDate || !endDate) {
       return NextResponse.json(
-        {
-          error: 'Failed to fetch appointments',
-          detail: errMessage,
-          ...(process.env.NODE_ENV === 'development' && { stack: errStack }),
-        },
-        { status: 500 }
+        { error: 'Either date or startDate/endDate are required' },
+        { status: 400 }
       );
     }
+
+    const appointments = await getAppointments({
+      clinicId: clinicId ? parseInt(clinicId) : user.clinicId || undefined,
+      providerId: providerIdParam ? parseInt(providerIdParam) : undefined,
+      patientId: patientId ? parseInt(patientId) : undefined,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      status: status ? [status as AppointmentStatus] : undefined,
+    });
+
+    return NextResponse.json({ appointments });
+  } catch (error) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errStack = error instanceof Error ? error.stack : undefined;
+    logger.error('Failed to fetch appointments', { error, message: errMessage });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch appointments',
+        detail: errMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errStack }),
+      },
+      { status: 500 }
+    );
   }
-);
+});
 
 /**
  * POST /api/scheduling/appointments
  * Create a new appointment
  */
-export const POST = withProviderAuth(
-  async (req: NextRequest, user) => {
-    try {
-      const body = await req.json();
-      const parsed = createAppointmentSchema.safeParse(body);
+export const POST = withProviderAuth(async (req: NextRequest, user) => {
+  try {
+    const body = await req.json();
+    const parsed = createAppointmentSchema.safeParse(body);
 
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: 'Invalid request data', details: parsed.error.issues },
-          { status: 400 }
-        );
-      }
-
-      const result = await createAppointment({
-        clinicId: parsed.data.clinicId,
-        patientId: parsed.data.patientId,
-        providerId: parsed.data.providerId,
-        appointmentTypeId: parsed.data.appointmentTypeId,
-        title: parsed.data.title,
-        startTime: new Date(parsed.data.startTime),
-        endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : undefined,
-        duration: parsed.data.duration,
-        type: parsed.data.type as AppointmentModeType | undefined,
-        reason: parsed.data.reason,
-        notes: parsed.data.notes,
-        location: parsed.data.location,
-        roomNumber: parsed.data.roomNumber,
-        createdById: user.id,
-      });
-
-      if (!result.success) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({ appointment: result.appointment }, { status: 201 });
-    } catch (error) {
-      logger.error('Failed to create appointment', { error });
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Failed to create appointment' },
-        { status: 500 }
+        { error: 'Invalid request data', details: parsed.error.issues },
+        { status: 400 }
       );
     }
+
+    const result = await createAppointment({
+      clinicId: parsed.data.clinicId,
+      patientId: parsed.data.patientId,
+      providerId: parsed.data.providerId,
+      appointmentTypeId: parsed.data.appointmentTypeId,
+      title: parsed.data.title,
+      startTime: new Date(parsed.data.startTime),
+      endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : undefined,
+      duration: parsed.data.duration,
+      type: parsed.data.type as AppointmentModeType | undefined,
+      reason: parsed.data.reason,
+      notes: parsed.data.notes,
+      location: parsed.data.location,
+      roomNumber: parsed.data.roomNumber,
+      createdById: user.id,
+    });
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({ appointment: result.appointment }, { status: 201 });
+  } catch (error) {
+    logger.error('Failed to create appointment', { error });
+    return NextResponse.json({ error: 'Failed to create appointment' }, { status: 500 });
   }
-);
+});
 
 /**
  * PATCH /api/scheduling/appointments
  * Update an appointment
  */
-export const PATCH = withProviderAuth(
-  async (req: NextRequest, user) => {
-    try {
-      const body = await req.json();
-      const parsed = updateAppointmentSchema.safeParse(body);
+export const PATCH = withProviderAuth(async (req: NextRequest, user) => {
+  try {
+    const body = await req.json();
+    const parsed = updateAppointmentSchema.safeParse(body);
 
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: 'Invalid request data', details: parsed.error.issues },
-          { status: 400 }
-        );
-      }
-
-      const { appointmentId, ...updateData } = parsed.data;
-
-      const result = await updateAppointment(appointmentId, {
-        ...updateData,
-        startTime: updateData.startTime ? new Date(updateData.startTime) : undefined,
-        endTime: updateData.endTime ? new Date(updateData.endTime) : undefined,
-        type: updateData.type as AppointmentModeType | undefined,
-        status: updateData.status as AppointmentStatus | undefined,
-      });
-
-      if (!result.success) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({ appointment: result.appointment });
-    } catch (error) {
-      logger.error('Failed to update appointment', { error });
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Failed to update appointment' },
-        { status: 500 }
+        { error: 'Invalid request data', details: parsed.error.issues },
+        { status: 400 }
       );
     }
+
+    const { appointmentId, ...updateData } = parsed.data;
+
+    const result = await updateAppointment(appointmentId, {
+      ...updateData,
+      startTime: updateData.startTime ? new Date(updateData.startTime) : undefined,
+      endTime: updateData.endTime ? new Date(updateData.endTime) : undefined,
+      type: updateData.type as AppointmentModeType | undefined,
+      status: updateData.status as AppointmentStatus | undefined,
+    });
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({ appointment: result.appointment });
+  } catch (error) {
+    logger.error('Failed to update appointment', { error });
+    return NextResponse.json({ error: 'Failed to update appointment' }, { status: 500 });
   }
-);
+});
 
 /**
  * DELETE /api/scheduling/appointments
  * Cancel an appointment
  */
-export const DELETE = withProviderAuth(
-  async (req: NextRequest, user) => {
-    try {
-      const searchParams = req.nextUrl.searchParams;
-      const appointmentId = searchParams.get('appointmentId');
-      const reason = searchParams.get('reason');
+export const DELETE = withProviderAuth(async (req: NextRequest, user) => {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const appointmentId = searchParams.get('appointmentId');
+    const reason = searchParams.get('reason');
 
-      if (!appointmentId) {
-        return NextResponse.json(
-          { error: 'appointmentId is required' },
-          { status: 400 }
-        );
-      }
-
-      const result = await cancelAppointment(parseInt(appointmentId), reason || undefined);
-
-      if (!result.success) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json({ success: true, appointment: result.appointment });
-    } catch (error) {
-      logger.error('Failed to cancel appointment', { error });
-      return NextResponse.json(
-        { error: 'Failed to cancel appointment' },
-        { status: 500 }
-      );
+    if (!appointmentId) {
+      return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 });
     }
+
+    const result = await cancelAppointment(parseInt(appointmentId), reason || undefined);
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, appointment: result.appointment });
+  } catch (error) {
+    logger.error('Failed to cancel appointment', { error });
+    return NextResponse.json({ error: 'Failed to cancel appointment' }, { status: 500 });
   }
-);
+});

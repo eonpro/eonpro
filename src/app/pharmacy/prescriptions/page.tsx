@@ -29,9 +29,9 @@ export default function PrescriptionsPage() {
       setLoading(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const params = filter !== 'all' ? `?status=${filter}` : '';
-      
+
       const res = await fetch(`/api/pharmacy/prescriptions${params}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (res.ok) {
@@ -39,8 +39,8 @@ export default function PrescriptionsPage() {
         setPrescriptions(data.prescriptions || []);
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Failed to fetch prescriptions', error);
     } finally {
       setLoading(false);
@@ -49,22 +49,22 @@ export default function PrescriptionsPage() {
 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      'PENDING': 'bg-gray-100 text-gray-800',
-      'PROCESSING': 'bg-yellow-100 text-yellow-800',
-      'SHIPPED': 'bg-blue-100 text-blue-800',
-      'DELIVERED': 'bg-green-100 text-green-800',
-      'CANCELLED': 'bg-red-100 text-red-800',
+      PENDING: 'bg-gray-100 text-gray-800',
+      PROCESSING: 'bg-yellow-100 text-yellow-800',
+      SHIPPED: 'bg-blue-100 text-blue-800',
+      DELIVERED: 'bg-green-100 text-green-800',
+      CANCELLED: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-8">
+      <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Prescription Tracking</h1>
         <Link
           href="/pharmacy/analytics"
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+          className="rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
         >
           Back to Analytics
         </Link>
@@ -75,10 +75,10 @@ export default function PrescriptionsPage() {
           <button
             key={status}
             onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded ${
-              filter === status 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-white border text-gray-700 hover:bg-gray-50'
+            className={`rounded px-4 py-2 ${
+              filter === status
+                ? 'bg-blue-600 text-white'
+                : 'border bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
             {status === 'all' ? 'All' : status.replace(/_/g, ' ')}
@@ -89,27 +89,39 @@ export default function PrescriptionsPage() {
       {loading ? (
         <div className="animate-pulse space-y-4">
           {[1, 2, 3].map((i: any) => (
-            <div key={i} className="bg-white rounded-lg shadow p-6">
-              <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            <div key={i} className="rounded-lg bg-white p-6 shadow">
+              <div className="mb-2 h-4 w-1/4 rounded bg-gray-200"></div>
+              <div className="h-3 w-1/2 rounded bg-gray-200"></div>
             </div>
           ))}
         </div>
       ) : prescriptions.length === 0 ? (
-        <div className="bg-gray-50 rounded-lg p-8 text-center">
+        <div className="rounded-lg bg-gray-50 p-8 text-center">
           <p className="text-gray-600">No prescriptions found</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden rounded-lg bg-white shadow">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rx Number</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Medication</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tracking</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Rx Number
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Medication
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Patient
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Tracking
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  Date
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -119,7 +131,9 @@ export default function PrescriptionsPage() {
                   <td className="px-6 py-4 text-sm">{rx.medicationName}</td>
                   <td className="px-6 py-4 text-sm">{rx.patientName}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusBadge(rx.currentStatus)}`}>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs ${getStatusBadge(rx.currentStatus)}`}
+                    >
                       {rx.currentStatus}
                     </span>
                   </td>

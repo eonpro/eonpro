@@ -1,4 +1,4 @@
-import localFont from 'next/font/local'
+import localFont from 'next/font/local';
 
 // Sofia Pro font configuration
 // Make sure to add your Sofia Pro font files to the public/fonts directory
@@ -38,4 +38,4 @@ export const sofiaPro = localFont({
   variable: '--font-sofia-pro',
   display: 'swap',
   fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Arial', 'sans-serif'],
-})
+});

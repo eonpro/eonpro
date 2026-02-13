@@ -12,11 +12,13 @@ import { z } from 'zod';
 
 export const emailSchema = z.string().email('Invalid email address').toLowerCase().trim();
 
-export const phoneSchema = z.string()
+export const phoneSchema = z
+  .string()
   .regex(/^\+?[1-9]\d{1,14}$|^\d{10,11}$/, 'Invalid phone number')
-  .transform(val => val.replace(/\D/g, ''));
+  .transform((val) => val.replace(/\D/g, ''));
 
-export const passwordSchema = z.string()
+export const passwordSchema = z
+  .string()
   .min(12, 'Password must be at least 12 characters')
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
@@ -29,23 +31,23 @@ export const idSchema = z.coerce.number().int().positive('ID must be a positive 
 
 export const dateSchema = z.string().datetime().or(z.date());
 
-export const dobSchema = z.string()
-  .regex(/^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$/, 'Invalid date format (YYYY-MM-DD or MM/DD/YYYY)');
+export const dobSchema = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}$|^\d{2}\/\d{2}\/\d{4}$/,
+    'Invalid date format (YYYY-MM-DD or MM/DD/YYYY)'
+  );
 
-export const zipCodeSchema = z.string()
-  .regex(/^\d{5}(-\d{4})?$/, 'Invalid ZIP code');
+export const zipCodeSchema = z.string().regex(/^\d{5}(-\d{4})?$/, 'Invalid ZIP code');
 
-export const stateSchema = z.string()
-  .length(2, 'State must be 2-letter code')
-  .toUpperCase();
+export const stateSchema = z.string().length(2, 'State must be 2-letter code').toUpperCase();
 
-export const npiSchema = z.string()
-  .regex(/^\d{10}$/, 'NPI must be exactly 10 digits');
+export const npiSchema = z.string().regex(/^\d{10}$/, 'NPI must be exactly 10 digits');
 
-export const deaSchema = z.string()
-  .regex(/^[A-Z]{2}\d{7}$/, 'Invalid DEA number format');
+export const deaSchema = z.string().regex(/^[A-Z]{2}\d{7}$/, 'Invalid DEA number format');
 
-export const currencyAmountSchema = z.coerce.number()
+export const currencyAmountSchema = z.coerce
+  .number()
   .int('Amount must be in cents (integer)')
   .nonnegative('Amount cannot be negative');
 
@@ -72,7 +74,9 @@ export const searchSchema = paginationSchema.extend({
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Password is required'),
-  role: z.enum(['admin', 'provider', 'patient', 'influencer', 'staff', 'support']).default('patient'),
+  role: z
+    .enum(['admin', 'provider', 'patient', 'influencer', 'staff', 'support'])
+    .default('patient'),
   mfaCode: z.string().length(6).optional(),
 });
 
@@ -84,14 +88,16 @@ export const resetPasswordRequestSchema = z.object({
   email: emailSchema,
 });
 
-export const resetPasswordSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
-  newPassword: passwordSchema,
-  confirmPassword: z.string(),
-}).refine(data => data.newPassword === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(1, 'Token is required'),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Token is required'),
@@ -146,13 +152,15 @@ export const providerCreateSchema = z.object({
 
 export const providerUpdateSchema = providerCreateSchema.partial();
 
-export const providerSetPasswordSchema = z.object({
-  password: passwordSchema,
-  confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+export const providerSetPasswordSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 
 // ============================================================================
 // Order/Prescription Schemas
@@ -184,11 +192,15 @@ export const invoiceCreateSchema = z.object({
   patientId: idSchema,
   description: z.string().min(1).max(500),
   amount: currencyAmountSchema,
-  lineItems: z.array(z.object({
-    description: z.string(),
-    amount: currencyAmountSchema,
-    quantity: z.number().int().positive().default(1),
-  })).optional(),
+  lineItems: z
+    .array(
+      z.object({
+        description: z.string(),
+        amount: currencyAmountSchema,
+        quantity: z.number().int().positive().default(1),
+      })
+    )
+    .optional(),
   dueDate: dateSchema.optional(),
   metadata: z.record(z.string()).optional(),
 });
@@ -249,7 +261,18 @@ export const appointmentCreateSchema = z.object({
 });
 
 export const appointmentUpdateSchema = appointmentCreateSchema.partial().extend({
-  status: z.enum(['SCHEDULED', 'CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED']).optional(),
+  status: z
+    .enum([
+      'SCHEDULED',
+      'CONFIRMED',
+      'CHECKED_IN',
+      'IN_PROGRESS',
+      'COMPLETED',
+      'CANCELLED',
+      'NO_SHOW',
+      'RESCHEDULED',
+    ])
+    .optional(),
   cancellationReason: z.string().max(500).optional(),
 });
 
@@ -261,24 +284,56 @@ export const ticketCreateSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
-  category: z.enum([
-    'GENERAL', 'BILLING', 'PRESCRIPTION', 'APPOINTMENT', 
-    'TECHNICAL_ISSUE', 'MEDICATION_QUESTION', 'INSURANCE',
-    'DELIVERY', 'SIDE_EFFECTS', 'DOSAGE', 'REFILL',
-    'PORTAL_ACCESS', 'OTHER'
-  ]).default('GENERAL'),
+  category: z
+    .enum([
+      'GENERAL',
+      'BILLING',
+      'PRESCRIPTION',
+      'APPOINTMENT',
+      'TECHNICAL_ISSUE',
+      'MEDICATION_QUESTION',
+      'INSURANCE',
+      'DELIVERY',
+      'SIDE_EFFECTS',
+      'DOSAGE',
+      'REFILL',
+      'PORTAL_ACCESS',
+      'OTHER',
+    ])
+    .default('GENERAL'),
   patientId: idSchema.optional(),
   orderId: idSchema.optional(),
   assignedToId: idSchema.optional(),
 });
 
 export const ticketUpdateSchema = ticketCreateSchema.partial().extend({
-  status: z.enum(['OPEN', 'IN_PROGRESS', 'PENDING', 'ON_HOLD', 'ESCALATED', 'RESOLVED', 'CLOSED', 'CANCELLED']).optional(),
-  disposition: z.enum([
-    'RESOLVED_SUCCESSFULLY', 'RESOLVED_WITH_WORKAROUND', 'NOT_RESOLVED',
-    'DUPLICATE', 'NOT_REPRODUCIBLE', 'BY_DESIGN', 'CUSTOMER_ERROR',
-    'TRAINING_ISSUE', 'REFERRED_TO_SPECIALIST', 'PENDING_CUSTOMER', 'CANCELLED_BY_CUSTOMER'
-  ]).optional(),
+  status: z
+    .enum([
+      'OPEN',
+      'IN_PROGRESS',
+      'PENDING',
+      'ON_HOLD',
+      'ESCALATED',
+      'RESOLVED',
+      'CLOSED',
+      'CANCELLED',
+    ])
+    .optional(),
+  disposition: z
+    .enum([
+      'RESOLVED_SUCCESSFULLY',
+      'RESOLVED_WITH_WORKAROUND',
+      'NOT_RESOLVED',
+      'DUPLICATE',
+      'NOT_REPRODUCIBLE',
+      'BY_DESIGN',
+      'CUSTOMER_ERROR',
+      'TRAINING_ISSUE',
+      'REFERRED_TO_SPECIALIST',
+      'PENDING_CUSTOMER',
+      'CANCELLED_BY_CUSTOMER',
+    ])
+    .optional(),
   resolutionNotes: z.string().max(5000).optional(),
 });
 
@@ -290,14 +345,20 @@ export const intakeSubmissionSchema = z.object({
   submissionId: z.string().optional(),
   submittedAt: dateSchema.optional(),
   data: z.record(z.unknown()).optional(),
-  sections: z.array(z.object({
-    title: z.string(),
-    fields: z.array(z.object({
-      id: z.string(),
-      label: z.string(),
-      value: z.unknown(),
-    })),
-  })).optional(),
+  sections: z
+    .array(
+      z.object({
+        title: z.string(),
+        fields: z.array(
+          z.object({
+            id: z.string(),
+            label: z.string(),
+            value: z.unknown(),
+          })
+        ),
+      })
+    )
+    .optional(),
 });
 
 export const sendIntakeFormSchema = z.object({
@@ -312,12 +373,14 @@ export const sendIntakeFormSchema = z.object({
 // Webhook Schemas
 // ============================================================================
 
-export const webhookPayloadSchema = z.object({
-  submissionId: z.string().optional(),
-  data: z.record(z.unknown()).optional(),
-  sections: z.array(z.unknown()).optional(),
-  timestamp: z.string().optional(),
-}).passthrough(); // Allow additional fields
+export const webhookPayloadSchema = z
+  .object({
+    submissionId: z.string().optional(),
+    data: z.record(z.unknown()).optional(),
+    sections: z.array(z.unknown()).optional(),
+    timestamp: z.string().optional(),
+  })
+  .passthrough(); // Allow additional fields
 
 // ============================================================================
 // Settings Schemas
@@ -365,7 +428,11 @@ export const userUpdateSchema = userCreateSchema.partial().omit({ password: true
 
 export const clinicCreateSchema = z.object({
   name: z.string().min(1).max(200),
-  subdomain: z.string().min(1).max(50).regex(/^[a-z0-9-]+$/, 'Subdomain can only contain lowercase letters, numbers, and hyphens'),
+  subdomain: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/, 'Subdomain can only contain lowercase letters, numbers, and hyphens'),
   adminEmail: emailSchema,
   phone: phoneSchema.optional(),
   timezone: z.string().default('America/New_York'),
@@ -386,13 +453,17 @@ export const carePlanCreateSchema = z.object({
   templateId: idSchema.optional(),
   startDate: dateSchema.optional(),
   endDate: dateSchema.optional(),
-  goals: z.array(z.object({
-    title: z.string().min(1),
-    description: z.string().optional(),
-    targetValue: z.string().optional(),
-    unit: z.string().optional(),
-    targetDate: dateSchema.optional(),
-  })).optional(),
+  goals: z
+    .array(
+      z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        targetValue: z.string().optional(),
+        unit: z.string().optional(),
+        targetDate: dateSchema.optional(),
+      })
+    )
+    .optional(),
 });
 
 // ============================================================================
@@ -404,15 +475,19 @@ export const superbillCreateSchema = z.object({
   providerId: idSchema,
   appointmentId: idSchema.optional(),
   serviceDate: dateSchema,
-  items: z.array(z.object({
-    cptCode: z.string().regex(/^\d{5}$/, 'Invalid CPT code'),
-    cptDescription: z.string(),
-    icdCodes: z.array(z.string()),
-    icdDescriptions: z.array(z.string()),
-    modifier: z.string().optional(),
-    units: z.number().int().positive().default(1),
-    unitPrice: currencyAmountSchema,
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        cptCode: z.string().regex(/^\d{5}$/, 'Invalid CPT code'),
+        cptDescription: z.string(),
+        icdCodes: z.array(z.string()),
+        icdDescriptions: z.array(z.string()),
+        modifier: z.string().optional(),
+        units: z.number().int().positive().default(1),
+        unitPrice: currencyAmountSchema,
+      })
+    )
+    .min(1),
   notes: z.string().max(2000).optional(),
 });
 

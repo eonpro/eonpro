@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
@@ -6,11 +6,11 @@ const GOOGLE_MAPS_KEY =
   process.env.GOOGLE_MAPS_SERVER_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 async function handler(request: NextRequest, user: AuthUser) {
-  const input = request.nextUrl.searchParams.get("input") ?? "";
+  const input = request.nextUrl.searchParams.get('input') ?? '';
 
   if (!GOOGLE_MAPS_KEY) {
     return Response.json(
-      { ok: false, error: { message: "Google Maps API key is not configured" } },
+      { ok: false, error: { message: 'Google Maps API key is not configured' } },
       { status: 500 }
     );
   }
@@ -22,17 +22,20 @@ async function handler(request: NextRequest, user: AuthUser) {
   const params = new URLSearchParams({
     input,
     key: GOOGLE_MAPS_KEY,
-    types: "address",
-    components: "country:us",
+    types: 'address',
+    components: 'country:us',
   });
 
   try {
     const res = await fetch(
       `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params.toString()}`
     );
-    const data = await res.json().catch(() => null);
+    const data = await res.json().catch((err) => {
+      logger.warn('[Maps Autocomplete] Failed to parse JSON response', { error: err instanceof Error ? err.message : String(err) });
+      return null;
+    });
 
-    if (!res.ok || !data || data.status !== "OK") {
+    if (!res.ok || !data || data.status !== 'OK') {
       return Response.json(
         {
           ok: false,
@@ -40,8 +43,11 @@ async function handler(request: NextRequest, user: AuthUser) {
             message:
               data?.error_message ??
               data?.status ??
-              (await res.text().catch(() => null)) ??
-              "Autocomplete failed",
+              (await res.text().catch((err) => {
+                logger.warn('[Maps Autocomplete] Failed to read error response text', { error: err instanceof Error ? err.message : String(err) });
+                return null;
+              })) ??
+              'Autocomplete failed',
           },
         },
         { status: res.status || 500 }
@@ -50,11 +56,11 @@ async function handler(request: NextRequest, user: AuthUser) {
 
     return Response.json({ ok: true, predictions: data.predictions ?? [] });
   } catch (err: unknown) {
-    logger.error("[Maps Autocomplete] request failed", { 
-      error: err instanceof Error ? err.message : 'Unknown error' 
+    logger.error('[Maps Autocomplete] request failed', {
+      error: err instanceof Error ? err.message : 'Unknown error',
     });
     return Response.json(
-      { ok: false, error: { message: "Autocomplete service unavailable" } },
+      { ok: false, error: { message: 'Autocomplete service unavailable' } },
       { status: 502 }
     );
   }

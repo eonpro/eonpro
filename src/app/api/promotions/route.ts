@@ -9,10 +9,31 @@ const promotionSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   internalNotes: z.string().optional(),
-  promotionType: z.enum(['SALE', 'FLASH_SALE', 'SEASONAL', 'CLEARANCE', 'NEW_PATIENT', 'LOYALTY', 'BUNDLE', 'UPGRADE']).default('SALE'),
-  discountType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING', 'FREE_TRIAL', 'BUY_X_GET_Y']).default('PERCENTAGE'),
+  promotionType: z
+    .enum([
+      'SALE',
+      'FLASH_SALE',
+      'SEASONAL',
+      'CLEARANCE',
+      'NEW_PATIENT',
+      'LOYALTY',
+      'BUNDLE',
+      'UPGRADE',
+    ])
+    .default('SALE'),
+  discountType: z
+    .enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING', 'FREE_TRIAL', 'BUY_X_GET_Y'])
+    .default('PERCENTAGE'),
   discountValue: z.number().min(0),
-  applyTo: z.enum(['ALL_PRODUCTS', 'LIMITED_PRODUCTS', 'LIMITED_CATEGORIES', 'SUBSCRIPTIONS_ONLY', 'ONE_TIME_ONLY']).default('ALL_PRODUCTS'),
+  applyTo: z
+    .enum([
+      'ALL_PRODUCTS',
+      'LIMITED_PRODUCTS',
+      'LIMITED_CATEGORIES',
+      'SUBSCRIPTIONS_ONLY',
+      'ONE_TIME_ONLY',
+    ])
+    .default('ALL_PRODUCTS'),
   productIds: z.array(z.number()).optional(),
   categoryIds: z.array(z.string()).optional(),
   startsAt: z.string(),
@@ -47,18 +68,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (currentOnly) {
       const now = new Date();
       where.startsAt = { lte: now };
-      where.OR = [
-        { endsAt: null },
-        { endsAt: { gte: now } },
-      ];
+      where.OR = [{ endsAt: null }, { endsAt: { gte: now } }];
     }
 
     const promotions = await prisma.promotion.findMany({
       where,
-      orderBy: [
-        { isActive: 'desc' },
-        { startsAt: 'desc' },
-      ],
+      orderBy: [{ isActive: 'desc' }, { startsAt: 'desc' }],
+      take: 100,
     });
 
     return NextResponse.json({ promotions });
@@ -112,7 +128,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     return NextResponse.json({ promotion });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      );
     }
     logger.error('[Promotions API] Error:', error);
     return NextResponse.json({ error: 'Failed to create promotion' }, { status: 500 });

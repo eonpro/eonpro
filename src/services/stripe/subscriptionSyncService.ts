@@ -14,7 +14,10 @@ import { logger } from '@/lib/logger';
 import type Stripe from 'stripe';
 
 // Map Stripe subscription status to our enum
-const STRIPE_STATUS_TO_OUR: Record<string, 'ACTIVE' | 'PAUSED' | 'CANCELED' | 'PAST_DUE' | 'EXPIRED'> = {
+const STRIPE_STATUS_TO_OUR: Record<
+  string,
+  'ACTIVE' | 'PAUSED' | 'CANCELED' | 'PAST_DUE' | 'EXPIRED'
+> = {
   active: 'ACTIVE',
   trialing: 'ACTIVE',
   past_due: 'PAST_DUE',
@@ -95,9 +98,10 @@ export async function syncSubscriptionFromStripe(
   _eventId?: string
 ): Promise<SyncSubscriptionResult> {
   const stripeSubscriptionId = stripeSubscription.id;
-  const customerId = typeof stripeSubscription.customer === 'string'
-    ? stripeSubscription.customer
-    : stripeSubscription.customer?.id;
+  const customerId =
+    typeof stripeSubscription.customer === 'string'
+      ? stripeSubscription.customer
+      : stripeSubscription.customer?.id;
 
   if (!customerId) {
     logger.warn('[SubscriptionSync] Subscription has no customer', { stripeSubscriptionId });

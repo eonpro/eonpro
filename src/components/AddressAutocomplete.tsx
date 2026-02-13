@@ -5,23 +5,57 @@ import { MapPin, Search, X } from 'lucide-react';
 
 // US States for dropdown
 export const US_STATES = [
-  { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
-  { code: 'AR', name: 'Arkansas' }, { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
-  { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' }, { code: 'FL', name: 'Florida' },
-  { code: 'GA', name: 'Georgia' }, { code: 'HI', name: 'Hawaii' }, { code: 'ID', name: 'Idaho' },
-  { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' }, { code: 'IA', name: 'Iowa' },
-  { code: 'KS', name: 'Kansas' }, { code: 'KY', name: 'Kentucky' }, { code: 'LA', name: 'Louisiana' },
-  { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' }, { code: 'MA', name: 'Massachusetts' },
-  { code: 'MI', name: 'Michigan' }, { code: 'MN', name: 'Minnesota' }, { code: 'MS', name: 'Mississippi' },
-  { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' }, { code: 'NE', name: 'Nebraska' },
-  { code: 'NV', name: 'Nevada' }, { code: 'NH', name: 'New Hampshire' }, { code: 'NJ', name: 'New Jersey' },
-  { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' }, { code: 'NC', name: 'North Carolina' },
-  { code: 'ND', name: 'North Dakota' }, { code: 'OH', name: 'Ohio' }, { code: 'OK', name: 'Oklahoma' },
-  { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' }, { code: 'RI', name: 'Rhode Island' },
-  { code: 'SC', name: 'South Carolina' }, { code: 'SD', name: 'South Dakota' }, { code: 'TN', name: 'Tennessee' },
-  { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' }, { code: 'VT', name: 'Vermont' },
-  { code: 'VA', name: 'Virginia' }, { code: 'WA', name: 'Washington' }, { code: 'WV', name: 'West Virginia' },
-  { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' }, { code: 'DC', name: 'District of Columbia' },
+  { code: 'AL', name: 'Alabama' },
+  { code: 'AK', name: 'Alaska' },
+  { code: 'AZ', name: 'Arizona' },
+  { code: 'AR', name: 'Arkansas' },
+  { code: 'CA', name: 'California' },
+  { code: 'CO', name: 'Colorado' },
+  { code: 'CT', name: 'Connecticut' },
+  { code: 'DE', name: 'Delaware' },
+  { code: 'FL', name: 'Florida' },
+  { code: 'GA', name: 'Georgia' },
+  { code: 'HI', name: 'Hawaii' },
+  { code: 'ID', name: 'Idaho' },
+  { code: 'IL', name: 'Illinois' },
+  { code: 'IN', name: 'Indiana' },
+  { code: 'IA', name: 'Iowa' },
+  { code: 'KS', name: 'Kansas' },
+  { code: 'KY', name: 'Kentucky' },
+  { code: 'LA', name: 'Louisiana' },
+  { code: 'ME', name: 'Maine' },
+  { code: 'MD', name: 'Maryland' },
+  { code: 'MA', name: 'Massachusetts' },
+  { code: 'MI', name: 'Michigan' },
+  { code: 'MN', name: 'Minnesota' },
+  { code: 'MS', name: 'Mississippi' },
+  { code: 'MO', name: 'Missouri' },
+  { code: 'MT', name: 'Montana' },
+  { code: 'NE', name: 'Nebraska' },
+  { code: 'NV', name: 'Nevada' },
+  { code: 'NH', name: 'New Hampshire' },
+  { code: 'NJ', name: 'New Jersey' },
+  { code: 'NM', name: 'New Mexico' },
+  { code: 'NY', name: 'New York' },
+  { code: 'NC', name: 'North Carolina' },
+  { code: 'ND', name: 'North Dakota' },
+  { code: 'OH', name: 'Ohio' },
+  { code: 'OK', name: 'Oklahoma' },
+  { code: 'OR', name: 'Oregon' },
+  { code: 'PA', name: 'Pennsylvania' },
+  { code: 'RI', name: 'Rhode Island' },
+  { code: 'SC', name: 'South Carolina' },
+  { code: 'SD', name: 'South Dakota' },
+  { code: 'TN', name: 'Tennessee' },
+  { code: 'TX', name: 'Texas' },
+  { code: 'UT', name: 'Utah' },
+  { code: 'VT', name: 'Vermont' },
+  { code: 'VA', name: 'Virginia' },
+  { code: 'WA', name: 'Washington' },
+  { code: 'WV', name: 'West Virginia' },
+  { code: 'WI', name: 'Wisconsin' },
+  { code: 'WY', name: 'Wyoming' },
+  { code: 'DC', name: 'District of Columbia' },
 ];
 
 export interface AddressData {
@@ -184,20 +218,23 @@ export default function AddressAutocomplete({
     return (
       <div className={className}>
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             {label} {required && <span className="text-red-500">*</span>}
           </label>
         )}
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             ref={addressInputRef}
             type="text"
             required={required}
             disabled={disabled}
-            defaultValue={value.formattedAddress || `${value.address1}${value.city ? `, ${value.city}` : ''}${value.state ? `, ${value.state}` : ''} ${value.zip}`.trim()}
+            defaultValue={
+              value.formattedAddress ||
+              `${value.address1}${value.city ? `, ${value.city}` : ''}${value.state ? `, ${value.state}` : ''} ${value.zip}`.trim()
+            }
             placeholder="Start typing an address..."
-            className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
           {(value.address1 || value.city) && (
             <button
@@ -210,9 +247,7 @@ export default function AddressAutocomplete({
           )}
         </div>
         {!isGoogleLoaded && (
-          <p className="text-xs text-amber-600 mt-1">
-            Loading address autocomplete...
-          </p>
+          <p className="mt-1 text-xs text-amber-600">Loading address autocomplete...</p>
         )}
       </div>
     );
@@ -229,11 +264,11 @@ export default function AddressAutocomplete({
 
       {/* Street Address with Autocomplete */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="mb-1 block text-sm font-medium text-gray-700">
           Street Address {required && <span className="text-red-500">*</span>}
         </label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             ref={addressInputRef}
             type="text"
@@ -242,11 +277,11 @@ export default function AddressAutocomplete({
             value={value.address1}
             onChange={(e) => handleFieldChange('address1', e.target.value)}
             placeholder="Start typing an address..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
         </div>
         {!isGoogleLoaded && (
-          <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+          <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
             <Search className="h-3 w-3 animate-pulse" />
             Loading address autocomplete...
           </p>
@@ -256,7 +291,7 @@ export default function AddressAutocomplete({
       {/* Address Line 2 */}
       {showAddress2 && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             Apt, Suite, Unit (Optional)
           </label>
           <input
@@ -265,7 +300,7 @@ export default function AddressAutocomplete({
             value={value.address2 || ''}
             onChange={(e) => handleFieldChange('address2', e.target.value)}
             placeholder="Apartment, suite, unit, etc."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
         </div>
       )}
@@ -273,7 +308,7 @@ export default function AddressAutocomplete({
       {/* City, State, ZIP */}
       <div className="grid grid-cols-6 gap-4">
         <div className="col-span-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             City {required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -283,12 +318,12 @@ export default function AddressAutocomplete({
             value={value.city}
             onChange={(e) => handleFieldChange('city', e.target.value)}
             placeholder="City"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
         </div>
 
         <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             State {required && <span className="text-red-500">*</span>}
           </label>
           <select
@@ -296,7 +331,7 @@ export default function AddressAutocomplete({
             disabled={disabled}
             value={value.state}
             onChange={(e) => handleFieldChange('state', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           >
             <option value="">--</option>
             {US_STATES.map((state) => (
@@ -308,7 +343,7 @@ export default function AddressAutocomplete({
         </div>
 
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700">
             ZIP Code {required && <span className="text-red-500">*</span>}
           </label>
           <input
@@ -316,11 +351,13 @@ export default function AddressAutocomplete({
             required={required}
             disabled={disabled}
             value={value.zip}
-            onChange={(e) => handleFieldChange('zip', e.target.value.replace(/\D/g, '').slice(0, 5))}
+            onChange={(e) =>
+              handleFieldChange('zip', e.target.value.replace(/\D/g, '').slice(0, 5))
+            }
             placeholder="12345"
             maxLength={5}
             pattern="[0-9]{5}"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
         </div>
       </div>
@@ -374,14 +411,11 @@ export function AddressInput({
     if (!isGoogleLoaded || !inputRef.current) return;
 
     try {
-      const autocomplete = new (window as any).google.maps.places.Autocomplete(
-        inputRef.current,
-        {
-          componentRestrictions: { country: 'us' },
-          fields: ['address_components', 'formatted_address'],
-          types: ['address'],
-        }
-      );
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
+        componentRestrictions: { country: 'us' },
+        fields: ['address_components', 'formatted_address'],
+        types: ['address'],
+      });
 
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
@@ -414,7 +448,7 @@ export function AddressInput({
 
   return (
     <div className={`relative ${className}`}>
-      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
       <input
         ref={inputRef}
         type="text"
@@ -423,7 +457,7 @@ export function AddressInput({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-gray-100"
+        className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
       />
     </div>
   );

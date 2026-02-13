@@ -39,16 +39,16 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const res = await fetch('/api/intake-forms/templates', {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         setTemplates(data.templates || []);
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Failed to fetch templates', error);
     }
   };
@@ -68,15 +68,15 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           templateId: selectedTemplate,
           patientEmail: patient.email,
           patientPhone: patient.phone,
           sendMethod: sendMethod === 'both' ? 'email_and_sms' : sendMethod,
-          patientId: patient.id
-        })
+          patientId: patient.id,
+        }),
       });
 
       if (res.ok) {
@@ -90,8 +90,8 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
         setMessage(`ERROR: ${error.error || 'Failed to send form'}`);
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Failed to send form', error);
       setMessage('ERROR: Failed to send form');
     } finally {
@@ -127,38 +127,42 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
   return (
     <>
       <div id="send-intake-modal" className="hidden" />
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-          <div className="flex justify-between items-center mb-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold">Send Intake Form to Patient</h2>
-            <button
-              onClick={closeModal}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
 
           <div className="space-y-4">
             {/* Patient Info */}
-            <div className="bg-gray-50 p-3 rounded">
+            <div className="rounded bg-gray-50 p-3">
               <p className="text-sm text-gray-600">Sending to:</p>
-              <p className="font-semibold">{patient.firstName} {patient.lastName}</p>
+              <p className="font-semibold">
+                {patient.firstName} {patient.lastName}
+              </p>
               <p className="text-sm text-gray-600">{patient.email}</p>
               {patient.phone && <p className="text-sm text-gray-600">{patient.phone}</p>}
             </div>
 
             {/* Select Template */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-gray-700">
                 Select Form Template *
               </label>
               <select
                 value={selectedTemplate || ''}
                 onChange={(e: any) => setSelectedTemplate(Number(e.target.value))}
-                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border p-2 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Choose a template...</option>
                 {templates.map((template: any) => (
@@ -171,9 +175,7 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
 
             {/* Send Method */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Send Via
-              </label>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Send Via</label>
               <div className="space-y-2">
                 <label className="flex items-center">
                   <input
@@ -194,7 +196,8 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
                     className="mr-2"
                     disabled={!patient.phone}
                   />
-                  SMS Only {!patient.phone && <span className="text-gray-400 ml-2">(No phone number)</span>}
+                  SMS Only{' '}
+                  {!patient.phone && <span className="ml-2 text-gray-400">(No phone number)</span>}
                 </label>
                 <label className="flex items-center">
                   <input
@@ -212,14 +215,26 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
 
             {/* Message */}
             {message && (
-              <div className={`p-3 rounded flex items-center gap-2 ${message.includes('SUCCESS') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              <div
+                className={`flex items-center gap-2 rounded p-3 ${message.includes('SUCCESS') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+              >
                 {message.includes('SUCCESS') ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 )}
                 {message.replace('SUCCESS: ', '').replace('ERROR: ', '')}
@@ -228,16 +243,13 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
 
             {/* Buttons */}
             <div className="flex justify-end gap-3">
-              <button
-                onClick={closeModal}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
+              <button onClick={closeModal} className="px-4 py-2 text-gray-600 hover:text-gray-800">
                 Cancel
               </button>
               <button
                 onClick={handleSend}
                 disabled={loading || !selectedTemplate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? 'Sending...' : 'Send Form'}
               </button>

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import EditPatientForm from "./EditPatientForm";
-import { MapPin } from "lucide-react";
+import { useState } from 'react';
+import EditPatientForm from './EditPatientForm';
+import { MapPin } from 'lucide-react';
 
 type EditablePatient = {
   id: number;
@@ -52,21 +52,21 @@ export default function PatientProfileView({ patient, documents }: Props) {
       { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' },
       { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
     ];
-    
+
     // Generate a consistent hash from the tag string
     let hash = 0;
     for (let i = 0; i < tag.length; i++) {
-      hash = ((hash << 5) - hash) + tag.charCodeAt(i);
+      hash = (hash << 5) - hash + tag.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
     }
-    
+
     return colors[Math.abs(hash) % colors.length];
   };
 
   const formatDob = (dob: string) => {
-    if (!dob) return "—";
-    if (dob.includes("-")) {
-      const [year, month, day] = dob.split("-");
+    if (!dob) return '—';
+    if (dob.includes('-')) {
+      const [year, month, day] = dob.split('-');
       return `${month}/${day}/${year}`;
     }
     return dob;
@@ -74,7 +74,7 @@ export default function PatientProfileView({ patient, documents }: Props) {
 
   // Format gender - handles "m", "f", "male", "female", "man", "woman"
   const formatGenderValue = (g: string | null | undefined) => {
-    if (!g) return "—";
+    if (!g) return '—';
     const gl = g.toLowerCase().trim();
     if (gl === 'f' || gl === 'female' || gl === 'woman') return 'Female';
     if (gl === 'm' || gl === 'male' || gl === 'man') return 'Male';
@@ -84,8 +84,8 @@ export default function PatientProfileView({ patient, documents }: Props) {
 
   if (isEditing) {
     return (
-      <div className="bg-white rounded-lg border p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-lg border bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Edit Patient Information</h3>
           <button
             onClick={() => setIsEditing(false)}
@@ -100,41 +100,41 @@ export default function PatientProfileView({ patient, documents }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-lg border">
+    <div className="rounded-lg border bg-white">
       <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Patient Information</h3>
           <button
             onClick={() => setIsEditing(true)}
-            className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition text-sm font-medium"
+            className="rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#3f8660]"
           >
             Edit Profile
           </button>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           {/* Personal Information */}
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 First Name
               </label>
               <p className="mt-1 text-sm text-gray-900">{patient.firstName}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Last Name
               </label>
               <p className="mt-1 text-sm text-gray-900">{patient.lastName}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Date of Birth
               </label>
               <p className="mt-1 text-sm text-gray-900">{formatDob(patient.dob)}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Gender
               </label>
               <p className="mt-1 text-sm text-gray-900">{genderLabel}</p>
@@ -144,49 +144,55 @@ export default function PatientProfileView({ patient, documents }: Props) {
           {/* Contact Information */}
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Phone
               </label>
               <p className="mt-1 text-sm text-gray-900">{patient.phone}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Email
               </label>
               <p className="mt-1 text-sm text-gray-900">{patient.email}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 Address
               </label>
               {(() => {
                 // Check if address1 already contains city/state/zip
-                const hasFullAddress = patient.address1 && 
-                  (patient.address1.includes(patient.city) || 
-                   patient.address1.includes(patient.state) ||
-                   patient.address1.includes(patient.zip));
-                
+                const hasFullAddress =
+                  patient.address1 &&
+                  (patient.address1.includes(patient.city) ||
+                    patient.address1.includes(patient.state) ||
+                    patient.address1.includes(patient.zip));
+
                 // Build the complete address
                 let fullAddress = patient.address1;
                 if (!hasFullAddress && patient.city && patient.state && patient.zip) {
                   fullAddress = `${patient.address1}, ${patient.city}, ${patient.state} ${patient.zip}`;
                 }
-                
+
                 // Generate Google Maps URL
                 const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress || '')}`;
-                
+
                 return (
                   <div className="mt-1">
-                    <a 
+                    <a
                       href={googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-start gap-1 text-[#4fa77e] hover:underline text-sm"
+                      className="inline-flex items-start gap-1 text-sm text-[#4fa77e] hover:underline"
                     >
-                      <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
                       <span>
                         {fullAddress}
-                        {patient.address2 && <><br />{patient.address2}</>}
+                        {patient.address2 && (
+                          <>
+                            <br />
+                            {patient.address2}
+                          </>
+                        )}
                       </span>
                     </a>
                   </div>
@@ -198,18 +204,18 @@ export default function PatientProfileView({ patient, documents }: Props) {
 
         {/* Notes and Tags */}
         {(patient.notes || (patient.tags && patient.tags.length > 0)) && (
-          <div className="mt-6 pt-6 border-t space-y-4">
+          <div className="mt-6 space-y-4 border-t pt-6">
             {patient.notes && (
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                   Notes
                 </label>
-                <p className="mt-1 text-sm text-gray-900 whitespace-pre-line">{patient.notes}</p>
+                <p className="mt-1 whitespace-pre-line text-sm text-gray-900">{patient.notes}</p>
               </div>
             )}
             {patient.tags && patient.tags.length > 0 && (
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
                   Tags
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -218,7 +224,7 @@ export default function PatientProfileView({ patient, documents }: Props) {
                     return (
                       <span
                         key={tag}
-                        className={`px-2 py-1 ${color.bg} ${color.border} ${color.text} border rounded-full text-xs font-medium`}
+                        className={`px-2 py-1 ${color.bg} ${color.border} ${color.text} rounded-full border text-xs font-medium`}
                       >
                         #{tag}
                       </span>

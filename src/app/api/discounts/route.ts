@@ -11,12 +11,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 // Validation schema for creating discount codes
 const discountCodeSchema = z.object({
-  code: z.string().min(3).max(50).transform(s => s.toUpperCase().replace(/\s/g, '')),
+  code: z
+    .string()
+    .min(3)
+    .max(50)
+    .transform((s) => s.toUpperCase().replace(/\s/g, '')),
   name: z.string().min(1),
   description: z.string().optional(),
-  discountType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING', 'FREE_TRIAL', 'BUY_X_GET_Y']).default('PERCENTAGE'),
+  discountType: z
+    .enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_SHIPPING', 'FREE_TRIAL', 'BUY_X_GET_Y'])
+    .default('PERCENTAGE'),
   discountValue: z.number().min(0),
-  applyTo: z.enum(['ALL_PRODUCTS', 'LIMITED_PRODUCTS', 'LIMITED_CATEGORIES', 'SUBSCRIPTIONS_ONLY', 'ONE_TIME_ONLY']).default('ALL_PRODUCTS'),
+  applyTo: z
+    .enum([
+      'ALL_PRODUCTS',
+      'LIMITED_PRODUCTS',
+      'LIMITED_CATEGORIES',
+      'SUBSCRIPTIONS_ONLY',
+      'ONE_TIME_ONLY',
+    ])
+    .default('ALL_PRODUCTS'),
   productIds: z.array(z.number()).optional(),
   categoryIds: z.array(z.string()).optional(),
   excludeProductIds: z.array(z.number()).optional(),
@@ -54,10 +68,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     if (activeOnly) {
       where.isActive = true;
-      where.OR = [
-        { expiresAt: null },
-        { expiresAt: { gt: new Date() } },
-      ];
+      where.OR = [{ expiresAt: null }, { expiresAt: { gt: new Date() } }];
     }
 
     if (affiliateId) where.affiliateId = parseInt(affiliateId);
@@ -74,6 +85,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     return NextResponse.json({ discountCodes });
@@ -181,7 +193,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     return NextResponse.json({ discountCode });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      );
     }
     logger.error('[Discounts API] Error:', error);
     return NextResponse.json({ error: 'Failed to create discount code' }, { status: 500 });

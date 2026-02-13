@@ -1,8 +1,8 @@
 /**
  * Admin Affiliate Application Approve API
- * 
+ *
  * POST /api/admin/affiliates/applications/[id]/approve - Approve application and create affiliate
- * 
+ *
  * @security Super Admin or Admin only
  */
 
@@ -37,7 +37,7 @@ export const POST = withAuthParams(
 
       const body = await req.json();
       const validationResult = approveSchema.safeParse(body);
-      
+
       if (!validationResult.success) {
         return NextResponse.json(
           { error: 'Validation failed', errors: validationResult.error.errors },
@@ -93,10 +93,7 @@ export const POST = withAuthParams(
       });
 
       if (existingUser) {
-        return NextResponse.json(
-          { error: 'User with this email already exists' },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
       }
 
       // Generate a temporary password (affiliate will use phone auth)
@@ -226,7 +223,7 @@ function generateRefCode(fullName: string): string {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
     .substring(0, 6);
-  
+
   const suffix = crypto.randomBytes(2).toString('hex').toUpperCase();
   return `${base}${suffix}`;
 }

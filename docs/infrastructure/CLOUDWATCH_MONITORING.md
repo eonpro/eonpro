@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document outlines the CloudWatch monitoring setup for EonPro's database infrastructure, focusing on connection pool health and RDS performance.
+This document outlines the CloudWatch monitoring setup for EonPro's database infrastructure,
+focusing on connection pool health and RDS performance.
 
 ---
 
@@ -327,13 +328,13 @@ export async function publishConnectionMetrics(metrics: {
 
 ## Recommended Thresholds
 
-| Metric | Warning | Critical |
-|--------|---------|----------|
-| Connections | 50 | 65 |
-| CPU % | 70 | 85 |
-| Memory MB | 300 | 150 |
-| Storage GB | 10 | 5 |
-| Latency ms | 50 | 100 |
+| Metric      | Warning | Critical |
+| ----------- | ------- | -------- |
+| Connections | 50      | 65       |
+| CPU %       | 70      | 85       |
+| Memory MB   | 300     | 150      |
+| Storage GB  | 10      | 5        |
+| Latency ms  | 50      | 100      |
 
 ---
 

@@ -66,47 +66,57 @@ export default function PatientPortalAccessBlock({
             <UserX className="h-4 w-4" />
             No portal access yet
           </span>
-            {canSend ? (
-              <span className="flex flex-wrap items-center gap-2">
-                {hasEmail && (
-                  <button
-                    type="button"
-                    onClick={() => handleSendInvite('email')}
-                    disabled={sendingChannel !== null || sentChannel === 'email'}
-                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
-                    style={{ backgroundColor: 'var(--brand-primary, #4fa77e)' }}
-                  >
-                    {sendingChannel === 'email' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : sentChannel === 'email' ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Mail className="h-4 w-4" />
-                    )}
-                    {sendingChannel === 'email' ? 'Sending…' : sentChannel === 'email' ? 'Sent via email' : 'Send via email'}
-                  </button>
-                )}
-                {hasPhone && (
-                  <button
-                    type="button"
-                    onClick={() => handleSendInvite('sms')}
-                    disabled={sendingChannel !== null || sentChannel === 'sms'}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
-                  >
-                    {sendingChannel === 'sms' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : sentChannel === 'sms' ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <MessageSquare className="h-4 w-4" />
-                    )}
-                    {sendingChannel === 'sms' ? 'Sending…' : sentChannel === 'sms' ? 'Sent via SMS' : 'Send via SMS'}
-                  </button>
-                )}
-              </span>
-            ) : (
-              <span className="text-sm text-gray-500">Add an email or phone number to send an invite.</span>
-            )}
+          {canSend ? (
+            <span className="flex flex-wrap items-center gap-2">
+              {hasEmail && (
+                <button
+                  type="button"
+                  onClick={() => handleSendInvite('email')}
+                  disabled={sendingChannel !== null || sentChannel === 'email'}
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-60"
+                  style={{ backgroundColor: 'var(--brand-primary, #4fa77e)' }}
+                >
+                  {sendingChannel === 'email' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : sentChannel === 'email' ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  {sendingChannel === 'email'
+                    ? 'Sending…'
+                    : sentChannel === 'email'
+                      ? 'Sent via email'
+                      : 'Send via email'}
+                </button>
+              )}
+              {hasPhone && (
+                <button
+                  type="button"
+                  onClick={() => handleSendInvite('sms')}
+                  disabled={sendingChannel !== null || sentChannel === 'sms'}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {sendingChannel === 'sms' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : sentChannel === 'sms' ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <MessageSquare className="h-4 w-4" />
+                  )}
+                  {sendingChannel === 'sms'
+                    ? 'Sending…'
+                    : sentChannel === 'sms'
+                      ? 'Sent via SMS'
+                      : 'Send via SMS'}
+                </button>
+              )}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-500">
+              Add an email or phone number to send an invite.
+            </span>
+          )}
         </div>
       )}
       {error && (

@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
+import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import {
   User,
   Mail,
@@ -76,8 +80,8 @@ export default function SettingsPage() {
 
   const loadProfile = () => {
     const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
+    const userData = safeParseJsonString<{ id?: number; email?: string; firstName?: string; lastName?: string; phone?: string; dateOfBirth?: string; address?: string }>(user);
+    if (userData) {
       setProfile({
         id: userData.id || 1,
         email: userData.email || 'patient@example.com',
@@ -88,7 +92,9 @@ export default function SettingsPage() {
         address: userData.address,
       });
     } else {
-      router.replace(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
+      router.replace(
+        `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+      );
       return;
     }
     setLoading(false);
@@ -97,13 +103,9 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-      const response = await fetch('/api/user/profile', {
+      const response = await portalFetch('/api/user/profile', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           firstName: profile?.firstName,
           lastName: profile?.lastName,
@@ -111,17 +113,26 @@ export default function SettingsPage() {
         }),
       });
 
+      const sessionErr = getPortalResponseError(response);
+      if (sessionErr) {
+        alert(sessionErr);
+        return;
+      }
       if (!response.ok) {
-        const data = await response.json();
-        alert(data.error || 'Failed to save profile');
+        const data = await safeParseJson(response);
+        const errMsg =
+          data !== null && typeof data === 'object' && 'error' in data
+            ? String((data as { error?: unknown }).error)
+            : 'Failed to save profile';
+        alert(errMsg);
         return;
       }
 
-      // Update localStorage with new profile data
+      // Keep only minimal identifiers in localStorage (no PHI)
       if (profile) {
         const currentUser = localStorage.getItem('user');
-        const userData = currentUser ? JSON.parse(currentUser) : {};
-        localStorage.setItem('user', JSON.stringify({ ...userData, ...profile }));
+        const userData = safeParseJsonString<{ id?: number; role?: string; patientId?: number }>(currentUser) ?? {};
+        setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: userData.patientId }));
       }
 
       setShowSuccess(true);
@@ -145,13 +156,9 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('access_token') || localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-      const response = await fetch('/api/auth/change-password', {
+      const response = await portalFetch('/api/auth/change-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           currentPassword: passwords.current,
           newPassword: passwords.new,
@@ -159,10 +166,18 @@ export default function SettingsPage() {
         }),
       });
 
-      const data = await response.json();
-
+      const sessionErr = getPortalResponseError(response);
+      if (sessionErr) {
+        alert(sessionErr);
+        return;
+      }
+      const data = await safeParseJson(response);
       if (!response.ok) {
-        alert(data.error || 'Failed to change password');
+        const errMsg =
+          data !== null && typeof data === 'object' && 'error' in data
+            ? String((data as { error?: unknown }).error)
+            : 'Failed to change password';
+        alert(errMsg);
         return;
       }
 
@@ -180,7 +195,11 @@ export default function SettingsPage() {
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -232,7 +251,7 @@ export default function SettingsPage() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveSection(item.id as any)}
+                  onClick={() => setActiveSection(item.id)}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all ${
                     isActive ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -266,23 +285,27 @@ export default function SettingsPage() {
 
               <div className="mb-6 grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">{t('firstName')}</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {t('firstName')}
+                  </label>
                   <input
                     type="text"
                     value={profile.firstName}
                     onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">{t('lastName')}</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    {t('lastName')}
+                  </label>
                   <input
                     type="text"
                     value={profile.lastName}
                     onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                 </div>
               </div>
@@ -296,7 +319,7 @@ export default function SettingsPage() {
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                     className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                 </div>
               </div>
@@ -310,7 +333,7 @@ export default function SettingsPage() {
                     value={profile.phone}
                     onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                     className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={{ '--tw-ring-color': primaryColor } as any}
+                    style={ringColorStyle(primaryColor)}
                   />
                 </div>
               </div>
@@ -324,7 +347,7 @@ export default function SettingsPage() {
                   value={profile.dateOfBirth || ''}
                   onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                  style={{ '--tw-ring-color': primaryColor } as any}
+                  style={ringColorStyle(primaryColor)}
                 />
               </div>
 
@@ -389,7 +412,7 @@ export default function SettingsPage() {
                       value={passwords.current}
                       onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                      style={{ '--tw-ring-color': primaryColor } as any}
+                      style={ringColorStyle(primaryColor)}
                     />
                     <button
                       type="button"
@@ -417,7 +440,7 @@ export default function SettingsPage() {
                       value={passwords.new}
                       onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                      style={{ '--tw-ring-color': primaryColor } as any}
+                      style={ringColorStyle(primaryColor)}
                     />
                     <button
                       type="button"
@@ -445,7 +468,7 @@ export default function SettingsPage() {
                       value={passwords.confirm}
                       onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                       className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                      style={{ '--tw-ring-color': primaryColor } as any}
+                      style={ringColorStyle(primaryColor)}
                     />
                     <button
                       type="button"
@@ -478,15 +501,33 @@ export default function SettingsPage() {
           {/* Notifications Section */}
           {activeSection === 'notifications' && (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('notificationPreferences')}</h2>
+              <h2 className="mb-6 text-lg font-semibold text-gray-900">
+                {t('notificationPreferences')}
+              </h2>
 
               <div className="space-y-4">
                 {[
-                  { key: 'emailReminders', labelKey: 'emailReminders', descKey: 'emailRemindersDesc' },
+                  {
+                    key: 'emailReminders',
+                    labelKey: 'emailReminders',
+                    descKey: 'emailRemindersDesc',
+                  },
                   { key: 'smsReminders', labelKey: 'smsReminders', descKey: 'smsRemindersDesc' },
-                  { key: 'shipmentUpdates', labelKey: 'shipmentUpdates', descKey: 'shipmentUpdatesDesc' },
-                  { key: 'appointmentReminders', labelKey: 'appointmentReminders', descKey: 'appointmentRemindersDesc' },
-                  { key: 'promotionalEmails', labelKey: 'promotionalEmails', descKey: 'promotionalEmailsDesc' },
+                  {
+                    key: 'shipmentUpdates',
+                    labelKey: 'shipmentUpdates',
+                    descKey: 'shipmentUpdatesDesc',
+                  },
+                  {
+                    key: 'appointmentReminders',
+                    labelKey: 'appointmentReminders',
+                    descKey: 'appointmentRemindersDesc',
+                  },
+                  {
+                    key: 'promotionalEmails',
+                    labelKey: 'promotionalEmails',
+                    descKey: 'promotionalEmailsDesc',
+                  },
                 ].map((item) => (
                   <div
                     key={item.key}
@@ -560,9 +601,7 @@ export default function SettingsPage() {
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <h3 className="mb-2 font-semibold text-amber-900">{t('requestDataExport')}</h3>
-                <p className="mb-3 text-sm text-amber-800">
-                  {t('requestDataExportDesc')}
-                </p>
+                <p className="mb-3 text-sm text-amber-800">{t('requestDataExportDesc')}</p>
                 <button className="text-sm font-medium text-amber-700 hover:text-amber-900">
                   {t('requestDataExportBtn')}
                 </button>

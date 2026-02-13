@@ -24,7 +24,9 @@ import {
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 
 interface HealthMetric {
   id: string;
@@ -54,6 +56,7 @@ export default function HealthScorePage() {
 
   const [data, setData] = useState<HealthScoreData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,17 +64,25 @@ export default function HealthScorePage() {
   }, []);
 
   const fetchHealthScore = async () => {
+    setLoadError(null);
     try {
-      const res = await fetch('/api/patient-portal/health-score', {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      const res = await portalFetch('/api/patient-portal/health-score');
+      const err = getPortalResponseError(res);
+      if (err) {
+        setLoadError(err);
+        setLoading(false);
+        return;
+      }
       if (res.ok) {
-        const result = await res.json();
-        setData(result);
+        const result = await safeParseJson(res);
+        setData(
+          result !== null && typeof result === 'object' ? (result as HealthScoreData) : null
+        );
       }
     } catch (error) {
-      console.error('Failed to fetch health score:', error);
+      logger.error('Failed to fetch health score', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setLoading(false);
     }
@@ -87,15 +98,31 @@ export default function HealthScorePage() {
   };
 
   const TrendIcon = ({ trend }: { trend: 'up' | 'down' | 'stable' }) => {
-    if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-500" />;
-    if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-500" />;
-    return <Minus className="w-4 h-4 text-gray-400" />;
+    if (trend === 'up') return <TrendingUp className="h-4 w-4 text-green-500" />;
+    if (trend === 'down') return <TrendingDown className="h-4 w-4 text-red-500" />;
+    return <Minus className="h-4 w-4 text-gray-400" />;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-md p-6">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <p className="font-medium text-amber-900">{loadError}</p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/health-score`)}&reason=session_expired`}
+            className="mt-4 inline-block rounded-xl px-4 py-2 font-medium text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
+          >
+            Log in
+          </Link>
+        </div>
       </div>
     );
   }
@@ -123,31 +150,31 @@ export default function HealthScorePage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-24">
+    <div className="mx-auto max-w-4xl p-4 pb-24 md:p-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Health Score</h1>
-        <p className="text-gray-600 mt-1">Your personalized health overview</p>
+        <p className="mt-1 text-gray-600">Your personalized health overview</p>
       </div>
 
       {/* Main Score Card */}
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 mb-6 text-white">
+      <div className="mb-6 rounded-3xl bg-gradient-to-br from-gray-900 to-gray-800 p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-gray-400 text-sm">Overall Health Score</p>
-            <div className="flex items-baseline gap-2 mt-1">
+            <p className="text-sm text-gray-400">Overall Health Score</p>
+            <div className="mt-1 flex items-baseline gap-2">
               <span className="text-6xl font-bold">{displayData.overallScore}</span>
               <span className="text-2xl text-gray-400">/100</span>
             </div>
             <div
-              className={`flex items-center gap-1 mt-2 ${
+              className={`mt-2 flex items-center gap-1 ${
                 scoreDiff >= 0 ? 'text-green-400' : 'text-red-400'
               }`}
             >
               {scoreDiff >= 0 ? (
-                <TrendingUp className="w-4 h-4" />
+                <TrendingUp className="h-4 w-4" />
               ) : (
-                <TrendingDown className="w-4 h-4" />
+                <TrendingDown className="h-4 w-4" />
               )}
               <span className="text-sm font-medium">
                 {scoreDiff >= 0 ? '+' : ''}
@@ -157,8 +184,8 @@ export default function HealthScorePage() {
           </div>
 
           {/* Score Ring */}
-          <div className="relative w-32 h-32">
-            <svg className="w-32 h-32 -rotate-90">
+          <div className="relative h-32 w-32">
+            <svg className="h-32 w-32 -rotate-90">
               <circle
                 cx="64"
                 cy="64"
@@ -184,17 +211,17 @@ export default function HealthScorePage() {
                 {displayData.overallScore >= 80
                   ? 'Great!'
                   : displayData.overallScore >= 60
-                  ? 'Good'
-                  : 'Improving'}
+                    ? 'Good'
+                    : 'Improving'}
               </span>
             </div>
           </div>
         </div>
 
         {/* Weekly Trend Mini Chart */}
-        <div className="mt-6 pt-4 border-t border-gray-700">
-          <p className="text-sm text-gray-400 mb-2">This Week</p>
-          <div className="flex items-end gap-1 h-12">
+        <div className="mt-6 border-t border-gray-700 pt-4">
+          <p className="mb-2 text-sm text-gray-400">This Week</p>
+          <div className="flex h-12 items-end gap-1">
             {displayData.weeklyTrend.map((score, i) => (
               <div
                 key={i}
@@ -209,7 +236,7 @@ export default function HealthScorePage() {
               />
             ))}
           </div>
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <div className="mt-1 flex justify-between text-xs text-gray-500">
             <span>Mon</span>
             <span>Today</span>
           </div>
@@ -217,7 +244,7 @@ export default function HealthScorePage() {
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="mb-6 grid grid-cols-2 gap-4">
         {displayData.metrics.map((metric) => {
           const MetricIcon = metric.icon;
           const progress =
@@ -229,17 +256,21 @@ export default function HealthScorePage() {
             <button
               key={metric.id}
               onClick={() => setSelectedMetric(selectedMetric === metric.id ? null : metric.id)}
-              className={`bg-white rounded-xl p-4 shadow-sm text-left transition-all ${
+              className={`rounded-xl bg-white p-4 text-left shadow-sm transition-all ${
                 selectedMetric === metric.id ? 'ring-2 ring-offset-2' : ''
               }`}
-              style={selectedMetric === metric.id ? { '--tw-ring-color': metric.color } as React.CSSProperties : {}}
+              style={
+                selectedMetric === metric.id
+                  ? ({ '--tw-ring-color': metric.color } as React.CSSProperties)
+                  : {}
+              }
             >
-              <div className="flex items-center gap-2 mb-2">
+              <div className="mb-2 flex items-center gap-2">
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg"
                   style={{ backgroundColor: `${metric.color}20` }}
                 >
-                  <MetricIcon className="w-4 h-4" style={{ color: metric.color }} />
+                  <MetricIcon className="h-4 w-4" style={{ color: metric.color }} />
                 </div>
                 <span className="text-sm text-gray-600">{metric.name}</span>
               </div>
@@ -255,7 +286,7 @@ export default function HealthScorePage() {
                 <span className="text-sm text-gray-500">{metric.unit}</span>
               </div>
 
-              <div className="flex items-center gap-1 mt-2">
+              <div className="mt-2 flex items-center gap-1">
                 <TrendIcon trend={metric.trend} />
                 {metric.trendValue && (
                   <span className="text-xs text-gray-500">{metric.trendValue}</span>
@@ -263,7 +294,7 @@ export default function HealthScorePage() {
               </div>
 
               {/* Progress Bar */}
-              <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
@@ -274,7 +305,7 @@ export default function HealthScorePage() {
               </div>
 
               {selectedMetric === metric.id && (
-                <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="mt-3 border-t border-gray-100 pt-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Score contribution</span>
                     <span className="font-semibold" style={{ color: metric.color }}>
@@ -282,14 +313,14 @@ export default function HealthScorePage() {
                     </span>
                   </div>
                   {metric.target && (
-                    <div className="flex items-center justify-between text-sm mt-1">
+                    <div className="mt-1 flex items-center justify-between text-sm">
                       <span className="text-gray-600">Target</span>
                       <span className="font-medium">
                         {metric.target} {metric.unit}
                       </span>
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">Last updated: {metric.lastUpdated}</p>
+                  <p className="mt-1 text-xs text-gray-500">Last updated: {metric.lastUpdated}</p>
                 </div>
               )}
             </button>
@@ -298,15 +329,15 @@ export default function HealthScorePage() {
       </div>
 
       {/* AI Insights */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Info className="w-5 h-5 text-blue-600" />
+      <div className="mb-6 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Info className="h-5 w-5 text-blue-600" />
           <h3 className="font-semibold text-gray-900">AI Insights</h3>
         </div>
         <ul className="space-y-2">
           {displayData.insights.map((insight, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
-              <span className="text-blue-500 mt-0.5">•</span>
+              <span className="mt-0.5 text-blue-500">•</span>
               {insight}
             </li>
           ))}
@@ -318,34 +349,34 @@ export default function HealthScorePage() {
         <h3 className="font-semibold text-gray-900">Improve Your Score</h3>
         <Link
           href={`${PATIENT_PORTAL_PATH}/progress`}
-          className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:bg-gray-50 transition-colors"
+          className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm transition-colors hover:bg-gray-50"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-              <Scale className="w-5 h-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <Scale className="h-5 w-5 text-green-600" />
             </div>
             <div>
               <p className="font-medium text-gray-900">Log Your Progress</p>
               <p className="text-sm text-gray-500">Weight, water, exercise, and more</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-400" />
+          <ChevronRight className="h-5 w-5 text-gray-400" />
         </Link>
 
         <Link
           href={`${PATIENT_PORTAL_PATH}/achievements`}
-          className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:bg-gray-50 transition-colors"
+          className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm transition-colors hover:bg-gray-50"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-              <Target className="w-5 h-5 text-yellow-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100">
+              <Target className="h-5 w-5 text-yellow-600" />
             </div>
             <div>
               <p className="font-medium text-gray-900">View Goals & Achievements</p>
               <p className="text-sm text-gray-500">Track your milestones</p>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-gray-400" />
+          <ChevronRight className="h-5 w-5 text-gray-400" />
         </Link>
       </div>
     </div>

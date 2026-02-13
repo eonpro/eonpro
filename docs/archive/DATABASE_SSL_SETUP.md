@@ -18,37 +18,42 @@ DATABASE_URL="postgresql://user:password@host:5432/database?sslmode=require"
 
 Choose the appropriate SSL mode for your environment:
 
-| Mode | Security Level | Use Case |
-|------|---------------|----------|
-| `disable` | ❌ None | Local development only |
-| `require` | ✅ Basic | Minimum for production |
-| `verify-ca` | ✅✅ Better | Verifies server certificate |
-| `verify-full` | ✅✅✅ Best | Full verification + hostname |
+| Mode          | Security Level | Use Case                     |
+| ------------- | -------------- | ---------------------------- |
+| `disable`     | ❌ None        | Local development only       |
+| `require`     | ✅ Basic       | Minimum for production       |
+| `verify-ca`   | ✅✅ Better    | Verifies server certificate  |
+| `verify-full` | ✅✅✅ Best    | Full verification + hostname |
 
 ### Step 3: For Cloud Providers
 
 #### **AWS RDS**
+
 ```bash
 DATABASE_URL="postgresql://user:password@xxx.rds.amazonaws.com:5432/db?sslmode=require&sslcert=rds-ca-2019-root.pem"
 ```
 
 #### **Google Cloud SQL**
+
 ```bash
 DATABASE_URL="postgresql://user:password@/db?host=/cloudsql/project:region:instance&sslmode=require"
 ```
 
 #### **Azure Database**
+
 ```bash
 DATABASE_URL="postgresql://user@server:password@server.postgres.database.azure.com:5432/db?sslmode=require"
 ```
 
 #### **Heroku Postgres**
+
 ```bash
 # Heroku automatically provides SSL, just add:
 DATABASE_URL="...?sslmode=require&ssl=true"
 ```
 
 #### **Supabase**
+
 ```bash
 DATABASE_URL="postgresql://user:password@db.xxx.supabase.co:5432/postgres?sslmode=require"
 ```
@@ -60,7 +65,7 @@ DATABASE_URL="postgresql://user:password@db.xxx.supabase.co:5432/postgres?sslmod
 Update `src/lib/db.ts` for better connection handling:
 
 ```typescript
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
@@ -68,9 +73,7 @@ const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" 
-      ? ["query", "warn", "error"] 
-      : ["error"],
+    log: process.env.NODE_ENV === 'development' ? ['query', 'warn', 'error'] : ['error'],
     datasources: {
       db: {
         url: process.env.DATABASE_URL,
@@ -87,12 +90,12 @@ export const prisma =
 //   connectTimeout  = 10
 // }
 
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
 // Graceful shutdown
-process.on("beforeExit", async () => {
+process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
 ```
@@ -102,12 +105,14 @@ process.on("beforeExit", async () => {
 ## ✅ Verification Steps
 
 ### 1. Test Connection
+
 ```bash
 # Run this script to verify SSL connection
 npm run db:push
 ```
 
 ### 2. Check SSL Status
+
 ```sql
 -- Run this query in your database
 SELECT ssl_is_used();
@@ -115,10 +120,11 @@ SELECT ssl_is_used();
 ```
 
 ### 3. Monitor Connections
+
 ```sql
 -- Check active SSL connections
-SELECT pid, ssl, client_addr, application_name 
-FROM pg_stat_ssl 
+SELECT pid, ssl, client_addr, application_name
+FROM pg_stat_ssl
 JOIN pg_stat_activity ON pg_stat_ssl.pid = pg_stat_activity.pid;
 ```
 
@@ -158,23 +164,30 @@ DATABASE_POOL_TIMEOUT=10
 ## ⚠️ Common Issues & Solutions
 
 ### Issue 1: "SSL not available"
+
 **Solution**: Ensure your PostgreSQL server has SSL enabled
+
 ```sql
 -- Check PostgreSQL SSL config
 SHOW ssl;
 ```
 
-### Issue 2: "Certificate verify failed"  
+### Issue 2: "Certificate verify failed"
+
 **Solution**: For development, use `sslmode=require` instead of `verify-full`
 
 ### Issue 3: "Too many connections"
+
 **Solution**: Add connection pooling
+
 ```bash
 DATABASE_URL="...?connection_limit=10&pool_timeout=10"
 ```
 
 ### Issue 4: Prisma migrations fail
+
 **Solution**: Add SSL to shadow database
+
 ```bash
 SHADOW_DATABASE_URL="...?sslmode=require"
 ```
@@ -202,13 +215,15 @@ SHADOW_DATABASE_URL="...?sslmode=require"
 
 ## 🔍 Security Impact
 
-**Before SSL**: 
+**Before SSL**:
+
 - ❌ Data transmitted in plain text
 - ❌ Vulnerable to man-in-the-middle attacks
 - ❌ HIPAA non-compliant
 - ❌ Risk of data interception
 
 **After SSL**:
+
 - ✅ All data encrypted in transit
 - ✅ Protected from eavesdropping
 - ✅ HIPAA compliant for transmission
@@ -231,12 +246,9 @@ Remaining for full compliance:
 
 ---
 
-**Implementation Time**: 5 minutes
-**Risk Reduction**: HIGH
-**HIPAA Impact**: Required for compliance
-**Cost**: $0 (configuration only)
+**Implementation Time**: 5 minutes **Risk Reduction**: HIGH **HIPAA Impact**: Required for
+compliance **Cost**: $0 (configuration only)
 
 ---
 
-*Generated: November 27, 2024*
-*Priority: CRITICAL - Implement immediately*
+_Generated: November 27, 2024_ _Priority: CRITICAL - Implement immediately_

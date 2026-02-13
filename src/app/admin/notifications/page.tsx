@@ -34,14 +34,42 @@ import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 // Category Configuration
 // ============================================================================
 
-const categoryConfig: Record<NotificationCategory, { icon: typeof Bell; color: string; bgColor: string; label: string }> = {
-  PRESCRIPTION: { icon: Pill, color: 'text-purple-600', bgColor: 'bg-purple-100', label: 'Prescriptions' },
+const categoryConfig: Record<
+  NotificationCategory,
+  { icon: typeof Bell; color: string; bgColor: string; label: string }
+> = {
+  PRESCRIPTION: {
+    icon: Pill,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
+    label: 'Prescriptions',
+  },
   PATIENT: { icon: User, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Patients' },
   ORDER: { icon: Package, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Orders' },
-  SYSTEM: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-100', label: 'System' },
-  APPOINTMENT: { icon: Calendar, color: 'text-cyan-600', bgColor: 'bg-cyan-100', label: 'Appointments' },
-  MESSAGE: { icon: MessageSquare, color: 'text-indigo-600', bgColor: 'bg-indigo-100', label: 'Messages' },
-  PAYMENT: { icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-100', label: 'Payments' },
+  SYSTEM: {
+    icon: AlertCircle,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
+    label: 'System',
+  },
+  APPOINTMENT: {
+    icon: Calendar,
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-100',
+    label: 'Appointments',
+  },
+  MESSAGE: {
+    icon: MessageSquare,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-100',
+    label: 'Messages',
+  },
+  PAYMENT: {
+    icon: CreditCard,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-100',
+    label: 'Payments',
+  },
   REFILL: { icon: RefreshCw, color: 'text-pink-600', bgColor: 'bg-pink-100', label: 'Refills' },
   SHIPMENT: { icon: Package, color: 'text-amber-600', bgColor: 'bg-amber-100', label: 'Shipments' },
 };
@@ -54,8 +82,14 @@ const priorityColors = {
 };
 
 const categories: NotificationCategory[] = [
-  'PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM', 
-  'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL'
+  'PRESCRIPTION',
+  'PATIENT',
+  'ORDER',
+  'SYSTEM',
+  'APPOINTMENT',
+  'MESSAGE',
+  'PAYMENT',
+  'REFILL',
 ];
 
 // ============================================================================
@@ -106,15 +140,12 @@ export default function AdminNotificationsPage() {
     // Search filter
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    return (
-      n.title.toLowerCase().includes(query) ||
-      n.message.toLowerCase().includes(query)
-    );
+    return n.title.toLowerCase().includes(query) || n.message.toLowerCase().includes(query);
   });
 
   // Toggle selection
   const toggleSelection = useCallback((id: number) => {
-    setSelectedIds(prev => {
+    setSelectedIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
         newSet.delete(id);
@@ -127,7 +158,7 @@ export default function AdminNotificationsPage() {
 
   // Select all visible
   const selectAll = useCallback(() => {
-    setSelectedIds(new Set(filteredNotifications.map(n => n.id)));
+    setSelectedIds(new Set(filteredNotifications.map((n) => n.id)));
   }, [filteredNotifications]);
 
   // Clear selection
@@ -150,14 +181,17 @@ export default function AdminNotificationsPage() {
   }, [selectedIds, archiveNotifications, clearSelection]);
 
   // Handle notification click
-  const handleNotificationClick = useCallback(async (notification: Notification) => {
-    if (!notification.isRead) {
-      await markAsRead(notification.id);
-    }
-    if (notification.actionUrl) {
-      router.push(notification.actionUrl);
-    }
-  }, [markAsRead, router]);
+  const handleNotificationClick = useCallback(
+    async (notification: Notification) => {
+      if (!notification.isRead) {
+        await markAsRead(notification.id);
+      }
+      if (notification.actionUrl) {
+        router.push(notification.actionUrl);
+      }
+    },
+    [markAsRead, router]
+  );
 
   // Format time
   const formatTime = (dateString: string) => {
@@ -176,13 +210,13 @@ export default function AdminNotificationsPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl p-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div 
-              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-2xl"
               style={{ backgroundColor: `${primaryColor}15` }}
             >
               <Bell className="h-6 w-6" style={{ color: primaryColor }} />
@@ -198,7 +232,7 @@ export default function AdminNotificationsPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={refresh}
-              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+              className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100"
               title="Refresh"
             >
               <RefreshCw className="h-5 w-5" />
@@ -206,10 +240,10 @@ export default function AdminNotificationsPage() {
             {unreadCount > 0 && activeTab === 'notifications' && (
               <button
                 onClick={() => markAllAsRead()}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-white transition-colors"
+                className="rounded-xl px-4 py-2 text-sm font-medium text-white transition-colors"
                 style={{ backgroundColor: primaryColor }}
               >
-                <CheckCheck className="h-4 w-4 inline mr-1.5" />
+                <CheckCheck className="mr-1.5 inline h-4 w-4" />
                 Mark all as read
               </button>
             )}
@@ -217,10 +251,10 @@ export default function AdminNotificationsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+        <div className="flex w-fit items-center gap-2 rounded-xl bg-gray-100 p-1">
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'notifications'
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -229,8 +263,8 @@ export default function AdminNotificationsPage() {
             <Inbox className="h-4 w-4" />
             Notifications
             {unreadCount > 0 && (
-              <span 
-                className="px-1.5 py-0.5 text-[10px] font-bold text-white rounded-full"
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
                 style={{ backgroundColor: primaryColor }}
               >
                 {unreadCount}
@@ -239,7 +273,7 @@ export default function AdminNotificationsPage() {
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === 'settings'
                 ? 'bg-white text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
@@ -252,249 +286,272 @@ export default function AdminNotificationsPage() {
       </div>
 
       {/* Settings Tab */}
-      {activeTab === 'settings' && (
-        <NotificationSettings />
-      )}
+      {activeTab === 'settings' && <NotificationSettings />}
 
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
         <>
-      {/* Filters Bar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden">
-        <div className="p-4 flex items-center gap-4 flex-wrap">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search notifications..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-sm"
-              style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-            />
-          </div>
+          {/* Filters Bar */}
+          <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center gap-4 p-4">
+              {/* Search */}
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search notifications..."
+                  className="w-full rounded-xl border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                />
+              </div>
 
-          {/* Category Filter */}
-          <div className="relative">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
-                filterCategory ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-              } transition-colors`}
-            >
-              <Filter className="h-4 w-4" />
-              {filterCategory ? categoryConfig[filterCategory].label : 'All Categories'}
-              <ChevronDown className="h-4 w-4" />
-            </button>
-
-            {showFilters && (
-              <div className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-lg border border-gray-100 z-20 py-2 min-w-[180px]">
+              {/* Category Filter */}
+              <div className="relative">
                 <button
-                  onClick={() => { setFilterCategory(null); setShowFilters(false); }}
-                  className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${!filterCategory ? 'font-medium text-blue-600' : 'text-gray-700'}`}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-2 ${
+                    filterCategory
+                      ? 'border-blue-200 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  } transition-colors`}
                 >
-                  All Categories
+                  <Filter className="h-4 w-4" />
+                  {filterCategory ? categoryConfig[filterCategory].label : 'All Categories'}
+                  <ChevronDown className="h-4 w-4" />
                 </button>
-                {categories.map((cat) => {
-                  const config = categoryConfig[cat];
-                  const Icon = config.icon;
-                  return (
+
+                {showFilters && (
+                  <div className="absolute right-0 top-full z-20 mt-2 min-w-[180px] rounded-xl border border-gray-100 bg-white py-2 shadow-lg">
                     <button
-                      key={cat}
-                      onClick={() => { setFilterCategory(cat); setShowFilters(false); }}
-                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
-                        filterCategory === cat ? 'font-medium text-blue-600' : 'text-gray-700'
-                      }`}
+                      onClick={() => {
+                        setFilterCategory(null);
+                        setShowFilters(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${!filterCategory ? 'font-medium text-blue-600' : 'text-gray-700'}`}
                     >
-                      <Icon className={`h-4 w-4 ${config.color}`} />
-                      {config.label}
+                      All Categories
                     </button>
-                  );
-                })}
+                    {categories.map((cat) => {
+                      const config = categoryConfig[cat];
+                      const Icon = config.icon;
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            setFilterCategory(cat);
+                            setShowFilters(false);
+                          }}
+                          className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 ${
+                            filterCategory === cat ? 'font-medium text-blue-600' : 'text-gray-700'
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${config.color}`} />
+                          {config.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Unread Only Toggle */}
+              <button
+                onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+                className={`flex items-center gap-2 rounded-xl border px-4 py-2 ${
+                  showUnreadOnly
+                    ? 'border-blue-200 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                } transition-colors`}
+              >
+                <Bell className="h-4 w-4" />
+                Unread only
+              </button>
+            </div>
+
+            {/* Selection Actions */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-4 border-t border-blue-100 bg-blue-50 px-4 py-3">
+                <span className="text-sm font-medium text-blue-700">
+                  {selectedIds.size} selected
+                </span>
+                <button
+                  onClick={handleBulkMarkRead}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                >
+                  <Check className="h-4 w-4" />
+                  Mark as read
+                </button>
+                <button
+                  onClick={handleBulkArchive}
+                  className="flex items-center gap-1 text-sm text-red-600 hover:text-red-800"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Archive
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="ml-auto text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Clear selection
+                </button>
               </div>
             )}
           </div>
 
-          {/* Unread Only Toggle */}
-          <button
-            onClick={() => setShowUnreadOnly(!showUnreadOnly)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${
-              showUnreadOnly ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-            } transition-colors`}
-          >
-            <Bell className="h-4 w-4" />
-            Unread only
-          </button>
-        </div>
+          {/* Notifications List */}
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            {loading && filteredNotifications.length === 0 ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
+            ) : filteredNotifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                <Bell className="mb-4 h-16 w-16 opacity-30" />
+                <p className="text-lg font-medium text-gray-600">No notifications</p>
+                <p className="mt-1 text-sm">
+                  {filterCategory || showUnreadOnly
+                    ? 'Try adjusting your filters'
+                    : "You're all caught up!"}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Select All Header */}
+                <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={
+                      selectedIds.size === filteredNotifications.length &&
+                      filteredNotifications.length > 0
+                    }
+                    onChange={() => {
+                      if (selectedIds.size === filteredNotifications.length) {
+                        clearSelection();
+                      } else {
+                        selectAll();
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-600">
+                    Select all ({filteredNotifications.length})
+                  </span>
+                </div>
 
-        {/* Selection Actions */}
-        {selectedIds.size > 0 && (
-          <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 flex items-center gap-4">
-            <span className="text-sm text-blue-700 font-medium">
-              {selectedIds.size} selected
-            </span>
-            <button
-              onClick={handleBulkMarkRead}
-              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-            >
-              <Check className="h-4 w-4" />
-              Mark as read
-            </button>
-            <button
-              onClick={handleBulkArchive}
-              className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
-            >
-              <Trash2 className="h-4 w-4" />
-              Archive
-            </button>
-            <button
-              onClick={clearSelection}
-              className="text-sm text-gray-500 hover:text-gray-700 ml-auto"
-            >
-              Clear selection
-            </button>
-          </div>
-        )}
-      </div>
+                {/* Notifications */}
+                <div className="divide-y divide-gray-100">
+                  {filteredNotifications.map((notification) => {
+                    const config = categoryConfig[notification.category];
+                    const Icon = config.icon;
+                    const isSelected = selectedIds.has(notification.id);
 
-      {/* Notifications List */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading && filteredNotifications.length === 0 ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-          </div>
-        ) : filteredNotifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <Bell className="h-16 w-16 mb-4 opacity-30" />
-            <p className="text-lg font-medium text-gray-600">No notifications</p>
-            <p className="text-sm mt-1">
-              {filterCategory || showUnreadOnly ? 'Try adjusting your filters' : "You're all caught up!"}
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Select All Header */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3 bg-gray-50">
-              <input
-                type="checkbox"
-                checked={selectedIds.size === filteredNotifications.length && filteredNotifications.length > 0}
-                onChange={() => {
-                  if (selectedIds.size === filteredNotifications.length) {
-                    clearSelection();
-                  } else {
-                    selectAll();
-                  }
-                }}
-                className="w-4 h-4 rounded border-gray-300 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600">
-                Select all ({filteredNotifications.length})
-              </span>
-            </div>
+                    return (
+                      <div
+                        key={notification.id}
+                        className={`flex items-start gap-4 border-l-4 p-4 transition-colors hover:bg-gray-50 ${
+                          priorityColors[notification.priority]
+                        } ${!notification.isRead ? 'bg-blue-50/30' : ''} ${isSelected ? 'bg-blue-50' : ''}`}
+                      >
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelection(notification.id)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 focus:ring-blue-500"
+                        />
 
-            {/* Notifications */}
-            <div className="divide-y divide-gray-100">
-              {filteredNotifications.map((notification) => {
-                const config = categoryConfig[notification.category];
-                const Icon = config.icon;
-                const isSelected = selectedIds.has(notification.id);
+                        {/* Icon */}
+                        <div
+                          className={`h-10 w-10 flex-shrink-0 rounded-xl ${config.bgColor} flex items-center justify-center`}
+                        >
+                          <Icon className={`h-5 w-5 ${config.color}`} />
+                        </div>
 
-                return (
-                  <div
-                    key={notification.id}
-                    className={`flex items-start gap-4 p-4 hover:bg-gray-50 transition-colors border-l-4 ${
-                      priorityColors[notification.priority]
-                    } ${!notification.isRead ? 'bg-blue-50/30' : ''} ${isSelected ? 'bg-blue-50' : ''}`}
-                  >
-                    {/* Checkbox */}
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelection(notification.id)}
-                      className="mt-1 w-4 h-4 rounded border-gray-300 focus:ring-blue-500"
-                    />
-
-                    {/* Icon */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${config.bgColor} flex items-center justify-center`}>
-                      <Icon className={`h-5 w-5 ${config.color}`} />
-                    </div>
-
-                    {/* Content */}
-                    <button
-                      onClick={() => handleNotificationClick(notification)}
-                      className="flex-1 text-left min-w-0"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm font-medium text-gray-900 ${!notification.isRead ? 'font-semibold' : ''}`}>
-                          {notification.title}
-                        </p>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {!notification.isRead && (
-                            <span className="w-2 h-2 bg-blue-500 rounded-full" />
+                        {/* Content */}
+                        <button
+                          onClick={() => handleNotificationClick(notification)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p
+                              className={`text-sm font-medium text-gray-900 ${!notification.isRead ? 'font-semibold' : ''}`}
+                            >
+                              {notification.title}
+                            </p>
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                              {!notification.isRead && (
+                                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                              )}
+                              <span className="whitespace-nowrap text-xs text-gray-400">
+                                {formatTime(notification.createdAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-sm text-gray-600">
+                            {notification.message}
+                          </p>
+                          {notification.actionUrl && (
+                            <span className="mt-2 inline-flex items-center gap-1 text-xs text-blue-500">
+                              View details
+                              <ChevronRight className="h-3 w-3" />
+                            </span>
                           )}
-                          <span className="text-xs text-gray-400 whitespace-nowrap">
-                            {formatTime(notification.createdAt)}
-                          </span>
+                        </button>
+
+                        {/* Actions */}
+                        <div className="flex flex-shrink-0 items-center gap-1">
+                          {!notification.isRead && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
+                              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                              title="Mark as read"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              archiveNotifications([notification.id]);
+                            }}
+                            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                            title="Archive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      {notification.actionUrl && (
-                        <span className="inline-flex items-center gap-1 text-xs text-blue-500 mt-2">
-                          View details
-                          <ChevronRight className="h-3 w-3" />
-                        </span>
+                    );
+                  })}
+                </div>
+
+                {/* Load More */}
+                {hasMore && (
+                  <div className="border-t border-gray-100 p-4">
+                    <button
+                      onClick={loadMore}
+                      disabled={loading}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                    >
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          Load more notifications
+                          <ChevronDown className="h-4 w-4" />
+                        </>
                       )}
                     </button>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {!notification.isRead && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                          title="Mark as read"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); archiveNotifications([notification.id]); }}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Archive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Load More */}
-            {hasMore && (
-              <div className="p-4 border-t border-gray-100">
-                <button
-                  onClick={loadMore}
-                  disabled={loading}
-                  className="w-full py-3 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      Load more notifications
-                      <ChevronDown className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </div>
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
+          </div>
         </>
       )}
     </div>

@@ -33,8 +33,14 @@ const notificationPreferencesSchema = z.object({
   // Do Not Disturb
   dndEnabled: z.boolean().optional(),
   dndScheduleEnabled: z.boolean().optional(),
-  dndStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  dndEndTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  dndStartTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+  dndEndTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   dndDays: z.array(z.number().min(0).max(6)).optional(),
 
   // Category preferences
@@ -128,26 +134,32 @@ async function getPreferencesHandler(req: NextRequest, user: AuthUser): Promise<
       // Notification preferences
       soundEnabled: dbPreferences?.soundEnabled ?? DEFAULT_PREFERENCES.soundEnabled,
       soundVolume: dbPreferences?.soundVolume ?? DEFAULT_PREFERENCES.soundVolume,
-      soundForPriorities: (dbPreferences?.soundForPriorities as string[]) ?? DEFAULT_PREFERENCES.soundForPriorities,
+      soundForPriorities:
+        (dbPreferences?.soundForPriorities as string[]) ?? DEFAULT_PREFERENCES.soundForPriorities,
       toastEnabled: dbPreferences?.toastEnabled ?? DEFAULT_PREFERENCES.toastEnabled,
       toastDuration: dbPreferences?.toastDuration ?? DEFAULT_PREFERENCES.toastDuration,
       toastPosition: dbPreferences?.toastPosition ?? DEFAULT_PREFERENCES.toastPosition,
       browserNotificationsEnabled:
-        dbPreferences?.browserNotificationsEnabled ?? DEFAULT_PREFERENCES.browserNotificationsEnabled,
+        dbPreferences?.browserNotificationsEnabled ??
+        DEFAULT_PREFERENCES.browserNotificationsEnabled,
       dndEnabled: dbPreferences?.dndEnabled ?? DEFAULT_PREFERENCES.dndEnabled,
-      dndScheduleEnabled: dbPreferences?.dndScheduleEnabled ?? DEFAULT_PREFERENCES.dndScheduleEnabled,
+      dndScheduleEnabled:
+        dbPreferences?.dndScheduleEnabled ?? DEFAULT_PREFERENCES.dndScheduleEnabled,
       dndStartTime: dbPreferences?.dndStartTime ?? DEFAULT_PREFERENCES.dndStartTime,
       dndEndTime: dbPreferences?.dndEndTime ?? DEFAULT_PREFERENCES.dndEndTime,
       dndDays: (dbPreferences?.dndDays as number[]) ?? DEFAULT_PREFERENCES.dndDays,
-      mutedCategories: (dbPreferences?.mutedCategories as string[]) ?? DEFAULT_PREFERENCES.mutedCategories,
+      mutedCategories:
+        (dbPreferences?.mutedCategories as string[]) ?? DEFAULT_PREFERENCES.mutedCategories,
       groupSimilar: dbPreferences?.groupSimilar ?? DEFAULT_PREFERENCES.groupSimilar,
       showDesktopBadge: dbPreferences?.showDesktopBadge ?? DEFAULT_PREFERENCES.showDesktopBadge,
 
       // Email preferences from User model
       emailNotificationsEnabled:
         userEmailPrefs?.emailNotificationsEnabled ?? DEFAULT_PREFERENCES.emailNotificationsEnabled,
-      emailDigestEnabled: userEmailPrefs?.emailDigestEnabled ?? DEFAULT_PREFERENCES.emailDigestEnabled,
-      emailDigestFrequency: userEmailPrefs?.emailDigestFrequency ?? DEFAULT_PREFERENCES.emailDigestFrequency,
+      emailDigestEnabled:
+        userEmailPrefs?.emailDigestEnabled ?? DEFAULT_PREFERENCES.emailDigestEnabled,
+      emailDigestFrequency:
+        userEmailPrefs?.emailDigestFrequency ?? DEFAULT_PREFERENCES.emailDigestFrequency,
     };
 
     return NextResponse.json({

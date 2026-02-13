@@ -1,6 +1,9 @@
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { defineConfig } from 'vitest/config';
+
+const __dirnameSafe = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
@@ -71,8 +74,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@/tests': path.resolve(__dirname, './tests'),
+      '@': path.resolve(__dirnameSafe, './src'),
+      '@/tests': path.resolve(__dirnameSafe, './tests'),
     },
   },
 });

@@ -77,25 +77,25 @@ export default function UserActivityPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filters
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('lastLogin');
   const [sortOrder, setSortOrder] = useState('desc');
-  
+
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  
+
   // View mode
   const [viewMode, setViewMode] = useState<'users' | 'activity'>('users');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -105,13 +105,13 @@ export default function UserActivityPage() {
         sortBy,
         sortOrder,
       });
-      
+
       const response = await fetch(`/api/super-admin/user-activity?${params}`, {
         credentials: 'include',
       });
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         setUsers(data.users);
         setRecentActivity(data.recentActivity);
@@ -137,7 +137,7 @@ export default function UserActivityPage() {
 
   const handleForceLogout = async (userId: number) => {
     if (!confirm('Are you sure you want to force logout this user?')) return;
-    
+
     try {
       const response = await fetch('/api/super-admin/user-activity', {
         method: 'POST',
@@ -145,9 +145,9 @@ export default function UserActivityPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'force_logout', userId }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         fetchData();
       } else {
@@ -171,11 +171,11 @@ export default function UserActivityPage() {
     const date = new Date(dateStr);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    
+
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-    
+
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
@@ -215,7 +215,7 @@ export default function UserActivityPage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -225,9 +225,9 @@ export default function UserActivityPage() {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="rounded-lg bg-white p-6 shadow">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
+              <div className="rounded-lg bg-blue-100 p-3">
                 <Users className="h-6 w-6 text-blue-600" />
               </div>
               <div>
@@ -236,10 +236,10 @@ export default function UserActivityPage() {
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
+
+          <div className="rounded-lg bg-white p-6 shadow">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-lg">
+              <div className="rounded-lg bg-green-100 p-3">
                 <Wifi className="h-6 w-6 text-green-600" />
               </div>
               <div>
@@ -248,10 +248,10 @@ export default function UserActivityPage() {
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
+
+          <div className="rounded-lg bg-white p-6 shadow">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-100 rounded-lg">
+              <div className="rounded-lg bg-purple-100 p-3">
                 <TrendingUp className="h-6 w-6 text-purple-600" />
               </div>
               <div>
@@ -260,10 +260,10 @@ export default function UserActivityPage() {
               </div>
             </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow p-6">
+
+          <div className="rounded-lg bg-white p-6 shadow">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-orange-100 rounded-lg">
+              <div className="rounded-lg bg-orange-100 p-3">
                 <UserPlus className="h-6 w-6 text-orange-600" />
               </div>
               <div>
@@ -276,10 +276,10 @@ export default function UserActivityPage() {
       )}
 
       {/* View Toggle & Filters */}
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="rounded-lg bg-white p-4 shadow">
         <div className="flex items-center justify-between gap-4">
           {/* View Toggle */}
-          <div className="flex rounded-lg border overflow-hidden">
+          <div className="flex overflow-hidden rounded-lg border">
             <button
               onClick={() => setViewMode('users')}
               className={`px-4 py-2 text-sm font-medium ${
@@ -288,7 +288,7 @@ export default function UserActivityPage() {
                   : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <Users className="h-4 w-4 inline mr-2" />
+              <Users className="mr-2 inline h-4 w-4" />
               Users
             </button>
             <button
@@ -299,30 +299,36 @@ export default function UserActivityPage() {
                   : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
-              <Activity className="h-4 w-4 inline mr-2" />
+              <Activity className="mr-2 inline h-4 w-4" />
               Activity Log
             </button>
           </div>
 
           {viewMode === 'users' && (
-            <div className="flex items-center gap-4 flex-1">
+            <div className="flex flex-1 items-center gap-4">
               {/* Search */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by name or email..."
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border py-2 pl-10 pr-4 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               {/* Filter */}
               <select
                 value={filter}
-                onChange={(e) => { setFilter(e.target.value); setPage(1); }}
-                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="all">All Users</option>
                 <option value="online">Online Now</option>
@@ -338,7 +344,7 @@ export default function UserActivityPage() {
                   setSortBy(by);
                   setSortOrder(order);
                 }}
-                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="lastLogin-desc">Last Login (Recent)</option>
                 <option value="lastLogin-asc">Last Login (Oldest)</option>
@@ -354,46 +360,46 @@ export default function UserActivityPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
           {error}
         </div>
       )}
 
       {/* Users Table */}
       {viewMode === 'users' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden rounded-lg bg-white shadow">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Clinic
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Last Login
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Session
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 bg-white">
                 {loading && !users.length ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center">
-                      <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400" />
+                      <RefreshCw className="mx-auto h-8 w-8 animate-spin text-gray-400" />
                       <p className="mt-2 text-gray-500">Loading...</p>
                     </td>
                   </tr>
@@ -406,13 +412,13 @@ export default function UserActivityPage() {
                 ) : (
                   users.map((user) => (
                     <tr key={user.id} className={user.isOnline ? 'bg-green-50' : ''}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex items-center gap-2">
                           {user.isOnline ? (
                             <span className="flex items-center gap-1 text-green-600">
                               <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
                               </span>
                               Online
                             </span>
@@ -435,15 +441,17 @@ export default function UserActivityPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadge(user.role)}`}>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-medium ${getRoleBadge(user.role)}`}
+                        >
                           {user.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                         {user.clinic?.name || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap px-6 py-4">
                         <div className="text-sm">
                           <div className="text-gray-900">{formatTimeAgo(user.lastLogin)}</div>
                           {user.lastLogin && (
@@ -453,7 +461,7 @@ export default function UserActivityPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap px-6 py-4">
                         {user.currentSession ? (
                           <div className="text-sm">
                             <div className="flex items-center gap-2 text-gray-900">
@@ -468,12 +476,12 @@ export default function UserActivityPage() {
                           <span className="text-sm text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap px-6 py-4">
                         <div className="flex items-center gap-2">
                           {user.isOnline && (
                             <button
                               onClick={() => handleForceLogout(user.id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              className="rounded-lg p-2 text-red-600 hover:bg-red-50"
                               title="Force Logout"
                             >
                               <LogOut className="h-4 w-4" />
@@ -482,7 +490,7 @@ export default function UserActivityPage() {
                           <Link
                             href={`/super-admin/users/${user.id}/clinics`}
                             prefetch={false}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
                             title="Manage Clinics"
                           >
                             <Eye className="h-4 w-4" />
@@ -498,15 +506,15 @@ export default function UserActivityPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t flex items-center justify-between">
+            <div className="flex items-center justify-between border-t px-6 py-4">
               <div className="text-sm text-gray-500">
-                Showing {((page - 1) * 25) + 1} - {Math.min(page * 25, total)} of {total} users
+                Showing {(page - 1) * 25 + 1} - {Math.min(page * 25, total)} of {total} users
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border p-2 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -514,9 +522,9 @@ export default function UserActivityPage() {
                   Page {page} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded-lg border p-2 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -528,32 +536,37 @@ export default function UserActivityPage() {
 
       {/* Activity Log */}
       {viewMode === 'activity' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-4 border-b">
+        <div className="overflow-hidden rounded-lg bg-white shadow">
+          <div className="border-b p-4">
             <h3 className="font-semibold text-gray-900">Recent Activity (Last 100 Actions)</h3>
           </div>
-          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+          <div className="max-h-[600px] divide-y divide-gray-100 overflow-y-auto">
             {recentActivity.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                No recent activity
-              </div>
+              <div className="p-12 text-center text-gray-500">No recent activity</div>
             ) : (
               recentActivity.map((log) => (
                 <div key={log.id} className="p-4 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        log.action === 'LOGIN' ? 'bg-green-100 text-green-600' :
-                        log.action === 'LOGOUT' ? 'bg-gray-100 text-gray-600' :
-                        log.action === 'FORCE_LOGOUT' ? 'bg-red-100 text-red-600' :
-                        'bg-blue-100 text-blue-600'
-                      }`}>
+                      <div
+                        className={`rounded-lg p-2 ${
+                          log.action === 'LOGIN'
+                            ? 'bg-green-100 text-green-600'
+                            : log.action === 'LOGOUT'
+                              ? 'bg-gray-100 text-gray-600'
+                              : log.action === 'FORCE_LOGOUT'
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-blue-100 text-blue-600'
+                        }`}
+                      >
                         <Activity className="h-4 w-4" />
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">
                           {log.user.firstName} {log.user.lastName}
-                          <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${getRoleBadge(log.user.role)}`}>
+                          <span
+                            className={`ml-2 rounded-full px-2 py-0.5 text-xs ${getRoleBadge(log.user.role)}`}
+                          >
                             {log.user.role}
                           </span>
                         </div>
@@ -561,7 +574,7 @@ export default function UserActivityPage() {
                         <div className="mt-1 text-sm">
                           <span className="font-medium">{log.action}</span>
                           {log.ipAddress && (
-                            <span className="text-gray-400 ml-2">from {log.ipAddress}</span>
+                            <span className="ml-2 text-gray-400">from {log.ipAddress}</span>
                           )}
                         </div>
                         {log.details && typeof log.details === 'object' && (
@@ -571,9 +584,7 @@ export default function UserActivityPage() {
                         )}
                       </div>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {formatTimeAgo(log.createdAt)}
-                    </div>
+                    <div className="text-sm text-gray-500">{formatTimeAgo(log.createdAt)}</div>
                   </div>
                 </div>
               ))

@@ -3,8 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getEnabledProgressTabIds } from '@/lib/patient-portal';
+import { logger } from '@/lib/logger';
+import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 import WeightTracker from '@/components/WeightTracker';
 import {
   Scale,
@@ -121,44 +124,60 @@ export default function ProgressPage() {
   const [mealCalories, setMealCalories] = useState('');
   const [todayCalories, setTodayCalories] = useState(0);
 
+  // Enterprise: single resolution of patientId — never show progress content without it (or clear error)
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
-      const userJson = localStorage.getItem('user');
-      if (!userJson) {
-        setLoading(false);
-        return;
-      }
       try {
-        const userData = JSON.parse(userJson);
-        // CRITICAL: Use patientId only (never user.id) so weight/progress match admin profile
-        let pid: number | null = userData.patientId ?? null;
-        if (pid == null && userData.role?.toLowerCase() === 'patient') {
-          const meRes = await fetch('/api/auth/me', {
-            headers: getAuthHeaders(),
-            credentials: 'include',
-          });
+        let userData: { role?: string; patientId?: number; [k: string]: unknown } | null = null;
+        const userJson = localStorage.getItem('user');
+        if (userJson) {
+          userData = safeParseJsonString<{ role?: string; patientId?: number; [k: string]: unknown }>(userJson);
+        }
+
+        let pid: number | null = userData?.patientId ?? null;
+
+        // If we're a patient and missing patientId, or we have no user at all, call /api/auth/me (token may be in cookie or localStorage)
+        if ((!userData || (userData.role?.toLowerCase() === 'patient' && pid == null))) {
+          const meRes = await portalFetch('/api/auth/me', { cache: 'no-store' });
           if (meRes.ok) {
-            const meData = await meRes.json();
-            const fromMe = meData?.user?.patientId;
-            if (typeof fromMe === 'number' && fromMe > 0) {
-              pid = fromMe;
-              const updated = { ...userData, patientId: fromMe };
-              localStorage.setItem('user', JSON.stringify(updated));
+            const meData = await safeParseJson(meRes);
+            const me = (meData as { user?: { id?: number; role?: string; patientId?: number; email?: string; [k: string]: unknown } } | null)?.user;
+            if (me && !cancelled) {
+              const fromMePid = typeof me.patientId === 'number' && me.patientId > 0 ? me.patientId : null;
+              pid = fromMePid;
+              const toStore = userData ? { ...userData, patientId: fromMePid ?? userData.patientId } : { id: me.id, role: me.role, patientId: fromMePid, email: me.email };
+              setPortalUserStorage(getMinimalPortalUserPayload(toStore));
             }
           }
+          if (!userData && !meRes.ok && !cancelled) {
+            setError('Please log in to view your progress.');
+            setLoading(false);
+            return;
+          }
         }
-        if (!cancelled) setPatientId(pid);
+
+        if (!cancelled) {
+          setPatientId(pid);
+          if (userData?.role?.toLowerCase() === 'patient' && pid == null) {
+            setError('Unable to load your profile. Please log out and log in again.');
+          }
+        }
       } catch {
-        if (!cancelled) setPatientId(null);
+        if (!cancelled) {
+          setPatientId(null);
+          setError('Failed to load your session. Please try again.');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -168,58 +187,66 @@ export default function ProgressPage() {
   }, [patientId, activeTab]);
 
   const fetchData = async () => {
+    if (!patientId) return;
     try {
-      const headers = getAuthHeaders();
-      // Fetch data based on active tab
+      setError(null);
+      const opts = { cache: 'no-store' as RequestCache };
       if (activeTab === 'weight') {
-        const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
-          headers,
-          credentials: 'include',
-        });
+        const response = await portalFetch(`/api/patient-progress/weight?patientId=${patientId}`, opts);
+        if (response.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          return;
+        }
         if (response.ok) {
-          const result = await response.json();
-          const logs = Array.isArray(result) ? result : (result.data || []);
+          const result = await safeParseJson(response);
+          const logs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: WeightLog[] }).data : null) || [];
           setWeightLogs(logs);
         }
       } else if (activeTab === 'water') {
-        const response = await fetch(`/api/patient-progress/water?patientId=${patientId}`, {
-          headers,
-          credentials: 'include',
-        });
+        const response = await portalFetch(`/api/patient-progress/water?patientId=${patientId}`, opts);
+        if (response.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          return;
+        }
         if (response.ok) {
-          const result = await response.json();
-          setTodayWater(result.meta?.todayTotal || 0);
+          const result = await safeParseJson(response);
+          setTodayWater((result as { meta?: { todayTotal?: number } } | null)?.meta?.todayTotal || 0);
         }
       } else if (activeTab === 'exercise') {
-        const response = await fetch(`/api/patient-progress/exercise?patientId=${patientId}`, {
-          headers,
-          credentials: 'include',
-        });
+        const response = await portalFetch(`/api/patient-progress/exercise?patientId=${patientId}`, opts);
+        if (response.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          return;
+        }
         if (response.ok) {
-          const result = await response.json();
-          setWeeklyMinutes(result.meta?.weeklyMinutes || 0);
+          const result = await safeParseJson(response);
+          setWeeklyMinutes((result as { meta?: { weeklyMinutes?: number } } | null)?.meta?.weeklyMinutes || 0);
         }
       } else if (activeTab === 'sleep') {
-        const response = await fetch(`/api/patient-progress/sleep?patientId=${patientId}`, {
-          headers,
-          credentials: 'include',
-        });
+        const response = await portalFetch(`/api/patient-progress/sleep?patientId=${patientId}`, opts);
+        if (response.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          return;
+        }
         if (response.ok) {
-          const result = await response.json();
-          setAvgSleepHours(result.meta?.avgSleepHours || 0);
+          const result = await safeParseJson(response);
+          setAvgSleepHours((result as { meta?: { avgSleepHours?: number } } | null)?.meta?.avgSleepHours || 0);
         }
       } else if (activeTab === 'nutrition') {
-        const response = await fetch(`/api/patient-progress/nutrition?patientId=${patientId}`, {
-          headers,
-          credentials: 'include',
-        });
+        const response = await portalFetch(`/api/patient-progress/nutrition?patientId=${patientId}`, opts);
+        if (response.status === 401) {
+          setError('Your session has expired. Please log in again.');
+          return;
+        }
         if (response.ok) {
-          const result = await response.json();
-          setTodayCalories(result.meta?.todayCalories || 0);
+          const result = await safeParseJson(response);
+          setTodayCalories((result as { meta?: { todayCalories?: number } } | null)?.meta?.todayCalories || 0);
         }
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      logger.error('Failed to fetch progress data', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       setError('Failed to load health data. Please check your connection and try again.');
     }
   };
@@ -227,20 +254,30 @@ export default function ProgressPage() {
   const handleQuickWater = async (amount: number) => {
     if (!patientId) return;
     setSaving(true);
+    setError(null);
     try {
-      const response = await fetch('/api/patient-progress/water', {
+      const response = await portalFetch('/api/patient-progress/water', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId, amount, unit: 'oz' }),
       });
       if (response.ok) {
-        setTodayWater(prev => prev + amount);
+        setTodayWater((prev) => prev + amount);
         setShowSuccess(`+${amount} oz added!`);
         setTimeout(() => setShowSuccess(''), 2000);
+        fetchData();
+      } else {
+        const errBody = await safeParseJson(response);
+        const message =
+          (errBody && typeof errBody === 'object' && 'error' in errBody && (errBody as { error?: string }).error) ||
+          `Could not save water (${response.status}). Please try again.`;
+        setError(message);
       }
     } catch (error) {
-      console.error('Failed to log water:', error);
+      logger.error('Failed to log water', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      setError('Failed to save water. Please check your connection and try again.');
     } finally {
       setSaving(false);
     }
@@ -250,10 +287,9 @@ export default function ProgressPage() {
     if (!patientId || !exerciseDuration) return;
     setSaving(true);
     try {
-      const response = await fetch('/api/patient-progress/exercise', {
+      const response = await portalFetch('/api/patient-progress/exercise', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           activityType: exerciseType,
@@ -262,13 +298,16 @@ export default function ProgressPage() {
         }),
       });
       if (response.ok) {
-        setWeeklyMinutes(prev => prev + parseInt(exerciseDuration));
+        setWeeklyMinutes((prev) => prev + parseInt(exerciseDuration));
         setExerciseDuration('');
         setShowSuccess('Exercise logged!');
         setTimeout(() => setShowSuccess(''), 2000);
+        fetchData();
       }
     } catch (error) {
-      console.error('Failed to log exercise:', error);
+      logger.error('Failed to log exercise', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setSaving(false);
     }
@@ -292,10 +331,9 @@ export default function ProgressPage() {
       const sleepEndDate = new Date(today);
       sleepEndDate.setHours(endHour, endMin, 0, 0);
 
-      const response = await fetch('/api/patient-progress/sleep', {
+      const response = await portalFetch('/api/patient-progress/sleep', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           sleepStart: sleepStartDate.toISOString(),
@@ -309,7 +347,9 @@ export default function ProgressPage() {
         setTimeout(() => setShowSuccess(''), 2000);
       }
     } catch (error) {
-      console.error('Failed to log sleep:', error);
+      logger.error('Failed to log sleep', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setSaving(false);
     }
@@ -319,10 +359,9 @@ export default function ProgressPage() {
     if (!patientId) return;
     setSaving(true);
     try {
-      const response = await fetch('/api/patient-progress/nutrition', {
+      const response = await portalFetch('/api/patient-progress/nutrition', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           mealType,
@@ -332,15 +371,18 @@ export default function ProgressPage() {
       });
       if (response.ok) {
         if (mealCalories) {
-          setTodayCalories(prev => prev + parseInt(mealCalories));
+          setTodayCalories((prev) => prev + parseInt(mealCalories));
         }
         setMealDescription('');
         setMealCalories('');
         setShowSuccess('Meal logged!');
         setTimeout(() => setShowSuccess(''), 2000);
+        fetchData();
       }
     } catch (error) {
-      console.error('Failed to log meal:', error);
+      logger.error('Failed to log meal', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setSaving(false);
     }
@@ -367,10 +409,10 @@ export default function ProgressPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center p-4 safe-left safe-right">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 max-w-md text-center">
-          <Activity className="w-12 h-12 mx-auto mb-3 text-red-300" />
-          <p className="font-medium mb-2">{t('progressErrorLoading')}</p>
+      <div className="safe-left safe-right flex min-h-[50vh] items-center justify-center p-4">
+        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-red-700">
+          <Activity className="mx-auto mb-3 h-12 w-12 text-red-300" />
+          <p className="mb-2 font-medium">{t('progressErrorLoading')}</p>
           <p className="text-sm">{error}</p>
           <button
             onClick={() => {
@@ -378,7 +420,7 @@ export default function ProgressPage() {
               setLoading(true);
               if (patientId) fetchData();
             }}
-            className="mt-4 min-h-[44px] px-4 py-2 bg-red-100 hover:bg-red-200 rounded-xl text-sm font-medium transition-colors active:scale-[0.98]"
+            className="mt-4 min-h-[44px] rounded-xl bg-red-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-red-200 active:scale-[0.98]"
           >
             {t('progressTryAgain')}
           </button>
@@ -388,17 +430,17 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-hidden px-4 py-4 pb-36 safe-left safe-right md:pb-6 md:max-w-2xl md:mx-auto">
+    <div className="safe-left safe-right min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-hidden px-4 py-4 pb-36 md:mx-auto md:max-w-2xl md:pb-6">
       {/* Success Toast - below status bar on mobile */}
       {showSuccess && (
         <div
-          className="fixed left-4 right-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-2xl animate-in slide-in-from-top-2 md:left-auto md:right-4 md:min-w-0"
+          className="animate-in slide-in-from-top-2 fixed left-4 right-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-2xl md:left-auto md:right-4 md:min-w-0"
           style={{ top: 'calc(56px + env(safe-area-inset-top, 0px) + 8px)' }}
         >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500">
             <Check className="h-4 w-4" />
           </div>
-          <span className="font-medium truncate">{showSuccess}</span>
+          <span className="truncate font-medium">{showSuccess}</span>
         </div>
       )}
 
@@ -409,8 +451,11 @@ export default function ProgressPage() {
       </div>
 
       {/* Tab Navigation - Scrollable within viewport, no page overflow */}
-      <div className="mb-4 w-full min-w-0 overflow-x-auto overflow-y-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="flex gap-2 min-w-max pb-1">
+      <div
+        className="mb-4 w-full min-w-0 overflow-x-auto overflow-y-hidden"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex min-w-max gap-2 pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -425,7 +470,7 @@ export default function ProgressPage() {
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className="text-sm whitespace-nowrap">{t(tab.labelKey)}</span>
+                <span className="whitespace-nowrap text-sm">{t(tab.labelKey)}</span>
               </button>
             );
           })}
@@ -443,7 +488,9 @@ export default function ProgressPage() {
                   <Activity className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
                 </div>
               </div>
-              <p className="text-xl font-semibold text-gray-900 sm:text-2xl">{latestWeight || '--'}</p>
+              <p className="text-xl font-semibold text-gray-900 sm:text-2xl">
+                {latestWeight || '--'}
+              </p>
               <p className="text-xs font-medium text-gray-500">{t('progressCurrentLbs')}</p>
             </div>
             <div className="rounded-xl bg-white p-3 shadow-sm sm:rounded-2xl sm:p-4">
@@ -472,12 +519,14 @@ export default function ProgressPage() {
 
           {/* Weight Tracker - mobile-optimized, uses portal i18n */}
           <WeightTracker
-            patientId={patientId || undefined}
+            patientId={patientId ?? undefined}
             variant="hims"
             accentColor={accentColor}
             showBMI={true}
             onWeightSaved={fetchData}
             usePortalI18n
+            usePortalFetch
+            weightLogsFromParent={weightLogs}
           />
 
           {/* Progress Photos Link - compact touch target */}
@@ -493,8 +542,10 @@ export default function ProgressPage() {
                 <Camera className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: primaryColor }} />
               </div>
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{t('progressPhotos')}</p>
-                <p className="text-xs text-gray-500 truncate sm:text-sm">{t('progressPhotosSubtitle')}</p>
+                <p className="truncate font-semibold text-gray-900">{t('progressPhotos')}</p>
+                <p className="truncate text-xs text-gray-500 sm:text-sm">
+                  {t('progressPhotosSubtitle')}
+                </p>
               </div>
             </div>
             <div
@@ -548,9 +599,7 @@ export default function ProgressPage() {
             </div>
 
             <p className="text-sm text-white/70">
-              {todayWater >= waterGoal
-                ? '🎉 Goal reached!'
-                : `${waterGoal - todayWater} oz to go`}
+              {todayWater >= waterGoal ? '🎉 Goal reached!' : `${waterGoal - todayWater} oz to go`}
             </p>
           </div>
 
@@ -655,7 +704,9 @@ export default function ProgressPage() {
 
             {/* Duration */}
             <div className="mb-4">
-              <label className="mb-2 block text-sm font-medium text-gray-500">Duration (minutes)</label>
+              <label className="mb-2 block text-sm font-medium text-gray-500">
+                Duration (minutes)
+              </label>
               <input
                 type="number"
                 value={exerciseDuration}
@@ -819,7 +870,9 @@ export default function ProgressPage() {
 
             {/* Description */}
             <div className="mb-4">
-              <label className="mb-2 block text-sm font-medium text-gray-500">What did you eat?</label>
+              <label className="mb-2 block text-sm font-medium text-gray-500">
+                What did you eat?
+              </label>
               <input
                 type="text"
                 value={mealDescription}
@@ -831,7 +884,9 @@ export default function ProgressPage() {
 
             {/* Calories */}
             <div className="mb-6">
-              <label className="mb-2 block text-sm font-medium text-gray-500">Calories (optional)</label>
+              <label className="mb-2 block text-sm font-medium text-gray-500">
+                Calories (optional)
+              </label>
               <input
                 type="number"
                 value={mealCalories}
@@ -856,7 +911,9 @@ export default function ProgressPage() {
       <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 md:mt-6 md:rounded-2xl md:p-5">
         <div className="mb-2 flex items-center gap-2 md:mb-3">
           <Award className="h-4 w-4 text-blue-600 md:h-5 md:w-5" />
-          <h3 className="text-sm font-semibold text-gray-900 md:text-base">{t('progressWellnessTips')}</h3>
+          <h3 className="text-sm font-semibold text-gray-900 md:text-base">
+            {t('progressWellnessTips')}
+          </h3>
         </div>
         <ul className="space-y-1.5 text-xs text-gray-600 md:space-y-2 md:text-sm">
           <li className="flex items-start gap-2">

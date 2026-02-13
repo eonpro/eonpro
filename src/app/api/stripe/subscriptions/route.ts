@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({
         subscriptions: [],
-        message: 'Stripe not configured'
+        message: 'Stripe not configured',
       });
     }
 
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     // Return empty array instead of error for dashboard compatibility
     return NextResponse.json({
       subscriptions: [],
-      error: errorMessage
+      error: errorMessage,
     });
   }
 }

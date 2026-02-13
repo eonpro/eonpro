@@ -17,7 +17,18 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { format } from 'date-fns';
-import { TrendingUp, TrendingDown, Activity, Calendar, FileText, Play, Plus, Scale, Check, X } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Calendar,
+  FileText,
+  Play,
+  Plus,
+  Scale,
+  Check,
+  X,
+} from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
@@ -253,7 +264,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                 <Check className="h-3 w-3" /> Saved!
               </span>
             )}
-            <span className="rounded-full px-3 py-1 text-xs text-green-800" style={{ backgroundColor: 'rgba(255,255,255,0.6)' }}>
+            <span
+              className="rounded-full px-3 py-1 text-xs text-green-800"
+              style={{ backgroundColor: 'rgba(255,255,255,0.6)' }}
+            >
               {weightData.length} entries
             </span>
             <button
@@ -283,9 +297,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Weight (lbs)
-                </label>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Weight (lbs)</label>
                 <input
                   type="number"
                   step="0.1"
@@ -296,9 +308,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Date
-                </label>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Date</label>
                 <input
                   type="date"
                   value={weightDate}
@@ -374,27 +384,29 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     },
                   ],
                 }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  layout: { padding: 0 },
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: { backgroundColor: 'rgba(255,255,255,0.95)' },
-                  },
-                  scales: {
-                    x: {
-                      title: { display: true, text: 'Date', color: '#374151' },
-                      ticks: { color: '#374151' },
-                      grid: { color: 'rgba(0,0,0,0.06)' },
+                options={
+                  {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: 0 },
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: { backgroundColor: 'rgba(255,255,255,0.95)' },
                     },
-                    y: {
-                      title: { display: true, text: 'Weight (lbs)', color: '#374151' },
-                      ticks: { color: '#374151' },
-                      grid: { color: 'rgba(0,0,0,0.06)' },
+                    scales: {
+                      x: {
+                        title: { display: true, text: 'Date', color: '#374151' },
+                        ticks: { color: '#374151' },
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                      },
+                      y: {
+                        title: { display: true, text: 'Weight (lbs)', color: '#374151' },
+                        ticks: { color: '#374151' },
+                        grid: { color: 'rgba(0,0,0,0.06)' },
+                      },
                     },
-                  },
-                } as ChartOptions<'line'>}
+                  } as ChartOptions<'line'>
+                }
               />
             </div>
           ) : (
@@ -422,10 +434,10 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                       className={`h-2 w-2 rounded-full ${idx === 0 ? 'bg-green-500' : 'bg-gray-300'}`}
                     />
                     <div>
-                      <span className="text-sm font-medium">{format(entry.date, 'MMM d, yyyy')}</span>
-                      {entry.notes && (
-                        <p className="text-xs text-gray-500">{entry.notes}</p>
-                      )}
+                      <span className="text-sm font-medium">
+                        {format(entry.date, 'MMM d, yyyy')}
+                      </span>
+                      {entry.notes && <p className="text-xs text-gray-500">{entry.notes}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -439,7 +451,11 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                             : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {entry.source === 'intake' ? 'Intake' : entry.source === 'provider' ? 'Provider' : 'Patient'}
+                      {entry.source === 'intake'
+                        ? 'Intake'
+                        : entry.source === 'provider'
+                          ? 'Provider'
+                          : 'Patient'}
                     </span>
                     {idx === 0 && progress && (
                       <span

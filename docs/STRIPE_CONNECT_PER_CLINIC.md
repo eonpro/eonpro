@@ -2,14 +2,17 @@
 
 ## Overview
 
-Each clinic on the platform can connect their own Stripe account for direct payment processing. This enables a true white-label experience where clinics receive payments directly to their bank accounts.
+Each clinic on the platform can connect their own Stripe account for direct payment processing. This
+enables a true white-label experience where clinics receive payments directly to their bank
+accounts.
 
 ## Features
 
 - **OAuth Login**: Users simply log into their existing Stripe account - no new account needed
 - **Self-Service**: Clinic admins can connect without super admin intervention
 - **Direct Payments**: Funds go directly to the clinic's bank account
-- **Full Dashboard Access**: Clinics get their own Stripe dashboard for disputes, refunds, and reporting
+- **Full Dashboard Access**: Clinics get their own Stripe dashboard for disputes, refunds, and
+  reporting
 - **Automatic Status Sync**: Webhook integration keeps account status synchronized
 
 ## Connection Flow
@@ -41,6 +44,7 @@ If OAuth is not configured, falls back to creating a new account:
 ### Account Types
 
 We use **Stripe Standard** connected accounts, which provide:
+
 - Full Stripe dashboard access for clinic owners
 - All Stripe features (disputes, refunds, subscriptions)
 - Clinic manages their own payouts and bank settings
@@ -99,10 +103,12 @@ GET /api/stripe/connect?clinicId=123
 ```
 
 **Query Parameters:**
+
 - `clinicId` (required): Clinic ID
 - `action` (optional): 'status', 'onboarding', 'dashboard', 'sync'
 
 **Response:**
+
 ```json
 {
   "clinic": { "id": 123, "name": "My Clinic" },
@@ -134,6 +140,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -163,11 +170,11 @@ DELETE /api/stripe/connect?clinicId=123
 
 ### Events Handled
 
-| Event | Description |
-|-------|-------------|
-| `account.updated` | Syncs chargesEnabled, payoutsEnabled, etc. |
-| `account.application.deauthorized` | Handles account disconnection |
-| `capability.updated` | Syncs when capabilities change |
+| Event                              | Description                                |
+| ---------------------------------- | ------------------------------------------ |
+| `account.updated`                  | Syncs chargesEnabled, payoutsEnabled, etc. |
+| `account.application.deauthorized` | Handles account disconnection              |
+| `capability.updated`               | Syncs when capabilities change             |
 
 ## Environment Variables
 
@@ -195,11 +202,11 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
 
 ### 2. OAuth Flow Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/stripe/connect/oauth` | GET | Generate OAuth authorize URL |
-| `/api/stripe/connect/oauth` | POST | Exchange code for account (manual) |
-| `/api/stripe/connect/oauth/callback` | GET | Handle Stripe redirect |
+| Endpoint                             | Method | Description                        |
+| ------------------------------------ | ------ | ---------------------------------- |
+| `/api/stripe/connect/oauth`          | GET    | Generate OAuth authorize URL       |
+| `/api/stripe/connect/oauth`          | POST   | Exchange code for account (manual) |
+| `/api/stripe/connect/oauth/callback` | GET    | Handle Stripe redirect             |
 
 ### 3. OAuth Security
 
@@ -209,7 +216,9 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
 
 ## Platform Account Mode
 
-For the main platform clinic (e.g., EONmeds), set `stripePlatformAccount: true` in the database. This clinic:
+For the main platform clinic (e.g., EONmeds), set `stripePlatformAccount: true` in the database.
+This clinic:
+
 - Uses the platform's Stripe account directly
 - Does not need to connect a separate account
 - All API calls use the main Stripe secret key
@@ -268,18 +277,19 @@ stripe trigger account.updated
 ### Charges Not Enabled
 
 Account may have pending requirements:
+
 1. Go to Stripe Dashboard → Connected Accounts
 2. Find the account and view requirements
 3. Complete any outstanding verification
 
 ## Files Reference
 
-| File | Description |
-|------|-------------|
-| `src/lib/stripe/connect.ts` | Core Stripe Connect library |
-| `src/app/api/stripe/connect/route.ts` | Connect API endpoints |
-| `src/app/api/stripe/connect/oauth/route.ts` | OAuth authorize/exchange endpoints |
-| `src/app/api/stripe/connect/oauth/callback/route.ts` | OAuth callback handler |
-| `src/app/api/webhooks/stripe-connect/route.ts` | Connect webhook handler |
-| `src/app/admin/settings/stripe/page.tsx` | Self-service settings UI |
-| `src/app/admin/stripe-dashboard/page.tsx` | Financial dashboard |
+| File                                                 | Description                        |
+| ---------------------------------------------------- | ---------------------------------- |
+| `src/lib/stripe/connect.ts`                          | Core Stripe Connect library        |
+| `src/app/api/stripe/connect/route.ts`                | Connect API endpoints              |
+| `src/app/api/stripe/connect/oauth/route.ts`          | OAuth authorize/exchange endpoints |
+| `src/app/api/stripe/connect/oauth/callback/route.ts` | OAuth callback handler             |
+| `src/app/api/webhooks/stripe-connect/route.ts`       | Connect webhook handler            |
+| `src/app/admin/settings/stripe/page.tsx`             | Self-service settings UI           |
+| `src/app/admin/stripe-dashboard/page.tsx`            | Financial dashboard                |

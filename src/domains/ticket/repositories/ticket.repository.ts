@@ -74,30 +74,22 @@ function buildWhereClause(
 
   // Status filter
   if (filters.status) {
-    where.status = Array.isArray(filters.status)
-      ? { in: filters.status }
-      : filters.status;
+    where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
   }
 
   // Priority filter
   if (filters.priority) {
-    where.priority = Array.isArray(filters.priority)
-      ? { in: filters.priority }
-      : filters.priority;
+    where.priority = Array.isArray(filters.priority) ? { in: filters.priority } : filters.priority;
   }
 
   // Category filter
   if (filters.category) {
-    where.category = Array.isArray(filters.category)
-      ? { in: filters.category }
-      : filters.category;
+    where.category = Array.isArray(filters.category) ? { in: filters.category } : filters.category;
   }
 
   // Source filter
   if (filters.source) {
-    where.source = Array.isArray(filters.source)
-      ? { in: filters.source }
-      : filters.source;
+    where.source = Array.isArray(filters.source) ? { in: filters.source } : filters.source;
   }
 
   // Assignment filters
@@ -161,19 +153,19 @@ function buildWhereClause(
 
   // Date filters
   if (filters.createdAfter) {
-    where.createdAt = { ...where.createdAt as object, gte: filters.createdAfter };
+    where.createdAt = { ...(where.createdAt as object), gte: filters.createdAfter };
   }
   if (filters.createdBefore) {
-    where.createdAt = { ...where.createdAt as object, lte: filters.createdBefore };
+    where.createdAt = { ...(where.createdAt as object), lte: filters.createdBefore };
   }
   if (filters.updatedAfter) {
     where.updatedAt = { gte: filters.updatedAfter };
   }
   if (filters.dueAfter) {
-    where.dueDate = { ...where.dueDate as object, gte: filters.dueAfter };
+    where.dueDate = { ...(where.dueDate as object), gte: filters.dueAfter };
   }
   if (filters.dueBefore) {
-    where.dueDate = { ...where.dueDate as object, lte: filters.dueBefore };
+    where.dueDate = { ...(where.dueDate as object), lte: filters.dueBefore };
   }
 
   return where;
@@ -182,9 +174,7 @@ function buildWhereClause(
 /**
  * Build order by clause from options
  */
-function buildOrderBy(
-  options: TicketListOptions
-): Prisma.TicketOrderByWithRelationInput {
+function buildOrderBy(options: TicketListOptions): Prisma.TicketOrderByWithRelationInput {
   const sortBy = options.sortBy || 'createdAt';
   const sortOrder = options.sortOrder || 'desc';
 
@@ -260,10 +250,7 @@ export const ticketRepository = {
   /**
    * Find ticket by ID with full relations
    */
-  async findById(
-    id: number,
-    userContext: UserContext
-  ): Promise<TicketWithRelations | null> {
+  async findById(id: number, userContext: UserContext): Promise<TicketWithRelations | null> {
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: {
@@ -363,10 +350,7 @@ export const ticketRepository = {
     if (!ticket) return null;
 
     // Clinic isolation check
-    if (
-      userContext.role !== 'super_admin' &&
-      ticket.clinicId !== userContext.clinicId
-    ) {
+    if (userContext.role !== 'super_admin' && ticket.clinicId !== userContext.clinicId) {
       logger.security('[TicketRepository] Cross-clinic access blocked', {
         userId: userContext.id,
         userClinicId: userContext.clinicId,
@@ -413,10 +397,7 @@ export const ticketRepository = {
     if (!ticket) return null;
 
     // Clinic isolation check
-    if (
-      userContext.role !== 'super_admin' &&
-      ticket.clinicId !== userContext.clinicId
-    ) {
+    if (userContext.role !== 'super_admin' && ticket.clinicId !== userContext.clinicId) {
       return null;
     }
 
@@ -811,11 +792,7 @@ export const ticketRepository = {
   /**
    * Remove a watcher from a ticket
    */
-  async removeWatcher(
-    ticketId: number,
-    userId: number,
-    tx?: Prisma.TransactionClient
-  ) {
+  async removeWatcher(ticketId: number, userId: number, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
 
     return db.ticketWatcher.deleteMany({
@@ -850,13 +827,7 @@ export const ticketRepository = {
    * Get ticket statistics for a clinic
    */
   async getStats(clinicId: number) {
-    const [
-      total,
-      byStatus,
-      byPriority,
-      slaBreach,
-      unassigned,
-    ] = await Promise.all([
+    const [total, byStatus, byPriority, slaBreach, unassigned] = await Promise.all([
       prisma.ticket.count({ where: { clinicId } }),
       prisma.ticket.groupBy({
         by: ['status'],
@@ -886,12 +857,8 @@ export const ticketRepository = {
 
     return {
       total,
-      byStatus: Object.fromEntries(
-        byStatus.map((s) => [s.status, s._count.status])
-      ),
-      byPriority: Object.fromEntries(
-        byPriority.map((p) => [p.priority, p._count.priority])
-      ),
+      byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count.status])),
+      byPriority: Object.fromEntries(byPriority.map((p) => [p.priority, p._count.priority])),
       slaBreach,
       unassigned,
     };
@@ -929,9 +896,7 @@ export const ticketRepository = {
       where: {
         id: { in: ticketIds },
         // Clinic isolation
-        ...(userContext.role !== 'super_admin'
-          ? { clinicId: userContext.clinicId }
-          : {}),
+        ...(userContext.role !== 'super_admin' ? { clinicId: userContext.clinicId } : {}),
       },
       data: updateData,
     });

@@ -208,7 +208,9 @@ export const providerRepository = {
     // Priority: clinicIds array > single clinicId (legacy)
     const clinicIds = filters.clinicIds?.length
       ? filters.clinicIds
-      : (filters.clinicId ? [filters.clinicId] : []);
+      : filters.clinicId
+        ? [filters.clinicId]
+        : [];
 
     if (clinicIds.length > 0) {
       // ENTERPRISE: Query via ProviderClinic junction table (PRIMARY method)
@@ -276,9 +278,12 @@ export const providerRepository = {
     logger.info('[ProviderRepository] list result', {
       found: providers.length,
       afterDedup: deduped.length,
-      providerNames: deduped.slice(0, 10).map((p: { firstName: string; lastName: string; id: number }) => 
-        `${p.firstName} ${p.lastName} (id:${p.id})`
-      ),
+      providerNames: deduped
+        .slice(0, 10)
+        .map(
+          (p: { firstName: string; lastName: string; id: number }) =>
+            `${p.firstName} ${p.lastName} (id:${p.id})`
+        ),
     });
 
     return deduped as ProviderWithClinic[];
@@ -379,7 +384,8 @@ export const providerRepository = {
       if (input.dea !== undefined) updateData.dea = input.dea;
       if (input.email !== undefined) updateData.email = input.email?.toLowerCase() ?? null;
       if (input.phone !== undefined) updateData.phone = input.phone;
-      if (input.signatureDataUrl !== undefined) updateData.signatureDataUrl = input.signatureDataUrl;
+      if (input.signatureDataUrl !== undefined)
+        updateData.signatureDataUrl = input.signatureDataUrl;
       if (input.clinicId !== undefined) updateData.clinicId = input.clinicId;
 
       const provider = await tx.provider.update({
@@ -389,7 +395,10 @@ export const providerRepository = {
       });
 
       // Calculate and log diff
-      const changeSet = diffProviders(existing as Record<string, unknown>, provider as Record<string, unknown>);
+      const changeSet = diffProviders(
+        existing as Record<string, unknown>,
+        provider as Record<string, unknown>
+      );
 
       if (Object.keys(changeSet).length > 0) {
         await tx.providerAudit.create({
@@ -474,7 +483,7 @@ export const providerRepository = {
 
       // 6. Delete Appointments (these are demo appointments tied to demo provider)
       // First delete related appointment reminders and notes
-      const appointmentIds = existing.appointments.map(a => a.id);
+      const appointmentIds = existing.appointments.map((a) => a.id);
       if (appointmentIds.length > 0) {
         await tx.appointmentReminder.deleteMany({
           where: { appointmentId: { in: appointmentIds } },
@@ -515,7 +524,7 @@ export const providerRepository = {
 
       // 12. Handle Orders - this is the tricky one
       // For demo data cleanup, we need to delete orders and their related records
-      const orderIds = existing.orders.map(o => o.id);
+      const orderIds = existing.orders.map((o) => o.id);
       if (orderIds.length > 0) {
         // Delete Rx records first (they reference Order)
         await tx.rx.deleteMany({
@@ -699,11 +708,7 @@ export const providerRepository = {
   /**
    * Remove provider from a clinic (soft delete)
    */
-  async removeFromClinic(
-    providerId: number,
-    clinicId: number,
-    actorEmail?: string
-  ): Promise<void> {
+  async removeFromClinic(providerId: number, clinicId: number, actorEmail?: string): Promise<void> {
     await prisma.providerClinic.update({
       where: {
         providerId_clinicId: { providerId, clinicId },
@@ -775,11 +780,7 @@ export const providerRepository = {
   /**
    * Set a clinic as the provider's primary clinic
    */
-  async setPrimaryClinic(
-    providerId: number,
-    clinicId: number,
-    actorEmail?: string
-  ): Promise<void> {
+  async setPrimaryClinic(providerId: number, clinicId: number, actorEmail?: string): Promise<void> {
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Remove primary flag from all other assignments
       await tx.providerClinic.updateMany({

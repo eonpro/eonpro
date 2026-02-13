@@ -1,14 +1,14 @@
 /**
  * STRIPE EVENTS API
- * 
+ *
  * GET /api/stripe/events - List all Stripe events/activity log
- * 
+ *
  * Provides:
  * - Complete activity history
  * - Event filtering by type
  * - Debugging information
  * - Webhook delivery status
- * 
+ *
  * PROTECTED: Requires admin authentication
  */
 
@@ -54,12 +54,7 @@ const EVENT_CATEGORIES = {
     'customer.source.created',
     'customer.source.updated',
   ],
-  payouts: [
-    'payout.created',
-    'payout.paid',
-    'payout.failed',
-    'payout.canceled',
-  ],
+  payouts: ['payout.created', 'payout.paid', 'payout.failed', 'payout.canceled'],
   disputes: [
     'charge.dispute.created',
     'charge.dispute.updated',
@@ -75,10 +70,10 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
     if (!['admin', 'super_admin'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
-    
+
     const stripe = getStripe();
     const { searchParams } = new URL(request.url);
-    
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const startingAfter = searchParams.get('starting_after') || undefined;
     const type = searchParams.get('type') || undefined;
@@ -86,14 +81,16 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const deliverySuccess = searchParams.get('delivery_success');
-    
+
     // Build filters
-    const createdFilter: Stripe.RangeQueryParam | undefined = 
-      startDate || endDate ? {
-        ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
-        ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
-      } : undefined;
-    
+    const createdFilter: Stripe.RangeQueryParam | undefined =
+      startDate || endDate
+        ? {
+            ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
+            ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
+          }
+        : undefined;
+
     // Get types from category if provided
     let types: string[] | undefined;
     if (category && EVENT_CATEGORIES[category]) {
@@ -101,7 +98,7 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
     } else if (type) {
       types = [type];
     }
-    
+
     // Fetch events - use explicit params object to handle Stripe type changes
     const eventParams = {
       limit,
@@ -110,22 +107,22 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
       ...(createdFilter && { created: createdFilter }),
       ...(deliverySuccess !== null && { delivery_success: deliverySuccess === 'true' }),
     };
-    
+
     const events = await stripe.events.list(eventParams as Record<string, unknown>);
-    
+
     // Process events
     const typeBreakdown: Record<string, number> = {};
-    
-    const formattedEvents = events.data.map(event => {
+
+    const formattedEvents = events.data.map((event) => {
       typeBreakdown[event.type] = (typeBreakdown[event.type] || 0) + 1;
-      
+
       // Extract key info from event data
       const data = event.data.object as any;
       let summary = '';
       let amount = null;
       let customerId = null;
       let invoiceId = null;
-      
+
       // Build summary based on event type
       if (event.type.startsWith('payment_intent')) {
         amount = data.amount;
@@ -150,7 +147,7 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
         customerId = data.id;
         summary = `Customer ${data.email || data.id}`;
       }
-      
+
       return {
         id: event.id,
         type: event.type,
@@ -160,10 +157,12 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
         apiVersion: event.api_version,
         livemode: event.livemode,
         pendingWebhooks: event.pending_webhooks,
-        request: event.request ? {
-          id: event.request.id,
-          idempotencyKey: event.request.idempotency_key,
-        } : null,
+        request: event.request
+          ? {
+              id: event.request.id,
+              idempotencyKey: event.request.idempotency_key,
+            }
+          : null,
         summary,
         amount,
         amountFormatted: amount ? formatAmount(amount, data.currency || 'usd') : null,
@@ -174,7 +173,7 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
         objectType: data.object,
       };
     });
-    
+
     // Summary statistics
     const summary = {
       totalEvents: formattedEvents.length,
@@ -185,17 +184,17 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
           count,
         }))
         .sort((a, b) => b.count - a.count),
-      byCategory: Object.keys(EVENT_CATEGORIES).map(cat => ({
+      byCategory: Object.keys(EVENT_CATEGORIES).map((cat) => ({
         category: cat,
-        count: formattedEvents.filter(e => e.typeCategory === cat).length,
+        count: formattedEvents.filter((e) => e.typeCategory === cat).length,
       })),
       availableCategories: Object.keys(EVENT_CATEGORIES),
     };
-    
+
     logger.info('[STRIPE EVENTS] Retrieved events', {
       count: formattedEvents.length,
     });
-    
+
     return NextResponse.json({
       success: true,
       events: formattedEvents,
@@ -203,18 +202,16 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
       pagination: {
         hasMore: events.has_more,
         limit,
-        ...(formattedEvents.length > 0 && { lastId: formattedEvents[formattedEvents.length - 1].id }),
+        ...(formattedEvents.length > 0 && {
+          lastId: formattedEvents[formattedEvents.length - 1].id,
+        }),
       },
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE EVENTS] Error:', error);
-    
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch events' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: error.message || 'Failed to fetch events' }, { status: 500 });
   }
 }
 
@@ -222,7 +219,7 @@ export const GET = withAuth(getEventsHandler);
 
 function getEventCategory(type: string): string {
   for (const [category, types] of Object.entries(EVENT_CATEGORIES)) {
-    if (types.some(t => type.startsWith(t.split('.')[0]))) {
+    if (types.some((t) => type.startsWith(t.split('.')[0]))) {
       return category;
     }
   }

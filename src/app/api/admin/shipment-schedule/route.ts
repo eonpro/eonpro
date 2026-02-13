@@ -1,7 +1,7 @@
 /**
  * Shipment Schedule Admin API
  * ===========================
- * 
+ *
  * GET /api/admin/shipment-schedule - List all scheduled shipments with filters
  * POST /api/admin/shipment-schedule - Create a manual shipment schedule
  */
@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { handleApiError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
 import {
   getShipmentScheduleSummary,
   createShipmentSchedule,
@@ -19,7 +20,18 @@ import {
 
 // Query params schema
 const querySchema = z.object({
-  status: z.enum(['SCHEDULED', 'PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER', 'PRESCRIBED', 'COMPLETED', 'CANCELLED']).optional(),
+  status: z
+    .enum([
+      'SCHEDULED',
+      'PENDING_PAYMENT',
+      'PENDING_ADMIN',
+      'APPROVED',
+      'PENDING_PROVIDER',
+      'PRESCRIBED',
+      'COMPLETED',
+      'CANCELLED',
+    ])
+    .optional(),
   patientId: z.coerce.number().optional(),
   dueWithinDays: z.coerce.number().min(1).max(365).optional(),
   multiShipmentOnly: z.coerce.boolean().optional(),
@@ -114,10 +126,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             },
           },
         },
-        orderBy: [
-          { nextRefillDate: 'asc' },
-          { shipmentNumber: 'asc' },
-        ],
+        orderBy: [{ nextRefillDate: 'asc' }, { shipmentNumber: 'asc' }],
         skip: (params.page - 1) * params.limit,
         take: params.limit,
       }),
@@ -142,16 +151,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid query parameters', details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Shipment Schedule API] GET failed', { error: message });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error, { route: 'GET /api/admin/shipment-schedule' });
   }
 }
 
@@ -171,12 +171,12 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
 
     if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      throw new NotFoundError('Patient not found');
     }
 
     // Verify clinic access
     if (user.role !== 'super_admin' && patient.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      throw new ForbiddenError('Access denied');
     }
 
     // Create shipment schedule
@@ -200,25 +200,19 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       totalShipments: result.totalShipments,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        shipments: result.shipments,
-        totalShipments: result.totalShipments,
-        scheduleInterval: result.scheduleInterval,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          shipments: result.shipments,
+          totalShipments: result.totalShipments,
+          scheduleInterval: result.scheduleInterval,
+        },
       },
-    }, { status: 201 });
+      { status: 201 }
+    );
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Shipment Schedule API] POST failed', { error: message });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error, { route: 'POST /api/admin/shipment-schedule' });
   }
 }
 

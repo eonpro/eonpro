@@ -49,9 +49,15 @@ if (invoice.patient) {
 - **email** – Patient email
 - **phone** – Patient phone (when included)
 
+## Production Checklist
+
+- **ENCRYPTION_KEY** must be set in Vercel (or production env). Generate with: `openssl rand -hex 32`
+- Must match the key used when the data was encrypted
+- If missing or wrong: decryption fails and encrypted blobs are shown (or request may 500)
+
 ## Notes
 
-- `decryptPatientPHI` only decrypts values that look encrypted (format: `base64:base64:base64`)
+- `decryptPatientPHI` decrypts values in format `base64:base64:base64` (iv:authTag:ciphertext)
 - Plain text values (legacy/unmigrated data) pass through unchanged
 - On decryption failure, log a warning; UI may show placeholder or fallback
 - **Never log decrypted PHI** – only log patientId and error message

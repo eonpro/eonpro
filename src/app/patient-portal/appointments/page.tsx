@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 import {
   Calendar,
   Clock,
@@ -96,6 +101,7 @@ export default function AppointmentsPage() {
 
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -110,18 +116,31 @@ export default function AppointmentsPage() {
   }, [filter]);
 
   const loadAppointments = async () => {
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (filter === 'upcoming') params.set('upcoming', 'true');
       if (filter === 'past') params.set('past', 'true');
 
-      const response = await fetch(`/api/patient-portal/appointments?${params}`);
+      const response = await portalFetch(`/api/patient-portal/appointments?${params}`);
+      const err = getPortalResponseError(response);
+      if (err) {
+        setLoadError(err);
+        setLoading(false);
+        return;
+      }
       if (response.ok) {
-        const data = await response.json();
-        setAppointments(data.appointments || []);
+        const data = await safeParseJson(response);
+        const list =
+          data !== null && typeof data === 'object' && 'appointments' in data
+            ? (data as { appointments?: unknown[] }).appointments
+            : undefined;
+        setAppointments(Array.isArray(list) ? list : []);
       }
     } catch (error) {
-      console.error('Failed to load appointments:', error);
+      logger.error('Failed to load appointments', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     } finally {
       setLoading(false);
     }
@@ -129,25 +148,37 @@ export default function AppointmentsPage() {
 
   const loadProviders = async () => {
     try {
-      const response = await fetch('/api/patient-portal/appointments?action=providers');
+      const response = await portalFetch('/api/patient-portal/appointments?action=providers');
       if (response.ok) {
-        const data = await response.json();
-        setProviders(data.providers || []);
+        const data = await safeParseJson(response);
+        const list =
+          data !== null && typeof data === 'object' && 'providers' in data
+            ? (data as { providers?: unknown[] }).providers
+            : undefined;
+        setProviders(Array.isArray(list) ? list : []);
       }
     } catch (error) {
-      console.error('Failed to load providers:', error);
+      logger.error('Failed to load providers', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 
   const loadAppointmentTypes = async () => {
     try {
-      const response = await fetch('/api/patient-portal/appointments?action=appointment-types');
+      const response = await portalFetch('/api/patient-portal/appointments?action=appointment-types');
       if (response.ok) {
-        const data = await response.json();
-        setAppointmentTypes(data.appointmentTypes || []);
+        const data = await safeParseJson(response);
+        const list =
+          data !== null && typeof data === 'object' && 'appointmentTypes' in data
+            ? (data as { appointmentTypes?: unknown[] }).appointmentTypes
+            : undefined;
+        setAppointmentTypes(Array.isArray(list) ? list : []);
       }
     } catch (error) {
-      console.error('Failed to load appointment types:', error);
+      logger.error('Failed to load appointment types', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 
@@ -164,13 +195,19 @@ export default function AppointmentsPage() {
         duration: duration.toString(),
       });
 
-      const response = await fetch(`/api/patient-portal/appointments?${params}`);
+      const response = await portalFetch(`/api/patient-portal/appointments?${params}`);
       if (response.ok) {
-        const data = await response.json();
-        setAvailableSlots(data.slots || []);
+        const data = await safeParseJson(response);
+        const list =
+          data !== null && typeof data === 'object' && 'slots' in data
+            ? (data as { slots?: unknown[] }).slots
+            : undefined;
+        setAvailableSlots(Array.isArray(list) ? list : []);
       }
     } catch (error) {
-      console.error('Failed to load slots:', error);
+      logger.error('Failed to load slots', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       setAvailableSlots([]);
     } finally {
       setLoadingSlots(false);
@@ -188,7 +225,7 @@ export default function AppointmentsPage() {
 
     setBooking(true);
     try {
-      const response = await fetch('/api/patient-portal/appointments', {
+      const response = await portalFetch('/api/patient-portal/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,8 +244,12 @@ export default function AppointmentsPage() {
         resetBookingForm();
         loadAppointments();
       } else {
-        const error = await response.json();
-        showToast(error.error || 'Failed to book appointment', 'error');
+        const errBody = await safeParseJson(response);
+        const errMsg =
+          errBody !== null && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: unknown }).error)
+            : 'Failed to book appointment';
+        showToast(errMsg, 'error');
       }
     } catch (error) {
       showToast('Failed to book appointment', 'error');
@@ -227,7 +268,7 @@ export default function AppointmentsPage() {
         reason: cancelReason || 'Cancelled by patient',
       });
 
-      const response = await fetch(`/api/patient-portal/appointments?${params}`, {
+      const response = await portalFetch(`/api/patient-portal/appointments?${params}`, {
         method: 'DELETE',
       });
 
@@ -238,8 +279,12 @@ export default function AppointmentsPage() {
         setCancelReason('');
         loadAppointments();
       } else {
-        const error = await response.json();
-        showToast(error.error || 'Failed to cancel appointment', 'error');
+        const errBody = await safeParseJson(response);
+        const errMsg =
+          errBody !== null && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: unknown }).error)
+            : 'Failed to cancel appointment';
+        showToast(errMsg, 'error');
       }
     } catch (error) {
       showToast('Failed to cancel appointment', 'error');
@@ -305,11 +350,9 @@ export default function AppointmentsPage() {
   };
 
   const canCancel = (appointment: Appointment) => {
-    const hoursUntil =
-      (new Date(appointment.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
+    const hoursUntil = (new Date(appointment.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
     return (
-      hoursUntil >= 24 &&
-      ['SCHEDULED', 'CONFIRMED'].includes(appointment.status.toUpperCase())
+      hoursUntil >= 24 && ['SCHEDULED', 'CONFIRMED'].includes(appointment.status.toUpperCase())
     );
   };
 
@@ -344,13 +387,25 @@ export default function AppointmentsPage() {
               toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
             }`}
           >
-            {toast.type === 'error' ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <Check className="h-4 w-4" />
-            )}
+            {toast.type === 'error' ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
           </div>
           <span className="font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      {loadError && (
+        <div
+          className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/appointments`)}&reason=session_expired`}
+            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+          >
+            Log in
+          </Link>
         </div>
       )}
 
@@ -392,9 +447,7 @@ export default function AppointmentsPage() {
         {appointments.length === 0 ? (
           <div className="rounded-3xl bg-white p-12 text-center shadow-xl shadow-gray-200/50">
             <Calendar className="mx-auto mb-4 h-16 w-16 text-gray-300" />
-            <h3 className="text-xl font-semibold text-gray-900">
-              No {filter} appointments
-            </h3>
+            <h3 className="text-xl font-semibold text-gray-900">No {filter} appointments</h3>
             <p className="mt-2 text-gray-500">
               {filter === 'upcoming'
                 ? "You don't have any upcoming appointments scheduled."
@@ -557,9 +610,7 @@ export default function AppointmentsPage() {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-gray-900">
-                      Book Appointment
-                    </h2>
+                    <h2 className="text-2xl font-semibold text-gray-900">Book Appointment</h2>
                     <p className="mt-1 text-gray-700">Step {bookingStep} of 3</p>
                   </div>
                   <button

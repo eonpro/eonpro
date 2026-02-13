@@ -2,9 +2,9 @@
  * INVOICE LINK SMS SENDER
  * =======================
  * Create invoices and send payment links to patients via SMS (Twilio)
- * 
+ *
  * POST /api/invoices/send-link
- * 
+ *
  * Features:
  * - Creates invoice in Stripe (if not exists)
  * - Gets hosted payment URL
@@ -26,17 +26,21 @@ import { standardRateLimit } from '@/lib/rateLimit';
 const sendInvoiceLinkSchema = z.object({
   // Either invoiceId OR create new invoice
   invoiceId: z.number().optional(),
-  
+
   // For creating new invoice
   patientId: z.number().optional(),
   description: z.string().optional(),
-  lineItems: z.array(z.object({
-    description: z.string(),
-    amount: z.number().min(100), // Min $1.00
-    quantity: z.number().optional(),
-  })).optional(),
+  lineItems: z
+    .array(
+      z.object({
+        description: z.string(),
+        amount: z.number().min(100), // Min $1.00
+        quantity: z.number().optional(),
+      })
+    )
+    .optional(),
   dueInDays: z.number().min(1).max(90).default(30),
-  
+
   // Delivery options
   sendMethod: z.enum(['sms', 'email', 'both']).default('sms'),
   customMessage: z.string().max(500).optional(),
@@ -46,10 +50,10 @@ const sendInvoiceLinkSchema = z.object({
 const SMS_TEMPLATES = {
   invoice: (clinicName: string, amount: string, link: string) =>
     `${clinicName}: Your invoice for ${amount} is ready. Pay securely here: ${link}`,
-  
+
   invoiceWithMessage: (clinicName: string, amount: string, link: string, message: string) =>
     `${clinicName}: ${message}\n\nInvoice: ${amount}\nPay here: ${link}`,
-  
+
   reminder: (clinicName: string, amount: string, dueDate: string, link: string) =>
     `${clinicName}: Reminder - Your ${amount} payment is due ${dueDate}. Pay now: ${link}`,
 };
@@ -58,11 +62,11 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
   try {
     const body = await req.json();
     const validated = sendInvoiceLinkSchema.parse(body);
-    
+
     let invoice: any;
     let paymentUrl: string | null = null;
     let patient: any;
-    
+
     // Get or create invoice
     if (validated.invoiceId) {
       // Use existing invoice
@@ -70,31 +74,30 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         where: { id: validated.invoiceId },
         include: { patient: true },
       });
-      
+
       if (!invoice) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
-      
+
       patient = invoice.patient;
       paymentUrl = invoice.stripeInvoiceUrl;
-      
     } else if (validated.patientId && validated.lineItems?.length) {
       // Create new invoice
       patient = await prisma.patient.findUnique({
         where: { id: validated.patientId },
       });
-      
+
       if (!patient) {
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
-      
+
       // Check if Stripe is configured
       const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
-      
+
       if (stripeConfigured) {
         // Create real Stripe invoice
         const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
-        
+
         const result = await StripeInvoiceService.createInvoice({
           patientId: validated.patientId,
           description: validated.description,
@@ -102,14 +105,13 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
           dueInDays: validated.dueInDays,
           autoSend: false, // We'll send via SMS instead
         });
-        
+
         invoice = result.invoice;
         paymentUrl = result.stripeInvoice.hosted_invoice_url || null;
-        
       } else {
         // Demo mode - create invoice without Stripe
         const total = validated.lineItems.reduce((sum, item) => sum + item.amount, 0);
-        
+
         invoice = await prisma.invoice.create({
           data: {
             patientId: validated.patientId,
@@ -122,71 +124,80 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
             lineItems: validated.lineItems,
           },
         });
-        
+
         // Generate a payment page URL (can be customized)
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app';
         paymentUrl = `${baseUrl}/pay/${invoice.id}`;
       }
-      
     } else {
       return NextResponse.json(
         { error: 'Either invoiceId or (patientId + lineItems) required' },
         { status: 400 }
       );
     }
-    
+
     // Validate patient contact info
-    const canSendSMS = patient.phone && (validated.sendMethod === 'sms' || validated.sendMethod === 'both');
-    const canSendEmail = patient.email && (validated.sendMethod === 'email' || validated.sendMethod === 'both');
-    
+    const canSendSMS =
+      patient.phone && (validated.sendMethod === 'sms' || validated.sendMethod === 'both');
+    const canSendEmail =
+      patient.email && (validated.sendMethod === 'email' || validated.sendMethod === 'both');
+
     if (!canSendSMS && !canSendEmail) {
       return NextResponse.json(
-        { error: `Patient has no ${validated.sendMethod === 'sms' ? 'phone number' : validated.sendMethod === 'email' ? 'email' : 'contact info'}` },
+        {
+          error: `Patient has no ${validated.sendMethod === 'sms' ? 'phone number' : validated.sendMethod === 'email' ? 'email' : 'contact info'}`,
+        },
         { status: 400 }
       );
     }
-    
+
     // Get clinic info for branding
-    const clinic = user.clinicId 
+    const clinic = user.clinicId
       ? await prisma.clinic.findUnique({ where: { id: user.clinicId } })
       : null;
     const clinicName = clinic?.name || 'EON Medical';
-    
+
     // Format amount for display
     const amountDisplay = '$' + (invoice.amount / 100).toFixed(2);
-    
+
     // Prepare the link (use Stripe URL if available, otherwise our payment page)
-    const link = paymentUrl || `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
-    
+    const link =
+      paymentUrl ||
+      `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
+
     // Delivery tracking
     const deliveryResults: { method: string; success: boolean; error?: string }[] = [];
-    
+
     // Send SMS
     if (canSendSMS && patient.phone) {
       try {
         const message = validated.customMessage
-          ? SMS_TEMPLATES.invoiceWithMessage(clinicName, amountDisplay, link, validated.customMessage)
+          ? SMS_TEMPLATES.invoiceWithMessage(
+              clinicName,
+              amountDisplay,
+              link,
+              validated.customMessage
+            )
           : SMS_TEMPLATES.invoice(clinicName, amountDisplay, link);
-        
+
         await sendSMS({
           to: formatPhoneNumber(patient.phone),
           body: message,
         });
-        
+
         deliveryResults.push({ method: 'sms', success: true });
-        
+
         logger.info('Invoice link sent via SMS', {
           invoiceId: invoice.id,
           patientId: patient.id,
           phone: patient.phone.slice(-4),
         });
-        
       } catch (smsError: any) {
         logger.error('Failed to send invoice SMS', smsError);
         deliveryResults.push({ method: 'sms', success: false, error: smsError.message });
       }
     }
-    
+
     // Send Email
     if (canSendEmail && patient.email) {
       try {
@@ -217,21 +228,20 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
           `,
           text: `${clinicName}\n\nYour invoice for ${amountDisplay} is ready.\n\nPay here: ${link}\n\nInvoice #${invoice.stripeInvoiceNumber || invoice.id}`,
         });
-        
+
         deliveryResults.push({ method: 'email', success: true });
-        
+
         logger.info('Invoice link sent via email', {
           invoiceId: invoice.id,
           patientId: patient.id,
           email: patient.email,
         });
-        
       } catch (emailError: any) {
         logger.error('Failed to send invoice email', emailError);
         deliveryResults.push({ method: 'email', success: false, error: emailError.message });
       }
     }
-    
+
     // Update invoice metadata
     await prisma.invoice.update({
       where: { id: invoice.id },
@@ -240,30 +250,38 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
           ...(invoice.metadata || {}),
           linkSentAt: new Date().toISOString(),
           linkSentBy: user.email,
-          linkSentVia: deliveryResults.filter(r => r.success).map(r => r.method).join(','),
+          linkSentVia: deliveryResults
+            .filter((r) => r.success)
+            .map((r) => r.method)
+            .join(','),
         },
       },
     });
-    
+
     // Check if any delivery succeeded
-    const anySuccess = deliveryResults.some(r => r.success);
-    
-    return NextResponse.json({
-      success: anySuccess,
-      invoice: {
-        id: invoice.id,
-        stripeInvoiceId: invoice.stripeInvoiceId,
-        amount: invoice.amount,
-        status: invoice.status,
-        dueDate: invoice.dueDate,
+    const anySuccess = deliveryResults.some((r) => r.success);
+
+    return NextResponse.json(
+      {
+        success: anySuccess,
+        invoice: {
+          id: invoice.id,
+          stripeInvoiceId: invoice.stripeInvoiceId,
+          amount: invoice.amount,
+          status: invoice.status,
+          dueDate: invoice.dueDate,
+        },
+        paymentUrl: link,
+        delivery: deliveryResults,
+        message: anySuccess
+          ? `Invoice link sent successfully via ${deliveryResults
+              .filter((r) => r.success)
+              .map((r) => r.method)
+              .join(' and ')}`
+          : 'Failed to deliver invoice link',
       },
-      paymentUrl: link,
-      delivery: deliveryResults,
-      message: anySuccess 
-        ? `Invoice link sent successfully via ${deliveryResults.filter(r => r.success).map(r => r.method).join(' and ')}`
-        : 'Failed to deliver invoice link',
-    }, { status: anySuccess ? 200 : 500 });
-    
+      { status: anySuccess ? 200 : 500 }
+    );
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -271,13 +289,10 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         { status: 400 }
       );
     }
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to send invoice link', { error: errorMessage });
-    return NextResponse.json(
-      { error: 'Failed to send invoice link' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to send invoice link' }, { status: 500 });
   }
 }
 
@@ -288,24 +303,25 @@ async function getInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise<
   try {
     const url = new URL(req.url);
     const invoiceId = url.searchParams.get('invoiceId');
-    
+
     if (!invoiceId) {
       return NextResponse.json({ error: 'invoiceId required' }, { status: 400 });
     }
-    
+
     const invoice = await prisma.invoice.findUnique({
       where: { id: parseInt(invoiceId) },
       include: { patient: true },
     });
-    
+
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
-    
+
     // Get payment URL
-    const paymentUrl = invoice.stripeInvoiceUrl 
-      || `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
-    
+    const paymentUrl =
+      invoice.stripeInvoiceUrl ||
+      `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
+
     return NextResponse.json({
       invoice: {
         id: invoice.id,
@@ -330,14 +346,10 @@ async function getInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise<
       paymentUrl,
       linkMetadata: invoice.metadata,
     });
-    
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get invoice link info', { error: errorMessage });
-    return NextResponse.json(
-      { error: 'Failed to get invoice info' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get invoice info' }, { status: 500 });
   }
 }
 

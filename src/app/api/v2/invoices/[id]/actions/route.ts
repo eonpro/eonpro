@@ -2,9 +2,9 @@
  * INVOICE ACTIONS API
  * ===================
  * Actions on a specific invoice: send, finalize, pay, refund, etc.
- * 
+ *
  * POST /api/v2/invoices/[id]/actions
- * 
+ *
  * Actions:
  * - send: Send invoice to patient (email/sms/both)
  * - finalize: Finalize a draft invoice
@@ -22,7 +22,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyAuth } from '@/lib/auth/middleware';
-import { createInvoiceManager, LineItem, PaymentPlan, InvoiceReminder } from '@/services/billing/InvoiceManager';
+import {
+  createInvoiceManager,
+  LineItem,
+  PaymentPlan,
+  InvoiceReminder,
+} from '@/services/billing/InvoiceManager';
 import { logger } from '@/lib/logger';
 
 // Action schemas
@@ -69,16 +74,20 @@ const applyCreditSchema = z.object({
 
 const addLineItemSchema = z.object({
   action: z.literal('add_line_item'),
-  items: z.array(z.object({
-    description: z.string(),
-    quantity: z.number().min(1).default(1),
-    unitPrice: z.number().min(0),
-    discount: z.object({
-      type: z.enum(['percentage', 'fixed']),
-      value: z.number().min(0),
-    }).optional(),
-    taxRate: z.number().optional(),
-  })),
+  items: z.array(
+    z.object({
+      description: z.string(),
+      quantity: z.number().min(1).default(1),
+      unitPrice: z.number().min(0),
+      discount: z
+        .object({
+          type: z.enum(['percentage', 'fixed']),
+          value: z.number().min(0),
+        })
+        .optional(),
+      taxRate: z.number().optional(),
+    })
+  ),
 });
 
 const removeLineItemSchema = z.object({
@@ -97,12 +106,14 @@ const paymentPlanSchema = z.object({
 
 const reminderSchema = z.object({
   action: z.literal('schedule_reminders'),
-  reminders: z.array(z.object({
-    type: z.enum(['before_due', 'on_due', 'after_due']),
-    daysOffset: z.number().min(0).max(90),
-    channel: z.enum(['email', 'sms', 'both']),
-    message: z.string().optional(),
-  })),
+  reminders: z.array(
+    z.object({
+      type: z.enum(['before_due', 'on_due', 'after_due']),
+      daysOffset: z.number().min(0).max(90),
+      channel: z.enum(['email', 'sms', 'both']),
+      message: z.string().optional(),
+    })
+  ),
 });
 
 const actionSchema = z.discriminatedUnion('action', [
@@ -127,25 +138,22 @@ export async function POST(
     // Verify auth
     const authResult = await verifyAuth(req);
     if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     const user = authResult.user;
-    
+
     const { id } = await params;
     const invoiceId = parseInt(id);
-    
+
     if (isNaN(invoiceId)) {
       return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
     }
-    
+
     const body = await req.json();
     const validated = actionSchema.parse(body);
-    
+
     const invoiceManager = createInvoiceManager(user.clinicId);
-    
+
     switch (validated.action) {
       case 'send': {
         const result = await invoiceManager.sendInvoice(invoiceId, {
@@ -158,7 +166,7 @@ export async function POST(
           message: result.success ? 'Invoice sent successfully' : 'Failed to send invoice',
         });
       }
-      
+
       case 'finalize': {
         const invoice = await invoiceManager.finalizeInvoice(invoiceId);
         return NextResponse.json({
@@ -167,7 +175,7 @@ export async function POST(
           message: 'Invoice finalized successfully',
         });
       }
-      
+
       case 'pay': {
         const result = await invoiceManager.recordPayment(invoiceId, {
           amount: validated.amount,
@@ -184,7 +192,7 @@ export async function POST(
           message: result.isPaid ? 'Invoice paid in full' : 'Partial payment recorded',
         });
       }
-      
+
       case 'refund': {
         const invoice = await invoiceManager.issueRefund(invoiceId, {
           amount: validated.amount,
@@ -197,7 +205,7 @@ export async function POST(
           message: 'Refund issued successfully',
         });
       }
-      
+
       case 'mark_uncollectible': {
         const invoice = await invoiceManager.markUncollectible(invoiceId, validated.reason);
         return NextResponse.json({
@@ -206,7 +214,7 @@ export async function POST(
           message: 'Invoice marked as uncollectible',
         });
       }
-      
+
       case 'cancel': {
         const invoice = await invoiceManager.cancelInvoice(invoiceId, validated.reason);
         return NextResponse.json({
@@ -217,16 +225,20 @@ export async function POST(
       }
 
       case 'apply_credit': {
-        const invoice = await invoiceManager.applyCredit(invoiceId, validated.amount, validated.description);
+        const invoice = await invoiceManager.applyCredit(
+          invoiceId,
+          validated.amount,
+          validated.description
+        );
         return NextResponse.json({
           success: true,
           invoice,
           message: 'Credit applied successfully',
         });
       }
-      
+
       case 'add_line_item': {
-        const items: LineItem[] = validated.items.map(item => ({
+        const items: LineItem[] = validated.items.map((item) => ({
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -240,7 +252,7 @@ export async function POST(
           message: 'Line items added successfully',
         });
       }
-      
+
       case 'remove_line_item': {
         const invoice = await invoiceManager.removeLineItem(invoiceId, validated.itemIndex);
         return NextResponse.json({
@@ -249,7 +261,7 @@ export async function POST(
           message: 'Line item removed successfully',
         });
       }
-      
+
       case 'create_payment_plan': {
         const plan: PaymentPlan = {
           totalAmount: validated.totalAmount,
@@ -266,7 +278,7 @@ export async function POST(
           message: 'Payment plan created successfully',
         });
       }
-      
+
       case 'schedule_reminders': {
         const reminders: InvoiceReminder[] = validated.reminders;
         const invoice = await invoiceManager.scheduleReminders(invoiceId, reminders);
@@ -277,11 +289,10 @@ export async function POST(
           message: 'Reminders scheduled successfully',
         });
       }
-      
+
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
-    
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -289,11 +300,8 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     logger.error('Invoice action failed', error);
-    return NextResponse.json(
-      { error: error.message || 'Action failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Action failed' }, { status: 500 });
   }
 }

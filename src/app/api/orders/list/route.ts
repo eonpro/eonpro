@@ -56,7 +56,8 @@ export async function GET(request: NextRequest) {
     // Use order service for proper access control
     const result = await orderService.listOrders(userContext, {
       limit: 100,
-      hasTrackingNumber: hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
+      hasTrackingNumber:
+        hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
     });
 
     // Fetch events for each order (for backward compatibility)
@@ -74,15 +75,12 @@ export async function GET(request: NextRequest) {
     // This catches shipments that weren't linked to an Order record
     if (hasTrackingNumber === 'true') {
       // Build clinic filter
-      const clinicFilter = userContext.role === 'super_admin'
-        ? {}
-        : { clinicId: userContext.clinicId };
+      const clinicFilter =
+        userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId };
 
       // Get all existing order IDs with tracking from our results
       const existingOrderIds = new Set(
-        ordersWithEvents
-          .filter(o => o.trackingNumber)
-          .map(o => o.id)
+        ordersWithEvents.filter((o) => o.trackingNumber).map((o) => o.id)
       );
 
       // Fetch shipments from PatientShippingUpdate that aren't already in orders
@@ -90,10 +88,7 @@ export async function GET(request: NextRequest) {
         where: {
           ...(userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId }),
           // Exclude shipments already linked to orders we have
-          OR: [
-            { orderId: null },
-            { orderId: { notIn: Array.from(existingOrderIds) } },
-          ],
+          OR: [{ orderId: null }, { orderId: { notIn: Array.from(existingOrderIds) } }],
         } as any,
         include: {
           patient: {
@@ -134,7 +129,8 @@ export async function GET(request: NextRequest) {
           },
           patientId: shipment.patientId,
           primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
-          primaryMedStrength: shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
+          primaryMedStrength:
+            shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
           status: shipment.status,
           shippingStatus: shipment.status,
           trackingNumber: shipment.trackingNumber,
@@ -144,8 +140,9 @@ export async function GET(request: NextRequest) {
         }));
 
       // Merge and sort by date
-      const allOrders = [...ordersWithEvents, ...shippingOnlyRecords]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const allOrders = [...ordersWithEvents, ...shippingOnlyRecords].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
       return Response.json({ orders: allOrders });
     }

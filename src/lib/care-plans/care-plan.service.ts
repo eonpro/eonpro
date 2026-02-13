@@ -1,6 +1,6 @@
 /**
  * Care Plan Service
- * 
+ *
  * Manages care plans, goals, activities, and patient progress tracking
  */
 
@@ -196,11 +196,13 @@ export async function createCarePlan(input: CreateCarePlanInput): Promise<{
 
       if (template) {
         templateContent = template.content as any;
-        
+
         // Set default dates if not provided
         if (!input.endDate && template.defaultDurationDays) {
           const start = input.startDate || new Date();
-          input.endDate = new Date(start.getTime() + template.defaultDurationDays * 24 * 60 * 60 * 1000);
+          input.endDate = new Date(
+            start.getTime() + template.defaultDurationDays * 24 * 60 * 60 * 1000
+          );
         }
       }
     }
@@ -398,7 +400,9 @@ export async function completeGoal(goalId: number): Promise<{
       where: { carePlanId: goal.carePlanId },
     });
 
-    const allCompleted = carePlanGoals.every((g: { status: string }) => g.status === GoalStatus.COMPLETED);
+    const allCompleted = carePlanGoals.every(
+      (g: { status: string }) => g.status === GoalStatus.COMPLETED
+    );
 
     if (allCompleted) {
       await prisma.carePlan.update({
@@ -471,8 +475,12 @@ export async function getCarePlanWithProgress(carePlanId: number): Promise<any> 
 
   // Calculate progress statistics
   const totalGoals = carePlan.goals.length;
-  const completedGoals = carePlan.goals.filter((g: { status: string }) => g.status === GoalStatus.COMPLETED).length;
-  const inProgressGoals = carePlan.goals.filter((g: { status: string }) => g.status === GoalStatus.IN_PROGRESS).length;
+  const completedGoals = carePlan.goals.filter(
+    (g: { status: string }) => g.status === GoalStatus.COMPLETED
+  ).length;
+  const inProgressGoals = carePlan.goals.filter(
+    (g: { status: string }) => g.status === GoalStatus.IN_PROGRESS
+  ).length;
 
   const progressPercentage = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
@@ -492,7 +500,10 @@ export async function getCarePlanWithProgress(carePlanId: number): Promise<any> 
       progressPercentage,
       recentProgressCount,
       daysRemaining: carePlan.endDate
-        ? Math.max(0, Math.ceil((new Date(carePlan.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        ? Math.max(
+            0,
+            Math.ceil((new Date(carePlan.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          )
         : null,
     },
   };

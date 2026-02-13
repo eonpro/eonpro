@@ -6,22 +6,38 @@ import { logger } from '@/lib/logger';
 
 // Icons
 const CheckIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
   </svg>
 );
 
 const XIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
 
 const LoadingSpinner = () => (
   <div className="inline-flex items-center">
-    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    <svg
+      className="h-5 w-5 animate-spin text-white"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
     </svg>
   </div>
 );
@@ -57,7 +73,7 @@ export default function IntakeFormsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
-  
+
   // New template form state
   const [newTemplate, setNewTemplate] = useState({
     name: '',
@@ -70,7 +86,7 @@ export default function IntakeFormsPage() {
         isRequired: false,
         orderIndex: 0,
         section: 'General Information',
-      }
+      },
     ],
   });
 
@@ -83,31 +99,36 @@ export default function IntakeFormsPage() {
   });
 
   // Notification system
-  const showNotification = (type: 'success' | 'error' | 'warning' | 'info', message: string, duration = 5000) => {
+  const showNotification = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    message: string,
+    duration = 5000
+  ) => {
     const id = Date.now();
     const notification: Notification = { id, type, message, duration };
-    setNotifications(prev => [...prev, notification]);
-    
+    setNotifications((prev) => [...prev, notification]);
+
     if (duration > 0) {
       setTimeout(() => {
-        setNotifications(prev => prev.filter((n: any) => n.id !== id));
+        setNotifications((prev) => prev.filter((n: any) => n.id !== id));
       }, duration);
     }
   };
 
   const removeNotification = (id: number) => {
-    setNotifications(prev => prev.filter((n: any) => n.id !== id));
+    setNotifications((prev) => prev.filter((n: any) => n.id !== id));
   };
 
   // Authentication check
   useEffect(() => {
     const checkAuthAndFetch = async () => {
       // Check multiple possible token locations
-      const token = localStorage.getItem('auth-token') ||
-                   localStorage.getItem('token') ||
-                   localStorage.getItem('super_admin-token') ||
-                   localStorage.getItem('admin-token');
-      
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token');
+
       if (token) {
         await fetchTemplates();
       } else {
@@ -115,7 +136,7 @@ export default function IntakeFormsPage() {
         setLoading(false);
       }
     };
-    
+
     checkAuthAndFetch();
   }, []);
 
@@ -123,24 +144,25 @@ export default function IntakeFormsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Check multiple possible token locations
-      const token = localStorage.getItem('auth-token') ||
-                   localStorage.getItem('token') ||
-                   localStorage.getItem('super_admin-token') ||
-                   localStorage.getItem('admin-token');
-      
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token');
+
       if (!token) {
         setError('Please log in to view intake forms');
         setTemplates([]);
         return;
       }
-      
+
       const res = await fetch('/api/intake-forms/templates', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
       if (res.status === 401) {
@@ -170,7 +192,7 @@ export default function IntakeFormsPage() {
   };
 
   const addQuestion = () => {
-    setNewTemplate(prev => ({
+    setNewTemplate((prev) => ({
       ...prev,
       questions: [
         ...prev.questions,
@@ -180,24 +202,22 @@ export default function IntakeFormsPage() {
           isRequired: false,
           orderIndex: prev.questions.length,
           section: 'General Information',
-        }
-      ]
+        },
+      ],
     }));
   };
 
   const removeQuestion = (index: number) => {
-    setNewTemplate(prev => ({
+    setNewTemplate((prev) => ({
       ...prev,
       questions: prev.questions.filter((_, i) => i !== index),
     }));
   };
 
   const updateQuestion = (index: number, field: string, value: any) => {
-    setNewTemplate(prev => ({
+    setNewTemplate((prev) => ({
       ...prev,
-      questions: prev.questions.map((q, i) => 
-        i === index ? { ...q, [field]: value } : q
-      ),
+      questions: prev.questions.map((q, i) => (i === index ? { ...q, [field]: value } : q)),
     }));
   };
 
@@ -206,18 +226,18 @@ export default function IntakeFormsPage() {
       showNotification('error', 'Please enter a form name');
       return false;
     }
-    
+
     if (!newTemplate.treatmentType) {
       showNotification('error', 'Please select a treatment type');
       return false;
     }
-    
+
     const validQuestions = newTemplate.questions.filter((q: any) => q.questionText.trim());
     if (validQuestions.length === 0) {
       showNotification('error', 'Please add at least one question');
       return false;
     }
-    
+
     return true;
   };
 
@@ -228,11 +248,12 @@ export default function IntakeFormsPage() {
 
     try {
       setCreatingForm(true);
-      const token = localStorage.getItem('auth-token') ||
-                   localStorage.getItem('token') ||
-                   localStorage.getItem('super_admin-token') ||
-                   localStorage.getItem('admin-token');
-      
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token');
+
       if (!token) {
         showNotification('error', 'Please log in to create forms');
         return;
@@ -240,11 +261,11 @@ export default function IntakeFormsPage() {
 
       // Filter out empty questions
       const validQuestions = newTemplate.questions.filter((q: any) => q.questionText.trim());
-      
+
       const res = await fetch('/api/intake-forms/templates', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -263,7 +284,7 @@ export default function IntakeFormsPage() {
 
       const data = await res.json();
       showNotification('success', 'Form created successfully!');
-      
+
       // Reset form
       setNewTemplate({
         name: '',
@@ -276,14 +297,13 @@ export default function IntakeFormsPage() {
             isRequired: false,
             orderIndex: 0,
             section: 'General Information',
-          }
+          },
         ],
       });
-      
+
       // Close modal and refresh
       setActiveModal(null);
       await fetchTemplates();
-      
     } catch (err: any) {
       logger.error('Failed to create form', err);
       showNotification('error', err.message || 'Failed to create form');
@@ -300,15 +320,16 @@ export default function IntakeFormsPage() {
 
     try {
       setSendingLink(true);
-      const token = localStorage.getItem('auth-token') ||
-                   localStorage.getItem('token') ||
-                   localStorage.getItem('super_admin-token') ||
-                   localStorage.getItem('admin-token');
-      
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token');
+
       const res = await fetch('/api/intake-forms/send-link', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(sendLinkForm),
@@ -321,13 +342,13 @@ export default function IntakeFormsPage() {
 
       const data = await res.json();
       showNotification('success', `Form link sent to ${sendLinkForm.patientEmail}`);
-      
+
       // Copy link to clipboard if available
       if (data.link) {
         navigator.clipboard.writeText(data.link);
         showNotification('info', 'Link copied to clipboard');
       }
-      
+
       // Reset and close
       setSendLinkForm({
         templateId: 0,
@@ -336,7 +357,6 @@ export default function IntakeFormsPage() {
         sendMethod: 'email',
       });
       setActiveModal(null);
-      
     } catch (err: any) {
       logger.error('Failed to send link', err);
       showNotification('error', err.message || 'Failed to send link');
@@ -347,19 +367,19 @@ export default function IntakeFormsPage() {
 
   // Filtered templates based on search and filter
   const filteredTemplates = templates.filter((template: any) => {
-    const matchesSearch = searchQuery.toLowerCase() === '' || 
+    const matchesSearch =
+      searchQuery.toLowerCase() === '' ||
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesFilter = filterType === 'all' || 
-      template.treatmentType === filterType;
-    
+
+    const matchesFilter = filterType === 'all' || template.treatmentType === filterType;
+
     return matchesSearch && matchesFilter;
   });
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
           <LoadingSpinner />
           <p className="mt-4 text-gray-600">Loading intake forms...</p>
@@ -369,20 +389,13 @@ export default function IntakeFormsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6 p-8">
       {/* Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
+      <div className="fixed right-4 top-4 z-50 space-y-2">
         {notifications.map((notification: any) => (
           <div
             key={notification.id}
-            className={`
-              flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg
-              ${notification.type === 'success' ? 'bg-green-100 text-green-800' : ''}
-              ${notification.type === 'error' ? 'bg-red-100 text-red-800' : ''}
-              ${notification.type === 'warning' ? 'bg-yellow-100 text-yellow-800' : ''}
-              ${notification.type === 'info' ? 'bg-blue-100 text-blue-800' : ''}
-              animate-slide-in-right
-            `}
+            className={`flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg ${notification.type === 'success' ? 'bg-green-100 text-green-800' : ''} ${notification.type === 'error' ? 'bg-red-100 text-red-800' : ''} ${notification.type === 'warning' ? 'bg-yellow-100 text-yellow-800' : ''} ${notification.type === 'info' ? 'bg-blue-100 text-blue-800' : ''} animate-slide-in-right`}
           >
             {notification.type === 'success' && <CheckIcon />}
             {notification.type === 'error' && <XIcon />}
@@ -398,27 +411,37 @@ export default function IntakeFormsPage() {
       </div>
 
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Intake Forms</h1>
-          <p className="text-gray-600 mt-1">Create and manage patient intake forms</p>
+          <p className="mt-1 text-gray-600">Create and manage patient intake forms</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/intake-forms/wizard')}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             Form Wizard
           </button>
           <button
             onClick={() => setActiveModal('create')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Quick Create
           </button>
@@ -426,23 +449,33 @@ export default function IntakeFormsPage() {
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="flex gap-4 bg-white p-4 rounded-lg shadow">
-        <div className="flex-1 relative">
+      <div className="flex gap-4 rounded-lg bg-white p-4 shadow">
+        <div className="relative flex-1">
           <input
             type="text"
             placeholder="Search forms..."
             value={searchQuery}
             onChange={(e: any) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="w-full rounded-lg border py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-green-500"
           />
-          <svg className="w-5 h-5 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            className="absolute left-3 top-3 h-5 w-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
         </div>
         <select
           value={filterType}
           onChange={(e: any) => setFilterType(e.target.value)}
-          className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
         >
           <option value="all">All Types</option>
           <option value="general">General</option>
@@ -455,17 +488,27 @@ export default function IntakeFormsPage() {
 
       {/* Error State */}
       {error && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
           <div className="flex items-start gap-3">
-            <svg className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="mt-0.5 h-6 w-6 flex-shrink-0 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <div className="flex-1">
               <h3 className="font-medium text-red-900">Error loading forms</h3>
-              <p className="text-red-700 mt-1">{error}</p>
+              <p className="mt-1 text-red-700">{error}</p>
               <button
                 onClick={fetchTemplates}
-                className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                className="mt-3 rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
               >
                 Try Again
               </button>
@@ -478,20 +521,30 @@ export default function IntakeFormsPage() {
       {!error && (
         <div className="grid gap-4">
           {filteredTemplates.length === 0 ? (
-            <div className="text-center py-12 bg-gray-50 rounded-lg">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <div className="rounded-lg bg-gray-50 py-12 text-center">
+              <svg
+                className="mx-auto mb-4 h-16 w-16 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               <h3 className="text-lg font-medium text-gray-900">No intake forms found</h3>
-              <p className="text-gray-600 mt-2">
-                {searchQuery || filterType !== 'all' 
-                  ? 'Try adjusting your search or filters' 
+              <p className="mt-2 text-gray-600">
+                {searchQuery || filterType !== 'all'
+                  ? 'Try adjusting your search or filters'
                   : 'Create your first form to start collecting patient information'}
               </p>
               {!searchQuery && filterType === 'all' && (
                 <button
                   onClick={() => setActiveModal('create')}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                 >
                   Create Your First Form
                 </button>
@@ -499,48 +552,85 @@ export default function IntakeFormsPage() {
             </div>
           ) : (
             filteredTemplates.map((template: any) => (
-              <div key={template.id} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
-                <div className="flex justify-between items-start">
+              <div
+                key={template.id}
+                className="rounded-lg bg-white p-6 shadow transition-shadow hover:shadow-lg"
+              >
+                <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <h3 className="text-lg font-semibold">{template.name}</h3>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        template.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          template.isActive
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
                         {template.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                     {template.description && (
-                      <p className="text-gray-600 mt-1">{template.description}</p>
+                      <p className="mt-1 text-gray-600">{template.description}</p>
                     )}
-                    <div className="flex gap-4 mt-3 text-sm text-gray-500">
+                    <div className="mt-3 flex gap-4 text-sm text-gray-500">
                       <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                          />
                         </svg>
                         {template.treatmentType}
                       </span>
                       <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
                         </svg>
                         {template.questions.length} questions
                       </span>
                       <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                          />
                         </svg>
                         {template._count.submissions} submissions
                       </span>
                     </div>
                   </div>
-                  <div className="flex gap-2 ml-4">
+                  <div className="ml-4 flex gap-2">
                     <button
                       onClick={() => {
-                        setSendLinkForm(prev => ({ ...prev, templateId: template.id }));
+                        setSendLinkForm((prev) => ({ ...prev, templateId: template.id }));
                         setActiveModal('send');
                       }}
-                      className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                      className="rounded bg-green-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-green-700"
                     >
                       Send to Patient
                     </button>
@@ -549,13 +639,15 @@ export default function IntakeFormsPage() {
                         const url = `${window.location.origin}/intake/preview/${template.id}`;
                         window.open(url, '_blank');
                       }}
-                      className="px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors"
+                      className="rounded bg-gray-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-gray-700"
                     >
                       Preview
                     </button>
                     <button
-                      onClick={() => { window.location.href = `/intake-forms/${template.id}/edit`; }}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                      onClick={() => {
+                        window.location.href = `/intake-forms/${template.id}/edit`;
+                      }}
+                      className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700"
                     >
                       Edit
                     </button>
@@ -569,9 +661,9 @@ export default function IntakeFormsPage() {
 
       {/* Create Form Modal */}
       {activeModal === 'create' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="m-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white">
+            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-4">
               <h2 className="text-xl font-bold">Create Intake Form</h2>
               <button
                 onClick={() => setActiveModal(null)}
@@ -580,38 +672,44 @@ export default function IntakeFormsPage() {
                 <XIcon />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-6">
               {/* Form Name */}
               <div>
-                <label className="block text-sm font-medium mb-1">Form Name *</label>
+                <label className="mb-1 block text-sm font-medium">Form Name *</label>
                 <input
                   type="text"
                   value={newTemplate.name}
-                  onChange={(e: any) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e: any) =>
+                    setNewTemplate((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   placeholder="e.g., Weight Loss Intake Form"
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
-              
+
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
+                <label className="mb-1 block text-sm font-medium">Description</label>
                 <textarea
                   value={newTemplate.description}
-                  onChange={(e: any) => setNewTemplate(prev => ({ ...prev, description: e.target.value }))}
+                  onChange={(e: any) =>
+                    setNewTemplate((prev) => ({ ...prev, description: e.target.value }))
+                  }
                   placeholder="Brief description of the form"
                   rows={2}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
-              
+
               {/* Treatment Type */}
               <div>
-                <label className="block text-sm font-medium mb-1">Treatment Type *</label>
+                <label className="mb-1 block text-sm font-medium">Treatment Type *</label>
                 <select
                   value={newTemplate.treatmentType}
-                  onChange={(e: any) => setNewTemplate(prev => ({ ...prev, treatmentType: e.target.value }))}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e: any) =>
+                    setNewTemplate((prev) => ({ ...prev, treatmentType: e.target.value }))
+                  }
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="general">General</option>
                   <option value="weight-loss">Weight Loss</option>
@@ -620,35 +718,37 @@ export default function IntakeFormsPage() {
                   <option value="other">Other</option>
                 </select>
               </div>
-              
+
               {/* Questions */}
               <div>
-                <div className="flex justify-between items-center mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <label className="text-sm font-medium">Questions</label>
                   <button
                     onClick={addQuestion}
-                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                    className="rounded bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
                   >
                     Add Question
                   </button>
                 </div>
                 <div className="space-y-3">
                   {newTemplate.questions.map((question, index) => (
-                    <div key={index} className="p-4 bg-gray-50 rounded-lg space-y-3">
+                    <div key={index} className="space-y-3 rounded-lg bg-gray-50 p-4">
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <input
                             type="text"
                             value={question.questionText}
-                            onChange={(e: any) => updateQuestion(index, 'questionText', e.target.value)}
+                            onChange={(e: any) =>
+                              updateQuestion(index, 'questionText', e.target.value)
+                            }
                             placeholder="Enter your question"
-                            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                            className="w-full rounded border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                           />
                         </div>
                         {newTemplate.questions.length > 1 && (
                           <button
                             onClick={() => removeQuestion(index)}
-                            className="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                            className="rounded px-2 py-1 text-red-600 hover:bg-red-50"
                           >
                             <XIcon />
                           </button>
@@ -657,8 +757,10 @@ export default function IntakeFormsPage() {
                       <div className="grid grid-cols-3 gap-2">
                         <select
                           value={question.questionType}
-                          onChange={(e: any) => updateQuestion(index, 'questionType', e.target.value)}
-                          className="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          onChange={(e: any) =>
+                            updateQuestion(index, 'questionType', e.target.value)
+                          }
+                          className="rounded border p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                         >
                           <option value="text">Short Text</option>
                           <option value="textarea">Long Text</option>
@@ -675,13 +777,15 @@ export default function IntakeFormsPage() {
                           value={question.section}
                           onChange={(e: any) => updateQuestion(index, 'section', e.target.value)}
                           placeholder="Section"
-                          className="p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          className="rounded border p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                         />
                         <label className="flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
                             checked={question.isRequired}
-                            onChange={(e: any) => updateQuestion(index, 'isRequired', e.target.checked)}
+                            onChange={(e: any) =>
+                              updateQuestion(index, 'isRequired', e.target.checked)
+                            }
                             className="rounded focus:ring-green-500"
                           />
                           Required
@@ -692,17 +796,17 @@ export default function IntakeFormsPage() {
                 </div>
               </div>
             </div>
-            <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-2">
+            <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-white px-6 py-4">
               <button
                 onClick={() => setActiveModal(null)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateForm}
                 disabled={creatingForm}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
               >
                 {creatingForm ? (
                   <>
@@ -720,9 +824,9 @@ export default function IntakeFormsPage() {
 
       {/* Send Link Modal */}
       {activeModal === 'send' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
-          <div className="bg-white rounded-lg max-w-md w-full m-4">
-            <div className="border-b px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="m-4 w-full max-w-md rounded-lg bg-white">
+            <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-xl font-bold">Send Intake Form</h2>
               <button
                 onClick={() => setActiveModal(null)}
@@ -731,33 +835,39 @@ export default function IntakeFormsPage() {
                 <XIcon />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 p-6">
               <div>
-                <label className="block text-sm font-medium mb-1">Patient Email *</label>
+                <label className="mb-1 block text-sm font-medium">Patient Email *</label>
                 <input
                   type="email"
                   value={sendLinkForm.patientEmail}
-                  onChange={(e: any) => setSendLinkForm(prev => ({ ...prev, patientEmail: e.target.value }))}
+                  onChange={(e: any) =>
+                    setSendLinkForm((prev) => ({ ...prev, patientEmail: e.target.value }))
+                  }
                   placeholder="patient@example.com"
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Patient Phone (Optional)</label>
+                <label className="mb-1 block text-sm font-medium">Patient Phone (Optional)</label>
                 <input
                   type="tel"
                   value={sendLinkForm.patientPhone}
-                  onChange={(e: any) => setSendLinkForm(prev => ({ ...prev, patientPhone: e.target.value }))}
+                  onChange={(e: any) =>
+                    setSendLinkForm((prev) => ({ ...prev, patientPhone: e.target.value }))
+                  }
                   placeholder="555-1234"
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Send Via</label>
+                <label className="mb-1 block text-sm font-medium">Send Via</label>
                 <select
                   value={sendLinkForm.sendMethod}
-                  onChange={(e: any) => setSendLinkForm(prev => ({ ...prev, sendMethod: e.target.value }))}
-                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e: any) =>
+                    setSendLinkForm((prev) => ({ ...prev, sendMethod: e.target.value }))
+                  }
+                  className="w-full rounded-lg border p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="email">Email Only</option>
                   <option value="sms">SMS Only</option>
@@ -766,17 +876,17 @@ export default function IntakeFormsPage() {
                 </select>
               </div>
             </div>
-            <div className="border-t px-6 py-4 flex justify-end gap-2">
+            <div className="flex justify-end gap-2 border-t px-6 py-4">
               <button
                 onClick={() => setActiveModal(null)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendLink}
                 disabled={sendingLink}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
               >
                 {sendingLink ? (
                   <>

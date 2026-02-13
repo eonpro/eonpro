@@ -155,7 +155,9 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   }, [currentUserId]);
 
   const fetchMessages = useCallback(async (): Promise<boolean> => {
-    if (!selectedRecipient) return true;
+    if (!selectedRecipient) {
+      return true;
+    }
 
     setLoading(true);
     try {
@@ -383,16 +385,22 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     const MAX_MS = 60000;
 
     const scheduleNext = () => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
       const delay = Math.min(
         BASE_MS * Math.pow(2, unreadPollFailuresRef.current),
         MAX_MS
       );
       timeoutId = setTimeout(() => {
         timeoutId = null;
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         fetchUnreadCount().then((ok) => {
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
           if (ok) {
             unreadPollFailuresRef.current = 0;
           } else {
@@ -407,15 +415,22 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     };
 
     fetchUnreadCount().then((ok) => {
-      if (cancelled) return;
-      if (ok) unreadPollFailuresRef.current = 0;
-      else unreadPollFailuresRef.current = 1;
+      if (cancelled) {
+        return;
+      }
+      if (ok) {
+        unreadPollFailuresRef.current = 0;
+      } else {
+        unreadPollFailuresRef.current = 1;
+      }
       scheduleNext();
     });
 
     return () => {
       cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [fetchUnreadCount, isOpen]);
 
@@ -455,7 +470,9 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   }, [activeReactionPicker]);
 
   useEffect(() => {
-    if (!isOpen || !selectedRecipient) return;
+    if (!isOpen || !selectedRecipient) {
+      return;
+    }
 
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -463,16 +480,22 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     const MAX_MS = 60000;
 
     const scheduleNext = () => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
       const delay = Math.min(
         BASE_MS * Math.pow(2, messagesPollFailuresRef.current),
         MAX_MS
       );
       timeoutId = setTimeout(() => {
         timeoutId = null;
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         fetchMessages().then((ok) => {
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
           if (ok) {
             messagesPollFailuresRef.current = 0;
           } else {
@@ -487,15 +510,22 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     };
 
     fetchMessages().then((ok) => {
-      if (cancelled) return;
-      if (ok) messagesPollFailuresRef.current = 0;
-      else messagesPollFailuresRef.current = 1;
+      if (cancelled) {
+        return;
+      }
+      if (ok) {
+        messagesPollFailuresRef.current = 0;
+      } else {
+        messagesPollFailuresRef.current = 1;
+      }
       scheduleNext();
     });
 
     return () => {
       cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [isOpen, selectedRecipient, fetchMessages]);
 
@@ -504,7 +534,9 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // ===========================================================================
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedRecipient || sendingMessage) return;
+    if (!newMessage.trim() || !selectedRecipient || sendingMessage) {
+      return;
+    }
 
     const messageText = newMessage.trim();
     setNewMessage('');
@@ -985,7 +1017,9 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                               >
                                 {Object.entries(reactionGroups).map(([emoji, reactions]) => {
                                   const config = REACTION_EMOJIS[emoji as ReactionType];
-                                  if (!config) return null;
+                                  if (!config) {
+                                    return null;
+                                  }
                                   const Icon = config.icon;
                                   const hasUserReacted = reactions.some(
                                     (r) => r.userId === currentUserId

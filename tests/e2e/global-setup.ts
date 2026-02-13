@@ -6,12 +6,15 @@
 import { chromium, type FullConfig } from '@playwright/test';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirnameSafe = path.dirname(fileURLToPath(import.meta.url));
 
 async function globalSetup(_config: FullConfig): Promise<void> {
   console.log('🚀 Starting E2E test setup...');
   
   // Create auth directory if it doesn't exist
-  const authDir = path.join(__dirname, '.auth');
+  const authDir = path.join(__dirnameSafe, '.auth');
   await fs.mkdir(authDir, { recursive: true });
   
   // Set up test database (if needed)
@@ -58,14 +61,14 @@ async function createAuthenticatedSession(): Promise<void> {
     }
     
     // Save authentication state
-    await context.storageState({ path: path.join(__dirname, '.auth/user.json') });
+    await context.storageState({ path: path.join(__dirnameSafe, '.auth/user.json') });
     
   } catch (error) {
     console.warn('⚠️ Could not create authenticated session:', error);
     
     // Create empty auth file to prevent test failures
     await fs.writeFile(
-      path.join(__dirname, '.auth/user.json'),
+      path.join(__dirnameSafe, '.auth/user.json'),
       JSON.stringify({ cookies: [], origins: [] })
     );
   } finally {

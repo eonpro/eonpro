@@ -38,12 +38,12 @@ export async function GET(request: Request) {
     logger.db('CONNECT', 'database');
 
     // Check existing tables
-    const tables = await prisma.$queryRaw`
+    const tables = (await prisma.$queryRaw`
       SELECT table_name
       FROM information_schema.tables
       WHERE table_schema = 'public'
       AND table_type = 'BASE TABLE'
-    ` as { table_name: string }[];
+    `) as { table_name: string }[];
 
     logger.db('SELECT', 'information_schema.tables', { count: tables.length });
 
@@ -64,10 +64,12 @@ export async function GET(request: Request) {
           lastName: 'User',
           passwordHash,
           role: 'ADMIN',
-        }
+        },
       });
       logger.db('INSERT', 'users', { email: admin.email });
-      logger.info('[INIT-DB] Generated secure admin password - save it now, it will not be shown again');
+      logger.info(
+        '[INIT-DB] Generated secure admin password - save it now, it will not be shown again'
+      );
     }
 
     // Create test clinic if none exists
@@ -82,7 +84,7 @@ export async function GET(request: Request) {
           settings: {},
           features: {},
           integrations: {},
-        }
+        },
       });
       logger.db('INSERT', 'clinics', { name: clinic.name });
     }
@@ -130,11 +132,12 @@ export async function GET(request: Request) {
         email: 'admin@eonpro.com',
         // SECURITY: Only show password once when newly created
         password: generatedPassword || '(existing user - password not changed)',
-        note: generatedPassword ? 'IMPORTANT: Save this password now! It will not be shown again.' : undefined,
-        demoUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/demo/login`
-      }
+        note: generatedPassword
+          ? 'IMPORTANT: Save this password now! It will not be shown again.'
+          : undefined,
+        demoUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/demo/login`,
+      },
     });
-
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.constructor.name : 'UnknownError';
@@ -143,23 +146,29 @@ export async function GET(request: Request) {
 
     // Check if it's a connection issue
     if (errorMessage.includes("Can't reach database")) {
-      return NextResponse.json({
-        success: false,
-        error: 'Database connection failed',
-        troubleshooting: [
-          '1. Check DATABASE_URL is correct in Vercel environment variables',
-          '2. Verify AWS RDS Security Group allows Vercel Static IPs',
-          '3. Ensure RDS instance has "Public access" enabled',
-          '4. Redeploy after updating DATABASE_URL',
-        ],
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Database connection failed',
+          troubleshooting: [
+            '1. Check DATABASE_URL is correct in Vercel environment variables',
+            '2. Verify AWS RDS Security Group allows Vercel Static IPs',
+            '3. Ensure RDS instance has "Public access" enabled',
+            '4. Redeploy after updating DATABASE_URL',
+          ],
+        },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      success: false,
-      error: errorMessage,
-      type: errorName
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: errorMessage,
+        type: errorName,
+      },
+      { status: 500 }
+    );
   }
   // Note: Don't disconnect singleton PrismaClient - it's managed globally
 }

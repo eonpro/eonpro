@@ -2,7 +2,8 @@
 
 ## Understanding the Test Results
 
-When running the S3 test suite at `/test/s3`, you'll see various test scenarios. Here's what each result means:
+When running the S3 test suite at `/test/s3`, you'll see various test scenarios. Here's what each
+result means:
 
 ### ✅ Expected Passes (Working Correctly)
 
@@ -94,6 +95,7 @@ aws s3api create-bucket \
 ### 3. Configure Bucket Policies
 
 The bucket needs:
+
 - Versioning enabled
 - Server-side encryption
 - CORS configuration
@@ -102,6 +104,7 @@ The bucket needs:
 ### 4. Run Tests Again
 
 With real AWS credentials, all tests should pass:
+
 - ✅ Feature flag enabled
 - ✅ Configuration validated
 - ✅ Bucket accessible
@@ -125,22 +128,26 @@ This allows development and testing without AWS costs or setup.
 The S3 integration includes:
 
 ### Encryption
+
 - AES-256 encryption at rest
 - TLS 1.2+ in transit
 - Optional KMS key support
 
 ### Access Control
+
 - Five access levels (public, private, restricted, provider, patient)
 - Signed URLs for temporary access
 - IAM role-based permissions
 
 ### HIPAA Compliance
+
 - 7-year retention policy
 - Audit logging
 - Versioning enabled
 - Business Associate Agreement support
 
 ### File Validation
+
 - Type checking (images, PDFs, documents)
 - Size limits (10MB images, 50MB documents, 100MB max)
 - Content type verification
@@ -149,21 +156,25 @@ The S3 integration includes:
 ## Troubleshooting
 
 ### "S3 configuration is incomplete"
+
 - Check all required environment variables are set
 - Verify AWS credentials are valid
 - Ensure bucket exists and is accessible
 
 ### "File validation failed"
+
 - Check file type is in allowed list
 - Verify file size is within limits
 - Ensure content type matches file extension
 
 ### "Cannot access bucket"
+
 - Verify AWS credentials have proper permissions
 - Check bucket region matches configuration
 - Ensure bucket policy allows access
 
 ### "Mock service" warnings
+
 - This is normal when feature is disabled
 - Enable AWS_S3_STORAGE=true to use real S3
 

@@ -109,7 +109,7 @@ async function getOAuthHandler(request: NextRequest, user: AuthUser) {
       redirect_uri: redirectUri,
       state: state,
     });
-    
+
     // Add stripe_user with bracket notation (Stripe expects stripe_user[email], not JSON)
     if (clinic.adminEmail) {
       params.append('stripe_user[email]', clinic.adminEmail);
@@ -166,7 +166,10 @@ async function postOAuthHandler(request: NextRequest, user: AuthUser) {
 
     // Verify state is not too old (15 minutes max)
     if (Date.now() - stateData.timestamp > 15 * 60 * 1000) {
-      return NextResponse.json({ error: 'Authorization expired. Please try again.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Authorization expired. Please try again.' },
+        { status: 400 }
+      );
     }
 
     // Verify user matches
@@ -176,7 +179,10 @@ async function postOAuthHandler(request: NextRequest, user: AuthUser) {
 
     // Verify user has access to clinic
     if (user.role === 'admin' && user.clinicId !== stateData.clinicId) {
-      return NextResponse.json({ error: 'Cannot connect Stripe for another clinic' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Cannot connect Stripe for another clinic' },
+        { status: 403 }
+      );
     }
 
     // Exchange code for access token and account ID

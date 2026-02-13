@@ -79,7 +79,7 @@ vi.mock('@/lib/db', () => ({
 // Mock Twilio SMS
 vi.mock('@/lib/integrations/twilio/smsService', () => ({
   sendSMS: vi.fn().mockResolvedValue({ success: true, messageId: 'SM123' }),
-  formatPhoneNumber: vi.fn((phone) => phone.startsWith('+') ? phone : `+1${phone}`),
+  formatPhoneNumber: vi.fn((phone) => (phone.startsWith('+') ? phone : `+1${phone}`)),
 }));
 
 // Mock logger
@@ -450,9 +450,11 @@ describe('Patient Chat API', () => {
 
       // Patient 1 trying to access patient 999's messages
       // The function should check patientId against user.patientId
-      const { canAccessPatientMessages } = await import('@/app/api/patient-chat/route').catch(() => ({
-        canAccessPatientMessages: null,
-      }));
+      const { canAccessPatientMessages } = await import('@/app/api/patient-chat/route').catch(
+        () => ({
+          canAccessPatientMessages: null,
+        })
+      );
 
       // Since we can't easily test internal functions, we verify behavior
       // The test passes because the route rejects wrong patient IDs

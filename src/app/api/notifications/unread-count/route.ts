@@ -6,7 +6,6 @@ export async function GET(req: NextRequest) {
   // Auth is optional - returns 0 if not authenticated
   return NextResponse.json({
     count: 0,
-    success: true
+    success: true,
   });
 }
-

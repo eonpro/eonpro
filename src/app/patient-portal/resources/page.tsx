@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
+import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import {
   Play,
   BookOpen,
@@ -193,7 +194,7 @@ export default function ResourcesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-            style={{ '--tw-ring-color': primaryColor } as any}
+            style={ringColorStyle(primaryColor)}
           />
         </div>
       </div>

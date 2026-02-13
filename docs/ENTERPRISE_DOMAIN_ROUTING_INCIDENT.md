@@ -93,21 +93,23 @@ After changing domain config, run these checks (allow a few minutes for DNS/prop
 
 ```bash
 # app.eonpro.io — expect JSON
-curl -s "https://app.eonpro.io/api/_health/version" | jq .
+curl -s "https://app.eonpro.io/api/version" | jq .
+curl -s "https://app.eonpro.io/api/ping" | jq .
 
 # ot.eonpro.io — expect same structure (may differ only in host)
-curl -s "https://ot.eonpro.io/api/_health/version" | jq .
+curl -s "https://ot.eonpro.io/api/version" | jq .
+curl -s "https://ot.eonpro.io/api/ping" | jq .
 ```
 
-**Success:** Both return JSON with `gitSha`, `buildId`, `host`, `pathname`, `timestamp`.
+**Success:** Both return JSON with `gitSha`, `buildId`, `host`, `timestamp`.
 
 **Failure:** `ot.eonpro.io` returns 404 HTML → still pointing elsewhere; re-check Vercel domain settings and propagation.
 
 ### Compare build IDs
 
 ```bash
-APP=$(curl -s "https://app.eonpro.io/api/_health/version" | jq -r '.gitSha')
-OT=$(curl -s "https://ot.eonpro.io/api/_health/version" | jq -r '.gitSha')
+APP=$(curl -s "https://app.eonpro.io/api/version" | jq -r '.commit')
+OT=$(curl -s "https://ot.eonpro.io/api/version" | jq -r '.commit')
 echo "app: $APP"
 echo "ot:  $OT"
 [ "$APP" = "$OT" ] && echo "MATCH: Same deployment" || echo "MISMATCH: Different deployments"
@@ -125,26 +127,28 @@ Both should return JSON with matching `datasource.hash` and `dbIdentity` (once r
 
 ---
 
-## New Endpoint: `/api/_health/version`
+## Version / Ping Endpoints
 
-| Method | Path                 | Auth  | Purpose                                      |
-|--------|----------------------|-------|----------------------------------------------|
-| GET    | `/api/_health/version` | None | Confirm which deployment each host is serving |
+| Method | Path          | Auth | Purpose                                      |
+|--------|---------------|------|----------------------------------------------|
+| GET    | `/api/version` | None | Confirm which deployment each host is serving |
+| GET    | `/api/ping`    | None | Same payload with pathname; public on all subdomains |
 
-**Response:**
+**Response (both endpoints):**
 
 ```json
 {
-  "gitSha": "bb5962eb12a0c32b04fae84c862f2afca0d05751",
-  "buildId": "bb5962eb12a0c32b04fae84c862f2afca0d05751",
+  "gitSha": "7908f14c34131d8f91d0984f64cf167b6089ef3d",
+  "buildId": "7908f14c34131d8f91d0984f64cf167b6089ef3d",
   "host": "ot.eonpro.io",
-  "pathname": "/api/_health/version",
+  "pathname": "/api/ping",
   "timestamp": "2026-02-11T08:00:00.000Z"
 }
 ```
 
-- Added to `PUBLIC_ROUTES` in clinic middleware so it works without clinic context on all subdomains.
+- `/api/ping` added to `PUBLIC_ROUTES` in clinic middleware.
 - Edge runtime; no DB or external calls for fast checks.
+- **Note:** Next.js treats `_`-prefixed folders as private (excluded from routing), so `/api/_health/version` does not work.
 
 ---
 
@@ -154,6 +158,29 @@ If you intentionally run a **separate** Vercel project for clinic subdomains (e.
 
 1. Add rewrites in that project to proxy `/api/*` and `/patients/*` to the main app deployment.
 2. Or unify on a single project: add all domains as aliases and serve the full app everywhere.
+
+---
+
+## Automated Fix Script
+
+Run to add `ot.eonpro.io` explicitly and promote the latest deployment:
+
+```bash
+# 1. Create token at https://vercel.com/account/tokens
+# 2. If project is under a team, get team ID from Vercel → Team Settings → General
+
+VERCEL_TOKEN=your_token_here npx tsx scripts/fix-ot-domain-routing.ts
+
+# Dry run (no changes):
+VERCEL_TOKEN=your_token_here npx tsx scripts/fix-ot-domain-routing.ts --dry-run
+
+# With team:
+VERCEL_TOKEN=xxx VERCEL_TEAM_ID=team_xxx npx tsx scripts/fix-ot-domain-routing.ts
+```
+
+The script will:
+1. Add `ot.eonpro.io` to the eonpro project
+2. Promote the latest production deployment (points all domains to it)
 
 ---
 

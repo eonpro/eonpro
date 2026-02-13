@@ -43,7 +43,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const errorId = crypto.randomUUID().slice(0, 8);
     logger.error(`[POINTS_GET] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       patientId: user.patientId,
     });
     return NextResponse.json(

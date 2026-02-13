@@ -18,6 +18,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirnameSafe = path.dirname(fileURLToPath(import.meta.url));
 
 // ANSI colors
 const colors = {
@@ -247,7 +250,7 @@ async function main(): Promise<void> {
     }
   } else {
     // Validate all migrations
-    const migrationsDir = path.resolve(__dirname, '../prisma/migrations');
+    const migrationsDir = path.resolve(__dirnameSafe, '../prisma/migrations');
     filesToValidate = findMigrationFiles(migrationsDir);
   }
 

@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { Users, Search, UserPlus, X, Loader2, ChevronDown } from 'lucide-react';
+import { Users, UserPlus, X, Loader2, ChevronDown } from 'lucide-react';
+
+import { PatientSearchBar, useRecentSearches } from '@/components/PatientSearchBar';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Patient {
   id: number;
@@ -25,24 +28,25 @@ interface PaginationMeta {
   hasMore: boolean;
 }
 
-const PAGE_SIZE = 50; // Load 50 at a time for better UX
+const PAGE_SIZE = 50;
 
 export default function ProviderPatientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const { recent, addRecent } = useRecentSearches();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false); // New: for search-in-progress indicator
+  const [searching, setSearching] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, hasMore: false });
   const [offset, setOffset] = useState(0);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const isInitialLoadRef = useRef(true);
 
   // New patient form
@@ -68,148 +72,120 @@ export default function ProviderPatientsPage() {
     }
   }, [searchParams, router]);
 
-  // Debounce search input
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-    searchTimeoutRef.current = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 300);
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchTerm]);
-
-  // Fetch patients function
   const fetchPatients = useCallback(
-    async (currentOffset: number, isNewSearch = false, searchQuery = '') => {
+    async (currentOffset: number, isNewSearch: boolean, q: string) => {
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
+
       try {
-        // Only show full loading spinner on initial page load
-        // For searches, show a subtle searching indicator without clearing the list
-        if (isNewSearch && isInitialLoadRef.current) {
-          setLoading(true);
-        } else if (isNewSearch) {
-          setSearching(true);
-        } else {
-          setLoadingMore(true);
-        }
+        if (isNewSearch && isInitialLoadRef.current) setLoading(true);
+        else if (isNewSearch) setSearching(true);
+        else setLoadingMore(true);
 
-        const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-
-        // Build query params with server-side search and pagination
         const params = new URLSearchParams({
           includeContact: 'true',
           limit: PAGE_SIZE.toString(),
           offset: currentOffset.toString(),
         });
+        if (q.trim()) params.set('search', q.trim());
 
-        // Add server-side search if present
-        if (searchQuery.trim()) {
-          params.set('search', searchQuery.trim());
-        }
-
-        const response = await fetch(`/api/patients?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const response = await apiFetch(`/api/patients?${params.toString()}`, {
+          signal: abortRef.current.signal,
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          // Map API response to component interface
-          const mapped = (data.patients || []).map((p: any) => ({
-            id: p.id,
-            firstName: p.firstName || '',
-            lastName: p.lastName || '',
-            email: p.email || '',
-            phone: p.phone || '',
-            dateOfBirth: p.dateOfBirth || '',
-            gender: p.gender || '',
-            status: p.status || 'active', // Default to active if no status
-            createdAt: p.createdAt || '',
-          }));
+        if (!response.ok) return;
 
-          if (isNewSearch) {
-            setPatients(mapped);
-            isInitialLoadRef.current = false;
-          } else {
-            setPatients((prev) => [...prev, ...mapped]);
-          }
+        const data = await response.json();
+        const mapped = (data.patients || []).map((p: Record<string, unknown>) => ({
+          id: p.id as number,
+          firstName: (p.firstName as string) || '',
+          lastName: (p.lastName as string) || '',
+          email: (p.email as string) || '',
+          phone: (p.phone as string) || '',
+          dateOfBirth: (p.dateOfBirth as string) || '',
+          gender: (p.gender as string) || '',
+          status: (p.status as string) || 'active',
+          patientId: p.patientId as string | null,
+          createdAt: (p.createdAt as string) || '',
+        }));
 
-          setMeta({
-            count: data.meta?.count || mapped.length,
-            total: data.meta?.total || mapped.length,
-            hasMore: data.meta?.hasMore || false,
-          });
-          setOffset(currentOffset + mapped.length);
+        if (isNewSearch) {
+          setPatients(mapped);
+          isInitialLoadRef.current = false;
+          if (q.trim()) addRecent(q.trim());
+        } else {
+          setPatients((prev) => [...prev, ...mapped]);
         }
+
+        setMeta({
+          count: data.meta?.count ?? mapped.length,
+          total: data.meta?.total ?? mapped.length,
+          hasMore: data.meta?.hasMore ?? false,
+        });
+        setOffset(currentOffset + mapped.length);
       } catch (err) {
-        console.error('Error fetching patients:', err);
+        if ((err as Error).name === 'AbortError') return;
       } finally {
         setLoading(false);
         setSearching(false);
         setLoadingMore(false);
+        abortRef.current = null;
       }
     },
-    []
+    [addRecent]
   );
 
-  // Fetch patients when search changes (including initial load)
   useEffect(() => {
     setOffset(0);
-    // Don't clear patients here - let fetchPatients handle the replacement
-    // This prevents flickering and allows typing to work smoothly
-    fetchPatients(0, true, debouncedSearch);
-  }, [debouncedSearch, fetchPatients]);
+    fetchPatients(0, true, searchQuery);
+  }, [searchQuery, fetchPatients]);
 
   const loadMore = () => {
     if (!loadingMore && meta.hasMore) {
-      fetchPatients(offset, false, debouncedSearch);
+      fetchPatients(offset, false, searchQuery);
     }
   };
 
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+  }, []);
+
+  const handleRecentSelect = useCallback((q: string) => {
+    setSearchTerm(q);
+    setSearchQuery(q);
+  }, []);
+
   const loadAll = async () => {
-    // Load all remaining patients
     let currentOffset = offset;
     setLoadingMore(true);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       let hasMore = true;
       let allNewPatients: Patient[] = [];
 
       while (hasMore) {
         const params = new URLSearchParams({
           includeContact: 'true',
-          limit: '500', // Max limit to load faster
+          limit: '500',
           offset: currentOffset.toString(),
         });
+        if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
-        if (debouncedSearch.trim()) {
-          params.set('search', debouncedSearch.trim());
-        }
-
-        const response = await fetch(`/api/patients?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await apiFetch(`/api/patients?${params.toString()}`);
 
         if (response.ok) {
           const data = await response.json();
-          const mapped = (data.patients || []).map((p: any) => ({
-            id: p.id,
-            firstName: p.firstName || '',
-            lastName: p.lastName || '',
-            email: p.email || '',
-            phone: p.phone || '',
-            dateOfBirth: p.dateOfBirth || '',
-            gender: p.gender || '',
-            status: p.status || 'active',
-            createdAt: p.createdAt || '',
+          const mapped = (data.patients || []).map((p: Record<string, unknown>) => ({
+            id: p.id as number,
+            patientId: p.patientId as string | null,
+            firstName: (p.firstName as string) || '',
+            lastName: (p.lastName as string) || '',
+            email: (p.email as string) || '',
+            phone: (p.phone as string) || '',
+            dateOfBirth: (p.dateOfBirth as string) || '',
+            gender: (p.gender as string) || '',
+            status: (p.status as string) || 'active',
+            createdAt: (p.createdAt as string) || '',
           }));
 
           allNewPatients = [...allNewPatients, ...mapped];
@@ -268,9 +244,8 @@ export default function ProviderPatientsPage() {
           state: '',
           zip: '',
         });
-        // Reset search and refresh the patient list
         setSearchTerm('');
-        setDebouncedSearch('');
+        setSearchQuery('');
         setOffset(0);
         setPatients([]);
         fetchPatients(0, true, '');
@@ -361,21 +336,16 @@ export default function ProviderPatientsPage() {
         </div>
 
         {/* Search and Filter */}
-        <div className="flex gap-4">
-          <div className="relative flex-1">
-            {searching ? (
-              <Loader2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform animate-spin text-green-500" />
-            ) : (
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
-            )}
-            <input
-              type="text"
-              placeholder="Search patients by name..."
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="flex-1">
+            <PatientSearchBar
               value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-              }}
-              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-green-500"
+              onChange={setSearchTerm}
+              onSearch={handleSearch}
+              isSearching={searching}
+              totalFound={searchQuery ? meta.total : undefined}
+              recentSearches={recent}
+              onRecentSelect={handleRecentSelect}
             />
           </div>
           <select
@@ -430,18 +400,25 @@ export default function ProviderPatientsPage() {
       <div className="rounded-lg bg-white shadow">
         <div className="p-6">
           {filteredPatients.length === 0 ? (
-            <div className="py-12 text-center">
-              <Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-              <p className="text-gray-500">
-                {searchTerm ? 'No patients match your search' : 'No patients yet'}
+            <div className="py-16 text-center">
+              <Users className="mx-auto mb-4 h-14 w-14 text-gray-300" />
+              <p className="text-lg font-medium text-gray-700">
+                {searchQuery
+                  ? `No patients match "${searchQuery}"`
+                  : 'No patients yet'}
+              </p>
+              <p className="mt-2 max-w-sm mx-auto text-sm text-gray-500">
+                {searchQuery
+                  ? 'Try searching by email, phone number, or patient ID. You can also clear the search to see all patients.'
+                  : 'Add your first patient to get started.'}
               </p>
               <button
                 onClick={() => {
                   setShowAddModal(true);
                 }}
-                className="mt-4 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+                className="mt-6 rounded-lg bg-green-600 px-5 py-2.5 text-white hover:bg-green-700"
               >
-                Add Your First Patient
+                {searchQuery ? 'Add New Patient' : 'Add Your First Patient'}
               </button>
             </div>
           ) : (
@@ -559,7 +536,7 @@ export default function ProviderPatientsPage() {
               {/* Pagination info */}
               <div className="py-4 text-center text-sm text-gray-500">
                 Showing {filteredPatients.length} of {meta.total} patients
-                {debouncedSearch && ` matching "${debouncedSearch}"`}
+                {searchQuery && ` matching "${searchQuery}"`}
               </div>
             </div>
           )}

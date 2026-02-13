@@ -23,8 +23,10 @@ export default function CareTeamPage() {
     alert('Phone support: Please call (800) 555-0123 to speak with our care team.');
   };
   const handleVideo = () => router.push(`${PATIENT_PORTAL_PATH}/appointments?type=video`);
-  const handleMessage = (providerId: number) => router.push(`${PATIENT_PORTAL_PATH}/chat?provider=${providerId}`);
-  const handleBookAppointment = (providerId: number) => router.push(`${PATIENT_PORTAL_PATH}/appointments?provider=${providerId}`);
+  const handleMessage = (providerId: number) =>
+    router.push(`${PATIENT_PORTAL_PATH}/chat?provider=${providerId}`);
+  const handleBookAppointment = (providerId: number) =>
+    router.push(`${PATIENT_PORTAL_PATH}/appointments?provider=${providerId}`);
   const handleContactConcierge = () => router.push(`${PATIENT_PORTAL_PATH}/chat?concierge=true`);
   const careTeam = [
     {

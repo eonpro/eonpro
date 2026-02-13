@@ -1,38 +1,38 @@
 /**
  * ENTERPRISE QUERY OPTIMIZER
  * ==========================
- * 
+ *
  * High-performance database query optimization layer providing:
  * - Intelligent multi-tier caching (L1: Memory, L2: Redis)
  * - Query deduplication (prevents duplicate in-flight queries)
  * - Automatic batching of related queries
  * - Connection pool optimization
  * - Metrics and slow query tracking
- * 
+ *
  * @module database/query-optimizer
  * @version 1.0.0
- * 
+ *
  * ## Architecture
  * ```
  * Request → L1 Cache (Memory) → L2 Cache (Redis) → Database
  *           ~0.01ms             ~1-5ms             ~10-100ms
  * ```
- * 
+ *
  * ## Usage Examples
- * 
+ *
  * ### Basic Cached Query
  * ```typescript
  * import { queryOptimizer } from '@/lib/database';
- * 
+ *
  * const patients = await queryOptimizer.query(
  *   () => prisma.patient.findMany({ where: { clinicId } }),
- *   { 
+ *   {
  *     cacheKey: `patients:clinic:${clinicId}`,
  *     cache: { ttl: 300, prefix: 'patient' }
  *   }
  * );
  * ```
- * 
+ *
  * ### Fresh Data (Bypass Cache)
  * ```typescript
  * const patient = await queryOptimizer.query(
@@ -40,16 +40,16 @@
  *   { fresh: true }
  * );
  * ```
- * 
+ *
  * ### Cache Invalidation
  * ```typescript
  * // Invalidate single entity
  * await queryOptimizer.invalidate('patient', patientId);
- * 
+ *
  * // Invalidate entire entity type
  * await queryOptimizer.invalidate('patient');
  * ```
- * 
+ *
  * ## Cache TTLs by Entity
  * | Entity      | L2 (Redis) | L1 (Memory) |
  * |-------------|------------|-------------|
@@ -58,7 +58,7 @@
  * | Patient     | 5 min      | 30 sec      |
  * | Invoice     | 1 min      | 10 sec      |
  * | Appointment | 1 min      | 10 sec      |
- * 
+ *
  * @see {@link ./connection-pool.ts} Connection pool management
  * @see {@link ./data-preloader.ts} DataLoader pattern implementation
  */
@@ -131,12 +131,12 @@ class L1Cache {
   get<T>(key: string): T | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
-    
+
     if (Date.now() > entry.expires) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return entry.data as T;
   }
 
@@ -146,10 +146,10 @@ class L1Cache {
       const firstKey = this.cache.keys().next().value;
       if (firstKey) this.cache.delete(firstKey);
     }
-    
+
     this.cache.set(key, {
       data,
-      expires: Date.now() + (ttlSeconds * 1000),
+      expires: Date.now() + ttlSeconds * 1000,
     });
   }
 
@@ -236,7 +236,7 @@ function createDataLoader<K, V>(
   options: { maxBatchSize?: number; batchDelayMs?: number } = {}
 ): BatchLoader<K, V> {
   const { maxBatchSize = 100, batchDelayMs = 10 } = options;
-  
+
   let batch: { key: K; resolve: (v: V) => void; reject: (e: Error) => void }[] = [];
   let batchTimeout: NodeJS.Timeout | null = null;
   const cache = new Map<K, Promise<V>>();
@@ -249,7 +249,7 @@ function createDataLoader<K, V>(
     if (currentBatch.length === 0) return;
 
     try {
-      const keys = currentBatch.map(item => item.key);
+      const keys = currentBatch.map((item) => item.key);
       const results = await batchFn(keys);
 
       for (const item of currentBatch) {
@@ -292,12 +292,13 @@ function createDataLoader<K, V>(
     },
     loadMany: async (keys: K[]): Promise<(V | Error)[]> => {
       return Promise.all(
-        keys.map(key => 
-          cache.get(key) || 
-          new Promise<V>((resolve, reject) => {
-            batch.push({ key, resolve, reject });
-            scheduleBatch();
-          }).catch(e => e as Error)
+        keys.map(
+          (key) =>
+            cache.get(key) ||
+            new Promise<V>((resolve, reject) => {
+              batch.push({ key, resolve, reject });
+              scheduleBatch();
+            }).catch((e) => e as Error)
         )
       );
     },
@@ -324,7 +325,7 @@ class QueryOptimizer {
     totalQueries: 0,
     slowQueries: 0,
   };
-  
+
   // Pre-configured data loaders for common entities
   private patientLoader: BatchLoader<number, unknown> | null = null;
   private providerLoader: BatchLoader<number, unknown> | null = null;
@@ -334,10 +335,27 @@ class QueryOptimizer {
   private readonly CACHE_CONFIGS: Record<string, CacheConfig> = {
     patient: { ttl: 300, prefix: 'patient', useL1Cache: true, l1Ttl: 30, tags: ['patient'] },
     provider: { ttl: 600, prefix: 'provider', useL1Cache: true, l1Ttl: 60, tags: ['provider'] },
-    invoice: { ttl: 60, prefix: 'invoice', useL1Cache: true, l1Ttl: 10, tags: ['invoice', 'billing'] },
+    invoice: {
+      ttl: 60,
+      prefix: 'invoice',
+      useL1Cache: true,
+      l1Ttl: 10,
+      tags: ['invoice', 'billing'],
+    },
     order: { ttl: 120, prefix: 'order', useL1Cache: true, l1Ttl: 15, tags: ['order'] },
-    appointment: { ttl: 60, prefix: 'appointment', useL1Cache: true, l1Ttl: 10, tags: ['appointment', 'scheduling'] },
-    prescription: { ttl: 180, prefix: 'prescription', useL1Cache: false, tags: ['prescription', 'clinical'] },
+    appointment: {
+      ttl: 60,
+      prefix: 'appointment',
+      useL1Cache: true,
+      l1Ttl: 10,
+      tags: ['appointment', 'scheduling'],
+    },
+    prescription: {
+      ttl: 180,
+      prefix: 'prescription',
+      useL1Cache: false,
+      tags: ['prescription', 'clinical'],
+    },
     clinic: { ttl: 3600, prefix: 'clinic', useL1Cache: true, l1Ttl: 300, tags: ['clinic'] },
     settings: { ttl: 1800, prefix: 'settings', useL1Cache: true, l1Ttl: 120, tags: ['settings'] },
   };
@@ -348,10 +366,7 @@ class QueryOptimizer {
   /**
    * Execute an optimized query with caching and deduplication
    */
-  async query<T>(
-    queryFn: () => Promise<T>,
-    options: QueryOptions<T> = {}
-  ): Promise<T> {
+  async query<T>(queryFn: () => Promise<T>, options: QueryOptions<T> = {}): Promise<T> {
     const startTime = Date.now();
     const {
       cacheKey,
@@ -381,8 +396,8 @@ class QueryOptimizer {
     // Try L2 (Redis) cache
     if (!fresh && cacheConfig !== false) {
       try {
-        const l2Result = await cache.get<T>(key, { 
-          namespace: cacheConfig?.prefix || 'query' 
+        const l2Result = await cache.get<T>(key, {
+          namespace: cacheConfig?.prefix || 'query',
         });
         if (l2Result !== null) {
           this.metrics.cacheHits++;
@@ -416,12 +431,12 @@ class QueryOptimizer {
       // Cache the result
       if (cacheConfig !== false) {
         const config = cacheConfig || { ttl: 300, prefix: 'query' };
-        
+
         // L1 cache
         if (config.useL1Cache) {
           this.l1Cache.set(key, finalResult, config.l1Ttl || 30);
         }
-        
+
         // L2 cache (Redis)
         try {
           await cache.set(key, finalResult, {
@@ -460,14 +475,14 @@ class QueryOptimizer {
     // Check cache for each key
     for (const key of keys) {
       const cacheKey = `batch:${cacheConfig?.prefix || 'entity'}:${key}`;
-      
+
       // Try L1
       const l1Result = this.l1Cache.get<T>(cacheKey);
       if (l1Result !== null) {
         results.set(key, l1Result);
         continue;
       }
-      
+
       // Try L2
       if (cacheConfig) {
         const l2Result = await cache.get<T>(cacheKey, { namespace: cacheConfig.prefix });
@@ -479,7 +494,7 @@ class QueryOptimizer {
           continue;
         }
       }
-      
+
       uncachedKeys.push(key);
     }
 
@@ -488,10 +503,10 @@ class QueryOptimizer {
       for (let i = 0; i < uncachedKeys.length; i += maxBatchSize) {
         const batchKeys = uncachedKeys.slice(i, i + maxBatchSize);
         const batchResults = await batchFn(batchKeys);
-        
+
         for (const [key, value] of batchResults.entries()) {
           results.set(key, value);
-          
+
           // Cache the result
           if (cacheConfig) {
             const cacheKey = `batch:${cacheConfig.prefix}:${key}`;
@@ -521,17 +536,17 @@ class QueryOptimizer {
     }
 
     const key = id ? `${config.prefix}:${id}` : config.prefix;
-    
+
     // Invalidate L1
     if (id) {
       this.l1Cache.delete(key);
     } else {
       this.l1Cache.invalidateByPrefix(config.prefix);
     }
-    
+
     // Invalidate L2 (Redis)
     await cache.delete(key, { namespace: config.prefix });
-    
+
     // Invalidate by tags
     if (config.tags) {
       for (const tag of config.tags) {
@@ -555,11 +570,9 @@ class QueryOptimizer {
   /**
    * Preload data for a request (warm cache)
    */
-  async preload(
-    entities: Array<{ type: string; id: number | string }>
-  ): Promise<void> {
+  async preload(entities: Array<{ type: string; id: number | string }>): Promise<void> {
     const grouped = new Map<string, (number | string)[]>();
-    
+
     for (const { type, id } of entities) {
       const list = grouped.get(type) || [];
       list.push(id);
@@ -567,7 +580,7 @@ class QueryOptimizer {
     }
 
     const promises: Promise<void>[] = [];
-    
+
     for (const [type, ids] of grouped.entries()) {
       // This would call the appropriate loader based on type
       // Implementation depends on specific entity loaders
@@ -587,7 +600,10 @@ class QueryOptimizer {
   /**
    * Get query metrics
    */
-  getMetrics(): QueryMetrics & { l1CacheStats: { size: number; maxSize: number }; inFlightQueries: number } {
+  getMetrics(): QueryMetrics & {
+    l1CacheStats: { size: number; maxSize: number };
+    inFlightQueries: number;
+  } {
     return {
       ...this.metrics,
       l1CacheStats: this.l1Cache.getStats(),
@@ -624,7 +640,7 @@ class QueryOptimizer {
     let hash = 0;
     for (let i = 0; i < fnStr.length; i++) {
       const char = fnStr.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return `query:${Math.abs(hash).toString(36)}`;
@@ -632,12 +648,11 @@ class QueryOptimizer {
 
   private recordQueryTime(startTime: number): void {
     const duration = Date.now() - startTime;
-    
+
     // Update average
     const total = this.metrics.totalQueries;
-    this.metrics.avgQueryTime = 
-      (this.metrics.avgQueryTime * (total - 1) + duration) / total;
-    
+    this.metrics.avgQueryTime = (this.metrics.avgQueryTime * (total - 1) + duration) / total;
+
     // Track slow queries
     if (duration > this.SLOW_QUERY_THRESHOLD) {
       this.metrics.slowQueries++;

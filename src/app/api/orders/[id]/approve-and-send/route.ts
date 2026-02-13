@@ -7,11 +7,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, basePrisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { providerService } from '@/domains/provider';
 import { getClinicLifefileClient } from '@/lib/clinic-lifefile';
 import lifefile, { getEnvCredentials } from '@/lib/lifefile';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
 import type { LifefileOrderPayload } from '@/lib/lifefile';
 
@@ -29,43 +31,51 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
-    const clinicId = user.clinicId;
-    if (!clinicId) {
+    const providerClinicIds = await providerService.getClinicIdsForProviderUser(
+      user.id,
+      user.providerId
+    );
+    if (providerClinicIds.length === 0) {
       return NextResponse.json(
-        { error: 'Provider must be associated with a clinic' },
+        { error: 'Provider must be associated with at least one clinic' },
         { status: 400 }
       );
     }
 
-    const order = await basePrisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        patient: { select: { id: true, clinicId: true } },
-        clinic: true,
-        provider: true,
-        rxs: true,
-      },
-    });
-
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    let order: Awaited<ReturnType<typeof prisma.order.findUnique>> = null;
+    for (const cid of providerClinicIds) {
+      order = await runWithClinicContext(cid, () =>
+        prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            patient: { select: { id: true, clinicId: true } },
+            clinic: true,
+            provider: true,
+            rxs: true,
+          },
+        })
+      );
+      if (order) break;
     }
+
+    if (!order) return tenantNotFoundResponse();
 
     if (order.status !== 'queued_for_provider') {
       return NextResponse.json(
-        { error: 'Order is not awaiting provider approval. Only queued prescriptions can be approved and sent.' },
+        {
+          error:
+            'Order is not awaiting provider approval. Only queued prescriptions can be approved and sent.',
+        },
         { status: 400 }
       );
     }
 
-    if (order.clinicId !== clinicId && user.role !== 'super_admin') {
-      logger.security('Provider attempted to approve order from another clinic', {
-        userId: user.id,
-        orderId: order.id,
-        orderClinicId: order.clinicId,
-        userClinicId: clinicId,
-      });
-      return NextResponse.json({ error: 'Access denied to this order' }, { status: 403 });
+    if (
+      order.clinicId != null &&
+      !providerClinicIds.includes(order.clinicId) &&
+      user.role !== 'super_admin'
+    ) {
+      return tenantNotFoundResponse();
     }
 
     const requestJson = order.requestJson;
@@ -76,19 +86,16 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       );
     }
 
-    let payload: LifefileOrderPayload;
-    try {
-      payload = JSON.parse(requestJson) as LifefileOrderPayload;
-    } catch {
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const payload = safeParseJsonString<LifefileOrderPayload>(requestJson);
+    if (!payload) {
       return NextResponse.json(
         { error: 'Invalid order payload. Cannot send to pharmacy.' },
         { status: 400 }
       );
     }
 
-    const clinicClient = order.clinicId
-      ? await getClinicLifefileClient(order.clinicId)
-      : null;
+    const clinicClient = order.clinicId ? await getClinicLifefileClient(order.clinicId) : null;
     const client = clinicClient ?? lifefile;
     if (!clinicClient && !getEnvCredentials()) {
       return NextResponse.json(
@@ -100,7 +107,8 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
     try {
       orderResponse = await client.createFullOrder(payload);
     } catch (lifefileError: unknown) {
-      const errorMessage = lifefileError instanceof Error ? lifefileError.message : 'Unknown Lifefile error';
+      const errorMessage =
+        lifefileError instanceof Error ? lifefileError.message : 'Unknown Lifefile error';
       logger.error('[APPROVE-AND-SEND] Lifefile API failed', {
         orderId: order.id,
         error: errorMessage,
@@ -113,7 +121,11 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
         },
       });
       return NextResponse.json(
-        { error: 'Failed to send prescription to pharmacy', detail: errorMessage, recoverable: true },
+        {
+          error: 'Failed to send prescription to pharmacy',
+          detail: errorMessage,
+          recoverable: true,
+        },
         { status: 502 }
       );
     }
@@ -170,5 +182,4 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
   }
 }
 
-export const POST = (req: NextRequest, context: Params) =>
-  withProviderAuth(handler)(req, context);
+export const POST = (req: NextRequest, context: Params) => withProviderAuth(handler)(req, context);

@@ -23,4 +23,3 @@ export function decrypt(encryptedData: string | null | undefined): string | null
  * Check if a value is encrypted
  */
 export { isEncrypted };
-

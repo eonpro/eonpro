@@ -12,6 +12,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 import { PhotoUploader, PhotoGallery } from '@/components/patient-portal/photos';
 import {
   Camera,
@@ -63,7 +66,12 @@ type ViewMode = 'gallery' | 'upload';
 // Medical Photo Types
 // =============================================================================
 
-const MEDICAL_PHOTO_TYPES: { type: PatientPhotoType; label: string; description: string; icon: React.ElementType }[] = [
+const MEDICAL_PHOTO_TYPES: {
+  type: PatientPhotoType;
+  label: string;
+  description: string;
+  icon: React.ElementType;
+}[] = [
   {
     type: 'MEDICAL_SKIN',
     label: 'Skin Condition',
@@ -155,14 +163,18 @@ export default function MedicalImagesPage() {
     try {
       setLoading(true);
       const types = MEDICAL_PHOTO_TYPES.map((t) => `type=${t.type}`).join('&');
-      const response = await fetch(`/api/patient-portal/photos?${types}`);
+      const response = await portalFetch(`/api/patient-portal/photos?${types}`);
 
       if (!response.ok) {
         throw new Error('Failed to load photos');
       }
 
-      const data = await response.json();
-      const medicalPhotos = (data.photos || []).filter((p: Photo) =>
+      const data = await safeParseJson(response);
+      const photos =
+        data !== null && typeof data === 'object' && 'photos' in data
+          ? (data as { photos?: Photo[] }).photos ?? []
+          : [];
+      const medicalPhotos = photos.filter((p: Photo) =>
         MEDICAL_PHOTO_TYPES.some((t) => t.type === p.type)
       );
 
@@ -194,14 +206,16 @@ export default function MedicalImagesPage() {
   // Handle photo delete
   const handleDeletePhoto = async (photoId: number) => {
     try {
-      const response = await fetch(`/api/patient-portal/photos/${photoId}`, {
+      const response = await portalFetch(`/api/patient-portal/photos/${photoId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
         setPhotos((prev) => prev.filter((p) => p.id !== photoId));
       }
     } catch (err) {
-      console.error('Failed to delete photo:', err);
+      logger.error('Failed to delete photo', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
     }
   };
 
@@ -226,15 +240,15 @@ export default function MedicalImagesPage() {
   if (error) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
-        <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-        <p className="text-red-600 font-medium mb-2">Error Loading Photos</p>
-        <p className="text-gray-500 text-sm mb-4">{error}</p>
+        <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
+        <p className="mb-2 font-medium text-red-600">Error Loading Photos</p>
+        <p className="mb-4 text-sm text-gray-500">{error}</p>
         <button
           onClick={() => {
             setError(null);
             fetchPhotos();
           }}
-          className="px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-red-700 font-medium"
+          className="rounded-lg bg-red-100 px-4 py-2 font-medium text-red-700 hover:bg-red-200"
         >
           Try Again
         </button>
@@ -246,7 +260,7 @@ export default function MedicalImagesPage() {
     <div className="min-h-[100dvh] px-4 py-6">
       {/* Success Toast */}
       {showSuccess && (
-        <div className="fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl animate-in slide-in-from-top-2">
+        <div className="animate-in slide-in-from-top-2 fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
             <CheckCircle className="h-4 w-4" />
           </div>
@@ -260,7 +274,7 @@ export default function MedicalImagesPage() {
           {viewMode === 'upload' && (
             <button
               onClick={resetUpload}
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="-ml-2 rounded-full p-2 transition-colors hover:bg-gray-100"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -305,8 +319,8 @@ export default function MedicalImagesPage() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
                 <Stethoscope className="h-8 w-8 text-gray-400" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">No Medical Images</h3>
-              <p className="text-gray-500 text-sm mb-6">
+              <h3 className="mb-2 font-semibold text-gray-900">No Medical Images</h3>
+              <p className="mb-6 text-sm text-gray-500">
                 Upload photos of medical concerns to share with your care team.
               </p>
               <button
@@ -323,9 +337,9 @@ export default function MedicalImagesPage() {
           {/* Info Card */}
           <div className="rounded-2xl bg-blue-50 p-5">
             <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
               <div>
-                <p className="font-medium text-blue-900 mb-2">Secure & Private</p>
+                <p className="mb-2 font-medium text-blue-900">Secure & Private</p>
                 <ul className="space-y-1 text-sm text-blue-700">
                   <li>• Photos are encrypted and stored securely</li>
                   <li>• Only you and your care team can view them</li>
@@ -341,7 +355,7 @@ export default function MedicalImagesPage() {
       {/* Upload View - Step 1: Select Type */}
       {viewMode === 'upload' && !selectedType && (
         <div className="space-y-4">
-          <p className="text-sm font-medium text-gray-700 mb-3">What type of photo is this?</p>
+          <p className="mb-3 text-sm font-medium text-gray-700">What type of photo is this?</p>
           <div className="grid gap-3">
             {MEDICAL_PHOTO_TYPES.map((type) => {
               const Icon = type.icon;
@@ -349,7 +363,7 @@ export default function MedicalImagesPage() {
                 <button
                   key={type.type}
                   onClick={() => setSelectedType(type.type)}
-                  className="flex items-center gap-4 rounded-xl bg-white p-4 shadow-sm border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all text-left"
+                  className="flex items-center gap-4 rounded-xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
                 >
                   <div
                     className="flex h-12 w-12 items-center justify-center rounded-xl"
@@ -374,21 +388,21 @@ export default function MedicalImagesPage() {
         <div className="space-y-4">
           <button
             onClick={() => setSelectedType(null)}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-2"
+            className="mb-2 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to type selection
           </button>
 
-          <p className="text-sm font-medium text-gray-700 mb-3">Where on your body?</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <p className="mb-3 text-sm font-medium text-gray-700">Where on your body?</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {BODY_PARTS.map((part) => {
               const Icon = part.icon;
               return (
                 <button
                   key={part.id}
                   onClick={() => setSelectedBodyPart(part.id)}
-                  className="flex flex-col items-center gap-2 rounded-xl bg-white p-4 shadow-sm border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all"
+                  className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:border-gray-200 hover:shadow-md"
                 >
                   <div
                     className="flex h-10 w-10 items-center justify-center rounded-lg"
@@ -396,7 +410,9 @@ export default function MedicalImagesPage() {
                   >
                     <Icon className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 text-center">{part.label}</span>
+                  <span className="text-center text-sm font-medium text-gray-700">
+                    {part.label}
+                  </span>
                 </button>
               );
             })}
@@ -409,14 +425,14 @@ export default function MedicalImagesPage() {
         <div className="space-y-4">
           <button
             onClick={() => setSelectedBodyPart(null)}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-2"
+            className="mb-2 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to body part selection
           </button>
 
           {/* Selection Summary */}
-          <div className="rounded-xl bg-gray-50 p-4 mb-4">
+          <div className="mb-4 rounded-xl bg-gray-50 p-4">
             <div className="flex items-center gap-4 text-sm">
               <span className="text-gray-500">Type:</span>
               <span className="font-medium text-gray-900">
@@ -432,7 +448,7 @@ export default function MedicalImagesPage() {
 
           {/* Notes Input */}
           <div className="rounded-xl bg-white p-5 shadow-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-gray-700">
               Add notes (optional)
             </label>
             <textarea
@@ -440,7 +456,7 @@ export default function MedicalImagesPage() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Describe any symptoms, when it started, or other relevant details..."
               rows={3}
-              className="w-full rounded-lg border-2 border-gray-100 bg-gray-50 p-3 text-sm outline-none focus:border-gray-300 focus:bg-white resize-none"
+              className="w-full resize-none rounded-lg border-2 border-gray-100 bg-gray-50 p-3 text-sm outline-none focus:border-gray-300 focus:bg-white"
             />
           </div>
 

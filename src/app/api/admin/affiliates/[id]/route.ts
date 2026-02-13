@@ -72,11 +72,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 
   try {
     // Determine clinic filter
-    const clinicFilter = user.role === 'super_admin'
-      ? {}
-      : user.clinicId
-        ? { clinicId: user.clinicId }
-        : {};
+    const clinicFilter =
+      user.role === 'super_admin' ? {} : user.clinicId ? { clinicId: user.clinicId } : {};
 
     // Try to find in modern Affiliate table first
     const modernAffiliate = await prisma.affiliate.findFirst({
@@ -112,8 +109,8 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 
     if (modernAffiliate) {
       // Get stats from modern system
-      type RefCode = typeof modernAffiliate.refCodes[number];
-      type CommissionEvent = typeof modernAffiliate.commissionEvents[number];
+      type RefCode = (typeof modernAffiliate.refCodes)[number];
+      type CommissionEvent = (typeof modernAffiliate.commissionEvents)[number];
 
       const refCodeStrings = modernAffiliate.refCodes.map((rc: RefCode) => rc.refCode);
 
@@ -174,13 +171,15 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         status: modernAffiliate.status,
         createdAt: modernAffiliate.createdAt.toISOString(),
         isLegacy: false,
-        user: modernAffiliate.user ? {
-          email: modernAffiliate.user.email,
-          firstName: modernAffiliate.user.firstName || '',
-          lastName: modernAffiliate.user.lastName || '',
-          phone: modernAffiliate.user.phone || undefined,
-          lastLogin: modernAffiliate.user.lastLogin?.toISOString() || null,
-        } : null,
+        user: modernAffiliate.user
+          ? {
+              email: modernAffiliate.user.email,
+              firstName: modernAffiliate.user.firstName || '',
+              lastName: modernAffiliate.user.lastName || '',
+              phone: modernAffiliate.user.phone || undefined,
+              lastLogin: modernAffiliate.user.lastLogin?.toISOString() || null,
+            }
+          : null,
         refCodes: modernAffiliate.refCodes.map((rc: RefCode) => ({
           id: rc.id,
           refCode: rc.refCode,
@@ -188,13 +187,15 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           description: rc.description || undefined,
           createdAt: rc.createdAt.toISOString(),
         })),
-        currentPlan: modernAffiliate.planAssignments[0]?.commissionPlan ? {
-          id: modernAffiliate.planAssignments[0].commissionPlan.id,
-          name: modernAffiliate.planAssignments[0].commissionPlan.name,
-          planType: modernAffiliate.planAssignments[0].commissionPlan.planType,
-          flatAmountCents: modernAffiliate.planAssignments[0].commissionPlan.flatAmountCents,
-          percentBps: modernAffiliate.planAssignments[0].commissionPlan.percentBps,
-        } : null,
+        currentPlan: modernAffiliate.planAssignments[0]?.commissionPlan
+          ? {
+              id: modernAffiliate.planAssignments[0].commissionPlan.id,
+              name: modernAffiliate.planAssignments[0].commissionPlan.name,
+              planType: modernAffiliate.planAssignments[0].commissionPlan.planType,
+              flatAmountCents: modernAffiliate.planAssignments[0].commissionPlan.flatAmountCents,
+              percentBps: modernAffiliate.planAssignments[0].commissionPlan.percentBps,
+            }
+          : null,
         stats: {
           totalClicks,
           totalConversions,
@@ -224,7 +225,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     });
 
     if (legacyInfluencer) {
-      type Referral = typeof legacyInfluencer.referrals[number];
+      type Referral = (typeof legacyInfluencer.referrals)[number];
 
       // Get total referrals (conversions) from legacy system
       const totalConversions = await prisma.referralTracking.count({
@@ -257,12 +258,14 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           phone: legacyInfluencer.phone || undefined,
           lastLogin: legacyInfluencer.lastLogin?.toISOString() || null,
         },
-        refCodes: [{
-          id: legacyInfluencer.id,
-          refCode: legacyInfluencer.promoCode,
-          isActive: legacyInfluencer.status === 'ACTIVE',
-          createdAt: legacyInfluencer.createdAt.toISOString(),
-        }],
+        refCodes: [
+          {
+            id: legacyInfluencer.id,
+            refCode: legacyInfluencer.promoCode,
+            isActive: legacyInfluencer.status === 'ACTIVE',
+            createdAt: legacyInfluencer.createdAt.toISOString(),
+          },
+        ],
         currentPlan: {
           id: 0,
           name: 'Legacy Commission',
@@ -293,10 +296,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to fetch affiliate details' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch affiliate details' }, { status: 500 });
   }
 }
 

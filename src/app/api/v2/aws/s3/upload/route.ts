@@ -1,6 +1,6 @@
 /**
  * AWS S3 Upload API Endpoint
- * 
+ *
  * Handles secure file uploads to S3 with validation
  * PROTECTED: Requires authentication
  */
@@ -14,7 +14,7 @@ import {
   calculateFileHash,
   mockS3Service,
 } from '@/lib/integrations/aws/s3Service';
-import { 
+import {
   FileCategory,
   FileAccessLevel,
   isS3Enabled,
@@ -28,27 +28,25 @@ async function uploadHandler(request: NextRequest, user: AuthUser) {
     // Parse form data
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const fileName = formData.get('fileName') as string || file.name;
-    const category = formData.get('category') as FileCategory || FileCategory.OTHER;
-    const contentType = formData.get('contentType') as string || file.type;
-    const accessLevel = formData.get('accessLevel') as FileAccessLevel || FileAccessLevel.PRIVATE;
-    const patientId = formData.get('patientId') ? parseInt(formData.get('patientId') as string) : undefined;
-    const providerId = formData.get('providerId') ? parseInt(formData.get('providerId') as string) : undefined;
+    const fileName = (formData.get('fileName') as string) || file.name;
+    const category = (formData.get('category') as FileCategory) || FileCategory.OTHER;
+    const contentType = (formData.get('contentType') as string) || file.type;
+    const accessLevel = (formData.get('accessLevel') as FileAccessLevel) || FileAccessLevel.PRIVATE;
+    const patientId = formData.get('patientId')
+      ? parseInt(formData.get('patientId') as string)
+      : undefined;
+    const providerId = formData.get('providerId')
+      ? parseInt(formData.get('providerId') as string)
+      : undefined;
 
     // Validate file
     if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     // Validate file type (always validate, even in mock mode)
     if (!validateFileType(fileName, contentType)) {
-      return NextResponse.json(
-        { error: S3_ERRORS.INVALID_FILE_TYPE },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: S3_ERRORS.INVALID_FILE_TYPE }, { status: 400 });
     }
 
     // Get file buffer
@@ -56,10 +54,7 @@ async function uploadHandler(request: NextRequest, user: AuthUser) {
 
     // Validate file size (always validate, even in mock mode)
     if (!validateFileSize(buffer.length, contentType)) {
-      return NextResponse.json(
-        { error: S3_ERRORS.FILE_TOO_LARGE },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: S3_ERRORS.FILE_TOO_LARGE }, { status: 400 });
     }
 
     // Check if feature is enabled
@@ -112,14 +107,11 @@ async function uploadHandler(request: NextRequest, user: AuthUser) {
     return NextResponse.json(result);
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Upload] Error:', error);
-    
-    return NextResponse.json(
-      { error: errorMessage || S3_ERRORS.UPLOAD_FAILED },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: errorMessage || S3_ERRORS.UPLOAD_FAILED }, { status: 500 });
   }
 }
 

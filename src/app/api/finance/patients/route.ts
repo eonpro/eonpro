@@ -1,6 +1,6 @@
 /**
  * Patient Finance Analytics API
- * 
+ *
  * GET /api/finance/patients
  * Returns patient payment analytics, LTV, cohorts, and at-risk patients
  */
@@ -27,21 +27,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all patient analytics data in parallel
-    const [
-      metrics,
-      segments,
-      atRisk,
-      cohorts,
-      paymentBehavior,
-      retentionMatrix,
-    ] = await Promise.all([
-      PatientAnalyticsService.getPatientMetrics(clinicId),
-      PatientAnalyticsService.getPatientSegments(clinicId),
-      PatientAnalyticsService.getAtRiskPatients(clinicId, 20),
-      PatientAnalyticsService.getCohortAnalysis(clinicId, 'signup'),
-      PatientAnalyticsService.getPaymentBehavior(clinicId),
-      PatientAnalyticsService.getRetentionMatrix(clinicId, 12),
-    ]);
+    const [metrics, segments, atRisk, cohorts, paymentBehavior, retentionMatrix] =
+      await Promise.all([
+        PatientAnalyticsService.getPatientMetrics(clinicId),
+        PatientAnalyticsService.getPatientSegments(clinicId),
+        PatientAnalyticsService.getAtRiskPatients(clinicId, 20),
+        PatientAnalyticsService.getCohortAnalysis(clinicId, 'signup'),
+        PatientAnalyticsService.getPaymentBehavior(clinicId),
+        PatientAnalyticsService.getRetentionMatrix(clinicId, 12),
+      ]);
 
     return NextResponse.json({
       metrics,
@@ -53,9 +47,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch patient analytics', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch patient analytics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch patient analytics' }, { status: 500 });
   }
 }

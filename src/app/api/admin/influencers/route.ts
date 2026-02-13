@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { CommissionStatus, InfluencerStatus } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { CommissionStatus, InfluencerStatus } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 
@@ -13,27 +13,29 @@ export const GET = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
         commissions: true,
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
+      take: 100,
     });
 
     const influencersWithStats = await Promise.all(
       influencers.map(async (influencer: any) => {
-        const pendingCommissions = await prisma.commission.aggregate({
-          where: { 
-            influencerId: influencer.id, 
-            status: CommissionStatus.PENDING
-          },
-          _sum: { commissionAmount: true }
-        });
-
-        const paidCommissions = await prisma.commission.aggregate({
-          where: { 
-            influencerId: influencer.id, 
-            status: CommissionStatus.PAID
-          },
-          _sum: { commissionAmount: true }
-        });
+        const [pendingCommissions, paidCommissions] = await Promise.all([
+          prisma.commission.aggregate({
+            where: {
+              influencerId: influencer.id,
+              status: CommissionStatus.PENDING,
+            },
+            _sum: { commissionAmount: true },
+          }),
+          prisma.commission.aggregate({
+            where: {
+              influencerId: influencer.id,
+              status: CommissionStatus.PAID,
+            },
+            _sum: { commissionAmount: true },
+          }),
+        ]);
 
         const convertedReferrals = influencer.referrals.filter(
           (r: any) => r.isConverted === true
@@ -57,11 +59,8 @@ export const GET = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json(influencersWithStats);
   } catch (error: any) {
-    logger.error("[Admin Influencers API] Error fetching influencers:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch influencers" },
-      { status: 500 }
-    );
+    logger.error('[Admin Influencers API] Error fetching influencers:', error);
+    return NextResponse.json({ error: 'Failed to fetch influencers' }, { status: 500 });
   }
 });
 
@@ -71,34 +70,25 @@ export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Validate required fields
     if (!name || !email || !promoCode || !password) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Check if email or promo code already exists
     const existingInfluencer: any = await prisma.influencer.findFirst({
       where: {
-        OR: [
-          { email },
-          { promoCode: promoCode.toUpperCase() }
-        ]
-      }
+        OR: [{ email }, { promoCode: promoCode.toUpperCase() }],
+      },
     });
 
     if (existingInfluencer) {
       if (existingInfluencer.email === email) {
         return NextResponse.json(
-          { error: "An influencer with this email already exists" },
+          { error: 'An influencer with this email already exists' },
           { status: 400 }
         );
       }
       if (existingInfluencer.promoCode === promoCode.toUpperCase()) {
-        return NextResponse.json(
-          { error: "This promo code is already taken" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'This promo code is already taken' }, { status: 400 });
       }
     }
 
@@ -112,9 +102,9 @@ export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
         email,
         promoCode: promoCode.toUpperCase(),
         passwordHash,
-        commissionRate: commissionRate || 0.10,
+        commissionRate: commissionRate || 0.1,
         status: status || InfluencerStatus.ACTIVE,
-      }
+      },
     });
 
     return NextResponse.json({
@@ -125,14 +115,11 @@ export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
         email: influencer.email,
         promoCode: influencer.promoCode,
         commissionRate: influencer.commissionRate,
-        status: influencer.status
-      }
+        status: influencer.status,
+      },
     });
   } catch (error: any) {
-    logger.error("[Admin Influencers API] Error creating influencer:", error);
-    return NextResponse.json(
-      { error: "Failed to create influencer" },
-      { status: 500 }
-    );
+    logger.error('[Admin Influencers API] Error creating influencer:', error);
+    return NextResponse.json({ error: 'Failed to create influencer' }, { status: 500 });
   }
 });

@@ -21,7 +21,10 @@ const createPatientSchema = z.object({
   lastName: z.string().min(1, 'Last name is required').max(100),
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Phone must be at least 10 digits').max(20).optional(),
-  dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be in YYYY-MM-DD format').optional(),
+  dob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be in YYYY-MM-DD format')
+    .optional(),
   gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
   address1: z.string().max(200).optional(),
   address2: z.string().max(200).optional(),
@@ -62,15 +65,18 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
     // Parse query parameters
     const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
     const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const offset = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
     // HIPAA: Only include contact info if explicitly requested
     const includeContact = searchParams.get('includeContact') === 'true';
 
     const options: ListPatientsOptions = {
       limit,
+      offset,
       recent: searchParams.get('recent') || undefined,
-      search: searchParams.get('search') || undefined,
-      source: searchParams.get('source') as ListPatientsOptions['source'] || undefined,
+      search: searchParams.get('search')?.trim() || undefined,
+      source: (searchParams.get('source') as ListPatientsOptions['source']) || undefined,
       tags: searchParams.get('tags')?.split(',').filter(Boolean) || undefined,
     };
 
@@ -131,7 +137,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         hasMore: result.hasMore,
         accessedBy: user.email,
         role: user.role,
-        filters: { limit, recent: options.recent },
+        filters: { limit, offset, recent: options.recent, search: options.search },
         includeContact,
       },
     });

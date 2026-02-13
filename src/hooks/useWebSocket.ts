@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { clientLogger } from '@/lib/clientLogger';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { getAuthToken, isServerlessEnvironment } from '@/lib/utils/auth-token';
 
@@ -34,15 +35,15 @@ export const EventType = {
   NOTIFICATION_PUSH: 'notification:push',
   NOTIFICATION_READ: 'notification:read',
   NOTIFICATION_CLEAR: 'notification:clear',
-  
+
   // User presence
   USER_ONLINE: 'user:online',
   USER_OFFLINE: 'user:offline',
-  
+
   // Data updates
   DATA_UPDATE: 'data:update',
   DATA_DELETE: 'data:delete',
-  
+
   // System
   SYSTEM_ALERT: 'system:alert',
   AUTHENTICATED: 'authenticated',
@@ -81,24 +82,24 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     // Polling fallback is handled by useNotifications hook
     if (isServerlessEnvironment()) {
       // Set status to indicate serverless mode - not an error
-      setState(prev => ({ 
-        ...prev, 
-        status: 'disconnected', 
+      setState((prev) => ({
+        ...prev,
+        status: 'disconnected',
         error: null,
         isConnected: false,
       }));
-      console.debug('[WebSocket] Serverless environment detected - using polling fallback');
+      clientLogger.debug('[WebSocket] Serverless environment detected - using polling fallback');
       return;
     }
 
     const token = getAuthToken();
 
     if (!token) {
-      setState(prev => ({ ...prev, status: 'error', error: 'No auth token' }));
+      setState((prev) => ({ ...prev, status: 'error', error: 'No auth token' }));
       return;
     }
 
-    setState(prev => ({ ...prev, status: 'connecting', error: null }));
+    setState((prev) => ({ ...prev, status: 'connecting', error: null }));
 
     const socket = io({
       auth: { token },
@@ -114,7 +115,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     });
 
     socket.on('disconnect', (reason: string) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         status: 'disconnected',
         isConnected: false,
@@ -123,7 +124,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     });
 
     socket.on('connect_error', (error: Error) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         status: 'error',
         isConnected: false,
@@ -133,11 +134,11 @@ export function useWebSocket(options: WebSocketOptions = {}) {
 
     // Auth events
     socket.on(EventType.AUTHENTICATED, () => {
-      console.log('[WebSocket] Authenticated successfully');
+      clientLogger.log('[WebSocket] Authenticated successfully');
     });
 
     socket.on(EventType.UNAUTHORIZED, (data: { message: string }) => {
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         status: 'error',
         error: data.message || 'Unauthorized',
@@ -202,7 +203,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);
     } else {
-      console.warn('[WebSocket] Cannot emit - not connected');
+      clientLogger.warn('[WebSocket] Cannot emit - not connected');
     }
   }, []);
 

@@ -1,7 +1,7 @@
 /**
  * Patient Shipment Schedule API
  * =============================
- * 
+ *
  * GET /api/admin/shipment-schedule/patient/[patientId] - Get patient's shipment schedule
  */
 
@@ -10,6 +10,12 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getPatientShipmentSchedule } from '@/lib/shipment-schedule';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 
 // Context type
 type RouteContext = { params: Promise<{ patientId: string }> };
@@ -18,11 +24,7 @@ type RouteContext = { params: Promise<{ patientId: string }> };
  * GET /api/admin/shipment-schedule/patient/[patientId]
  * Get all shipment schedules for a patient
  */
-async function handleGet(
-  req: NextRequest,
-  user: AuthUser,
-  context: RouteContext
-) {
+async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext) {
   try {
     const { patientId } = await context.params;
     const patientIdNum = parseInt(patientId, 10);
@@ -30,7 +32,7 @@ async function handleGet(
     const includeCompleted = searchParams.get('includeCompleted') === 'true';
 
     if (isNaN(patientIdNum)) {
-      return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
+      throw new BadRequestError('Invalid patient ID');
     }
 
     // Get patient to verify clinic access
@@ -46,23 +48,25 @@ async function handleGet(
     });
 
     if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      throw new NotFoundError('Patient not found');
     }
 
     // Verify clinic access
     if (user.role !== 'super_admin' && patient.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      throw new ForbiddenError('Access denied');
     }
 
     // Get all refill queue entries for this patient
     const allRefills = await prisma.refillQueue.findMany({
       where: {
         patientId: patientIdNum,
-        ...(includeCompleted ? {} : {
-          status: {
-            notIn: ['COMPLETED', 'CANCELLED', 'REJECTED'],
-          },
-        }),
+        ...(includeCompleted
+          ? {}
+          : {
+              status: {
+                notIn: ['COMPLETED', 'CANCELLED', 'REJECTED'],
+              },
+            }),
       },
       include: {
         subscription: {
@@ -89,10 +93,8 @@ async function handleGet(
           },
         },
       },
-      orderBy: [
-        { nextRefillDate: 'asc' },
-        { shipmentNumber: 'asc' },
-      ],
+      orderBy: [{ nextRefillDate: 'asc' }, { shipmentNumber: 'asc' }],
+      take: 500,
     });
 
     // Get multi-shipment schedules specifically
@@ -100,10 +102,10 @@ async function handleGet(
 
     // Group refills by series (parentRefillId)
     const seriesMap = new Map<number, typeof allRefills>();
-    
+
     for (const refill of allRefills) {
       const seriesKey = refill.parentRefillId || refill.id;
-      
+
       if (!seriesMap.has(seriesKey)) {
         seriesMap.set(seriesKey, []);
       }
@@ -120,7 +122,7 @@ async function handleGet(
         planName: firstRefill.planName,
         medicationName: firstRefill.medicationName,
         subscriptionId: firstRefill.subscriptionId,
-        shipments: refills.map(r => ({
+        shipments: refills.map((r) => ({
           id: r.id,
           shipmentNumber: r.shipmentNumber,
           status: r.status,
@@ -134,17 +136,21 @@ async function handleGet(
     });
 
     // Calculate summary stats
-    type RefillEntry = typeof allRefills[number];
-    type SeriesEntry = typeof series[number];
+    type RefillEntry = (typeof allRefills)[number];
+    type SeriesEntry = (typeof series)[number];
     type ShipmentEntry = SeriesEntry['shipments'][number];
     const stats = {
-      totalScheduledShipments: allRefills.filter((r: RefillEntry) => r.status === 'SCHEDULED').length,
+      totalScheduledShipments: allRefills.filter((r: RefillEntry) => r.status === 'SCHEDULED')
+        .length,
       totalPendingShipments: allRefills.filter((r: RefillEntry) =>
         ['PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER'].includes(r.status)
       ).length,
-      totalCompletedShipments: allRefills.filter((r: RefillEntry) => r.status === 'COMPLETED').length,
+      totalCompletedShipments: allRefills.filter((r: RefillEntry) => r.status === 'COMPLETED')
+        .length,
       activeSeries: series.filter((s: SeriesEntry) =>
-        s.shipments.some((sh: ShipmentEntry) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(sh.status))
+        s.shipments.some(
+          (sh: ShipmentEntry) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(sh.status)
+        )
       ).length,
     };
 
@@ -163,13 +169,12 @@ async function handleGet(
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[Patient Shipment Schedule API] GET failed', { error: message });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(error, { route: 'GET /api/admin/shipment-schedule/patient/[patientId]' });
   }
 }
 
 export const GET = withAuth(
-  (req: NextRequest, user: AuthUser, context?: any) => handleGet(req, user, context as RouteContext),
+  (req: NextRequest, user: AuthUser, context?: any) =>
+    handleGet(req, user, context as RouteContext),
   { roles: ['admin', 'super_admin', 'provider'] }
 );

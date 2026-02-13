@@ -1,16 +1,16 @@
 /**
  * Translation Hook for React Components
- * 
+ *
  * Custom hook for accessing translations in the application
  */
 
-"use client";
+'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '@/lib/logger';
 import {
-  DEFAULT_LANGUAGE, 
-  LanguageCode, 
+  DEFAULT_LANGUAGE,
+  LanguageCode,
   LANGUAGE_COOKIE,
   isMultiLanguageEnabled,
   formatDate as formatDateUtil,
@@ -27,7 +27,7 @@ let currentLanguage: LanguageCode = DEFAULT_LANGUAGE;
 // Load translation file
 async function loadTranslation(language: string, namespace: string = 'common') {
   const key = `${language}/${namespace}`;
-  
+
   if (translations[key]) {
     return translations[key];
   }
@@ -41,7 +41,7 @@ async function loadTranslation(language: string, namespace: string = 'common') {
     }
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error(`Failed to load translation: ${key}`, error);
   }
 
@@ -61,7 +61,7 @@ function getNestedValue(obj: any, path: string): any {
 // Replace placeholders in translation string
 function interpolate(text: string, params?: Record<string, unknown>): string {
   if (!params) return text;
-  
+
   return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     return params[key]?.toString() || match;
   });
@@ -75,11 +75,7 @@ type TranslateFunction = (
 ) => string;
 
 // Plural function type
-type PluralFunction = (
-  key: string,
-  count: number,
-  params?: Record<string, unknown>
-) => string;
+type PluralFunction = (key: string, count: number, params?: Record<string, unknown>) => string;
 
 // Translation hook return type
 interface UseTranslationReturn {
@@ -114,26 +110,32 @@ export function useTranslation(namespace: string = 'common'): UseTranslationRetu
   }, [language, namespace]);
 
   // Translation function
-  const t: TranslateFunction = useCallback((key, params, defaultValue) => {
-    const value = getNestedValue(translationData, key);
-    
-    if (value === undefined) {
-      logger.warn(`Translation missing: ${key} in ${language}/${namespace}`);
-      return defaultValue || key;
-    }
+  const t: TranslateFunction = useCallback(
+    (key, params, defaultValue) => {
+      const value = getNestedValue(translationData, key);
 
-    if (typeof value === 'string') {
-      return interpolate(value, { value: params });
-    }
+      if (value === undefined) {
+        logger.warn(`Translation missing: ${key} in ${language}/${namespace}`);
+        return defaultValue || key;
+      }
 
-    return value;
-  }, [translationData, language, namespace]);
+      if (typeof value === 'string') {
+        return interpolate(value, { value: params });
+      }
+
+      return value;
+    },
+    [translationData, language, namespace]
+  );
 
   // Plural function
-  const plural: PluralFunction = useCallback((key, count, params) => {
-    const pluralKey = count === 1 ? `${key}.one` : `${key}.other`;
-    return t(pluralKey, { count, ...params }, `${count} ${key}`);
-  }, [t]);
+  const plural: PluralFunction = useCallback(
+    (key, count, params) => {
+      const pluralKey = count === 1 ? `${key}.one` : `${key}.other`;
+      return t(pluralKey, { count, ...params }, `${count} ${key}`);
+    },
+    [t]
+  );
 
   // Change language
   const changeLanguage = useCallback(async (newLanguage: LanguageCode) => {
@@ -144,7 +146,7 @@ export function useTranslation(namespace: string = 'common'): UseTranslationRetu
 
     currentLanguage = newLanguage;
     setLanguageState(newLanguage);
-    
+
     // Save to cookie
     Cookies.set(LANGUAGE_COOKIE.name, newLanguage, {
       expires: LANGUAGE_COOKIE.maxAge / (24 * 60 * 60),
@@ -170,34 +172,60 @@ export function useTranslation(namespace: string = 'common'): UseTranslationRetu
   }, []);
 
   // Formatting functions
-  const formatDate = useCallback((date: Date) => {
-    return formatDateUtil(date, language);
-  }, [language]);
+  const formatDate = useCallback(
+    (date: Date) => {
+      return formatDateUtil(date, language);
+    },
+    [language]
+  );
 
-  const formatTime = useCallback((date: Date) => {
-    return formatTimeUtil(date, language);
-  }, [language]);
+  const formatTime = useCallback(
+    (date: Date) => {
+      return formatTimeUtil(date, language);
+    },
+    [language]
+  );
 
-  const formatCurrency = useCallback((amount: number) => {
-    return formatCurrencyUtil(amount, language);
-  }, [language]);
+  const formatCurrency = useCallback(
+    (amount: number) => {
+      return formatCurrencyUtil(amount, language);
+    },
+    [language]
+  );
 
-  const formatNumber = useCallback((num: number) => {
-    return new Intl.NumberFormat(language).format(num);
-  }, [language]);
+  const formatNumber = useCallback(
+    (num: number) => {
+      return new Intl.NumberFormat(language).format(num);
+    },
+    [language]
+  );
 
-  return useMemo(() => ({
-    t,
-    plural,
-    language,
-    changeLanguage,
-    isRTL: isRTL(language),
-    formatDate,
-    formatTime,
-    formatCurrency,
-    formatNumber,
-    loading,
-  }), [t, plural, language, changeLanguage, isRTL, formatDate, formatTime, formatCurrency, formatNumber, loading]);
+  return useMemo(
+    () => ({
+      t,
+      plural,
+      language,
+      changeLanguage,
+      isRTL: isRTL(language),
+      formatDate,
+      formatTime,
+      formatCurrency,
+      formatNumber,
+      loading,
+    }),
+    [
+      t,
+      plural,
+      language,
+      changeLanguage,
+      isRTL,
+      formatDate,
+      formatTime,
+      formatCurrency,
+      formatNumber,
+      loading,
+    ]
+  );
 }
 
 // Initialize language from cookie or browser
@@ -239,12 +267,12 @@ export async function getTranslation(
 
 // Get all available translations for a namespace
 export async function getAllTranslations(namespace: string = 'common') {
-  const languages = isMultiLanguageEnabled() 
+  const languages = isMultiLanguageEnabled()
     ? ['en', 'es', 'fr', 'de', 'it', 'pt', 'zh', 'ja', 'ko', 'ar', 'he', 'ru', 'hi', 'bn', 'tr']
     : ['en'];
 
   const allTranslations: Record<string, unknown> = {};
-  
+
   for (const lang of languages) {
     allTranslations[lang] = await loadTranslation(lang, namespace);
   }

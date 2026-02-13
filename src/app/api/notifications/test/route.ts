@@ -1,6 +1,6 @@
 /**
  * Test Notification API
- * 
+ *
  * Creates a test notification for the authenticated user.
  * This is for development/debugging purposes only.
  */
@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { notificationService } from '@/services/notification';
+import { logger } from '@/lib/logger';
 
 async function testNotificationHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
@@ -28,7 +29,7 @@ async function testNotificationHandler(req: NextRequest, user: AuthUser): Promis
       sourceId: `test-${Date.now()}`,
     });
 
-    console.log('[Test Notification] Created:', {
+    logger.info('[Test Notification] Created', {
       id: notification.id,
       userId: user.id,
       title: notification.title,
@@ -45,13 +46,16 @@ async function testNotificationHandler(req: NextRequest, user: AuthUser): Promis
       },
     });
   } catch (error) {
-    console.error('[Test Notification] Error:', error);
-    
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to create test notification',
-      details: process.env.NODE_ENV === 'development' ? String(error) : undefined,
-    }, { status: 500 });
+    logger.error('[Test Notification] Error', { error: error instanceof Error ? error.message : String(error) });
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create test notification',
+        details: process.env.NODE_ENV === 'development' ? String(error) : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
 

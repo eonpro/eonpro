@@ -54,7 +54,7 @@ export function runWithUser<T>(user: UserSession, fn: () => T): T {
 export async function verifyToken(token: string): Promise<UserSession | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    
+
     return {
       id: payload.id as number,
       email: payload.email as string,
@@ -70,7 +70,10 @@ export async function verifyToken(token: string): Promise<UserSession | null> {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Token verification failed:', error instanceof Error ? error : new Error(errorMessage));
+    logger.error(
+      'Token verification failed:',
+      error instanceof Error ? error : new Error(errorMessage)
+    );
     return null;
   }
 }
@@ -81,10 +84,19 @@ export async function verifyToken(token: string): Promise<UserSession | null> {
 export async function getUserFromCookies(): Promise<UserSession | null> {
   try {
     const cookieStore = await cookies();
-    
+
     // Check various token cookies
-    const tokenNames = ['auth-token', 'super_admin-token', 'admin-token', 'provider-token', 'influencer-token', 'patient-token', 'staff-token', 'support-token'];
-    
+    const tokenNames = [
+      'auth-token',
+      'super_admin-token',
+      'admin-token',
+      'provider-token',
+      'influencer-token',
+      'patient-token',
+      'staff-token',
+      'support-token',
+    ];
+
     for (const tokenName of tokenNames) {
       const token = cookieStore.get(tokenName);
       if (token) {
@@ -94,11 +106,14 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
         }
       }
     }
-    
+
     return null;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to get user from cookies:', error instanceof Error ? error : new Error(errorMessage));
+    logger.error(
+      'Failed to get user from cookies:',
+      error instanceof Error ? error : new Error(errorMessage)
+    );
     return null;
   }
 }
@@ -110,7 +125,7 @@ export async function getUserFromHeader(authHeader: string | null): Promise<User
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
-  
+
   const token = authHeader.slice(7);
   return await verifyToken(token);
 }
@@ -148,24 +163,25 @@ class SessionStore {
   async add(session: UserSession): Promise<void> {
     const sessionKey = `session:${session.sessionId}`;
     const userSessionsKey = `user_sessions:${session.id}`;
-    
+
     // Try Redis first
     const redisAvailable = cache.isReady();
-    
+
     if (redisAvailable) {
       // Store session in Redis
-      await cache.set(sessionKey, session, { 
-        ttl: SESSION_TTL, 
-        namespace: SESSION_NAMESPACE 
+      await cache.set(sessionKey, session, {
+        ttl: SESSION_TTL,
+        namespace: SESSION_NAMESPACE,
       });
-      
+
       // Track session ID in user's session list
-      const existingSessions = await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE }) || [];
+      const existingSessions =
+        (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
       if (!existingSessions.includes(session.sessionId)) {
         existingSessions.push(session.sessionId);
-        await cache.set(userSessionsKey, existingSessions, { 
-          ttl: SESSION_TTL, 
-          namespace: SESSION_NAMESPACE 
+        await cache.set(userSessionsKey, existingSessions, {
+          ttl: SESSION_TTL,
+          namespace: SESSION_NAMESPACE,
         });
       }
     } else {
@@ -173,14 +189,14 @@ class SessionStore {
       if (process.env.NODE_ENV === 'production') {
         logger.warn('Redis unavailable in production - sessions will not persist across restarts');
       }
-      
+
       this.localSessions.set(session.sessionId, session);
-      
+
       if (!this.localUserSessions.has(session.id)) {
         this.localUserSessions.set(session.id, new Set());
       }
       this.localUserSessions.get(session.id)!.add(session.sessionId);
-      
+
       // Set expiry timeout for in-memory
       const ttlMs = session.expiresAt.getTime() - Date.now();
       if (ttlMs > 0) {
@@ -194,7 +210,7 @@ class SessionStore {
    */
   async get(sessionId: string): Promise<UserSession | undefined> {
     const sessionKey = `session:${sessionId}`;
-    
+
     // Try Redis first
     if (cache.isReady()) {
       const session = await cache.get<UserSession>(sessionKey, { namespace: SESSION_NAMESPACE });
@@ -206,7 +222,7 @@ class SessionStore {
       }
       return undefined;
     }
-    
+
     // Fallback to in-memory
     const session = this.localSessions.get(sessionId);
     if (session && session.expiresAt > new Date()) {
@@ -223,18 +239,22 @@ class SessionStore {
    */
   async remove(sessionId: string): Promise<void> {
     const sessionKey = `session:${sessionId}`;
-    
+
     if (cache.isReady()) {
       const session = await cache.get<UserSession>(sessionKey, { namespace: SESSION_NAMESPACE });
       if (session) {
         await cache.delete(sessionKey, { namespace: SESSION_NAMESPACE });
-        
+
         // Remove from user's session list
         const userSessionsKey = `user_sessions:${session.id}`;
-        const existingSessions = await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE }) || [];
-        const filtered = existingSessions.filter(id => id !== sessionId);
+        const existingSessions =
+          (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
+        const filtered = existingSessions.filter((id) => id !== sessionId);
         if (filtered.length > 0) {
-          await cache.set(userSessionsKey, filtered, { ttl: SESSION_TTL, namespace: SESSION_NAMESPACE });
+          await cache.set(userSessionsKey, filtered, {
+            ttl: SESSION_TTL,
+            namespace: SESSION_NAMESPACE,
+          });
         } else {
           await cache.delete(userSessionsKey, { namespace: SESSION_NAMESPACE });
         }
@@ -260,9 +280,10 @@ class SessionStore {
    */
   async removeUserSessions(userId: number): Promise<void> {
     const userSessionsKey = `user_sessions:${userId}`;
-    
+
     if (cache.isReady()) {
-      const sessionIds = await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE }) || [];
+      const sessionIds =
+        (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
       for (const sessionId of sessionIds) {
         await cache.delete(`session:${sessionId}`, { namespace: SESSION_NAMESPACE });
       }
@@ -282,25 +303,26 @@ class SessionStore {
    */
   async getUserSessions(userId: number): Promise<UserSession[]> {
     const userSessionsKey = `user_sessions:${userId}`;
-    
+
     if (cache.isReady()) {
-      const sessionIds = await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE }) || [];
+      const sessionIds =
+        (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
       const sessions: UserSession[] = [];
-      
+
       for (const sessionId of sessionIds) {
         const session = await this.get(sessionId);
         if (session) {
           sessions.push(session);
         }
       }
-      
+
       return sessions;
     }
-    
+
     // Fallback to in-memory
     const sessionIds = this.localUserSessions.get(userId);
     if (!sessionIds) return [];
-    
+
     const sessions: UserSession[] = [];
     for (const id of sessionIds) {
       const session = await this.get(id);
@@ -333,28 +355,26 @@ export const sessionStore = new SessionStore();
 /**
  * Middleware to inject user context
  */
-export function withUserContext<T>(
-  handler: (req: any, user: UserSession) => Promise<T>
-) {
+export function withUserContext<T>(handler: (req: any, user: UserSession) => Promise<T>) {
   return async (req: any): Promise<T> => {
     // Try to get user from various sources
     let user: UserSession | null = null;
-    
+
     // Check authorization header
     const authHeader = req.headers.get('authorization');
     if (authHeader) {
       user = await getUserFromHeader(authHeader);
     }
-    
+
     // Check cookies if no auth header
     if (!user) {
       user = await getUserFromCookies();
     }
-    
+
     if (!user) {
       throw new Error('Authentication required');
     }
-    
+
     // Run handler with user context
     return runWithUser(user, () => handler(req, user));
   };
@@ -365,8 +385,8 @@ export function withUserContext<T>(
  */
 export function hasPermission(user: UserSession, permission: string): boolean {
   // Admins have all permissions
-  if ((user.role as string) === "admin") return true;
-  
+  if ((user.role as string) === 'admin') return true;
+
   // Check specific permissions
   return user.permissions?.includes(permission) || false;
 }
@@ -386,17 +406,18 @@ export async function cleanupExpiredSessions(): Promise<void> {
   // Only cleanup local sessions - Redis uses TTL
   const now = Date.now();
   let removed = 0;
-  
+
   // Access the private local sessions for cleanup
-  const localSessions = (sessionStore as unknown as { localSessions: Map<string, UserSession> }).localSessions;
-  
+  const localSessions = (sessionStore as unknown as { localSessions: Map<string, UserSession> })
+    .localSessions;
+
   for (const [sessionId, session] of localSessions) {
     if (session.expiresAt.getTime() < now) {
       await sessionStore.remove(sessionId);
       removed++;
     }
   }
-  
+
   if (removed > 0) {
     logger.info(`Cleaned up ${removed} expired local sessions`);
   }
@@ -404,9 +425,12 @@ export async function cleanupExpiredSessions(): Promise<void> {
 
 // Run cleanup every 5 minutes (for in-memory fallback)
 if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    cleanupExpiredSessions().catch(err => {
-      logger.error('Session cleanup error:', err instanceof Error ? err : new Error(String(err)));
-    });
-  }, 5 * 60 * 1000);
+  setInterval(
+    () => {
+      cleanupExpiredSessions().catch((err) => {
+        logger.error('Session cleanup error:', err instanceof Error ? err : new Error(String(err)));
+      });
+    },
+    5 * 60 * 1000
+  );
 }

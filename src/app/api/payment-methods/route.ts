@@ -13,7 +13,7 @@ const AddCardSchema = z.object({
   cvv: z.string().min(3).max(4).optional(),
   cardholderName: z.string().min(1),
   billingZip: z.string().min(5),
-  setAsDefault: z.boolean().optional().default(false)
+  setAsDefault: z.boolean().optional().default(false),
 });
 
 // GET /api/payment-methods?patientId=123
@@ -23,26 +23,20 @@ export async function GET(request: NextRequest) {
     const patientId = searchParams.get('patientId');
 
     if (!patientId) {
-      return NextResponse.json(
-        { error: 'Patient ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });
     }
 
     const cards = await PaymentMethodService.getPaymentMethods(parseInt(patientId));
 
     return NextResponse.json({
       success: true,
-      data: cards
+      data: cards,
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[PAYMENT_METHODS] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch payment methods' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch payment methods' }, { status: 500 });
   }
 }
 
@@ -50,14 +44,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Validate input
     const validationResult = AddCardSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { 
+        {
           error: 'Invalid input',
-          details: validationResult.error.errors 
+          details: validationResult.error.errors,
         },
         { status: 400 }
       );
@@ -74,7 +68,7 @@ export async function POST(request: NextRequest) {
         expiryYear: data.expiryYear,
         cvv: data.cvv,
         cardholderName: data.cardholderName,
-        billingZip: data.billingZip
+        billingZip: data.billingZip,
       },
       data.setAsDefault
     );
@@ -89,41 +83,29 @@ export async function POST(request: NextRequest) {
         expiryMonth: paymentMethod.expiryMonth,
         expiryYear: paymentMethod.expiryYear,
         cardholderName: paymentMethod.cardholderName,
-        isDefault: paymentMethod.isDefault
-      }
+        isDefault: paymentMethod.isDefault,
+      },
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PAYMENT_METHODS] POST error:', error);
-    
+
     // Handle specific errors
     if (errorMessage === 'Invalid card number') {
-      return NextResponse.json(
-        { error: 'Invalid card number' },
-        { status: 400 }
-      );
-    }
-    
-    if (error.message === 'Card has expired') {
-      return NextResponse.json(
-        { error: 'Card has expired' },
-        { status: 400 }
-      );
-    }
-    
-    if (error.message === 'This card is already saved') {
-      return NextResponse.json(
-        { error: 'This card is already saved' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Invalid card number' }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { error: 'Failed to add payment method' },
-      { status: 500 }
-    );
+    if (error.message === 'Card has expired') {
+      return NextResponse.json({ error: 'Card has expired' }, { status: 400 });
+    }
+
+    if (error.message === 'This card is already saved') {
+      return NextResponse.json({ error: 'This card is already saved' }, { status: 409 });
+    }
+
+    return NextResponse.json({ error: 'Failed to add payment method' }, { status: 500 });
   }
 }
 
@@ -135,37 +117,25 @@ export async function DELETE(request: NextRequest) {
     const patientId = searchParams.get('patientId');
 
     if (!id || !patientId) {
-      return NextResponse.json(
-        { error: 'ID and Patient ID are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID and Patient ID are required' }, { status: 400 });
     }
 
-    await PaymentMethodService.removePaymentMethod(
-      parseInt(id),
-      parseInt(patientId)
-    );
+    await PaymentMethodService.removePaymentMethod(parseInt(id), parseInt(patientId));
 
     return NextResponse.json({
       success: true,
-      message: 'Payment method removed successfully'
+      message: 'Payment method removed successfully',
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PAYMENT_METHODS] DELETE error:', error);
-    
+
     if (errorMessage === 'Payment method not found') {
-      return NextResponse.json(
-        { error: 'Payment method not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Payment method not found' }, { status: 404 });
     }
 
-    return NextResponse.json(
-      { error: 'Failed to remove payment method' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to remove payment method' }, { status: 500 });
   }
 }

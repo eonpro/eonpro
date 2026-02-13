@@ -1,6 +1,6 @@
 /**
  * Affiliate Profile Update API
- * 
+ *
  * PATCH - Update affiliate display name and contact info
  */
 
@@ -14,7 +14,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
     const influencerId = user.influencerId;
-    
+
     const body = await request.json();
     const { displayName, email, phone } = body;
 
@@ -42,7 +42,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
 
       return NextResponse.json({ success: true });
     }
-    
+
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
@@ -73,10 +73,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate Profile] PATCH error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to update profile' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
 }
 

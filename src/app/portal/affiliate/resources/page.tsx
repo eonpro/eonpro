@@ -62,7 +62,8 @@ const SAMPLE_RESOURCES: Resource[] = [
     type: 'text',
     name: 'Blog Intro',
     description: 'Paragraph for blog posts',
-    content: 'Looking for convenient, personalized healthcare? Our telehealth platform connects you with licensed providers who understand your unique needs. From weight management to wellness consultations, get the care you deserve from the comfort of home.',
+    content:
+      'Looking for convenient, personalized healthcare? Our telehealth platform connects you with licensed providers who understand your unique needs. From weight management to wellness consultations, get the care you deserve from the comfort of home.',
   },
   {
     id: '6',
@@ -88,14 +89,16 @@ Let me know if you have questions!
     type: 'social',
     name: 'Instagram Caption',
     description: 'Caption for Instagram posts',
-    content: '✨ Taking control of my health has never been easier! Loving my experience with telehealth consultations - personalized care from home 🏠💜 Link in bio to learn more! #telehealth #wellness #healthcare',
+    content:
+      '✨ Taking control of my health has never been easier! Loving my experience with telehealth consultations - personalized care from home 🏠💜 Link in bio to learn more! #telehealth #wellness #healthcare',
   },
   {
     id: '8',
     type: 'social',
     name: 'Twitter/X Post',
     description: 'Short post for Twitter/X',
-    content: 'Finally found a healthcare solution that fits my busy schedule. Telehealth consultations with real providers, personalized plans, all from home. Game changer! 🙌',
+    content:
+      'Finally found a healthcare solution that fits my busy schedule. Telehealth consultations with real providers, personalized plans, all from home. Game changer! 🙌',
   },
 ];
 
@@ -103,9 +106,8 @@ export default function ResourcesPage() {
   const [filter, setFilter] = useState<'all' | 'banner' | 'text' | 'email' | 'social'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const filteredResources = filter === 'all' 
-    ? SAMPLE_RESOURCES 
-    : SAMPLE_RESOURCES.filter(r => r.type === filter);
+  const filteredResources =
+    filter === 'all' ? SAMPLE_RESOURCES : SAMPLE_RESOURCES.filter((r) => r.type === filter);
 
   const handleCopy = async (id: string, content: string) => {
     try {
@@ -119,21 +121,31 @@ export default function ResourcesPage() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'banner': return Image;
-      case 'text': return FileText;
-      case 'email': return LinkIcon;
-      case 'social': return Sparkles;
-      default: return FileText;
+      case 'banner':
+        return Image;
+      case 'text':
+        return FileText;
+      case 'email':
+        return LinkIcon;
+      case 'social':
+        return Sparkles;
+      default:
+        return FileText;
     }
   };
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case 'banner': return 'Banner';
-      case 'text': return 'Text';
-      case 'email': return 'Email';
-      case 'social': return 'Social';
-      default: return type;
+      case 'banner':
+        return 'Banner';
+      case 'text':
+        return 'Text';
+      case 'email':
+        return 'Email';
+      case 'social':
+        return 'Social';
+      default:
+        return type;
     }
   };
 
@@ -181,7 +193,7 @@ export default function ResourcesPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {filteredResources.map((resource) => {
           const TypeIcon = getTypeIcon(resource.type);
-          
+
           return (
             <div key={resource.id} className="rounded-xl bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-start justify-between">
@@ -202,11 +214,7 @@ export default function ResourcesPage() {
               {/* Preview for banners */}
               {resource.type === 'banner' && resource.previewUrl && (
                 <div className="mb-3 overflow-hidden rounded-lg border border-gray-200">
-                  <img
-                    src={resource.previewUrl}
-                    alt={resource.name}
-                    className="w-full"
-                  />
+                  <img src={resource.previewUrl} alt={resource.name} className="w-full" />
                   {resource.dimensions && (
                     <div className="border-t border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
                       {resource.dimensions}
@@ -218,7 +226,7 @@ export default function ResourcesPage() {
               {/* Content preview for text */}
               {resource.type !== 'banner' && (
                 <div className="mb-3 max-h-32 overflow-hidden rounded-lg bg-gray-50 p-3">
-                  <p className="whitespace-pre-wrap text-sm text-gray-700 line-clamp-4">
+                  <p className="line-clamp-4 whitespace-pre-wrap text-sm text-gray-700">
                     {resource.content}
                   </p>
                 </div>
@@ -268,7 +276,8 @@ export default function ResourcesPage() {
       <div className="mt-8 rounded-xl bg-white p-6 shadow-sm">
         <h2 className="mb-2 text-lg font-semibold text-gray-900">Need Custom Materials?</h2>
         <p className="mb-4 text-gray-500">
-          Contact your affiliate manager to request custom banners, landing pages, or other promotional materials.
+          Contact your affiliate manager to request custom banners, landing pages, or other
+          promotional materials.
         </p>
         <a
           href="/portal/affiliate/support"

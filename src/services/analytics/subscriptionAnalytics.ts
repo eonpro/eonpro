@@ -1,15 +1,15 @@
 /**
  * Subscription Analytics Service
- * 
+ *
  * Provides subscription metrics, churn analysis, and retention insights.
  */
 
 import { prisma, withClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { 
-  startOfMonth, 
+import {
+  startOfMonth,
   endOfMonth,
-  subMonths, 
+  subMonths,
   format,
   differenceInDays,
   eachMonthOfInterval,
@@ -129,7 +129,7 @@ export class SubscriptionAnalyticsService {
         EXPIRED: 0,
       };
 
-      subscriptions.forEach((sub: typeof subscriptions[number]) => {
+      subscriptions.forEach((sub: (typeof subscriptions)[number]) => {
         if (sub.status in statusCounts) {
           statusCounts[sub.status as keyof typeof statusCounts]++;
         }
@@ -138,48 +138,56 @@ export class SubscriptionAnalyticsService {
       // Calculate MRR (only active subscriptions)
       const calculateMonthlyAmount = (amount: number, interval: string | null): number => {
         switch (interval?.toUpperCase()) {
-          case 'WEEKLY': return amount * 4;
-          case 'MONTHLY': return amount;
-          case 'QUARTERLY': return Math.round(amount / 3);
-          case 'SEMI_ANNUAL': return Math.round(amount / 6);
-          case 'ANNUAL': return Math.round(amount / 12);
-          default: return amount;
+          case 'WEEKLY':
+            return amount * 4;
+          case 'MONTHLY':
+            return amount;
+          case 'QUARTERLY':
+            return Math.round(amount / 3);
+          case 'SEMI_ANNUAL':
+            return Math.round(amount / 6);
+          case 'ANNUAL':
+            return Math.round(amount / 12);
+          default:
+            return amount;
         }
       };
 
-      const activeSubscriptions = subscriptions.filter((s: { status: string }) => s.status === 'ACTIVE');
+      const activeSubscriptions = subscriptions.filter(
+        (s: { status: string }) => s.status === 'ACTIVE'
+      );
       const totalMrr = activeSubscriptions.reduce(
-        (sum: number, sub: { amount: number; interval: string | null }) => sum + calculateMonthlyAmount(sub.amount, sub.interval),
+        (sum: number, sub: { amount: number; interval: string | null }) =>
+          sum + calculateMonthlyAmount(sub.amount, sub.interval),
         0
       );
 
-      const avgValue = activeSubscriptions.length > 0
-        ? Math.round(totalMrr / activeSubscriptions.length)
-        : 0;
+      const avgValue =
+        activeSubscriptions.length > 0 ? Math.round(totalMrr / activeSubscriptions.length) : 0;
 
       // Group by plan
       const planMap = new Map<string, { count: number; mrr: number }>();
-      activeSubscriptions.forEach((sub: { planName?: string; amount: number; interval: string | null }) => {
-        const planName = sub.planName || 'Unknown Plan';
-        const existing = planMap.get(planName);
-        const monthlyAmount = calculateMonthlyAmount(sub.amount, sub.interval);
+      activeSubscriptions.forEach(
+        (sub: { planName?: string; amount: number; interval: string | null }) => {
+          const planName = sub.planName || 'Unknown Plan';
+          const existing = planMap.get(planName);
+          const monthlyAmount = calculateMonthlyAmount(sub.amount, sub.interval);
 
-        if (existing) {
-          existing.count++;
-          existing.mrr += monthlyAmount;
-        } else {
-          planMap.set(planName, { count: 1, mrr: monthlyAmount });
+          if (existing) {
+            existing.count++;
+            existing.mrr += monthlyAmount;
+          } else {
+            planMap.set(planName, { count: 1, mrr: monthlyAmount });
+          }
         }
-      });
+      );
 
       const subscriptionsByPlan = Array.from(planMap.entries())
         .map(([planName, data]) => ({
           planName,
           count: data.count,
           mrr: data.mrr,
-          percentageOfTotal: totalMrr > 0
-            ? Math.round((data.mrr / totalMrr) * 10000) / 100
-            : 0,
+          percentageOfTotal: totalMrr > 0 ? Math.round((data.mrr / totalMrr) * 10000) / 100 : 0,
         }))
         .sort((a, b) => b.mrr - a.mrr);
 
@@ -198,10 +206,7 @@ export class SubscriptionAnalyticsService {
   /**
    * Analyze churn patterns
    */
-  static async getChurnAnalysis(
-    clinicId: number,
-    dateRange?: DateRange
-  ): Promise<ChurnAnalysis> {
+  static async getChurnAnalysis(clinicId: number, dateRange?: DateRange): Promise<ChurnAnalysis> {
     return withClinicContext(clinicId, async () => {
       const now = new Date();
       const start = dateRange?.start || startOfMonth(subMonths(now, 1));
@@ -229,29 +234,39 @@ export class SubscriptionAnalyticsService {
 
       const calculateMonthlyAmount = (amount: number, interval: string | null): number => {
         switch (interval?.toUpperCase()) {
-          case 'WEEKLY': return amount * 4;
-          case 'MONTHLY': return amount;
-          case 'QUARTERLY': return Math.round(amount / 3);
-          case 'SEMI_ANNUAL': return Math.round(amount / 6);
-          case 'ANNUAL': return Math.round(amount / 12);
-          default: return amount;
+          case 'WEEKLY':
+            return amount * 4;
+          case 'MONTHLY':
+            return amount;
+          case 'QUARTERLY':
+            return Math.round(amount / 3);
+          case 'SEMI_ANNUAL':
+            return Math.round(amount / 6);
+          case 'ANNUAL':
+            return Math.round(amount / 12);
+          default:
+            return amount;
         }
       };
 
       const churnedCount = churnedSubscriptions.length;
       const churnedMrr = churnedSubscriptions.reduce(
-        (sum: number, sub: typeof churnedSubscriptions[number]) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: (typeof churnedSubscriptions)[number]) =>
+          sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
       // Calculate average lifetime before churn
       const lifetimes = churnedSubscriptions
-        .filter((sub: typeof churnedSubscriptions[number]) => sub.canceledAt && sub.createdAt)
-        .map((sub: typeof churnedSubscriptions[number]) => differenceInDays(sub.canceledAt!, sub.createdAt));
-      
-      const avgLifetime = lifetimes.length > 0
-        ? Math.round(lifetimes.reduce((a: number, b: number) => a + b, 0) / lifetimes.length)
-        : 0;
+        .filter((sub: (typeof churnedSubscriptions)[number]) => sub.canceledAt && sub.createdAt)
+        .map((sub: (typeof churnedSubscriptions)[number]) =>
+          differenceInDays(sub.canceledAt!, sub.createdAt)
+        );
+
+      const avgLifetime =
+        lifetimes.length > 0
+          ? Math.round(lifetimes.reduce((a: number, b: number) => a + b, 0) / lifetimes.length)
+          : 0;
 
       // Get active subscriptions at start of period for churn rate calculation
       const activeAtStart = await prisma.subscription.count({
@@ -268,13 +283,12 @@ export class SubscriptionAnalyticsService {
         },
       });
 
-      const churnRate = activeAtStart > 0
-        ? Math.round((churnedCount / activeAtStart) * 10000) / 100
-        : 0;
+      const churnRate =
+        activeAtStart > 0 ? Math.round((churnedCount / activeAtStart) * 10000) / 100 : 0;
 
       // Group by cancel reason (extracted from metadata if available)
       const reasonMap = new Map<string, { count: number; mrr: number }>();
-      churnedSubscriptions.forEach((sub: typeof churnedSubscriptions[number]) => {
+      churnedSubscriptions.forEach((sub: (typeof churnedSubscriptions)[number]) => {
         const metadata = sub.metadata as Record<string, unknown> | null;
         const reason = (metadata?.cancelReason as string) || 'Not specified';
         const existing = reasonMap.get(reason);
@@ -293,9 +307,8 @@ export class SubscriptionAnalyticsService {
           reason,
           count: data.count,
           mrr: data.mrr,
-          percentageOfTotal: churnedCount > 0
-            ? Math.round((data.count / churnedCount) * 10000) / 100
-            : 0,
+          percentageOfTotal:
+            churnedCount > 0 ? Math.round((data.count / churnedCount) * 10000) / 100 : 0,
         }))
         .sort((a: { count: number }, b: { count: number }) => b.count - a.count);
 
@@ -326,12 +339,18 @@ export class SubscriptionAnalyticsService {
 
       const calculateMonthlyAmount = (amount: number, interval: string | null): number => {
         switch (interval?.toUpperCase()) {
-          case 'WEEKLY': return amount * 4;
-          case 'MONTHLY': return amount;
-          case 'QUARTERLY': return Math.round(amount / 3);
-          case 'SEMI_ANNUAL': return Math.round(amount / 6);
-          case 'ANNUAL': return Math.round(amount / 12);
-          default: return amount;
+          case 'WEEKLY':
+            return amount * 4;
+          case 'MONTHLY':
+            return amount;
+          case 'QUARTERLY':
+            return Math.round(amount / 3);
+          case 'SEMI_ANNUAL':
+            return Math.round(amount / 6);
+          case 'ANNUAL':
+            return Math.round(amount / 12);
+          default:
+            return amount;
         }
       };
 
@@ -381,7 +400,8 @@ export class SubscriptionAnalyticsService {
         });
 
         const mrr = activeAtEnd.reduce(
-          (sum: number, sub: typeof activeAtEnd[number]) => sum + calculateMonthlyAmount(sub.amount, sub.interval),
+          (sum: number, sub: (typeof activeAtEnd)[number]) =>
+            sum + calculateMonthlyAmount(sub.amount, sub.interval),
           0
         );
 
@@ -414,10 +434,10 @@ export class SubscriptionAnalyticsService {
     } = {}
   ): Promise<{ subscriptions: SubscriptionDetail[]; total: number }> {
     return withClinicContext(clinicId, async () => {
-      const { 
-        status, 
-        planName, 
-        page = 1, 
+      const {
+        status,
+        planName,
+        page = 1,
         limit = 20,
         sortBy = 'createdAt',
         sortOrder = 'desc',
@@ -449,7 +469,7 @@ export class SubscriptionAnalyticsService {
 
       // Get payment counts for each subscription's patient
       const details = await Promise.all(
-        subscriptions.map(async (sub: typeof subscriptions[number]) => {
+        subscriptions.map(async (sub: (typeof subscriptions)[number]) => {
           const [payments, totalValue] = await Promise.all([
             prisma.payment.count({
               where: {
@@ -471,7 +491,7 @@ export class SubscriptionAnalyticsService {
           return {
             id: sub.id,
             patientId: sub.patientId,
-            patientName: sub.patient 
+            patientName: sub.patient
               ? `${sub.patient.firstName} ${sub.patient.lastName}`
               : 'Unknown',
             patientEmail: sub.patient?.email || '',
@@ -481,7 +501,8 @@ export class SubscriptionAnalyticsService {
             interval: sub.interval,
             startDate: sub.createdAt,
             canceledAt: sub.canceledAt,
-            cancelReason: (sub.metadata as Record<string, unknown> | null)?.cancelReason as string || null,
+            cancelReason:
+              ((sub.metadata as Record<string, unknown> | null)?.cancelReason as string) || null,
             lifetimeValue: totalValue._sum.amount || 0,
             paymentCount: payments,
             daysSinceStart: differenceInDays(new Date(), sub.createdAt),
@@ -526,12 +547,10 @@ export class SubscriptionAnalyticsService {
         },
       });
 
-      return subscriptions.map((sub: typeof subscriptions[number]) => ({
+      return subscriptions.map((sub: (typeof subscriptions)[number]) => ({
         id: sub.id,
         patientId: sub.patientId,
-        patientName: sub.patient 
-          ? `${sub.patient.firstName} ${sub.patient.lastName}`
-          : 'Unknown',
+        patientName: sub.patient ? `${sub.patient.firstName} ${sub.patient.lastName}` : 'Unknown',
         patientEmail: sub.patient?.email || '',
         planName: sub.planName,
         status: sub.status,
@@ -539,7 +558,8 @@ export class SubscriptionAnalyticsService {
         interval: sub.interval,
         startDate: sub.createdAt,
         canceledAt: sub.canceledAt,
-        cancelReason: (sub.metadata as Record<string, unknown> | null)?.cancelReason as string || null,
+        cancelReason:
+          ((sub.metadata as Record<string, unknown> | null)?.cancelReason as string) || null,
         lifetimeValue: 0, // Would need additional query
         paymentCount: 0, // Would need additional query
         daysSinceStart: differenceInDays(now, sub.createdAt),
@@ -550,9 +570,7 @@ export class SubscriptionAnalyticsService {
   /**
    * Get past due subscriptions requiring attention
    */
-  static async getPastDueSubscriptions(
-    clinicId: number
-  ): Promise<{
+  static async getPastDueSubscriptions(clinicId: number): Promise<{
     subscriptions: SubscriptionDetail[];
     totalAmount: number;
     daysPastDue: { under7: number; under30: number; over30: number };
@@ -579,9 +597,9 @@ export class SubscriptionAnalyticsService {
       const daysPastDue = { under7: 0, under30: 0, over30: 0 };
       const now = new Date();
 
-      const details = subscriptions.map((sub: typeof subscriptions[number]) => {
+      const details = subscriptions.map((sub: (typeof subscriptions)[number]) => {
         totalAmount += sub.amount;
-        
+
         // Check last payment attempt to determine days past due
         // This is a simplified calculation
         const daysSinceStart = differenceInDays(now, sub.createdAt);
@@ -592,9 +610,7 @@ export class SubscriptionAnalyticsService {
         return {
           id: sub.id,
           patientId: sub.patientId,
-          patientName: sub.patient 
-            ? `${sub.patient.firstName} ${sub.patient.lastName}`
-            : 'Unknown',
+          patientName: sub.patient ? `${sub.patient.firstName} ${sub.patient.lastName}` : 'Unknown',
           patientEmail: sub.patient?.email || '',
           planName: sub.planName,
           status: sub.status,
@@ -602,7 +618,8 @@ export class SubscriptionAnalyticsService {
           interval: sub.interval,
           startDate: sub.createdAt,
           canceledAt: sub.canceledAt,
-          cancelReason: (sub.metadata as Record<string, unknown> | null)?.cancelReason as string || null,
+          cancelReason:
+            ((sub.metadata as Record<string, unknown> | null)?.cancelReason as string) || null,
           lifetimeValue: 0,
           paymentCount: 0,
           daysSinceStart,
@@ -624,15 +641,17 @@ export class SubscriptionAnalyticsService {
     clinicId: number,
     subscriptionId?: number,
     dateRange?: DateRange
-  ): Promise<Array<{
-    id: number;
-    subscriptionId: number;
-    action: string;
-    oldValue: any;
-    newValue: any;
-    createdAt: Date;
-    performedBy: string | null;
-  }>> {
+  ): Promise<
+    Array<{
+      id: number;
+      subscriptionId: number;
+      action: string;
+      oldValue: any;
+      newValue: any;
+      createdAt: Date;
+      performedBy: string | null;
+    }>
+  > {
     const now = new Date();
     const start = dateRange?.start || subMonths(now, 1);
     const end = dateRange?.end || now;
@@ -654,7 +673,7 @@ export class SubscriptionAnalyticsService {
       take: 100,
     });
 
-    return actions.map((action: typeof actions[number]) => ({
+    return actions.map((action: (typeof actions)[number]) => ({
       id: action.id,
       subscriptionId: action.subscriptionId,
       action: action.actionType,

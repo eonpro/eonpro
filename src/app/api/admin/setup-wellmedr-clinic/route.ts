@@ -1,20 +1,21 @@
 /**
  * One-time setup endpoint to create Wellmedr clinic
- * 
+ *
  * POST /api/admin/setup-wellmedr-clinic
  * Header: x-admin-secret: <ADMIN_SECRET from env>
- * 
+ *
  * DELETE THIS ENDPOINT AFTER USE
  */
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   // Simple auth check
   const adminSecret = process.env.ADMIN_SECRET || process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET;
   const providedSecret = req.headers.get('x-admin-secret') || req.headers.get('x-webhook-secret');
-  
+
   if (!adminSecret || providedSecret !== adminSecret) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -80,11 +81,14 @@ export async function POST(req: NextRequest) {
       note: 'Set WELLMEDR_CLINIC_ID env var to ' + clinic.id,
     });
   } catch (error) {
-    console.error('Error setting up Wellmedr clinic:', error);
-    return Response.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    logger.error('Error setting up Wellmedr clinic', { error: error instanceof Error ? error.message : String(error) });
+    return Response.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 

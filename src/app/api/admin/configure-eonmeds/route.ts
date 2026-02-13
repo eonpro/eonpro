@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 
 /**
  * POST /api/admin/configure-eonmeds
- * 
+ *
  * One-time endpoint to configure EONMEDS clinic with Lifefile credentials.
  * Protected by a setup secret.
  */
@@ -12,28 +12,26 @@ export async function POST(req: NextRequest) {
   try {
     // Verify setup secret
     const setupSecret = req.headers.get('x-setup-secret');
-    const configuredSecret = process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-    
+    const configuredSecret =
+      process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
+
     if (!configuredSecret || setupSecret !== configuredSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
-    
+
     // Find EONMEDS clinic (use select for backwards compatibility)
     let eonmeds = await prisma.clinic.findFirst({
       where: {
-        OR: [
-          { subdomain: 'eonmeds' },
-          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
-        ],
+        OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
       },
       select: { id: true, name: true, subdomain: true },
     });
 
     if (!eonmeds) {
       logger.info('[CONFIGURE] EONMEDS clinic not found, creating...');
-      
+
       eonmeds = await prisma.clinic.create({
         data: {
           name: body.clinicName || 'EONMEDS',
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest) {
         },
         select: { id: true, name: true, subdomain: true },
       });
-      
+
       logger.info(`[CONFIGURE] Created EONMEDS clinic with ID: ${eonmeds.id}`);
     }
 
@@ -92,9 +90,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     logger.error('[CONFIGURE] Error configuring EONMEDS:', error);
-    return NextResponse.json(
-      { error: error.message || 'Configuration failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Configuration failed' }, { status: 500 });
   }
 }

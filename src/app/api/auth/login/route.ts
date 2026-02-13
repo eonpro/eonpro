@@ -18,7 +18,7 @@ import { SignJWT } from 'jose';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
 import { prisma, basePrisma } from '@/lib/db';
-import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
+import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
@@ -508,31 +508,22 @@ async function loginHandler(req: NextRequest) {
       isPrimary: boolean;
     }> = [];
 
-    // Primary clinic from user record
-    if (user.clinicId) {
-      const primaryClinic = await prisma.clinic.findUnique({
-        where: { id: user.clinicId },
-        select: {
-          id: true,
-          name: true,
-          subdomain: true,
-          logoUrl: true,
-          iconUrl: true,
-          faviconUrl: true,
-        },
-      });
-      if (primaryClinic) {
-        clinics.push({
-          ...primaryClinic,
-          role: userRole,
-          isPrimary: true,
-        });
-      }
-    }
-
-    // Fetch additional clinics from UserClinic table
-    try {
-      const userClinics = await prisma.userClinic.findMany({
+    // Fetch primary clinic and additional clinics in parallel
+    const [primaryClinic, userClinicsResult] = await Promise.all([
+      user.clinicId
+        ? prisma.clinic.findUnique({
+            where: { id: user.clinicId },
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              logoUrl: true,
+              iconUrl: true,
+              faviconUrl: true,
+            },
+          })
+        : Promise.resolve(null),
+      prisma.userClinic.findMany({
         where: {
           userId: user.id,
           isActive: true,
@@ -550,23 +541,32 @@ async function loginHandler(req: NextRequest) {
           },
         },
         orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-      });
+      }).catch((error: unknown) => {
+        // UserClinic might not exist (pre-migration), continue with primary clinic
+        logger.debug('[Login] UserClinic lookup skipped', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          userId: user.id,
+        });
+        return [];
+      }),
+    ]);
 
-      for (const uc of userClinics) {
-        if (!clinics.find((c) => c.id === uc.clinic.id)) {
-          clinics.push({
-            ...uc.clinic,
-            role: uc.role,
-            isPrimary: uc.isPrimary,
-          });
-        }
-      }
-    } catch (error: unknown) {
-      // UserClinic might not exist (pre-migration), continue with primary clinic
-      logger.debug('[Login] UserClinic lookup skipped', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        userId: user.id,
+    if (primaryClinic) {
+      clinics.push({
+        ...primaryClinic,
+        role: userRole,
+        isPrimary: true,
       });
+    }
+
+    for (const uc of userClinicsResult) {
+      if (!clinics.find((c) => c.id === uc.clinic.id)) {
+        clinics.push({
+          ...uc.clinic,
+          role: uc.role,
+          isPrimary: uc.isPrimary,
+        });
+      }
     }
 
     // PROVIDER FIX: If provider has no clinics from User/UserClinic, use ProviderClinic assignments
@@ -714,15 +714,7 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
-    // Create session record so production auth (validateSession) can find it; JWT must include sessionId
-    const { sessionId } = await createSessionRecord(
-      String(user.id),
-      userRole,
-      activeClinicId ?? undefined,
-      req
-    );
-
-    // Create JWT token
+    // Create JWT token payload (populated below)
     const tokenPayload: {
       id: number;
       email: string;
@@ -742,70 +734,89 @@ async function loginHandler(req: NextRequest) {
       clinicId: activeClinicId,
     };
 
-    // Add providerId if user is a provider or has a linked provider
+    // Add providerId/patientId from the user record if already linked
     if ('providerId' in user && user.providerId) {
       tokenPayload.providerId = user.providerId as number;
     } else if ('provider' in user && user.provider && typeof user.provider === 'object') {
       const provider = user.provider as { id: number };
       tokenPayload.providerId = provider.id;
-    } else if (userRole === 'provider') {
+    }
+    if ('patientId' in user && user.patientId) {
+      tokenPayload.patientId = user.patientId;
+    }
+
+    // Determine if we need fallback DB lookups for provider/patient
+    const needsProviderFallback =
+      userRole === 'provider' && !tokenPayload.providerId;
+    const needsPatientFallback =
+      userRole === 'patient' && !tokenPayload.patientId;
+
+    // Parallelize session creation with provider/patient fallback lookups
+    // These are independent DB calls: session creation needs user/clinic info (already known),
+    // provider/patient lookups only need user email (already known).
+    const [{ sessionId }, providerFallback, patientFallback] = await Promise.all([
+      // Create session record so production auth (validateSession) can find it
+      createSessionRecord(
+        String(user.id),
+        userRole,
+        activeClinicId ?? undefined,
+        req
+      ),
       // FALLBACK: Look up provider by email if not already linked
       // This handles cases where the User record exists but providerId wasn't set
       // Use basePrisma to bypass clinic filtering since providers can be shared
-      try {
-        const providerByEmail = await basePrisma.provider.findFirst({
-          where: { email: user.email.toLowerCase() },
-          select: { id: true, clinicId: true },
-        });
-        if (providerByEmail) {
-          tokenPayload.providerId = providerByEmail.id;
-          // Also set clinicId if not already set
-          if (!tokenPayload.clinicId && providerByEmail.clinicId) {
-            tokenPayload.clinicId = providerByEmail.clinicId;
-          }
-          logger.info('[Login] Found provider by email fallback', {
-            userId: user.id,
-            providerId: providerByEmail.id,
-            email: user.email,
-          });
-        }
-      } catch (error: unknown) {
-        // Log but don't fail on fallback lookup errors
-        logger.debug('[Login] Provider fallback lookup failed', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          email: user.email,
-        });
+      needsProviderFallback
+        ? basePrisma.provider.findFirst({
+            where: { email: user.email.toLowerCase() },
+            select: { id: true, clinicId: true },
+          }).catch((error: unknown) => {
+            logger.debug('[Login] Provider fallback lookup failed', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              email: user.email,
+            });
+            return null;
+          })
+        : Promise.resolve(null),
+      // FALLBACK: Look up patient by email if not already linked
+      needsPatientFallback
+        ? prisma.patient.findFirst({
+            where: {
+              email: user.email.toLowerCase(),
+              clinicId: activeClinicId,
+            },
+            select: { id: true },
+          }).catch((error: unknown) => {
+            logger.debug('[Login] Patient fallback lookup failed', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              email: user.email,
+            });
+            return null;
+          })
+        : Promise.resolve(null),
+    ]);
+
+    // Apply provider fallback result
+    if (providerFallback) {
+      tokenPayload.providerId = providerFallback.id;
+      // Also set clinicId if not already set
+      if (!tokenPayload.clinicId && providerFallback.clinicId) {
+        tokenPayload.clinicId = providerFallback.clinicId;
       }
+      logger.info('[Login] Found provider by email fallback', {
+        userId: user.id,
+        providerId: providerFallback.id,
+        email: user.email,
+      });
     }
 
-    // Add patientId if user is a patient or has a linked patient record
-    if ('patientId' in user && user.patientId) {
-      tokenPayload.patientId = user.patientId;
-    } else if (userRole === 'patient') {
-      // FALLBACK: Look up patient by email if not already linked
-      try {
-        const patientByEmail = await prisma.patient.findFirst({
-          where: {
-            email: user.email.toLowerCase(),
-            clinicId: activeClinicId,
-          },
-          select: { id: true },
-        });
-        if (patientByEmail) {
-          tokenPayload.patientId = patientByEmail.id;
-          logger.info('[Login] Found patient by email fallback', {
-            userId: user.id,
-            patientId: patientByEmail.id,
-            email: user.email,
-          });
-        }
-      } catch (error: unknown) {
-        // Log but don't fail on fallback lookup errors
-        logger.debug('[Login] Patient fallback lookup failed', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          email: user.email,
-        });
-      }
+    // Apply patient fallback result
+    if (patientFallback) {
+      tokenPayload.patientId = patientFallback.id;
+      logger.info('[Login] Found patient by email fallback', {
+        userId: user.id,
+        patientId: patientFallback.id,
+        email: user.email,
+      });
     }
 
     // Add permissions and features if available
@@ -824,7 +835,7 @@ async function loginHandler(req: NextRequest) {
       .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
       .sign(JWT_SECRET);
 
-    // Create refresh token
+    // Create refresh token (signed with dedicated refresh secret)
     const refreshToken = await new SignJWT({
       id: user.id,
       type: 'refresh',
@@ -832,7 +843,7 @@ async function loginHandler(req: NextRequest) {
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-      .sign(JWT_SECRET);
+      .sign(JWT_REFRESH_SECRET);
 
     // Log successful login
     logger.debug(`Successful login: ${email} (${role})`);

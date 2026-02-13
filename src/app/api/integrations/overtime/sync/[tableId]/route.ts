@@ -9,11 +9,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSyncService } from '@/lib/overtime/airtableSyncService';
-import { 
-  OVERTIME_AIRTABLE_TABLES, 
+import {
+  OVERTIME_AIRTABLE_TABLES,
   getTreatmentTypeForTable,
   createAirtableClient,
 } from '@/lib/overtime/airtableClient';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // Authentication
@@ -45,10 +46,7 @@ function validateAuth(req: NextRequest): boolean {
 // POST - Sync Single Table
 // =============================================================================
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ tableId: string }> }
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ tableId: string }> }) {
   if (!validateAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -101,7 +99,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error(`[OvertimeSync] Table sync failed for ${tableId}:`, error);
+    logger.error('[OvertimeSync] Table sync failed', { tableId, error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       {
@@ -117,10 +115,7 @@ export async function POST(
 // GET - Table Info & Sample Records
 // =============================================================================
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ tableId: string }> }
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ tableId: string }> }) {
   if (!validateAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -149,9 +144,8 @@ export async function GET(
     });
 
     // Get field names from first record
-    const fieldNames = sampleRecords.records.length > 0
-      ? Object.keys(sampleRecords.records[0].fields)
-      : [];
+    const fieldNames =
+      sampleRecords.records.length > 0 ? Object.keys(sampleRecords.records[0].fields) : [];
 
     return NextResponse.json({
       table: {
@@ -175,7 +169,7 @@ export async function GET(
       })),
     });
   } catch (error) {
-    console.error(`[OvertimeSync] Table info failed for ${tableId}:`, error);
+    logger.error('[OvertimeSync] Table info failed', { tableId, error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       {

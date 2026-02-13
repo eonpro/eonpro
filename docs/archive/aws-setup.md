@@ -3,6 +3,7 @@
 ## 1. RDS PostgreSQL Setup
 
 ### Create Database
+
 1. AWS Console → RDS → Create Database
 2. PostgreSQL 15.4, Production Template
 3. Instance: db.t3.small (upgradeable)
@@ -11,6 +12,7 @@
 6. Enable automated backups (7 days)
 
 ### Security Configuration
+
 ```sql
 -- After database creation, run these:
 CREATE SCHEMA IF NOT EXISTS eonpro;
@@ -21,6 +23,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA eonpro GRANT ALL ON TABLES TO eonpro_app;
 ```
 
 ### Connection String Format
+
 ```env
 DATABASE_URL="postgresql://eonpro_app:password@your-instance.region.rds.amazonaws.com:5432/eonpro?schema=eonpro&sslmode=require"
 ```
@@ -28,11 +31,13 @@ DATABASE_URL="postgresql://eonpro_app:password@your-instance.region.rds.amazonaw
 ## 2. S3 for File Storage (PHI Documents)
 
 ### Create S3 Bucket
+
 ```bash
 aws s3 mb s3://eonpro-phi-storage --region us-east-1
 ```
 
 ### Enable Encryption
+
 ```bash
 aws s3api put-bucket-encryption \
   --bucket eonpro-phi-storage \
@@ -46,6 +51,7 @@ aws s3api put-bucket-encryption \
 ```
 
 ### Bucket Policy for HIPAA
+
 ```json
 {
   "Version": "2012-10-17",
@@ -55,10 +61,7 @@ aws s3api put-bucket-encryption \
       "Effect": "Deny",
       "Principal": "*",
       "Action": "s3:*",
-      "Resource": [
-        "arn:aws:s3:::eonpro-phi-storage/*",
-        "arn:aws:s3:::eonpro-phi-storage"
-      ],
+      "Resource": ["arn:aws:s3:::eonpro-phi-storage/*", "arn:aws:s3:::eonpro-phi-storage"],
       "Condition": {
         "Bool": {
           "aws:SecureTransport": "false"
@@ -72,6 +75,7 @@ aws s3api put-bucket-encryption \
 ## 3. ElastiCache Redis (Session Management)
 
 ### Create Redis Cluster
+
 ```yaml
 Cluster Mode: Disabled
 Node Type: cache.t3.micro
@@ -83,6 +87,7 @@ Auth Token: Generate secure token
 ```
 
 ### Connection String
+
 ```env
 REDIS_URL="rediss://default:auth_token@your-cluster.cache.amazonaws.com:6379"
 ```
@@ -90,6 +95,7 @@ REDIS_URL="rediss://default:auth_token@your-cluster.cache.amazonaws.com:6379"
 ## 4. CloudFront CDN
 
 ### Create Distribution
+
 ```yaml
 Origin: Your Vercel deployment
 Viewer Protocol: Redirect HTTP to HTTPS
@@ -105,6 +111,7 @@ Price Class: Use All Edge Locations
 ## 5. AWS Secrets Manager
 
 Store sensitive configuration:
+
 ```bash
 aws secretsmanager create-secret \
   --name eonpro/production \
@@ -118,6 +125,7 @@ aws secretsmanager create-secret \
 ## 6. IAM Roles and Policies
 
 ### Application Role
+
 ```json
 {
   "Version": "2012-10-17",
@@ -160,14 +168,14 @@ JWT_SECRET=UK4YNzllUae4+t388TBJBpjJdizalOT7nXuPXMa6gCc=
 
 ## 8. Estimated Monthly Costs
 
-| Service | Configuration | Monthly Cost |
-|---------|--------------|-------------|
-| RDS PostgreSQL | db.t3.small, 20GB | $25-35 |
-| S3 Storage | 100GB PHI docs | $2-5 |
-| ElastiCache | cache.t3.micro | $15-20 |
-| CloudFront | 100GB transfer | $8-12 |
-| Secrets Manager | 5 secrets | $2 |
-| **Total** | | **~$52-74/month** |
+| Service         | Configuration     | Monthly Cost      |
+| --------------- | ----------------- | ----------------- |
+| RDS PostgreSQL  | db.t3.small, 20GB | $25-35            |
+| S3 Storage      | 100GB PHI docs    | $2-5              |
+| ElastiCache     | cache.t3.micro    | $15-20            |
+| CloudFront      | 100GB transfer    | $8-12             |
+| Secrets Manager | 5 secrets         | $2                |
+| **Total**       |                   | **~$52-74/month** |
 
 ## 9. HIPAA Compliance Checklist
 
@@ -216,5 +224,5 @@ echo "Database Endpoint: $(aws rds describe-db-instances \
 
 ## Support
 
-For AWS support: https://console.aws.amazon.com/support
-For HIPAA compliance: https://aws.amazon.com/compliance/hipaa-compliance/
+For AWS support: https://console.aws.amazon.com/support For HIPAA compliance:
+https://aws.amazon.com/compliance/hipaa-compliance/

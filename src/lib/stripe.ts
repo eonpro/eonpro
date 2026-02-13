@@ -53,21 +53,25 @@ export const STRIPE_CONFIG = {
   // Payment settings
   currency: 'usd' as const,
   paymentMethods: ['card', 'ach_debit'] as const,
-  
+
   // Invoice settings
   invoiceDueDays: 30,
   collectionMethod: 'send_invoice' as const,
-  
+
   // Webhook endpoints (EonMeds clinic webhooks)
-  webhookEndpointSecret: process.env.EONMEDS_STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET || '',
-  
+  webhookEndpointSecret:
+    process.env.EONMEDS_STRIPE_WEBHOOK_SECRET ||
+    process.env.STRIPE_WEBHOOK_SECRET ||
+    process.env.STRIPE_WEBHOOK_ENDPOINT_SECRET ||
+    '',
+
   // Product/Price IDs (to be configured)
   products: {
     consultation: process.env.STRIPE_PRODUCT_CONSULTATION || '',
     prescription: process.env.STRIPE_PRODUCT_PRESCRIPTION || '',
     labWork: process.env.STRIPE_PRODUCT_LAB_WORK || '',
   },
-  
+
   // Default tax settings
   automaticTax: {
     enabled: true,
@@ -92,7 +96,9 @@ export function getStripe(): Stripe {
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV,
     });
-    throw new Error('Stripe is not configured. Please set EONMEDS_STRIPE_SECRET_KEY environment variable.');
+    throw new Error(
+      'Stripe is not configured. Please set EONMEDS_STRIPE_SECRET_KEY environment variable.'
+    );
   }
   return stripe;
 }

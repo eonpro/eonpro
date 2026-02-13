@@ -1,7 +1,7 @@
 /**
  * Rate Limiting Middleware
  * Protects API endpoints from abuse and DOS attacks
- * 
+ *
  * Uses Redis for distributed rate limiting in production,
  * with LRU cache fallback for development/testing
  */
@@ -36,10 +36,13 @@ const localCaches = new Map<string, LRUCache<string, RateLimitEntry>>();
  */
 function getLocalCache(tier: string): LRUCache<string, RateLimitEntry> {
   if (!localCaches.has(tier)) {
-    localCaches.set(tier, new LRUCache<string, RateLimitEntry>({
-      max: 10000, // Max number of keys to store
-      ttl: 15 * 60 * 1000, // 15 minutes TTL
-    }));
+    localCaches.set(
+      tier,
+      new LRUCache<string, RateLimitEntry>({
+        max: 10000, // Max number of keys to store
+        ttl: 15 * 60 * 1000, // 15 minutes TTL
+      })
+    );
   }
   return localCaches.get(tier)!;
 }
@@ -57,7 +60,7 @@ async function getRateLimitEntry(key: string, tier: string): Promise<RateLimitEn
       logger.warn('Redis rate limit read failed, using local cache');
     }
   }
-  
+
   // Fallback to local cache
   const localCache = getLocalCache(tier);
   return localCache.get(key) || null;
@@ -66,7 +69,12 @@ async function getRateLimitEntry(key: string, tier: string): Promise<RateLimitEn
 /**
  * Set rate limit entry in Redis or local cache
  */
-async function setRateLimitEntry(key: string, entry: RateLimitEntry, tier: string, ttlSeconds: number): Promise<void> {
+async function setRateLimitEntry(
+  key: string,
+  entry: RateLimitEntry,
+  tier: string,
+  ttlSeconds: number
+): Promise<void> {
   // Try Redis first
   if (cache.isReady()) {
     try {
@@ -76,22 +84,25 @@ async function setRateLimitEntry(key: string, entry: RateLimitEntry, tier: strin
       logger.warn('Redis rate limit write failed, using local cache');
     }
   }
-  
+
   // Fallback to local cache
   const localCache = getLocalCache(tier);
   localCache.set(key, entry);
 }
 
 /**
- * Default key generator - uses IP address
+ * Default key generator - uses IP address.
+ * When x-clinic-id is present, key includes clinicId so rate limits are per-tenant (no cross-tenant exhaustion).
  */
 function defaultKeyGenerator(req: NextRequest): string {
-  // Try to get real IP from various headers
   const forwarded = req.headers.get('x-forwarded-for');
   const real = req.headers.get('x-real-ip');
-  const ip = forwarded?.split(',')[0] || real || 'unknown';
-  
-  return `ratelimit:${ip}`;
+  const ip = forwarded?.split(',')[0]?.trim() || real || 'unknown';
+  const clinicId = req.headers.get('x-clinic-id');
+  if (clinicId != null && clinicId !== '') {
+    return `ratelimit:${clinicId}:ip:${ip}`;
+  }
+  return `ratelimit:ip:${ip}`;
 }
 
 /**
@@ -110,9 +121,7 @@ export function rateLimit(config: RateLimitConfig = {}) {
   const tier = `default-${max}-${windowMs}`;
   const ttlSeconds = Math.ceil(windowMs / 1000);
 
-  return function rateLimitMiddleware(
-    handler: (req: NextRequest) => Promise<Response>
-  ) {
+  return function rateLimitMiddleware(handler: (req: NextRequest) => Promise<Response>) {
     return async (req: NextRequest) => {
       const key = keyGenerator(req);
       const now = Date.now();
@@ -131,14 +140,14 @@ export function rateLimit(config: RateLimitConfig = {}) {
       // Check if limit exceeded
       if (entry.count >= max) {
         const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
-        
-        logger.warn('Rate limit exceeded', { 
-          key, 
-          count: entry.count, 
+
+        logger.warn('Rate limit exceeded', {
+          key,
+          count: entry.count,
           max,
-          retryAfter 
+          retryAfter,
         });
-        
+
         return NextResponse.json(
           { error: message },
           {
@@ -240,7 +249,7 @@ export function withRateLimitAndAuth(
   rateLimitConfig: RateLimitConfig = {}
 ) {
   const rateLimiter = rateLimit(rateLimitConfig);
-  
+
   return (handler: Function) => {
     return rateLimiter(async (req: NextRequest) => {
       return authMiddleware(handler)(req);

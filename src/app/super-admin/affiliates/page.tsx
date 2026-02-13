@@ -240,13 +240,13 @@ export default function SuperAdminAffiliatesPage() {
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     const token = localStorage.getItem('auth-token');
-    
+
     try {
       const response = await fetch(
         `/api/super-admin/affiliates/analytics?period=${analyticsPeriod}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       if (response.ok) {
         setAnalytics(await response.json());
       }
@@ -262,10 +262,9 @@ export default function SuperAdminAffiliatesPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch(
-        '/api/super-admin/affiliates/diagnostics',
-        { headers: { 'Authorization': `Bearer ${token}` } }
-      );
+      const response = await fetch('/api/super-admin/affiliates/diagnostics', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.ok) {
         setDiagnostics(await response.json());
@@ -293,9 +292,9 @@ export default function SuperAdminAffiliatesPage() {
     try {
       // Fetch clinics first
       const clinicsRes = await fetch('/api/super-admin/clinics', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (clinicsRes.ok) {
         const clinicsData = await clinicsRes.json();
         setClinics(clinicsData.clinics || []);
@@ -303,7 +302,7 @@ export default function SuperAdminAffiliatesPage() {
 
       // Fetch all affiliates across all clinics
       const affiliatesRes = await fetch('/api/super-admin/affiliates', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await affiliatesRes.json();
@@ -341,14 +340,14 @@ export default function SuperAdminAffiliatesPage() {
       const response = await fetch('/api/super-admin/affiliates', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...createForm,
           clinicId: parseInt(createForm.clinicId),
-          commissionPlanId: createForm.commissionPlanId 
-            ? parseInt(createForm.commissionPlanId) 
+          commissionPlanId: createForm.commissionPlanId
+            ? parseInt(createForm.commissionPlanId)
             : undefined,
         }),
       });
@@ -380,7 +379,7 @@ export default function SuperAdminAffiliatesPage() {
   const handleCopyCode = async (code: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${code}`;
-    
+
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
@@ -408,7 +407,7 @@ export default function SuperAdminAffiliatesPage() {
   const handleUpdateAffiliate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAffiliate) return;
-    
+
     setUpdating(true);
     setEditError(null);
 
@@ -418,7 +417,7 @@ export default function SuperAdminAffiliatesPage() {
       const response = await fetch(`/api/super-admin/affiliates/${editingAffiliate.id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -427,9 +426,7 @@ export default function SuperAdminAffiliatesPage() {
           firstName: editForm.firstName,
           lastName: editForm.lastName,
           email: editForm.email,
-          commissionPlanId: editForm.commissionPlanId 
-            ? parseInt(editForm.commissionPlanId) 
-            : null,
+          commissionPlanId: editForm.commissionPlanId ? parseInt(editForm.commissionPlanId) : null,
         }),
       });
 
@@ -457,7 +454,7 @@ export default function SuperAdminAffiliatesPage() {
 
   const handleDeleteAffiliate = async () => {
     if (!deletingAffiliate) return;
-    
+
     setDeleting(true);
     setDeleteError(null);
 
@@ -467,7 +464,7 @@ export default function SuperAdminAffiliatesPage() {
       const response = await fetch(`/api/super-admin/affiliates/${deletingAffiliate.id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -487,20 +484,20 @@ export default function SuperAdminAffiliatesPage() {
   };
 
   // Filter affiliates
-  const filteredAffiliates = affiliates.filter(a => {
-    const matchesSearch = 
+  const filteredAffiliates = affiliates.filter((a) => {
+    const matchesSearch =
       a.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.refCodes.some(r => r.refCode.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+      a.refCodes.some((r) => r.refCode.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const matchesClinic = selectedClinic === 'all' || a.clinicId === selectedClinic;
-    
+
     return matchesSearch && matchesClinic;
   });
 
   // Get plans for selected clinic in create form
-  const availablePlans = plans.filter(p => 
-    p.isActive && (!createForm.clinicId || p.clinicId === parseInt(createForm.clinicId))
+  const availablePlans = plans.filter(
+    (p) => p.isActive && (!createForm.clinicId || p.clinicId === parseInt(createForm.clinicId))
   );
 
   const statusColors: Record<string, string> = {
@@ -544,19 +541,24 @@ export default function SuperAdminAffiliatesPage() {
 
       {/* Error/Warning Banner */}
       {(fetchError || migrationNeeded) && (
-        <div className={`mb-6 rounded-xl border p-4 flex items-start gap-3 ${
-          fetchError ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
-        }`}>
-          <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-            fetchError ? 'text-red-500' : 'text-amber-500'
-          }`} />
+        <div
+          className={`mb-6 flex items-start gap-3 rounded-xl border p-4 ${
+            fetchError ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
+          }`}
+        >
+          <AlertCircle
+            className={`mt-0.5 h-5 w-5 flex-shrink-0 ${
+              fetchError ? 'text-red-500' : 'text-amber-500'
+            }`}
+          />
           <div className="flex-1">
             <p className={`font-medium ${fetchError ? 'text-red-800' : 'text-amber-800'}`}>
               {fetchError || 'Database migration may be needed'}
             </p>
             {migrationNeeded && (
               <p className="mt-1 text-sm text-amber-600">
-                Run <code className="bg-amber-100 px-1 rounded">npx prisma migrate deploy</code> to create the affiliate tables.
+                Run <code className="rounded bg-amber-100 px-1">npx prisma migrate deploy</code> to
+                create the affiliate tables.
               </p>
             )}
           </div>
@@ -565,7 +567,7 @@ export default function SuperAdminAffiliatesPage() {
               setLoading(true);
               fetchData();
             }}
-            className={`p-1.5 rounded-lg hover:bg-white/50 ${
+            className={`rounded-lg p-1.5 hover:bg-white/50 ${
               fetchError ? 'text-red-600' : 'text-amber-600'
             }`}
             title="Retry"
@@ -579,11 +581,13 @@ export default function SuperAdminAffiliatesPage() {
       <div className="mb-6">
         <button
           onClick={() => setShowAnalytics(!showAnalytics)}
-          className="flex items-center gap-2 mb-4 text-gray-600 hover:text-gray-900"
+          className="mb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
           <BarChart3 className="h-5 w-5" />
           <span className="font-medium">Cross-Clinic Analytics</span>
-          <ChevronDown className={`h-4 w-4 transition-transform ${showAnalytics ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${showAnalytics ? 'rotate-180' : ''}`}
+          />
         </button>
 
         {showAnalytics && (
@@ -611,138 +615,168 @@ export default function SuperAdminAffiliatesPage() {
               <div className="flex h-32 items-center justify-center">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent" />
               </div>
-            ) : analytics && (
-              <>
-                {/* Overview Stats */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-[#4fa77e]/10 p-2 text-[#4fa77e]">
-                        <Target className="h-5 w-5" />
+            ) : (
+              analytics && (
+                <>
+                  {/* Overview Stats */}
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-xl bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-[#4fa77e]/10 p-2 text-[#4fa77e]">
+                          <Target className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {analytics.totals.totalCodes}
+                          </p>
+                          <p className="text-sm text-gray-500">Total Ref Codes</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-2xl font-bold text-gray-900">{analytics.totals.totalCodes}</p>
-                        <p className="text-sm text-gray-500">Total Ref Codes</p>
+                    </div>
+                    <div className="rounded-xl bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+                          <MousePointer className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {analytics.totals.totalClicks.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-500">Total Clicks</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-green-100 p-2 text-green-600">
+                          <TrendingUp className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {analytics.totals.totalConversions.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-500">Total Conversions</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-white p-4 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-lg bg-yellow-100 p-2 text-yellow-600">
+                          <DollarSign className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {formatCurrency(analytics.totals.totalRevenue)}
+                          </p>
+                          <p className="text-sm text-gray-500">Total Revenue</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
-                        <MousePointer className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-gray-900">{analytics.totals.totalClicks.toLocaleString()}</p>
-                        <p className="text-sm text-gray-500">Total Clicks</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-green-100 p-2 text-green-600">
-                        <TrendingUp className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-gray-900">{analytics.totals.totalConversions.toLocaleString()}</p>
-                        <p className="text-sm text-gray-500">Total Conversions</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-yellow-100 p-2 text-yellow-600">
-                        <DollarSign className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.totals.totalRevenue)}</p>
-                        <p className="text-sm text-gray-500">Total Revenue</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Clinic Breakdown & Top Codes */}
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {/* Clinic Breakdown */}
-                  <div className="rounded-xl bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-gray-400" />
-                        Performance by Clinic
-                      </h3>
-                    </div>
-                    {analytics.clinicBreakdown.length > 0 ? (
-                      <div className="space-y-3">
-                        {analytics.clinicBreakdown.slice(0, 5).map((clinic, i) => (
-                          <div key={clinic.clinicId} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                                i === 0 ? 'bg-[#4fa77e] text-white' :
-                                i === 1 ? 'bg-gray-200 text-gray-700' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {i + 1}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="font-medium text-gray-900 truncate">{clinic.clinicName}</p>
-                                <p className="text-xs text-gray-500">
-                                  {clinic.activeAffiliates} affiliates · {clinic.totalCodes} codes
+                  {/* Clinic Breakdown & Top Codes */}
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {/* Clinic Breakdown */}
+                    <div className="rounded-xl bg-white p-5 shadow-sm">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 font-semibold text-gray-900">
+                          <Building2 className="h-5 w-5 text-gray-400" />
+                          Performance by Clinic
+                        </h3>
+                      </div>
+                      {analytics.clinicBreakdown.length > 0 ? (
+                        <div className="space-y-3">
+                          {analytics.clinicBreakdown.slice(0, 5).map((clinic, i) => (
+                            <div
+                              key={clinic.clinicId}
+                              className="flex items-center justify-between"
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span
+                                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                                    i === 0
+                                      ? 'bg-[#4fa77e] text-white'
+                                      : i === 1
+                                        ? 'bg-gray-200 text-gray-700'
+                                        : 'bg-gray-100 text-gray-600'
+                                  }`}
+                                >
+                                  {i + 1}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-gray-900">
+                                    {clinic.clinicName}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {clinic.activeAffiliates} affiliates · {clinic.totalCodes} codes
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="ml-2 flex-shrink-0 text-right">
+                                <p className="font-medium text-gray-900">
+                                  {clinic.totalConversions}
+                                </p>
+                                <p className="text-xs text-green-600">
+                                  {formatCurrency(clinic.totalRevenue)}
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                              <p className="font-medium text-gray-900">{clinic.totalConversions}</p>
-                              <p className="text-xs text-green-600">{formatCurrency(clinic.totalRevenue)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-gray-500 py-4">No clinic data available</p>
-                    )}
-                  </div>
-
-                  {/* Top Performing Codes */}
-                  <div className="rounded-xl bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                        <Trophy className="h-5 w-5 text-yellow-500" />
-                        Top Performing Codes
-                      </h3>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="py-4 text-center text-gray-500">No clinic data available</p>
+                      )}
                     </div>
-                    {analytics.topCodes.length > 0 ? (
-                      <div className="space-y-3">
-                        {analytics.topCodes.slice(0, 5).map((code, i) => (
-                          <div key={code.code} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                                i === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                i === 1 ? 'bg-gray-100 text-gray-700' :
-                                i === 2 ? 'bg-orange-100 text-orange-700' :
-                                'bg-gray-50 text-gray-500'
-                              }`}>
-                                {i + 1}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="font-mono font-medium text-gray-900">{code.code}</p>
-                                <p className="text-xs text-gray-500 truncate">
-                                  {code.affiliateName} · {code.clinicName}
+
+                    {/* Top Performing Codes */}
+                    <div className="rounded-xl bg-white p-5 shadow-sm">
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="flex items-center gap-2 font-semibold text-gray-900">
+                          <Trophy className="h-5 w-5 text-yellow-500" />
+                          Top Performing Codes
+                        </h3>
+                      </div>
+                      {analytics.topCodes.length > 0 ? (
+                        <div className="space-y-3">
+                          {analytics.topCodes.slice(0, 5).map((code, i) => (
+                            <div key={code.code} className="flex items-center justify-between">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span
+                                  className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                                    i === 0
+                                      ? 'bg-yellow-100 text-yellow-700'
+                                      : i === 1
+                                        ? 'bg-gray-100 text-gray-700'
+                                        : i === 2
+                                          ? 'bg-orange-100 text-orange-700'
+                                          : 'bg-gray-50 text-gray-500'
+                                  }`}
+                                >
+                                  {i + 1}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="font-mono font-medium text-gray-900">{code.code}</p>
+                                  <p className="truncate text-xs text-gray-500">
+                                    {code.affiliateName} · {code.clinicName}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="ml-2 flex-shrink-0 text-right">
+                                <p className="font-medium text-gray-900">{code.conversions}</p>
+                                <p className="text-xs text-green-600">
+                                  {formatCurrency(code.revenue)}
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right flex-shrink-0 ml-2">
-                              <p className="font-medium text-gray-900">{code.conversions}</p>
-                              <p className="text-xs text-green-600">{formatCurrency(code.revenue)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-gray-500 py-4">No code data available</p>
-                    )}
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="py-4 text-center text-gray-500">No code data available</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </>
+                </>
+              )
             )}
           </div>
         )}
@@ -757,21 +791,30 @@ export default function SuperAdminAffiliatesPage() {
               fetchDiagnostics();
             }
           }}
-          className="flex items-center gap-2 mb-4 text-gray-600 hover:text-gray-900"
+          className="mb-4 flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
           <Wrench className="h-5 w-5" />
           <span className="font-medium">System Diagnostics</span>
           {diagnostics && (
-            <span className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-              diagnostics.overallStatus === 'healthy' ? 'bg-green-100 text-green-700' :
-              diagnostics.overallStatus === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-              'bg-red-100 text-red-700'
-            }`}>
-              {diagnostics.overallStatus === 'healthy' ? 'Healthy' :
-               diagnostics.overallStatus === 'warning' ? 'Needs Attention' : 'Issues Found'}
+            <span
+              className={`ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                diagnostics.overallStatus === 'healthy'
+                  ? 'bg-green-100 text-green-700'
+                  : diagnostics.overallStatus === 'warning'
+                    ? 'bg-yellow-100 text-yellow-700'
+                    : 'bg-red-100 text-red-700'
+              }`}
+            >
+              {diagnostics.overallStatus === 'healthy'
+                ? 'Healthy'
+                : diagnostics.overallStatus === 'warning'
+                  ? 'Needs Attention'
+                  : 'Issues Found'}
             </span>
           )}
-          <ChevronDown className={`h-4 w-4 transition-transform ${showDiagnostics ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${showDiagnostics ? 'rotate-180' : ''}`}
+          />
         </button>
 
         {showDiagnostics && (
@@ -784,8 +827,8 @@ export default function SuperAdminAffiliatesPage() {
               <>
                 {/* Health Checks */}
                 <div className="rounded-xl bg-white p-5 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 font-semibold text-gray-900">
                       <Activity className="h-5 w-5 text-gray-400" />
                       System Health Checks
                     </h3>
@@ -802,22 +845,24 @@ export default function SuperAdminAffiliatesPage() {
                       <div
                         key={check.name}
                         className={`rounded-lg border p-3 ${
-                          check.status === 'healthy' ? 'border-green-200 bg-green-50' :
-                          check.status === 'warning' ? 'border-yellow-200 bg-yellow-50' :
-                          'border-red-200 bg-red-50'
+                          check.status === 'healthy'
+                            ? 'border-green-200 bg-green-50'
+                            : check.status === 'warning'
+                              ? 'border-yellow-200 bg-yellow-50'
+                              : 'border-red-200 bg-red-50'
                         }`}
                       >
                         <div className="flex items-start gap-2">
                           {check.status === 'healthy' ? (
-                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-green-600" />
                           ) : check.status === 'warning' ? (
-                            <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
+                            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-yellow-600" />
                           ) : (
-                            <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                            <XCircle className="h-5 w-5 flex-shrink-0 text-red-600" />
                           )}
                           <div className="min-w-0">
-                            <p className="font-medium text-gray-900 text-sm">{check.name}</p>
-                            <p className="text-xs text-gray-600 mt-0.5">{check.message}</p>
+                            <p className="text-sm font-medium text-gray-900">{check.name}</p>
+                            <p className="mt-0.5 text-xs text-gray-600">{check.message}</p>
                           </div>
                         </div>
                       </div>
@@ -827,17 +872,21 @@ export default function SuperAdminAffiliatesPage() {
 
                 {/* Migration Status */}
                 {diagnostics.migrationStatus.unmigratedCodes.length > 0 && (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-5">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
                       <div>
                         <h4 className="font-semibold text-amber-800">Legacy Migration Needed</h4>
-                        <p className="text-sm text-amber-700 mt-1">
-                          {diagnostics.migrationStatus.unmigratedCodes.length} legacy Influencer codes need to be migrated to the modern Affiliate system.
+                        <p className="mt-1 text-sm text-amber-700">
+                          {diagnostics.migrationStatus.unmigratedCodes.length} legacy Influencer
+                          codes need to be migrated to the modern Affiliate system.
                         </p>
                         <div className="mt-2 flex flex-wrap gap-1">
                           {diagnostics.migrationStatus.unmigratedCodes.slice(0, 5).map((code) => (
-                            <span key={code} className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 text-xs font-mono text-amber-800">
+                            <span
+                              key={code}
+                              className="inline-flex items-center rounded bg-amber-100 px-2 py-0.5 font-mono text-xs text-amber-800"
+                            >
                               {code}
                             </span>
                           ))}
@@ -847,8 +896,11 @@ export default function SuperAdminAffiliatesPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-amber-600 mt-2">
-                          Run: <code className="bg-amber-100 px-1 rounded">npx tsx scripts/migrate-influencers-to-affiliates.ts</code>
+                        <p className="mt-2 text-xs text-amber-600">
+                          Run:{' '}
+                          <code className="rounded bg-amber-100 px-1">
+                            npx tsx scripts/migrate-influencers-to-affiliates.ts
+                          </code>
                         </p>
                       </div>
                     </div>
@@ -859,14 +911,17 @@ export default function SuperAdminAffiliatesPage() {
                 <div className="grid gap-4 lg:grid-cols-2">
                   {/* Recent Tracking */}
                   <div className="rounded-xl bg-white p-5 shadow-sm">
-                    <h4 className="font-semibold text-gray-900 mb-3">Recent Tracking (30 days)</h4>
+                    <h4 className="mb-3 font-semibold text-gray-900">Recent Tracking (30 days)</h4>
                     {diagnostics.recentActivity.recentTouches.length > 0 ? (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <div className="max-h-48 space-y-2 overflow-y-auto">
                         {diagnostics.recentActivity.recentTouches.map((touch, i) => (
-                          <div key={i} className="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                          <div
+                            key={i}
+                            className="flex items-center justify-between border-b border-gray-100 pb-2 text-sm"
+                          >
                             <div>
                               <span className="font-mono text-gray-900">{touch.refCode}</span>
-                              <span className="text-gray-500 ml-2">{touch.affiliateName}</span>
+                              <span className="ml-2 text-gray-500">{touch.affiliateName}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {touch.converted && (
@@ -888,14 +943,19 @@ export default function SuperAdminAffiliatesPage() {
 
                   {/* Recent Referrals (Legacy) */}
                   <div className="rounded-xl bg-white p-5 shadow-sm">
-                    <h4 className="font-semibold text-gray-900 mb-3">Recent Intake Referrals (30 days)</h4>
+                    <h4 className="mb-3 font-semibold text-gray-900">
+                      Recent Intake Referrals (30 days)
+                    </h4>
                     {diagnostics.recentActivity.recentReferrals.length > 0 ? (
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                      <div className="max-h-48 space-y-2 overflow-y-auto">
                         {diagnostics.recentActivity.recentReferrals.map((ref, i) => (
-                          <div key={i} className="flex items-center justify-between text-sm border-b border-gray-100 pb-2">
+                          <div
+                            key={i}
+                            className="flex items-center justify-between border-b border-gray-100 pb-2 text-sm"
+                          >
                             <div>
                               <span className="font-mono text-gray-900">{ref.promoCode}</span>
-                              <span className="text-gray-500 ml-2">Patient #{ref.patientId}</span>
+                              <span className="ml-2 text-gray-500">Patient #{ref.patientId}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               {ref.hasModernAttribution ? (
@@ -959,7 +1019,9 @@ export default function SuperAdminAffiliatesPage() {
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(totals.commissions)}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(totals.commissions)}
+              </p>
               <p className="text-sm text-gray-500">Total Commissions</p>
             </div>
           </div>
@@ -982,7 +1044,9 @@ export default function SuperAdminAffiliatesPage() {
           <Building2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <select
             value={selectedClinic}
-            onChange={(e) => setSelectedClinic(e.target.value === 'all' ? 'all' : parseInt(e.target.value))}
+            onChange={(e) =>
+              setSelectedClinic(e.target.value === 'all' ? 'all' : parseInt(e.target.value))
+            }
             className="appearance-none rounded-lg border border-gray-200 py-2 pl-10 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
           >
             <option value="all">All Clinics</option>
@@ -992,7 +1056,7 @@ export default function SuperAdminAffiliatesPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         </div>
       </div>
 
@@ -1038,7 +1102,9 @@ export default function SuperAdminAffiliatesPage() {
                     <Building2 className="h-4 w-4 text-gray-400" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">{affiliate.clinic.name}</p>
-                      <p className="text-xs text-gray-500">{affiliate.clinic.subdomain}.eonpro.io</p>
+                      <p className="text-xs text-gray-500">
+                        {affiliate.clinic.subdomain}.eonpro.io
+                      </p>
                     </div>
                   </div>
                 </td>
@@ -1048,7 +1114,7 @@ export default function SuperAdminAffiliatesPage() {
                       <button
                         key={ref.id}
                         onClick={() => handleCopyCode(ref.refCode)}
-                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700 hover:bg-gray-200"
+                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700 hover:bg-gray-200"
                       >
                         {ref.refCode}
                         {copiedCode === ref.refCode ? (
@@ -1074,21 +1140,28 @@ export default function SuperAdminAffiliatesPage() {
                       <p className="text-xs text-gray-500">
                         {(() => {
                           const plan = affiliate.currentPlan!;
-                          const hasSeperateRates = plan.initialPercentBps !== null || 
+                          const hasSeperateRates =
+                            plan.initialPercentBps !== null ||
                             plan.initialFlatAmountCents !== null ||
                             plan.recurringPercentBps !== null ||
                             plan.recurringFlatAmountCents !== null;
-                          
+
                           if (hasSeperateRates) {
-                            const initialRate = plan.planType === 'PERCENT' 
-                              ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                              : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
-                            const recurringRate = plan.planType === 'PERCENT'
-                              ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                              : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                            const initialRate =
+                              plan.planType === 'PERCENT'
+                                ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                                : formatCurrency(
+                                    plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                                  );
+                            const recurringRate =
+                              plan.planType === 'PERCENT'
+                                ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                                : formatCurrency(
+                                    plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                                  );
                             return `${initialRate} / ${recurringRate}`;
                           }
-                          
+
                           return plan.planType === 'PERCENT' && plan.percentBps
                             ? formatPercent(plan.percentBps)
                             : plan.flatAmountCents
@@ -1103,16 +1176,16 @@ export default function SuperAdminAffiliatesPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="text-sm">
-                    <p className="text-gray-900">
-                      {affiliate.stats.totalConversions} conversions
-                    </p>
+                    <p className="text-gray-900">{affiliate.stats.totalConversions} conversions</p>
                     <p className="text-gray-500">
                       {formatCurrency(affiliate.stats.totalCommissionCents)} earned
                     </p>
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
-                  <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}>
+                  <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}
+                  >
                     {affiliate.status}
                   </span>
                 </td>
@@ -1153,13 +1226,20 @@ export default function SuperAdminAffiliatesPage() {
             <div className="mt-4 flex flex-col items-center gap-2">
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+                className="font-medium text-[#4fa77e] hover:text-[#3d8a66]"
               >
                 Add your first affiliate
               </button>
               {plans.length === 0 && (
                 <p className="text-sm text-gray-400">
-                  Tip: <Link href="/super-admin/commission-plans" className="text-[#4fa77e] hover:underline">Create a commission plan</Link> first
+                  Tip:{' '}
+                  <Link
+                    href="/super-admin/commission-plans"
+                    className="text-[#4fa77e] hover:underline"
+                  >
+                    Create a commission plan
+                  </Link>{' '}
+                  first
                 </p>
               )}
             </div>
@@ -1170,16 +1250,18 @@ export default function SuperAdminAffiliatesPage() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
             <h2 className="mb-4 text-xl font-bold text-gray-900">Create Affiliate</h2>
-            
+
             <form onSubmit={handleCreateAffiliate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Clinic *</label>
                 <select
                   required
                   value={createForm.clinicId}
-                  onChange={(e) => setCreateForm(f => ({ ...f, clinicId: e.target.value, commissionPlanId: '' }))}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, clinicId: e.target.value, commissionPlanId: '' }))
+                  }
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 >
                   <option value="">Select a clinic...</option>
@@ -1197,7 +1279,7 @@ export default function SuperAdminAffiliatesPage() {
                   type="email"
                   required
                   value={createForm.email}
-                  onChange={(e) => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -1208,7 +1290,7 @@ export default function SuperAdminAffiliatesPage() {
                   type="password"
                   required
                   value={createForm.password}
-                  onChange={(e) => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -1219,7 +1301,7 @@ export default function SuperAdminAffiliatesPage() {
                   type="text"
                   required
                   value={createForm.displayName}
-                  onChange={(e) => setCreateForm(f => ({ ...f, displayName: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, displayName: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -1230,7 +1312,7 @@ export default function SuperAdminAffiliatesPage() {
                   <input
                     type="text"
                     value={createForm.firstName}
-                    onChange={(e) => setCreateForm(f => ({ ...f, firstName: e.target.value }))}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -1239,7 +1321,7 @@ export default function SuperAdminAffiliatesPage() {
                   <input
                     type="text"
                     value={createForm.lastName}
-                    onChange={(e) => setCreateForm(f => ({ ...f, lastName: e.target.value }))}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -1250,7 +1332,9 @@ export default function SuperAdminAffiliatesPage() {
                 <input
                   type="text"
                   value={createForm.initialRefCode}
-                  onChange={(e) => setCreateForm(f => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))
+                  }
                   placeholder="e.g., PARTNER_ABC"
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
@@ -1260,35 +1344,45 @@ export default function SuperAdminAffiliatesPage() {
                 <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
                 <select
                   value={createForm.commissionPlanId}
-                  onChange={(e) => setCreateForm(f => ({ ...f, commissionPlanId: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, commissionPlanId: e.target.value }))
+                  }
                   disabled={!createForm.clinicId}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e] disabled:bg-gray-100"
                 >
                   <option value="">Select a plan...</option>
                   {availablePlans.map((plan) => {
                     // Check if plan has separate initial/recurring rates
-                    const hasSeperateRates = plan.initialPercentBps !== null || 
+                    const hasSeperateRates =
+                      plan.initialPercentBps !== null ||
                       plan.initialFlatAmountCents !== null ||
                       plan.recurringPercentBps !== null ||
                       plan.recurringFlatAmountCents !== null;
-                    
+
                     let rateDisplay = '';
                     if (hasSeperateRates) {
-                      const initialRate = plan.planType === 'PERCENT' 
-                        ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                        : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
-                      const recurringRate = plan.planType === 'PERCENT'
-                        ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                        : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                      const initialRate =
+                        plan.planType === 'PERCENT'
+                          ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                          : formatCurrency(
+                              plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                            );
+                      const recurringRate =
+                        plan.planType === 'PERCENT'
+                          ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                          : formatCurrency(
+                              plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                            );
                       rateDisplay = `${initialRate} init / ${recurringRate} rec`;
                     } else {
-                      rateDisplay = plan.planType === 'PERCENT' && plan.percentBps
-                        ? formatPercent(plan.percentBps)
-                        : plan.flatAmountCents
-                          ? formatCurrency(plan.flatAmountCents)
-                          : 'N/A';
+                      rateDisplay =
+                        plan.planType === 'PERCENT' && plan.percentBps
+                          ? formatPercent(plan.percentBps)
+                          : plan.flatAmountCents
+                            ? formatCurrency(plan.flatAmountCents)
+                            : 'N/A';
                     }
-                    
+
                     return (
                       <option key={plan.id} value={plan.id}>
                         {plan.name} ({rateDisplay})
@@ -1302,9 +1396,7 @@ export default function SuperAdminAffiliatesPage() {
               </div>
 
               {createError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {createError}
-                </div>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</div>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -1331,17 +1423,17 @@ export default function SuperAdminAffiliatesPage() {
       {/* Edit Modal */}
       {showEditModal && editingAffiliate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Edit Affiliate</h2>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-1 rounded hover:bg-gray-100"
+                className="rounded p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
-            
+
             <form onSubmit={handleUpdateAffiliate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Display Name *</label>
@@ -1349,7 +1441,7 @@ export default function SuperAdminAffiliatesPage() {
                   type="text"
                   required
                   value={editForm.displayName}
-                  onChange={(e) => setEditForm(f => ({ ...f, displayName: e.target.value }))}
+                  onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -1358,7 +1450,7 @@ export default function SuperAdminAffiliatesPage() {
                 <label className="block text-sm font-medium text-gray-700">Status</label>
                 <select
                   value={editForm.status}
-                  onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value }))}
+                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 >
                   <option value="ACTIVE">Active</option>
@@ -1374,7 +1466,7 @@ export default function SuperAdminAffiliatesPage() {
                   <input
                     type="text"
                     value={editForm.firstName}
-                    onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -1383,7 +1475,7 @@ export default function SuperAdminAffiliatesPage() {
                   <input
                     type="text"
                     value={editForm.lastName}
-                    onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                    onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
@@ -1394,7 +1486,7 @@ export default function SuperAdminAffiliatesPage() {
                 <input
                   type="email"
                   value={editForm.email}
-                  onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
               </div>
@@ -1403,36 +1495,44 @@ export default function SuperAdminAffiliatesPage() {
                 <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
                 <select
                   value={editForm.commissionPlanId}
-                  onChange={(e) => setEditForm(f => ({ ...f, commissionPlanId: e.target.value }))}
+                  onChange={(e) => setEditForm((f) => ({ ...f, commissionPlanId: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 >
                   <option value="">No plan</option>
                   {plans
-                    .filter(p => p.isActive && p.clinicId === editingAffiliate.clinicId)
+                    .filter((p) => p.isActive && p.clinicId === editingAffiliate.clinicId)
                     .map((plan) => {
                       // Check if plan has separate initial/recurring rates
-                      const hasSeperateRates = plan.initialPercentBps !== null || 
+                      const hasSeperateRates =
+                        plan.initialPercentBps !== null ||
                         plan.initialFlatAmountCents !== null ||
                         plan.recurringPercentBps !== null ||
                         plan.recurringFlatAmountCents !== null;
-                      
+
                       let rateDisplay = '';
                       if (hasSeperateRates) {
-                        const initialRate = plan.planType === 'PERCENT' 
-                          ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                          : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
-                        const recurringRate = plan.planType === 'PERCENT'
-                          ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                          : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                        const initialRate =
+                          plan.planType === 'PERCENT'
+                            ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                            : formatCurrency(
+                                plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                              );
+                        const recurringRate =
+                          plan.planType === 'PERCENT'
+                            ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                            : formatCurrency(
+                                plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                              );
                         rateDisplay = `${initialRate} init / ${recurringRate} rec`;
                       } else {
-                        rateDisplay = plan.planType === 'PERCENT' && plan.percentBps
-                          ? formatPercent(plan.percentBps)
-                          : plan.flatAmountCents
-                            ? formatCurrency(plan.flatAmountCents)
-                            : 'N/A';
+                        rateDisplay =
+                          plan.planType === 'PERCENT' && plan.percentBps
+                            ? formatPercent(plan.percentBps)
+                            : plan.flatAmountCents
+                              ? formatCurrency(plan.flatAmountCents)
+                              : 'N/A';
                       }
-                      
+
                       return (
                         <option key={plan.id} value={plan.id}>
                           {plan.name} ({rateDisplay})
@@ -1446,15 +1546,14 @@ export default function SuperAdminAffiliatesPage() {
                 <p className="text-xs text-gray-500">
                   <strong>Clinic:</strong> {editingAffiliate.clinic.name}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  <strong>Ref Codes:</strong> {editingAffiliate.refCodes.map(r => r.refCode).join(', ') || 'None'}
+                <p className="mt-1 text-xs text-gray-500">
+                  <strong>Ref Codes:</strong>{' '}
+                  {editingAffiliate.refCodes.map((r) => r.refCode).join(', ') || 'None'}
                 </p>
               </div>
 
               {editError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {editError}
-                </div>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{editError}</div>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -1482,41 +1581,40 @@ export default function SuperAdminAffiliatesPage() {
       {showDeleteModal && deletingAffiliate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
-            <div className="flex items-center justify-center mb-4">
+            <div className="mb-4 flex items-center justify-center">
               <div className="rounded-full bg-red-100 p-3">
                 <Trash2 className="h-6 w-6 text-red-600" />
               </div>
             </div>
-            
-            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
-              Delete Affiliate?
-            </h2>
-            
-            <p className="text-gray-600 text-center mb-4">
+
+            <h2 className="mb-2 text-center text-xl font-bold text-gray-900">Delete Affiliate?</h2>
+
+            <p className="mb-4 text-center text-gray-600">
               Are you sure you want to delete <strong>{deletingAffiliate.displayName}</strong>?
             </p>
 
             {deletingAffiliate.stats.totalConversions > 0 && (
-              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm text-amber-800">
-                  <strong>Note:</strong> This affiliate has {deletingAffiliate.stats.totalConversions} conversion(s) 
-                  and {formatCurrency(deletingAffiliate.stats.totalCommissionCents)} in commissions. 
+                  <strong>Note:</strong> This affiliate has{' '}
+                  {deletingAffiliate.stats.totalConversions} conversion(s) and{' '}
+                  {formatCurrency(deletingAffiliate.stats.totalCommissionCents)} in commissions.
                   They will be deactivated instead of permanently deleted to preserve history.
                 </p>
               </div>
             )}
 
             {deletingAffiliate.stats.totalConversions === 0 && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-4">
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
                 <p className="text-sm text-red-800">
-                  <strong>Warning:</strong> This action cannot be undone. The affiliate and their user account 
-                  will be permanently deleted.
+                  <strong>Warning:</strong> This action cannot be undone. The affiliate and their
+                  user account will be permanently deleted.
                 </p>
               </div>
             )}
 
             {deleteError && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 mb-4">
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
                 {deleteError}
               </div>
             )}

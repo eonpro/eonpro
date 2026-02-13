@@ -244,6 +244,21 @@ export default function LoginPage() {
     }
   }, [searchParams]);
 
+  // Prefill identifier when redirected to provider login after provider email detection
+  useEffect(() => {
+    if (!isBrowser) return;
+    const redirectParam = searchParams.get('redirect');
+    const isProviderRedirect =
+      !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
+    if (isProviderRedirect) {
+      const prefill = sessionStorage.getItem('login_provider_prefill');
+      if (prefill) {
+        setIdentifier(prefill);
+        sessionStorage.removeItem('login_provider_prefill');
+      }
+    }
+  }, [searchParams]);
+
   // OTP countdown timer
   useEffect(() => {
     if (otpCountdown > 0) {
@@ -328,6 +343,29 @@ export default function LoginPage() {
       await sendOtp(trimmedIdentifier);
     } else if (trimmedIdentifier.includes('@')) {
       setLoginMethod('email');
+
+      // If not already on provider login path, check if email is a provider → auto-redirect
+      const redirectParam = searchParams.get('redirect');
+      const isProviderLogin =
+        !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
+      if (!isProviderLogin) {
+        try {
+          const res = await fetch('/api/auth/check-identifier', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: trimmedIdentifier }),
+          });
+          const data = (await res.json()) as { isProvider?: boolean };
+          if (data.isProvider) {
+            sessionStorage.setItem('login_provider_prefill', trimmedIdentifier);
+            router.replace(`/login?redirect=${encodeURIComponent('/provider')}`);
+            return;
+          }
+        } catch {
+          // On error, continue to password step (don't block login)
+        }
+      }
+
       setStep('password');
     } else {
       setError('Please enter a valid email address or phone number');
@@ -862,35 +900,36 @@ export default function LoginPage() {
   const isProviderLogin =
     !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
 
+  // Gradient backgrounds - never solid; always multi-color gradients
+  const mainGradient = isProviderLogin
+    ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 25%, #e0e7ff 50%, #ddd6fe 75%, #dbeafe 100%)'
+    : branding
+      ? `linear-gradient(135deg, ${primaryColor}15 0%, ${secondaryColor}12 33%, ${accentColor}18 66%, ${primaryColor}20 100%)`
+      : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)';
+
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Gradient Background - provider screen: cooler blue-tinted; default: green/yellow */}
+      {/* Gradient Background - provider: purple→blue; branded: clinic colors; default: green→yellow */}
       <div
         className="absolute inset-0"
-        style={{
-          background: isProviderLogin
-            ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 33%, #e0e7ff 66%, #dbeafe 100%)'
-            : branding
-              ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
-              : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
-        }}
+        style={{ background: mainGradient }}
       />
 
-      {/* Subtle mesh overlay */}
+      {/* Subtle mesh overlay - adds depth, never solid */}
       <div
-        className="absolute inset-0 opacity-30"
+        className="absolute inset-0 opacity-40"
         style={{
           backgroundImage: isProviderLogin
-            ? `radial-gradient(circle at 20% 50%, rgba(167, 139, 250, 0.08) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 50%)`
+            ? `radial-gradient(circle at 20% 50%, rgba(167, 139, 250, 0.12) 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, rgba(96, 165, 250, 0.12) 0%, transparent 50%)`
             : branding
-              ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
-                 radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
-                 radial-gradient(circle at 40% 80%, ${secondaryColor}15 0%, transparent 50%)`
-              : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
-                 radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.15) 0%, transparent 50%),
-                 radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.1) 0%, transparent 50%)`,
+              ? `radial-gradient(circle at 20% 50%, ${primaryColor}20 0%, transparent 50%),
+                 radial-gradient(circle at 80% 20%, ${accentColor}25 0%, transparent 50%),
+                 radial-gradient(circle at 40% 80%, ${secondaryColor}18 0%, transparent 50%)`
+              : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+                 radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.2) 0%, transparent 50%),
+                 radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.15) 0%, transparent 50%)`,
         }}
       />
 

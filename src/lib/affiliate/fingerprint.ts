@@ -1,9 +1,9 @@
 /**
  * Browser Fingerprinting for Affiliate Attribution
- * 
+ *
  * Creates a unique browser fingerprint for cross-session tracking.
  * HIPAA-safe: Only creates anonymous identifiers, no PHI.
- * 
+ *
  * Note: For production, consider using FingerprintJS Pro for better accuracy.
  * This is a lightweight implementation that doesn't require external dependencies.
  */
@@ -37,10 +37,10 @@ function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
-  
+
   // Convert to hex string
   const hashStr = Math.abs(hash).toString(16);
   return hashStr.padStart(8, '0');
@@ -53,12 +53,12 @@ async function sha256Hash(message: string): Promise<string> {
   if (typeof window === 'undefined' || !window.crypto?.subtle) {
     return simpleHash(message);
   }
-  
+
   try {
     const msgBuffer = new TextEncoder().encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   } catch {
     return simpleHash(message);
   }
@@ -69,15 +69,15 @@ async function sha256Hash(message: string): Promise<string> {
  */
 function getCanvasFingerprint(): string {
   if (typeof document === 'undefined') return '';
-  
+
   try {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
-    
+
     canvas.width = 200;
     canvas.height = 50;
-    
+
     // Draw some text with specific font
     ctx.textBaseline = 'top';
     ctx.font = "14px 'Arial'";
@@ -88,7 +88,7 @@ function getCanvasFingerprint(): string {
     ctx.fillText('Cwm fjordbank glyphs vext quiz, 😃', 2, 15);
     ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
     ctx.fillText('Cwm fjordbank glyphs vext quiz, 😃', 4, 17);
-    
+
     return canvas.toDataURL();
   } catch {
     return '';
@@ -102,19 +102,21 @@ function getWebglFingerprint(): { vendor: string; renderer: string; fingerprint:
   if (typeof document === 'undefined') {
     return { vendor: '', renderer: '', fingerprint: '' };
   }
-  
+
   try {
     const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
-    
+    const gl =
+      canvas.getContext('webgl') ||
+      (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
+
     if (!gl) {
       return { vendor: '', renderer: '', fingerprint: '' };
     }
-    
+
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
     const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : '';
     const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : '';
-    
+
     return {
       vendor,
       renderer,
@@ -130,13 +132,13 @@ function getWebglFingerprint(): { vendor: string; renderer: string; fingerprint:
  */
 function getPlugins(): string {
   if (typeof navigator === 'undefined' || !navigator.plugins) return '';
-  
+
   const plugins: string[] = [];
   for (let i = 0; i < navigator.plugins.length; i++) {
     const plugin = navigator.plugins[i];
     plugins.push(plugin.name);
   }
-  
+
   return plugins.sort().join(',');
 }
 
@@ -145,10 +147,10 @@ function getPlugins(): string {
  */
 function getTouchSupport(): string {
   if (typeof window === 'undefined') return 'unknown';
-  
+
   const maxTouchPoints = navigator.maxTouchPoints || 0;
   const touchEvent = 'ontouchstart' in window;
-  
+
   return `${maxTouchPoints}:${touchEvent}`;
 }
 
@@ -179,9 +181,9 @@ function collectComponents(): FingerprintComponents {
       fonts: '',
     };
   }
-  
+
   const webgl = getWebglFingerprint();
-  
+
   return {
     userAgent: navigator.userAgent,
     language: navigator.language,
@@ -213,16 +215,16 @@ export async function generateFingerprint(): Promise<{
   components: Partial<FingerprintComponents>;
 }> {
   const components = collectComponents();
-  
+
   // Create a string from all components
   const componentString = Object.entries(components)
     .filter(([, value]) => value !== undefined && value !== '')
     .map(([key, value]) => `${key}:${value}`)
     .join('|');
-  
+
   // Hash the component string
   const fingerprint = await sha256Hash(componentString);
-  
+
   return {
     fingerprint,
     components: {
@@ -246,25 +248,25 @@ export async function getVisitorId(): Promise<string> {
     const stored = localStorage.getItem('aff_visitor_id');
     if (stored) return stored;
   }
-  
+
   // Generate fingerprint
   try {
     const { fingerprint } = await generateFingerprint();
-    
+
     // Store for consistency
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('aff_visitor_id', fingerprint);
     }
-    
+
     return fingerprint;
   } catch {
     // Fallback: generate random ID
     const fallbackId = `fallback_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-    
+
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('aff_visitor_id', fallbackId);
     }
-    
+
     return fallbackId;
   }
 }

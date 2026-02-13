@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Influencer Bank Account API] Error setting default bank account:', error);
     return NextResponse.json({ error: 'Failed to set default bank account' }, { status: 500 });
   }

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         name: 'asc',
       },
+      take: 100,
     });
 
     logger.info(`[/api/clinics] Returned ${clinics.length} active clinics`);
@@ -36,9 +37,6 @@ export async function GET(request: NextRequest) {
     logger.error('[/api/clinics] Failed to fetch clinics', {
       error: error instanceof Error ? error.message : error,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch clinics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Affiliate Payout Method API
- * 
+ *
  * GET - Get current payout method
  * POST - Add or update payout method
  */
@@ -51,7 +51,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     // Format response based on method type
     // BANK_WIRE is used for ACH/bank transfers in the PayoutMethodType enum
-    const isBankTransfer = payoutMethod.methodType === 'BANK_WIRE' || payoutMethod.methodType === 'STRIPE_CONNECT';
+    const isBankTransfer =
+      payoutMethod.methodType === 'BANK_WIRE' || payoutMethod.methodType === 'STRIPE_CONNECT';
     const response = {
       success: true,
       payoutMethod: {
@@ -78,10 +79,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate PayoutMethod] GET error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to retrieve payout method' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to retrieve payout method' }, { status: 500 });
   }
 }
 
@@ -104,23 +102,14 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         );
       }
       if (routingNumber.length !== 9) {
-        return NextResponse.json(
-          { error: 'Invalid routing number' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid routing number' }, { status: 400 });
       }
     } else if (type === 'paypal') {
       if (!email) {
-        return NextResponse.json(
-          { error: 'PayPal email is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'PayPal email is required' }, { status: 400 });
       }
     } else {
-      return NextResponse.json(
-        { error: 'Invalid payout method type' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid payout method type' }, { status: 400 });
     }
 
     // Deactivate existing default payout methods
@@ -173,10 +162,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate PayoutMethod] POST error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to save payout method' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save payout method' }, { status: 500 });
   }
 }
 

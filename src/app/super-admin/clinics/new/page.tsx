@@ -3,8 +3,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Save, Building2, Globe, Palette, Mail,
-  Phone, MapPin, CreditCard, Settings
+  ArrowLeft,
+  Save,
+  Building2,
+  Globe,
+  Palette,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  Settings,
 } from 'lucide-react';
 import { US_STATES } from '@/components/AddressAutocomplete';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
@@ -33,7 +41,6 @@ export default function CreateClinicPage() {
   const [activeTab, setActiveTab] = useState('basic');
 
   useEffect(() => {
-    // Check if user is super admin
     const user = localStorage.getItem('user');
     const token = localStorage.getItem('auth-token');
 
@@ -42,13 +49,18 @@ export default function CreateClinicPage() {
       setTimeout(() => router.push('/login'), 2000);
       return;
     }
-
     if (user) {
-      const userData = JSON.parse(user);
-      const role = userData.role?.toLowerCase();
-      if (role !== 'super_admin') {
-        setError('Access denied. Super Admin privileges required.');
-        setTimeout(() => router.push('/admin'), 2000);
+      try {
+        const userData = JSON.parse(user);
+        const role = userData.role?.toLowerCase();
+        if (role !== 'super_admin') {
+          setError('Access denied. Super Admin privileges required.');
+          setTimeout(() => router.push('/admin'), 2000);
+          return;
+        }
+      } catch {
+        localStorage.removeItem('user');
+        setTimeout(() => router.push('/login'), 2000);
         return;
       }
     }
@@ -97,39 +109,45 @@ export default function CreateClinicPage() {
       apiAccess: false,
       customBranding: false,
       multiLocation: false,
-    }
+    },
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value, type } = e.target;
 
     if (name.startsWith('features.')) {
       const featureName = name.replace('features.', '');
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         features: {
           ...prev.features,
-          [featureName]: (e.target as HTMLInputElement).checked
-        }
+          [featureName]: (e.target as HTMLInputElement).checked,
+        },
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        [name]: type === 'number' ? parseInt(value) : value
+        [name]: type === 'number' ? parseInt(value) : value,
       }));
     }
   };
 
   const generateSubdomain = (name: string) => {
-    return name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
   };
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       name,
-      subdomain: prev.subdomain || generateSubdomain(name)
+      subdomain: prev.subdomain || generateSubdomain(name),
     }));
   };
 
@@ -144,7 +162,7 @@ export default function CreateClinicPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...formData,
@@ -157,7 +175,7 @@ export default function CreateClinicPage() {
               logoUrl: formData.logoUrl,
               iconUrl: formData.iconUrl,
               faviconUrl: formData.faviconUrl,
-            }
+            },
           },
           address: {
             address1: formData.address1,
@@ -165,7 +183,7 @@ export default function CreateClinicPage() {
             city: formData.city,
             state: formData.state,
             zip: formData.zip,
-          }
+          },
         }),
       });
 
@@ -199,36 +217,38 @@ export default function CreateClinicPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-4">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-4">
           <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+            className="mb-4 flex items-center text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft className="h-5 w-5 mr-2" />
+            <ArrowLeft className="mr-2 h-5 w-5" />
             Back to Clinics
           </button>
           <h1 className="text-2xl font-bold text-gray-900">Create New Clinic</h1>
-          <p className="text-gray-600 mt-1">Set up a new clinic with custom branding and features</p>
+          <p className="mt-1 text-gray-600">
+            Set up a new clinic with custom branding and features
+          </p>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="mx-auto max-w-5xl px-6 py-8">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
             {error}
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <div className="mb-6 flex gap-2 border-b border-gray-200">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                   activeTab === tab.id
                     ? 'border-emerald-500 text-emerald-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -245,14 +265,16 @@ export default function CreateClinicPage() {
           {/* Basic Info Tab */}
           {activeTab === 'basic' && (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Building2 className="h-5 w-5 mr-2 text-emerald-600" />
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
+                  <Building2 className="mr-2 h-5 w-5 text-emerald-600" />
                   Clinic Information
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Clinic Name *</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Clinic Name *
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -260,11 +282,13 @@ export default function CreateClinicPage() {
                       onChange={handleNameChange}
                       required
                       placeholder="e.g., Tampa Medical Center"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Subdomain *</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Subdomain *
+                    </label>
                     <div className="flex items-center">
                       <input
                         type="text"
@@ -273,62 +297,68 @@ export default function CreateClinicPage() {
                         onChange={handleChange}
                         required
                         placeholder="tampa-medical"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="flex-1 rounded-l-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
-                      <span className="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-500 text-sm">
+                      <span className="rounded-r-lg border border-l-0 border-gray-300 bg-gray-100 px-4 py-2 text-sm text-gray-500">
                         .eonpro.io
                       </span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Custom Domain (Optional)</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Custom Domain (Optional)
+                    </label>
                     <input
                       type="text"
                       name="customDomain"
                       value={formData.customDomain}
                       onChange={handleChange}
                       placeholder="portal.yourclinic.com"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Admin Email *</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Admin Email *
+                    </label>
                     <input
                       type="email"
                       name="adminEmail"
                       value={formData.adminEmail}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Support Email</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Support Email
+                    </label>
                     <input
                       type="email"
                       name="supportEmail"
                       value={formData.supportEmail}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Phone</label>
                     <input
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">Timezone</label>
                     <select
                       name="timezone"
                       value={formData.timezone}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="America/New_York">Eastern Time</option>
                       <option value="America/Chicago">Central Time</option>
@@ -351,21 +381,24 @@ export default function CreateClinicPage() {
           {activeTab === 'branding' && (
             <div className="space-y-6">
               {/* Logo, Icon & Favicon Upload */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Palette className="h-5 w-5 mr-2 text-emerald-600" />
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
+                  <Palette className="mr-2 h-5 w-5 text-emerald-600" />
                   Branding Assets
                 </h2>
-                <p className="text-sm text-gray-500 mb-6">
-                  Upload your clinic's logo, icon, and favicon to white-label the platform for your members.
+                <p className="mb-6 text-sm text-gray-500">
+                  Upload your clinic's logo, icon, and favicon to white-label the platform for your
+                  members.
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   <BrandingImageUploader
                     label="Logo"
                     description="Main logo displayed in header and emails"
                     imageUrl={formData.logoUrl || null}
-                    onImageChange={(url) => setFormData(prev => ({ ...prev, logoUrl: url || '' }))}
+                    onImageChange={(url) =>
+                      setFormData((prev) => ({ ...prev, logoUrl: url || '' }))
+                    }
                     imageType="logo"
                     accept="image/png,image/jpeg,image/svg+xml,image/webp"
                     maxSizeMB={2}
@@ -376,7 +409,9 @@ export default function CreateClinicPage() {
                     label="App Icon"
                     description="Square icon for mobile apps and PWA"
                     imageUrl={formData.iconUrl || null}
-                    onImageChange={(url) => setFormData(prev => ({ ...prev, iconUrl: url || '' }))}
+                    onImageChange={(url) =>
+                      setFormData((prev) => ({ ...prev, iconUrl: url || '' }))
+                    }
                     imageType="icon"
                     accept="image/png,image/jpeg"
                     maxSizeMB={1}
@@ -387,7 +422,9 @@ export default function CreateClinicPage() {
                     label="Favicon"
                     description="Small icon shown in browser tabs"
                     imageUrl={formData.faviconUrl || null}
-                    onImageChange={(url) => setFormData(prev => ({ ...prev, faviconUrl: url || '' }))}
+                    onImageChange={(url) =>
+                      setFormData((prev) => ({ ...prev, faviconUrl: url || '' }))
+                    }
                     imageType="favicon"
                     accept="image/png,image/x-icon,.ico"
                     maxSizeMB={0.1}
@@ -397,82 +434,113 @@ export default function CreateClinicPage() {
               </div>
 
               {/* Brand Colors */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Brand Colors</h2>
-                <p className="text-sm text-gray-500 mb-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900">Brand Colors</h2>
+                <p className="mb-6 text-sm text-gray-500">
                   Define your clinic's color palette for a consistent brand experience.
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
-                    <p className="text-xs text-gray-500 mb-2">Main brand color for buttons and links</p>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Primary Color
+                    </label>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Main brand color for buttons and links
+                    </p>
                     <div className="flex items-center gap-3">
                       <input
                         type="color"
                         name="primaryColor"
-                        value={/^#[0-9A-Fa-f]{6}$/.test(formData.primaryColor) ? formData.primaryColor : '#10B981'}
+                        value={
+                          /^#[0-9A-Fa-f]{6}$/.test(formData.primaryColor)
+                            ? formData.primaryColor
+                            : '#10B981'
+                        }
                         onChange={handleChange}
-                        className="h-10 w-14 rounded border border-gray-300 cursor-pointer"
+                        className="h-10 w-14 cursor-pointer rounded border border-gray-300"
                       />
                       <input
                         type="text"
                         value={formData.primaryColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, primaryColor: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, primaryColor: e.target.value }))
+                        }
                         placeholder="#10B981"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
+                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
-                    <p className="text-xs text-gray-500 mb-2">Supporting color for backgrounds</p>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Secondary Color
+                    </label>
+                    <p className="mb-2 text-xs text-gray-500">Supporting color for backgrounds</p>
                     <div className="flex items-center gap-3">
                       <input
                         type="color"
                         name="secondaryColor"
-                        value={/^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor) ? formData.secondaryColor : '#3B82F6'}
+                        value={
+                          /^#[0-9A-Fa-f]{6}$/.test(formData.secondaryColor)
+                            ? formData.secondaryColor
+                            : '#3B82F6'
+                        }
                         onChange={handleChange}
-                        className="h-10 w-14 rounded border border-gray-300 cursor-pointer"
+                        className="h-10 w-14 cursor-pointer rounded border border-gray-300"
                       />
                       <input
                         type="text"
                         value={formData.secondaryColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, secondaryColor: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, secondaryColor: e.target.value }))
+                        }
                         placeholder="#3B82F6"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
+                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Accent Color</label>
-                    <p className="text-xs text-gray-500 mb-2">Highlight color for badges and alerts</p>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Accent Color
+                    </label>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Highlight color for badges and alerts
+                    </p>
                     <div className="flex items-center gap-3">
                       <input
                         type="color"
                         name="accentColor"
-                        value={/^#[0-9A-Fa-f]{6}$/.test(formData.accentColor) ? formData.accentColor : '#d3f931'}
+                        value={
+                          /^#[0-9A-Fa-f]{6}$/.test(formData.accentColor)
+                            ? formData.accentColor
+                            : '#d3f931'
+                        }
                         onChange={handleChange}
-                        className="h-10 w-14 rounded border border-gray-300 cursor-pointer"
+                        className="h-10 w-14 cursor-pointer rounded border border-gray-300"
                       />
                       <input
                         type="text"
                         value={formData.accentColor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, accentColor: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, accentColor: e.target.value }))
+                        }
                         placeholder="#d3f931"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
+                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Button Text Color */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Button Text Color</label>
-                  <p className="text-xs text-gray-500 mb-3">
-                    Control the text color inside buttons. Auto mode calculates based on background brightness.
+                <div className="mt-6 border-t border-gray-200 pt-6">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Button Text Color
+                  </label>
+                  <p className="mb-3 text-xs text-gray-500">
+                    Control the text color inside buttons. Auto mode calculates based on background
+                    brightness.
                   </p>
                   <div className="flex gap-3">
                     {[
@@ -482,7 +550,7 @@ export default function CreateClinicPage() {
                     ].map((option) => (
                       <label
                         key={option.value}
-                        className={`flex-1 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        className={`flex-1 cursor-pointer rounded-lg border-2 p-3 transition-all ${
                           formData.buttonTextColor === option.value
                             ? 'border-emerald-500 bg-emerald-50'
                             : 'border-gray-200 hover:border-gray-300'
@@ -493,10 +561,12 @@ export default function CreateClinicPage() {
                           name="buttonTextColor"
                           value={option.value}
                           checked={formData.buttonTextColor === option.value}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            buttonTextColor: e.target.value as 'auto' | 'light' | 'dark'
-                          }))}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              buttonTextColor: e.target.value as 'auto' | 'light' | 'dark',
+                            }))
+                          }
                           className="sr-only"
                         />
                         <div className="text-sm font-medium text-gray-900">{option.label}</div>
@@ -508,57 +578,69 @@ export default function CreateClinicPage() {
               </div>
 
               {/* Preview */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h2>
-                <div className="bg-gray-100 rounded-xl p-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900">Live Preview</h2>
+                <div className="rounded-xl bg-gray-100 p-6">
                   {/* Header Preview */}
-                  <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+                  <div className="mb-4 rounded-lg bg-white p-4 shadow-sm">
                     <div className="flex items-center gap-3">
                       {formData.logoUrl ? (
-                        <img src={formData.logoUrl} alt="Logo" className="h-10 max-w-[150px] object-contain" />
+                        <img
+                          src={formData.logoUrl}
+                          alt="Logo"
+                          className="h-10 max-w-[150px] object-contain"
+                        />
                       ) : (
                         <div
-                          className="h-10 w-10 rounded-lg flex items-center justify-center font-bold"
+                          className="flex h-10 w-10 items-center justify-center rounded-lg font-bold"
                           style={{
                             backgroundColor: formData.primaryColor,
-                            color: getTextColorForBg(formData.primaryColor, formData.buttonTextColor)
+                            color: getTextColorForBg(
+                              formData.primaryColor,
+                              formData.buttonTextColor
+                            ),
                           }}
                         >
                           {formData.name?.[0] || 'C'}
                         </div>
                       )}
-                      <span className="font-semibold text-lg">{formData.name || 'Clinic Name'}</span>
+                      <span className="text-lg font-semibold">
+                        {formData.name || 'Clinic Name'}
+                      </span>
                     </div>
                   </div>
 
                   {/* UI Elements Preview */}
-                  <div className="bg-white rounded-lg shadow-sm p-4">
-                    <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="rounded-lg bg-white p-4 shadow-sm">
+                    <div className="mb-4 flex flex-wrap gap-3">
                       <button
                         type="button"
-                        className="px-4 py-2 rounded-lg text-sm font-medium"
+                        className="rounded-lg px-4 py-2 text-sm font-medium"
                         style={{
                           backgroundColor: formData.primaryColor,
-                          color: getTextColorForBg(formData.primaryColor, formData.buttonTextColor)
+                          color: getTextColorForBg(formData.primaryColor, formData.buttonTextColor),
                         }}
                       >
                         Primary Button
                       </button>
                       <button
                         type="button"
-                        className="px-4 py-2 rounded-lg text-sm font-medium"
+                        className="rounded-lg px-4 py-2 text-sm font-medium"
                         style={{
                           backgroundColor: formData.secondaryColor,
-                          color: getTextColorForBg(formData.secondaryColor, formData.buttonTextColor)
+                          color: getTextColorForBg(
+                            formData.secondaryColor,
+                            formData.buttonTextColor
+                          ),
                         }}
                       >
                         Secondary Button
                       </button>
                       <span
-                        className="px-3 py-1 rounded-full text-xs font-medium"
+                        className="rounded-full px-3 py-1 text-xs font-medium"
                         style={{
                           backgroundColor: formData.accentColor,
-                          color: getTextColorForBg(formData.accentColor, formData.buttonTextColor)
+                          color: getTextColorForBg(formData.accentColor, formData.buttonTextColor),
                         }}
                       >
                         Accent Badge
@@ -566,31 +648,31 @@ export default function CreateClinicPage() {
                     </div>
 
                     {/* Color Swatches */}
-                    <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                      <span className="text-xs text-gray-500 mr-2">Color Palette:</span>
+                    <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
+                      <span className="mr-2 text-xs text-gray-500">Color Palette:</span>
                       <div
-                        className="w-8 h-8 rounded-lg shadow-inner"
+                        className="h-8 w-8 rounded-lg shadow-inner"
                         style={{ backgroundColor: formData.primaryColor }}
                         title="Primary"
                       />
                       <div
-                        className="w-8 h-8 rounded-lg shadow-inner"
+                        className="h-8 w-8 rounded-lg shadow-inner"
                         style={{ backgroundColor: formData.secondaryColor }}
                         title="Secondary"
                       />
                       <div
-                        className="w-8 h-8 rounded-lg shadow-inner border border-gray-200"
+                        className="h-8 w-8 rounded-lg border border-gray-200 shadow-inner"
                         style={{ backgroundColor: formData.accentColor }}
                         title="Accent"
                       />
                       {(formData.iconUrl || formData.faviconUrl) && (
                         <>
-                          <span className="text-xs text-gray-500 ml-4 mr-2">Icons:</span>
+                          <span className="ml-4 mr-2 text-xs text-gray-500">Icons:</span>
                           {formData.iconUrl && (
-                            <img src={formData.iconUrl} alt="Icon" className="w-8 h-8 rounded" />
+                            <img src={formData.iconUrl} alt="Icon" className="h-8 w-8 rounded" />
                           )}
                           {formData.faviconUrl && (
-                            <img src={formData.faviconUrl} alt="Favicon" className="w-4 h-4" />
+                            <img src={formData.faviconUrl} alt="Favicon" className="h-4 w-4" />
                           )}
                         </>
                       )}
@@ -603,15 +685,18 @@ export default function CreateClinicPage() {
 
           {/* Features Tab */}
           {activeTab === 'features' && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Settings className="h-5 w-5 mr-2 text-emerald-600" />
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
+                <Settings className="mr-2 h-5 w-5 text-emerald-600" />
                 Enabled Features
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {Object.entries(formData.features).map(([key, value]) => (
-                  <label key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
-                    <span className="font-medium text-gray-700 capitalize">
+                  <label
+                    key={key}
+                    className="flex cursor-pointer items-center justify-between rounded-lg bg-gray-50 p-4 hover:bg-gray-100"
+                  >
+                    <span className="font-medium capitalize text-gray-700">
                       {key.replace(/([A-Z])/g, ' $1').trim()}
                     </span>
                     <input
@@ -619,7 +704,7 @@ export default function CreateClinicPage() {
                       name={`features.${key}`}
                       checked={value}
                       onChange={handleChange}
-                      className="h-5 w-5 text-emerald-600 rounded focus:ring-emerald-500"
+                      className="h-5 w-5 rounded text-emerald-600 focus:ring-emerald-500"
                     />
                   </label>
                 ))}
@@ -630,16 +715,16 @@ export default function CreateClinicPage() {
           {/* Billing Tab */}
           {activeTab === 'billing' && (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2 text-emerald-600" />
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
+                  <CreditCard className="mr-2 h-5 w-5 text-emerald-600" />
                   Billing Plan
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   {plans.map((plan) => (
                     <label
                       key={plan.id}
-                      className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      className={`relative cursor-pointer rounded-lg border-2 p-4 transition-all ${
                         formData.billingPlan === plan.id
                           ? 'border-emerald-500 bg-emerald-50'
                           : 'border-gray-200 hover:border-gray-300'
@@ -666,42 +751,48 @@ export default function CreateClinicPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Custom Limits</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900">Custom Limits</h2>
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Patient Limit</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Patient Limit
+                    </label>
                     <input
                       type="number"
                       name="patientLimit"
                       value={formData.patientLimit}
                       onChange={handleChange}
                       min="-1"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <p className="text-xs text-gray-500 mt-1">-1 for unlimited</p>
+                    <p className="mt-1 text-xs text-gray-500">-1 for unlimited</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Provider Limit</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Provider Limit
+                    </label>
                     <input
                       type="number"
                       name="providerLimit"
                       value={formData.providerLimit}
                       onChange={handleChange}
                       min="-1"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
-                    <p className="text-xs text-gray-500 mt-1">-1 for unlimited</p>
+                    <p className="mt-1 text-xs text-gray-500">-1 for unlimited</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Storage Limit (MB)</label>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Storage Limit (MB)
+                    </label>
                     <input
                       type="number"
                       name="storageLimit"
                       value={formData.storageLimit}
                       onChange={handleChange}
                       min="100"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
                 </div>
@@ -710,24 +801,24 @@ export default function CreateClinicPage() {
           )}
 
           {/* Submit Button */}
-          <div className="flex justify-end gap-4 mt-8">
+          <div className="mt-8 flex justify-end gap-4">
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-gray-300 px-6 py-3 text-gray-700 transition-colors hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className={`px-6 py-3 rounded-lg font-medium text-white flex items-center gap-2 transition-colors ${
-                loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'
+              className={`flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-white transition-colors ${
+                loading ? 'cursor-not-allowed bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-700'
               }`}
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                   Creating...
                 </>
               ) : (
@@ -748,10 +839,12 @@ export default function CreateClinicPage() {
 function ClinicAddressSection({
   formData,
   handleChange,
-  setFormData
+  setFormData,
 }: {
   formData: any;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  handleChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => void;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
 }) {
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -762,9 +855,11 @@ function ClinicAddressSection({
     let timeoutId: NodeJS.Timeout | null = null;
 
     const initializeAutocomplete = () => {
-      if (typeof window === 'undefined' ||
-          !(window as any).google?.maps?.places?.Autocomplete ||
-          !addressInputRef.current) {
+      if (
+        typeof window === 'undefined' ||
+        !(window as any).google?.maps?.places?.Autocomplete ||
+        !addressInputRef.current
+      ) {
         return false;
       }
 
@@ -836,16 +931,16 @@ function ClinicAddressSection({
   }, [setFormData]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-        <MapPin className="h-5 w-5 mr-2 text-emerald-600" />
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
+        <MapPin className="mr-2 h-5 w-5 text-emerald-600" />
         Address
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">Street Address</label>
           <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               ref={addressInputRef}
               type="text"
@@ -853,56 +948,62 @@ function ClinicAddressSection({
               value={formData.address1}
               onChange={handleChange}
               placeholder="Start typing to search..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">Start typing to use Google Maps address autocomplete</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Start typing to use Google Maps address autocomplete
+          </p>
         </div>
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Suite/Unit (Optional)</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Suite/Unit (Optional)
+          </label>
           <input
             type="text"
             name="address2"
             value={formData.address2}
             onChange={handleChange}
             placeholder="Apt, Suite, Unit, etc."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+          <label className="mb-2 block text-sm font-medium text-gray-700">City</label>
           <input
             type="text"
             name="city"
             value={formData.city}
             onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+            <label className="mb-2 block text-sm font-medium text-gray-700">State</label>
             <select
               name="state"
               value={formData.state}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">Select</option>
-              {US_STATES.map(state => (
-                <option key={state.code} value={state.code}>{state.code}</option>
+              {US_STATES.map((state) => (
+                <option key={state.code} value={state.code}>
+                  {state.code}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">ZIP</label>
+            <label className="mb-2 block text-sm font-medium text-gray-700">ZIP</label>
             <input
               type="text"
               name="zip"
               value={formData.zip}
               onChange={handleChange}
               maxLength={5}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
         </div>

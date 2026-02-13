@@ -17,25 +17,37 @@ import lifefile from '@/lib/lifefile';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { orderService, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
+
+const IDEMPOTENCY_RESOURCE_ORDER = 'order_create';
 
 // Zod schema for order creation request
 const createOrderSchema = z.object({
   patientId: z.number().positive('Patient ID must be positive'),
   providerId: z.number().positive('Provider ID must be positive').optional(),
-  products: z.array(z.object({
-    productId: z.number().positive(),
-    quantity: z.number().min(1).default(1),
-  })).min(1, 'At least one product is required').optional(),
+  products: z
+    .array(
+      z.object({
+        productId: z.number().positive(),
+        quantity: z.number().min(1).default(1),
+      })
+    )
+    .min(1, 'At least one product is required')
+    .optional(),
   // Lifefile-specific fields
   orderType: z.string().optional(),
-  shippingAddress: z.object({
-    street: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(2).max(2),
-    zip: z.string().min(5),
-    country: z.string().default('US'),
-  }).optional(),
+  shippingAddress: z
+    .object({
+      street: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(2).max(2),
+      zip: z.string().min(5),
+      country: z.string().default('US'),
+    })
+    .optional(),
   notes: z.string().max(1000).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
@@ -53,6 +65,7 @@ const createOrderSchema = z.object({
  */
 async function listOrdersHandler(request: NextRequest, user: AuthUser) {
   try {
+    requirePermission(toPermissionContext(user), 'order:view');
     const { searchParams } = new URL(request.url);
 
     // Parse query parameters
@@ -115,18 +128,18 @@ export const GET = withAuth(listOrdersHandler);
  */
 async function createOrderHandler(req: NextRequest, user: AuthUser) {
   try {
-    // SECURITY: Verify user has order creation permissions
-    const allowedRoles = ['provider', 'admin', 'super_admin'];
-    if (!allowedRoles.includes(user.role)) {
-      logger.security('Unauthorized order creation attempt', {
-        userId: user.id,
-        role: user.role,
-        clinicId: user.clinicId,
+    requirePermission(toPermissionContext(user), 'order:create');
+
+    const idempotencyKey = req.headers.get('idempotency-key')?.trim();
+    if (idempotencyKey) {
+      const existing = await prisma.idempotencyRecord.findUnique({
+        where: { key: idempotencyKey },
       });
-      return NextResponse.json(
-        { error: 'Not authorized to create orders' },
-        { status: 403 }
-      );
+      if (existing && existing.resource === IDEMPOTENCY_RESOURCE_ORDER) {
+        return NextResponse.json(existing.responseBody as object, {
+          status: existing.responseStatus,
+        });
+      }
     }
 
     const body = await req.json();
@@ -155,7 +168,26 @@ async function createOrderHandler(req: NextRequest, user: AuthUser) {
       lifefileOrderId: order.data?.orderId,
     });
 
-    return NextResponse.json(order.data);
+    const responseData = order.data;
+    const status = 200;
+
+    if (idempotencyKey && responseData) {
+      await prisma.idempotencyRecord.create({
+        data: {
+          key: idempotencyKey,
+          resource: IDEMPOTENCY_RESOURCE_ORDER,
+          responseStatus: status,
+          responseBody: responseData as object,
+        },
+      });
+    }
+
+    await auditPhiAccess(req, buildAuditPhiOptions(req, user, 'order:create', {
+      patientId: validationResult.data.patientId,
+      route: 'POST /api/orders',
+    }));
+
+    return NextResponse.json(responseData);
   } catch (error) {
     return handleApiError(error, {
       context: { route: 'POST /api/orders', userId: user.id },

@@ -9,6 +9,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import {
   ReportingService,
   DateRange,
@@ -16,6 +18,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma } from '@/lib/db';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
@@ -24,6 +27,7 @@ type ReportType = 'patients' | 'payments' | 'subscriptions' | 'revenue' | 'compr
 
 async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
+    requirePermission(toPermissionContext(user), 'report:run');
     const url = new URL(req.url);
     const format = (url.searchParams.get('format') || 'csv') as ExportFormat;
     const report = (url.searchParams.get('report') || 'comprehensive') as ReportType;
@@ -70,6 +74,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
             },
           },
           orderBy: { createdAt: 'desc' },
+          take: AGGREGATION_TAKE,
         });
 
         type PatientExport = (typeof patients)[number];
@@ -109,6 +114,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
             },
           },
           orderBy: { createdAt: 'desc' },
+          take: AGGREGATION_TAKE,
         });
 
         type PaymentExport = (typeof payments)[number];
@@ -137,6 +143,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
             },
           },
           orderBy: { createdAt: 'desc' },
+          take: AGGREGATION_TAKE,
         });
 
         const now = new Date();
@@ -204,6 +211,8 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
       default:
         return NextResponse.json({ error: 'Invalid report type' }, { status: 400 });
     }
+
+    await auditPhiAccess(req, buildAuditPhiOptions(req, user, 'report:export', { route: 'GET /api/reports/export' }));
 
     // Return in requested format
     if (format === 'csv') {

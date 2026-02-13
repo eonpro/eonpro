@@ -1,11 +1,11 @@
 /**
  * Refill Queue Service
  * ====================
- * 
+ *
  * Manages prescription refill scheduling and approval workflow.
- * 
+ *
  * Flow: Patient subscription → Scheduled refill → Payment check → Admin approval → Provider queue → Lifefile
- * 
+ *
  * Key concepts:
  * - Vial count determines refill interval (1 vial = 30 days, 3 vials = 90 days, 6 vials = 180 days)
  * - Refills are scheduled automatically based on subscription plan
@@ -95,9 +95,9 @@ export interface EarlyRefillRequestInput {
 
 /** Map vial count to refill interval in days */
 export const VIAL_TO_INTERVAL_DAYS: Record<number, number> = {
-  1: 30,   // Monthly
-  3: 90,   // Quarterly (3 months)
-  6: 180,  // Semi-annual (6 months)
+  1: 30, // Monthly
+  3: 90, // Quarterly (3 months)
+  6: 180, // Semi-annual (6 months)
 };
 
 /** Default vial count if not specified */
@@ -116,20 +116,13 @@ export const ACTIVE_REFILL_STATUSES: RefillStatus[] = [
 ];
 
 /** Status that allow payment verification */
-export const PAYMENT_VERIFIABLE_STATUSES: RefillStatus[] = [
-  'PENDING_PAYMENT',
-];
+export const PAYMENT_VERIFIABLE_STATUSES: RefillStatus[] = ['PENDING_PAYMENT'];
 
 /** Status that allow admin approval */
-export const ADMIN_APPROVABLE_STATUSES: RefillStatus[] = [
-  'PENDING_ADMIN',
-];
+export const ADMIN_APPROVABLE_STATUSES: RefillStatus[] = ['PENDING_ADMIN'];
 
 /** Status that indicate refill is ready for provider */
-export const PROVIDER_QUEUE_STATUSES: RefillStatus[] = [
-  'APPROVED',
-  'PENDING_PROVIDER',
-];
+export const PROVIDER_QUEUE_STATUSES: RefillStatus[] = ['APPROVED', 'PENDING_PROVIDER'];
 
 // ============================================================================
 // Helper Functions
@@ -155,10 +148,7 @@ export function vialCountFromPlanCategory(category: string | null | undefined): 
 /**
  * Calculate next refill date based on interval
  */
-export function calculateNextRefillDate(
-  fromDate: Date,
-  intervalDays: number
-): Date {
+export function calculateNextRefillDate(fromDate: Date, intervalDays: number): Date {
   const next = new Date(fromDate);
   next.setDate(next.getDate() + intervalDays);
   return next;
@@ -171,9 +161,7 @@ export function calculateNextRefillDate(
 /**
  * Schedule a new refill for a patient
  */
-export async function scheduleRefill(
-  input: ScheduleRefillInput
-): Promise<RefillQueue> {
+export async function scheduleRefill(input: ScheduleRefillInput): Promise<RefillQueue> {
   const {
     clinicId,
     patientId,
@@ -262,13 +250,13 @@ export async function scheduleRefillFromSubscription(
 ): Promise<RefillQueue | null> {
   // Fetch subscription if ID was passed
   let subscription: Subscription & { patient?: Patient };
-  
+
   if (typeof subscriptionOrId === 'number') {
     const fetched = await prisma.subscription.findUnique({
       where: { id: subscriptionOrId },
       include: { patient: true },
     });
-    
+
     if (!fetched) {
       logger.warn('[RefillQueue] Cannot schedule refill: subscription not found', {
         subscriptionId: subscriptionOrId,
@@ -281,9 +269,8 @@ export async function scheduleRefillFromSubscription(
   }
 
   // Determine vial count from plan category or subscription field
-  const vialCount = subscription.vialCount || 
-    vialCountFromPlanCategory(subscription.planId) || 
-    DEFAULT_VIAL_COUNT;
+  const vialCount =
+    subscription.vialCount || vialCountFromPlanCategory(subscription.planId) || DEFAULT_VIAL_COUNT;
 
   if (!subscription.clinicId) {
     logger.warn('[RefillQueue] Cannot schedule refill: subscription has no clinicId', {
@@ -303,7 +290,8 @@ export async function scheduleRefillFromSubscription(
   // Check if this is a multi-month package that needs multi-shipment scheduling
   const packageMonths = getPackageMonthsFromSubscription(subscription);
   const budDays = options?.budDays ?? DEFAULT_BUD_DAYS;
-  const needsMultiShipment = options?.forceMultiShipment || requiresMultiShipment(packageMonths, budDays);
+  const needsMultiShipment =
+    options?.forceMultiShipment || requiresMultiShipment(packageMonths, budDays);
 
   if (needsMultiShipment) {
     logger.info('[RefillQueue] Detected multi-month package, creating shipment schedule', {
@@ -328,10 +316,13 @@ export async function scheduleRefillFromSubscription(
       return shipments[0] || null;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('[RefillQueue] Failed to create multi-shipment schedule, falling back to single refill', {
-        subscriptionId: subscription.id,
-        error: message,
-      });
+      logger.error(
+        '[RefillQueue] Failed to create multi-shipment schedule, falling back to single refill',
+        {
+          subscriptionId: subscription.id,
+          error: message,
+        }
+      );
       // Fall through to single refill scheduling
     }
   }
@@ -351,9 +342,7 @@ export async function scheduleRefillFromSubscription(
 /**
  * Get refills that are due for processing (status = SCHEDULED and nextRefillDate <= today)
  */
-export async function getDueRefills(
-  clinicId?: number
-): Promise<RefillQueue[]> {
+export async function getDueRefills(clinicId?: number): Promise<RefillQueue[]> {
   const now = new Date();
 
   const where: any = {
@@ -414,17 +403,8 @@ export async function processDueRefills(
 /**
  * Verify payment for a refill
  */
-export async function verifyPayment(
-  input: PaymentVerificationInput
-): Promise<RefillQueue> {
-  const {
-    refillId,
-    method,
-    verifiedBy,
-    paymentReference,
-    stripePaymentId,
-    invoiceId,
-  } = input;
+export async function verifyPayment(input: PaymentVerificationInput): Promise<RefillQueue> {
+  const { refillId, method, verifiedBy, paymentReference, stripePaymentId, invoiceId } = input;
 
   const refill = await prisma.refillQueue.findUnique({
     where: { id: refillId },
@@ -465,9 +445,7 @@ export async function verifyPayment(
 /**
  * Auto-match payment for refills in Stripe-enabled clinics
  */
-export async function autoMatchPaymentForRefill(
-  refillId: number
-): Promise<boolean> {
+export async function autoMatchPaymentForRefill(refillId: number): Promise<boolean> {
   const refill = await prisma.refillQueue.findUnique({
     where: { id: refillId },
     include: {
@@ -531,9 +509,7 @@ export async function autoMatchPaymentForRefill(
 /**
  * Approve or reject a refill (admin action)
  */
-export async function processAdminApproval(
-  input: AdminApprovalInput
-): Promise<RefillQueue> {
+export async function processAdminApproval(input: AdminApprovalInput): Promise<RefillQueue> {
   const { refillId, approved, adminUserId, notes } = input;
 
   const refill = await prisma.refillQueue.findUnique({
@@ -671,10 +647,7 @@ export async function markPrescribed(
   let nextRefill: RefillQueue | null = null;
 
   if (refill.subscription && refill.subscription.status === 'ACTIVE') {
-    const nextRefillDate = calculateNextRefillDate(
-      new Date(),
-      refill.refillIntervalDays
-    );
+    const nextRefillDate = calculateNextRefillDate(new Date(), refill.refillIntervalDays);
 
     nextRefill = await scheduleRefill({
       clinicId: refill.clinicId,
@@ -719,9 +692,7 @@ export async function markCompleted(refillId: number): Promise<RefillQueue> {
 /**
  * Request early refill (patient-initiated)
  */
-export async function requestEarlyRefill(
-  input: EarlyRefillRequestInput
-): Promise<RefillQueue> {
+export async function requestEarlyRefill(input: EarlyRefillRequestInput): Promise<RefillQueue> {
   const { patientId, subscriptionId, notes, clinicId } = input;
 
   // Check for existing active refill
@@ -791,10 +762,7 @@ export async function requestEarlyRefill(
 /**
  * Cancel a refill
  */
-export async function cancelRefill(
-  refillId: number,
-  reason?: string
-): Promise<RefillQueue> {
+export async function cancelRefill(refillId: number, reason?: string): Promise<RefillQueue> {
   const updated = await prisma.refillQueue.update({
     where: { id: refillId },
     data: {
@@ -811,10 +779,7 @@ export async function cancelRefill(
 /**
  * Put refill on hold
  */
-export async function holdRefill(
-  refillId: number,
-  reason?: string
-): Promise<RefillQueue> {
+export async function holdRefill(refillId: number, reason?: string): Promise<RefillQueue> {
   const updated = await prisma.refillQueue.update({
     where: { id: refillId },
     data: {
@@ -877,9 +842,7 @@ export async function getAdminRefillQueue(
   }
 
   if (filters.status) {
-    where.status = Array.isArray(filters.status)
-      ? { in: filters.status }
-      : filters.status;
+    where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
   }
 
   if (filters.dueBefore) {
@@ -900,10 +863,7 @@ export async function getAdminRefillQueue(
       order: true,
       invoice: true,
     },
-    orderBy: [
-      { status: 'asc' },
-      { nextRefillDate: 'asc' },
-    ],
+    orderBy: [{ status: 'asc' }, { nextRefillDate: 'asc' }],
   });
 }
 
@@ -922,9 +882,7 @@ export async function getPendingAdminApproval(
 /**
  * Get refills pending payment verification
  */
-export async function getPendingPayment(
-  clinicId: number
-): Promise<RefillQueueWithRelations[]> {
+export async function getPendingPayment(clinicId: number): Promise<RefillQueueWithRelations[]> {
   return getAdminRefillQueue({
     clinicId,
     status: 'PENDING_PAYMENT',
@@ -934,9 +892,7 @@ export async function getPendingPayment(
 /**
  * Get refills approved and ready for provider
  */
-export async function getProviderQueue(
-  clinicId: number
-): Promise<RefillQueueWithRelations[]> {
+export async function getProviderQueue(clinicId: number): Promise<RefillQueueWithRelations[]> {
   return getAdminRefillQueue({
     clinicId,
     status: ['APPROVED', 'PENDING_PROVIDER'],
@@ -1006,9 +962,7 @@ export async function getRefillQueueStats(clinicId: number): Promise<{
 /**
  * Get a single refill by ID
  */
-export async function getRefillById(
-  refillId: number
-): Promise<RefillQueueWithRelations | null> {
+export async function getRefillById(refillId: number): Promise<RefillQueueWithRelations | null> {
   return prisma.refillQueue.findUnique({
     where: { id: refillId },
     include: {
@@ -1047,7 +1001,7 @@ export async function getPatientRefillHistory(
 /**
  * Auto-match pending refills for a patient when a Stripe payment is received.
  * Called by Stripe webhook after successful payment processing.
- * 
+ *
  * @param patientId - The patient ID
  * @param clinicId - The clinic ID
  * @param stripePaymentId - The Stripe payment intent or charge ID

@@ -1,6 +1,6 @@
 /**
  * Verify OTP Code for Affiliate Login
- * 
+ *
  * Validates the 6-digit code and creates a session.
  */
 
@@ -22,10 +22,7 @@ export async function POST(request: NextRequest) {
     const { phone, code } = await request.json();
 
     if (!phone || !code) {
-      return NextResponse.json(
-        { error: 'Phone and code are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Phone and code are required' }, { status: 400 });
     }
 
     const normalizedPhone = phone.replace(/\D/g, '');
@@ -53,10 +50,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!affiliate) {
-      return NextResponse.json(
-        { error: 'Invalid code' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid code' }, { status: 401 });
     }
 
     // Get OTP record
@@ -95,10 +89,7 @@ export async function POST(request: NextRequest) {
         data: { attempts: { increment: 1 } },
       });
 
-      return NextResponse.json(
-        { error: 'Invalid code' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid code' }, { status: 401 });
     }
 
     // Code is valid - delete it
@@ -150,10 +141,7 @@ export async function POST(request: NextRequest) {
     logger.error('[Affiliate Auth] Verify code error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    
-    return NextResponse.json(
-      { error: 'Verification failed' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }

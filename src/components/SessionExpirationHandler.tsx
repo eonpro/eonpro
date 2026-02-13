@@ -108,12 +108,12 @@ export default function SessionExpirationHandler() {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="animate-in fade-in zoom-in mx-4 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl duration-200">
         {/* Header */}
-        <div className="bg-amber-50 px-6 py-4 border-b border-amber-200">
+        <div className="border-b border-amber-200 bg-amber-50 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Session Expired</h2>
@@ -124,7 +124,7 @@ export default function SessionExpirationHandler() {
 
         {/* Content */}
         <div className="px-6 py-5">
-          <p className="text-gray-700 mb-4">{reason}</p>
+          <p className="mb-4 text-gray-700">{reason}</p>
           <p className="text-sm text-gray-500">
             For your security, you will be redirected to the login page in{' '}
             <span className="font-semibold text-amber-600">{countdown}</span> seconds.
@@ -132,12 +132,12 @@ export default function SessionExpirationHandler() {
         </div>
 
         {/* Actions */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+        <div className="border-t border-gray-100 bg-gray-50 px-6 py-4">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#4fa77e] text-white rounded-lg font-medium hover:bg-[#3f8660] transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2.5 font-medium text-white transition-colors hover:bg-[#3f8660]"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="h-4 w-4" />
             Log In Now
           </button>
         </div>

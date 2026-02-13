@@ -1,6 +1,6 @@
 /**
  * Affiliate Withdraw API
- * 
+ *
  * GET - Get withdraw eligibility and payout method
  * POST - Request a withdrawal
  */
@@ -10,6 +10,7 @@ import { prisma, Prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
 
 const MIN_WITHDRAWAL_CENTS = 5000; // $50 minimum
 
@@ -63,26 +64,27 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     return NextResponse.json({
       availableBalance,
       minWithdrawal: MIN_WITHDRAWAL_CENTS,
-      payoutMethod: payoutMethod ? {
-        type: payoutMethod.methodType === 'PAYPAL' ? 'paypal' : 'bank',
-        last4: payoutMethod.bankAccountLast4,
-        bankName: payoutMethod.bankName,
-        email: payoutMethod.paypalEmail,
-      } : null,
-      pendingPayout: pendingPayout ? {
-        amount: pendingPayout.netAmountCents,
-        createdAt: pendingPayout.createdAt.toISOString(),
-        status: pendingPayout.status,
-      } : null,
+      payoutMethod: payoutMethod
+        ? {
+            type: payoutMethod.methodType === 'PAYPAL' ? 'paypal' : 'bank',
+            last4: payoutMethod.bankAccountLast4,
+            bankName: payoutMethod.bankName,
+            email: payoutMethod.paypalEmail,
+          }
+        : null,
+      pendingPayout: pendingPayout
+        ? {
+            amount: pendingPayout.netAmountCents,
+            createdAt: pendingPayout.createdAt.toISOString(),
+            status: pendingPayout.status,
+          }
+        : null,
     });
   } catch (error) {
     logger.error('[Affiliate Withdraw] GET error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to get withdraw data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get withdraw data' }, { status: 500 });
   }
 }
 
@@ -155,6 +157,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         payoutId: null,
       },
       orderBy: { createdAt: 'asc' },
+      take: AGGREGATION_TAKE,
       select: {
         id: true,
         commissionAmountCents: true,
@@ -162,7 +165,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     });
 
     const totalAvailable = availableCommissions.reduce(
-      (sum: number, c: { commissionAmountCents: number }) => sum + c.commissionAmountCents, 
+      (sum: number, c: { commissionAmountCents: number }) => sum + c.commissionAmountCents,
       0
     );
 
@@ -228,10 +231,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate Withdraw] POST error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Withdrawal failed. Please try again.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Withdrawal failed. Please try again.' }, { status: 500 });
   }
 }
 

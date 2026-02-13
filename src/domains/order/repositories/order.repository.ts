@@ -138,18 +138,15 @@ const ORDER_WITH_DETAILS_SELECT = {
  * Decrypt patient PHI fields within an order
  * Handles decryption failures gracefully by returning raw data
  */
-function decryptOrderPatient<T extends { patient?: Record<string, unknown> | null }>(
-  order: T
-): T {
+function decryptOrderPatient<T extends { patient?: Record<string, unknown> | null }>(order: T): T {
   if (!order.patient) {
     return order;
   }
 
   try {
-    const decryptedPatient = decryptPatientPHI(
-      order.patient as Record<string, unknown>,
-      [...PATIENT_PHI_FIELDS]
-    );
+    const decryptedPatient = decryptPatientPHI(order.patient as Record<string, unknown>, [
+      ...PATIENT_PHI_FIELDS,
+    ]);
     return {
       ...order,
       patient: decryptedPatient,
@@ -169,9 +166,9 @@ function decryptOrderPatient<T extends { patient?: Record<string, unknown> | nul
 /**
  * Decrypt patient and provider PHI fields within an order with details
  */
-function decryptOrderDetails<T extends { patient?: Record<string, unknown> | null; provider?: Record<string, unknown> | null }>(
-  order: T
-): T {
+function decryptOrderDetails<
+  T extends { patient?: Record<string, unknown> | null; provider?: Record<string, unknown> | null },
+>(order: T): T {
   let result = order;
 
   // Decrypt patient PHI
@@ -182,10 +179,10 @@ function decryptOrderDetails<T extends { patient?: Record<string, unknown> | nul
   // Decrypt provider PHI (firstName, lastName are also PHI)
   if (result.provider) {
     try {
-      const decryptedProvider = decryptPatientPHI(
-        result.provider as Record<string, unknown>,
-        ['firstName', 'lastName']
-      );
+      const decryptedProvider = decryptPatientPHI(result.provider as Record<string, unknown>, [
+        'firstName',
+        'lastName',
+      ]);
       result = {
         ...result,
         provider: decryptedProvider,
@@ -340,7 +337,9 @@ export const orderRepository = {
     ]);
 
     // Decrypt patient PHI fields before returning
-    const decryptedOrders = orders.map((order: typeof orders[number]) => decryptOrderPatient(order));
+    const decryptedOrders = orders.map((order: (typeof orders)[number]) =>
+      decryptOrderPatient(order)
+    );
 
     return {
       orders: decryptedOrders as OrderWithPatient[],
@@ -373,7 +372,9 @@ export const orderRepository = {
     });
 
     // Decrypt patient PHI fields before returning
-    return orders.map((order: typeof orders[number]) => decryptOrderPatient(order)) as OrderWithPatient[];
+    return orders.map((order: (typeof orders)[number]) =>
+      decryptOrderPatient(order)
+    ) as OrderWithPatient[];
   },
 
   /**
@@ -576,7 +577,9 @@ export const orderRepository = {
     });
 
     // Decrypt patient and provider PHI fields before returning
-    return orders.map((order: typeof orders[number]) => decryptOrderDetails(order)) as OrderWithDetails[];
+    return orders.map((order: (typeof orders)[number]) =>
+      decryptOrderDetails(order)
+    ) as OrderWithDetails[];
   },
 
   /**
@@ -591,7 +594,9 @@ export const orderRepository = {
     });
 
     // Decrypt patient PHI fields before returning
-    return orders.map((order: typeof orders[number]) => decryptOrderPatient(order)) as OrderWithPatient[];
+    return orders.map((order: (typeof orders)[number]) =>
+      decryptOrderPatient(order)
+    ) as OrderWithPatient[];
   },
 
   // ============================================================================

@@ -1,6 +1,6 @@
 /**
  * AI Scribe - Transcription Service
- * 
+ *
  * Real-time and batch audio transcription using OpenAI Whisper
  * Includes speaker diarization and medical terminology enhancement
  */
@@ -98,7 +98,7 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
 
     return {
       text: response.text,
-      segments: response.segments?.map(seg => ({
+      segments: response.segments?.map((seg) => ({
         start: seg.start,
         end: seg.end,
         text: seg.text,
@@ -139,18 +139,18 @@ export function detectSpeakers(
     'any side effects',
     'follow up',
     'prescription',
-    'i\'m going to',
-    'we\'ll',
+    "i'm going to",
+    "we'll",
   ];
 
   const patientIndicators = [
     'i feel',
-    'i\'ve been',
+    "i've been",
     'i noticed',
     'my weight',
     'i had',
     'it hurts',
-    'i\'m experiencing',
+    "i'm experiencing",
     'i took',
     'i forgot',
     'thank you',
@@ -158,15 +158,15 @@ export function detectSpeakers(
     'yes',
     'no',
     'i think',
-    'i don\'t',
+    "i don't",
   ];
 
   for (const segment of segments) {
     const lowerText = segment.text.toLowerCase().trim();
-    
+
     // Detect speaker based on content
-    const providerScore = providerIndicators.filter(ind => lowerText.includes(ind)).length;
-    const patientScore = patientIndicators.filter(ind => lowerText.includes(ind)).length;
+    const providerScore = providerIndicators.filter((ind) => lowerText.includes(ind)).length;
+    const patientScore = patientIndicators.filter((ind) => lowerText.includes(ind)).length;
 
     // Check for name mentions
     if (providerName && lowerText.includes(providerName.toLowerCase())) {
@@ -191,7 +191,7 @@ export function detectSpeakers(
     });
 
     // Alternate speaker on significant pauses or question marks
-    if (segment.text.includes('?') || (segments[segmentIndex]?.start - segment.end > 2)) {
+    if (segment.text.includes('?') || segments[segmentIndex]?.start - segment.end > 2) {
       currentSpeaker = currentSpeaker === 'provider' ? 'patient' : 'provider';
     }
   }
@@ -303,28 +303,38 @@ export async function completeSession(sessionId: string): Promise<{
   // Build segments from messages
   const segments: TranscriptionSegment[] = conversation.messages
     .filter((m: { queryType: string }) => m.queryType === 'transcription')
-    .map((m: { queryType: string; citations: unknown; role: string; content: string; createdAt: Date }, idx: number) => {
-      const citations = m.citations as any || {};
-      return {
-        id: `seg-${idx}`,
-        speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
-        text: m.content,
-        startTime: citations.startTime || idx * 10,
-        endTime: citations.endTime || (idx + 1) * 10,
-        confidence: citations.confidence || 0.85,
-        timestamp: m.createdAt,
-      };
-    });
+    .map(
+      (
+        m: {
+          queryType: string;
+          citations: unknown;
+          role: string;
+          content: string;
+          createdAt: Date;
+        },
+        idx: number
+      ) => {
+        const citations = (m.citations as any) || {};
+        return {
+          id: `seg-${idx}`,
+          speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
+          text: m.content,
+          startTime: citations.startTime || idx * 10,
+          endTime: citations.endTime || (idx + 1) * 10,
+          confidence: citations.confidence || 0.85,
+          timestamp: m.createdAt,
+        };
+      }
+    );
 
   // Build formatted transcript
   const transcript = segments
-    .map(seg => `[${seg.speaker.toUpperCase()}]: ${seg.text}`)
+    .map((seg) => `[${seg.speaker.toUpperCase()}]: ${seg.text}`)
     .join('\n\n');
 
   // Calculate duration
-  const duration = segments.length > 0
-    ? segments[segments.length - 1].endTime - segments[0].startTime
-    : 0;
+  const duration =
+    segments.length > 0 ? segments[segments.length - 1].endTime - segments[0].startTime : 0;
 
   // Mark session as completed
   await prisma.aIConversation.update({
@@ -369,18 +379,20 @@ export async function getActiveSession(sessionId: string): Promise<{
     return null;
   }
 
-  const segments: TranscriptionSegment[] = conversation.messages.map((m: { role: string; content: string; citations: unknown; createdAt: Date }, idx: number) => {
-    const citations = (m.citations as Record<string, unknown>) || {};
-    return {
-      id: `seg-${idx}`,
-      speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
-      text: m.content,
-      startTime: citations.startTime || idx * 10,
-      endTime: citations.endTime || (idx + 1) * 10,
-      confidence: citations.confidence || 0.85,
-      timestamp: m.createdAt,
-    };
-  });
+  const segments: TranscriptionSegment[] = conversation.messages.map(
+    (m: { role: string; content: string; citations: unknown; createdAt: Date }, idx: number) => {
+      const citations = (m.citations as Record<string, unknown>) || {};
+      return {
+        id: `seg-${idx}`,
+        speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),
+        text: m.content,
+        startTime: citations.startTime || idx * 10,
+        endTime: citations.endTime || (idx + 1) * 10,
+        confidence: citations.confidence || 0.85,
+        timestamp: m.createdAt,
+      };
+    }
+  );
 
   return {
     session: conversation,

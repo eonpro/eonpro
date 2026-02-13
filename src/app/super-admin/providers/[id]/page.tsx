@@ -208,9 +208,11 @@ export default function SuperAdminProviderDetailPage() {
   }, [providerId]);
 
   const getAuthToken = () => {
-    return localStorage.getItem('auth-token') ||
-           localStorage.getItem('super_admin-token') ||
-           localStorage.getItem('SUPER_ADMIN-token');
+    return (
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('SUPER_ADMIN-token')
+    );
   };
 
   const fetchProvider = async () => {
@@ -219,7 +221,7 @@ export default function SuperAdminProviderDetailPage() {
 
     try {
       const res = await fetch(`/api/super-admin/providers/${providerId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
@@ -252,7 +254,7 @@ export default function SuperAdminProviderDetailPage() {
 
     try {
       const res = await fetch(`/api/super-admin/providers/${providerId}/clinics`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await res.json();
@@ -261,10 +263,16 @@ export default function SuperAdminProviderDetailPage() {
         setAvailableClinics(data.availableClinics || []);
         // Refresh provider data too
         if (data.clinicAssignments) {
-          setProvider(prev => prev ? {
-            ...prev,
-            providerClinics: data.clinicAssignments.filter((a: ClinicAssignment) => a.isActive),
-          } : null);
+          setProvider((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  providerClinics: data.clinicAssignments.filter(
+                    (a: ClinicAssignment) => a.isActive
+                  ),
+                }
+              : null
+          );
         }
       }
     } catch (err) {
@@ -284,7 +292,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(editForm),
@@ -318,7 +326,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}/clinics`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -366,7 +374,7 @@ export default function SuperAdminProviderDetailPage() {
         `/api/super-admin/providers/${providerId}/clinics?clinicId=${clinicId}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -391,7 +399,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}/clinics`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ clinicId, isPrimary: true }),
@@ -432,7 +440,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -470,7 +478,11 @@ export default function SuperAdminProviderDetailPage() {
   };
 
   const handleUnlinkUser = async () => {
-    if (!confirm('Are you sure you want to unlink this user account from the provider? The user account will not be deleted, just disconnected.')) {
+    if (
+      !confirm(
+        'Are you sure you want to unlink this user account from the provider? The user account will not be deleted, just disconnected.'
+      )
+    ) {
       return;
     }
 
@@ -482,7 +494,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -522,7 +534,7 @@ export default function SuperAdminProviderDetailPage() {
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    setCreateUserForm(f => ({ ...f, password }));
+    setCreateUserForm((f) => ({ ...f, password }));
     setShowPassword(true);
   };
 
@@ -533,7 +545,7 @@ export default function SuperAdminProviderDetailPage() {
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    setResetPasswordForm(f => ({ ...f, password }));
+    setResetPasswordForm((f) => ({ ...f, password }));
     setShowResetPassword(true);
   };
 
@@ -559,7 +571,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -640,7 +652,7 @@ export default function SuperAdminProviderDetailPage() {
       const res = await fetch(`/api/super-admin/providers/${providerId}/verify-npi`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -653,10 +665,10 @@ export default function SuperAdminProviderDetailPage() {
 
       // Update local state with verified data
       setNpiVerificationResult(data.result);
-      
+
       // Refresh provider data to get updated npiVerifiedAt
       await fetchProvider();
-      
+
       setShowNpiModal(false);
       setSuccessMessage('NPI verified and saved to provider profile');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -684,13 +696,13 @@ export default function SuperAdminProviderDetailPage() {
   if (error && !provider) {
     return (
       <div className="p-6">
-        <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
-          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Provider</h2>
-          <p className="text-red-600 mb-4">{error}</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-400" />
+          <h2 className="mb-2 text-lg font-semibold text-red-800">Error Loading Provider</h2>
+          <p className="mb-4 text-red-600">{error}</p>
           <button
             onClick={() => router.back()}
-            className="text-red-600 hover:text-red-800 font-medium"
+            className="font-medium text-red-600 hover:text-red-800"
           >
             Go Back
           </button>
@@ -707,7 +719,7 @@ export default function SuperAdminProviderDetailPage() {
       <div className="mb-6 flex items-start gap-4">
         <button
           onClick={() => router.back()}
-          className="mt-1 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="mt-1 rounded-lg p-2 transition-colors hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5 text-gray-600" />
         </button>
@@ -715,12 +727,12 @@ export default function SuperAdminProviderDetailPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             {provider.firstName} {provider.lastName}
           </h1>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="mt-1 flex items-center gap-3">
             <span className="font-mono text-sm text-gray-500">NPI: {provider.npi}</span>
             {provider.npiVerifiedAt ? (
               <button
                 onClick={() => setShowNpiModal(true)}
-                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:bg-green-200 transition-colors"
+                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 transition-colors hover:bg-green-200"
                 title="View NPI verification details"
               >
                 <ShieldCheck className="h-3 w-3" />
@@ -730,7 +742,7 @@ export default function SuperAdminProviderDetailPage() {
               <button
                 onClick={handleVerifyNpi}
                 disabled={verifyingNpi}
-                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-200 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-200 disabled:opacity-50"
                 title="Verify NPI with national registry"
               >
                 {verifyingNpi ? (
@@ -749,23 +761,20 @@ export default function SuperAdminProviderDetailPage() {
             )}
           </div>
         </div>
-        <Link
-          href="/super-admin/providers"
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
+        <Link href="/super-admin/providers" className="text-sm text-gray-500 hover:text-gray-700">
           View All Providers
         </Link>
       </div>
 
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="mb-4 rounded-lg bg-green-50 border border-green-200 p-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
           <Check className="h-5 w-5 text-green-600" />
           <span className="text-green-800">{successMessage}</span>
         </div>
       )}
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
           <AlertCircle className="h-5 w-5 text-red-600" />
           <span className="text-red-800">{error}</span>
           <button onClick={() => setError(null)} className="ml-auto">
@@ -806,7 +815,9 @@ export default function SuperAdminProviderDetailPage() {
               <Calendar className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{provider._count?.appointments ?? 0}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {provider._count?.appointments ?? 0}
+              </p>
               <p className="text-sm text-gray-500">Appointments</p>
             </div>
           </div>
@@ -818,9 +829,7 @@ export default function SuperAdminProviderDetailPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-900">
-                {provider.lastLogin
-                  ? new Date(provider.lastLogin).toLocaleDateString()
-                  : 'Never'}
+                {provider.lastLogin ? new Date(provider.lastLogin).toLocaleDateString() : 'Never'}
               </p>
               <p className="text-sm text-gray-500">Last Login</p>
             </div>
@@ -860,7 +869,7 @@ export default function SuperAdminProviderDetailPage() {
           {/* Main Info */}
           <div className="lg:col-span-2">
             <div className="rounded-xl bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Provider Information</h2>
                 {!editMode ? (
                   <button
@@ -900,7 +909,7 @@ export default function SuperAdminProviderDetailPage() {
                       <input
                         type="text"
                         value={editForm.firstName}
-                        onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                        onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
@@ -909,7 +918,7 @@ export default function SuperAdminProviderDetailPage() {
                       <input
                         type="text"
                         value={editForm.lastName}
-                        onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                        onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
@@ -919,7 +928,7 @@ export default function SuperAdminProviderDetailPage() {
                     <input
                       type="email"
                       value={editForm.email}
-                      onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                   </div>
@@ -929,7 +938,7 @@ export default function SuperAdminProviderDetailPage() {
                       <input
                         type="tel"
                         value={editForm.phone}
-                        onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                        onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
@@ -938,28 +947,36 @@ export default function SuperAdminProviderDetailPage() {
                       <input
                         type="text"
                         value={editForm.titleLine}
-                        onChange={(e) => setEditForm(f => ({ ...f, titleLine: e.target.value }))}
+                        onChange={(e) => setEditForm((f) => ({ ...f, titleLine: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">License State</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        License State
+                      </label>
                       <input
                         type="text"
                         maxLength={2}
                         value={editForm.licenseState}
-                        onChange={(e) => setEditForm(f => ({ ...f, licenseState: e.target.value.toUpperCase() }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, licenseState: e.target.value.toUpperCase() }))
+                        }
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">License Number</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        License Number
+                      </label>
                       <input
                         type="text"
                         value={editForm.licenseNumber}
-                        onChange={(e) => setEditForm(f => ({ ...f, licenseNumber: e.target.value }))}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, licenseNumber: e.target.value }))
+                        }
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
@@ -969,7 +986,7 @@ export default function SuperAdminProviderDetailPage() {
                     <input
                       type="text"
                       value={editForm.dea}
-                      onChange={(e) => setEditForm(f => ({ ...f, dea: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, dea: e.target.value }))}
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                   </div>
@@ -979,7 +996,11 @@ export default function SuperAdminProviderDetailPage() {
                       disabled={saving}
                       className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                     >
-                      {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {saving ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
                       {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
@@ -988,7 +1009,9 @@ export default function SuperAdminProviderDetailPage() {
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <dt className="text-sm text-gray-500">Name</dt>
-                    <dd className="font-medium text-gray-900">{provider.firstName} {provider.lastName}</dd>
+                    <dd className="font-medium text-gray-900">
+                      {provider.firstName} {provider.lastName}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm text-gray-500">NPI</dt>
@@ -1020,7 +1043,9 @@ export default function SuperAdminProviderDetailPage() {
                   </div>
                   <div>
                     <dt className="text-sm text-gray-500">Created</dt>
-                    <dd className="text-gray-900">{new Date(provider.createdAt).toLocaleDateString()}</dd>
+                    <dd className="text-gray-900">
+                      {new Date(provider.createdAt).toLocaleDateString()}
+                    </dd>
                   </div>
                 </dl>
               )}
@@ -1031,7 +1056,7 @@ export default function SuperAdminProviderDetailPage() {
           <div className="space-y-6">
             {/* User Account Management */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <h3 className="font-semibold text-gray-900">User Account</h3>
                 {provider.user ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
@@ -1048,22 +1073,25 @@ export default function SuperAdminProviderDetailPage() {
 
               {provider.user ? (
                 <>
-                  <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="h-10 w-10 rounded-full bg-[#4fa77e] flex items-center justify-center text-white font-semibold">
-                        {provider.user.firstName.charAt(0)}{provider.user.lastName.charAt(0)}
+                  <div className="mb-4 space-y-3">
+                    <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fa77e] font-semibold text-white">
+                        {provider.user.firstName.charAt(0)}
+                        {provider.user.lastName.charAt(0)}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-gray-900">
                           {provider.user.firstName} {provider.user.lastName}
                         </p>
-                        <p className="text-sm text-gray-500 truncate">{provider.user.email}</p>
+                        <p className="truncate text-sm text-gray-500">{provider.user.email}</p>
                       </div>
                     </div>
-                    <div className="text-sm space-y-1">
+                    <div className="space-y-1 text-sm">
                       <p className="flex justify-between">
                         <span className="text-gray-500">Role:</span>
-                        <span className="text-gray-900 uppercase font-medium">{provider.user.role}</span>
+                        <span className="font-medium uppercase text-gray-900">
+                          {provider.user.role}
+                        </span>
                       </p>
                       <p className="flex justify-between">
                         <span className="text-gray-500">Last Login:</span>
@@ -1078,7 +1106,7 @@ export default function SuperAdminProviderDetailPage() {
                   <div className="space-y-2">
                     <button
                       onClick={openResetPasswordModal}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-100"
                     >
                       <Key className="h-4 w-4" />
                       Reset Password
@@ -1086,7 +1114,7 @@ export default function SuperAdminProviderDetailPage() {
                     <button
                       onClick={handleUnlinkUser}
                       disabled={unlinkingUser}
-                      className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
                     >
                       {unlinkingUser ? (
                         <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1099,20 +1127,18 @@ export default function SuperAdminProviderDetailPage() {
                 </>
               ) : (
                 <>
-                  <div className="text-center py-4">
-                    <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                  <div className="py-4 text-center">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                       <UserPlus className="h-6 w-6 text-gray-400" />
                     </div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      No user account linked
-                    </p>
+                    <p className="mb-1 text-sm text-gray-600">No user account linked</p>
                     <p className="text-xs text-gray-500">
                       Create an account to enable provider login
                     </p>
                   </div>
                   <button
                     onClick={openCreateUserModal}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-[#4fa77e] hover:bg-[#3d8a66] rounded-lg transition-colors"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#4fa77e] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3d8a66]"
                   >
                     <UserPlus className="h-4 w-4" />
                     Create User Account
@@ -1123,11 +1149,11 @@ export default function SuperAdminProviderDetailPage() {
 
             {/* Audit History */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h3 className="font-semibold text-gray-900 mb-3">Recent Activity</h3>
+              <h3 className="mb-3 font-semibold text-gray-900">Recent Activity</h3>
               {auditHistory.length > 0 ? (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
+                <div className="max-h-64 space-y-3 overflow-y-auto">
                   {auditHistory.slice(0, 10).map((entry) => (
-                    <div key={entry.id} className="text-sm border-l-2 border-gray-200 pl-3">
+                    <div key={entry.id} className="border-l-2 border-gray-200 pl-3 text-sm">
                       <p className="font-medium text-gray-900">{entry.action.replace(/_/g, ' ')}</p>
                       <p className="text-gray-500">by {entry.actorEmail}</p>
                       <p className="text-xs text-gray-400">
@@ -1147,8 +1173,8 @@ export default function SuperAdminProviderDetailPage() {
       {activeTab === 'clinics' && (
         <div className="space-y-6">
           {/* Clinic Assignments */}
-          <div className="rounded-xl bg-white shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-gray-200 p-4">
               <h2 className="font-semibold text-gray-900">Clinic Assignments</h2>
               <button
                 onClick={() => setShowAddClinicModal(true)}
@@ -1162,14 +1188,14 @@ export default function SuperAdminProviderDetailPage() {
             {provider.providerClinics.length > 0 ? (
               <div className="divide-y divide-gray-100">
                 {provider.providerClinics.map((assignment) => (
-                  <div key={assignment.id} className="p-4 flex items-center gap-4 hover:bg-gray-50">
+                  <div key={assignment.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
                     <div
-                      className="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0"
+                      className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg font-bold text-white"
                       style={{ backgroundColor: assignment.clinic.primaryColor || '#4fa77e' }}
                     >
                       {assignment.clinic.name.charAt(0)}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-gray-900">{assignment.clinic.name}</p>
                         {assignment.isPrimary && (
@@ -1179,18 +1205,18 @@ export default function SuperAdminProviderDetailPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">{assignment.clinic.subdomain}.eonpro.io</p>
+                      <p className="text-sm text-gray-500">
+                        {assignment.clinic.subdomain}.eonpro.io
+                      </p>
                       {assignment.titleLine && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Title: {assignment.titleLine}
-                        </p>
+                        <p className="mt-1 text-xs text-gray-400">Title: {assignment.titleLine}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       {!assignment.isPrimary && (
                         <button
                           onClick={() => handleSetPrimary(assignment.clinicId)}
-                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                          className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-yellow-50 hover:text-yellow-600"
                           title="Set as primary"
                         >
                           <Star className="h-4 w-4" />
@@ -1198,7 +1224,7 @@ export default function SuperAdminProviderDetailPage() {
                       )}
                       <button
                         onClick={() => handleRemoveClinic(assignment.clinicId)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
                         title="Remove from clinic"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1209,12 +1235,14 @@ export default function SuperAdminProviderDetailPage() {
               </div>
             ) : provider.clinic ? (
               <div className="p-4">
-                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center gap-4 rounded-lg bg-gray-50 p-4">
                   <Building2 className="h-8 w-8 text-gray-400" />
                   <div>
                     <p className="font-medium text-gray-900">{provider.clinic.name}</p>
-                    <p className="text-sm text-gray-500">Legacy assignment (clinicId: {provider.clinicId})</p>
-                    <p className="text-xs text-amber-600 mt-1">
+                    <p className="text-sm text-gray-500">
+                      Legacy assignment (clinicId: {provider.clinicId})
+                    </p>
+                    <p className="mt-1 text-xs text-amber-600">
                       Consider migrating to the new clinic assignment system
                     </p>
                   </div>
@@ -1222,11 +1250,11 @@ export default function SuperAdminProviderDetailPage() {
               </div>
             ) : (
               <div className="p-8 text-center">
-                <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500 mb-4">This provider is not assigned to any clinics</p>
+                <Building2 className="mx-auto mb-4 h-12 w-12 text-gray-300" />
+                <p className="mb-4 text-gray-500">This provider is not assigned to any clinics</p>
                 <button
                   onClick={() => setShowAddClinicModal(true)}
-                  className="text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+                  className="font-medium text-[#4fa77e] hover:text-[#3d8a66]"
                 >
                   Assign to a clinic
                 </button>
@@ -1235,14 +1263,15 @@ export default function SuperAdminProviderDetailPage() {
           </div>
 
           {/* Info Box */}
-          <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
             <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
               <div>
                 <p className="text-sm font-medium text-blue-800">Multi-Clinic Provider</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  Providers can be assigned to multiple clinics with different credentials per clinic.
-                  The primary clinic determines which clinic the provider sees by default when logging in.
+                <p className="mt-1 text-sm text-blue-700">
+                  Providers can be assigned to multiple clinics with different credentials per
+                  clinic. The primary clinic determines which clinic the provider sees by default
+                  when logging in.
                 </p>
               </div>
             </div>
@@ -1253,12 +1282,12 @@ export default function SuperAdminProviderDetailPage() {
       {/* Add Clinic Modal */}
       {showAddClinicModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Add to Clinic</h2>
               <button
                 onClick={() => setShowAddClinicModal(false)}
-                className="p-1 rounded hover:bg-gray-100"
+                className="rounded p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -1266,36 +1295,42 @@ export default function SuperAdminProviderDetailPage() {
 
             <form onSubmit={handleAddClinic} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Clinic *</label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Select Clinic *
+                </label>
                 {availableClinics.length > 0 ? (
-                  <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                  <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200">
                     {availableClinics.map((clinic) => (
                       <button
                         key={clinic.id}
                         type="button"
-                        onClick={() => setAddClinicForm(f => ({ ...f, clinicId: clinic.id.toString() }))}
-                        className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${
-                          addClinicForm.clinicId === clinic.id.toString() ? 'bg-[#4fa77e]/5 border-l-4 border-[#4fa77e]' : ''
+                        onClick={() =>
+                          setAddClinicForm((f) => ({ ...f, clinicId: clinic.id.toString() }))
+                        }
+                        className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 ${
+                          addClinicForm.clinicId === clinic.id.toString()
+                            ? 'border-l-4 border-[#4fa77e] bg-[#4fa77e]/5'
+                            : ''
                         }`}
                       >
                         <div
-                          className="h-8 w-8 rounded flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-sm font-bold text-white"
                           style={{ backgroundColor: clinic.primaryColor || '#4fa77e' }}
                         >
                           {clinic.name.charAt(0)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{clinic.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-gray-900">{clinic.name}</p>
                           <p className="text-xs text-gray-500">{clinic.subdomain}.eonpro.io</p>
                         </div>
                         {addClinicForm.clinicId === clinic.id.toString() && (
-                          <Check className="h-5 w-5 text-[#4fa77e] flex-shrink-0" />
+                          <Check className="h-5 w-5 flex-shrink-0 text-[#4fa77e]" />
                         )}
                       </button>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500 py-4 text-center">
+                  <p className="py-4 text-center text-sm text-gray-500">
                     Provider is already assigned to all available clinics
                   </p>
                 )}
@@ -1306,7 +1341,7 @@ export default function SuperAdminProviderDetailPage() {
                   type="checkbox"
                   id="isPrimary"
                   checked={addClinicForm.isPrimary}
-                  onChange={(e) => setAddClinicForm(f => ({ ...f, isPrimary: e.target.checked }))}
+                  onChange={(e) => setAddClinicForm((f) => ({ ...f, isPrimary: e.target.checked }))}
                   className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
                 />
                 <label htmlFor="isPrimary" className="text-sm text-gray-700">
@@ -1315,7 +1350,7 @@ export default function SuperAdminProviderDetailPage() {
               </div>
 
               <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">
+                <p className="mb-3 text-sm font-medium text-gray-700">
                   Clinic-Specific Credentials (Optional)
                 </p>
                 <div className="space-y-3">
@@ -1324,7 +1359,9 @@ export default function SuperAdminProviderDetailPage() {
                     <input
                       type="text"
                       value={addClinicForm.titleLine}
-                      onChange={(e) => setAddClinicForm(f => ({ ...f, titleLine: e.target.value }))}
+                      onChange={(e) =>
+                        setAddClinicForm((f) => ({ ...f, titleLine: e.target.value }))
+                      }
                       placeholder="e.g., MD, Internal Medicine"
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
@@ -1335,7 +1372,9 @@ export default function SuperAdminProviderDetailPage() {
                       <input
                         type="text"
                         value={addClinicForm.deaNumber}
-                        onChange={(e) => setAddClinicForm(f => ({ ...f, deaNumber: e.target.value }))}
+                        onChange={(e) =>
+                          setAddClinicForm((f) => ({ ...f, deaNumber: e.target.value }))
+                        }
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
                     </div>
@@ -1345,7 +1384,12 @@ export default function SuperAdminProviderDetailPage() {
                         type="text"
                         maxLength={2}
                         value={addClinicForm.licenseState}
-                        onChange={(e) => setAddClinicForm(f => ({ ...f, licenseState: e.target.value.toUpperCase() }))}
+                        onChange={(e) =>
+                          setAddClinicForm((f) => ({
+                            ...f,
+                            licenseState: e.target.value.toUpperCase(),
+                          }))
+                        }
                         placeholder="TX"
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
@@ -1356,7 +1400,9 @@ export default function SuperAdminProviderDetailPage() {
                     <input
                       type="text"
                       value={addClinicForm.licenseNumber}
-                      onChange={(e) => setAddClinicForm(f => ({ ...f, licenseNumber: e.target.value }))}
+                      onChange={(e) =>
+                        setAddClinicForm((f) => ({ ...f, licenseNumber: e.target.value }))
+                      }
                       className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                   </div>
@@ -1387,8 +1433,8 @@ export default function SuperAdminProviderDetailPage() {
       {/* NPI Verification Modal */}
       {showNpiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">NPI Verification</h2>
               <button
                 onClick={() => {
@@ -1396,14 +1442,14 @@ export default function SuperAdminProviderDetailPage() {
                   setNpiError(null);
                   setNpiVerificationResult(null);
                 }}
-                className="p-1 rounded hover:bg-gray-100"
+                className="rounded p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
             {/* NPI Number */}
-            <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="mb-4 flex items-center gap-3 rounded-lg bg-gray-50 p-3">
               <div className="flex-1">
                 <p className="text-sm text-gray-500">NPI Number</p>
                 <p className="font-mono text-lg font-semibold text-gray-900">{provider?.npi}</p>
@@ -1421,12 +1467,12 @@ export default function SuperAdminProviderDetailPage() {
 
             {/* Error State */}
             {npiError && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-4 mb-4">
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
                 <div className="flex gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
                   <div>
                     <p className="font-medium text-red-800">Verification Failed</p>
-                    <p className="text-sm text-red-700 mt-1">{npiError}</p>
+                    <p className="mt-1 text-sm text-red-700">{npiError}</p>
                   </div>
                 </div>
               </div>
@@ -1434,27 +1480,34 @@ export default function SuperAdminProviderDetailPage() {
 
             {/* Already Verified State */}
             {provider?.npiVerifiedAt && !npiVerificationResult && !npiError && (
-              <div className="rounded-lg bg-green-50 border border-green-200 p-4 mb-4">
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-4">
                 <div className="flex gap-3">
-                  <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0" />
+                  <ShieldCheck className="h-5 w-5 flex-shrink-0 text-green-500" />
                   <div className="flex-1">
                     <p className="font-medium text-green-800">NPI Verified</p>
-                    <p className="text-sm text-green-700 mt-1">
-                      Verified on {new Date(provider.npiVerifiedAt).toLocaleDateString()} at {new Date(provider.npiVerifiedAt).toLocaleTimeString()}
+                    <p className="mt-1 text-sm text-green-700">
+                      Verified on {new Date(provider.npiVerifiedAt).toLocaleDateString()} at{' '}
+                      {new Date(provider.npiVerifiedAt).toLocaleTimeString()}
                     </p>
                     {provider.npiRawResponse && (
-                      <div className="mt-3 pt-3 border-t border-green-200">
-                        <p className="text-xs text-green-600 font-medium mb-2">Registry Information:</p>
+                      <div className="mt-3 border-t border-green-200 pt-3">
+                        <p className="mb-2 text-xs font-medium text-green-600">
+                          Registry Information:
+                        </p>
                         <div className="space-y-1 text-sm">
                           {provider.npiRawResponse.basic && (
                             <>
                               <p>
                                 <span className="text-green-600">Name:</span>{' '}
                                 <span className="text-green-800">
-                                  {provider.npiRawResponse.basic.namePrefix && `${provider.npiRawResponse.basic.namePrefix} `}
-                                  {provider.npiRawResponse.basic.firstName || provider.npiRawResponse.basic.first_name}{' '}
-                                  {provider.npiRawResponse.basic.lastName || provider.npiRawResponse.basic.last_name}
-                                  {provider.npiRawResponse.basic.credential && `, ${provider.npiRawResponse.basic.credential}`}
+                                  {provider.npiRawResponse.basic.namePrefix &&
+                                    `${provider.npiRawResponse.basic.namePrefix} `}
+                                  {provider.npiRawResponse.basic.firstName ||
+                                    provider.npiRawResponse.basic.first_name}{' '}
+                                  {provider.npiRawResponse.basic.lastName ||
+                                    provider.npiRawResponse.basic.last_name}
+                                  {provider.npiRawResponse.basic.credential &&
+                                    `, ${provider.npiRawResponse.basic.credential}`}
                                 </span>
                               </p>
                             </>
@@ -1463,7 +1516,9 @@ export default function SuperAdminProviderDetailPage() {
                             <p>
                               <span className="text-green-600">Location:</span>{' '}
                               <span className="text-green-800">
-                                {provider.npiRawResponse.addresses[0].city}, {provider.npiRawResponse.addresses[0].state} {provider.npiRawResponse.addresses[0].postalCode}
+                                {provider.npiRawResponse.addresses[0].city},{' '}
+                                {provider.npiRawResponse.addresses[0].state}{' '}
+                                {provider.npiRawResponse.addresses[0].postalCode}
                               </span>
                             </p>
                           )}
@@ -1477,44 +1532,64 @@ export default function SuperAdminProviderDetailPage() {
 
             {/* Fresh Verification Result */}
             {npiVerificationResult && (
-              <div className={`rounded-lg ${npiVerificationResult.valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} border p-4 mb-4`}>
+              <div
+                className={`rounded-lg ${npiVerificationResult.valid ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'} mb-4 border p-4`}
+              >
                 <div className="flex gap-3">
                   {npiVerificationResult.valid ? (
-                    <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0" />
+                    <ShieldCheck className="h-5 w-5 flex-shrink-0 text-green-500" />
                   ) : (
-                    <ShieldAlert className="h-5 w-5 text-red-500 flex-shrink-0" />
+                    <ShieldAlert className="h-5 w-5 flex-shrink-0 text-red-500" />
                   )}
                   <div className="flex-1">
-                    <p className={`font-medium ${npiVerificationResult.valid ? 'text-green-800' : 'text-red-800'}`}>
+                    <p
+                      className={`font-medium ${npiVerificationResult.valid ? 'text-green-800' : 'text-red-800'}`}
+                    >
                       {npiVerificationResult.valid ? 'Valid NPI - Provider Found' : 'Invalid NPI'}
                     </p>
                     {npiVerificationResult.basic && (
                       <div className="mt-3 space-y-2 text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <p className="text-gray-500 text-xs">Registry Name</p>
-                            <p className="text-gray-900 font-medium">
-                              {npiVerificationResult.basic.namePrefix && `${npiVerificationResult.basic.namePrefix} `}
-                              {npiVerificationResult.basic.firstName || npiVerificationResult.basic.first_name}{' '}
-                              {npiVerificationResult.basic.lastName || npiVerificationResult.basic.last_name}
+                            <p className="text-xs text-gray-500">Registry Name</p>
+                            <p className="font-medium text-gray-900">
+                              {npiVerificationResult.basic.namePrefix &&
+                                `${npiVerificationResult.basic.namePrefix} `}
+                              {npiVerificationResult.basic.firstName ||
+                                npiVerificationResult.basic.first_name}{' '}
+                              {npiVerificationResult.basic.lastName ||
+                                npiVerificationResult.basic.last_name}
                             </p>
                           </div>
                           {npiVerificationResult.basic.credential && (
                             <div>
-                              <p className="text-gray-500 text-xs">Credential</p>
-                              <p className="text-gray-900 font-medium">{npiVerificationResult.basic.credential}</p>
+                              <p className="text-xs text-gray-500">Credential</p>
+                              <p className="font-medium text-gray-900">
+                                {npiVerificationResult.basic.credential}
+                              </p>
                             </div>
                           )}
                         </div>
 
                         {/* Compare names */}
                         {provider && (
-                          <div className="mt-2 p-2 bg-white/50 rounded-lg">
-                            <p className="text-xs text-gray-500 mb-1">Name Comparison:</p>
+                          <div className="mt-2 rounded-lg bg-white/50 p-2">
+                            <p className="mb-1 text-xs text-gray-500">Name Comparison:</p>
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-700">System: <strong>{provider.firstName} {provider.lastName}</strong></span>
-                              {(npiVerificationResult.basic.firstName || npiVerificationResult.basic.first_name)?.toLowerCase() === provider.firstName.toLowerCase() &&
-                               (npiVerificationResult.basic.lastName || npiVerificationResult.basic.last_name)?.toLowerCase() === provider.lastName.toLowerCase() ? (
+                              <span className="text-sm text-gray-700">
+                                System:{' '}
+                                <strong>
+                                  {provider.firstName} {provider.lastName}
+                                </strong>
+                              </span>
+                              {(
+                                npiVerificationResult.basic.firstName ||
+                                npiVerificationResult.basic.first_name
+                              )?.toLowerCase() === provider.firstName.toLowerCase() &&
+                              (
+                                npiVerificationResult.basic.lastName ||
+                                npiVerificationResult.basic.last_name
+                              )?.toLowerCase() === provider.lastName.toLowerCase() ? (
                                 <span className="inline-flex items-center gap-1 text-xs text-green-700">
                                   <Check className="h-3 w-3" />
                                   Match
@@ -1530,21 +1605,24 @@ export default function SuperAdminProviderDetailPage() {
                         )}
                       </div>
                     )}
-                    {npiVerificationResult.addresses && npiVerificationResult.addresses.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 font-medium mb-2">Practice Locations:</p>
-                        <div className="space-y-2">
-                          {npiVerificationResult.addresses.map((addr, idx) => (
-                            <div key={idx} className="text-sm">
-                              <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-200 text-gray-700 rounded mr-2">
-                                {addr.addressPurpose}
-                              </span>
-                              {addr.city}, {addr.state} {addr.postalCode}
-                            </div>
-                          ))}
+                    {npiVerificationResult.addresses &&
+                      npiVerificationResult.addresses.length > 0 && (
+                        <div className="mt-3 border-t border-gray-200 pt-3">
+                          <p className="mb-2 text-xs font-medium text-gray-500">
+                            Practice Locations:
+                          </p>
+                          <div className="space-y-2">
+                            {npiVerificationResult.addresses.map((addr, idx) => (
+                              <div key={idx} className="text-sm">
+                                <span className="mr-2 inline-block rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">
+                                  {addr.addressPurpose}
+                                </span>
+                                {addr.city}, {addr.state} {addr.postalCode}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
               </div>
@@ -1568,7 +1646,7 @@ export default function SuperAdminProviderDetailPage() {
                   type="button"
                   onClick={handleVerifyAndSaveNpi}
                   disabled={verifyingNpi}
-                  className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                 >
                   {verifyingNpi ? (
                     <>
@@ -1591,57 +1669,59 @@ export default function SuperAdminProviderDetailPage() {
       {/* Create User Account Modal */}
       {showCreateUserModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Create User Account</h2>
               <button
                 onClick={() => setShowCreateUserModal(false)}
-                className="p-1 rounded hover:bg-gray-100"
+                className="rounded p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
-              Create a login account for <strong>{provider?.firstName} {provider?.lastName}</strong> so they can access the system.
+            <p className="mb-4 text-sm text-gray-600">
+              Create a login account for{' '}
+              <strong>
+                {provider?.firstName} {provider?.lastName}
+              </strong>{' '}
+              so they can access the system.
             </p>
 
             <form onSubmit={handleCreateUserAccount} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Email Address *
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="email"
                     value={createUserForm.email}
-                    onChange={(e) => setCreateUserForm(f => ({ ...f, email: e.target.value }))}
+                    onChange={(e) => setCreateUserForm((f) => ({ ...f, email: e.target.value }))}
                     placeholder="provider@clinic.com"
                     required
-                    className="w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                    className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  This will be used for login
-                </p>
+                <p className="mt-1 text-xs text-gray-500">This will be used for login</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password *
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Password *</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={createUserForm.password}
-                      onChange={(e) => setCreateUserForm(f => ({ ...f, password: e.target.value }))}
+                      onChange={(e) =>
+                        setCreateUserForm((f) => ({ ...f, password: e.target.value }))
+                      }
                       placeholder="Minimum 8 characters"
                       required
                       minLength={8}
-                      className="w-full rounded-lg border border-gray-300 pl-10 pr-10 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                     <button
                       type="button"
@@ -1654,7 +1734,7 @@ export default function SuperAdminProviderDetailPage() {
                   <button
                     type="button"
                     onClick={generatePassword}
-                    className="px-3 py-2 text-sm font-medium text-[#4fa77e] bg-[#4fa77e]/10 hover:bg-[#4fa77e]/20 rounded-lg whitespace-nowrap"
+                    className="whitespace-nowrap rounded-lg bg-[#4fa77e]/10 px-3 py-2 text-sm font-medium text-[#4fa77e] hover:bg-[#4fa77e]/20"
                   >
                     Generate
                   </button>
@@ -1663,25 +1743,23 @@ export default function SuperAdminProviderDetailPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    First Name
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">First Name</label>
                   <input
                     type="text"
                     value={createUserForm.firstName}
-                    onChange={(e) => setCreateUserForm(f => ({ ...f, firstName: e.target.value }))}
+                    onChange={(e) =>
+                      setCreateUserForm((f) => ({ ...f, firstName: e.target.value }))
+                    }
                     placeholder={provider?.firstName || 'First name'}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Name
-                  </label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Last Name</label>
                   <input
                     type="text"
                     value={createUserForm.lastName}
-                    onChange={(e) => setCreateUserForm(f => ({ ...f, lastName: e.target.value }))}
+                    onChange={(e) => setCreateUserForm((f) => ({ ...f, lastName: e.target.value }))}
                     placeholder={provider?.lastName || 'Last name'}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                   />
@@ -1690,11 +1768,11 @@ export default function SuperAdminProviderDetailPage() {
 
               {/* Info box about clinic assignment */}
               {provider && provider.providerClinics.length > 0 && (
-                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                   <p className="text-sm text-blue-800">
                     <strong>Clinic Access:</strong> The user will automatically have access to:
                   </p>
-                  <ul className="text-sm text-blue-700 mt-1 space-y-0.5">
+                  <ul className="mt-1 space-y-0.5 text-sm text-blue-700">
                     {provider.providerClinics.slice(0, 3).map((pc) => (
                       <li key={pc.clinicId} className="flex items-center gap-1">
                         <Check className="h-3 w-3" />
@@ -1713,13 +1791,14 @@ export default function SuperAdminProviderDetailPage() {
 
               {/* Warning if no clinics assigned */}
               {provider && provider.providerClinics.length === 0 && !provider.clinic && (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                   <div className="flex gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
                     <div>
                       <p className="text-sm font-medium text-amber-800">No Clinic Assigned</p>
-                      <p className="text-xs text-amber-700 mt-0.5">
-                        This provider is not assigned to any clinic. Consider assigning them to a clinic first.
+                      <p className="mt-0.5 text-xs text-amber-700">
+                        This provider is not assigned to any clinic. Consider assigning them to a
+                        clinic first.
                       </p>
                     </div>
                   </div>
@@ -1737,7 +1816,7 @@ export default function SuperAdminProviderDetailPage() {
                 <button
                   type="submit"
                   disabled={creatingUser || !createUserForm.email || !createUserForm.password}
-                  className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                 >
                   {creatingUser ? (
                     <>
@@ -1760,24 +1839,28 @@ export default function SuperAdminProviderDetailPage() {
       {/* Reset Password Modal */}
       {showResetPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">Reset Password</h2>
               <button
                 onClick={() => setShowResetPasswordModal(false)}
-                className="p-1 rounded hover:bg-gray-100"
+                className="rounded p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
-              Set a new password for <strong>{provider?.user?.firstName} {provider?.user?.lastName}</strong> ({provider?.user?.email}).
+            <p className="mb-4 text-sm text-gray-600">
+              Set a new password for{' '}
+              <strong>
+                {provider?.user?.firstName} {provider?.user?.lastName}
+              </strong>{' '}
+              ({provider?.user?.email}).
             </p>
 
-            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <div className="flex gap-2">
-                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
                 <div className="text-sm text-amber-800">
                   <strong>Important:</strong> The user will need to use this new password to login.
                   Consider sending them the credentials securely.
@@ -1787,33 +1870,39 @@ export default function SuperAdminProviderDetailPage() {
 
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   New Password *
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
                       type={showResetPassword ? 'text' : 'password'}
                       value={resetPasswordForm.password}
-                      onChange={(e) => setResetPasswordForm(f => ({ ...f, password: e.target.value }))}
+                      onChange={(e) =>
+                        setResetPasswordForm((f) => ({ ...f, password: e.target.value }))
+                      }
                       placeholder="Minimum 8 characters"
                       required
                       minLength={8}
-                      className="w-full rounded-lg border border-gray-300 pl-10 pr-10 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
                     <button
                       type="button"
                       onClick={() => setShowResetPassword(!showResetPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showResetPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                   <button
                     type="button"
                     onClick={generateResetPassword}
-                    className="px-3 py-2 text-sm font-medium text-[#4fa77e] bg-[#4fa77e]/10 hover:bg-[#4fa77e]/20 rounded-lg whitespace-nowrap"
+                    className="whitespace-nowrap rounded-lg bg-[#4fa77e]/10 px-3 py-2 text-sm font-medium text-[#4fa77e] hover:bg-[#4fa77e]/20"
                   >
                     Generate
                   </button>
@@ -1831,7 +1920,7 @@ export default function SuperAdminProviderDetailPage() {
                 <button
                   type="submit"
                   disabled={resettingPassword || !resetPasswordForm.password}
-                  className="flex-1 rounded-lg bg-amber-600 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                 >
                   {resettingPassword ? (
                     <>

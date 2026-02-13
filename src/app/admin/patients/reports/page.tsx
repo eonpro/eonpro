@@ -1,14 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Download, Calendar, Filter, BarChart3, PieChart, TrendingUp } from 'lucide-react';
+import {
+  FileText,
+  Download,
+  Calendar,
+  Filter,
+  BarChart3,
+  PieChart,
+  TrendingUp,
+} from 'lucide-react';
 
 export default function PatientReportsPage() {
   const [dateRange, setDateRange] = useState('30d');
   const [reportType, setReportType] = useState('all');
 
   const reports = [
-    { id: 1, name: 'Patient Demographics Report', type: 'demographics', date: '2024-01-15', records: 1234 },
+    {
+      id: 1,
+      name: 'Patient Demographics Report',
+      type: 'demographics',
+      date: '2024-01-15',
+      records: 1234,
+    },
     { id: 2, name: 'New Patients Summary', type: 'new-patients', date: '2024-01-14', records: 89 },
     { id: 3, name: 'Patient Activity Report', type: 'activity', date: '2024-01-13', records: 567 },
     { id: 4, name: 'Appointment History', type: 'appointments', date: '2024-01-12', records: 234 },
@@ -22,25 +36,25 @@ export default function PatientReportsPage() {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="mx-auto max-w-7xl p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Patient Reports</h1>
-        <p className="text-gray-600 mt-1">Generate and download patient reports</p>
+        <p className="mt-1 text-gray-600">Generate and download patient reports</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div key={index} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                  <p className="text-sm text-green-600 mt-1">{stat.change} vs last month</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="mt-1 text-sm text-green-600">{stat.change} vs last month</p>
                 </div>
-                <div className="p-3 bg-emerald-50 rounded-lg">
+                <div className="rounded-lg bg-emerald-50 p-3">
                   <Icon className="h-6 w-6 text-emerald-600" />
                 </div>
               </div>
@@ -50,14 +64,14 @@ export default function PatientReportsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-gray-400" />
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
@@ -71,7 +85,7 @@ export default function PatientReportsPage() {
             <select
               value={reportType}
               onChange={(e) => setReportType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="all">All Reports</option>
               <option value="demographics">Demographics</option>
@@ -81,7 +95,7 @@ export default function PatientReportsPage() {
               <option value="outcomes">Outcomes</option>
             </select>
           </div>
-          <button className="ml-auto px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2">
+          <button className="ml-auto flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700">
             <FileText className="h-5 w-5" />
             Generate New Report
           </button>
@@ -89,38 +103,50 @@ export default function PatientReportsPage() {
       </div>
 
       {/* Reports List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900">Recent Reports</h2>
         </div>
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Generated</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Records</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Report Name
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Type
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Generated
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Records
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {reports.map((report) => (
               <tr key={report.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="whitespace-nowrap px-6 py-4">
                   <div className="flex items-center">
-                    <FileText className="h-5 w-5 text-gray-400 mr-3" />
+                    <FileText className="mr-3 h-5 w-5 text-gray-400" />
                     <span className="text-sm font-medium text-gray-900">{report.name}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
+                <td className="whitespace-nowrap px-6 py-4">
+                  <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800">
                     {report.type}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{report.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{report.records.toLocaleString()}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <button className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{report.date}</td>
+                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                  {report.records.toLocaleString()}
+                </td>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <button className="flex items-center gap-1 text-emerald-600 hover:text-emerald-700">
                     <Download className="h-4 w-4" />
                     Download
                   </button>
@@ -133,4 +159,3 @@ export default function PatientReportsPage() {
     </div>
   );
 }
-

@@ -5,8 +5,10 @@
 
 import { test as setup, expect } from '@playwright/test';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const authFile = path.join(__dirname, '.auth/user.json');
+const __dirnameSafe = path.dirname(fileURLToPath(import.meta.url));
+const authFile = path.join(__dirnameSafe, '.auth/user.json');
 
 setup('authenticate as admin', async ({ page }) => {
   // Navigate to login

@@ -1,11 +1,11 @@
 /**
  * Affiliate Payout Service
- * 
+ *
  * Handles affiliate payouts via multiple methods:
  * - Stripe Connect (automated transfers)
  * - PayPal Payouts API
  * - Manual/bank wire (admin-processed)
- * 
+ *
  * Features:
  * - Minimum payout thresholds
  * - Tax document verification
@@ -107,7 +107,7 @@ export async function checkPayoutEligibility(
   });
 
   const ytdPaidCents = ytdPayouts._sum.netAmountCents || 0;
-  const requiresTaxDoc = (ytdPaidCents + availableAmountCents) >= 60000; // $600
+  const requiresTaxDoc = ytdPaidCents + availableAmountCents >= 60000; // $600
 
   const hasTaxDocs = !!taxDoc || !requiresTaxDoc;
 
@@ -127,7 +127,7 @@ export async function checkPayoutEligibility(
 
   if (availableAmountCents < minimumPayoutCents) {
     eligible = false;
-    reason = `Balance ($${(availableAmountCents/100).toFixed(2)}) below minimum payout ($${(minimumPayoutCents/100).toFixed(2)})`;
+    reason = `Balance ($${(availableAmountCents / 100).toFixed(2)}) below minimum payout ($${(minimumPayoutCents / 100).toFixed(2)})`;
   } else if (!hasPayoutMethod) {
     eligible = false;
     reason = 'No verified payout method on file';
@@ -227,7 +227,7 @@ async function processPayPalPayout(
     const authResponse = await fetch(`${apiBase}/v1/oauth2/token`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: 'grant_type=client_credentials',
@@ -243,7 +243,7 @@ async function processPayPalPayout(
     const payoutResponse = await fetch(`${apiBase}/v1/payments/payouts`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${access_token}`,
+        Authorization: `Bearer ${access_token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -345,12 +345,15 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
       },
     });
 
-    const totalAvailable = commissionEvents.reduce((sum: number, e: typeof commissionEvents[number]) => sum + e.commissionAmountCents, 0);
+    const totalAvailable = commissionEvents.reduce(
+      (sum: number, e: (typeof commissionEvents)[number]) => sum + e.commissionAmountCents,
+      0
+    );
 
     if (totalAvailable < amountCents) {
       return {
         success: false,
-        error: `Requested amount ($${amountCents/100}) exceeds available balance ($${totalAvailable/100})`,
+        error: `Requested amount ($${amountCents / 100}) exceeds available balance ($${totalAvailable / 100})`,
       };
     }
 
@@ -372,19 +375,26 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
         processedAt: new Date(),
         processedBy,
         notes,
-        periodStart: commissionEvents.length > 0 
-          ? await prisma.affiliateCommissionEvent.findFirst({
-              where: { id: { in: commissionEvents.map((e: typeof commissionEvents[number]) => e.id) } },
-              orderBy: { occurredAt: 'asc' },
-              select: { occurredAt: true },
-            }).then((e: { occurredAt: Date } | null) => e?.occurredAt)
-          : undefined,
+        periodStart:
+          commissionEvents.length > 0
+            ? await prisma.affiliateCommissionEvent
+                .findFirst({
+                  where: {
+                    id: {
+                      in: commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id),
+                    },
+                  },
+                  orderBy: { occurredAt: 'asc' },
+                  select: { occurredAt: true },
+                })
+                .then((e: { occurredAt: Date } | null) => e?.occurredAt)
+            : undefined,
         periodEnd: new Date(),
       },
     });
 
     // Assign commission events to this payout
-    const eventIds = commissionEvents.map((e: typeof commissionEvents[number]) => e.id);
+    const eventIds = commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id);
     let remainingAmount = amountCents;
     const assignedEventIds: number[] = [];
 
@@ -444,9 +454,7 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
     }
 
     // Update payout with result - status is PayoutStatus enum
-    const payoutStatus = result.success 
-      ? (result.status as 'PROCESSING' | 'COMPLETED') 
-      : 'FAILED';
+    const payoutStatus = result.success ? (result.status as 'PROCESSING' | 'COMPLETED') : 'FAILED';
     await prisma.affiliatePayout.update({
       where: { id: payout.id },
       data: {
@@ -518,7 +526,7 @@ export async function getPayoutHistory(
   ]);
 
   return {
-    payouts: payouts.map((p: typeof payouts[number]) => ({
+    payouts: payouts.map((p: (typeof payouts)[number]) => ({
       id: p.id,
       createdAt: p.createdAt,
       amountCents: p.amountCents,

@@ -77,7 +77,6 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
   const sortOrder = searchParams.get('sortOrder') || 'desc';
 
   try {
-
     // Build where clause
     // NOTE: Search is handled in-memory after decryption because PHI fields are encrypted
     const where: Prisma.PatientWhereInput = {
@@ -116,7 +115,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
 
       // Decrypt and filter by search term
       const searchLower = search.toLowerCase();
-      const filteredProfiles = allProfiles.filter((profile: typeof allProfiles[number]) => {
+      const filteredProfiles = allProfiles.filter((profile: (typeof allProfiles)[number]) => {
         const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
         const firstName = decrypted.firstName?.toLowerCase() || '';
         const lastName = decrypted.lastName?.toLowerCase() || '';
@@ -139,7 +138,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
 
       // Process the paginated profiles
       const processedProfiles = await Promise.all(
-        paginatedProfiles.map(async (profile: typeof paginatedProfiles[number]) => {
+        paginatedProfiles.map(async (profile: (typeof paginatedProfiles)[number]) => {
           const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
           const invoiceCount = profile.invoices.length;
           const totalPayments = profile.payments.reduce(
@@ -183,9 +182,8 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
       // Get summary stats
       const stats = await prisma.patient.groupBy({
         by: ['profileStatus'],
-        where: user.role !== 'super_admin' && user.clinicId
-          ? { clinicId: user.clinicId }
-          : undefined,
+        where:
+          user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : undefined,
         _count: true,
       });
 
@@ -254,7 +252,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
 
     // Process profiles and find match candidates
     const processedProfiles = await Promise.all(
-      profiles.map(async (profile: typeof profiles[number]) => {
+      profiles.map(async (profile: (typeof profiles)[number]) => {
         // Decrypt PHI
         const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
 
@@ -267,11 +265,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
         const lastPaymentDate = profile.payments[0]?.paidAt || null;
 
         // Find potential match candidates (patients with similar data)
-        const matchCandidates = await findMatchCandidates(
-          decrypted,
-          profile.clinicId,
-          profile.id
-        );
+        const matchCandidates = await findMatchCandidates(decrypted, profile.clinicId, profile.id);
 
         return {
           id: decrypted.id,
@@ -303,9 +297,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
     // Get summary stats
     const stats = await prisma.patient.groupBy({
       by: ['profileStatus'],
-      where: user.role !== 'super_admin' && user.clinicId 
-        ? { clinicId: user.clinicId }
-        : undefined,
+      where: user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : undefined,
       _count: true,
     });
 
@@ -336,10 +328,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
     logger.error('[Pending Profiles] Error fetching profiles', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch pending profiles' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch pending profiles' }, { status: 500 });
   }
 }
 
@@ -352,33 +341,25 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
     const body = await req.json();
     const {
       patientId,
-      action, 
+      action,
       updates,
       targetPatientId, // For merge operation
     } = body;
 
     if (!patientId) {
-      return NextResponse.json(
-        { error: 'patientId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
     }
 
     // Verify patient exists and user has access
     const patient = await prisma.patient.findFirst({
       where: {
         id: patientId,
-        ...(user.role !== 'super_admin' && user.clinicId 
-          ? { clinicId: user.clinicId } 
-          : {}),
+        ...(user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : {}),
       },
     });
 
     if (!patient) {
-      return NextResponse.json(
-        { error: 'Patient not found or access denied' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Patient not found or access denied' }, { status: 404 });
     }
 
     switch (action) {
@@ -396,7 +377,7 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
           data: {
             ...updates,
             profileStatus: 'ACTIVE',
-            notes: patient.notes 
+            notes: patient.notes
               ? patient.notes.replace('⚠️ PENDING COMPLETION:', '✅ COMPLETED:')
               : 'Profile completed.',
           },
@@ -404,11 +385,11 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
 
         logger.info('[Pending Profiles] Profile completed', {
           patientId,
-          updatedBy: user.email,
+          updatedBy: user.id,
         });
 
-        return NextResponse.json({ 
-          success: true, 
+        return NextResponse.json({
+          success: true,
           patient: updatedPatient,
           message: 'Profile completed successfully',
         });
@@ -429,7 +410,7 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
           archivedBy: user.email,
         });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
           success: true,
           message: 'Profile archived successfully',
         });
@@ -445,7 +426,8 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
         }
 
         // Import merge service dynamically
-        const { patientMergeService } = await import('@/domains/patient/services/patient-merge.service');
+        const { patientMergeService } =
+          await import('@/domains/patient/services/patient-merge.service');
 
         const mergeResult = await patientMergeService.executeMerge({
           sourcePatientId: patientId,
@@ -465,7 +447,7 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
           mergedBy: user.email,
         });
 
-        return NextResponse.json({ 
+        return NextResponse.json({
           success: true,
           mergedPatient: mergeResult.mergedPatient,
           recordsMoved: mergeResult.recordsMoved,
@@ -474,10 +456,7 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
       }
 
       default:
-        return NextResponse.json(
-          { error: `Unknown action: ${action}` },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
   } catch (error) {
     logger.error('[Pending Profiles] Error updating profile', {
@@ -550,7 +529,7 @@ async function findMatchCandidates(
     });
 
     for (const match of phoneMatches) {
-      if (!candidates.find(c => c.id === match.id)) {
+      if (!candidates.find((c) => c.id === match.id)) {
         const decrypted = decryptPatientPHI(match, ['firstName', 'lastName', 'email']);
         candidates.push({
           id: decrypted.id,
@@ -579,7 +558,7 @@ async function findMatchCandidates(
     });
 
     for (const match of nameMatches) {
-      if (!candidates.find(c => c.id === match.id)) {
+      if (!candidates.find((c) => c.id === match.id)) {
         const decrypted = decryptPatientPHI(match, ['firstName', 'lastName', 'email']);
         candidates.push({
           id: decrypted.id,

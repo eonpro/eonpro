@@ -8,29 +8,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { getHealthStatus } from '@/lib/monitoring/healthMonitor';
 import { getQueueStats } from '@/lib/queue/deadLetterQueue';
 
-export async function GET(req: NextRequest) {
-  // Check authentication
-  const auth = await verifyAuth(req);
-  if (!auth.success || !auth.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Check for admin role
-  if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-  }
-
+async function handleGet(req: NextRequest, user: AuthUser) {
   const type = req.nextUrl.searchParams.get('type');
 
   try {
     const [health, dlqStats] = await Promise.all([
       getHealthStatus(),
-      getQueueStats().catch(() => null),
+      getQueueStats().catch((err) => {
+        logger.warn('[Metrics] Failed to get DLQ stats', { error: err instanceof Error ? err.message : String(err) });
+        return null;
+      }),
     ]);
 
     // Get recent webhook activity from database
@@ -144,3 +136,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withAdminAuth(handleGet);

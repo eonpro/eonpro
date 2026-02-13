@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
@@ -22,7 +22,7 @@ import {
   History,
   Target,
   UserCheck,
-  Zap
+  Zap,
 } from 'lucide-react';
 
 interface TicketDetailViewProps {
@@ -83,7 +83,9 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
   const [workLogs, setWorkLogs] = useState<WorkLog[]>([]);
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [sla, setSLA] = useState<SLA | null>(null);
-  const [activeTab, setActiveTab] = useState<'timeline' | 'worklog' | 'escalation' | 'sla'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'worklog' | 'escalation' | 'sla'>(
+    'timeline'
+  );
   const [showWorkLogModal, setShowWorkLogModal] = useState(false);
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -93,13 +95,13 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
   const [workLogForm, setWorkLogForm] = useState({
     action: 'RESEARCHED',
     duration: '',
-    description: ''
+    description: '',
   });
 
   const [escalateForm, setEscalateForm] = useState({
     escalatedToId: '',
     reason: '',
-    level: 1
+    level: 1,
   });
 
   useEffect(() => {
@@ -147,7 +149,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
         const createResponse = await fetch(`/api/internal/tickets/${ticketId}/sla`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
+          body: JSON.stringify({}),
         });
         if (createResponse.ok) {
           const data = await createResponse.json();
@@ -169,8 +171,8 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
           action: workLogForm.action,
           duration: workLogForm.duration ? parseInt(workLogForm.duration) : null,
           description: workLogForm.description,
-          isInternal: true
-        })
+          isInternal: true,
+        }),
       });
 
       if (response.ok) {
@@ -180,7 +182,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
         setWorkLogForm({
           action: 'RESEARCHED',
           duration: '',
-          description: ''
+          description: '',
         });
       }
     } catch (error) {
@@ -197,8 +199,8 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
           escalatedById: currentUserId,
           escalatedToId: parseInt(escalateForm.escalatedToId),
           reason: escalateForm.reason,
-          level: escalateForm.level
-        })
+          level: escalateForm.level,
+        }),
       });
 
       if (response.ok) {
@@ -207,7 +209,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
         setEscalateForm({
           escalatedToId: '',
           reason: '',
-          level: 1
+          level: 1,
         });
       }
     } catch (error) {
@@ -224,8 +226,8 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
           userId: currentUserId,
           action: 'STARTED_WORK',
           description: 'Taking ownership of ticket',
-          isInternal: true
-        })
+          isInternal: true,
+        }),
       });
       await fetchTicketDetails();
       await fetchWorkLogs();
@@ -282,43 +284,43 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   if (loading || !ticket) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  const activeEscalation = escalations.find(e => e.isActive);
+  const activeEscalation = escalations.find((e) => e.isActive);
 
   return (
-    <div className="bg-white rounded-lg shadow-lg">
+    <div className="rounded-lg bg-white shadow-lg">
       {/* Header with Key Metrics */}
-      <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-        <div className="flex items-center justify-between mb-4">
+      <div className="border-b bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {ticket.title}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">#{ticket.ticketNumber}</p>
+            <h2 className="text-2xl font-bold text-gray-900">{ticket.title}</h2>
+            <p className="mt-1 text-sm text-gray-600">#{ticket.ticketNumber}</p>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {activeEscalation && (
-              <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium flex items-center">
-                <Zap className="h-4 w-4 mr-1" />
+              <span className="flex items-center rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-800">
+                <Zap className="mr-1 h-4 w-4" />
                 Escalated (L{activeEscalation.level})
               </span>
             )}
-            
+
             {ticket.currentOwner ? (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+              <div className="flex items-center space-x-2 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800">
                 <UserCheck className="h-4 w-4" />
-                <span>Owner: {ticket.currentOwner.firstName} {ticket.currentOwner.lastName}</span>
+                <span>
+                  Owner: {ticket.currentOwner.firstName} {ticket.currentOwner.lastName}
+                </span>
               </div>
             ) : (
               <button
                 onClick={takeOwnership}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
               >
                 <UserCheck className="h-4 w-4" />
                 <span>Take Ownership</span>
@@ -328,28 +330,28 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
         </div>
 
         {/* Key Metrics Row */}
-        <div className="grid grid-cols-5 gap-4 mt-4">
-          <div className="bg-white rounded-lg p-3">
+        <div className="mt-4 grid grid-cols-5 gap-4">
+          <div className="rounded-lg bg-white p-3">
             <div className="text-xs text-gray-600">Status</div>
-            <div className="text-sm font-semibold mt-1">{ticket.status}</div>
+            <div className="mt-1 text-sm font-semibold">{ticket.status}</div>
           </div>
-          <div className="bg-white rounded-lg p-3">
+          <div className="rounded-lg bg-white p-3">
             <div className="text-xs text-gray-600">Priority</div>
-            <div className="text-sm font-semibold mt-1">{ticket.priority}</div>
+            <div className="mt-1 text-sm font-semibold">{ticket.priority}</div>
           </div>
-          <div className="bg-white rounded-lg p-3">
+          <div className="rounded-lg bg-white p-3">
             <div className="text-xs text-gray-600">Time Worked</div>
-            <div className="text-sm font-semibold mt-1">{formatDuration(totalWorkTime)}</div>
+            <div className="mt-1 text-sm font-semibold">{formatDuration(totalWorkTime)}</div>
           </div>
-          <div className="bg-white rounded-lg p-3">
+          <div className="rounded-lg bg-white p-3">
             <div className="text-xs text-gray-600">Resolution Time</div>
-            <div className={`text-sm font-semibold mt-1 ${getSLAStatusColor(sla?.status)}`}>
+            <div className={`mt-1 text-sm font-semibold ${getSLAStatusColor(sla?.status)}`}>
               {ticket.resolutionTime ? formatDuration(ticket.resolutionTime) : 'In Progress'}
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3">
+          <div className="rounded-lg bg-white p-3">
             <div className="text-xs text-gray-600">Last Activity</div>
-            <div className="text-sm font-semibold mt-1">
+            <div className="mt-1 text-sm font-semibold">
               {ticket.lastWorkedAt ? formatTimeAgo(ticket.lastWorkedAt) : 'No activity'}
             </div>
           </div>
@@ -357,32 +359,32 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
       </div>
 
       {/* Action Buttons */}
-      <div className="p-4 border-b bg-gray-50 flex items-center space-x-3">
+      <div className="flex items-center space-x-3 border-b bg-gray-50 p-4">
         <button
           onClick={() => setShowWorkLogModal(true)}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+          className="flex items-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2 transition-colors hover:bg-gray-50"
         >
           <Clock className="h-4 w-4" />
           <span>Log Work</span>
         </button>
-        
+
         <button
           onClick={() => setShowEscalateModal(true)}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+          className="flex items-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2 transition-colors hover:bg-gray-50"
         >
           <TrendingUp className="h-4 w-4" />
           <span>Escalate</span>
         </button>
-        
+
         {activeEscalation && (
           <button
             onClick={async () => {
               await fetch(`/api/internal/tickets/${ticketId}/escalate?userId=${currentUserId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
               });
               fetchTicketDetails();
             }}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+            className="flex items-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2 transition-colors hover:bg-gray-50"
           >
             <ArrowDown className="h-4 w-4" />
             <span>De-escalate</span>
@@ -393,11 +395,11 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
       {/* Tabs */}
       <div className="border-b">
         <div className="flex space-x-6 px-6">
-          {['timeline', 'worklog', 'escalation', 'sla'].map(tab => (
+          {['timeline', 'worklog', 'escalation', 'sla'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`py-3 px-1 border-b-2 transition-colors capitalize ${
+              className={`border-b-2 px-1 py-3 capitalize transition-colors ${
                 activeTab === tab
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -413,69 +415,73 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
       <div className="p-6">
         {activeTab === 'timeline' && (
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Activity Timeline</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Activity Timeline</h3>
             <div className="space-y-3">
-              {[...workLogs, ...ticket.statusHistory || []].sort((a, b) => 
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              ).map((item, index) => (
-                <div key={`${item.id}-${index}`} className="flex space-x-3">
-                  <div className="flex-shrink-0">
-                    {getActionIcon('action' in item ? item.action : 'UPDATED_STATUS')}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-sm">
-                        {'user' in item ? `${item.user.firstName} ${item.user.lastName}` : 'System'}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {formatTimeAgo(item.createdAt)}
-                      </span>
-                      {'duration' in item && item.duration && (
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                          {formatDuration(item.duration)}
-                        </span>
-                      )}
+              {[...workLogs, ...(ticket.statusHistory || [])]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .map((item, index) => (
+                  <div key={`${item.id}-${index}`} className="flex space-x-3">
+                    <div className="flex-shrink-0">
+                      {getActionIcon('action' in item ? item.action : 'UPDATED_STATUS')}
                     </div>
-                    <p className="text-sm text-gray-700 mt-1">
-                      {'description' in item ? item.description : `Status changed: ${'fromStatus' in item ? item.fromStatus : ''} → ${'toStatus' in item ? item.toStatus : ''}`}
-                    </p>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium">
+                          {'user' in item
+                            ? `${item.user.firstName} ${item.user.lastName}`
+                            : 'System'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatTimeAgo(item.createdAt)}
+                        </span>
+                        {'duration' in item && item.duration && (
+                          <span className="rounded bg-gray-100 px-2 py-1 text-xs">
+                            {formatDuration(item.duration)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm text-gray-700">
+                        {'description' in item
+                          ? item.description
+                          : `Status changed: ${'fromStatus' in item ? item.fromStatus : ''} → ${'toStatus' in item ? item.toStatus : ''}`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         )}
 
         {activeTab === 'worklog' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">Work Log</h3>
               <div className="text-sm text-gray-600">
                 Total time: <span className="font-semibold">{formatDuration(totalWorkTime)}</span>
               </div>
             </div>
             <div className="space-y-3">
-              {workLogs.map(log => (
-                <div key={log.id} className="border rounded-lg p-4 hover:bg-gray-50">
+              {workLogs.map((log) => (
+                <div key={log.id} className="rounded-lg border p-4 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
+                      <div className="mb-1 flex items-center space-x-2">
                         {getActionIcon(log.action)}
-                        <span className="font-medium text-sm">
+                        <span className="text-sm font-medium">
                           {log.user.firstName} {log.user.lastName}
                         </span>
                         <span className="text-xs text-gray-500">
                           {formatTimeAgo(log.createdAt)}
                         </span>
                         {log.duration && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          <span className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-800">
                             {formatDuration(log.duration)}
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-700">{log.description}</p>
                       <div className="mt-2">
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        <span className="rounded bg-gray-100 px-2 py-1 text-xs">
                           {log.action.replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -489,27 +495,38 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
         {activeTab === 'escalation' && (
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Escalation History</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">Escalation History</h3>
             {escalations.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No escalations recorded</p>
+              <p className="py-8 text-center text-gray-500">No escalations recorded</p>
             ) : (
               <div className="space-y-3">
-                {escalations.map(esc => (
-                  <div key={esc.id} className={`border rounded-lg p-4 ${esc.isActive ? 'bg-red-50 border-red-300' : 'bg-gray-50'}`}>
-                    <div className="flex items-center justify-between mb-2">
+                {escalations.map((esc) => (
+                  <div
+                    key={esc.id}
+                    className={`rounded-lg border p-4 ${esc.isActive ? 'border-red-300 bg-red-50' : 'bg-gray-50'}`}
+                  >
+                    <div className="mb-2 flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <TrendingUp className={`h-4 w-4 ${esc.isActive ? 'text-red-600' : 'text-gray-600'}`} />
+                        <TrendingUp
+                          className={`h-4 w-4 ${esc.isActive ? 'text-red-600' : 'text-gray-600'}`}
+                        />
                         <span className="font-medium">Level {esc.level} Escalation</span>
                         {esc.isActive && (
-                          <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Active</span>
+                          <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-800">
+                            Active
+                          </span>
                         )}
                       </div>
                       <span className="text-xs text-gray-500">{formatTimeAgo(esc.createdAt)}</span>
                     </div>
-                    <p className="text-sm text-gray-700 mb-2">{esc.reason}</p>
+                    <p className="mb-2 text-sm text-gray-700">{esc.reason}</p>
                     <div className="flex items-center space-x-4 text-xs text-gray-600">
-                      <span>From: {esc.escalatedBy.firstName} {esc.escalatedBy.lastName}</span>
-                      <span>To: {esc.escalatedTo.firstName} {esc.escalatedTo.lastName}</span>
+                      <span>
+                        From: {esc.escalatedBy.firstName} {esc.escalatedBy.lastName}
+                      </span>
+                      <span>
+                        To: {esc.escalatedTo.firstName} {esc.escalatedTo.lastName}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -520,10 +537,12 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
         {activeTab === 'sla' && sla && (
           <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900 mb-3">SLA Tracking</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">SLA Tracking</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className={`border rounded-lg p-4 ${sla.status?.firstResponseBreached ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
-                <div className="flex items-center justify-between mb-2">
+              <div
+                className={`rounded-lg border p-4 ${sla.status?.firstResponseBreached ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}
+              >
+                <div className="mb-2 flex items-center justify-between">
                   <h4 className="font-medium">First Response</h4>
                   {sla.status?.firstResponseBreached ? (
                     <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -532,11 +551,19 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
                   )}
                 </div>
                 <div className="space-y-1 text-sm">
-                  <p>Due: {sla.firstResponseDue ? new Date(sla.firstResponseDue).toLocaleString() : 'N/A'}</p>
-                  <p>Responded: {sla.firstResponseAt ? new Date(sla.firstResponseAt).toLocaleString() : 'Pending'}</p>
+                  <p>
+                    Due:{' '}
+                    {sla.firstResponseDue ? new Date(sla.firstResponseDue).toLocaleString() : 'N/A'}
+                  </p>
+                  <p>
+                    Responded:{' '}
+                    {sla.firstResponseAt
+                      ? new Date(sla.firstResponseAt).toLocaleString()
+                      : 'Pending'}
+                  </p>
                   {sla.status?.timeToFirstResponse !== undefined && (
                     <p className="font-medium">
-                      {sla.status.timeToFirstResponse > 0 
+                      {sla.status.timeToFirstResponse > 0
                         ? `${formatDuration(Math.abs(sla.status.timeToFirstResponse))} remaining`
                         : `${formatDuration(Math.abs(sla.status.timeToFirstResponse))} overdue`}
                     </p>
@@ -544,8 +571,10 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
                 </div>
               </div>
 
-              <div className={`border rounded-lg p-4 ${sla.status?.resolutionBreached ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
-                <div className="flex items-center justify-between mb-2">
+              <div
+                className={`rounded-lg border p-4 ${sla.status?.resolutionBreached ? 'border-red-300 bg-red-50' : 'border-green-300 bg-green-50'}`}
+              >
+                <div className="mb-2 flex items-center justify-between">
                   <h4 className="font-medium">Resolution</h4>
                   {sla.status?.resolutionBreached ? (
                     <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -555,25 +584,26 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
                 </div>
                 <div className="space-y-1 text-sm">
                   <p>Due: {new Date(sla.resolutionDue).toLocaleString()}</p>
-                  <p>Resolved: {sla.resolvedAt ? new Date(sla.resolvedAt).toLocaleString() : 'Pending'}</p>
+                  <p>
+                    Resolved:{' '}
+                    {sla.resolvedAt ? new Date(sla.resolvedAt).toLocaleString() : 'Pending'}
+                  </p>
                   <p className="font-medium">
-                    {(sla.status?.timeToResolution ?? 0) > 0 
+                    {(sla.status?.timeToResolution ?? 0) > 0
                       ? `${formatDuration(sla.status?.timeToResolution ?? 0)} remaining`
                       : `${formatDuration(Math.abs(sla.status?.timeToResolution ?? 0))} overdue`}
                   </p>
                 </div>
               </div>
             </div>
-            
+
             {sla.breached && (
-              <div className="bg-red-100 border border-red-300 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
+              <div className="rounded-lg border border-red-300 bg-red-100 p-4">
+                <div className="mb-2 flex items-center space-x-2">
                   <AlertCircle className="h-5 w-5 text-red-600" />
                   <span className="font-medium text-red-900">SLA Breached</span>
                 </div>
-                {sla.breachReason && (
-                  <p className="text-sm text-red-800">{sla.breachReason}</p>
-                )}
+                {sla.breachReason && <p className="text-sm text-red-800">{sla.breachReason}</p>}
               </div>
             )}
           </div>
@@ -582,17 +612,17 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
       {/* Work Log Modal */}
       {showWorkLogModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Log Work</h3>
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6">
+            <h3 className="mb-4 text-lg font-bold">Log Work</h3>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Action</label>
                 <select
                   value={workLogForm.action}
                   onChange={(e) => setWorkLogForm({ ...workLogForm, action: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="STARTED_WORK">Started Work</option>
                   <option value="RESEARCHED">Researched</option>
@@ -606,41 +636,43 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
                   <option value="RESOLVED">Resolved Issue</option>
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Duration (minutes)
+                </label>
                 <input
                   type="number"
                   value={workLogForm.duration}
                   onChange={(e) => setWorkLogForm({ ...workLogForm, duration: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., 30"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
                 <textarea
                   value={workLogForm.description}
                   onChange={(e) => setWorkLogForm({ ...workLogForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   rows={3}
                   placeholder="Describe what you did..."
                 />
               </div>
             </div>
-            
+
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setShowWorkLogModal(false)}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="rounded-lg border px-4 py-2 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={addWorkLog}
                 disabled={!workLogForm.description}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-300"
               >
                 Log Work
               </button>
@@ -651,60 +683,68 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
       {/* Escalate Modal */}
       {showEscalateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Escalate Ticket</h3>
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6">
+            <h3 className="mb-4 text-lg font-bold">Escalate Ticket</h3>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Escalation Level</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Escalation Level
+                </label>
                 <select
                   value={escalateForm.level}
-                  onChange={(e) => setEscalateForm({ ...escalateForm, level: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) =>
+                    setEscalateForm({ ...escalateForm, level: parseInt(e.target.value) })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value={1}>Level 1 - Team Lead</option>
                   <option value={2}>Level 2 - Manager</option>
                   <option value={3}>Level 3 - Director</option>
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Escalate To</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Escalate To</label>
                 <select
                   value={escalateForm.escalatedToId}
-                  onChange={(e) => setEscalateForm({ ...escalateForm, escalatedToId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) =>
+                    setEscalateForm({ ...escalateForm, escalatedToId: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select person...</option>
                   <option value="2">Dr. John Smith</option>
                   <option value="3">Support Manager</option>
                 </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Escalation</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Reason for Escalation
+                </label>
                 <textarea
                   value={escalateForm.reason}
                   onChange={(e) => setEscalateForm({ ...escalateForm, reason: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   rows={3}
                   placeholder="Explain why this needs escalation..."
                 />
               </div>
             </div>
-            
+
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setShowEscalateModal(false)}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="rounded-lg border px-4 py-2 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={escalateTicket}
                 disabled={!escalateForm.escalatedToId || !escalateForm.reason}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300"
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:bg-gray-300"
               >
                 Escalate
               </button>

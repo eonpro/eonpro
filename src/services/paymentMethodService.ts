@@ -1,12 +1,12 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
-  encrypt, 
-  decrypt, 
-  getLast4, 
-  detectCardBrand, 
+  encrypt,
+  decrypt,
+  getLast4,
+  detectCardBrand,
   validateCardNumber,
-  generateCardFingerprint 
+  generateCardFingerprint,
 } from '@/lib/encryption';
 import type { PaymentMethod } from '@prisma/client';
 
@@ -59,8 +59,8 @@ export class PaymentMethodService {
       where: {
         patientId,
         fingerprint,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (existingCard) {
@@ -72,17 +72,17 @@ export class PaymentMethodService {
       await prisma.paymentMethod.updateMany({
         where: {
           patientId,
-          isDefault: true
+          isDefault: true,
         },
         data: {
-          isDefault: false
-        }
+          isDefault: false,
+        },
       });
     }
 
     // Encrypt sensitive data
     const encryptedCardNumber = encrypt(cardDetails.cardNumber);
-    const encryptedCvv = cardDetails.cvv  ? encrypt(cardDetails.cvv)  : undefined;
+    const encryptedCvv = cardDetails.cvv ? encrypt(cardDetails.cvv) : undefined;
 
     // Create payment method
     const paymentMethod = await prisma.paymentMethod.create({
@@ -98,8 +98,8 @@ export class PaymentMethodService {
         billingZip: cardDetails.billingZip,
         isDefault: setAsDefault,
         encryptionKeyId: 'v1', // Version of encryption key
-        fingerprint
-      }
+        fingerprint,
+      },
     });
 
     // Clear CVV from memory
@@ -117,12 +117,9 @@ export class PaymentMethodService {
     const methods = await prisma.paymentMethod.findMany({
       where: {
         patientId,
-        isActive: true
+        isActive: true,
       },
-      orderBy: [
-        { isDefault: 'desc' },
-        { createdAt: 'desc' }
-      ]
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
     });
 
     return methods.map((method: any) => ({
@@ -133,7 +130,7 @@ export class PaymentMethodService {
       expiryYear: method.expiryYear,
       cardholderName: method.cardholderName,
       isDefault: method.isDefault,
-      createdAt: method.createdAt
+      createdAt: method.createdAt,
     }));
   }
 
@@ -148,8 +145,8 @@ export class PaymentMethodService {
       where: {
         id: paymentMethodId,
         patientId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (!method) {
@@ -166,10 +163,13 @@ export class PaymentMethodService {
         expiryYear: method.expiryYear,
         cvv,
         cardholderName: method.cardholderName,
-        billingZip: method.billingZip
+        billingZip: method.billingZip,
       };
     } catch (error: unknown) {
-      logger.error('Failed to decrypt card:', error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        'Failed to decrypt card:',
+        error instanceof Error ? error : new Error(String(error))
+      );
       throw new Error('Failed to decrypt payment method');
     }
   }
@@ -177,17 +177,14 @@ export class PaymentMethodService {
   /**
    * Set a payment method as default
    */
-  static async setDefaultPaymentMethod(
-    paymentMethodId: number,
-    patientId: number
-  ): Promise<void> {
+  static async setDefaultPaymentMethod(paymentMethodId: number, patientId: number): Promise<void> {
     // Verify ownership
     const method: any = await prisma.paymentMethod.findFirst({
       where: {
         id: paymentMethodId,
         patientId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (!method) {
@@ -198,32 +195,29 @@ export class PaymentMethodService {
     await prisma.paymentMethod.updateMany({
       where: {
         patientId,
-        isDefault: true
+        isDefault: true,
       },
       data: {
-        isDefault: false
-      }
+        isDefault: false,
+      },
     });
 
     // Set new default
     await prisma.paymentMethod.update({
       where: { id: paymentMethodId },
-      data: { isDefault: true }
+      data: { isDefault: true },
     });
   }
 
   /**
    * Remove a payment method (soft delete)
    */
-  static async removePaymentMethod(
-    paymentMethodId: number,
-    patientId: number
-  ): Promise<void> {
+  static async removePaymentMethod(paymentMethodId: number, patientId: number): Promise<void> {
     const method: any = await prisma.paymentMethod.findFirst({
       where: {
         id: paymentMethodId,
-        patientId
-      }
+        patientId,
+      },
     });
 
     if (!method) {
@@ -233,7 +227,7 @@ export class PaymentMethodService {
     // Soft delete
     await prisma.paymentMethod.update({
       where: { id: paymentMethodId },
-      data: { isActive: false }
+      data: { isActive: false },
     });
 
     // If this was the default, set another as default
@@ -241,15 +235,15 @@ export class PaymentMethodService {
       const nextDefault: any = await prisma.paymentMethod.findFirst({
         where: {
           patientId,
-          isActive: true
+          isActive: true,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
 
       if (nextDefault) {
         await prisma.paymentMethod.update({
           where: { id: nextDefault.id },
-          data: { isDefault: true }
+          data: { isDefault: true },
         });
       }
     }
@@ -268,8 +262,8 @@ export class PaymentMethodService {
       where: {
         id: paymentMethodId,
         patientId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (!method) {
@@ -287,8 +281,8 @@ export class PaymentMethodService {
       where: { id: paymentMethodId },
       data: {
         expiryMonth,
-        expiryYear
-      }
+        expiryYear,
+      },
     });
   }
 
@@ -300,8 +294,7 @@ export class PaymentMethodService {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
-    return expiryYear < currentYear || 
-           (expiryYear === currentYear && expiryMonth < currentMonth);
+    return expiryYear < currentYear || (expiryYear === currentYear && expiryMonth < currentMonth);
   }
 
   /**

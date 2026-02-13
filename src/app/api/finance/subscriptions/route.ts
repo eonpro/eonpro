@@ -1,6 +1,6 @@
 /**
  * Subscription Finance Analytics API
- * 
+ *
  * GET /api/finance/subscriptions
  * Returns subscription metrics and trends
  */
@@ -47,9 +47,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch subscription analytics', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch subscription analytics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch subscription analytics' }, { status: 500 });
   }
 }

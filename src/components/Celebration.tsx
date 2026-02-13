@@ -22,11 +22,26 @@ interface ConfettiPiece {
 /**
  * Confetti Animation Component
  */
-export function Confetti({ duration = 3000, onComplete }: { duration?: number; onComplete?: () => void }) {
+export function Confetti({
+  duration = 3000,
+  onComplete,
+}: {
+  duration?: number;
+  onComplete?: () => void;
+}) {
   const [pieces, setPieces] = useState<ConfettiPiece[]>([]);
   const [isActive, setIsActive] = useState(true);
 
-  const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+  const colors = [
+    '#FFD700',
+    '#FF6B6B',
+    '#4ECDC4',
+    '#45B7D1',
+    '#96CEB4',
+    '#FFEAA7',
+    '#DDA0DD',
+    '#98D8C8',
+  ];
 
   useEffect(() => {
     // Create confetti pieces
@@ -59,11 +74,11 @@ export function Confetti({ duration = 3000, onComplete }: { duration?: number; o
   if (!isActive) return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
       {pieces.map((piece) => (
         <div
           key={piece.id}
-          className="absolute animate-confetti-fall"
+          className="animate-confetti-fall absolute"
           style={{
             left: `${piece.x}%`,
             top: `${piece.y}%`,
@@ -107,7 +122,11 @@ interface AchievementPopupProps {
   showConfetti?: boolean;
 }
 
-export function AchievementPopup({ achievement, onClose, showConfetti = true }: AchievementPopupProps) {
+export function AchievementPopup({
+  achievement,
+  onClose,
+  showConfetti = true,
+}: AchievementPopupProps) {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
@@ -124,35 +143,39 @@ export function AchievementPopup({ achievement, onClose, showConfetti = true }: 
   return (
     <>
       {showConfetti && <Confetti />}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
-        <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center animate-scale-up">
+      <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-sm animate-scale-up rounded-3xl bg-white p-6 text-center">
           {/* Trophy Icon */}
           <div
-            className={`w-20 h-20 mx-auto mb-4 rounded-full ${colors.bg} flex items-center justify-center animate-bounce-slow`}
+            className={`mx-auto mb-4 h-20 w-20 rounded-full ${colors.bg} animate-bounce-slow flex items-center justify-center`}
           >
-            <Trophy className={`w-10 h-10 ${colors.text}`} />
+            <Trophy className={`h-10 w-10 ${colors.text}`} />
           </div>
 
           {/* Title */}
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">Achievement Unlocked!</h2>
-          <p className="text-gray-600 mb-4">Congratulations!</p>
+          <h2 className="mb-1 text-2xl font-bold text-gray-900">Achievement Unlocked!</h2>
+          <p className="mb-4 text-gray-600">Congratulations!</p>
 
           {/* Achievement Card */}
-          <div className={`${colors.bg} rounded-2xl p-4 mb-4`}>
+          <div className={`${colors.bg} mb-4 rounded-2xl p-4`}>
             <h3 className="text-lg font-bold text-gray-900">{achievement.name}</h3>
-            <p className="text-sm text-gray-600 mt-1">{achievement.description}</p>
-            <div className="flex items-center justify-center gap-3 mt-3">
-              <span className={`text-xs font-medium px-2 py-1 rounded-full bg-white ${colors.text}`}>
+            <p className="mt-1 text-sm text-gray-600">{achievement.description}</p>
+            <div className="mt-3 flex items-center justify-center gap-3">
+              <span
+                className={`rounded-full bg-white px-2 py-1 text-xs font-medium ${colors.text}`}
+              >
                 {achievement.tier}
               </span>
-              <span className="text-sm font-semibold text-purple-600">+{achievement.points} pts</span>
+              <span className="text-sm font-semibold text-purple-600">
+                +{achievement.points} pts
+              </span>
             </div>
           </div>
 
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-xl font-semibold text-white transition-opacity hover:opacity-90"
+            className="w-full rounded-xl py-3 font-semibold text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: primaryColor }}
           >
             Awesome!
@@ -212,7 +235,13 @@ interface MilestoneCelebrationProps {
   onClose: () => void;
 }
 
-export function MilestoneCelebration({ title, subtitle, value, type, onClose }: MilestoneCelebrationProps) {
+export function MilestoneCelebration({
+  title,
+  subtitle,
+  value,
+  type,
+  onClose,
+}: MilestoneCelebrationProps) {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
@@ -228,30 +257,29 @@ export function MilestoneCelebration({ title, subtitle, value, type, onClose }: 
   return (
     <>
       <Confetti />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
-        <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center animate-scale-up">
+      <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-sm animate-scale-up rounded-3xl bg-white p-6 text-center">
           {/* Icon */}
-          <div className={`w-24 h-24 mx-auto mb-4 rounded-full ${bg} flex items-center justify-center`}>
-            <Icon className={`w-12 h-12 ${color}`} />
+          <div
+            className={`mx-auto mb-4 h-24 w-24 rounded-full ${bg} flex items-center justify-center`}
+          >
+            <Icon className={`h-12 w-12 ${color}`} />
           </div>
 
           {/* Large Value */}
-          <div
-            className="text-5xl font-bold mb-2"
-            style={{ color: primaryColor }}
-          >
+          <div className="mb-2 text-5xl font-bold" style={{ color: primaryColor }}>
             {value}
           </div>
 
           {/* Title */}
-          <h2 className="text-xl font-bold text-gray-900 mb-1">{title}</h2>
-          <p className="text-gray-600 mb-6">{subtitle}</p>
+          <h2 className="mb-1 text-xl font-bold text-gray-900">{title}</h2>
+          <p className="mb-6 text-gray-600">{subtitle}</p>
 
           {/* Share Button (optional) */}
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl font-semibold text-white transition-opacity hover:opacity-90"
+              className="flex-1 rounded-xl py-3 font-semibold text-white transition-opacity hover:opacity-90"
               style={{ backgroundColor: primaryColor }}
             >
               Continue
@@ -299,7 +327,12 @@ interface CelebrationToastProps {
   onClose: () => void;
 }
 
-export function CelebrationToast({ message, icon = 'star', points, onClose }: CelebrationToastProps) {
+export function CelebrationToast({
+  message,
+  icon = 'star',
+  points,
+  onClose,
+}: CelebrationToastProps) {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
@@ -318,20 +351,20 @@ export function CelebrationToast({ message, icon = 'star', points, onClose }: Ce
   const Icon = icons[icon];
 
   return (
-    <div className="fixed bottom-24 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:max-w-sm z-50 animate-slide-up">
+    <div className="fixed bottom-24 left-4 right-4 z-50 animate-slide-up md:bottom-6 md:left-auto md:right-6 md:max-w-sm">
       <div
-        className="rounded-2xl p-4 shadow-lg text-white flex items-center gap-3"
+        className="flex items-center gap-3 rounded-2xl p-4 text-white shadow-lg"
         style={{ backgroundColor: primaryColor }}
       >
-        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-          <Icon className="w-5 h-5 text-white" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+          <Icon className="h-5 w-5 text-white" />
         </div>
         <div className="flex-1">
           <p className="font-medium">{message}</p>
           {points && <p className="text-sm text-white/80">+{points} points</p>}
         </div>
         <button onClick={onClose} className="text-white/60 hover:text-white">
-          <X className="w-5 h-5" />
+          <X className="h-5 w-5" />
         </button>
       </div>
       <style jsx>{`

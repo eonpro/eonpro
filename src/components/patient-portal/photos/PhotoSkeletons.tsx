@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Photo Skeleton Loading Components
@@ -23,11 +23,7 @@ interface SkeletonProps {
 }
 
 function Skeleton({ className = '', animate = true }: SkeletonProps) {
-  return (
-    <div
-      className={`bg-gray-200 rounded ${animate ? 'animate-pulse' : ''} ${className}`}
-    />
-  );
+  return <div className={`rounded bg-gray-200 ${animate ? 'animate-pulse' : ''} ${className}`} />;
 }
 
 // =============================================================================
@@ -36,8 +32,8 @@ function Skeleton({ className = '', animate = true }: SkeletonProps) {
 
 export function PhotoCardSkeleton() {
   return (
-    <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 animate-pulse">
-      <Skeleton className="w-full h-full rounded-none" animate={false} />
+    <div className="aspect-square animate-pulse overflow-hidden rounded-xl bg-gray-100">
+      <Skeleton className="h-full w-full rounded-none" animate={false} />
     </div>
   );
 }
@@ -64,7 +60,7 @@ export function PhotoGallerySkeleton({ count = 8, columns = 4 }: PhotoGallerySke
 
       {/* Date Group Skeleton */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <Skeleton className="h-4 w-4 rounded" />
           <Skeleton className="h-4 w-24 rounded" />
         </div>
@@ -91,10 +87,10 @@ export function PhotoGallerySkeleton({ count = 8, columns = 4 }: PhotoGallerySke
 
 export function PhotoUploadSkeleton() {
   return (
-    <div className="space-y-4 animate-pulse">
+    <div className="animate-pulse space-y-4">
       {/* Guidelines Skeleton */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <Skeleton className="h-4 w-32 mb-2" />
+      <div className="rounded-lg bg-gray-50 p-4">
+        <Skeleton className="mb-2 h-4 w-32" />
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -106,15 +102,15 @@ export function PhotoUploadSkeleton() {
       </div>
 
       {/* Upload Zone Skeleton */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-8">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex-1 rounded-xl border-2 border-dashed border-gray-200 p-8">
           <div className="flex flex-col items-center">
-            <Skeleton className="h-10 w-10 rounded-full mb-3" />
-            <Skeleton className="h-4 w-48 mb-2" />
+            <Skeleton className="mb-3 h-10 w-10 rounded-full" />
+            <Skeleton className="mb-2 h-4 w-48" />
             <Skeleton className="h-3 w-36" />
           </div>
         </div>
-        <Skeleton className="w-full sm:w-32 h-24 rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-xl sm:w-32" />
       </div>
     </div>
   );
@@ -126,13 +122,13 @@ export function PhotoUploadSkeleton() {
 
 export function VerificationStatusSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="animate-pulse space-y-6">
       {/* Status Card Skeleton */}
       <div className="rounded-2xl bg-gray-100 p-5">
         <div className="flex items-start gap-4">
           <Skeleton className="h-12 w-12 rounded-full" />
           <div className="flex-1">
-            <Skeleton className="h-5 w-32 mb-2" />
+            <Skeleton className="mb-2 h-5 w-32" />
             <Skeleton className="h-4 w-48" />
           </div>
         </div>
@@ -141,15 +137,12 @@ export function VerificationStatusSkeleton() {
       {/* Document List Skeleton */}
       <div className="space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-xl bg-white p-4 border border-gray-100"
-          >
+          <div key={i} className="rounded-xl border border-gray-100 bg-white p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-lg" />
                 <div>
-                  <Skeleton className="h-4 w-24 mb-1" />
+                  <Skeleton className="mb-1 h-4 w-24" />
                   <Skeleton className="h-3 w-16" />
                 </div>
               </div>
@@ -168,11 +161,11 @@ export function VerificationStatusSkeleton() {
 
 export function PhotoStatsSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-3 animate-pulse">
+    <div className="grid animate-pulse grid-cols-2 gap-3">
       {Array.from({ length: 2 }).map((_, i) => (
         <div key={i} className="rounded-2xl bg-white p-4 shadow-sm">
-          <Skeleton className="h-8 w-8 rounded-lg mb-2" />
-          <Skeleton className="h-8 w-16 mb-1" />
+          <Skeleton className="mb-2 h-8 w-8 rounded-lg" />
+          <Skeleton className="mb-1 h-8 w-16" />
           <Skeleton className="h-3 w-20" />
         </div>
       ))}
@@ -186,11 +179,11 @@ export function PhotoStatsSkeleton() {
 
 export function ProgressPageSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="animate-pulse space-y-6">
       {/* Header Skeleton */}
       <div className="flex items-center justify-between">
         <div>
-          <Skeleton className="h-7 w-48 mb-2" />
+          <Skeleton className="mb-2 h-7 w-48" />
           <Skeleton className="h-4 w-36" />
         </div>
         <Skeleton className="h-10 w-32 rounded-xl" />
@@ -214,12 +207,12 @@ export function ProgressPageSkeleton() {
 
 export function PhotosHubSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="animate-pulse space-y-6">
       {/* Header Skeleton */}
       <div className="flex items-center gap-3">
         <Skeleton className="h-10 w-10 rounded-xl" />
         <div>
-          <Skeleton className="h-7 w-24 mb-1" />
+          <Skeleton className="mb-1 h-7 w-24" />
           <Skeleton className="h-4 w-48" />
         </div>
       </div>
@@ -228,8 +221,8 @@ export function PhotosHubSkeleton() {
       <div className="grid grid-cols-3 gap-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="rounded-xl bg-white p-4 text-center">
-            <Skeleton className="h-8 w-12 mx-auto mb-1" />
-            <Skeleton className="h-3 w-16 mx-auto" />
+            <Skeleton className="mx-auto mb-1 h-8 w-12" />
+            <Skeleton className="mx-auto h-3 w-16" />
           </div>
         ))}
       </div>
@@ -239,11 +232,11 @@ export function PhotosHubSkeleton() {
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center gap-4 rounded-2xl bg-white p-4 border border-gray-100"
+            className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4"
           >
             <Skeleton className="h-14 w-14 rounded-xl" />
             <div className="flex-1">
-              <Skeleton className="h-5 w-32 mb-1" />
+              <Skeleton className="mb-1 h-5 w-32" />
               <Skeleton className="h-4 w-48" />
             </div>
             <Skeleton className="h-5 w-5 rounded" />
@@ -253,7 +246,7 @@ export function PhotosHubSkeleton() {
 
       {/* Recent Photos Skeleton */}
       <div>
-        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="mb-3 h-4 w-32" />
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="aspect-square rounded-xl" />
@@ -271,9 +264,7 @@ export function PhotosHubSkeleton() {
 // Export all skeletons
 // =============================================================================
 
-export {
-  Skeleton,
-};
+export { Skeleton };
 
 export default {
   PhotoCardSkeleton,

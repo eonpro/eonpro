@@ -13,13 +13,10 @@ import { US_STATE_CODE_LIST, US_STATE_OPTIONS, type USStateCode } from '@/lib/us
 
 // State lookup helpers
 const STATE_CODE_SET = new Set<USStateCode>(US_STATE_CODE_LIST);
-const STATE_LABEL_TO_CODE = US_STATE_OPTIONS.reduce<Record<string, USStateCode>>(
-  (acc, state) => {
-    acc[state.label.toUpperCase()] = state.value;
-    return acc;
-  },
-  {}
-);
+const STATE_LABEL_TO_CODE = US_STATE_OPTIONS.reduce<Record<string, USStateCode>>((acc, state) => {
+  acc[state.label.toUpperCase()] = state.value;
+  return acc;
+}, {});
 
 /**
  * Normalize state input to valid US state code

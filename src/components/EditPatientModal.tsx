@@ -132,27 +132,24 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
   };
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between border-b p-6">
           <h2 className="text-xl font-bold text-gray-900">Edit Patient Information</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="rounded-lg p-2 transition-colors hover:bg-gray-100">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 p-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -160,26 +157,26 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           {/* Name */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 First Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleChange('firstName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Last Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleChange('lastName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               />
             </div>
@@ -188,26 +185,26 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           {/* Contact */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Email <span className="text-red-500">*</span>
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Phone <span className="text-red-500">*</span>
               </label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleChange('phone', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               />
             </div>
@@ -216,25 +213,25 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           {/* DOB and Gender */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Date of Birth <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={formData.dob}
                 onChange={(e) => handleChange('dob', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Gender <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.gender}
                 onChange={(e) => handleChange('gender', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               >
                 <option value="">Select Gender</option>
@@ -247,20 +244,18 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
 
           {/* Address */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Street Address
-            </label>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Street Address</label>
             <input
               type="text"
               value={formData.address1}
               onChange={(e) => handleChange('address1', e.target.value)}
               placeholder="Street address"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="mb-1 block text-sm font-medium text-gray-700">
               Apartment, Suite, etc.
             </label>
             <input
@@ -268,32 +263,28 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
               value={formData.address2}
               onChange={(e) => handleChange('address2', e.target.value)}
               placeholder="Apt, suite, unit, etc. (optional)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                City
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
               <input
                 type="text"
                 value={formData.city}
                 onChange={(e) => handleChange('city', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                State
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">State</label>
               <select
                 value={formData.state}
                 onChange={(e) => handleChange('state', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
               >
-                {US_STATES.map(state => (
+                {US_STATES.map((state) => (
                   <option key={state.value} value={state.value}>
                     {state.label}
                   </option>
@@ -301,25 +292,23 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ZIP Code
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">ZIP Code</label>
               <input
                 type="text"
                 value={formData.zip}
                 onChange={(e) => handleChange('zip', e.target.value)}
                 maxLength={10}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
               />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex justify-end gap-3 border-t pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50"
               disabled={saving}
             >
               Cancel
@@ -327,16 +316,16 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:opacity-50"
             >
               {saving ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
+                  <Save className="h-4 w-4" />
                   Save Changes
                 </>
               )}

@@ -111,7 +111,6 @@ interface SystemAlertInput extends BaseEventInput {
 // ============================================================================
 
 class NotificationEventsService {
-
   /**
    * NEW INTAKE - Patient submitted intake form
    * Notifies providers that a new patient is ready for review
@@ -270,9 +269,9 @@ class NotificationEventsService {
   async newRxQueue(input: NewRxQueueInput): Promise<void> {
     try {
       const priorityMap: Record<string, NotificationPriority> = {
-        'normal': 'NORMAL',
-        'high': 'HIGH',
-        'urgent': 'URGENT',
+        normal: 'NORMAL',
+        high: 'HIGH',
+        urgent: 'URGENT',
       };
 
       const title = input.isRefill ? 'Refill Request' : 'New Rx Request';
@@ -410,9 +409,10 @@ class NotificationEventsService {
    */
   async refillDue(input: RefillDueInput): Promise<void> {
     try {
-      const shipmentText = input.shipmentNumber && input.totalShipments
-        ? ` (${input.shipmentNumber}/${input.totalShipments})`
-        : '';
+      const shipmentText =
+        input.shipmentNumber && input.totalShipments
+          ? ` (${input.shipmentNumber}/${input.totalShipments})`
+          : '';
 
       await notificationService.notifyAdmins({
         clinicId: input.clinicId,
@@ -478,11 +478,13 @@ class NotificationEventsService {
    * PRESCRIPTION READY - Rx approved and ready
    * Notifies admins that prescription is approved
    */
-  async prescriptionReady(input: PatientEventInput & {
-    medicationName: string;
-    providerId?: number;
-    providerName?: string;
-  }): Promise<void> {
+  async prescriptionReady(
+    input: PatientEventInput & {
+      medicationName: string;
+      providerId?: number;
+      providerName?: string;
+    }
+  ): Promise<void> {
     try {
       await notificationService.notifyAdmins({
         clinicId: input.clinicId,

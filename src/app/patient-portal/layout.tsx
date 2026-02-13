@@ -27,10 +27,21 @@ import {
   Activity,
   Camera,
 } from 'lucide-react';
-import { ClinicBrandingProvider, useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
-import { PatientPortalLanguageProvider, usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
+import {
+  ClinicBrandingProvider,
+  useClinicBranding,
+  usePortalFeatures,
+} from '@/lib/contexts/ClinicBrandingContext';
+import { logger } from '@/lib/logger';
+import {
+  PatientPortalLanguageProvider,
+  usePatientPortalLanguage,
+} from '@/lib/contexts/PatientPortalLanguageContext';
 import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { portalFetch } from '@/lib/api/patient-portal-client';
 import {
   NAV_MODULES,
   MOBILE_LABEL_OVERRIDE,
@@ -41,7 +52,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 
 // Default EONPRO logo
-const EONPRO_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const EONPRO_LOGO =
+  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 
 // Icon mapping for nav (registry holds data; icons stay here for tree-shaking)
 const NAV_ICON_MAP: Record<string, LucideIcon> = {
@@ -72,7 +84,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<{ id?: number; role?: string; patientId?: number; firstName?: string; lastName?: string } | null>(null);
+  const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState(3);
 
@@ -101,34 +114,72 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const user = localStorage.getItem('user');
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-    
+
     // Security: Redirect to login if no valid session
     if (!user || !token) {
       router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
       return;
     }
 
+    const data = safeParseJsonString<{ role?: string }>(user);
+    if (!data) {
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth-token');
+      localStorage.removeItem('patient-token');
+      router.push(
+        `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
+      );
+      return;
+    }
+
     try {
-      const data = JSON.parse(user);
-      
       // Verify user has patient role
       if (data.role?.toLowerCase() !== 'patient') {
-        router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_role`);
+        router.push(
+          `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_role`
+        );
         return;
       }
-      
+
       setUserData(data);
     } catch (e) {
       // Invalid user data in localStorage
       localStorage.removeItem('user');
       localStorage.removeItem('auth-token');
       localStorage.removeItem('patient-token');
-      router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`);
+      router.push(
+        `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
+      );
       return;
     }
-    
+
     setLoading(false);
   }, [router]);
+
+  // Resolve display name from API when storage has minimal payload (no PHI in localStorage)
+  useEffect(() => {
+    if (!userData || userData.firstName) return;
+    let cancelled = false;
+    portalFetch('/api/auth/me')
+      .then((res) => {
+        if (!res.ok || cancelled) return;
+        return safeParseJson(res);
+      })
+      .then((data) => {
+        if (cancelled || !data || typeof data !== 'object' || !('user' in data)) return;
+        const user = (data as { user?: { firstName?: string; lastName?: string } }).user;
+        if (user?.firstName != null || user?.lastName != null) {
+          setDisplayName({
+            firstName: user.firstName ?? '',
+            lastName: user.lastName ?? '',
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userData?.id]);
 
   // Route guard: redirect if user landed on a disabled module URL (e.g. bookmark)
   useEffect(() => {
@@ -147,7 +198,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   // White body background on mobile so top/bottom strips (safe areas) are white, not #efece7
   useEffect(() => {
-    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    const isMobile =
+      typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
     if (!isMobile) return;
     const prev = document.body.style.backgroundColor;
     document.body.style.backgroundColor = '#ffffff';
@@ -160,7 +212,15 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch((err: unknown) => {
+        logger.debug('Logout API call failed (continuing with redirect)', {
+          message: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -171,7 +231,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const isActive = (path: string, exact?: boolean) => {
-    const current = pathname?.startsWith('/patient-portal') ? pathname.replace('/patient-portal', PATIENT_PORTAL_PATH) : pathname ?? '';
+    const current = pathname?.startsWith('/patient-portal')
+      ? pathname.replace('/patient-portal', PATIENT_PORTAL_PATH)
+      : (pathname ?? '');
     if (exact) return current === path;
     return current === path || current.startsWith(path + '/');
   };
@@ -243,7 +305,11 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
           {sidebarExpanded && userData && (
             <div className="truncate px-3 py-2 text-xs text-gray-500">
-              {userData.firstName} {userData.lastName}
+              {displayName
+                ? `${displayName.firstName} ${displayName.lastName}`.trim() || 'Patient'
+                : (userData.firstName || userData.lastName)
+                  ? `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim()
+                  : 'Patient'}
             </div>
           )}
           <button
@@ -265,10 +331,10 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
           <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
-            <img 
-              src={branding?.logoUrl || EONPRO_LOGO} 
-              alt={branding?.clinicName || 'EONPRO'} 
-              className="h-8 w-auto max-w-[120px] object-contain" 
+            <img
+              src={branding?.logoUrl || EONPRO_LOGO}
+              alt={branding?.clinicName || 'EONPRO'}
+              className="h-8 w-auto max-w-[120px] object-contain"
             />
           </Link>
           <div className="flex items-center gap-1">

@@ -1,6 +1,6 @@
 /**
  * Finance Cache Service
- * 
+ *
  * Provides caching for financial metrics to improve dashboard performance.
  * Uses Redis for distributed caching when available, falls back to in-memory cache.
  */
@@ -12,12 +12,12 @@ const memoryCache = new Map<string, { data: any; expiresAt: number }>();
 
 // Cache TTL configuration (in seconds)
 const CACHE_TTL = {
-  metrics: 30,           // Dashboard KPIs - refresh every 30 seconds
-  overview: 60,          // Revenue overview - 1 minute
-  mrr: 300,             // MRR data - 5 minutes
-  trends: 300,          // Trend data - 5 minutes
-  patients: 120,        // Patient analytics - 2 minutes
-  subscriptions: 120,   // Subscription data - 2 minutes
+  metrics: 30, // Dashboard KPIs - refresh every 30 seconds
+  overview: 60, // Revenue overview - 1 minute
+  mrr: 300, // MRR data - 5 minutes
+  trends: 300, // Trend data - 5 minutes
+  patients: 120, // Patient analytics - 2 minutes
+  subscriptions: 120, // Subscription data - 2 minutes
 };
 
 // Try to use Redis if available
@@ -27,7 +27,7 @@ let redisConnected = false;
 // Dynamically import ioredis (don't fail if not configured)
 async function getRedis() {
   if (redis !== null) return redis;
-  
+
   try {
     const redisUrl = process.env.REDIS_URL;
     if (!redisUrl) {
@@ -69,9 +69,7 @@ export class FinanceCache {
    * Get cache key for clinic-specific data
    */
   private static getKey(clinicId: number, category: string, subKey?: string): string {
-    return subKey 
-      ? `finance:${clinicId}:${category}:${subKey}`
-      : `finance:${clinicId}:${category}`;
+    return subKey ? `finance:${clinicId}:${category}:${subKey}` : `finance:${clinicId}:${category}`;
   }
 
   /**
@@ -82,11 +80,13 @@ export class FinanceCache {
 
     try {
       const redisClient = await getRedis();
-      
+
       if (redisClient && redisConnected) {
         const cached = await redisClient.get(key);
         if (cached) {
-          return JSON.parse(cached) as T;
+          const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+          const parsed = safeParseJsonString<T>(cached);
+          if (parsed !== null) return parsed;
         }
       } else {
         // Use in-memory cache
@@ -120,7 +120,7 @@ export class FinanceCache {
 
     try {
       const redisClient = await getRedis();
-      
+
       if (redisClient && redisConnected) {
         await redisClient.setex(key, ttl, JSON.stringify(data));
       } else {
@@ -141,12 +141,10 @@ export class FinanceCache {
   static async invalidate(clinicId: number, category?: string): Promise<void> {
     try {
       const redisClient = await getRedis();
-      
+
       if (redisClient && redisConnected) {
-        const pattern = category
-          ? `finance:${clinicId}:${category}:*`
-          : `finance:${clinicId}:*`;
-        
+        const pattern = category ? `finance:${clinicId}:${category}:*` : `finance:${clinicId}:*`;
+
         const keys = await redisClient.keys(pattern);
         if (keys.length > 0) {
           await redisClient.del(...keys);
@@ -154,10 +152,8 @@ export class FinanceCache {
         }
       } else {
         // Clear from in-memory cache
-        const prefix = category
-          ? `finance:${clinicId}:${category}`
-          : `finance:${clinicId}`;
-        
+        const prefix = category ? `finance:${clinicId}:${category}` : `finance:${clinicId}`;
+
         for (const key of memoryCache.keys()) {
           if (key.startsWith(prefix)) {
             memoryCache.delete(key);
@@ -217,11 +213,7 @@ export class FinanceCache {
  * Cache decorator for finance service methods
  */
 export function cached(category: string, ttlSeconds?: number) {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {

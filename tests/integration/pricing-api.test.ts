@@ -476,8 +476,8 @@ describe('Product API', () => {
       });
 
       expect(products).toHaveLength(2);
-      expect(products.some(p => p.billingType === 'RECURRING')).toBe(true);
-      expect(products.some(p => p.billingType === 'ONE_TIME')).toBe(true);
+      expect(products.some((p) => p.billingType === 'RECURRING')).toBe(true);
+      expect(products.some((p) => p.billingType === 'ONE_TIME')).toBe(true);
     });
   });
 
@@ -559,9 +559,7 @@ describe('Pricing Rule Tests', () => {
         clinicId: 1,
         name: 'Buy 3 Get 10% Off',
         ruleType: 'VOLUME_DISCOUNT',
-        conditions: [
-          { type: 'quantity', operator: '>=', value: 3 },
-        ],
+        conditions: [{ type: 'quantity', operator: '>=', value: 3 }],
         discountType: 'PERCENTAGE',
         discountValue: 10,
         priority: 10,
@@ -592,9 +590,7 @@ describe('Pricing Rule Tests', () => {
         clinicId: 1,
         name: 'Spend $500+ Get 15% Off',
         ruleType: 'TIERED_PRICING',
-        conditions: [
-          { type: 'subtotal', operator: '>=', value: 50000 },
-        ],
+        conditions: [{ type: 'subtotal', operator: '>=', value: 50000 }],
         discountType: 'PERCENTAGE',
         discountValue: 15,
         priority: 20,
@@ -682,8 +678,8 @@ describe('Edge Cases', () => {
     });
 
     // No limit check needed
-    const hasRedemptionsLeft = promo!.maxRedemptions === null || 
-      promo!.currentRedemptions < promo!.maxRedemptions;
+    const hasRedemptionsLeft =
+      promo!.maxRedemptions === null || promo!.currentRedemptions < promo!.maxRedemptions;
 
     expect(hasRedemptionsLeft).toBe(true);
   });
@@ -721,15 +717,15 @@ describe('Complex Scenarios', () => {
   it('should calculate combined savings from multiple sources', async () => {
     // Scenario: $300 order with 10% code + 5% promo + $20 flat rule
     const orderTotal = 30000;
-    
+
     // 10% discount code
-    const codeDiscount = Math.round(orderTotal * 0.10); // $30
+    const codeDiscount = Math.round(orderTotal * 0.1); // $30
     const afterCode = orderTotal - codeDiscount; // $270
-    
+
     // 5% stackable promotion
     const promoDiscount = Math.round(afterCode * 0.05); // $13.50
     const afterPromo = afterCode - promoDiscount; // $256.50
-    
+
     // $20 flat rule discount
     const ruleDiscount = Math.min(2000, afterPromo); // $20
     const finalTotal = afterPromo - ruleDiscount; // $236.50

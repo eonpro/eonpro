@@ -15,7 +15,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
     if (startDateParam && endDateParam) {
       where.createdAt = {
         gte: new Date(startDateParam),
-        lte: new Date(endDateParam)
+        lte: new Date(endDateParam),
       };
     }
 
@@ -35,22 +35,22 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
             firstName: true,
             lastName: true,
             email: true,
-            phone: true
-          }
+            phone: true,
+          },
         },
         order: {
           select: {
             id: true,
-            lifefileOrderId: true
-          }
+            lifefileOrderId: true,
+          },
         },
         statusHistory: {
           orderBy: { createdAt: 'desc' },
-          take: 5
-        }
+          take: 5,
+        },
       },
       orderBy: { createdAt: 'desc' },
-      take: 100
+      take: 100,
     });
 
     const formattedPrescriptions = prescriptions.map((rx: any) => ({
@@ -71,18 +71,14 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
       totalFulfillmentTime: rx.totalFulfillmentTime,
       createdAt: rx.createdAt,
       updatedAt: rx.updatedAt,
-      statusHistory: rx.statusHistory
+      statusHistory: rx.statusHistory,
     }));
 
     return NextResponse.json({
       prescriptions: formattedPrescriptions,
-      total: formattedPrescriptions.length
+      total: formattedPrescriptions.length,
     });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to fetch prescriptions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch prescriptions' }, { status: 500 });
   }
 });

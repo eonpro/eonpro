@@ -19,17 +19,17 @@ interface ProgramSettings {
   cookieWindowDays: number;
   enableFingerprinting: boolean;
   enableSubIds: boolean;
-  
+
   // Commission
   defaultCommissionType: string;
   defaultCommissionValue: number;
   holdDays: number;
   clawbackEnabled: boolean;
-  
+
   // Payout
   minimumPayoutCents: number;
   payoutFrequency: string;
-  
+
   // Fraud
   fraudEnabled: boolean;
   maxConversionsPerDay: number;
@@ -62,7 +62,9 @@ export default function AffiliateSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'attribution' | 'commission' | 'payout' | 'fraud'>('attribution');
+  const [activeTab, setActiveTab] = useState<'attribution' | 'commission' | 'payout' | 'fraud'>(
+    'attribution'
+  );
 
   useEffect(() => {
     // Fetch current settings
@@ -70,12 +72,12 @@ export default function AffiliateSettingsPage() {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       try {
         const response = await fetch('/api/admin/affiliate-settings', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {
           const data = await response.json();
           if (data.settings) {
-            setSettings(s => ({ ...s, ...data.settings }));
+            setSettings((s) => ({ ...s, ...data.settings }));
           }
         }
       } catch (error) {
@@ -90,12 +92,12 @@ export default function AffiliateSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    
+
     try {
       const response = await fetch('/api/admin/affiliate-settings', {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(settings),
@@ -182,7 +184,7 @@ export default function AffiliateSettingsPage() {
               </label>
               <select
                 value={settings.newPatientModel}
-                onChange={(e) => setSettings(s => ({ ...s, newPatientModel: e.target.value }))}
+                onChange={(e) => setSettings((s) => ({ ...s, newPatientModel: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="FIRST_CLICK">First Click</option>
@@ -191,9 +193,7 @@ export default function AffiliateSettingsPage() {
                 <option value="TIME_DECAY">Time Decay</option>
                 <option value="POSITION">Position Based</option>
               </select>
-              <p className="mt-1 text-xs text-gray-500">
-                How to attribute new patient conversions
-              </p>
+              <p className="mt-1 text-xs text-gray-500">How to attribute new patient conversions</p>
             </div>
 
             <div>
@@ -202,7 +202,9 @@ export default function AffiliateSettingsPage() {
               </label>
               <select
                 value={settings.returningPatientModel}
-                onChange={(e) => setSettings(s => ({ ...s, returningPatientModel: e.target.value }))}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, returningPatientModel: e.target.value }))
+                }
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="FIRST_CLICK">First Click</option>
@@ -225,12 +227,12 @@ export default function AffiliateSettingsPage() {
                 min="1"
                 max="365"
                 value={settings.cookieWindowDays}
-                onChange={(e) => setSettings(s => ({ ...s, cookieWindowDays: parseInt(e.target.value) || 30 }))}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, cookieWindowDays: parseInt(e.target.value) || 30 }))
+                }
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
-              <p className="mt-1 text-xs text-gray-500">
-                How long attribution cookies last
-              </p>
+              <p className="mt-1 text-xs text-gray-500">How long attribution cookies last</p>
             </div>
 
             <div className="space-y-3">
@@ -238,7 +240,9 @@ export default function AffiliateSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.enableFingerprinting}
-                  onChange={(e) => setSettings(s => ({ ...s, enableFingerprinting: e.target.checked }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, enableFingerprinting: e.target.checked }))
+                  }
                   className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
                 <span className="text-sm text-gray-700">Enable browser fingerprinting</span>
@@ -247,7 +251,7 @@ export default function AffiliateSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.enableSubIds}
-                  onChange={(e) => setSettings(s => ({ ...s, enableSubIds: e.target.checked }))}
+                  onChange={(e) => setSettings((s) => ({ ...s, enableSubIds: e.target.checked }))}
                   className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
                 <span className="text-sm text-gray-700">Enable sub-ID tracking</span>
@@ -267,7 +271,9 @@ export default function AffiliateSettingsPage() {
               </label>
               <select
                 value={settings.defaultCommissionType}
-                onChange={(e) => setSettings(s => ({ ...s, defaultCommissionType: e.target.value }))}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, defaultCommissionType: e.target.value }))
+                }
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="PERCENT">Percentage</option>
@@ -284,7 +290,12 @@ export default function AffiliateSettingsPage() {
                   type="number"
                   min="0"
                   value={settings.defaultCommissionValue}
-                  onChange={(e) => setSettings(s => ({ ...s, defaultCommissionValue: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      defaultCommissionValue: parseFloat(e.target.value) || 0,
+                    }))
+                  }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -294,15 +305,15 @@ export default function AffiliateSettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Hold Period (Days)
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Hold Period (Days)</label>
               <input
                 type="number"
                 min="0"
                 max="90"
                 value={settings.holdDays}
-                onChange={(e) => setSettings(s => ({ ...s, holdDays: parseInt(e.target.value) || 0 }))}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, holdDays: parseInt(e.target.value) || 0 }))
+                }
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -315,10 +326,14 @@ export default function AffiliateSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.clawbackEnabled}
-                  onChange={(e) => setSettings(s => ({ ...s, clawbackEnabled: e.target.checked }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, clawbackEnabled: e.target.checked }))
+                  }
                   className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
-                <span className="text-sm text-gray-700">Enable clawback on refunds/chargebacks</span>
+                <span className="text-sm text-gray-700">
+                  Enable clawback on refunds/chargebacks
+                </span>
               </label>
             </div>
           </div>
@@ -339,19 +354,22 @@ export default function AffiliateSettingsPage() {
                   type="number"
                   min="0"
                   value={settings.minimumPayoutCents / 100}
-                  onChange={(e) => setSettings(s => ({ ...s, minimumPayoutCents: Math.round((parseFloat(e.target.value) || 0) * 100) }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      minimumPayoutCents: Math.round((parseFloat(e.target.value) || 0) * 100),
+                    }))
+                  }
                   className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Payout Frequency
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Payout Frequency</label>
               <select
                 value={settings.payoutFrequency}
-                onChange={(e) => setSettings(s => ({ ...s, payoutFrequency: e.target.value }))}
+                onChange={(e) => setSettings((s) => ({ ...s, payoutFrequency: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="WEEKLY">Weekly</option>
@@ -372,7 +390,7 @@ export default function AffiliateSettingsPage() {
               <input
                 type="checkbox"
                 checked={settings.fraudEnabled}
-                onChange={(e) => setSettings(s => ({ ...s, fraudEnabled: e.target.checked }))}
+                onChange={(e) => setSettings((s) => ({ ...s, fraudEnabled: e.target.checked }))}
                 className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
               />
               <span className="font-medium text-gray-900">Enable Fraud Detection</span>
@@ -389,7 +407,12 @@ export default function AffiliateSettingsPage() {
                   type="number"
                   min="1"
                   value={settings.maxConversionsPerDay}
-                  onChange={(e) => setSettings(s => ({ ...s, maxConversionsPerDay: parseInt(e.target.value) || 50 }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      maxConversionsPerDay: parseInt(e.target.value) || 50,
+                    }))
+                  }
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
@@ -402,7 +425,12 @@ export default function AffiliateSettingsPage() {
                   type="number"
                   min="1"
                   value={settings.maxConversionsPerIp}
-                  onChange={(e) => setSettings(s => ({ ...s, maxConversionsPerIp: parseInt(e.target.value) || 3 }))}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      maxConversionsPerIp: parseInt(e.target.value) || 3,
+                    }))
+                  }
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
@@ -412,7 +440,9 @@ export default function AffiliateSettingsPage() {
                   <input
                     type="checkbox"
                     checked={settings.blockProxyVpn}
-                    onChange={(e) => setSettings(s => ({ ...s, blockProxyVpn: e.target.checked }))}
+                    onChange={(e) =>
+                      setSettings((s) => ({ ...s, blockProxyVpn: e.target.checked }))
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <span className="text-sm text-gray-700">Block proxy/VPN traffic</span>
@@ -421,7 +451,7 @@ export default function AffiliateSettingsPage() {
                   <input
                     type="checkbox"
                     checked={settings.blockTor}
-                    onChange={(e) => setSettings(s => ({ ...s, blockTor: e.target.checked }))}
+                    onChange={(e) => setSettings((s) => ({ ...s, blockTor: e.target.checked }))}
                     className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
                   <span className="text-sm text-gray-700">Block TOR exit nodes</span>
@@ -430,10 +460,14 @@ export default function AffiliateSettingsPage() {
                   <input
                     type="checkbox"
                     checked={settings.autoHoldOnHighRisk}
-                    onChange={(e) => setSettings(s => ({ ...s, autoHoldOnHighRisk: e.target.checked }))}
+                    onChange={(e) =>
+                      setSettings((s) => ({ ...s, autoHoldOnHighRisk: e.target.checked }))
+                    }
                     className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                   />
-                  <span className="text-sm text-gray-700">Auto-hold commissions on high-risk alerts</span>
+                  <span className="text-sm text-gray-700">
+                    Auto-hold commissions on high-risk alerts
+                  </span>
                 </label>
               </div>
             </div>
@@ -445,8 +479,8 @@ export default function AffiliateSettingsPage() {
               <div className="text-sm text-amber-700">
                 <p className="font-medium">Important</p>
                 <p>
-                  Fraud detection helps protect your program but may occasionally flag legitimate conversions.
-                  Review the fraud queue regularly to resolve alerts.
+                  Fraud detection helps protect your program but may occasionally flag legitimate
+                  conversions. Review the fraud queue regularly to resolve alerts.
                 </p>
               </div>
             </div>

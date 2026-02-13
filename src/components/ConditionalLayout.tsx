@@ -9,7 +9,7 @@ interface ConditionalLayoutProps {
 
 /**
  * ConditionalLayout
- * 
+ *
  * Wraps children in the standard layout container with responsive padding,
  * EXCEPT for specific pages that need full-width/custom layouts.
  */
@@ -28,7 +28,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/patients/', // Patient detail pages have their own layout
   ];
 
-  const isFullWidthPage = fullWidthPages.some(page => pathname?.startsWith(page));
+  const isFullWidthPage = fullWidthPages.some((page) => pathname?.startsWith(page));
 
   if (isFullWidthPage) {
     // Return children without wrapper for full-width pages
@@ -37,8 +37,6 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
 
   // Standard layout with responsive container
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-      {children}
-    </main>
+    <main className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</main>
   );
 }

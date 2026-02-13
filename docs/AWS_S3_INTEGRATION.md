@@ -1,12 +1,15 @@
 # AWS S3 Storage Integration
 
 ## Overview
-The AWS S3 integration provides secure cloud storage for medical documents, lab results, imaging, prescriptions, and other healthcare files.
+
+The AWS S3 integration provides secure cloud storage for medical documents, lab results, imaging,
+prescriptions, and other healthcare files.
 
 ## Features
+
 - **Secure File Storage**: Server-side AES256 encryption for all files
 - **Intelligent Tiering**: Automatic cost optimization with S3 Intelligent Tiering
-- **Pre-signed URLs**: Secure temporary URLs for direct uploads/downloads  
+- **Pre-signed URLs**: Secure temporary URLs for direct uploads/downloads
 - **File Categorization**: Automatic organization by file type (medical records, lab results, etc.)
 - **Drag & Drop Upload**: User-friendly file upload with progress tracking
 - **Mock Service**: Full testing capability without AWS credentials
@@ -14,6 +17,7 @@ The AWS S3 integration provides secure cloud storage for medical documents, lab 
 ## Configuration
 
 ### Environment Variables
+
 Add the following to your `.env.local` file:
 
 ```env
@@ -24,6 +28,9 @@ NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE=true
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_REGION=us-east-1
+# Bucket for patient/intake documents (takes precedence if set)
+AWS_S3_DOCUMENTS_BUCKET_NAME=your-documents-bucket-name
+# Or use a single bucket for all S3 usage
 AWS_S3_BUCKET_NAME=your-bucket-name
 
 # Optional
@@ -31,12 +38,16 @@ AWS_CLOUDFRONT_URL=https://your-cloudfront-domain.com
 AWS_KMS_KEY_ID=your-kms-key-id  # For KMS encryption
 ```
 
-> **Important:** In production (Vercel), S3 storage is **required** for document uploads because the filesystem is read-only. Without proper S3 configuration, document uploads will fail with a 503 error.
+> **Important:** In production (Vercel), S3 storage is **required** for document uploads because the
+> filesystem is read-only. Without proper S3 configuration, document uploads will fail with a 503
+> error.
 
 ### S3 Bucket Setup
+
 1. Create an S3 bucket in your AWS account
 2. Enable versioning for backup/recovery
 3. Configure CORS for browser uploads:
+
 ```json
 {
   "CORSRules": [
@@ -52,6 +63,7 @@ AWS_KMS_KEY_ID=your-kms-key-id  # For KMS encryption
 ```
 
 ## File Categories
+
 - `medical-records`: General medical documents
 - `prescriptions`: Prescription documents
 - `lab-results`: Laboratory test results
@@ -63,6 +75,7 @@ AWS_KMS_KEY_ID=your-kms-key-id  # For KMS encryption
 - `other`: Uncategorized files
 
 ## File Limits
+
 - **Maximum file size**: 50MB
 - **Maximum image size**: 10MB
 - **Maximum document size**: 25MB
@@ -73,6 +86,7 @@ AWS_KMS_KEY_ID=your-kms-key-id  # For KMS encryption
 ## Usage
 
 ### Upload Files
+
 ```typescript
 import { FileUploader } from '@/components/aws/FileUploader';
 
@@ -88,6 +102,7 @@ import { FileUploader } from '@/components/aws/FileUploader';
 ```
 
 ### Download Files
+
 ```typescript
 // Get pre-signed URL
 const response = await fetch(`/api/v2/aws/s3/download?key=${fileKey}&presigned=true`);
@@ -101,63 +116,80 @@ const blob = await response.blob();
 ```
 
 ### List Files
+
 ```typescript
 const response = await fetch('/api/v2/aws/s3/list?prefix=patients/123');
 const { files } = await response.json();
 ```
 
 ### Delete Files
+
 ```typescript
 const response = await fetch('/api/v2/aws/s3/delete', {
   method: 'DELETE',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ key: fileKey })
+  body: JSON.stringify({ key: fileKey }),
 });
 ```
 
 ## API Endpoints
 
 ### Upload File
+
 `POST /api/v2/aws/s3/upload`
+
 - **Body**: FormData with file, category, entityId, entityType
 - **Response**: File metadata with S3 key and URLs
 
 ### Download File
+
 `GET /api/v2/aws/s3/download`
+
 - **Query**: `key` (required), `presigned` (optional), `expires` (optional)
 - **Response**: File content or pre-signed URL
 
 ### List Files
+
 `GET /api/v2/aws/s3/list`
+
 - **Query**: `prefix` (optional), `maxKeys` (optional)
 - **Response**: Array of file metadata
 
 ### Delete File
+
 `DELETE /api/v2/aws/s3/delete`
+
 - **Body**: `{ key: string }`
 - **Response**: Success status
 
 ### Get Stats
+
 `GET /api/v2/aws/s3/stats`
+
 - **Response**: Storage statistics and recent uploads
 
 ### Check Configuration
+
 `GET /api/v2/aws/s3/config`
+
 - **Response**: Configuration status and settings
 
 ## Security
 
 ### Encryption
+
 - All files encrypted at rest using AES256
 - SSL/TLS for data in transit
 - Optional client-side encryption before upload
 
 ### Access Control
+
 - Private ACL for all objects
 - Pre-signed URLs expire after 1 hour (configurable)
 - Block public access enabled by default
 
 ### File Validation
+
 - MIME type validation
 - File size limits enforced
 - Malware scanning (if AWS GuardDuty enabled)
@@ -165,7 +197,9 @@ const response = await fetch('/api/v2/aws/s3/delete', {
 ## Testing
 
 ### Test Page
+
 Access the comprehensive test suite at `/test/s3` which includes:
+
 - Feature flag validation
 - Configuration checks
 - Upload/download operations
@@ -175,7 +209,9 @@ Access the comprehensive test suite at `/test/s3` which includes:
 - Encryption verification
 
 ### Mock Service
+
 When AWS credentials are not configured:
+
 - Simulates all S3 operations
 - Returns mock file data
 - Logs operations to console
@@ -184,7 +220,9 @@ When AWS credentials are not configured:
 ## Storage Management
 
 ### Admin Interface
+
 Access `/storage` for:
+
 - View storage statistics
 - Browse uploaded files
 - Upload new files
@@ -193,6 +231,7 @@ Access `/storage` for:
 - Search by filename
 
 ### Folder Structure
+
 ```
 bucket/
 ├── patients/
@@ -213,13 +252,17 @@ bucket/
 ## Cost Optimization
 
 ### Intelligent Tiering
+
 Files automatically transition between:
+
 - **Frequent Access**: Immediate access
 - **Infrequent Access**: Lower cost, millisecond access
 - **Archive Instant**: Lowest cost, millisecond access
 
 ### Lifecycle Policies
+
 Consider implementing:
+
 - Delete temp files after 7 days
 - Archive old files after 90 days
 - Transition to Glacier for long-term storage
@@ -227,12 +270,14 @@ Consider implementing:
 ## Monitoring
 
 ### CloudWatch Metrics
+
 - Storage usage
 - Request count
 - Bandwidth usage
 - Error rates
 
 ### Audit Logging
+
 - S3 access logging enabled
 - CloudTrail for API calls
 - Application-level logging
@@ -275,6 +320,7 @@ Consider implementing:
 ## Compliance
 
 ### HIPAA Compliance
+
 - Enable encryption at rest and in transit
 - Sign AWS Business Associate Agreement (BAA)
 - Use dedicated S3 buckets for PHI
@@ -283,6 +329,7 @@ Consider implementing:
 - Regular security audits
 
 ### Data Privacy
+
 - Patient data remains in specified region
 - Implement data deletion policies
 - Support patient data export requests

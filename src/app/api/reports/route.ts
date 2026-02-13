@@ -1,6 +1,6 @@
 /**
  * Saved Reports API
- * 
+ *
  * GET /api/reports - List saved reports
  * POST /api/reports - Create new report
  */
@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    requirePermission(toPermissionContext(user), 'report:run');
 
     const clinicId = getClinicContext();
     if (!clinicId) {
@@ -25,6 +27,7 @@ export async function GET(request: NextRequest) {
     const reports = await prisma.savedReport.findMany({
       where: { clinicId },
       orderBy: { createdAt: 'desc' },
+      take: 100,
       include: {
         user: {
           select: {
@@ -36,17 +39,14 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      reports: reports.map((r: typeof reports[number]) => ({
+      reports: reports.map((r: (typeof reports)[number]) => ({
         ...r,
         createdByName: r.user ? `${r.user.firstName} ${r.user.lastName}` : 'Unknown',
       })),
     });
   } catch (error) {
     logger.error('Failed to fetch reports', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch reports' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch reports' }, { status: 500 });
   }
 }
 
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    requirePermission(toPermissionContext(user), 'report:run');
 
     const clinicId = getClinicContext();
     if (!clinicId) {
@@ -66,10 +67,7 @@ export async function POST(request: NextRequest) {
     const { name, description, type, config, isScheduled, schedule, recipients } = body;
 
     if (!name || !type || !config) {
-      return NextResponse.json(
-        { error: 'name, type, and config are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'name, type, and config are required' }, { status: 400 });
     }
 
     const report = await prisma.savedReport.create({
@@ -89,9 +87,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ report }, { status: 201 });
   } catch (error) {
     logger.error('Failed to create report', { error });
-    return NextResponse.json(
-      { error: 'Failed to create report' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create report' }, { status: 500 });
   }
 }

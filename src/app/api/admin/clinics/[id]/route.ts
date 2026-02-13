@@ -7,10 +7,7 @@ import { verifyAuth, canAccessClinic } from '@/lib/auth/middleware';
  * GET /api/admin/clinics/[id]
  * Get a specific clinic (admin only)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Verify admin authentication
     const auth = await verifyAuth(request);
@@ -27,10 +24,7 @@ export async function GET(
     const clinicId = parseInt(resolvedParams.id);
 
     if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
     // Non-super-admins can only access their own clinic
@@ -75,25 +69,19 @@ export async function GET(
             users: true,
             orders: true,
             invoices: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
-    
+
     if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
-    
+
     return NextResponse.json(clinic);
   } catch (error) {
     logger.error('Error fetching clinic:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch clinic' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch clinic' }, { status: 500 });
   }
 }
 
@@ -101,10 +89,7 @@ export async function GET(
  * PATCH /api/admin/clinics/[id]
  * Update a clinic (admin only)
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Verify admin authentication
     const auth = await verifyAuth(request);
@@ -122,10 +107,7 @@ export async function PATCH(
     const body = await request.json();
 
     if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
     // Non-super-admins can only update their own clinic
@@ -138,33 +120,33 @@ export async function PATCH(
       where: { id: clinicId },
       select: { id: true, subdomain: true },
     });
-    
+
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
-    
+
     // If subdomain is being changed, check if it's available
     if (body.subdomain && body.subdomain !== existing.subdomain) {
       const subdomainTaken = await prisma.clinic.findUnique({
         where: { subdomain: body.subdomain },
         select: { id: true },
       });
-      
+
       if (subdomainTaken) {
-        return NextResponse.json(
-          { error: 'Subdomain already taken' },
-          { status: 409 }
-        );
+        return NextResponse.json({ error: 'Subdomain already taken' }, { status: 409 });
       }
     }
-    
+
     // Validate and clean patientIdPrefix if provided
-    const patientIdPrefix = body.patientIdPrefix !== undefined
-      ? (body.patientIdPrefix ? body.patientIdPrefix.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5) : null)
-      : undefined;
+    const patientIdPrefix =
+      body.patientIdPrefix !== undefined
+        ? body.patientIdPrefix
+          ? body.patientIdPrefix
+              .toUpperCase()
+              .replace(/[^A-Z]/g, '')
+              .slice(0, 5)
+          : null
+        : undefined;
 
     // Update the clinic (use explicit select for backwards compatibility)
     const updated = await prisma.clinic.update({
@@ -227,9 +209,9 @@ export async function PATCH(
             users: true,
             orders: true,
             invoices: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
     // Create audit log
@@ -239,19 +221,16 @@ export async function PATCH(
         action: 'UPDATE',
         userId: auth.user.id,
         details: {
-          updatedBy: auth.user.email,
+          updatedBy: auth.user.id,
           changes: body,
-        }
-      }
+        },
+      },
     });
-    
+
     return NextResponse.json(updated);
   } catch (error) {
     logger.error('Error updating clinic:', error);
-    return NextResponse.json(
-      { error: 'Failed to update clinic' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update clinic' }, { status: 500 });
   }
 }
 
@@ -271,19 +250,19 @@ export async function DELETE(
     }
 
     if (auth.user.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Forbidden - Super Admin access required for clinic deletion' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - Super Admin access required for clinic deletion' },
+        { status: 403 }
+      );
     }
 
     const resolvedParams = await params;
     const clinicId = parseInt(resolvedParams.id);
 
     if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
-    
+
     // Check if clinic exists and has no data (use select for backwards compatibility)
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -297,31 +276,29 @@ export async function DELETE(
             providers: true,
             users: true,
             orders: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
-    
+
     if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
-    
+
     // Prevent deletion if clinic has data
-    const hasData = clinic._count.patients > 0 || 
-                   clinic._count.providers > 0 || 
-                   clinic._count.users > 0 || 
-                   clinic._count.orders > 0;
-    
+    const hasData =
+      clinic._count.patients > 0 ||
+      clinic._count.providers > 0 ||
+      clinic._count.users > 0 ||
+      clinic._count.orders > 0;
+
     if (hasData) {
       return NextResponse.json(
         { error: 'Cannot delete clinic with existing data. Please remove all data first.' },
         { status: 409 }
       );
     }
-    
+
     // Create audit log before deletion
     await prisma.clinicAuditLog.create({
       data: {
@@ -332,21 +309,18 @@ export async function DELETE(
           deletedBy: auth.user.email,
           clinicName: clinic.name,
           subdomain: clinic.subdomain,
-        }
-      }
+        },
+      },
     });
-    
+
     // Delete the clinic
     await prisma.clinic.delete({
-      where: { id: clinicId }
+      where: { id: clinicId },
     });
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('Error deleting clinic:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete clinic' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete clinic' }, { status: 500 });
   }
 }

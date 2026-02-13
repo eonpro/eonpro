@@ -7,6 +7,7 @@
 
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
@@ -87,27 +88,27 @@ export function generateVerificationToken(): string {
  */
 export function validatePassword(password: string): PasswordValidation {
   const errors: string[] = [];
-  
+
   if (password.length < PASSWORD_REQUIREMENTS.minLength) {
     errors.push(`Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters`);
   }
-  
+
   if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
     errors.push('Password must contain at least one uppercase letter');
   }
-  
+
   if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
     errors.push('Password must contain at least one lowercase letter');
   }
-  
+
   if (PASSWORD_REQUIREMENTS.requireNumbers && !/\d/.test(password)) {
     errors.push('Password must contain at least one number');
   }
-  
+
   if (PASSWORD_REQUIREMENTS.requireSpecialChars && !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
     errors.push('Password must contain at least one special character');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -145,9 +146,9 @@ export function validateDOB(dob: string): { isValid: boolean; error?: string } {
   // Support multiple formats: YYYY-MM-DD, MM/DD/YYYY, MM-DD-YYYY
   const isoFormat = /^\d{4}-\d{2}-\d{2}$/;
   const usFormat = /^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/;
-  
+
   let date: Date;
-  
+
   if (isoFormat.test(dob)) {
     date = new Date(dob);
   } else if (usFormat.test(dob)) {
@@ -156,25 +157,25 @@ export function validateDOB(dob: string): { isValid: boolean; error?: string } {
   } else {
     return { isValid: false, error: 'Invalid date format. Use YYYY-MM-DD or MM/DD/YYYY' };
   }
-  
+
   if (isNaN(date.getTime())) {
     return { isValid: false, error: 'Invalid date' };
   }
-  
+
   const now = new Date();
   const minAge = 13; // Minimum age requirement
   const maxAge = 120;
-  
+
   const age = Math.floor((now.getTime() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-  
+
   if (age < minAge) {
     return { isValid: false, error: `You must be at least ${minAge} years old to register` };
   }
-  
+
   if (age > maxAge) {
     return { isValid: false, error: 'Invalid date of birth' };
   }
-  
+
   return { isValid: true };
 }
 
@@ -183,12 +184,12 @@ export function validateDOB(dob: string): { isValid: boolean; error?: string } {
  */
 export function normalizeDOB(dob: string): string {
   const usFormat = /^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/;
-  
+
   if (usFormat.test(dob)) {
     const parts = dob.split(/[\/\-]/);
     return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
   }
-  
+
   return dob;
 }
 
@@ -200,50 +201,50 @@ export async function registerPatient(
   ipAddress?: string
 ): Promise<RegistrationResult> {
   const { email, password, firstName, lastName, phone, dob, clinicCode } = input;
-  
+
   try {
     // Normalize inputs
     const normalizedEmail = email.toLowerCase().trim();
     const normalizedCode = clinicCode.trim().toUpperCase();
     const normalizedPhone = formatPhone(phone);
     const normalizedDOB = normalizeDOB(dob);
-    
+
     // Validate clinic code
     const inviteCode = await prisma.clinicInviteCode.findUnique({
       where: { code: normalizedCode },
       include: { clinic: true },
     });
-    
+
     if (!inviteCode || !inviteCode.isActive) {
       return { success: false, error: 'Invalid or inactive clinic code' };
     }
-    
+
     if (inviteCode.expiresAt && new Date() > inviteCode.expiresAt) {
       return { success: false, error: 'Clinic code has expired' };
     }
-    
+
     if (inviteCode.usageLimit !== null && inviteCode.usageCount >= inviteCode.usageLimit) {
       return { success: false, error: 'Clinic code has reached its usage limit' };
     }
-    
+
     if (inviteCode.clinic.status !== 'ACTIVE') {
       return { success: false, error: 'Clinic is not accepting new registrations' };
     }
-    
+
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
-    
+
     if (existingUser) {
       // Don't reveal that email exists (security)
       logger.warn('Registration attempted with existing email', { email: normalizedEmail });
-      return { 
-        success: false, 
-        error: 'Unable to complete registration. Please try again or contact support.' 
+      return {
+        success: false,
+        error: 'Unable to complete registration. Please try again or contact support.',
       };
     }
-    
+
     // Check if patient with same email exists in this clinic
     const existingPatient = await prisma.patient.findFirst({
       where: {
@@ -283,7 +284,8 @@ export async function registerPatient(
       const inputDOBNormalized = normalizedDOB.replace(/[\/\-]/g, '');
 
       // Check if name and DOB match (identity verification)
-      const nameMatches = existingFirstName === inputFirstName && existingLastName === inputLastName;
+      const nameMatches =
+        existingFirstName === inputFirstName && existingLastName === inputLastName;
       const dobMatches = existingDOB === inputDOBNormalized;
 
       if (nameMatches && dobMatches) {
@@ -305,7 +307,8 @@ export async function registerPatient(
         });
         return {
           success: false,
-          error: 'The information provided does not match our records. Please ensure your name and date of birth match the information from your intake form, or contact support for assistance.',
+          error:
+            'The information provided does not match our records. Please ensure your name and date of birth match the information from your intake form, or contact support for assistance.',
         };
       }
     }
@@ -315,29 +318,29 @@ export async function registerPatient(
     if (!passwordValidation.isValid) {
       return { success: false, error: passwordValidation.errors.join('. ') };
     }
-    
+
     // Validate phone
     if (!validatePhone(phone)) {
       return { success: false, error: 'Invalid phone number format' };
     }
-    
+
     // Validate DOB
     const dobValidation = validateDOB(dob);
     if (!dobValidation.isValid) {
       return { success: false, error: dobValidation.error };
     }
-    
+
     // Hash password
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    
+
     // Generate verification token
     const verificationToken = generateVerificationToken();
     const hashedToken = hashToken(verificationToken);
     const tokenExpiresAt = new Date();
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
-    
+
     // Create user (and optionally patient) in transaction
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       let patient;
 
       if (linkToExistingPatient && existingPatient) {
@@ -346,12 +349,15 @@ export async function registerPatient(
           where: { id: existingPatient.id },
           data: {
             // Update phone if the existing one is empty or this one is different
-            ...(normalizedPhone && (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
+            ...(normalizedPhone &&
+            (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
               ? { phone: normalizedPhone }
               : {}),
             // Mark that portal access was created
             sourceMetadata: {
-              ...(typeof existingPatient.sourceMetadata === 'object' ? existingPatient.sourceMetadata : {}),
+              ...(typeof existingPatient.sourceMetadata === 'object'
+                ? existingPatient.sourceMetadata
+                : {}),
               portalAccessCreated: new Date().toISOString(),
               portalClinicCode: normalizedCode,
             },
@@ -416,11 +422,13 @@ export async function registerPatient(
 
       return { patient, user, linkedToExisting: linkToExistingPatient };
     });
-    
+
     // Send welcome email with verification link
     const baseUrl = getAppBaseUrl();
-    const verificationUrl = baseUrl ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}` : '';
-    
+    const verificationUrl = baseUrl
+      ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
+      : '';
+
     try {
       await sendTemplatedEmail({
         to: normalizedEmail,
@@ -433,7 +441,7 @@ export async function registerPatient(
           clinicName: inviteCode.clinic.name,
         },
       });
-      
+
       logger.info('Welcome email sent for new patient registration', {
         userId: result.user.id,
         patientId: result.patient.id,
@@ -446,7 +454,7 @@ export async function registerPatient(
         error: emailError.message,
       });
     }
-    
+
     // Audit log
     logger.security('Patient portal registration', {
       userId: result.user.id,
@@ -465,12 +473,11 @@ export async function registerPatient(
       userId: result.user.id,
       patientId: result.patient.id,
     };
-    
   } catch (error: any) {
-    logger.error('Patient registration failed', { error: error.message, email: input.email });
-    return { 
-      success: false, 
-      error: 'Registration failed. Please try again.' 
+    logger.error('Patient registration failed', { error: error.message });
+    return {
+      success: false,
+      error: 'Registration failed. Please try again.',
     };
   }
 }
@@ -495,7 +502,8 @@ export async function registerWithInviteToken(
     if (!invite) {
       return {
         success: false,
-        error: 'This invite link is invalid or has expired. Please request a new one from your care team.',
+        error:
+          'This invite link is invalid or has expired. Please request a new one from your care team.',
       };
     }
 
@@ -551,7 +559,7 @@ export async function registerWithInviteToken(
       select: { name: true },
     });
 
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const user = await tx.user.create({
         data: {
           clinicId: invite.clinicId,
@@ -578,7 +586,9 @@ export async function registerWithInviteToken(
     await markInviteTokenUsed(inviteToken);
 
     const baseUrl = getAppBaseUrl();
-    const verificationUrl = baseUrl ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}` : '';
+    const verificationUrl = baseUrl
+      ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
+      : '';
     try {
       await sendTemplatedEmail({
         to: normalizedEmail,
@@ -623,13 +633,13 @@ export async function registerWithInviteToken(
 export async function verifyEmail(token: string): Promise<RegistrationResult> {
   try {
     const hashedToken = hashToken(token);
-    
+
     // Find the verification token
     const verificationRecord = await prisma.emailVerificationToken.findUnique({
       where: { token: hashedToken },
       include: { user: true },
     });
-    
+
     if (!verificationRecord) {
       return { success: false, error: 'Invalid verification link' };
     }
@@ -645,11 +655,14 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
       }
       return { success: false, error: 'This verification link has already been used' };
     }
-    
+
     if (new Date() > verificationRecord.expiresAt) {
-      return { success: false, error: 'This verification link has expired. Please request a new one.' };
+      return {
+        success: false,
+        error: 'This verification link has expired. Please request a new one.',
+      };
     }
-    
+
     // Mark user as verified and token as used (use callback form for Prisma wrapper compatibility)
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -667,18 +680,17 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
         },
       });
     });
-    
+
     logger.security('Email verified', {
       userId: verificationRecord.userId,
       email: verificationRecord.user.email,
     });
-    
+
     return {
       success: true,
       message: 'Email verified successfully. You can now log in.',
       userId: verificationRecord.userId,
     };
-    
   } catch (error: any) {
     logger.error('Email verification failed', { error: error.message });
     return { success: false, error: 'Verification failed. Please try again.' };
@@ -691,33 +703,36 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
 export async function resendVerificationEmail(email: string): Promise<RegistrationResult> {
   try {
     const normalizedEmail = email.toLowerCase().trim();
-    
+
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
       include: { clinic: true },
     });
-    
+
     // Always return success to prevent email enumeration
     if (!user) {
-      return { success: true, message: 'If an account exists, a verification email has been sent.' };
+      return {
+        success: true,
+        message: 'If an account exists, a verification email has been sent.',
+      };
     }
-    
+
     if (user.emailVerified) {
       return { success: false, error: 'Email is already verified. Please log in.' };
     }
-    
+
     // Invalidate existing tokens
     await prisma.emailVerificationToken.updateMany({
       where: { userId: user.id, used: false },
       data: { used: true },
     });
-    
+
     // Generate new token
     const verificationToken = generateVerificationToken();
     const hashedToken = hashToken(verificationToken);
     const tokenExpiresAt = new Date();
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + VERIFICATION_TOKEN_EXPIRY_HOURS);
-    
+
     await prisma.emailVerificationToken.create({
       data: {
         userId: user.id,
@@ -725,11 +740,13 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
         expiresAt: tokenExpiresAt,
       },
     });
-    
+
     // Send verification email
     const baseUrl = getAppBaseUrl();
-    const verificationUrl = baseUrl ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}` : '';
-    
+    const verificationUrl = baseUrl
+      ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
+      : '';
+
     await sendTemplatedEmail({
       to: normalizedEmail,
       template: EmailTemplate.PATIENT_WELCOME_VERIFICATION,
@@ -741,11 +758,10 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
         clinicName: user.clinic?.name || 'Your Healthcare Provider',
       },
     });
-    
+
     logger.info('Verification email resent', { userId: user.id, email: normalizedEmail });
-    
+
     return { success: true, message: 'Verification email sent. Please check your inbox.' };
-    
   } catch (error: any) {
     logger.error('Failed to resend verification email', { error: error.message, email });
     return { success: false, error: 'Failed to send email. Please try again.' };

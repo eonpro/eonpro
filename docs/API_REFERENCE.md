@@ -7,6 +7,7 @@
 ## Overview
 
 The EONPRO API provides programmatic access to the healthcare platform for:
+
 - **Webhooks:** Receive patient intake data from external forms
 - **Patients:** Create, read, update patient records
 - **Documents:** Manage patient documents and intake PDFs
@@ -30,6 +31,7 @@ Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "token": "eyJhbG...",
@@ -38,6 +40,7 @@ Response:
 ```
 
 Use the token in subsequent requests:
+
 ```http
 Authorization: Bearer eyJhbG...
 ```
@@ -51,11 +54,13 @@ x-webhook-secret: YOUR_SECRET_KEY
 ```
 
 Or:
+
 ```http
 x-api-key: YOUR_SECRET_KEY
 ```
 
 Or:
+
 ```http
 Authorization: Bearer YOUR_SECRET_KEY
 ```
@@ -71,6 +76,7 @@ Receive patient intake form submissions.
 **Authentication:** Webhook secret required
 
 **Request:**
+
 ```http
 POST /api/webhooks/weightlossintake
 Content-Type: application/json
@@ -92,6 +98,7 @@ x-webhook-secret: YOUR_SECRET
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -123,6 +130,7 @@ x-webhook-secret: YOUR_SECRET
 ```
 
 **Error Response (401):**
+
 ```json
 {
   "error": "Unauthorized",
@@ -138,6 +146,7 @@ x-webhook-secret: YOUR_SECRET
 Test webhook integration without creating real patients.
 
 **Request:**
+
 ```http
 POST /api/webhooks/test
 Content-Type: application/json
@@ -153,6 +162,7 @@ x-webhook-secret: YOUR_SECRET
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -185,16 +195,13 @@ List all patients (paginated).
 
 **Authentication:** JWT required (admin/provider)
 
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `page` | number | Page number (default: 1) |
-| `limit` | number | Items per page (default: 20, max: 100) |
-| `search` | string | Search by name, email, or phone |
-| `status` | string | Filter by status |
-| `tags` | string | Filter by tags (comma-separated) |
+**Query Parameters:** | Parameter | Type | Description | |-----------|------|-------------| | `page`
+| number | Page number (default: 1) | | `limit` | number | Items per page (default: 20, max: 100) |
+| `search` | string | Search by name, email, or phone | | `status` | string | Filter by status | |
+`tags` | string | Filter by tags (comma-separated) |
 
 **Response:**
+
 ```json
 {
   "patients": [
@@ -227,6 +234,7 @@ Get a single patient by ID.
 **Authentication:** JWT required
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -263,6 +271,7 @@ Create a new patient.
 **Authentication:** JWT required (admin/provider)
 
 **Request:**
+
 ```json
 {
   "firstName": "Jane",
@@ -279,6 +288,7 @@ Create a new patient.
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "id": 43,
@@ -301,6 +311,7 @@ List patient documents.
 **Authentication:** JWT required
 
 **Response:**
+
 ```json
 {
   "documents": [
@@ -336,14 +347,12 @@ Get SOAP notes for a patient.
 
 **Authentication:** JWT required (provider)
 
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `patientId` | number | Required. Patient ID |
-| `includeRevisions` | boolean | Include revision history |
-| `approvedOnly` | boolean | Only return approved notes |
+**Query Parameters:** | Parameter | Type | Description | |-----------|------|-------------| |
+`patientId` | number | Required. Patient ID | | `includeRevisions` | boolean | Include revision
+history | | `approvedOnly` | boolean | Only return approved notes |
 
 **Response:**
+
 ```json
 {
   "ok": true,
@@ -370,6 +379,7 @@ Create a SOAP note (manual or AI-generated).
 **Authentication:** JWT required (provider)
 
 **Request (AI Generated):**
+
 ```json
 {
   "patientId": 42,
@@ -378,6 +388,7 @@ Create a SOAP note (manual or AI-generated).
 ```
 
 **Request (Manual):**
+
 ```json
 {
   "patientId": 42,
@@ -402,6 +413,7 @@ Create a prescription via Lifefile pharmacy integration.
 **Authentication:** JWT required (provider)
 
 **Request:**
+
 ```json
 {
   "patientId": 42,
@@ -418,14 +430,15 @@ Create a prescription via Lifefile pharmacy integration.
 
 ## Rate Limiting
 
-| Endpoint Type | Limit | Window |
-|---------------|-------|--------|
-| Authentication | 5 | 15 minutes |
-| Standard API | 120 | 1 minute |
-| Webhooks | 1000 | 1 minute |
-| File Upload | 10 | 1 minute |
+| Endpoint Type  | Limit | Window     |
+| -------------- | ----- | ---------- |
+| Authentication | 5     | 15 minutes |
+| Standard API   | 120   | 1 minute   |
+| Webhooks       | 1000  | 1 minute   |
+| File Upload    | 10    | 1 minute   |
 
 Rate limit headers:
+
 ```http
 X-RateLimit-Limit: 120
 X-RateLimit-Remaining: 118
@@ -436,15 +449,15 @@ X-RateLimit-Reset: 2026-01-18T15:31:00Z
 
 ## Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `AUTH_REQUIRED` | 401 | Authentication required |
-| `INVALID_SECRET` | 401 | Invalid webhook secret |
-| `FORBIDDEN` | 403 | Insufficient permissions |
-| `NOT_FOUND` | 404 | Resource not found |
-| `VALIDATION_ERROR` | 400 | Invalid request data |
-| `RATE_LIMITED` | 429 | Too many requests |
-| `SERVER_ERROR` | 500 | Internal server error |
+| Code               | HTTP Status | Description              |
+| ------------------ | ----------- | ------------------------ |
+| `AUTH_REQUIRED`    | 401         | Authentication required  |
+| `INVALID_SECRET`   | 401         | Invalid webhook secret   |
+| `FORBIDDEN`        | 403         | Insufficient permissions |
+| `NOT_FOUND`        | 404         | Resource not found       |
+| `VALIDATION_ERROR` | 400         | Invalid request data     |
+| `RATE_LIMITED`     | 429         | Too many requests        |
+| `SERVER_ERROR`     | 500         | Internal server error    |
 
 ---
 
@@ -469,7 +482,7 @@ async function sendIntake(data: PatientIntake) {
       data,
     }),
   });
-  
+
   return response.json();
 }
 ```
@@ -523,4 +536,4 @@ curl -X POST https://app.eonpro.io/api/webhooks/weightlossintake \
 
 ---
 
-*© 2026 EONPRO. All rights reserved.*
+_© 2026 EONPRO. All rights reserved._

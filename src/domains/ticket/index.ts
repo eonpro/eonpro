@@ -13,10 +13,7 @@
 export { ticketService } from './services';
 
 // Error tracking (Sentry + observability)
-export {
-  reportTicketError,
-  type TicketErrorContext,
-} from './lib/ticket-error-tracking';
+export { reportTicketError, type TicketErrorContext } from './lib/ticket-error-tracking';
 
 // Repositories
 export { ticketRepository } from './repositories';

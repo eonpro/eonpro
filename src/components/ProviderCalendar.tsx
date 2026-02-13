@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Video, Clock } from "lucide-react";
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Video, Clock } from 'lucide-react';
 
 interface Appointment {
   id: number;
@@ -18,17 +18,27 @@ interface ProviderCalendarProps {
   onAppointmentClick: (appointment: Appointment) => void;
 }
 
-export default function ProviderCalendar({ 
-  appointments, 
-  onDateClick, 
-  onAppointmentClick 
+export default function ProviderCalendar({
+  appointments,
+  onDateClick,
+  onAppointmentClick,
 }: ProviderCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
 
   const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   const getDaysInMonth = (date: Date) => {
@@ -44,9 +54,7 @@ export default function ProviderCalendar({
   };
 
   const getAppointmentsForDate = (date: Date) => {
-    return appointments.filter(apt => 
-      apt.date.toDateString() === date.toDateString()
-    );
+    return appointments.filter((apt) => apt.date.toDateString() === date.toDateString());
   };
 
   const renderMonthView = () => {
@@ -56,9 +64,7 @@ export default function ProviderCalendar({
 
     // Empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <div key={`empty-${i}`} className="h-28 bg-gray-50 border border-gray-200"></div>
-      );
+      days.push(<div key={`empty-${i}`} className="h-28 border border-gray-200 bg-gray-50"></div>);
     }
 
     // Days of the month
@@ -70,38 +76,38 @@ export default function ProviderCalendar({
       days.push(
         <div
           key={day}
-          className={`h-28 border border-gray-200 p-2 cursor-pointer hover:bg-gray-50 transition-colors ${
+          className={`h-28 cursor-pointer border border-gray-200 p-2 transition-colors hover:bg-gray-50 ${
             isToday ? 'bg-blue-50' : 'bg-white'
           }`}
           onClick={() => onDateClick(date)}
         >
-          <div className="flex justify-between items-start mb-1">
+          <div className="mb-1 flex items-start justify-between">
             <span className={`text-sm font-medium ${isToday ? 'text-blue-600' : 'text-gray-900'}`}>
               {day}
             </span>
             {dayAppointments.length > 0 && (
-              <span className="px-1.5 py-0.5 bg-[#4fa77e] text-white text-xs rounded-full">
+              <span className="rounded-full bg-[#4fa77e] px-1.5 py-0.5 text-xs text-white">
                 {dayAppointments.length}
               </span>
             )}
           </div>
-          
-          <div className="space-y-1 overflow-y-auto max-h-16">
-            {dayAppointments.slice(0, 2).map(apt => (
+
+          <div className="max-h-16 space-y-1 overflow-y-auto">
+            {dayAppointments.slice(0, 2).map((apt) => (
               <div
                 key={apt.id}
-                className="text-xs p-1 bg-white border border-gray-200 rounded cursor-pointer hover:border-[#4fa77e] truncate"
+                className="cursor-pointer truncate rounded border border-gray-200 bg-white p-1 text-xs hover:border-[#4fa77e]"
                 onClick={(e) => {
                   e.stopPropagation();
                   onAppointmentClick(apt);
                 }}
               >
                 <div className="flex items-center gap-1">
-                  {apt.type === 'telehealth' && <Video className="w-3 h-3 text-blue-500" />}
-                  <span className="font-medium truncate">
-                    {apt.date.toLocaleTimeString('en-US', { 
-                      hour: 'numeric', 
-                      minute: '2-digit' 
+                  {apt.type === 'telehealth' && <Video className="h-3 w-3 text-blue-500" />}
+                  <span className="truncate font-medium">
+                    {apt.date.toLocaleTimeString('en-US', {
+                      hour: 'numeric',
+                      minute: '2-digit',
                     })}
                   </span>
                 </div>
@@ -109,7 +115,7 @@ export default function ProviderCalendar({
               </div>
             ))}
             {dayAppointments.length > 2 && (
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-center text-xs text-gray-500">
                 +{dayAppointments.length - 2} more
               </p>
             )}
@@ -124,10 +130,10 @@ export default function ProviderCalendar({
   const renderWeekView = () => {
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-    
+
     const weekDays: Date[] = [];
     const timeSlots: React.ReactNode[] = [];
-    
+
     // Generate week days
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
@@ -139,29 +145,30 @@ export default function ProviderCalendar({
     for (let hour = 8; hour <= 18; hour++) {
       timeSlots.push(
         <div key={hour} className="flex border-b border-gray-200">
-          <div className="w-20 p-2 text-xs text-gray-500 text-right border-r border-gray-200">
+          <div className="w-20 border-r border-gray-200 p-2 text-right text-xs text-gray-500">
             {hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
           </div>
           {weekDays.map((date, index) => {
-            const hourAppointments = appointments.filter(apt => {
-              return apt.date.toDateString() === date.toDateString() && 
-                     apt.date.getHours() === hour;
+            const hourAppointments = appointments.filter((apt) => {
+              return (
+                apt.date.toDateString() === date.toDateString() && apt.date.getHours() === hour
+              );
             });
 
             return (
-              <div 
-                key={index} 
-                className="flex-1 p-2 border-r border-gray-200 cursor-pointer hover:bg-gray-50 min-h-[60px]"
+              <div
+                key={index}
+                className="min-h-[60px] flex-1 cursor-pointer border-r border-gray-200 p-2 hover:bg-gray-50"
                 onClick={() => {
                   const clickedDate = new Date(date);
                   clickedDate.setHours(hour, 0, 0, 0);
                   onDateClick(clickedDate);
                 }}
               >
-                {hourAppointments.map(apt => (
+                {hourAppointments.map((apt) => (
                   <div
                     key={apt.id}
-                    className="text-xs p-1 bg-blue-100 border border-blue-300 rounded mb-1 cursor-pointer"
+                    className="mb-1 cursor-pointer rounded border border-blue-300 bg-blue-100 p-1 text-xs"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAppointmentClick(apt);
@@ -169,9 +176,9 @@ export default function ProviderCalendar({
                   >
                     <p className="font-medium">{apt.patientName}</p>
                     <p className="text-gray-600">
-                      {apt.date.toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit' 
+                      {apt.date.toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
                       })}
                     </p>
                   </div>
@@ -184,35 +191,35 @@ export default function ProviderCalendar({
     }
 
     return (
-      <div className="bg-white rounded-lg overflow-hidden">
+      <div className="overflow-hidden rounded-lg bg-white">
         {/* Week header */}
         <div className="flex border-b border-gray-200 bg-gray-50">
-          <div className="w-20 p-2 border-r border-gray-200"></div>
+          <div className="w-20 border-r border-gray-200 p-2"></div>
           {weekDays.map((date, index) => (
-            <div key={index} className="flex-1 p-2 text-center border-r border-gray-200">
+            <div key={index} className="flex-1 border-r border-gray-200 p-2 text-center">
               <p className="text-xs text-gray-500">
                 {date.toLocaleDateString('en-US', { weekday: 'short' })}
               </p>
-              <p className={`text-sm font-medium ${
-                date.toDateString() === new Date().toDateString() ? 'text-blue-600' : ''
-              }`}>
+              <p
+                className={`text-sm font-medium ${
+                  date.toDateString() === new Date().toDateString() ? 'text-blue-600' : ''
+                }`}
+              >
                 {date.getDate()}
               </p>
             </div>
           ))}
         </div>
         {/* Time slots */}
-        <div className="overflow-y-auto max-h-[600px]">
-          {timeSlots}
-        </div>
+        <div className="max-h-[600px] overflow-y-auto">{timeSlots}</div>
       </div>
     );
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-900">
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -220,34 +227,34 @@ export default function ProviderCalendar({
           <div className="flex gap-1">
             <button
               onClick={() => navigateMonth(-1)}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="rounded p-1 transition-colors hover:bg-gray-100"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-2 py-1 text-sm hover:bg-gray-100 rounded transition-colors"
+              className="rounded px-2 py-1 text-sm transition-colors hover:bg-gray-100"
             >
               Today
             </button>
             <button
               onClick={() => navigateMonth(1)}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="rounded p-1 transition-colors hover:bg-gray-100"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         {/* View Switcher */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-          {(['month', 'week', 'day'] as const).map(v => (
+        <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          {(['month', 'week', 'day'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-3 py-1 text-sm rounded transition-colors ${
-                view === v 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+              className={`rounded px-3 py-1 text-sm transition-colors ${
+                view === v
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
@@ -260,25 +267,21 @@ export default function ProviderCalendar({
       {/* Calendar Grid */}
       {view === 'month' && (
         <>
-          <div className="grid grid-cols-7 gap-0 mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center text-sm font-medium text-gray-700 p-2">
+          <div className="mb-2 grid grid-cols-7 gap-0">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+              <div key={day} className="p-2 text-center text-sm font-medium text-gray-700">
                 {day}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-0">
-            {renderMonthView()}
-          </div>
+          <div className="grid grid-cols-7 gap-0">{renderMonthView()}</div>
         </>
       )}
 
       {view === 'week' && renderWeekView()}
 
       {view === 'day' && (
-        <div className="text-center py-20 text-gray-500">
-          Day view coming soon...
-        </div>
+        <div className="py-20 text-center text-gray-500">Day view coming soon...</div>
       )}
     </div>
   );

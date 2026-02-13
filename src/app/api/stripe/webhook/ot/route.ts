@@ -1,16 +1,16 @@
 /**
  * Stripe Webhook Handler for OT (Overtime) Clinic
  * ================================================
- * 
+ *
  * Dedicated webhook endpoint for OT's own Stripe account (ot.eonpro.io)
- * 
+ *
  * CRITICAL PATH: Payment → Patient Match → Invoice → Affiliate Commission
- * 
+ *
  * This webhook:
  * 1. Uses OT_STRIPE_WEBHOOK_SECRET for signature verification
  * 2. Routes payments to OT's clinic for patient matching
  * 3. Triggers affiliate conversion credits when applicable
- * 
+ *
  * Configure in OT's Stripe Dashboard:
  * Webhook URL: https://app.eonpro.io/api/stripe/webhook/ot
  * Events: payment_intent.succeeded, charge.succeeded, checkout.session.completed, etc.
@@ -35,11 +35,7 @@ const CRITICAL_PAYMENT_EVENTS = [
 ];
 
 // Events that can trigger commission reversals
-const REVERSAL_EVENTS = [
-  'charge.refunded',
-  'charge.dispute.created',
-  'payment_intent.canceled',
-];
+const REVERSAL_EVENTS = ['charge.refunded', 'charge.dispute.created', 'payment_intent.canceled'];
 
 /**
  * Get or create the OT Stripe client
@@ -69,11 +65,11 @@ async function getOTClinicId(): Promise<number> {
     where: { subdomain: OT_SUBDOMAIN },
     select: { id: true },
   });
-  
+
   if (!clinic) {
     throw new Error(`OT clinic not found (subdomain: ${OT_SUBDOMAIN})`);
   }
-  
+
   return clinic.id;
 }
 
@@ -86,19 +82,13 @@ export async function POST(request: NextRequest) {
     // Verify OT Stripe is configured
     if (!OT_STRIPE_CONFIG.isConfigured()) {
       logger.error('[OT STRIPE WEBHOOK] OT Stripe not configured');
-      return NextResponse.json(
-        { error: 'OT Stripe not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'OT Stripe not configured' }, { status: 500 });
     }
 
     const webhookSecret = OT_STRIPE_CONFIG.webhookSecret;
     if (!webhookSecret) {
       logger.error('[OT STRIPE WEBHOOK] Webhook secret not configured');
-      return NextResponse.json(
-        { error: 'Webhook secret not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
 
     const stripeClient = getOTStripe();
@@ -115,11 +105,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event;
 
     try {
-      event = stripeClient.webhooks.constructEvent(
-        body,
-        signature,
-        webhookSecret
-      );
+      event = stripeClient.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (error: any) {
       logger.error('[OT STRIPE WEBHOOK] Signature verification failed:', {
         error: error.message,
@@ -147,15 +133,11 @@ export async function POST(request: NextRequest) {
       extractPaymentDataFromCheckoutSession,
     } = await import('@/services/stripe/paymentMatchingService');
 
-    const {
-      processPaymentForCommission,
-      reverseCommissionForRefund,
-      checkIfFirstPayment,
-    } = await import('@/services/affiliate/affiliateCommissionService');
+    const { processPaymentForCommission, reverseCommissionForRefund, checkIfFirstPayment } =
+      await import('@/services/affiliate/affiliateCommissionService');
 
-    const { autoMatchPendingRefillsForPatient } = await import(
-      '@/services/refill/refillQueueService'
-    );
+    const { autoMatchPendingRefillsForPatient } =
+      await import('@/services/refill/refillQueueService');
 
     // Process the event
     const result = await processOTWebhookEvent(event, clinicId, {
@@ -205,7 +187,6 @@ export async function POST(request: NextRequest) {
       processed: result.success,
       duration,
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const duration = Date.now() - startTime;
@@ -214,7 +195,7 @@ export async function POST(request: NextRequest) {
       eventId,
       eventType,
       error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       duration,
     });
 
@@ -270,7 +251,8 @@ async function processOTWebhookEvent(
       // ================================================================
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        const piInvoice = (paymentIntent as Stripe.PaymentIntent & { invoice?: string | null }).invoice;
+        const piInvoice = (paymentIntent as Stripe.PaymentIntent & { invoice?: string | null })
+          .invoice;
 
         // Skip if this is an invoice payment (handled by invoice.payment_succeeded)
         if (piInvoice) {
@@ -568,9 +550,8 @@ async function processOTWebhookEvent(
         });
 
         // Import refund handler
-        const { handleStripeRefund, extractRefundDataFromCharge } = await import(
-          '@/services/stripe/paymentMatchingService'
-        );
+        const { handleStripeRefund, extractRefundDataFromCharge } =
+          await import('@/services/stripe/paymentMatchingService');
 
         // Handle refund - update invoice and payment status
         if (event.type === 'charge.refunded') {
@@ -661,6 +642,8 @@ async function queueFailedEvent(
   clinicId: number
 ): Promise<void> {
   try {
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const payload: unknown = rawBody ? safeParseJsonString(rawBody) : null;
     await prisma.webhookLog.create({
       data: {
         source: 'stripe-ot',
@@ -668,7 +651,7 @@ async function queueFailedEvent(
         eventType: event.type,
         status: 'FAILED',
         errorMessage: error,
-        payload: rawBody ? JSON.parse(rawBody) : null,
+        payload: payload as object | null,
         retryCount: 0,
         processedAt: null,
         metadata: {

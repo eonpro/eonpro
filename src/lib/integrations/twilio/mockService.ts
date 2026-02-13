@@ -1,6 +1,6 @@
 /**
  * Twilio Mock Service for Testing
- * 
+ *
  * Provides mock functionality for testing without real Twilio credentials
  */
 
@@ -25,8 +25,8 @@ function generateMockMessageId(): string {
 // Mock SMS send function
 export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
   // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
   // Simulate validation
   if (!message.to || !message.body) {
     return {
@@ -34,7 +34,7 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
       error: 'Missing required fields',
     };
   }
-  
+
   // Simulate phone number validation
   if (!message.to.match(/^\+?[1-9]\d{1,14}$/)) {
     return {
@@ -42,7 +42,7 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
       error: 'Invalid phone number format',
     };
   }
-  
+
   // Simulate random failures (5% failure rate for testing)
   if (Math.random() < 0.05) {
     return {
@@ -50,7 +50,7 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
       error: 'Mock delivery failure - network error',
     };
   }
-  
+
   // Create mock message
   const mockMessageId = generateMockMessageId();
   const mockMessage = {
@@ -61,17 +61,17 @@ export async function mockSendSMS(message: SMSMessage): Promise<SMSResponse> {
     status: 'delivered',
     timestamp: new Date(),
   };
-  
+
   // Store in mock storage
   mockMessages.push(mockMessage);
-  
+
   // Log to console for testing
   logger.debug('[MOCK_SMS] Message sent:', {
     id: mockMessageId,
     to: message.to,
     body: message.body.substring(0, 50) + '...',
   });
-  
+
   return {
     success: true,
     messageId: mockMessageId,
@@ -92,22 +92,22 @@ export async function mockProcessIncomingSMS(
   messageSid: string
 ): Promise<string> {
   logger.debug('[MOCK_INCOMING_SMS]', { from, body, messageSid });
-  
+
   const messageBody = body.toLowerCase().trim();
-  
+
   // Simulate keyword responses
   if (messageBody.includes('confirm')) {
     return 'Thank you for confirming your appointment! (MOCK)';
   }
-  
+
   if (messageBody.includes('cancel')) {
     return 'Your appointment has been cancelled. Please call us to reschedule. (MOCK)';
   }
-  
+
   if (messageBody.includes('help')) {
     return 'Reply CONFIRM to confirm, CANCEL to cancel, or call (555) 123-4567. (MOCK)';
   }
-  
+
   return 'Thank you for your message. A staff member will respond soon. (MOCK)';
 }
 
@@ -127,14 +127,14 @@ export function getMockStatistics() {
   const delivered = Math.floor(total * 0.95);
   const failed = total - delivered;
   const responses = Math.floor(delivered * 0.75);
-  
+
   return {
     sentToday: total,
     delivered,
     responses,
     failed,
-    deliveryRate: total > 0 ? (delivered / total * 100).toFixed(1) : '0',
-    responseRate: delivered > 0 ? (responses / delivered * 100).toFixed(1) : '0',
+    deliveryRate: total > 0 ? ((delivered / total) * 100).toFixed(1) : '0',
+    responseRate: delivered > 0 ? ((responses / delivered) * 100).toFixed(1) : '0',
   };
 }
 
@@ -147,11 +147,11 @@ export const mockTwilioClient = {
         body: options.body,
         from: options.from,
       });
-      
+
       if (!result.success) {
         throw new Error(result.error);
       }
-      
+
       return {
         sid: result.messageId,
         status: 'delivered',
@@ -164,14 +164,14 @@ export const mockTwilioClient = {
       };
     },
   },
-  
+
   // Mock message status fetch
   async fetch(messageId: string) {
     const message = mockMessages.find((m: any) => m.id === messageId);
     if (!message) {
       throw new Error('Message not found');
     }
-    
+
     return {
       status: message.status,
       errorCode: null,

@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
+import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { logger } from '@/lib/logger';
 import {
   Scale,
   TrendingDown,
@@ -40,24 +43,44 @@ interface IntakeVitals {
   bmi: string | null;
 }
 
+interface PortalUserMinimal {
+  id?: number;
+  role?: string;
+  patientId?: number;
+}
+
+interface NextReminderDisplay {
+  medication: string;
+  nextDose: string;
+  time: string;
+}
+
+interface RecentShipmentDisplay {
+  orderNumber?: string;
+  status?: string;
+  trackingNumber?: string;
+  [key: string]: unknown;
+}
+
 export default function PatientPortalDashboard() {
   const router = useRouter();
   const { branding } = useClinicBranding();
   const features = usePortalFeatures();
   const { t, language } = usePatientPortalLanguage();
 
-  const [patient, setPatient] = useState<any>(null);
+  const [patient, setPatient] = useState<PortalUserMinimal | null>(null);
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [weightChange, setWeightChange] = useState<number | null>(null);
-  const [recentShipment, setRecentShipment] = useState<any>(null);
-  const [nextReminder, setNextReminder] = useState<any>(null);
+  const [recentShipment, setRecentShipment] = useState<RecentShipmentDisplay | null>(null);
+  const [nextReminder, setNextReminder] = useState<NextReminderDisplay | null>(null);
   const [intakeVitals, setIntakeVitals] = useState<IntakeVitals | null>(null);
   const [photoStats, setPhotoStats] = useState<{
     totalPhotos: number;
     recentPhoto: string | null;
     idVerificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' | null;
   } | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -72,27 +95,35 @@ export default function PatientPortalDashboard() {
       try {
         const userJson = localStorage.getItem('user');
         if (!userJson) {
-          if (!cancelled) router.replace(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
+          if (!cancelled)
+            router.replace(
+              `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+            );
           return;
         }
 
-        const userData = JSON.parse(userJson);
+        const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
+        if (!userData) {
+          if (!cancelled)
+            router.replace(
+              `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
+            );
+          return;
+        }
         if (!cancelled) setPatient(userData);
 
         // CRITICAL: Use patientId only (never user.id) so we load the correct patient's weight/overview
         let patientId: number | null = userData.patientId ?? null;
         if (patientId == null && userData.role?.toLowerCase() === 'patient') {
-          const meRes = await fetch('/api/auth/me', {
-            headers: getAuthHeaders(),
-            credentials: 'include',
-          });
+          const meRes = await portalFetch('/api/auth/me');
           if (meRes.ok && !cancelled) {
-            const meData = await meRes.json();
-            const pid = meData?.user?.patientId;
+            const meData = await safeParseJson(meRes);
+            const data = meData as { user?: { patientId?: number } } | null;
+            const pid = data?.user?.patientId;
             if (typeof pid === 'number' && pid > 0) {
               patientId = pid;
               const updated = { ...userData, patientId: pid };
-              localStorage.setItem('user', JSON.stringify(updated));
+              setPortalUserStorage(getMinimalPortalUserPayload(updated));
               if (!cancelled) setPatient(updated);
             }
           }
@@ -104,42 +135,54 @@ export default function PatientPortalDashboard() {
         }
         // No demo: if no valid patientId, leave state empty (user may see empty dashboard or redirect handled by layout)
       } catch (error) {
-        console.error('[PatientPortal] Failed to load user data:', error);
-        if (!cancelled) router.replace(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`);
+        logger.error('PatientPortal: failed to load user data', {
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+        if (!cancelled)
+          router.replace(
+            `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
+          );
       }
     };
 
     run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const loadPatientData = async (patientId: number) => {
-    const headers = getAuthHeaders();
+    setDataError(null);
     try {
       // Load intake vitals (initial height, weight, BMI from intake form)
-      const vitalsRes = await fetch('/api/patient-portal/vitals', {
-        headers,
-        credentials: 'include',
-      });
+      const vitalsRes = await portalFetch('/api/patient-portal/vitals');
+      const err = getPortalResponseError(vitalsRes);
+      if (err) {
+        setDataError(err);
+        return;
+      }
       if (vitalsRes.ok) {
-        const result = await vitalsRes.json();
-        if (result.success && result.data) {
-          setIntakeVitals(result.data);
+        const result = await safeParseJson(vitalsRes);
+        if (result && typeof result === 'object' && 'success' in result && result.success && 'data' in result && result.data) {
+          setIntakeVitals(result.data as IntakeVitals);
         }
       }
 
       // Load weight data from database (logged weights over time)
-      const weightRes = await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
-        headers,
-        credentials: 'include',
-      });
+      const weightRes = await portalFetch(`/api/patient-progress/weight?patientId=${patientId}`);
+      const weightErr = getPortalResponseError(weightRes);
+      if (weightErr) {
+        setDataError(weightErr);
+        return;
+      }
       if (weightRes.ok) {
-        const result = await weightRes.json();
+        const result = await safeParseJson(weightRes);
         // Handle both array format and { data: [...] } format
-        const logs = Array.isArray(result) ? result : (result.data || []);
-        const formattedData = logs.map((log: any) => ({
-          dateInput: log.recordedAt,
-          currentWeightInput: log.weight,
+        const logs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) || [];
+        interface WeightLog { recordedAt?: string; weight?: number }
+        const formattedData = (logs as WeightLog[]).map((log) => ({
+          dateInput: log.recordedAt ?? '',
+          currentWeightInput: log.weight ?? 0,
         }));
         setWeightData(formattedData);
 
@@ -158,14 +201,18 @@ export default function PatientPortalDashboard() {
       }
 
       // Load medication reminders from database
-      const remindersRes = await fetch(
-        `/api/patient-progress/medication-reminders?patientId=${patientId}`,
-        { headers, credentials: 'include' }
+      const remindersRes = await portalFetch(
+        `/api/patient-progress/medication-reminders?patientId=${patientId}`
       );
+      const remindersErr = getPortalResponseError(remindersRes);
+      if (remindersErr) {
+        setDataError(remindersErr);
+        return;
+      }
       if (remindersRes.ok) {
-        const result = await remindersRes.json();
+        const result = await safeParseJson(remindersRes);
         // Handle both array format and { data: [...] } format
-        const reminders = Array.isArray(result) ? result : (result.data || []);
+        const reminders = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) || [];
         if (reminders.length > 0) {
           // Find the next upcoming reminder
           const dayNames = [
@@ -180,16 +227,22 @@ export default function PatientPortalDashboard() {
           const today = new Date().getDay();
 
           // Sort by next occurrence
-          const sortedReminders = reminders
-            .map((r: any) => ({
+          interface ReminderWithDays {
+            dayOfWeek: number;
+            medicationName: string;
+            timeOfDay: string;
+            daysUntil: number;
+          }
+          const sortedReminders = (reminders as ReminderWithDays[])
+            .map((r) => ({
               ...r,
               daysUntil: (r.dayOfWeek - today + 7) % 7 || 7,
             }))
-            .sort((a: any, b: any) => a.daysUntil - b.daysUntil);
+            .sort((a, b) => a.daysUntil - b.daysUntil);
 
           const next = sortedReminders[0];
           setNextReminder({
-            medication: next.medicationName.split(' ')[0], // Just the drug name
+            medication: next.medicationName.split(' ')[0],
             nextDose: dayNames[next.dayOfWeek],
             time: next.timeOfDay,
           });
@@ -198,32 +251,43 @@ export default function PatientPortalDashboard() {
 
       // Load photo stats for dashboard widget
       try {
-        const photosRes = await fetch('/api/patient-portal/photos', {
-          headers,
-          credentials: 'include',
-        });
+        const photosRes = await portalFetch('/api/patient-portal/photos');
+        const photosErr = getPortalResponseError(photosRes);
+        if (photosErr) {
+          setDataError(photosErr);
+          return;
+        }
         if (photosRes.ok) {
-          const photosResult = await photosRes.json();
-          if (photosResult.success && photosResult.data) {
+          const photosResult = await safeParseJson(photosRes);
+          if (photosResult && typeof photosResult === 'object' && 'success' in photosResult && photosResult.success && 'data' in photosResult && photosResult.data) {
             const photos = photosResult.data;
-            const progressPhotos = photos.filter((p: any) => p.type === 'PROGRESS');
-            const idPhotos = photos.filter((p: any) => p.type === 'ID_FRONT' || p.type === 'ID_BACK');
+            interface PhotoItem {
+              type?: string;
+              createdAt?: string;
+              verificationStatus?: string;
+            }
+            const progressPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'PROGRESS');
+            const idPhotos = (photos as PhotoItem[]).filter(
+              (p) => p.type === 'ID_FRONT' || p.type === 'ID_BACK'
+            );
 
-            // Determine ID verification status
             let idStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' = 'NOT_SUBMITTED';
             if (idPhotos.length > 0) {
-              const latestIdPhoto = idPhotos.sort((a: any, b: any) =>
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              const latestIdPhoto = [...idPhotos].sort(
+                (a, b) =>
+                  new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
               )[0];
               idStatus = latestIdPhoto.verificationStatus || 'PENDING';
             }
 
             // Get most recent progress photo URL
-            const recentProgressPhoto = progressPhotos.length > 0
-              ? progressPhotos.sort((a: any, b: any) =>
-                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                )[0]?.url
-              : null;
+            const recentProgressPhoto =
+              progressPhotos.length > 0
+                ? ([...progressPhotos].sort(
+                    (a, b) =>
+                      new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                  )[0] as PhotoItem & { url?: string })?.url
+                : null;
 
             setPhotoStats({
               totalPhotos: photos.length,
@@ -233,10 +297,14 @@ export default function PatientPortalDashboard() {
           }
         }
       } catch (photoError) {
-        console.error('[PatientPortal] Failed to load photo stats:', photoError);
+        logger.error('PatientPortal: failed to load photo stats', {
+          error: photoError instanceof Error ? photoError.message : 'Unknown',
+        });
       }
     } catch (error) {
-      console.error('Error loading patient data:', error);
+      logger.error('Error loading patient data', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       // Production: no demo data; leave state as-is (empty or partial)
     }
   };
@@ -289,6 +357,21 @@ export default function PatientPortalDashboard() {
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
+      {dataError && (
+        <div
+          className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm font-medium text-amber-900">{dataError}</p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=session_expired`}
+            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+          >
+            Log in
+          </Link>
+        </div>
+      )}
       {/* Welcome Header */}
       <div className="mb-6">
         <p className="text-sm text-gray-500">{formatDate()}</p>
@@ -304,7 +387,7 @@ export default function PatientPortalDashboard() {
       {/* Custom dashboard message from clinic (e.g., announcements) */}
       {branding?.dashboardMessage && (
         <div
-          className="mb-6 rounded-xl p-4 border"
+          className="mb-6 rounded-xl border p-4"
           style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` }}
         >
           <p className="text-sm font-medium" style={{ color: primaryColor }}>
@@ -328,9 +411,7 @@ export default function PatientPortalDashboard() {
                 <Ruler className="h-4 w-4 text-gray-500" />
                 <p className="text-xs font-medium text-gray-500">Height</p>
               </div>
-              <p className="text-xl font-bold text-gray-900">
-                {intakeVitals.height || '—'}
-              </p>
+              <p className="text-xl font-bold text-gray-900">{intakeVitals.height || '—'}</p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
                 <div
                   className="h-full rounded-full bg-gray-500"
@@ -377,9 +458,7 @@ export default function PatientPortalDashboard() {
       )}
 
       {/* Active Shipment Tracker - Shows at top when there's an active shipment */}
-      {features.showShipmentTracking && (
-        <ActiveShipmentTracker primaryColor={primaryColor} />
-      )}
+      {features.showShipmentTracking && <ActiveShipmentTracker primaryColor={primaryColor} />}
 
       {/* Weight Progress Card - Hero */}
       {features.showWeightTracking && (
@@ -478,7 +557,9 @@ export default function PatientPortalDashboard() {
               <span className="text-xs font-medium text-gray-500">{t('dashboardShipment')}</span>
             </div>
             <p className="font-semibold capitalize text-gray-900">{recentShipment.status}</p>
-            <p className="text-sm text-gray-500">{t('dashboardEst')} {recentShipment.estimatedDelivery}</p>
+            <p className="text-sm text-gray-500">
+              {t('dashboardEst')} {recentShipment.estimatedDelivery}
+            </p>
           </Link>
         )}
       </div>
@@ -510,22 +591,30 @@ export default function PatientPortalDashboard() {
                 {photoStats.idVerificationStatus === 'VERIFIED' ? (
                   <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-700">{t('dashboardIdVerified')}</span>
+                    <span className="text-sm font-medium text-green-700">
+                      {t('dashboardIdVerified')}
+                    </span>
                   </div>
                 ) : photoStats.idVerificationStatus === 'PENDING' ? (
                   <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2">
                     <Clock className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-700">{t('dashboardIdPending')}</span>
+                    <span className="text-sm font-medium text-amber-700">
+                      {t('dashboardIdPending')}
+                    </span>
                   </div>
                 ) : photoStats.idVerificationStatus === 'REJECTED' ? (
                   <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2">
                     <AlertCircle className="h-4 w-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-700">{t('dashboardIdResubmit')}</span>
+                    <span className="text-sm font-medium text-red-700">
+                      {t('dashboardIdResubmit')}
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
                     <Upload className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-600">{t('dashboardUploadId')}</span>
+                    <span className="text-sm font-medium text-gray-600">
+                      {t('dashboardUploadId')}
+                    </span>
                   </div>
                 )}
               </div>
@@ -542,7 +631,9 @@ export default function PatientPortalDashboard() {
                   />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">{t('dashboardLatestProgressPhoto')}</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {t('dashboardLatestProgressPhoto')}
+                  </p>
                   <p className="text-xs text-gray-500">{t('dashboardTapToViewPhotos')}</p>
                 </div>
               </div>
@@ -553,7 +644,9 @@ export default function PatientPortalDashboard() {
               <div className="mt-4 flex items-center gap-3 rounded-lg bg-violet-50 p-3">
                 <ImageIcon className="h-5 w-5 text-violet-600" />
                 <div>
-                  <p className="text-sm font-medium text-violet-700">{t('dashboardStartDocumenting')}</p>
+                  <p className="text-sm font-medium text-violet-700">
+                    {t('dashboardStartDocumenting')}
+                  </p>
                   <p className="text-xs text-violet-600">{t('dashboardUploadFirstPhoto')}</p>
                 </div>
               </div>

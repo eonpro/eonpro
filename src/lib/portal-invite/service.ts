@@ -172,8 +172,8 @@ export async function createAndSendPortalInvite(
       });
       if (!smsResult.success) {
         const errMsg = smsResult.blocked
-          ? smsResult.blockReason ?? smsResult.error
-          : smsResult.error ?? 'SMS send failed';
+          ? (smsResult.blockReason ?? smsResult.error)
+          : (smsResult.error ?? 'SMS send failed');
         logger.warn('[PortalInvite] SMS send failed', {
           patientId,
           error: errMsg,
@@ -225,7 +225,15 @@ export async function createAndSendPortalInvite(
 export interface ValidateInviteTokenResult {
   patientId: number;
   clinicId: number;
-  patient: { id: number; email: string; firstName: string; lastName: string; phone: string; dob: string; clinicId: number };
+  patient: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    dob: string;
+    clinicId: number;
+  };
 }
 
 /**

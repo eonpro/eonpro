@@ -1,6 +1,7 @@
 # Multi-stage Dockerfile for production-ready Next.js application
+# Requires next.config.js to set output: 'standalone' so .next/standalone and server.js are produced.
 
-# Base stage with common dependencies
+# Base stage with common dependencies (Alpine for smaller image and fewer CVEs)
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app

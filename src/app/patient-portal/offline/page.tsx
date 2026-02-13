@@ -39,17 +39,17 @@ export default function OfflinePage() {
   }, [isOnline]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="max-w-md w-full text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6">
+      <div className="w-full max-w-md text-center">
         {/* Offline Icon */}
-        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
-          <WifiOff className="w-12 h-12 text-gray-400" />
+        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-gray-100">
+          <WifiOff className="h-12 w-12 text-gray-400" />
         </div>
 
         {/* Title */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">You&apos;re Offline</h1>
+        <h1 className="mb-2 text-2xl font-bold text-gray-900">You&apos;re Offline</h1>
 
-        <p className="text-gray-600 mb-8">
+        <p className="mb-8 text-gray-600">
           It looks like you&apos;ve lost your internet connection. Some features may be limited
           until you&apos;re back online.
         </p>
@@ -57,23 +57,23 @@ export default function OfflinePage() {
         {/* Retry Button */}
         <button
           onClick={handleRetry}
-          className="w-full mb-6 inline-flex items-center justify-center gap-2 px-6 py-3 bg-[var(--brand-primary,#4fa77e)] text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
+          className="mb-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary,#4fa77e)] px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
         >
-          <RefreshCw className="w-5 h-5" />
+          <RefreshCw className="h-5 w-5" />
           Try Again
         </button>
 
         {/* Cached Pages */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h2 className="text-sm font-medium text-gray-500 mb-4">Available Offline</h2>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-medium text-gray-500">Available Offline</h2>
 
           <div className="space-y-3">
             <Link
               href="/patient-portal"
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <Home className="w-5 h-5 text-blue-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                <Home className="h-5 w-5 text-blue-600" />
               </div>
               <div className="text-left">
                 <p className="font-medium text-gray-900">Dashboard</p>
@@ -83,10 +83,10 @@ export default function OfflinePage() {
 
             <Link
               href="/patient-portal/medications"
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                <Pill className="w-5 h-5 text-purple-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+                <Pill className="h-5 w-5 text-purple-600" />
               </div>
               <div className="text-left">
                 <p className="font-medium text-gray-900">Medications</p>
@@ -96,10 +96,10 @@ export default function OfflinePage() {
 
             <Link
               href="/patient-portal/progress"
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <Scale className="w-5 h-5 text-green-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                <Scale className="h-5 w-5 text-green-600" />
               </div>
               <div className="text-left">
                 <p className="font-medium text-gray-900">Progress</p>
@@ -109,10 +109,10 @@ export default function OfflinePage() {
 
             <Link
               href="/patient-portal/shipments"
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50"
             >
-              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-orange-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                <Package className="h-5 w-5 text-orange-600" />
               </div>
               <div className="text-left">
                 <p className="font-medium text-gray-900">Shipments</p>

@@ -1,6 +1,6 @@
 /**
  * Microsoft Outlook Calendar Integration Service
- * 
+ *
  * Handles OAuth2 authentication and two-way sync with Outlook Calendar
  */
 
@@ -17,15 +17,17 @@ function getMsalClient(): ConfidentialClientApplication {
   if (msalClient) {
     return msalClient;
   }
-  
+
   const clientId = process.env.MICROSOFT_CLIENT_ID;
   const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
   const tenantId = process.env.MICROSOFT_TENANT_ID || 'common';
-  
+
   if (!clientId || !clientSecret) {
-    throw new Error('Microsoft OAuth credentials not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.');
+    throw new Error(
+      'Microsoft OAuth credentials not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET.'
+    );
   }
-  
+
   const msalConfig = {
     auth: {
       clientId,
@@ -33,7 +35,7 @@ function getMsalClient(): ConfidentialClientApplication {
       authority: `https://login.microsoftonline.com/${tenantId}`,
     },
   };
-  
+
   msalClient = new ConfidentialClientApplication(msalConfig);
   return msalClient;
 }
@@ -50,7 +52,8 @@ const SCOPES = [
  */
 export async function getOutlookAuthUrl(providerId: number, clinicId: number): Promise<string> {
   const state = Buffer.from(JSON.stringify({ providerId, clinicId })).toString('base64');
-  const redirectUri = process.env.MICROSOFT_REDIRECT_URI || 
+  const redirectUri =
+    process.env.MICROSOFT_REDIRECT_URI ||
     `${process.env.NEXTAUTH_URL}/api/calendar-sync/outlook/callback`;
 
   return await getMsalClient().getAuthCodeUrl({
@@ -64,9 +67,13 @@ export async function getOutlookAuthUrl(providerId: number, clinicId: number): P
 /**
  * Get authorization URL synchronously for API routes
  */
-export async function getOutlookAuthUrlAsync(providerId: number, clinicId: number): Promise<string> {
+export async function getOutlookAuthUrlAsync(
+  providerId: number,
+  clinicId: number
+): Promise<string> {
   const state = Buffer.from(JSON.stringify({ providerId, clinicId })).toString('base64');
-  const redirectUri = process.env.MICROSOFT_REDIRECT_URI || 
+  const redirectUri =
+    process.env.MICROSOFT_REDIRECT_URI ||
     `${process.env.NEXTAUTH_URL}/api/calendar-sync/outlook/callback`;
 
   return await getMsalClient().getAuthCodeUrl({
@@ -86,7 +93,8 @@ export async function exchangeOutlookCodeForTokens(
   clinicId: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const redirectUri = process.env.MICROSOFT_REDIRECT_URI || 
+    const redirectUri =
+      process.env.MICROSOFT_REDIRECT_URI ||
       `${process.env.NEXTAUTH_URL}/api/calendar-sync/outlook/callback`;
 
     const result = await getMsalClient().acquireTokenByCode({
@@ -207,7 +215,7 @@ export async function createOutlookEvent(
 ): Promise<{ success: boolean; externalId?: string; error?: string }> {
   try {
     const client = await getGraphClient(providerId);
-    
+
     if (!client) {
       return { success: false, error: 'Outlook Calendar not connected' };
     }
@@ -226,10 +234,12 @@ export async function createOutlookEvent(
         dateTime: event.endTime.toISOString(),
         timeZone: 'Eastern Standard Time',
       },
-      location: event.location ? {
-        displayName: event.location,
-      } : undefined,
-      attendees: event.attendees?.map(a => ({
+      location: event.location
+        ? {
+            displayName: event.location,
+          }
+        : undefined,
+      attendees: event.attendees?.map((a) => ({
         emailAddress: {
           address: a.email,
           name: a.name,
@@ -241,9 +251,7 @@ export async function createOutlookEvent(
       reminderMinutesBeforeStart: 30,
     };
 
-    const response = await client
-      .api('/me/events')
-      .post(outlookEvent);
+    const response = await client.api('/me/events').post(outlookEvent);
 
     logger.info('Outlook Calendar event created', {
       providerId,
@@ -271,7 +279,7 @@ export async function updateOutlookEvent(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = await getGraphClient(providerId);
-    
+
     if (!client) {
       return { success: false, error: 'Outlook Calendar not connected' };
     }
@@ -304,9 +312,7 @@ export async function updateOutlookEvent(
       updateData.isCancelled = true;
     }
 
-    await client
-      .api(`/me/events/${externalId}`)
-      .patch(updateData);
+    await client.api(`/me/events/${externalId}`).patch(updateData);
 
     logger.info('Outlook Calendar event updated', { providerId, externalId });
 
@@ -327,14 +333,12 @@ export async function deleteOutlookEvent(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const client = await getGraphClient(providerId);
-    
+
     if (!client) {
       return { success: false, error: 'Outlook Calendar not connected' };
     }
 
-    await client
-      .api(`/me/events/${externalId}`)
-      .delete();
+    await client.api(`/me/events/${externalId}`).delete();
 
     logger.info('Outlook Calendar event deleted', { providerId, externalId });
 
@@ -356,7 +360,7 @@ export async function fetchOutlookEvents(
 ): Promise<CalendarEvent[]> {
   try {
     const client = await getGraphClient(providerId);
-    
+
     if (!client) {
       return [];
     }
@@ -452,12 +456,23 @@ export async function syncAppointmentsToOutlook(
           endTime: appt.endTime,
           location: appt.type === 'VIDEO' ? 'Video Call' : appt.location || undefined,
           conferenceLink: appt.zoomJoinUrl || undefined,
-          attendees: appt.patient.email ? [{ email: appt.patient.email, name: `${appt.patient.firstName} ${appt.patient.lastName}` }] : undefined,
+          attendees: appt.patient.email
+            ? [
+                {
+                  email: appt.patient.email,
+                  name: `${appt.patient.firstName} ${appt.patient.lastName}`,
+                },
+              ]
+            : undefined,
         };
 
         if (appt.outlookCalendarEventId) {
           // Update existing event
-          const updateResult = await updateOutlookEvent(providerId, appt.outlookCalendarEventId, event);
+          const updateResult = await updateOutlookEvent(
+            providerId,
+            appt.outlookCalendarEventId,
+            event
+          );
           if (updateResult.success) {
             result.updated++;
           } else {
@@ -473,7 +488,9 @@ export async function syncAppointmentsToOutlook(
             });
             result.created++;
           } else {
-            result.errors.push(`Failed to create event for appointment ${appt.id}: ${createResult.error}`);
+            result.errors.push(
+              `Failed to create event for appointment ${appt.id}: ${createResult.error}`
+            );
           }
         }
       } catch (error) {
@@ -526,9 +543,7 @@ export async function syncAppointmentsToOutlook(
 /**
  * Disconnect Outlook Calendar
  */
-export async function disconnectOutlookCalendar(
-  providerId: number
-): Promise<{ success: boolean }> {
+export async function disconnectOutlookCalendar(providerId: number): Promise<{ success: boolean }> {
   try {
     await prisma.providerCalendarIntegration.updateMany({
       where: {
@@ -555,9 +570,7 @@ export async function disconnectOutlookCalendar(
 /**
  * Check if Outlook Calendar is connected
  */
-export async function isOutlookCalendarConnected(
-  providerId: number
-): Promise<boolean> {
+export async function isOutlookCalendarConnected(providerId: number): Promise<boolean> {
   const integration = await prisma.providerCalendarIntegration.findFirst({
     where: {
       providerId,

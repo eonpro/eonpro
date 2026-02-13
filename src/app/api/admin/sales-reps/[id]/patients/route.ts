@@ -11,7 +11,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+} from '@/domains/shared/errors';
 
 const PAGE_SIZE = 25;
 
@@ -44,14 +51,14 @@ async function handleGet(
 ): Promise<Response> {
   try {
     if (!context?.params) {
-      return NextResponse.json({ error: 'Missing route parameters' }, { status: 400 });
+      throw new BadRequestError('Missing route parameters');
     }
 
     const { id } = await context.params;
     const salesRepId = parseInt(id, 10);
 
     if (isNaN(salesRepId)) {
-      return NextResponse.json({ error: 'Invalid sales rep ID' }, { status: 400 });
+      throw new BadRequestError('Invalid sales rep ID');
     }
 
     const { searchParams } = new URL(req.url);
@@ -69,16 +76,16 @@ async function handleGet(
     });
 
     if (!salesRep) {
-      return NextResponse.json({ error: 'Sales rep not found' }, { status: 404 });
+      throw new NotFoundError('Sales rep not found');
     }
 
     if (salesRep.role !== 'SALES_REP') {
-      return NextResponse.json({ error: 'User is not a sales representative' }, { status: 400 });
+      throw new BadRequestError('User is not a sales representative');
     }
 
     // Verify clinic access
     if (clinicId && salesRep.clinicId !== clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      throw new ForbiddenError('Access denied');
     }
 
     // Get assigned patient IDs
@@ -89,6 +96,8 @@ async function handleGet(
         ...(clinicId && { clinicId }),
       },
       select: { patientId: true, assignedAt: true },
+      orderBy: { assignedAt: 'desc' },
+      take: AGGREGATION_TAKE,
     });
 
     const patientIds = assignments.map((a: { patientId: number }) => a.patientId);
@@ -125,6 +134,8 @@ async function handleGet(
     // Fetch all assigned patients first (for potential search filtering)
     const allPatients = await prisma.patient.findMany({
       where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      take: AGGREGATION_TAKE,
       include: {
         clinic: {
           select: { id: true, name: true },
@@ -141,11 +152,10 @@ async function handleGet(
           select: { createdAt: true, status: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
     });
 
     // Decrypt all patient data for potential filtering
-    const decryptedPatients = allPatients.map((patient: typeof allPatients[number]) => {
+    const decryptedPatients = allPatients.map((patient: (typeof allPatients)[number]) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
 
@@ -171,7 +181,7 @@ async function handleGet(
     let filteredPatients = decryptedPatients;
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredPatients = decryptedPatients.filter((patient: typeof decryptedPatients[number]) => {
+      filteredPatients = decryptedPatients.filter((patient: (typeof decryptedPatients)[number]) => {
         const firstName = patient.firstName?.toLowerCase() || '';
         const lastName = patient.lastName?.toLowerCase() || '';
         const email = patient.email?.toLowerCase() || '';
@@ -212,12 +222,7 @@ async function handleGet(
       },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[SALES-REP-PATIENTS] Error listing patients', {
-      error: errorMessage,
-      userId: user.id,
-    });
-    return NextResponse.json({ error: 'Failed to fetch patients' }, { status: 500 });
+    return handleApiError(error, { route: 'GET /api/admin/sales-reps/[id]/patients' });
   }
 }
 

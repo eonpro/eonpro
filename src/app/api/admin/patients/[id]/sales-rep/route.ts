@@ -133,7 +133,7 @@ async function handleGet(
             assignedBy: assignment.assignedBy,
           }
         : null,
-      history: history.map((h: typeof history[number]) => ({
+      history: history.map((h: (typeof history)[number]) => ({
         id: h.id,
         salesRep: h.salesRep,
         assignedAt: h.assignedAt,
@@ -214,10 +214,7 @@ async function handlePost(
     }
 
     if (salesRep.role !== 'SALES_REP') {
-      return NextResponse.json(
-        { error: 'User is not a sales representative' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'User is not a sales representative' }, { status: 400 });
     }
 
     // Verify sales rep belongs to the same clinic
@@ -370,10 +367,7 @@ async function handleDelete(
     });
 
     if (!existingAssignment) {
-      return NextResponse.json(
-        { error: 'No active sales rep assignment found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'No active sales rep assignment found' }, { status: 404 });
     }
 
     await prisma.patientSalesRepAssignment.update({

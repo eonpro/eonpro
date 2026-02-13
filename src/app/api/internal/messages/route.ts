@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { basePrisma } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -25,12 +25,9 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       logger.error('Invalid user ID in auth context', {
         rawUserId: user.id,
         userIdType: typeof user.id,
-        email: user.email
+        email: user.email,
       });
-      return NextResponse.json(
-        { error: 'Invalid user session', messages: [] },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid user session', messages: [] }, { status: 401 });
     }
 
     const channelId = searchParams.get('channelId');
@@ -45,7 +42,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       channelId,
       unreadOnly,
       limit,
-      offset
+      offset,
     });
 
     // Build where clause based on parameters
@@ -63,7 +60,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       // For unread messages, only get messages sent TO the user that are unread
       whereClause = {
         recipientId: userId,
-        isRead: false
+        isRead: false,
       };
     } else if (channelId) {
       // For channel messages
@@ -71,10 +68,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     } else {
       // Default: get all messages where user is sender or recipient
       whereClause = {
-        OR: [
-          { senderId: userId },
-          { recipientId: userId }
-        ]
+        OR: [{ senderId: userId }, { recipientId: userId }],
       };
     }
 
@@ -86,8 +80,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           firstName: true,
           lastName: true,
           email: true,
-          role: true
-        }
+          role: true,
+        },
       },
       recipient: {
         select: {
@@ -95,8 +89,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           firstName: true,
           lastName: true,
           email: true,
-          role: true
-        }
+          role: true,
+        },
       },
       replies: {
         include: {
@@ -106,14 +100,14 @@ async function getHandler(request: NextRequest, user: AuthUser) {
               firstName: true,
               lastName: true,
               email: true,
-              role: true
-            }
-          }
+              role: true,
+            },
+          },
         },
         orderBy: {
-          createdAt: 'asc' as const
+          createdAt: 'asc' as const,
         },
-        take: 10 // Limit replies per message
+        take: 10, // Limit replies per message
       },
       reactions: {
         include: {
@@ -121,14 +115,14 @@ async function getHandler(request: NextRequest, user: AuthUser) {
             select: {
               id: true,
               firstName: true,
-              lastName: true
-            }
-          }
+              lastName: true,
+            },
+          },
         },
         orderBy: {
-          createdAt: 'asc' as const
-        }
-      }
+          createdAt: 'asc' as const,
+        },
+      },
     };
 
     // For unreadOnly queries, use a simpler include (no replies needed for notification check)
@@ -139,8 +133,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           firstName: true,
           lastName: true,
           email: true,
-          role: true
-        }
+          role: true,
+        },
       },
       recipient: {
         select: {
@@ -148,34 +142,34 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           firstName: true,
           lastName: true,
           email: true,
-          role: true
-        }
-      }
+          role: true,
+        },
+      },
     };
 
-    let messages: Awaited<ReturnType<typeof basePrisma.internalMessage.findMany>>;
+    let messages: Awaited<ReturnType<typeof prisma.internalMessage.findMany>>;
     try {
-      messages = await basePrisma.internalMessage.findMany({
+      messages = await prisma.internalMessage.findMany({
         where: whereClause,
         include: unreadOnly ? simpleInclude : fullInclude,
         orderBy: {
-          createdAt: 'desc'
+          createdAt: 'desc',
         },
         take: limit,
-        skip: offset
+        skip: offset,
       });
     } catch (queryError) {
       // If the main query fails, try fallbacks so we never 500 for notification/unread count
       logger.warn('Primary message query failed, attempting fallback', {
         error: queryError instanceof Error ? queryError.message : 'Unknown error',
         userId,
-        unreadOnly
+        unreadOnly,
       });
 
       if (unreadOnly) {
         // Unread-only: second try with no includes (avoids any relation/table missing issues)
         try {
-          const bare = await basePrisma.internalMessage.findMany({
+          const bare = await prisma.internalMessage.findMany({
             where: whereClause,
             orderBy: { createdAt: 'desc' },
             take: limit,
@@ -193,48 +187,53 @@ async function getHandler(request: NextRequest, user: AuthUser) {
               readAt: true,
               attachments: true,
               metadata: true,
-              clinicId: true
-            }
+              clinicId: true,
+            },
           });
-          messages = bare.map(m => ({
+          messages = bare.map((m) => ({
             ...m,
             sender: null,
             recipient: null,
             replies: [],
-            reactions: []
+            reactions: [],
           })) as typeof messages;
           logger.warn('Unread messages fallback (no includes) succeeded', {
             userId,
-            messageCount: messages.length
+            messageCount: messages.length,
           });
         } catch (noIncludeError) {
-          throw queryError;
+          // Unread-only is used for polling - never 500, return empty for resilience
+          logger.warn('Unread messages fallback failed, returning empty for resilience', {
+            userId,
+            error: queryError instanceof Error ? queryError.message : 'Unknown',
+          });
+          messages = [] as typeof messages;
         }
       } else {
         // Full list: try with sender/recipient only (no replies, no reactions)
         try {
-          messages = await basePrisma.internalMessage.findMany({
+          messages = await prisma.internalMessage.findMany({
             where: whereClause,
             include: {
               sender: {
-                select: { id: true, firstName: true, lastName: true, email: true, role: true }
+                select: { id: true, firstName: true, lastName: true, email: true, role: true },
               },
               recipient: {
-                select: { id: true, firstName: true, lastName: true, email: true, role: true }
-              }
+                select: { id: true, firstName: true, lastName: true, email: true, role: true },
+              },
             },
             orderBy: { createdAt: 'desc' },
             take: limit,
-            skip: offset
+            skip: offset,
           });
           logger.warn('Fallback query (no replies/reactions) succeeded', {
             userId,
-            messageCount: messages.length
+            messageCount: messages.length,
           });
         } catch (fallbackError) {
           // Last resort: no includes
           try {
-            const bare = await basePrisma.internalMessage.findMany({
+            const bare = await prisma.internalMessage.findMany({
               where: whereClause,
               orderBy: { createdAt: 'desc' },
               take: limit,
@@ -252,19 +251,19 @@ async function getHandler(request: NextRequest, user: AuthUser) {
                 readAt: true,
                 attachments: true,
                 metadata: true,
-                clinicId: true
-              }
+                clinicId: true,
+              },
             });
-            messages = bare.map(m => ({
+            messages = bare.map((m) => ({
               ...m,
               sender: null,
               recipient: null,
               replies: [],
-              reactions: []
+              reactions: [],
             })) as typeof messages;
             logger.warn('Minimal fallback (no includes) succeeded', {
               userId,
-              messageCount: messages.length
+              messageCount: messages.length,
             });
           } catch (noIncludeError) {
             throw queryError;
@@ -276,19 +275,19 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     // Mark messages as read (only when fetching all, not unreadOnly)
     if (!unreadOnly && messages.length > 0) {
       const unreadMessageIds = messages
-        .filter(m => m.recipientId === userId && !m.isRead)
-        .map(m => m.id);
+        .filter((m) => m.recipientId === userId && !m.isRead)
+        .map((m) => m.id);
 
       if (unreadMessageIds.length > 0) {
-        await basePrisma.internalMessage.updateMany({
+        await prisma.internalMessage.updateMany({
           where: {
             id: { in: unreadMessageIds },
-            recipientId: userId // Extra safety check
+            recipientId: userId, // Extra safety check
           },
           data: {
             isRead: true,
-            readAt: new Date()
-          }
+            readAt: new Date(),
+          },
         });
       }
     }
@@ -297,7 +296,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       userId,
       count: messages.length,
       unreadOnly,
-      durationMs: Date.now() - startTime
+      durationMs: Date.now() - startTime,
     });
 
     // Return messages with the authenticated user ID for client-side validation
@@ -307,8 +306,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         authenticatedUserId: userId,
         authenticatedUserRole: user.role,
         timestamp: new Date().toISOString(),
-        count: messages.length
-      }
+        count: messages.length,
+      },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -326,7 +325,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         meta: error.meta,
         userId: user?.id,
         userRole: user?.role,
-        durationMs: Date.now() - startTime
+        durationMs: Date.now() - startTime,
       });
 
       // P2025 = Record not found (e.g., related User doesn't exist)
@@ -339,8 +338,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         userFacingError = 'Data integrity issue detected';
         errorCode = 'DATA_INTEGRITY';
       }
-      // Connection-related errors
-      else if (['P1001', 'P1002', 'P1008', 'P1017'].includes(error.code)) {
+      // Connection-related errors (P2024 = pool exhausted - critical for serverless)
+      else if (['P1001', 'P1002', 'P1008', 'P1017', 'P2024'].includes(error.code)) {
         statusCode = 503;
         userFacingError = 'Service temporarily unavailable';
         errorCode = 'SERVICE_UNAVAILABLE';
@@ -353,27 +352,37 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       logger.error('Database initialization error:', {
         error: errorMessage,
         userId: user?.id,
-        durationMs: Date.now() - startTime
+        durationMs: Date.now() - startTime,
       });
     } else if (error instanceof Prisma.PrismaClientValidationError) {
       // Schema/query mismatch - this indicates a code issue
       errorCode = 'SCHEMA_VALIDATION_ERROR';
 
-      logger.error('Prisma validation error in internal messages:', {
-        error: errorMessage,
-        stack: errorStack,
+    logger.error('Prisma validation error in internal messages:', {
+      error: errorMessage,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
         userId: user?.id,
         userRole: user?.role,
-        durationMs: Date.now() - startTime
+        durationMs: Date.now() - startTime,
       });
     } else {
+      // Connection pool timeout (P2024-like) may not always have Prisma code - check message
+      if (
+        errorMessage.toLowerCase().includes('connection pool') ||
+        errorMessage.includes('pool timeout')
+      ) {
+        statusCode = 503;
+        userFacingError = 'Service temporarily unavailable';
+        errorCode = 'SERVICE_UNAVAILABLE';
+      }
+
       // Generic error logging
-      logger.error('Error fetching internal messages:', {
-        error: errorMessage,
-        stack: errorStack,
+    logger.error('Error fetching internal messages:', {
+      error: errorMessage,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
         userId: user?.id,
         userRole: user?.role,
-        durationMs: Date.now() - startTime
+        durationMs: Date.now() - startTime,
       });
     }
 
@@ -383,7 +392,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         messages: [],
         code: errorCode,
         // Only include details in non-production for debugging
-        ...(process.env.NODE_ENV !== 'production' && { details: errorMessage })
+        ...(process.env.NODE_ENV !== 'production' && { details: errorMessage }),
       },
       { status: statusCode }
     );
@@ -407,10 +416,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     const senderId = Number(user.id);
 
     if (isNaN(senderId) || senderId <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid user session' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid user session' }, { status: 401 });
     }
 
     const {
@@ -419,7 +425,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       messageType = 'DIRECT',
       channelId,
       parentMessageId,
-      attachments
+      attachments,
     } = body;
 
     // Log message sending for audit (no PHI)
@@ -428,15 +434,12 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       userRole: user.role,
       recipientId: recipientId ? Number(recipientId) : null,
       messageType,
-      channelId: channelId || null
+      channelId: channelId || null,
     });
 
     // Validate message content
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Message content is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
     }
 
     // Validate message length
@@ -457,41 +460,32 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
     // Validate recipient exists if provided
     if (recipientId) {
-      const recipientExists = await basePrisma.user.findUnique({
+      const recipientExists = await prisma.user.findUnique({
         where: { id: Number(recipientId) },
-        select: { id: true }
+        select: { id: true },
       });
 
       if (!recipientExists) {
-        return NextResponse.json(
-          { error: 'Recipient not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Recipient not found' }, { status: 404 });
       }
     }
 
     // Validate parent message if this is a reply
     if (parentMessageId) {
-      const parentMessage = await basePrisma.internalMessage.findUnique({
+      const parentMessage = await prisma.internalMessage.findUnique({
         where: { id: Number(parentMessageId) },
-        select: { id: true }
+        select: { id: true },
       });
 
       if (!parentMessage) {
-        return NextResponse.json(
-          { error: 'Parent message not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Parent message not found' }, { status: 404 });
       }
     }
 
     // Sanitize message content (basic XSS prevention)
-    const sanitizedMessage = message
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .trim();
+    const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
 
-    const newMessage = await basePrisma.internalMessage.create({
+    const newMessage = await prisma.internalMessage.create({
       data: {
         senderId,
         recipientId: recipientId ? Number(recipientId) : null,
@@ -501,7 +495,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         parentMessageId: parentMessageId ? Number(parentMessageId) : null,
         attachments: attachments || null,
         metadata: body.metadata || null,
-        clinicId: user.clinicId || null
+        clinicId: user.clinicId || null,
       },
       include: {
         sender: {
@@ -510,8 +504,8 @@ async function postHandler(request: NextRequest, user: AuthUser) {
             firstName: true,
             lastName: true,
             email: true,
-            role: true
-          }
+            role: true,
+          },
         },
         recipient: {
           select: {
@@ -519,10 +513,10 @@ async function postHandler(request: NextRequest, user: AuthUser) {
             firstName: true,
             lastName: true,
             email: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+      },
     });
 
     logger.info('Internal message sent', {
@@ -530,7 +524,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       senderId,
       recipientId: recipientId ? Number(recipientId) : null,
       messageType,
-      durationMs: Date.now() - startTime
+      durationMs: Date.now() - startTime,
     });
 
     // TODO: Trigger real-time notification here (WebSocket/SSE)
@@ -542,7 +536,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     logger.error('Error sending internal message:', {
       error: errorMessage,
       userId: user?.id,
-      durationMs: Date.now() - startTime
+      durationMs: Date.now() - startTime,
     });
 
     return NextResponse.json(
@@ -555,9 +549,9 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 // Export handlers with authentication
 // Include all staff roles that should have access to internal chat
 export const GET = withAuth(getHandler, {
-  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'influencer']
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'influencer'],
 });
 
 export const POST = withAuth(postHandler, {
-  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'influencer']
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'influencer'],
 });

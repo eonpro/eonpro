@@ -56,7 +56,9 @@ export class StripePaymentService {
       },
     });
 
-    logger.info(`[STRIPE] Created pending payment record ${payment.id} for patient ${options.patientId}`);
+    logger.info(
+      `[STRIPE] Created pending payment record ${payment.id} for patient ${options.patientId}`
+    );
 
     try {
       // Get or create Stripe customer
@@ -65,25 +67,28 @@ export class StripePaymentService {
       // 2. Create payment intent in Stripe with idempotency key
       // SOC 2 Compliance: Wrapped with circuit breaker for availability
       const paymentIntent = await circuitBreakers.stripe.execute(() =>
-        stripeClient.paymentIntents.create({
-          amount: options.amount,
-          currency: STRIPE_CONFIG.currency,
-          customer: customer.id,
-          description: options.description,
-          payment_method: options.paymentMethodId,
-          automatic_payment_methods: {
-            enabled: true,
+        stripeClient.paymentIntents.create(
+          {
+            amount: options.amount,
+            currency: STRIPE_CONFIG.currency,
+            customer: customer.id,
+            description: options.description,
+            payment_method: options.paymentMethodId,
+            automatic_payment_methods: {
+              enabled: true,
+            },
+            metadata: {
+              paymentId: payment.id.toString(),
+              patientId: options.patientId.toString(),
+              invoiceId: options.invoiceId?.toString() || '',
+              idempotencyKey,
+              ...options.metadata,
+            } as any,
           },
-          metadata: {
-            paymentId: payment.id.toString(),
-            patientId: options.patientId.toString(),
-            invoiceId: options.invoiceId?.toString() || '',
-            idempotencyKey,
-            ...options.metadata,
-          } as any,
-        }, {
-          idempotencyKey, // Stripe idempotency for duplicate prevention
-        })
+          {
+            idempotencyKey, // Stripe idempotency for duplicate prevention
+          }
+        )
       );
 
       // 3. Update DB record with Stripe payment intent ID
@@ -96,10 +101,13 @@ export class StripePaymentService {
         },
       });
 
-      logger.info(`[STRIPE] Created payment intent ${paymentIntent.id} for patient ${options.patientId}`, {
-        paymentId: payment.id,
-        stripePaymentIntentId: paymentIntent.id,
-      });
+      logger.info(
+        `[STRIPE] Created payment intent ${paymentIntent.id} for patient ${options.patientId}`,
+        {
+          paymentId: payment.id,
+          stripePaymentIntentId: paymentIntent.id,
+        }
+      );
 
       return {
         payment: updatedPayment,
@@ -241,7 +249,7 @@ export class StripePaymentService {
       data: {
         status: 'PROCESSING',
         metadata: {
-          ...(payment.metadata as object || {}),
+          ...((payment.metadata as object) || {}),
           refundInitiatedAt: new Date().toISOString(),
           refundAmount,
           refundReason: reason,
@@ -255,7 +263,7 @@ export class StripePaymentService {
         payment_intent: payment.stripePaymentIntentId || undefined,
         charge: payment.stripeChargeId || undefined,
         amount: refundAmount,
-        reason: reason as Stripe.RefundCreateParams.Reason || 'requested_by_customer',
+        reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
         metadata: {
           paymentId: paymentId.toString(),
           originalAmount: payment.amount.toString(),
@@ -268,7 +276,7 @@ export class StripePaymentService {
         data: {
           status: isPartialRefund ? 'PARTIALLY_REFUNDED' : 'REFUNDED',
           metadata: {
-            ...(payment.metadata as object || {}),
+            ...((payment.metadata as object) || {}),
             stripeRefundId: refund.id,
             refundCompletedAt: new Date().toISOString(),
             refundAmount,
@@ -293,7 +301,7 @@ export class StripePaymentService {
           status: 'SUCCEEDED', // Revert to original status
           failureReason: `Refund failed: ${errorMessage}`,
           metadata: {
-            ...(payment.metadata as object || {}),
+            ...((payment.metadata as object) || {}),
             refundFailedAt: new Date().toISOString(),
             refundError: errorMessage,
           },
@@ -340,10 +348,9 @@ export class StripePaymentService {
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
 
     // Attach payment method to customer
-    const paymentMethod = await stripeClient.paymentMethods.attach(
-      paymentMethodId,
-      { customer: customer.id }
-    );
+    const paymentMethod = await stripeClient.paymentMethods.attach(paymentMethodId, {
+      customer: customer.id,
+    });
 
     logger.debug(`[STRIPE] Attached payment method ${paymentMethodId} to customer ${customer.id}`);
 
@@ -353,9 +360,7 @@ export class StripePaymentService {
   /**
    * Remove a payment method
    */
-  static async detachPaymentMethod(
-    paymentMethodId: string
-  ): Promise<Stripe.PaymentMethod> {
+  static async detachPaymentMethod(paymentMethodId: string): Promise<Stripe.PaymentMethod> {
     const stripeClient = getStripe();
 
     const paymentMethod = await stripeClient.paymentMethods.detach(paymentMethodId);

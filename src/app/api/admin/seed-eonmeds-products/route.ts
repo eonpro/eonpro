@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 
 /**
  * POST /api/admin/seed-eonmeds-products
- * 
+ *
  * Seeds EONMEDS clinic with their specific medication products and Stripe price IDs.
  * Protected by setup secret.
  */
@@ -55,7 +55,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1S9XKOGzKhM7cZeGeDXQVFvg',
     metadata: { dose: '2.5mg/1mL or 2.5mg/2mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // 2.5mg/3mL (higher dose)
   {
     name: 'Semaglutide 2.5mg/3mL - Monthly',
@@ -99,7 +99,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1SpOElGzKhM7cZeGebLpFHVL',
     metadata: { dose: '2.5mg/3mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // 2.5mg/4mL (highest dose)
   {
     name: 'Semaglutide 2.5mg/4mL - Monthly',
@@ -110,7 +110,11 @@ const EONMEDS_PRODUCTS = [
     billingInterval: 'MONTHLY',
     billingIntervalCount: 1,
     stripePriceId: 'price_1SpOH3GzKhM7cZeGlkhMbhkh',
-    metadata: { dose: '2.5mg/4mL', duration: '1 Month', note: 'if dose is higher than 1.75mg/week' },
+    metadata: {
+      dose: '2.5mg/4mL',
+      duration: '1 Month',
+      note: 'if dose is higher than 1.75mg/week',
+    },
   },
   {
     name: 'Semaglutide 2.5mg/4mL - Single Purchase',
@@ -143,7 +147,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1SpOHkGzKhM7cZeGyE7ogS8A',
     metadata: { dose: '2.5mg/4mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // ============== TIRZEPATIDE ==============
   // 10mg/1mL or 10mg/2mL (default)
   {
@@ -188,7 +192,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1S9XT6GzKhM7cZeGnbOelbb2',
     metadata: { dose: '10mg/1mL or 10mg/2mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // 10mg/3mL (higher dose)
   {
     name: 'Tirzepatide 10mg/3mL - Monthly',
@@ -232,7 +236,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1SpOXaGzKhM7cZeGZFe54LJc',
     metadata: { dose: '10mg/3mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // 10mg/4mL
   {
     name: 'Tirzepatide 10mg/4mL - Monthly',
@@ -276,7 +280,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1SpOZSGzKhM7cZeGSgYaUzYk',
     metadata: { dose: '10mg/4mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // 30mg/2mL (highest dose)
   {
     name: 'Tirzepatide 30mg/2mL - Monthly',
@@ -320,7 +324,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1SpOdiGzKhM7cZeGyMEBemxu',
     metadata: { dose: '30mg/2mL', duration: '6 Month', type: 'recurring' },
   },
-  
+
   // ============== UPSALES ==============
   {
     name: 'Ondansetron - Nausea Medication',
@@ -340,7 +344,7 @@ const EONMEDS_PRODUCTS = [
     stripePriceId: 'price_1S9dyqGzKhM7cZeGYNqYGR55',
     metadata: { type: 'upsale', purpose: 'fat_burner', internalCode: 'STRIPE_PRODUCT_FAT_BURNER' },
   },
-  
+
   // ============== SHIPPING ==============
   {
     name: 'Next Day Shipping (FedEx/UPS)',
@@ -357,8 +361,9 @@ export async function POST(req: NextRequest) {
   try {
     // Verify setup secret
     const setupSecret = req.headers.get('x-setup-secret');
-    const configuredSecret = process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-    
+    const configuredSecret =
+      process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
+
     if (!configuredSecret || setupSecret !== configuredSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -405,10 +410,7 @@ export async function POST(req: NextRequest) {
     // Find EONMEDS clinic (use select for backwards compatibility)
     const eonmeds = await prisma.clinic.findFirst({
       where: {
-        OR: [
-          { subdomain: 'eonmeds' },
-          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
-        ],
+        OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
       },
       select: { id: true, name: true, subdomain: true },
     });
@@ -425,7 +427,7 @@ export async function POST(req: NextRequest) {
 
     // Create all products using raw SQL
     const createdProducts = [];
-    
+
     for (const product of EONMEDS_PRODUCTS) {
       const result = await prisma.$executeRaw`
         INSERT INTO "Product" (

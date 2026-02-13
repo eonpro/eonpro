@@ -9,8 +9,16 @@
  * - Comprehensive audit logging
  */
 
-import { getTwilioClientDirect, SMS_TEMPLATES, SMS_KEYWORDS, TWILIO_ERRORS, isTwilioConfigured, twilioConfig } from './config';
+import {
+  getTwilioClientDirect,
+  SMS_TEMPLATES,
+  SMS_KEYWORDS,
+  TWILIO_ERRORS,
+  isTwilioConfigured,
+  twilioConfig,
+} from './config';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { mockSendSMS, mockProcessIncomingSMS } from './mockService';
 import { logger } from '@/lib/logger';
 import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
@@ -76,8 +84,8 @@ const OPT_IN_KEYWORDS = ['start', 'yes', 'unstop', 'subscribe'];
 
 // Rate limiting configuration
 const RATE_LIMIT = {
-  PER_MINUTE: 10,    // Max messages per phone per minute
-  PER_DAY: 50,       // Max messages per phone per day
+  PER_MINUTE: 10, // Max messages per phone per minute
+  PER_DAY: 50, // Max messages per phone per day
   BLOCK_DURATION: 60 * 60 * 1000, // 1 hour block for abuse
 };
 
@@ -179,11 +187,7 @@ export async function processOptOut(
     if (!resolvedPatientId) {
       const patient = await prisma.patient.findFirst({
         where: {
-          OR: [
-            { phone: formattedPhone },
-            { phone: phone },
-            { phone: phone.replace(/^\+1/, '') },
-          ],
+          OR: [{ phone: formattedPhone }, { phone: phone }, { phone: phone.replace(/^\+1/, '') }],
         },
         select: { id: true, clinicId: true },
       });
@@ -324,8 +328,8 @@ export async function isQuietHours(clinicId?: number | null): Promise<boolean> {
 
     const formatter = new Intl.DateTimeFormat('en-US', options);
     const parts = formatter.formatToParts(now);
-    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
-    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const hour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+    const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
     const currentMinutes = hour * 60 + minute;
 
     // Check day of week
@@ -363,7 +367,10 @@ export async function isQuietHours(clinicId?: number | null): Promise<boolean> {
  * Check and update rate limit for a phone number
  * Returns true if the message should be blocked
  */
-export async function checkRateLimit(phone: string, clinicId?: number | null): Promise<{
+export async function checkRateLimit(
+  phone: string,
+  clinicId?: number | null
+): Promise<{
   blocked: boolean;
   reason?: string;
 }> {
@@ -451,7 +458,8 @@ export async function checkRateLimit(phone: string, clinicId?: number | null): P
         dailyCount: rateLimit.dailyCount + 1,
         lastMessageAt: now,
         windowStart: rateLimit.windowStart < oneMinuteAgo ? now : rateLimit.windowStart,
-        dailyWindowStart: rateLimit.dailyWindowStart < startOfDay ? startOfDay : rateLimit.dailyWindowStart,
+        dailyWindowStart:
+          rateLimit.dailyWindowStart < startOfDay ? startOfDay : rateLimit.dailyWindowStart,
         // Clear any block if it expired
         isBlocked: false,
         blockedUntil: null,
@@ -515,7 +523,7 @@ async function logSMSMessage(data: SMSLogData): Promise<void> {
         clinicId,
         templateType: data.templateType,
         isOptOutResponse: data.isOptOutResponse || false,
-        price: data.price ? new (require('@prisma/client').Prisma.Decimal)(data.price) : null,
+        price: data.price ? new Prisma.Decimal(data.price) : null,
         priceUnit: data.priceUnit,
       },
     });
@@ -591,7 +599,10 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     // Check rate limit
     const rateLimitResult = await checkRateLimit(message.to, message.clinicId);
     if (rateLimitResult.blocked) {
-      logger.warn('[SMS_BLOCKED_RATE_LIMIT]', { phone: message.to, reason: rateLimitResult.reason });
+      logger.warn('[SMS_BLOCKED_RATE_LIMIT]', {
+        phone: message.to,
+        reason: rateLimitResult.reason,
+      });
       return {
         success: false,
         blocked: true,
@@ -604,8 +615,11 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
     const client = getTwilioClientDirect();
 
     // Build status callback URL
-    const statusCallback = message.statusCallback ||
-      (process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v2/twilio/status-callback` : undefined);
+    const statusCallback =
+      message.statusCallback ||
+      (process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v2/twilio/status-callback`
+        : undefined);
 
     // Send the message with circuit breaker for resilience
     const result = await circuitBreakers.sms.execute(() =>
@@ -845,10 +859,7 @@ export async function sendLabResultsReady(patientId: number): Promise<SMSRespons
 /**
  * Send bulk SMS (with rate limiting)
  */
-export async function sendBulkSMS(
-  messages: SMSMessage[],
-  delayMs = 1000
-): Promise<SMSResponse[]> {
+export async function sendBulkSMS(messages: SMSMessage[], delayMs = 1000): Promise<SMSResponse[]> {
   const results: SMSResponse[] = [];
 
   for (const message of messages) {
@@ -857,7 +868,7 @@ export async function sendBulkSMS(
 
     // Add delay to avoid rate limiting
     if (delayMs > 0) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 
@@ -883,11 +894,7 @@ export async function processIncomingSMS(
     // Find patient (needed for opt-out processing)
     const patient = await prisma.patient.findFirst({
       where: {
-        OR: [
-          { phone: formattedPhone },
-          { phone: from },
-          { phone: from.replace(/^\+1/, '') },
-        ],
+        OR: [{ phone: formattedPhone }, { phone: from }, { phone: from.replace(/^\+1/, '') }],
       },
       select: { id: true, clinicId: true },
     });

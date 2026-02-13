@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
       eventId,
       eventType,
       error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       duration,
     });
 

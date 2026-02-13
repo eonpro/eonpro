@@ -1,8 +1,8 @@
 /**
  * Test Email API Endpoint
- * 
+ *
  * For testing email service. Only available in development.
- * 
+ *
  * POST /api/test/send-email
  * Body: { "to": "email@example.com" }
  */
@@ -11,9 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail, getEmailServiceStatus } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
-  // Only allow in development
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 });
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
   try {
@@ -50,14 +49,20 @@ export async function POST(req: NextRequest) {
       recipient,
     });
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
   const status = getEmailServiceStatus();
   return NextResponse.json({
     service: 'email',

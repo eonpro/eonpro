@@ -1,6 +1,6 @@
 /**
  * iCal Service
- * 
+ *
  * Generates iCal (ICS) feeds for calendar subscriptions.
  * Supports Apple Calendar, Google Calendar, and other iCal-compatible apps.
  */
@@ -68,7 +68,10 @@ function escapeICalValue(value: string): string {
  * Format date for iCal (YYYYMMDDTHHMMSSZ for UTC)
  */
 function formatICalDate(date: Date): string {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return date
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}/, '');
 }
 
 /**
@@ -182,7 +185,7 @@ export function generateICalFeed(
     header.push(`X-WR-CALDESC:${escapeICalValue(options.calendarDescription)}`);
   }
 
-  const eventStrings = events.map(e => generateICalEvent(e, timezone));
+  const eventStrings = events.map((e) => generateICalEvent(e, timezone));
 
   const footer = ['END:VCALENDAR'];
 
@@ -224,7 +227,7 @@ export async function createCalendarSubscription(
       includePatientNames: options?.includePatientNames ?? false,
       includeMeetingLinks: options?.includeMeetingLinks ?? true,
       syncRangeDays: options?.syncRangeDays ?? 90,
-    }
+    },
   });
 
   logger.info('Calendar subscription created', {
@@ -249,9 +252,9 @@ export async function getSubscriptionByToken(token: string) {
           firstName: true,
           lastName: true,
           email: true,
-        }
-      }
-    }
+        },
+      },
+    },
   });
 }
 
@@ -263,8 +266,8 @@ export async function trackSubscriptionAccess(subscriptionId: number) {
     where: { id: subscriptionId },
     data: {
       lastAccessedAt: new Date(),
-      accessCount: { increment: 1 }
-    }
+      accessCount: { increment: 1 },
+    },
   });
 }
 
@@ -273,7 +276,7 @@ export async function trackSubscriptionAccess(subscriptionId: number) {
  */
 export async function deleteCalendarSubscription(subscriptionId: number) {
   await prisma.calendarSubscription.delete({
-    where: { id: subscriptionId }
+    where: { id: subscriptionId },
   });
 
   logger.info('Calendar subscription deleted', { subscriptionId });
@@ -291,7 +294,7 @@ export async function generateProviderICalFeed(
 ): Promise<{ feed: string; contentType: string } | null> {
   // Get subscription
   const subscription = await getSubscriptionByToken(token);
-  
+
   if (!subscription || !subscription.isActive) {
     return null;
   }
@@ -302,7 +305,7 @@ export async function generateProviderICalFeed(
   // Calculate date range
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 7); // Include past week
-  
+
   const endDate = new Date();
   endDate.setDate(endDate.getDate() + subscription.syncRangeDays);
 
@@ -316,8 +319,8 @@ export async function generateProviderICalFeed(
         lte: endDate,
       },
       status: {
-        notIn: [AppointmentStatus.CANCELLED]
-      }
+        notIn: [AppointmentStatus.CANCELLED],
+      },
     },
     include: {
       patient: {
@@ -325,16 +328,16 @@ export async function generateProviderICalFeed(
           id: true,
           firstName: true,
           lastName: true,
-        }
+        },
       },
       appointmentType: {
         select: {
           name: true,
           duration: true,
-        }
-      }
+        },
+      },
     },
-    orderBy: { startTime: 'asc' }
+    orderBy: { startTime: 'asc' },
   });
 
   // Convert to iCal events
@@ -386,14 +389,14 @@ export async function generateProviderICalFeed(
       alarm: {
         minutesBefore: 15,
         description: `Appointment in 15 minutes: ${summary}`,
-      }
+      },
     };
   });
 
   // Generate feed
   const provider = subscription.provider;
-  const calendarName = subscription.name || 
-    `${provider.firstName} ${provider.lastName} - Appointments`;
+  const calendarName =
+    subscription.name || `${provider.firstName} ${provider.lastName} - Appointments`;
 
   const feed = generateICalFeed(events, {
     calendarName,
@@ -424,19 +427,19 @@ export async function generateAppointmentICS(
           firstName: true,
           lastName: true,
           email: true,
-        }
+        },
       },
       provider: {
         select: {
           firstName: true,
           lastName: true,
           email: true,
-        }
+        },
       },
       appointmentType: {
-        select: { name: true }
-      }
-    }
+        select: { name: true },
+      },
+    },
   });
 
   if (!appointment) {
@@ -463,14 +466,16 @@ export async function generateAppointmentICS(
     created: appointment.createdAt,
     lastModified: appointment.updatedAt,
     status: 'CONFIRMED',
-    organizer: appointment.provider ? {
-      name: `${appointment.provider.firstName} ${appointment.provider.lastName}`,
-      email: appointment.provider.email || undefined,
-    } : undefined,
+    organizer: appointment.provider
+      ? {
+          name: `${appointment.provider.firstName} ${appointment.provider.lastName}`,
+          email: appointment.provider.email || undefined,
+        }
+      : undefined,
     alarm: {
       minutesBefore: 15,
       description: `Appointment reminder: ${summary}`,
-    }
+    },
   };
 
   return generateICalFeed([event], {

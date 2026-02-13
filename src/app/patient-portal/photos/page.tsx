@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
 import {
   Camera,
   TrendingDown,
@@ -26,6 +27,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 import { format, parseISO } from 'date-fns';
 
 // =============================================================================
@@ -57,15 +61,26 @@ export default function PhotosHubPage() {
 
   const [stats, setStats] = useState<PhotoStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Fetch photo stats
   const fetchStats = useCallback(async () => {
+    setLoadError(null);
     try {
-      const response = await fetch('/api/patient-portal/photos?limit=100');
+      const response = await portalFetch('/api/patient-portal/photos?limit=100');
+      const sessionErr = getPortalResponseError(response);
+      if (sessionErr) {
+        setLoadError(sessionErr);
+        setLoading(false);
+        return;
+      }
       if (!response.ok) throw new Error('Failed to load');
 
-      const data = await response.json();
-      const photos = data.photos || [];
+      const data = await safeParseJson(response);
+      const photos =
+        data !== null && typeof data === 'object' && 'photos' in data
+          ? (data as { photos?: unknown[] }).photos ?? []
+          : [];
 
       // Calculate stats
       const progressPhotos = photos.filter((p: any) =>
@@ -76,9 +91,7 @@ export default function PhotosHubPage() {
         ['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(p.type)
       );
 
-      const medicalPhotos = photos.filter((p: any) =>
-        p.type.startsWith('MEDICAL_')
-      );
+      const medicalPhotos = photos.filter((p: any) => p.type.startsWith('MEDICAL_'));
 
       // Determine verification status
       let verificationStatus: 'none' | 'pending' | 'verified' | 'rejected' = 'none';
@@ -107,7 +120,9 @@ export default function PhotosHubPage() {
         })),
       });
     } catch (err) {
-      console.error('Failed to load stats:', err);
+      logger.error('Failed to load photo stats', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
       setStats({
         progress: 0,
         verification: { status: 'none', count: 0 },
@@ -159,28 +174,28 @@ export default function PhotosHubPage() {
     switch (status) {
       case 'verified':
         return (
-          <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">
+          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-600">
             <CheckCircle className="h-3 w-3" />
             Verified
           </span>
         );
       case 'pending':
         return (
-          <span className="flex items-center gap-1 text-xs font-medium text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
+          <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-600">
             <Clock className="h-3 w-3" />
             Pending
           </span>
         );
       case 'rejected':
         return (
-          <span className="flex items-center gap-1 text-xs font-medium text-red-600 bg-red-100 px-2 py-1 rounded-full">
+          <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-600">
             <AlertCircle className="h-3 w-3" />
             Action Needed
           </span>
         );
       default:
         return (
-          <span className="flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+          <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
             <Plus className="h-3 w-3" />
             Not Started
           </span>
@@ -196,11 +211,31 @@ export default function PhotosHubPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-md p-6">
+        <div
+          className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/photos`)}&reason=session_expired`}
+            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+          >
+            Log in
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] px-4 py-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="mb-2 flex items-center gap-3">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-xl"
             style={{ backgroundColor: `${primaryColor}20` }}
@@ -213,33 +248,44 @@ export default function PhotosHubPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="rounded-xl bg-white p-4 shadow-sm text-center">
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        <div className="rounded-xl bg-white p-4 text-center shadow-sm">
           <p className="text-2xl font-bold text-gray-900">{stats?.progress || 0}</p>
           <p className="text-xs text-gray-500">Progress</p>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm text-center">
+        <div className="rounded-xl bg-white p-4 text-center shadow-sm">
           <p className="text-2xl font-bold text-gray-900">{stats?.verification.count || 0}</p>
           <p className="text-xs text-gray-500">Verification</p>
         </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm text-center">
+        <div className="rounded-xl bg-white p-4 text-center shadow-sm">
           <p className="text-2xl font-bold text-gray-900">{stats?.medical || 0}</p>
           <p className="text-xs text-gray-500">Medical</p>
         </div>
       </div>
 
       {/* Section Cards */}
-      <div className="space-y-3 mb-6">
+      <div className="mb-6 space-y-3">
         {sections.map((section) => {
           const Icon = section.icon;
           return (
             <Link
               key={section.href}
               href={section.href}
-              className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all"
+              className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
             >
-              <div className={`flex h-14 w-14 items-center justify-center rounded-xl ${section.bgColor}`}>
-                <Icon className={`h-7 w-7 text-${section.color.replace('bg-', '')}`} style={{ color: section.color.includes('blue') ? '#3B82F6' : section.color.includes('purple') ? '#8B5CF6' : '#14B8A6' }} />
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-xl ${section.bgColor}`}
+              >
+                <Icon
+                  className={`h-7 w-7 text-${section.color.replace('bg-', '')}`}
+                  style={{
+                    color: section.color.includes('blue')
+                      ? '#3B82F6'
+                      : section.color.includes('purple')
+                        ? '#8B5CF6'
+                        : '#14B8A6',
+                  }}
+                />
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-gray-900">{section.title}</p>
@@ -263,21 +309,18 @@ export default function PhotosHubPage() {
       {/* Recent Photos */}
       {stats && stats.recent.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Recent Uploads</h3>
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Recent Uploads</h3>
           <div className="grid grid-cols-4 gap-2">
             {stats.recent.map((photo) => (
-              <div
-                key={photo.id}
-                className="aspect-square rounded-xl overflow-hidden bg-gray-100"
-              >
+              <div key={photo.id} className="aspect-square overflow-hidden rounded-xl bg-gray-100">
                 {photo.thumbnailUrl ? (
                   <img
                     src={photo.thumbnailUrl}
                     alt="Recent photo"
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
+                  <div className="flex h-full w-full items-center justify-center">
                     <ImageIcon className="h-6 w-6 text-gray-300" />
                   </div>
                 )}
@@ -290,7 +333,7 @@ export default function PhotosHubPage() {
       {/* Quick Upload Button */}
       <Link
         href="/patient-portal/photos/progress"
-        className="flex items-center justify-center gap-2 w-full rounded-xl py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
+        className="flex w-full items-center justify-center gap-2 rounded-xl py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
         style={{ backgroundColor: primaryColor }}
       >
         <Plus className="h-5 w-5" />

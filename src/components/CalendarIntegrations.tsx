@@ -41,13 +41,21 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
   const fetchStatus = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const response = await fetch('/api/calendar-sync?action=status');
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setIntegrations(data.integrations);
       } else {
-        setError(data.error || 'Failed to load integrations');
+        if (response.status === 404 && data.code === 'PROVIDER_NOT_LINKED') {
+          setError(
+            data.hint ||
+              'Your account is not linked to a provider profile. Ask an admin to link your user to a provider or ensure a provider exists with your email.'
+          );
+        } else {
+          setError(data.error || 'Failed to load integrations');
+        }
       }
     } catch (err) {
       setError('Failed to load calendar integrations');
@@ -78,7 +86,11 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
   };
 
   const disconnectCalendar = async (provider: 'google' | 'outlook') => {
-    if (!confirm(`Are you sure you want to disconnect ${provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to disconnect ${provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}?`
+      )
+    ) {
       return;
     }
 
@@ -165,7 +177,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
   const getProviderIcon = (provider: 'google' | 'outlook') => {
     if (provider === 'google') {
       return (
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <svg className="h-5 w-5" viewBox="0 0 24 24">
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -187,15 +199,12 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
     }
 
     return (
-      <svg className="w-5 h-5" viewBox="0 0 24 24">
+      <svg className="h-5 w-5" viewBox="0 0 24 24">
         <path
           fill="#0078D4"
           d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
         />
-        <path
-          fill="#fff"
-          d="M11 7h2v6h-2zm0 8h2v2h-2z"
-        />
+        <path fill="#fff" d="M11 7h2v6h-2zm0 8h2v2h-2z" />
       </svg>
     );
   };
@@ -203,36 +212,34 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-100 rounded-lg">
-            <Calendar className="w-5 h-5 text-emerald-600" />
+          <div className="rounded-lg bg-emerald-100 p-2">
+            <Calendar className="h-5 w-5 text-emerald-600" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Calendar Integrations</h2>
-            <p className="text-sm text-gray-500">
-              Sync appointments with your external calendars
-            </p>
+            <p className="text-sm text-gray-500">Sync appointments with your external calendars</p>
           </div>
         </div>
 
-        {integrations.some(i => i.isConnected && i.syncEnabled) && (
+        {integrations.some((i) => i.isConnected && i.syncEnabled) && (
           <button
             onClick={syncCalendars}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
             {isSyncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="h-4 w-4" />
             )}
             Sync Now
           </button>
@@ -241,21 +248,27 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
 
       {/* Success/Error Messages */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-          <AlertCircle className="w-4 h-4" />
-          <span className="text-sm">{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto">
-            <X className="w-4 h-4" />
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span className="flex-1 text-sm">{error}</span>
+          <button
+            onClick={() => fetchStatus()}
+            className="text-sm font-medium underline hover:no-underline"
+          >
+            Retry
+          </button>
+          <button onClick={() => setError(null)} className="p-1 hover:opacity-70">
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
-          <Check className="w-4 h-4" />
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-green-700">
+          <Check className="h-4 w-4" />
           <span className="text-sm">{success}</span>
           <button onClick={() => setSuccess(null)} className="ml-auto">
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -265,7 +278,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
         {integrations.map((integration) => (
           <div
             key={integration.provider}
-            className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border p-4 transition-colors hover:bg-gray-50"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -288,30 +301,32 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
                 {integration.isConnected ? (
                   <>
                     <span className="flex items-center gap-1 text-sm text-green-600">
-                      <Check className="w-4 h-4" />
+                      <Check className="h-4 w-4" />
                       Connected
                     </span>
                     <button
-                      onClick={() => setEditingProvider(
-                        editingProvider === integration.provider ? null : integration.provider
-                      )}
-                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      onClick={() =>
+                        setEditingProvider(
+                          editingProvider === integration.provider ? null : integration.provider
+                        )
+                      }
+                      className="p-2 text-gray-400 transition-colors hover:text-gray-600"
                     >
-                      <Settings className="w-4 h-4" />
+                      <Settings className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => disconnectCalendar(integration.provider)}
-                      className="p-2 text-red-400 hover:text-red-600 transition-colors"
+                      className="p-2 text-red-400 transition-colors hover:text-red-600"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   </>
                 ) : (
                   <button
                     onClick={() => connectCalendar(integration.provider)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
                   >
-                    <Cloud className="w-4 h-4" />
+                    <Cloud className="h-4 w-4" />
                     Connect
                   </button>
                 )}
@@ -320,15 +335,15 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
 
             {/* Settings Panel */}
             {editingProvider === integration.provider && integration.isConnected && (
-              <div className="mt-4 pt-4 border-t space-y-4">
+              <div className="mt-4 space-y-4 border-t pt-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    Enable Sync
-                  </label>
+                  <label className="text-sm font-medium text-gray-700">Enable Sync</label>
                   <button
-                    onClick={() => updateSettings(integration.provider, {
-                      syncEnabled: !integration.syncEnabled,
-                    })}
+                    onClick={() =>
+                      updateSettings(integration.provider, {
+                        syncEnabled: !integration.syncEnabled,
+                      })
+                    }
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       integration.syncEnabled ? 'bg-emerald-600' : 'bg-gray-200'
                     }`}
@@ -342,24 +357,32 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     Sync Direction
                   </label>
                   <select
                     value={integration.syncDirection}
-                    onChange={(e) => updateSettings(integration.provider, {
-                      syncDirection: e.target.value,
-                    })}
-                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                    onChange={(e) =>
+                      updateSettings(integration.provider, {
+                        syncDirection: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="both">Two-way (Recommended)</option>
-                    <option value="to_external">To {integration.provider === 'google' ? 'Google' : 'Outlook'} only</option>
-                    <option value="from_external">From {integration.provider === 'google' ? 'Google' : 'Outlook'} only</option>
+                    <option value="to_external">
+                      To {integration.provider === 'google' ? 'Google' : 'Outlook'} only
+                    </option>
+                    <option value="from_external">
+                      From {integration.provider === 'google' ? 'Google' : 'Outlook'} only
+                    </option>
                   </select>
                   <p className="mt-1 text-xs text-gray-500">
                     {integration.syncDirection === 'both' && 'Appointments sync in both directions'}
-                    {integration.syncDirection === 'to_external' && 'Only push appointments to external calendar'}
-                    {integration.syncDirection === 'from_external' && 'Only import external events as blocked time'}
+                    {integration.syncDirection === 'to_external' &&
+                      'Only push appointments to external calendar'}
+                    {integration.syncDirection === 'from_external' &&
+                      'Only import external events as blocked time'}
                   </p>
                 </div>
               </div>
@@ -369,13 +392,23 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
       </div>
 
       {/* Help Text */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h4 className="text-sm font-medium text-blue-800 mb-2">How Calendar Sync Works</h4>
-        <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>Two-way sync:</strong> Appointments appear in your external calendar, and external events block your availability</li>
-          <li>• <strong>Automatic updates:</strong> Changes sync within minutes</li>
-          <li>• <strong>Video links:</strong> Zoom/telehealth links are included in calendar events</li>
-          <li>• <strong>Privacy:</strong> Patient names are shown, but sensitive health info is not synced</li>
+      <div className="mt-6 rounded-lg bg-blue-50 p-4">
+        <h4 className="mb-2 text-sm font-medium text-blue-800">How Calendar Sync Works</h4>
+        <ul className="space-y-1 text-sm text-blue-700">
+          <li>
+            • <strong>Two-way sync:</strong> Appointments appear in your external calendar, and
+            external events block your availability
+          </li>
+          <li>
+            • <strong>Automatic updates:</strong> Changes sync within minutes
+          </li>
+          <li>
+            • <strong>Video links:</strong> Zoom/telehealth links are included in calendar events
+          </li>
+          <li>
+            • <strong>Privacy:</strong> Patient names are shown, but sensitive health info is not
+            synced
+          </li>
         </ul>
       </div>
     </div>

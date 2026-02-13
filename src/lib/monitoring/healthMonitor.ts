@@ -1,8 +1,8 @@
 /**
  * Health Monitoring Service
- * 
+ *
  * Phase 3 of the 5-Phase Integration Plan
- * 
+ *
  * Tracks:
  * - Webhook success/failure rates
  * - Processing latency
@@ -111,10 +111,7 @@ export async function recordMetric(event: Omit<MetricEvent, 'timestamp'>): Promi
 
   // Store in Redis with TTL
   const key = `${METRICS_KEY}:${metric.timestamp}`;
-  await upstashCommand([
-    'SET', key, JSON.stringify(metric), 
-    'EX', String(METRICS_WINDOW_SECONDS)
-  ]);
+  await upstashCommand(['SET', key, JSON.stringify(metric), 'EX', String(METRICS_WINDOW_SECONDS)]);
 
   // Update counters
   const counterKey = `${METRICS_KEY}:counters`;
@@ -145,7 +142,11 @@ export async function recordWebhookSuccess(source: string, latencyMs: number): P
 /**
  * Record webhook error
  */
-export async function recordWebhookError(source: string, latencyMs: number, error: string): Promise<void> {
+export async function recordWebhookError(
+  source: string,
+  latencyMs: number,
+  error: string
+): Promise<void> {
   await recordMetric({
     type: 'webhook_error',
     source,
@@ -168,7 +169,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
     // Dynamic import to avoid circular dependencies
     const { prisma } = await import('@/lib/db');
     await prisma.$queryRaw`SELECT 1`;
-    
+
     return {
       status: 'up',
       latencyMs: Date.now() - start,
@@ -189,7 +190,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
  */
 async function checkRedis(): Promise<ServiceCheck> {
   const start = Date.now();
-  
+
   if (!UPSTASH_REST_URL || !UPSTASH_REST_TOKEN) {
     return {
       status: 'down',
@@ -200,7 +201,7 @@ async function checkRedis(): Promise<ServiceCheck> {
 
   try {
     const result = await upstashCommand(['PING']);
-    
+
     return {
       status: result === 'PONG' ? 'up' : 'degraded',
       latencyMs: Date.now() - start,
@@ -221,8 +222,8 @@ async function checkRedis(): Promise<ServiceCheck> {
  */
 async function checkWebhook(): Promise<ServiceCheck> {
   const counterKey = `${METRICS_KEY}:counters`;
-  const counters = await upstashCommand(['HGETALL', counterKey]) as string[] | null;
-  
+  const counters = (await upstashCommand(['HGETALL', counterKey])) as string[] | null;
+
   if (!counters || counters.length === 0) {
     return {
       status: 'up',
@@ -247,7 +248,7 @@ async function checkWebhook(): Promise<ServiceCheck> {
     status = 'degraded';
     lastError = `Success rate ${(successRate * 100).toFixed(1)}% below threshold`;
   }
-  
+
   if (avgLatency > ALERT_THRESHOLD_LATENCY_MS) {
     status = status === 'degraded' ? 'down' : 'degraded';
     lastError = `${lastError ? lastError + '; ' : ''}Average latency ${avgLatency.toFixed(0)}ms above threshold`;
@@ -268,7 +269,7 @@ async function getQueueDepth(): Promise<number> {
   try {
     const { getAllSubmissions } = await import('@/lib/queue/deadLetterQueue');
     const submissions = await getAllSubmissions();
-    return submissions.filter(s => s.attemptCount < 10).length;
+    return submissions.filter((s) => s.attemptCount < 10).length;
   } catch {
     return 0;
   }
@@ -279,8 +280,8 @@ async function getQueueDepth(): Promise<number> {
  */
 async function getMetrics(): Promise<HealthStatus['metrics']> {
   const counterKey = `${METRICS_KEY}:counters`;
-  const counters = await upstashCommand(['HGETALL', counterKey]) as string[] | null;
-  
+  const counters = (await upstashCommand(['HGETALL', counterKey])) as string[] | null;
+
   const stats: Record<string, number> = {};
   if (counters) {
     for (let i = 0; i < counters.length; i += 2) {
@@ -318,13 +319,17 @@ export async function getHealthStatus(): Promise<HealthStatus> {
 
   // Determine overall status
   let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-  
+
   if (database.status === 'down') {
     status = 'unhealthy';
-  } else if (database.status === 'degraded' || redis.status === 'down' || webhook.status === 'degraded') {
+  } else if (
+    database.status === 'degraded' ||
+    redis.status === 'down' ||
+    webhook.status === 'degraded'
+  ) {
     status = 'degraded';
   }
-  
+
   if (metrics.queueDepth > 10) {
     status = status === 'unhealthy' ? 'unhealthy' : 'degraded';
   }
@@ -352,7 +357,7 @@ export async function getHealthStatus(): Promise<HealthStatus> {
  */
 export async function sendHealthAlert(health: HealthStatus): Promise<void> {
   const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
-  
+
   if (!slackWebhookUrl) {
     logger.warn('[Health] No Slack webhook configured for alerts');
     return;
@@ -381,15 +386,16 @@ export async function sendHealthAlert(health: HealthStatus): Promise<void> {
           { type: 'mrkdwn', text: `*Redis:* ${health.checks.redis.status}` },
           { type: 'mrkdwn', text: `*Webhook:* ${health.checks.webhook.status}` },
           { type: 'mrkdwn', text: `*Queue Depth:* ${health.metrics.queueDepth}` },
-          { type: 'mrkdwn', text: `*Success Rate:* ${(health.metrics.successRate * 100).toFixed(1)}%` },
+          {
+            type: 'mrkdwn',
+            text: `*Success Rate:* ${(health.metrics.successRate * 100).toFixed(1)}%`,
+          },
           { type: 'mrkdwn', text: `*Avg Latency:* ${health.metrics.avgLatencyMs.toFixed(0)}ms` },
         ],
       },
       {
         type: 'context',
-        elements: [
-          { type: 'mrkdwn', text: `Timestamp: ${health.timestamp}` },
-        ],
+        elements: [{ type: 'mrkdwn', text: `Timestamp: ${health.timestamp}` }],
       },
     ],
   };

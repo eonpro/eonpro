@@ -1,12 +1,13 @@
 /**
  * Admin Routing Queue API
- * 
+ *
  * GET - Get the routing queue for admin view (unassigned and assigned counts)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { handleApiError, BadRequestError } from '@/domains/shared/errors';
 import { providerRoutingService } from '@/services/provider';
 
 /**
@@ -17,10 +18,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
     const clinicIdParam = searchParams.get('clinicId');
-    
+
     // Use query param if super admin, otherwise use user's clinic
     let clinicId: number | undefined;
-    
+
     if (user.role === 'super_admin' && clinicIdParam) {
       clinicId = parseInt(clinicIdParam, 10);
     } else {
@@ -28,15 +29,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      throw new BadRequestError('Clinic ID is required');
     }
 
     // Check if routing is enabled for this clinic
     const config = await providerRoutingService.getRoutingConfig(clinicId);
-    
+
     if (!config?.routingEnabled) {
       return NextResponse.json({
         enabled: false,
@@ -73,15 +71,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[ADMIN-ROUTING] Error getting routing queue', {
-      error: errorMessage,
-      userId: user.id,
-    });
-    return NextResponse.json(
-      { error: 'Failed to get routing queue', details: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'GET /api/admin/routing/queue' });
   }
 }
 

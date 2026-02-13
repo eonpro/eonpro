@@ -18,20 +18,22 @@ type PatientPortalLanguageContextValue = {
 const PatientPortalLanguageContext = createContext<PatientPortalLanguageContextValue | null>(null);
 
 export function PatientPortalLanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<PatientPortalLang>(() => getStoredPatientPortalLanguage());
+  const [language, setLanguageState] = useState<PatientPortalLang>(() =>
+    getStoredPatientPortalLanguage()
+  );
   const [loading, setLoading] = useState(true);
 
-  const t = useCallback(
-    (key: string) => getPatientPortalTranslation(language, key),
-    [language]
-  );
+  const t = useCallback((key: string) => getPatientPortalTranslation(language, key), [language]);
 
   const setLanguage = useCallback(async (lang: PatientPortalLang) => {
     setLanguageState(lang);
     setStoredPatientPortalLanguage(lang);
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token') || localStorage.getItem('access_token');
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('patient-token') ||
+        localStorage.getItem('access_token');
       await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: {
@@ -48,7 +50,10 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token') || localStorage.getItem('access_token');
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('patient-token') ||
+      localStorage.getItem('access_token');
     if (!token) {
       setLoading(false);
       return;
@@ -56,7 +61,7 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
     fetch('/api/user/profile', {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.preferredLanguage === 'es' || data?.preferredLanguage === 'en') {
           setLanguageState(data.preferredLanguage);

@@ -26,15 +26,12 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
 
     // Validate input
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     // Check if user exists based on role
     let userExists = false;
-    
+
     switch (role) {
       case 'patient':
         const user = await prisma.user.findUnique({
@@ -49,23 +46,20 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
         });
         userExists = !!provider;
         break;
-        
+
       case 'influencer':
         const influencer = await prisma.influencer.findUnique({
           where: { email: email.toLowerCase() },
         });
         userExists = !!influencer;
         break;
-        
+
       case 'admin':
         userExists = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
         break;
-        
+
       default:
-        return NextResponse.json(
-          { error: 'Invalid role specified' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
 
     // Always return success to prevent email enumeration
@@ -75,18 +69,10 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       const code = generateOTP();
 
       // Store verification code
-      await storeVerificationCode(
-        email.toLowerCase(),
-        code,
-        'password_reset'
-      );
+      await storeVerificationCode(email.toLowerCase(), code, 'password_reset');
 
       // Send email
-      await sendVerificationEmail(
-        email.toLowerCase(),
-        code,
-        'password_reset'
-      );
+      await sendVerificationEmail(email.toLowerCase(), code, 'password_reset');
 
       logger.info(`Password reset requested for ${email} (${role})`);
     } else {
@@ -100,18 +86,25 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       // In development only, indicate if user exists and include code
       ...(process.env.NODE_ENV === 'development' && {
         userExists,
-        ...(userExists && { code: (await prisma.patientAudit.findFirst({
-          where: {
-            patientId: 0,
-            action: 'PASSWORD_RESET',
-            actorEmail: email.toLowerCase(),
-          },
-          orderBy: { createdAt: 'desc' },
-        }).then((r) => r && typeof r.diff === 'string' ? JSON.parse(r.diff).code : undefined)) }),
+        ...(userExists && {
+          code: await prisma.patientAudit
+            .findFirst({
+              where: {
+                patientId: 0,
+                action: 'PASSWORD_RESET',
+                actorEmail: email.toLowerCase(),
+              },
+              orderBy: { createdAt: 'desc' },
+            })
+            .then((r) => (r && typeof r.diff === 'string' ? JSON.parse(r.diff).code : undefined)),
+        }),
       }),
     });
   } catch (error: unknown) {
-    logger.error('Error sending password reset:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      'Error sending password reset:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return NextResponse.json(
       { error: 'Failed to process password reset request' },
       { status: 500 }
@@ -145,17 +138,10 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     }
 
     // Verify the code
-    const result = await verifyOTPCode(
-      email.toLowerCase(),
-      code,
-      'password_reset'
-    );
+    const result = await verifyOTPCode(email.toLowerCase(), code, 'password_reset');
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
     // Hash the new password
@@ -163,52 +149,74 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
 
     // Update password based on role
     let updated = false;
-    
+
     switch (role) {
       case 'patient':
         const userToUpdate = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
         });
         if (userToUpdate) {
-          const updatedUser = await prisma.user.update({
-            where: { id: userToUpdate.id },
-            data: { passwordHash },
-          }).catch(() => null);
+          const updatedUser = await prisma.user
+            .update({
+              where: { id: userToUpdate.id },
+              data: { passwordHash },
+            })
+            .catch((err) => {
+              logger.warn('[ResetPassword] Failed to update patient password', { error: err instanceof Error ? err.message : String(err) });
+              return null;
+            });
           updated = !!updatedUser;
 
           // Create audit log for patient
           if (updated) {
-            await prisma.patientAudit.create({
-              data: {
-                patientId: userToUpdate.patientId || 0,
-                action: 'PASSWORD_RESET',
-                actorEmail: email.toLowerCase(),
-                diff: JSON.stringify({ timestamp: new Date().toISOString() }),
-              },
-            }).catch(() => null);
+            await prisma.patientAudit
+              .create({
+                data: {
+                  patientId: userToUpdate.patientId || 0,
+                  action: 'PASSWORD_RESET',
+                  actorEmail: email.toLowerCase(),
+                  diff: JSON.stringify({ timestamp: new Date().toISOString() }),
+                },
+              })
+              .catch((err) => {
+                logger.warn('[ResetPassword] Failed to create audit log for patient password reset', { error: err instanceof Error ? err.message : String(err) });
+                return null;
+              });
           }
         }
         break;
 
       case 'provider':
-        const providerToUpdate = await prisma.provider.findFirst({ where: { email: email.toLowerCase() }});
+        const providerToUpdate = await prisma.provider.findFirst({
+          where: { email: email.toLowerCase() },
+        });
         if (providerToUpdate) {
-          const provider: any = await prisma.provider.update({
-            where: { id: providerToUpdate.id },
-            data: { passwordHash },
-          }).catch(() => null);
+          const provider: any = await prisma.provider
+            .update({
+              where: { id: providerToUpdate.id },
+              data: { passwordHash },
+            })
+            .catch((err) => {
+              logger.warn('[ResetPassword] Failed to update provider password', { error: err instanceof Error ? err.message : String(err) });
+              return null;
+            });
           updated = !!provider;
         }
         break;
-        
+
       case 'influencer':
-        const influencer = await prisma.influencer.update({
-          where: { email: email.toLowerCase() },
-          data: { passwordHash },
-        }).catch(() => null);
+        const influencer = await prisma.influencer
+          .update({
+            where: { email: email.toLowerCase() },
+            data: { passwordHash },
+          })
+          .catch((err) => {
+            logger.warn('[ResetPassword] Failed to update influencer password', { error: err instanceof Error ? err.message : String(err) });
+            return null;
+          });
         updated = !!influencer;
         break;
-        
+
       case 'admin':
         // Admin password is in environment variables, cannot be reset this way
         if (email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase()) {
@@ -222,15 +230,12 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     }
 
     if (!updated) {
-      return NextResponse.json(
-        { error: 'Failed to update password' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
     }
 
     // Log password reset
     logger.info(`Password reset successfully for ${email} (${role})`);
-    
+
     // Create audit log
     if (role === 'provider') {
       const providerUser = await prisma.provider.findFirst({
@@ -253,10 +258,10 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
       message: 'Password reset successfully',
     });
   } catch (error: unknown) {
-    logger.error('Error resetting password:', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json(
-      { error: 'Failed to reset password' },
-      { status: 500 }
+    logger.error(
+      'Error resetting password:',
+      error instanceof Error ? error : new Error(String(error))
     );
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 });

@@ -2,7 +2,7 @@
  * COMPREHENSIVE INVOICE MANAGER
  * =============================
  * Stripe-level invoice management capabilities
- * 
+ *
  * Features:
  * - Full invoice lifecycle management (draft → open → paid/void/uncollectible)
  * - Line items with quantities, unit prices, discounts
@@ -15,7 +15,7 @@
  * - Comprehensive reporting
  */
 
-import { prisma, basePrisma } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { getStripe, STRIPE_CONFIG } from '@/lib/stripe';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 import { logger } from '@/lib/logger';
@@ -58,37 +58,37 @@ export interface CreateInvoiceOptions {
   patientId: number;
   clinicId?: number;
   lineItems: LineItem[];
-  
+
   // Optional fields
   description?: string;
   memo?: string;
   footer?: string;
   dueInDays?: number;
   dueDate?: Date;
-  
+
   // Discounts & taxes
   discount?: InvoiceDiscount;
   taxes?: InvoiceTax[];
-  
+
   // Settings
   autoSend?: boolean;
   autoCharge?: boolean;
   collectionMethod?: 'charge_automatically' | 'send_invoice';
-  
+
   // Custom fields
   customFields?: Record<string, string>;
   invoiceNumber?: string;
   poNumber?: string;
-  
+
   // Related entities
   orderId?: number;
   subscriptionId?: number;
-  
+
   // Payment terms
   paymentTerms?: string;
   lateFeesEnabled?: boolean;
   lateFeePercentage?: number;
-  
+
   metadata?: Record<string, string>;
 }
 
@@ -176,7 +176,7 @@ export interface InvoiceMetadata {
 export class InvoiceManager {
   private stripeClient: Stripe | null = null;
   private clinicId?: number;
-  
+
   constructor(clinicId?: number) {
     this.clinicId = clinicId;
     try {
@@ -185,11 +185,11 @@ export class InvoiceManager {
       logger.warn('Stripe not configured - running in demo mode');
     }
   }
-  
+
   // --------------------------------------------------------------------------
   // INVOICE CREATION
   // --------------------------------------------------------------------------
-  
+
   /**
    * Create a new invoice
    */
@@ -199,34 +199,42 @@ export class InvoiceManager {
     summary: InvoiceSummary;
   }> {
     // Calculate totals
-    const summary = this.calculateInvoiceSummary(options.lineItems, options.discount, options.taxes);
-    
+    const summary = this.calculateInvoiceSummary(
+      options.lineItems,
+      options.discount,
+      options.taxes
+    );
+
     // Get patient
-    const patient = await basePrisma.patient.findUnique({
+    const patient = await prisma.patient.findUnique({
       where: { id: options.patientId },
     });
-    
+
     if (!patient) {
       throw new Error('Patient not found');
     }
-    
+
+    // CRITICAL: Use patient's clinic so invoice is never routed to wrong clinic (multi-tenant)
+    const invoiceClinicId = patient.clinicId ?? options.clinicId ?? this.clinicId ?? undefined;
+
     // Generate invoice number if not provided
-    const invoiceNumber = options.invoiceNumber || await this.generateInvoiceNumber();
-    
+    const invoiceNumber = options.invoiceNumber || (await this.generateInvoiceNumber());
+
     // Calculate due date
-    const dueDate = options.dueDate || new Date(Date.now() + (options.dueInDays || 30) * 24 * 60 * 60 * 1000);
-    
+    const dueDate =
+      options.dueDate || new Date(Date.now() + (options.dueInDays || 30) * 24 * 60 * 60 * 1000);
+
     let stripeInvoice: Stripe.Invoice | undefined;
     let stripeInvoiceId: string | undefined;
     let stripeInvoiceUrl: string | undefined;
     let stripePdfUrl: string | undefined;
-    
+
     // Create in Stripe if configured
     if (this.stripeClient) {
       try {
         // Get or create Stripe customer
         const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
-        
+
         // Create Stripe invoice
         stripeInvoice = await this.stripeClient.invoices.create({
           customer: customer.id,
@@ -235,61 +243,63 @@ export class InvoiceManager {
           days_until_due: options.dueInDays || STRIPE_CONFIG.invoiceDueDays,
           auto_advance: false,
           footer: options.footer,
-          custom_fields: options.customFields ? 
-            Object.entries(options.customFields).slice(0, 4).map(([name, value]) => ({ name, value })) : 
-            undefined,
+          custom_fields: options.customFields
+            ? Object.entries(options.customFields)
+                .slice(0, 4)
+                .map(([name, value]) => ({ name, value }))
+            : undefined,
           metadata: {
             patientId: options.patientId.toString(),
-            clinicId: (options.clinicId || this.clinicId || '').toString(),
+            clinicId: (invoiceClinicId ?? '').toString(),
             orderId: options.orderId?.toString() || '',
             invoiceNumber,
             ...options.metadata,
           },
         });
-        
+
         // Add line items
         for (const item of options.lineItems) {
           const itemTotal = this.calculateLineItemTotal(item);
           await this.stripeClient.invoiceItems.create({
             customer: customer.id,
             invoice: stripeInvoice.id,
-            description: item.quantity > 1 ? `${item.description} (x${item.quantity})` : item.description,
+            description:
+              item.quantity > 1 ? `${item.description} (x${item.quantity})` : item.description,
             amount: itemTotal,
             currency: STRIPE_CONFIG.currency,
             metadata: item.metadata,
           });
         }
-        
+
         // Apply discount if provided
         if (options.discount && options.discount.value > 0) {
           // Create a coupon for this invoice
           const coupon = await this.stripeClient.coupons.create({
-            ...(options.discount.type === 'percentage' 
+            ...(options.discount.type === 'percentage'
               ? { percent_off: options.discount.value }
-              : { amount_off: options.discount.value, currency: STRIPE_CONFIG.currency }
-            ),
+              : { amount_off: options.discount.value, currency: STRIPE_CONFIG.currency }),
             duration: 'once',
             name: options.discount.description || 'Invoice Discount',
           });
-          
+
           await this.stripeClient.invoices.update(stripeInvoice.id, {
             discounts: [{ coupon: coupon.id }],
           });
         }
-        
+
         // Finalize the invoice
         const finalizedInvoice = await this.stripeClient.invoices.finalizeInvoice(stripeInvoice.id);
-        
+
         stripeInvoiceId = finalizedInvoice.id;
         stripeInvoiceUrl = finalizedInvoice.hosted_invoice_url || undefined;
         stripePdfUrl = finalizedInvoice.invoice_pdf || undefined;
         stripeInvoice = finalizedInvoice;
-        
+
         // Auto-send if requested
         if (options.autoSend) {
           await this.stripeClient.invoices.sendInvoice(finalizedInvoice.id);
         }
-        
+
         // Auto-charge if requested and payment method available
         if (options.autoCharge) {
           try {
@@ -298,39 +308,38 @@ export class InvoiceManager {
             logger.warn('Auto-charge failed', { invoiceId: finalizedInvoice.id, error: payError });
           }
         }
-        
       } catch (stripeError: any) {
         logger.error('Stripe invoice creation failed', stripeError);
         // Continue without Stripe - create local invoice only
       }
     }
-    
+
     // Create invoice in database
-    const dbInvoice = await basePrisma.invoice.create({
+    const dbInvoice = await prisma.invoice.create({
       data: {
         patientId: options.patientId,
-        clinicId: options.clinicId || this.clinicId,
+        clinicId: invoiceClinicId,
         orderId: options.orderId,
-        
+
         // Stripe IDs
         stripeInvoiceId,
         stripeInvoiceNumber: stripeInvoice?.number || undefined,
         stripeInvoiceUrl,
         stripePdfUrl,
-        
+
         // Amounts
         amount: summary.total,
         amountDue: summary.amountDue,
         amountPaid: 0,
         currency: STRIPE_CONFIG.currency,
-        
+
         // Status
         status: stripeInvoiceId ? 'OPEN' : 'DRAFT',
-        
+
         // Details
         description: options.description,
         dueDate,
-        
+
         // Store line items and calculations
         lineItems: options.lineItems as unknown as Prisma.InputJsonValue,
         metadata: {
@@ -351,33 +360,44 @@ export class InvoiceManager {
         clinic: true,
       },
     });
-    
+
     logger.info('Invoice created', {
       invoiceId: dbInvoice.id,
       patientId: options.patientId,
       amount: summary.total,
       stripeId: stripeInvoiceId,
     });
-    
+
     return {
       invoice: dbInvoice,
       stripeInvoice,
       summary,
     };
   }
-  
+
   /**
    * Create a draft invoice (not finalized)
    */
   async createDraftInvoice(options: CreateInvoiceOptions): Promise<any> {
-    const summary = this.calculateInvoiceSummary(options.lineItems, options.discount, options.taxes);
-    const invoiceNumber = options.invoiceNumber || await this.generateInvoiceNumber();
-    const dueDate = options.dueDate || new Date(Date.now() + (options.dueInDays || 30) * 24 * 60 * 60 * 1000);
-    
-    const dbInvoice = await basePrisma.invoice.create({
+    const summary = this.calculateInvoiceSummary(
+      options.lineItems,
+      options.discount,
+      options.taxes
+    );
+    const invoiceNumber = options.invoiceNumber || (await this.generateInvoiceNumber());
+    const dueDate =
+      options.dueDate || new Date(Date.now() + (options.dueInDays || 30) * 24 * 60 * 60 * 1000);
+
+    const patientForDraft = await prisma.patient.findUnique({
+      where: { id: options.patientId },
+      select: { clinicId: true },
+    });
+    const draftClinicId = patientForDraft?.clinicId ?? options.clinicId ?? this.clinicId ?? undefined;
+
+    const dbInvoice = await prisma.invoice.create({
       data: {
         patientId: options.patientId,
-        clinicId: options.clinicId || this.clinicId,
+        clinicId: draftClinicId,
         orderId: options.orderId,
         amount: summary.total,
         amountDue: summary.amountDue,
@@ -401,27 +421,27 @@ export class InvoiceManager {
       },
       include: { patient: true, clinic: true },
     });
-    
+
     return dbInvoice;
   }
-  
+
   /**
    * Finalize a draft invoice
    */
   async finalizeInvoice(invoiceId: number): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { patient: true },
     });
-    
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     if (invoice.status !== 'DRAFT') {
       throw new Error('Only draft invoices can be finalized');
     }
-    
+
     // Create in Stripe if configured
     if (this.stripeClient && !invoice.stripeInvoiceId) {
       const lineItems = (invoice.lineItems as unknown as LineItem[]) || [];
@@ -440,15 +460,15 @@ export class InvoiceManager {
         // Only pass customFields as string metadata - other metadata is created internally
         metadata: invoiceMeta.customFields,
       });
-      
+
       // Delete the draft and return the new invoice
-      await basePrisma.invoice.delete({ where: { id: invoiceId } });
+      await prisma.invoice.delete({ where: { id: invoiceId } });
       return result.invoice;
     }
-    
+
     // Just update status if no Stripe
     const currentMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'OPEN',
@@ -461,24 +481,24 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
-  
+
   // --------------------------------------------------------------------------
   // INVOICE UPDATES
   // --------------------------------------------------------------------------
-  
+
   /**
    * Update an invoice (only drafts can be fully edited)
    */
   async updateInvoice(invoiceId: number, updates: UpdateInvoiceOptions): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    
-    return await basePrisma.invoice.update({
+
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         description: updates.description,
@@ -496,27 +516,27 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
-  
+
   /**
    * Add line items to a draft invoice
    */
   async addLineItems(invoiceId: number, items: LineItem[]): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     if (invoice.status !== 'DRAFT') {
       throw new Error('Can only add items to draft invoices');
     }
-    
+
     const existingItems = (invoice.lineItems as unknown as LineItem[]) || [];
     const allItems = [...existingItems, ...items];
     const summary = this.calculateInvoiceSummary(allItems);
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    
-    return await basePrisma.invoice.update({
+
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         lineItems: allItems as unknown as Prisma.InputJsonValue,
@@ -530,27 +550,27 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
-  
+
   /**
    * Remove a line item from a draft invoice
    */
   async removeLineItem(invoiceId: number, itemIndex: number): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     if (invoice.status !== 'DRAFT') {
       throw new Error('Can only remove items from draft invoices');
     }
-    
+
     const existingItems = (invoice.lineItems as unknown as LineItem[]) || [];
     existingItems.splice(itemIndex, 1);
     const summary = this.calculateInvoiceSummary(existingItems);
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    
-    return await basePrisma.invoice.update({
+
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         lineItems: existingItems as unknown as Prisma.InputJsonValue,
@@ -564,37 +584,41 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
-  
+
   // --------------------------------------------------------------------------
   // INVOICE STATUS MANAGEMENT
   // --------------------------------------------------------------------------
-  
+
   /**
    * Send an invoice to the patient
    */
-  async sendInvoice(invoiceId: number, options?: {
-    channel?: 'email' | 'sms' | 'both';
-    customMessage?: string;
-  }): Promise<{ success: boolean; delivery: any[] }> {
-    const invoice = await basePrisma.invoice.findUnique({
+  async sendInvoice(
+    invoiceId: number,
+    options?: {
+      channel?: 'email' | 'sms' | 'both';
+      customMessage?: string;
+    }
+  ): Promise<{ success: boolean; delivery: any[] }> {
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { patient: true, clinic: true },
     });
-    
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     const channel = options?.channel || 'email';
     const delivery: any[] = [];
-    
+
     // Get payment URL
-    const paymentUrl = invoice.stripeInvoiceUrl || 
+    const paymentUrl =
+      invoice.stripeInvoiceUrl ||
       `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
-    
+
     const clinicName = invoice.clinic?.name || 'EON Medical';
     const amount = '$' + ((invoice.amount ?? 0) / 100).toFixed(2);
-    
+
     // Send via Stripe if available
     if (this.stripeClient && invoice.stripeInvoiceId && invoice.status === 'OPEN') {
       try {
@@ -604,7 +628,7 @@ export class InvoiceManager {
         delivery.push({ method: 'stripe_email', success: false, error: stripeError.message });
       }
     }
-    
+
     // Send via email
     if (channel === 'email' || channel === 'both') {
       if (invoice.patient.email) {
@@ -621,7 +645,7 @@ export class InvoiceManager {
         }
       }
     }
-    
+
     // Send via SMS
     if (channel === 'sms' || channel === 'both') {
       if (invoice.patient.phone) {
@@ -629,7 +653,7 @@ export class InvoiceManager {
           const smsMessage = options?.customMessage
             ? `${clinicName}: ${options.customMessage}\n\nInvoice: ${amount}\nPay: ${paymentUrl}`
             : `${clinicName}: Your invoice for ${amount} is ready. Pay securely: ${paymentUrl}`;
-          
+
           await sendSMS({
             to: formatPhoneNumber(invoice.patient.phone),
             body: smsMessage,
@@ -640,10 +664,10 @@ export class InvoiceManager {
         }
       }
     }
-    
+
     // Update invoice metadata
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    await basePrisma.invoice.update({
+    await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         metadata: {
@@ -654,27 +678,27 @@ export class InvoiceManager {
         } as unknown as Prisma.InputJsonValue,
       },
     });
-    
+
     return {
-      success: delivery.some(d => d.success),
+      success: delivery.some((d) => d.success),
       delivery,
     };
   }
-  
+
   /**
    * Void an invoice
    */
   async voidInvoice(invoiceId: number, reason?: string): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     if (invoice.status === 'PAID') {
       throw new Error('Cannot void a paid invoice. Issue a refund instead.');
     }
-    
+
     // Void in Stripe
     if (this.stripeClient && invoice.stripeInvoiceId) {
       try {
@@ -683,9 +707,9 @@ export class InvoiceManager {
         logger.warn('Stripe void failed', { error: stripeError.message });
       }
     }
-    
+
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'VOID',
@@ -705,7 +729,7 @@ export class InvoiceManager {
    * (refund should be handled separately if needed)
    */
   async cancelInvoice(invoiceId: number, reason?: string): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
 
     if (!invoice) {
       throw new Error('Invoice not found');
@@ -721,7 +745,7 @@ export class InvoiceManager {
     }
 
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'VOID',
@@ -736,17 +760,17 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
-  
+
   /**
    * Mark invoice as uncollectible
    */
   async markUncollectible(invoiceId: number, reason?: string): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     // Mark in Stripe
     if (this.stripeClient && invoice.stripeInvoiceId) {
       try {
@@ -755,9 +779,9 @@ export class InvoiceManager {
         logger.warn('Stripe mark uncollectible failed', { error: stripeError.message });
       }
     }
-    
+
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         status: 'UNCOLLECTIBLE',
@@ -770,39 +794,42 @@ export class InvoiceManager {
       include: { patient: true, clinic: true },
     });
   }
-  
+
   // --------------------------------------------------------------------------
   // PAYMENTS
   // --------------------------------------------------------------------------
-  
+
   /**
    * Record a payment against an invoice
    */
-  async recordPayment(invoiceId: number, options: {
-    amount: number;
-    paymentMethod: string;
-    stripePaymentIntentId?: string;
-    notes?: string;
-  }): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({
+  async recordPayment(
+    invoiceId: number,
+    options: {
+      amount: number;
+      paymentMethod: string;
+      stripePaymentIntentId?: string;
+      notes?: string;
+    }
+  ): Promise<any> {
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { payments: true },
     });
-    
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     if (invoice.status === 'PAID' || invoice.status === 'VOID') {
       throw new Error(`Cannot record payment on ${invoice.status} invoice`);
     }
-    
+
     const totalPaid = (invoice.amountPaid || 0) + options.amount;
     const newAmountDue = Math.max(0, (invoice.amount ?? 0) - totalPaid);
     const isPaid = newAmountDue === 0;
-    
+
     // Create payment record
-    const payment = await basePrisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         patientId: invoice.patientId,
         clinicId: invoice.clinicId,
@@ -817,10 +844,10 @@ export class InvoiceManager {
         },
       },
     });
-    
+
     // Update invoice
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    const updatedInvoice = await basePrisma.invoice.update({
+    const updatedInvoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         amountPaid: totalPaid,
@@ -843,7 +870,7 @@ export class InvoiceManager {
       },
       include: { patient: true, payments: true },
     });
-    
+
     logger.info('Payment recorded', {
       invoiceId,
       paymentId: payment.id,
@@ -851,7 +878,7 @@ export class InvoiceManager {
       totalPaid,
       isPaid,
     });
-    
+
     return {
       invoice: updatedInvoice,
       payment,
@@ -859,24 +886,24 @@ export class InvoiceManager {
       remainingBalance: newAmountDue,
     };
   }
-  
+
   /**
    * Create a payment plan for an invoice
    */
   async createPaymentPlan(invoiceId: number, plan: PaymentPlan): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     const remainingAmount = plan.totalAmount - (plan.downPayment || 0);
     const installmentAmount = Math.ceil(remainingAmount / plan.numberOfPayments);
-    
+
     // Generate schedule
     const schedule: any[] = [];
     let currentDate = new Date(plan.startDate);
-    
+
     // Add down payment if exists
     if (plan.downPayment && plan.downPayment > 0) {
       schedule.push({
@@ -887,14 +914,14 @@ export class InvoiceManager {
         type: 'down_payment',
       });
     }
-    
+
     // Add installments
     for (let i = 0; i < plan.numberOfPayments; i++) {
       const isLast = i === plan.numberOfPayments - 1;
-      const amount = isLast 
-        ? remainingAmount - (installmentAmount * (plan.numberOfPayments - 1))
+      const amount = isLast
+        ? remainingAmount - installmentAmount * (plan.numberOfPayments - 1)
         : installmentAmount;
-      
+
       schedule.push({
         number: i + 1,
         amount,
@@ -902,7 +929,7 @@ export class InvoiceManager {
         status: 'pending',
         type: 'installment',
       });
-      
+
       // Advance date
       switch (plan.frequency) {
         case 'weekly':
@@ -916,10 +943,10 @@ export class InvoiceManager {
           break;
       }
     }
-    
+
     // Update invoice with payment plan
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         metadata: {
@@ -935,26 +962,26 @@ export class InvoiceManager {
       include: { patient: true },
     });
   }
-  
+
   // --------------------------------------------------------------------------
   // CREDITS & REFUNDS
   // --------------------------------------------------------------------------
-  
+
   /**
    * Apply a credit to an invoice
    */
   async applyCredit(invoiceId: number, amount: number, description?: string): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     const newAmountDue = Math.max(0, (invoice.amountDue ?? invoice.amount ?? 0) - amount);
     const isPaid = newAmountDue === 0;
-    
+
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         amountDue: newAmountDue,
@@ -975,33 +1002,36 @@ export class InvoiceManager {
       include: { patient: true },
     });
   }
-  
+
   /**
    * Issue a refund for a paid invoice
    */
-  async issueRefund(invoiceId: number, options: {
-    amount?: number; // Partial refund amount, or full if not specified
-    reason?: string;
-    refundToPaymentMethod?: boolean;
-  }): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({
+  async issueRefund(
+    invoiceId: number,
+    options: {
+      amount?: number; // Partial refund amount, or full if not specified
+      reason?: string;
+      refundToPaymentMethod?: boolean;
+    }
+  ): Promise<any> {
+    const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: { payments: true },
     });
-    
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     if (invoice.status !== 'PAID') {
       throw new Error('Can only refund paid invoices');
     }
-    
+
     const refundAmount = options.amount || invoice.amountPaid || invoice.amount;
-    
+
     // Process refund in Stripe if applicable
     if (this.stripeClient && options.refundToPaymentMethod && refundAmount) {
-      const stripePayment = invoice.payments.find(p => p.stripePaymentIntentId);
+      const stripePayment = invoice.payments.find((p) => p.stripePaymentIntentId);
       if (stripePayment?.stripePaymentIntentId) {
         try {
           await this.stripeClient.refunds.create({
@@ -1016,14 +1046,14 @@ export class InvoiceManager {
         }
       }
     }
-    
+
     // Update invoice
     const newAmountPaid = (invoice.amountPaid || 0) - (refundAmount ?? 0);
     const isFullRefund = newAmountPaid <= 0;
     const invoiceAmount = invoice.amount ?? 0;
-    
+
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         amountPaid: Math.max(0, newAmountPaid),
@@ -1046,16 +1076,16 @@ export class InvoiceManager {
       include: { patient: true },
     });
   }
-  
+
   // --------------------------------------------------------------------------
   // QUERIES
   // --------------------------------------------------------------------------
-  
+
   /**
    * Get invoice by ID
    */
   async getInvoice(invoiceId: number): Promise<any> {
-    return await basePrisma.invoice.findUnique({
+    return await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         patient: true,
@@ -1064,7 +1094,7 @@ export class InvoiceManager {
       },
     });
   }
-  
+
   /**
    * Get invoices with filters
    */
@@ -1086,9 +1116,9 @@ export class InvoiceManager {
     const page = filters.page || 1;
     const limit = filters.limit || 20;
     const skip = (page - 1) * limit;
-    
+
     const where: Prisma.InvoiceWhereInput = {};
-    
+
     if (this.clinicId) {
       where.clinicId = this.clinicId;
     }
@@ -1117,12 +1147,14 @@ export class InvoiceManager {
       where.status = 'OPEN';
       where.dueDate = { lt: new Date() };
     }
-    
+
     const [invoices, total] = await Promise.all([
-      basePrisma.invoice.findMany({
+      prisma.invoice.findMany({
         where,
         include: {
-          patient: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
+          patient: {
+            select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+          },
           clinic: { select: { id: true, name: true } },
           payments: true,
         },
@@ -1130,9 +1162,9 @@ export class InvoiceManager {
         skip,
         take: limit,
       }),
-      basePrisma.invoice.count({ where }),
+      prisma.invoice.count({ where }),
     ]);
-    
+
     return {
       invoices,
       total,
@@ -1140,7 +1172,7 @@ export class InvoiceManager {
       totalPages: Math.ceil(total / limit),
     };
   }
-  
+
   /**
    * Get patient's invoice summary
    */
@@ -1154,13 +1186,13 @@ export class InvoiceManager {
     openCount: number;
     overdueCount: number;
   }> {
-    const invoices = await basePrisma.invoice.findMany({
-      where: { 
+    const invoices = await prisma.invoice.findMany({
+      where: {
         patientId,
         ...(this.clinicId && { clinicId: this.clinicId }),
       },
     });
-    
+
     const now = new Date();
     let totalInvoiced = 0;
     let totalPaid = 0;
@@ -1169,24 +1201,24 @@ export class InvoiceManager {
     let paidCount = 0;
     let openCount = 0;
     let overdueCount = 0;
-    
+
     for (const inv of invoices) {
       totalInvoiced += inv.amount ?? 0;
       totalPaid += inv.amountPaid || 0;
-      
+
       if (inv.status === 'PAID') {
         paidCount++;
       } else if (inv.status === 'OPEN') {
         openCount++;
         totalOutstanding += inv.amountDue ?? inv.amount ?? 0;
-        
+
         if (inv.dueDate && inv.dueDate < now) {
           overdueCount++;
           overdueAmount += inv.amountDue ?? inv.amount ?? 0;
         }
       }
     }
-    
+
     return {
       totalInvoiced,
       totalPaid,
@@ -1198,23 +1230,23 @@ export class InvoiceManager {
       overdueCount,
     };
   }
-  
+
   // --------------------------------------------------------------------------
   // REMINDERS
   // --------------------------------------------------------------------------
-  
+
   /**
    * Schedule payment reminders for an invoice
    */
   async scheduleReminders(invoiceId: number, reminders: InvoiceReminder[]): Promise<any> {
-    const invoice = await basePrisma.invoice.findUnique({ where: { id: invoiceId } });
-    
+    const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+
     if (!invoice) {
       throw new Error('Invoice not found');
     }
-    
+
     const invoiceMetadata = (invoice.metadata as InvoiceMetadata) || {};
-    return await basePrisma.invoice.update({
+    return await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         metadata: {
@@ -1225,7 +1257,7 @@ export class InvoiceManager {
       },
     });
   }
-  
+
   /**
    * Process due reminders (called by cron job)
    */
@@ -1234,31 +1266,33 @@ export class InvoiceManager {
     let processed = 0;
     let sent = 0;
     let errors = 0;
-    
+
     // Get open invoices with reminders
-    const invoices = await basePrisma.invoice.findMany({
+    const invoices = await prisma.invoice.findMany({
       where: {
         status: 'OPEN',
         ...(this.clinicId && { clinicId: this.clinicId }),
       },
       include: { patient: true, clinic: true },
     });
-    
+
     for (const invoice of invoices) {
       const metadata = (invoice.metadata as InvoiceMetadata) || {};
       const reminders = metadata.reminders || [];
       const sentReminders = metadata.sentReminders || [];
-      
+
       for (const reminder of reminders) {
         const reminderKey = `${reminder.type}_${reminder.daysOffset}`;
         if (sentReminders.includes(reminderKey)) continue;
-        
+
         let shouldSend = false;
         const dueDate = invoice.dueDate || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        
+
         switch (reminder.type) {
           case 'before_due': {
-            const reminderDate = new Date(dueDate.getTime() - reminder.daysOffset * 24 * 60 * 60 * 1000);
+            const reminderDate = new Date(
+              dueDate.getTime() - reminder.daysOffset * 24 * 60 * 60 * 1000
+            );
             shouldSend = now >= reminderDate && now < dueDate;
             break;
           }
@@ -1267,26 +1301,32 @@ export class InvoiceManager {
             break;
           }
           case 'after_due': {
-            const reminderDate = new Date(dueDate.getTime() + reminder.daysOffset * 24 * 60 * 60 * 1000);
+            const reminderDate = new Date(
+              dueDate.getTime() + reminder.daysOffset * 24 * 60 * 60 * 1000
+            );
             shouldSend = now >= reminderDate;
             break;
           }
         }
-        
+
         if (shouldSend) {
           processed++;
           try {
             await this.sendInvoice(invoice.id, {
               channel: reminder.channel,
-              customMessage: reminder.message || `Payment reminder: Your invoice is ${
-                reminder.type === 'before_due' ? 'due soon' :
-                reminder.type === 'on_due' ? 'due today' :
-                'overdue'
-              }`,
+              customMessage:
+                reminder.message ||
+                `Payment reminder: Your invoice is ${
+                  reminder.type === 'before_due'
+                    ? 'due soon'
+                    : reminder.type === 'on_due'
+                      ? 'due today'
+                      : 'overdue'
+                }`,
             });
-            
+
             // Mark reminder as sent
-            await basePrisma.invoice.update({
+            await prisma.invoice.update({
               where: { id: invoice.id },
               data: {
                 metadata: {
@@ -1303,20 +1343,20 @@ export class InvoiceManager {
         }
       }
     }
-    
+
     return { processed, sent, errors };
   }
-  
+
   // --------------------------------------------------------------------------
   // HELPERS
   // --------------------------------------------------------------------------
-  
+
   /**
    * Calculate line item total including discounts
    */
   private calculateLineItemTotal(item: LineItem): number {
     let total = item.quantity * item.unitPrice;
-    
+
     if (item.discount) {
       if (item.discount.type === 'percentage') {
         total = total * (1 - item.discount.value / 100);
@@ -1324,14 +1364,14 @@ export class InvoiceManager {
         total = Math.max(0, total - item.discount.value);
       }
     }
-    
+
     if (item.taxRate) {
       total = total * (1 + item.taxRate / 100);
     }
-    
+
     return Math.round(total);
   }
-  
+
   /**
    * Calculate invoice summary
    */
@@ -1341,10 +1381,10 @@ export class InvoiceManager {
     taxes?: InvoiceTax[]
   ): InvoiceSummary {
     let subtotal = 0;
-    
+
     for (const item of lineItems) {
       let itemTotal = item.quantity * item.unitPrice;
-      
+
       // Apply item-level discount
       if (item.discount) {
         if (item.discount.type === 'percentage') {
@@ -1353,10 +1393,10 @@ export class InvoiceManager {
           itemTotal = Math.max(0, itemTotal - item.discount.value);
         }
       }
-      
+
       subtotal += itemTotal;
     }
-    
+
     // Apply invoice-level discount
     let discountAmount = 0;
     if (discount && discount.value > 0) {
@@ -1366,9 +1406,9 @@ export class InvoiceManager {
         discountAmount = Math.min(subtotal, discount.value);
       }
     }
-    
+
     const afterDiscount = subtotal - discountAmount;
-    
+
     // Calculate taxes
     let taxAmount = 0;
     if (taxes && taxes.length > 0) {
@@ -1378,9 +1418,9 @@ export class InvoiceManager {
         }
       }
     }
-    
+
     const total = Math.round(afterDiscount + taxAmount);
-    
+
     return {
       subtotal: Math.round(subtotal),
       discountAmount: Math.round(discountAmount),
@@ -1391,38 +1431,46 @@ export class InvoiceManager {
       credits: 0,
     };
   }
-  
+
   /**
    * Generate unique invoice number
    */
   private async generateInvoiceNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    
+
     // Get count of invoices this month
     const startOfMonth = new Date(year, new Date().getMonth(), 1);
-    const count = await basePrisma.invoice.count({
+    const count = await prisma.invoice.count({
       where: {
         createdAt: { gte: startOfMonth },
         ...(this.clinicId && { clinicId: this.clinicId }),
       },
     });
-    
+
     const sequence = String(count + 1).padStart(4, '0');
     return `INV-${year}${month}-${sequence}`;
   }
-  
+
   /**
    * Generate HTML email for invoice
    */
-  private generateInvoiceEmailHtml(invoice: any, paymentUrl: string, customMessage?: string): string {
+  private generateInvoiceEmailHtml(
+    invoice: any,
+    paymentUrl: string,
+    customMessage?: string
+  ): string {
     const clinicName = invoice.clinic?.name || 'EON Medical';
     const amount = '$' + (invoice.amount / 100).toFixed(2);
     const lineItems = (invoice.lineItems as LineItem[]) || [];
-    const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: 'numeric'
-    }) : 'N/A';
-    
+    const dueDate = invoice.dueDate
+      ? new Date(invoice.dueDate).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : 'N/A';
+
     return `
       <!DOCTYPE html>
       <html>
@@ -1454,12 +1502,16 @@ export class InvoiceManager {
             <p>You have a new invoice from ${clinicName}.</p>
             
             <div class="line-items">
-              ${lineItems.map((item: any) => `
+              ${lineItems
+                .map(
+                  (item: any) => `
                 <div class="line-item">
                   <span>${item.description}${item.quantity > 1 ? ` (x${item.quantity})` : ''}</span>
-                  <span>$${((item.unitPrice || item.amount) * (item.quantity || 1) / 100).toFixed(2)}</span>
+                  <span>$${(((item.unitPrice || item.amount) * (item.quantity || 1)) / 100).toFixed(2)}</span>
                 </div>
-              `).join('')}
+              `
+                )
+                .join('')}
               <div class="line-item total">
                 <span>Total Due</span>
                 <span>${amount}</span>
@@ -1485,15 +1537,19 @@ export class InvoiceManager {
       </html>
     `;
   }
-  
+
   /**
    * Generate plain text email for invoice
    */
-  private generateInvoiceEmailText(invoice: any, paymentUrl: string, customMessage?: string): string {
+  private generateInvoiceEmailText(
+    invoice: any,
+    paymentUrl: string,
+    customMessage?: string
+  ): string {
     const clinicName = invoice.clinic?.name || 'EON Medical';
     const amount = '$' + (invoice.amount / 100).toFixed(2);
     const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
-    
+
     return `
 ${clinicName} - Invoice
 

@@ -35,12 +35,13 @@ export async function POST(req: NextRequest) {
     }
 
     // If Twilio is fully configured, generate real token
-    if (process.env.TWILIO_ACCOUNT_SID && 
-        process.env.TWILIO_AUTH_TOKEN &&
-        process.env.TWILIO_API_KEY &&
-        process.env.TWILIO_API_SECRET &&
-        process.env.TWILIO_CHAT_SERVICE_SID) {
-      
+    if (
+      process.env.TWILIO_ACCOUNT_SID &&
+      process.env.TWILIO_AUTH_TOKEN &&
+      process.env.TWILIO_API_KEY &&
+      process.env.TWILIO_API_SECRET &&
+      process.env.TWILIO_CHAT_SERVICE_SID
+    ) {
       try {
         const AccessToken = twilio.jwt.AccessToken;
         const ChatGrant = AccessToken.ChatGrant;
@@ -51,12 +52,12 @@ export async function POST(req: NextRequest) {
           process.env.TWILIO_API_SECRET,
           {
             identity: userId,
-            ttl: 3600 // 1 hour
+            ttl: 3600, // 1 hour
           }
         );
 
         const chatGrant = new ChatGrant({
-          serviceSid: process.env.TWILIO_CHAT_SERVICE_SID
+          serviceSid: process.env.TWILIO_CHAT_SERVICE_SID,
         });
 
         token.addGrant(chatGrant);
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           token: token.toJwt(),
           identity: userId,
-          patientId: patientId
+          patientId: patientId,
         });
       } catch (twilioError: any) {
         logger.error('Twilio error generating token', { value: twilioError });
@@ -77,9 +78,8 @@ export async function POST(req: NextRequest) {
       identity: userId,
       patientId: patientId,
       demo: true,
-      notice: 'Using demo mode'
+      notice: 'Using demo mode',
     });
-
   } catch (error: any) {
     logger.error('Failed to generate Twilio token', error);
     // Return demo token even on error
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       token: 'demo-token-' + Date.now(),
       identity: 'demo-user',
       demo: true,
-      error: 'Fallback to demo mode'
+      error: 'Fallback to demo mode',
     });
   }
 }

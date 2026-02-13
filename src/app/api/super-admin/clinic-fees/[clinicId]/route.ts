@@ -13,10 +13,9 @@ function withSuperAdminAuth(
 ) {
   return async (req: NextRequest, context: { params: Promise<{ clinicId: string }> }) => {
     const params = await context.params;
-    return withAuth(
-      (req: NextRequest, user: AuthUser) => handler(req, user, params),
-      { roles: ['super_admin'] }
-    )(req);
+    return withAuth((req: NextRequest, user: AuthUser) => handler(req, user, params), {
+      roles: ['super_admin'],
+    })(req);
   };
 }
 
@@ -41,196 +40,180 @@ const feeConfigSchema = z.object({
  * GET /api/super-admin/clinic-fees/[clinicId]
  * Get fee configuration for a clinic
  */
-export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { clinicId: string }) => {
-  try {
-    const clinicId = parseInt(params.clinicId);
-    
-    if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
-      );
+export const GET = withSuperAdminAuth(
+  async (req: NextRequest, user: AuthUser, params: { clinicId: string }) => {
+    try {
+      const clinicId = parseInt(params.clinicId);
+
+      if (isNaN(clinicId)) {
+        return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
+      }
+
+      // Verify clinic exists
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { id: true, name: true, adminEmail: true },
+      });
+
+      if (!clinic) {
+        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+      }
+
+      // Get or create fee config
+      const config = await platformFeeService.getOrCreateFeeConfig(clinicId, user.id);
+
+      // Get fee summary
+      const summary = await platformFeeService.getFeeSummary(clinicId);
+
+      return NextResponse.json({
+        clinic,
+        config,
+        summary,
+      });
+    } catch (error) {
+      logger.error('[SuperAdmin] Error getting clinic fee config', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        clinicId: params.clinicId,
+      });
+      return NextResponse.json({ error: 'Failed to get fee configuration' }, { status: 500 });
     }
-
-    // Verify clinic exists
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: { id: true, name: true, adminEmail: true },
-    });
-
-    if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get or create fee config
-    const config = await platformFeeService.getOrCreateFeeConfig(clinicId, user.id);
-
-    // Get fee summary
-    const summary = await platformFeeService.getFeeSummary(clinicId);
-
-    return NextResponse.json({
-      clinic,
-      config,
-      summary,
-    });
-  } catch (error) {
-    logger.error('[SuperAdmin] Error getting clinic fee config', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      clinicId: params.clinicId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to get fee configuration' },
-      { status: 500 }
-    );
   }
-});
+);
 
 /**
  * PUT /api/super-admin/clinic-fees/[clinicId]
  * Update fee configuration for a clinic
  */
-export const PUT = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { clinicId: string }) => {
-  try {
-    const clinicId = parseInt(params.clinicId);
-    
-    if (isNaN(clinicId)) {
+export const PUT = withSuperAdminAuth(
+  async (req: NextRequest, user: AuthUser, params: { clinicId: string }) => {
+    try {
+      const clinicId = parseInt(params.clinicId);
+
+      if (isNaN(clinicId)) {
+        return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
+      }
+
+      // Verify clinic exists
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { id: true, name: true },
+      });
+
+      if (!clinic) {
+        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+      }
+
+      // Validate request body
+      const body = await req.json();
+      const result = feeConfigSchema.safeParse(body);
+
+      if (!result.success) {
+        return NextResponse.json(
+          { error: 'Validation failed', details: result.error.flatten() },
+          { status: 400 }
+        );
+      }
+
+      // Update fee config
+      const config = await platformFeeService.updateFeeConfig(clinicId, result.data, user.id);
+
+      logger.info('[SuperAdmin] Updated clinic fee config', {
+        clinicId,
+        updatedBy: user.id,
+        changes: result.data,
+      });
+
+      return NextResponse.json({
+        success: true,
+        config,
+      });
+    } catch (error) {
+      logger.error('[SuperAdmin] Error updating clinic fee config', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        clinicId: params.clinicId,
+      });
       return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
+        { error: error instanceof Error ? error.message : 'Failed to update fee configuration' },
+        { status: 500 }
       );
     }
-
-    // Verify clinic exists
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: { id: true, name: true },
-    });
-
-    if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
-    }
-
-    // Validate request body
-    const body = await req.json();
-    const result = feeConfigSchema.safeParse(body);
-    
-    if (!result.success) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: result.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    // Update fee config
-    const config = await platformFeeService.updateFeeConfig(
-      clinicId,
-      result.data,
-      user.id
-    );
-
-    logger.info('[SuperAdmin] Updated clinic fee config', {
-      clinicId,
-      updatedBy: user.id,
-      changes: result.data,
-    });
-
-    return NextResponse.json({
-      success: true,
-      config,
-    });
-  } catch (error) {
-    logger.error('[SuperAdmin] Error updating clinic fee config', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      clinicId: params.clinicId,
-    });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update fee configuration' },
-      { status: 500 }
-    );
   }
-});
+);
 
 /**
  * DELETE /api/super-admin/clinic-fees/[clinicId]
  * Reset fee configuration to defaults
  */
-export const DELETE = withSuperAdminAuth(async (req: NextRequest, user: AuthUser, params: { clinicId: string }) => {
-  try {
-    const clinicId = parseInt(params.clinicId);
-    
-    if (isNaN(clinicId)) {
-      return NextResponse.json(
-        { error: 'Invalid clinic ID' },
-        { status: 400 }
+export const DELETE = withSuperAdminAuth(
+  async (req: NextRequest, user: AuthUser, params: { clinicId: string }) => {
+    try {
+      const clinicId = parseInt(params.clinicId);
+
+      if (isNaN(clinicId)) {
+        return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
+      }
+
+      // Check if config exists
+      const existingConfig = await platformFeeService.getFeeConfig(clinicId);
+
+      if (!existingConfig) {
+        return NextResponse.json(
+          { error: 'No fee configuration exists for this clinic' },
+          { status: 404 }
+        );
+      }
+
+      // Check if there are any pending or invoiced fees
+      const pendingFees = await prisma.platformFeeEvent.count({
+        where: {
+          configId: existingConfig.id,
+          status: { in: ['PENDING', 'INVOICED'] },
+        },
+      });
+
+      if (pendingFees > 0) {
+        return NextResponse.json(
+          {
+            error:
+              'Cannot reset configuration with pending fees. Please process or void pending fees first.',
+          },
+          { status: 400 }
+        );
+      }
+
+      // Reset to defaults
+      const config = await platformFeeService.updateFeeConfig(
+        clinicId,
+        {
+          prescriptionFeeType: 'FLAT',
+          prescriptionFeeAmount: 2000,
+          transmissionFeeType: 'FLAT',
+          transmissionFeeAmount: 500,
+          adminFeeType: 'NONE',
+          adminFeeAmount: 0,
+          prescriptionCycleDays: 90,
+          paymentTermsDays: 30,
+          isActive: true,
+          notes: `Reset to defaults by user ${user.id} on ${new Date().toISOString()}`,
+        },
+        user.id
       );
+
+      logger.info('[SuperAdmin] Reset clinic fee config to defaults', {
+        clinicId,
+        resetBy: user.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        config,
+      });
+    } catch (error) {
+      logger.error('[SuperAdmin] Error resetting clinic fee config', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        clinicId: params.clinicId,
+      });
+      return NextResponse.json({ error: 'Failed to reset fee configuration' }, { status: 500 });
     }
-
-    // Check if config exists
-    const existingConfig = await platformFeeService.getFeeConfig(clinicId);
-    
-    if (!existingConfig) {
-      return NextResponse.json(
-        { error: 'No fee configuration exists for this clinic' },
-        { status: 404 }
-      );
-    }
-
-    // Check if there are any pending or invoiced fees
-    const pendingFees = await prisma.platformFeeEvent.count({
-      where: {
-        configId: existingConfig.id,
-        status: { in: ['PENDING', 'INVOICED'] },
-      },
-    });
-
-    if (pendingFees > 0) {
-      return NextResponse.json(
-        { error: 'Cannot reset configuration with pending fees. Please process or void pending fees first.' },
-        { status: 400 }
-      );
-    }
-
-    // Reset to defaults
-    const config = await platformFeeService.updateFeeConfig(
-      clinicId,
-      {
-        prescriptionFeeType: 'FLAT',
-        prescriptionFeeAmount: 2000,
-        transmissionFeeType: 'FLAT',
-        transmissionFeeAmount: 500,
-        adminFeeType: 'NONE',
-        adminFeeAmount: 0,
-        prescriptionCycleDays: 90,
-        paymentTermsDays: 30,
-        isActive: true,
-        notes: `Reset to defaults by user ${user.id} on ${new Date().toISOString()}`,
-      },
-      user.id
-    );
-
-    logger.info('[SuperAdmin] Reset clinic fee config to defaults', {
-      clinicId,
-      resetBy: user.id,
-    });
-
-    return NextResponse.json({
-      success: true,
-      config,
-    });
-  } catch (error) {
-    logger.error('[SuperAdmin] Error resetting clinic fee config', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      clinicId: params.clinicId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to reset fee configuration' },
-      { status: 500 }
-    );
   }
-});
+);

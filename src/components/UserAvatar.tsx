@@ -2,10 +2,10 @@
 
 /**
  * UserAvatar Component
- * 
+ *
  * A reusable avatar component for displaying user profile pictures
  * throughout the platform. Shows initials as fallback when no image is available.
- * 
+ *
  * Used in: Chat, Settings, Navigation, User lists, Provider cards, etc.
  */
 
@@ -82,22 +82,17 @@ function getColorFromName(name: string): string {
 /**
  * Get initials from name
  */
-function getInitials(
-  firstName?: string,
-  lastName?: string,
-  name?: string,
-  email?: string
-): string {
+function getInitials(firstName?: string, lastName?: string, name?: string, email?: string): string {
   // If firstName and lastName provided
   if (firstName && lastName) {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   }
-  
+
   // If only firstName provided
   if (firstName) {
     return firstName.charAt(0).toUpperCase();
   }
-  
+
   // If full name provided
   if (name) {
     const parts = name.trim().split(/\s+/);
@@ -106,12 +101,12 @@ function getInitials(
     }
     return name.charAt(0).toUpperCase();
   }
-  
+
   // If email provided, use first character
   if (email) {
     return email.charAt(0).toUpperCase();
   }
-  
+
   // Default fallback
   return '?';
 }
@@ -130,20 +125,20 @@ export function UserAvatar({
   onClick,
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
-  
+
   const initials = getInitials(firstName, lastName, name, email);
   const displayName = name || `${firstName || ''} ${lastName || ''}`.trim() || email || 'User';
   const bgColor = getColorFromName(displayName);
-  
+
   const sizeClass = SIZE_CLASSES[size];
   const onlineIndicatorClass = ONLINE_INDICATOR_CLASSES[size];
-  
+
   const shouldShowImage = avatarUrl && !imageError;
-  
+
   const handleImageError = () => {
     setImageError(true);
   };
-  
+
   const baseClasses = `
     relative inline-flex items-center justify-center rounded-full
     font-medium text-white overflow-hidden flex-shrink-0
@@ -152,7 +147,7 @@ export function UserAvatar({
   `;
 
   return (
-    <div 
+    <div
       className={`${baseClasses} ${sizeClass}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
@@ -163,23 +158,19 @@ export function UserAvatar({
         <img
           src={avatarUrl}
           alt={alt || displayName}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
           onError={handleImageError}
         />
       ) : (
-        <div className={`w-full h-full flex items-center justify-center ${bgColor}`}>
+        <div className={`flex h-full w-full items-center justify-center ${bgColor}`}>
           {initials}
         </div>
       )}
-      
+
       {/* Online indicator */}
       {showOnlineIndicator && (
         <span
-          className={`
-            absolute bottom-0 right-0 rounded-full border-white
-            ${onlineIndicatorClass}
-            ${isOnline ? 'bg-green-500' : 'bg-gray-400'}
-          `}
+          className={`absolute bottom-0 right-0 rounded-full border-white ${onlineIndicatorClass} ${isOnline ? 'bg-green-500' : 'bg-gray-400'} `}
         />
       )}
     </div>
@@ -195,35 +186,22 @@ export interface EditableAvatarProps extends UserAvatarProps {
   isLoading?: boolean;
 }
 
-export function EditableAvatar({
-  onEdit,
-  isLoading = false,
-  ...avatarProps
-}: EditableAvatarProps) {
+export function EditableAvatar({ onEdit, isLoading = false, ...avatarProps }: EditableAvatarProps) {
   return (
-    <div className="relative inline-block group">
+    <div className="group relative inline-block">
       <UserAvatar {...avatarProps} />
-      
+
       {/* Edit overlay */}
       {onEdit && (
         <button
           type="button"
           onClick={onEdit}
           disabled={isLoading}
-          className={`
-            absolute inset-0 flex items-center justify-center
-            bg-black/50 rounded-full opacity-0 group-hover:opacity-100
-            transition-opacity duration-200
-            ${isLoading ? 'cursor-wait' : 'cursor-pointer'}
-          `}
+          className={`absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${isLoading ? 'cursor-wait' : 'cursor-pointer'} `}
           aria-label="Change profile picture"
         >
           {isLoading ? (
-            <svg
-              className="w-6 h-6 text-white animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
+            <svg className="h-6 w-6 animate-spin text-white" fill="none" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -240,7 +218,7 @@ export function EditableAvatar({
             </svg>
           ) : (
             <svg
-              className="w-6 h-6 text-white"
+              className="h-6 w-6 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

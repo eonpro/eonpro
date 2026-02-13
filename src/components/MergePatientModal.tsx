@@ -110,7 +110,7 @@ const isEncryptedData = (value: string | null | undefined): boolean => {
   if (!value || typeof value !== 'string') return false;
   const parts = value.split(':');
   if (parts.length !== 3) return false;
-  return parts.every(part => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
+  return parts.every((part) => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
 };
 
 const formatValue = (value: string | null | undefined): string => {
@@ -150,59 +150,71 @@ export default function MergePatientModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PatientSummary[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<PatientSummary | null>(initialTarget || null);
+  const [selectedTarget, setSelectedTarget] = useState<PatientSummary | null>(
+    initialTarget || null
+  );
   const [preview, setPreview] = useState<MergePreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState('');
 
   // Search for patients - Note: Name fields are encrypted, so search by patientId works best
-  const searchPatients = useCallback(async (query: string) => {
-    if (!query.trim() || query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    setSearching(true);
-    try {
-      const response = await apiFetch(`/api/patients?search=${encodeURIComponent(query)}&limit=20&includeContact=true`);
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to search patients');
+  const searchPatients = useCallback(
+    async (query: string) => {
+      if (!query.trim() || query.length < 2) {
+        setSearchResults([]);
+        return;
       }
-      const data = await response.json();
-      // Filter out the source patient from results (API returns 'patients' not 'data')
-      let filtered = (data.patients || []).filter((p: PatientSummary) => p.id !== sourcePatient.id);
 
-      // If no results, try matching decrypted names client-side from recent patients
-      if (filtered.length === 0) {
-        const recentResponse = await apiFetch('/api/patients?limit=50&includeContact=true&recent=7d');
-        if (recentResponse.ok) {
-          const recentData = await recentResponse.json();
-          const queryLower = query.toLowerCase();
-          filtered = (recentData.patients || []).filter((p: PatientSummary) => {
-            if (p.id === sourcePatient.id) return false;
-            const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
-            const patientIdMatch = (p.patientId || '').toLowerCase().includes(queryLower);
-            const nameMatch = fullName.includes(queryLower) ||
-              p.firstName?.toLowerCase().includes(queryLower) ||
-              p.lastName?.toLowerCase().includes(queryLower);
-            return patientIdMatch || nameMatch;
-          });
+      setSearching(true);
+      try {
+        const response = await apiFetch(
+          `/api/patients?search=${encodeURIComponent(query)}&limit=20&includeContact=true`
+        );
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to search patients');
         }
-      }
+        const data = await response.json();
+        // Filter out the source patient from results (API returns 'patients' not 'data')
+        let filtered = (data.patients || []).filter(
+          (p: PatientSummary) => p.id !== sourcePatient.id
+        );
 
-      setSearchResults(filtered);
-    } catch (err: unknown) {
-      // Don't show error for auth issues - they're handled globally
-      if (!(err as { isAuthError?: boolean })?.isAuthError) {
-        console.error('Search error:', err);
+        // If no results, try matching decrypted names client-side from recent patients
+        if (filtered.length === 0) {
+          const recentResponse = await apiFetch(
+            '/api/patients?limit=50&includeContact=true&recent=7d'
+          );
+          if (recentResponse.ok) {
+            const recentData = await recentResponse.json();
+            const queryLower = query.toLowerCase();
+            filtered = (recentData.patients || []).filter((p: PatientSummary) => {
+              if (p.id === sourcePatient.id) return false;
+              const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+              const patientIdMatch = (p.patientId || '').toLowerCase().includes(queryLower);
+              const nameMatch =
+                fullName.includes(queryLower) ||
+                p.firstName?.toLowerCase().includes(queryLower) ||
+                p.lastName?.toLowerCase().includes(queryLower);
+              return patientIdMatch || nameMatch;
+            });
+          }
+        }
+
+        setSearchResults(filtered);
+      } catch (err: unknown) {
+        // Don't show error for auth issues - they're handled globally
+        if (!(err as { isAuthError?: boolean })?.isAuthError) {
+          console.error('Search error:', err);
+        }
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
       }
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, [sourcePatient.id]);
+    },
+    [sourcePatient.id]
+  );
 
   // Debounced search
   useEffect(() => {
@@ -294,61 +306,66 @@ export default function MergePatientModal({
 
   // Select target step
   const renderSelectStep = () => (
-    <div className="p-6 space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div className="space-y-4 p-6">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <p className="text-sm text-blue-800">
-          <strong>Merging from:</strong> {sourcePatient.firstName} {sourcePatient.lastName} (ID: {sourcePatient.patientId || sourcePatient.id})
+          <strong>Merging from:</strong> {sourcePatient.firstName} {sourcePatient.lastName} (ID:{' '}
+          {sourcePatient.patientId || sourcePatient.id})
         </p>
-        <p className="text-xs text-blue-600 mt-1">
-          This patient&apos;s records will be moved to the target patient, and this profile will be deleted.
+        <p className="mt-1 text-xs text-blue-600">
+          This patient&apos;s records will be moved to the target patient, and this profile will be
+          deleted.
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="mb-2 block text-sm font-medium text-gray-700">
           Search for the patient to merge INTO:
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by patient ID (e.g., WEL-78887488) or name..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-transparent"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
             autoFocus
           />
           {searching && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
           )}
         </div>
       </div>
 
       {searchResults.length > 0 && (
-        <div className="border border-gray-200 rounded-lg divide-y max-h-64 overflow-y-auto">
+        <div className="max-h-64 divide-y overflow-y-auto rounded-lg border border-gray-200">
           {searchResults.map((patient) => (
             <button
               key={patient.id}
               onClick={() => setSelectedTarget(patient)}
-              className={`w-full p-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors ${
-                selectedTarget?.id === patient.id ? 'bg-[#4fa77e]/10 border-l-4 border-[#4fa77e]' : ''
+              className={`flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-gray-50 ${
+                selectedTarget?.id === patient.id
+                  ? 'border-l-4 border-[#4fa77e] bg-[#4fa77e]/10'
+                  : ''
               }`}
             >
-              <div className="w-10 h-10 rounded-full bg-[#4fa77e]/20 flex items-center justify-center flex-shrink-0">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#4fa77e]/20">
                 <span className="text-sm font-medium text-[#4fa77e]">
-                  {patient.firstName[0]}{patient.lastName[0]}
+                  {patient.firstName[0]}
+                  {patient.lastName[0]}
                 </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-gray-900">
                   {patient.firstName} {patient.lastName}
                 </p>
-                <p className="text-sm text-gray-500 truncate">
+                <p className="truncate text-sm text-gray-500">
                   {formatValue(patient.email)} | ID: {patient.patientId || patient.id}
                 </p>
               </div>
               {selectedTarget?.id === patient.id && (
-                <Check className="w-5 h-5 text-[#4fa77e] flex-shrink-0" />
+                <Check className="h-5 w-5 flex-shrink-0 text-[#4fa77e]" />
               )}
             </button>
           ))}
@@ -356,11 +373,11 @@ export default function MergePatientModal({
       )}
 
       {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
-        <p className="text-center text-gray-500 py-4">No patients found</p>
+        <p className="py-4 text-center text-gray-500">No patients found</p>
       )}
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -406,20 +423,20 @@ export default function MergePatientModal({
     ];
 
     return (
-      <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+      <div className="max-h-[60vh] space-y-6 overflow-y-auto p-6">
         {/* Conflicts/Warnings */}
         {conflicts.length > 0 && (
           <div className="space-y-2">
             {conflicts.map((conflict, idx) => (
               <div
                 key={idx}
-                className={`p-3 rounded-lg text-sm flex items-start gap-2 ${
+                className={`flex items-start gap-2 rounded-lg p-3 text-sm ${
                   conflict.type === 'error'
-                    ? 'bg-red-50 border border-red-200 text-red-700'
-                    : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                    ? 'border border-red-200 bg-red-50 text-red-700'
+                    : 'border border-yellow-200 bg-yellow-50 text-yellow-800'
                 }`}
               >
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                 <span>{conflict.message}</span>
               </div>
             ))}
@@ -429,59 +446,83 @@ export default function MergePatientModal({
         {/* Side by side comparison */}
         <div className="grid grid-cols-2 gap-4">
           {/* Source (will be deleted) */}
-          <div className="border border-red-200 rounded-lg p-4 bg-red-50/50">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                <User className="w-4 h-4 text-red-600" />
+          <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                <User className="h-4 w-4 text-red-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">{source.firstName} {source.lastName}</p>
+                <p className="font-medium text-gray-900">
+                  {source.firstName} {source.lastName}
+                </p>
                 <p className="text-xs text-red-600">Will be deleted</p>
               </div>
             </div>
             <div className="space-y-2 text-sm">
-              <p><span className="text-gray-500">ID:</span> {source.patientId || source.id}</p>
-              <p><span className="text-gray-500">Email:</span> {formatValue(source.email)}</p>
-              <p><span className="text-gray-500">Phone:</span> {formatValue(source.phone)}</p>
-              <p><span className="text-gray-500">DOB:</span> {formatDate(source.dob)}</p>
-              <p><span className="text-gray-500">Created:</span> {formatDate(source.createdAt)}</p>
+              <p>
+                <span className="text-gray-500">ID:</span> {source.patientId || source.id}
+              </p>
+              <p>
+                <span className="text-gray-500">Email:</span> {formatValue(source.email)}
+              </p>
+              <p>
+                <span className="text-gray-500">Phone:</span> {formatValue(source.phone)}
+              </p>
+              <p>
+                <span className="text-gray-500">DOB:</span> {formatDate(source.dob)}
+              </p>
+              <p>
+                <span className="text-gray-500">Created:</span> {formatDate(source.createdAt)}
+              </p>
             </div>
           </div>
 
           {/* Target (will be kept) */}
-          <div className="border border-green-200 rounded-lg p-4 bg-green-50/50">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <User className="w-4 h-4 text-green-600" />
+          <div className="rounded-lg border border-green-200 bg-green-50/50 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                <User className="h-4 w-4 text-green-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">{target.firstName} {target.lastName}</p>
+                <p className="font-medium text-gray-900">
+                  {target.firstName} {target.lastName}
+                </p>
                 <p className="text-xs text-green-600">Will be kept</p>
               </div>
             </div>
             <div className="space-y-2 text-sm">
-              <p><span className="text-gray-500">ID:</span> {target.patientId || target.id}</p>
-              <p><span className="text-gray-500">Email:</span> {formatValue(target.email)}</p>
-              <p><span className="text-gray-500">Phone:</span> {formatValue(target.phone)}</p>
-              <p><span className="text-gray-500">DOB:</span> {formatDate(target.dob)}</p>
-              <p><span className="text-gray-500">Created:</span> {formatDate(target.createdAt)}</p>
+              <p>
+                <span className="text-gray-500">ID:</span> {target.patientId || target.id}
+              </p>
+              <p>
+                <span className="text-gray-500">Email:</span> {formatValue(target.email)}
+              </p>
+              <p>
+                <span className="text-gray-500">Phone:</span> {formatValue(target.phone)}
+              </p>
+              <p>
+                <span className="text-gray-500">DOB:</span> {formatDate(target.dob)}
+              </p>
+              <p>
+                <span className="text-gray-500">Created:</span> {formatDate(target.createdAt)}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Arrow showing merge direction */}
         <div className="flex items-center justify-center">
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full">
+          <div className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2">
             <span className="text-sm text-gray-600">Merging</span>
-            <ArrowRight className="w-4 h-4 text-gray-600" />
+            <ArrowRight className="h-4 w-4 text-gray-600" />
           </div>
         </div>
 
         {/* Merged result preview */}
-        <div className="border border-[#4fa77e] rounded-lg p-4 bg-[#4fa77e]/5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-[#4fa77e] flex items-center justify-center">
-              <GitMerge className="w-4 h-4 text-white" />
+        <div className="rounded-lg border border-[#4fa77e] bg-[#4fa77e]/5 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4fa77e]">
+              <GitMerge className="h-4 w-4 text-white" />
             </div>
             <div>
               <p className="font-medium text-gray-900">Merged Result</p>
@@ -490,31 +531,45 @@ export default function MergePatientModal({
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="space-y-2">
-              <p><span className="text-gray-500">Name:</span> {mergedProfile.firstName} {mergedProfile.lastName}</p>
-              <p><span className="text-gray-500">Email:</span> {formatValue(mergedProfile.email)}</p>
-              <p><span className="text-gray-500">Phone:</span> {formatValue(mergedProfile.phone)}</p>
+              <p>
+                <span className="text-gray-500">Name:</span> {mergedProfile.firstName}{' '}
+                {mergedProfile.lastName}
+              </p>
+              <p>
+                <span className="text-gray-500">Email:</span> {formatValue(mergedProfile.email)}
+              </p>
+              <p>
+                <span className="text-gray-500">Phone:</span> {formatValue(mergedProfile.phone)}
+              </p>
             </div>
             <div className="space-y-2">
-              <p><span className="text-gray-500">DOB:</span> {formatDate(mergedProfile.dob)}</p>
-              <p><span className="text-gray-500">Address:</span> {mergedProfile.city}, {mergedProfile.state}</p>
+              <p>
+                <span className="text-gray-500">DOB:</span> {formatDate(mergedProfile.dob)}
+              </p>
+              <p>
+                <span className="text-gray-500">Address:</span> {mergedProfile.city},{' '}
+                {mergedProfile.state}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Records to be moved */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="font-medium text-gray-900 mb-3">
+        <div className="rounded-lg border border-gray-200 p-4">
+          <h4 className="mb-3 font-medium text-gray-900">
             Records to be moved ({totalRecordsToMove} total)
           </h4>
           <div className="grid grid-cols-3 gap-4">
             {relationGroups.map((group) => (
               <div key={group.name}>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">{group.name}</h5>
+                <h5 className="mb-2 text-sm font-medium text-gray-700">{group.name}</h5>
                 <ul className="space-y-1">
                   {group.items.map((item) => (
-                    <li key={item.label} className="text-sm text-gray-600 flex justify-between">
+                    <li key={item.label} className="flex justify-between text-sm text-gray-600">
                       <span>{item.label}</span>
-                      <span className={item.count > 0 ? 'text-[#4fa77e] font-medium' : 'text-gray-400'}>
+                      <span
+                        className={item.count > 0 ? 'font-medium text-[#4fa77e]' : 'text-gray-400'}
+                      >
                         {item.count}
                       </span>
                     </li>
@@ -526,13 +581,13 @@ export default function MergePatientModal({
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         {!canMerge && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             <strong>Cannot merge:</strong> Please resolve the errors above before proceeding.
           </div>
         )}
@@ -542,32 +597,38 @@ export default function MergePatientModal({
 
   // Confirm step
   const renderConfirmStep = () => (
-    <div className="p-6 space-y-4">
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+    <div className="space-y-4 p-6">
+      <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
           <div>
             <p className="font-medium text-yellow-800">This action cannot be undone</p>
-            <p className="text-sm text-yellow-700 mt-1">
-              All records from <strong>{sourcePatient.firstName} {sourcePatient.lastName}</strong> will be 
-              permanently moved to <strong>{selectedTarget?.firstName} {selectedTarget?.lastName}</strong>, 
-              and the source patient profile will be deleted.
+            <p className="mt-1 text-sm text-yellow-700">
+              All records from{' '}
+              <strong>
+                {sourcePatient.firstName} {sourcePatient.lastName}
+              </strong>{' '}
+              will be permanently moved to{' '}
+              <strong>
+                {selectedTarget?.firstName} {selectedTarget?.lastName}
+              </strong>
+              , and the source patient profile will be deleted.
             </p>
           </div>
         </div>
       </div>
 
       {preview && (
-        <div className="bg-gray-50 rounded-lg p-4">
+        <div className="rounded-lg bg-gray-50 p-4">
           <p className="text-sm text-gray-600">
-            <strong>{preview.totalRecordsToMove}</strong> records will be moved, including orders, 
+            <strong>{preview.totalRecordsToMove}</strong> records will be moved, including orders,
             invoices, documents, intake data, and more.
           </p>
         </div>
       )}
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -575,13 +636,13 @@ export default function MergePatientModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center justify-between border-b p-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#4fa77e]/10 flex items-center justify-center">
-              <GitMerge className="w-5 h-5 text-[#4fa77e]" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fa77e]/10">
+              <GitMerge className="h-5 w-5 text-[#4fa77e]" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">Merge Patient Profiles</h2>
@@ -594,33 +655,36 @@ export default function MergePatientModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="rounded-lg p-2 transition-colors hover:bg-gray-100"
             disabled={merging}
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-hidden">
           {step === 'select' && renderSelectStep()}
-          {step === 'preview' && (loadingPreview ? (
-            <div className="flex items-center justify-center p-12">
-              <Loader2 className="w-8 h-8 text-[#4fa77e] animate-spin" />
-              <span className="ml-3 text-gray-600">Loading merge preview...</span>
-            </div>
-          ) : renderPreviewStep())}
+          {step === 'preview' &&
+            (loadingPreview ? (
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-[#4fa77e]" />
+                <span className="ml-3 text-gray-600">Loading merge preview...</span>
+              </div>
+            ) : (
+              renderPreviewStep()
+            ))}
           {step === 'confirm' && renderConfirmStep()}
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between gap-3 p-6 border-t bg-gray-50 rounded-b-2xl flex-shrink-0">
+        <div className="flex flex-shrink-0 justify-between gap-3 rounded-b-2xl border-t bg-gray-50 p-6">
           <div>
             {step !== 'select' && (
               <button
                 type="button"
                 onClick={() => setStep(step === 'confirm' ? 'preview' : 'select')}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+                className="px-4 py-2 text-gray-700 transition-colors hover:text-gray-900"
                 disabled={merging}
               >
                 Back
@@ -631,7 +695,7 @@ export default function MergePatientModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-100"
               disabled={merging}
             >
               Cancel
@@ -642,17 +706,17 @@ export default function MergePatientModal({
                 type="button"
                 onClick={loadPreview}
                 disabled={!selectedTarget || loadingPreview}
-                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loadingPreview ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Loading...
                   </>
                 ) : (
                   <>
                     Preview Merge
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="h-4 w-4" />
                   </>
                 )}
               </button>
@@ -662,10 +726,10 @@ export default function MergePatientModal({
               <button
                 type="button"
                 onClick={() => setStep('confirm')}
-                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660]"
               >
                 Continue
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="h-4 w-4" />
               </button>
             )}
 
@@ -674,16 +738,16 @@ export default function MergePatientModal({
                 type="button"
                 onClick={executeMerge}
                 disabled={merging}
-                className="flex items-center gap-2 px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:opacity-50"
               >
                 {merging ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Merging...
                   </>
                 ) : (
                   <>
-                    <GitMerge className="w-4 h-4" />
+                    <GitMerge className="h-4 w-4" />
                     Merge Patients
                   </>
                 )}

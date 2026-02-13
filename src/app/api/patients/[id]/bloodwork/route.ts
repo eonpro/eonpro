@@ -8,6 +8,7 @@ import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 import { Prisma } from '@prisma/client';
+import { ensureTenantResource } from '@/lib/tenant-response';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 
@@ -29,7 +30,10 @@ function isSchemaOrTableError(err: unknown): boolean {
     lower.includes('unknown field') ||
     lower.includes('unknown argument') ||
     lower.includes('labreport') ||
-    lower.includes('lab report')
+    lower.includes('lab report') ||
+    (lower.includes('relation') && lower.includes('exist')) ||
+    (lower.includes('table') && (lower.includes('exist') || lower.includes('missing'))) ||
+    (lower.includes('column') && lower.includes('exist'))
   );
 }
 
@@ -64,17 +68,15 @@ export const GET = withAuthParams(
       where: { id: patientId },
       select: { id: true, clinicId: true },
     });
-    if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-    }
-    if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+    const notFound = ensureTenantResource(patient, clinicId);
+    if (notFound) return notFound;
 
     try {
       const reports = await prisma.labReport.findMany({
         where: { patientId },
         orderBy: { reportedAt: 'desc' },
+        take: 100,
         select: {
           id: true,
           documentId: true,
@@ -123,7 +125,7 @@ export const GET = withAuthParams(
         userId: user.id,
         patientId,
         error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined,
+        ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : undefined }),
       });
       if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
         return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { z } from 'zod';
+import { handleApiError } from '@/domains/shared/errors';
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -104,6 +105,28 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
+    const resolvedRecordedAt = recordedAt ? new Date(recordedAt) : new Date();
+
+    // Idempotency: avoid duplicate entries for the same submit (retry or double-click)
+    const windowStart = new Date(resolvedRecordedAt.getTime() - 60 * 1000);
+    const windowEnd = new Date(resolvedRecordedAt.getTime() + 60 * 1000);
+    const existing = await prisma.patientWeightLog.findFirst({
+      where: {
+        patientId,
+        weight,
+        recordedAt: { gte: windowStart, lte: windowEnd },
+      },
+      orderBy: { recordedAt: 'desc' },
+    });
+    if (existing) {
+      logger.info('Weight log idempotent return (duplicate within window)', {
+        patientId,
+        weightLogId: existing.id,
+        userId: user.id,
+      });
+      return NextResponse.json(existing, { status: 200 });
+    }
+
     // Create weight log
     const weightLog = await prisma.patientWeightLog.create({
       data: {
@@ -111,7 +134,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         weight,
         unit,
         notes: notes || null,
-        recordedAt: recordedAt ? new Date(recordedAt) : new Date(),
+        recordedAt: resolvedRecordedAt,
         source: user.role === 'patient' ? 'patient' : 'provider',
       },
     });
@@ -125,9 +148,10 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     return NextResponse.json(weightLog, { status: 201 });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to create weight log', { error: errorMessage, userId: user.id });
-    return NextResponse.json({ error: 'Failed to create weight log' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-progress/weight',
+      context: { userId: user.id },
+    });
   }
 });
 
@@ -373,9 +397,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to fetch weight logs', { error: errorMessage, userId: user.id });
-    return NextResponse.json({ error: 'Failed to fetch weight logs' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-progress/weight',
+      context: { userId: user.id },
+    });
   }
 });
 
@@ -428,9 +453,10 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
 
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to delete weight log', { error: errorMessage, userId: user.id });
-    return NextResponse.json({ error: 'Failed to delete weight log' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'DELETE /api/patient-progress/weight',
+      context: { userId: user.id },
+    });
   }
 });
 

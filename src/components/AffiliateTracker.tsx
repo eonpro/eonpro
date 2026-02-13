@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Tracking Component
- * 
+ *
  * Automatically tracks affiliate visits when ?ref=CODE is present in URL.
  * Add this to your root layout to enable affiliate tracking site-wide.
  */
@@ -17,7 +17,7 @@ export default function AffiliateTracker() {
   useEffect(() => {
     // Check if there's a ref code in the URL
     const refCode = searchParams.get('ref') || searchParams.get('refcode');
-    
+
     if (!refCode) return;
 
     // Dynamic import to avoid SSR issues

@@ -90,131 +90,133 @@ const DEFAULT_SETTINGS: ClinicSettings = {
  * GET /api/admin/clinic/settings
  * Get the current clinic's settings
  */
-export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
-  try {
-    if (!user.clinicId) {
-      return NextResponse.json(
-        { error: 'User is not associated with a clinic' },
-        { status: 400 }
-      );
+export const GET = withAuth(
+  async (request: NextRequest, user: AuthUser) => {
+    try {
+      if (!user.clinicId) {
+        return NextResponse.json(
+          { error: 'User is not associated with a clinic' },
+          { status: 400 }
+        );
+      }
+
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: {
+          id: true,
+          name: true,
+          settings: true,
+          timezone: true,
+        },
+      });
+
+      if (!clinic) {
+        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+      }
+
+      // Merge stored settings with defaults
+      const storedSettings = (clinic.settings as Partial<ClinicSettings>) || {};
+      const settings: ClinicSettings = {
+        ...DEFAULT_SETTINGS,
+        ...storedSettings,
+        timezone: clinic.timezone || DEFAULT_SETTINGS.timezone,
+      };
+
+      return NextResponse.json({ settings });
+    } catch (error) {
+      logger.error('Error fetching clinic settings:', error);
+      return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
     }
-
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: user.clinicId },
-      select: {
-        id: true,
-        name: true,
-        settings: true,
-        timezone: true,
-      },
-    });
-
-    if (!clinic) {
-      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
-    }
-
-    // Merge stored settings with defaults
-    const storedSettings = (clinic.settings as Partial<ClinicSettings>) || {};
-    const settings: ClinicSettings = {
-      ...DEFAULT_SETTINGS,
-      ...storedSettings,
-      timezone: clinic.timezone || DEFAULT_SETTINGS.timezone,
-    };
-
-    return NextResponse.json({ settings });
-  } catch (error) {
-    logger.error('Error fetching clinic settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch settings' },
-      { status: 500 }
-    );
-  }
-}, { roles: ['admin', 'super_admin'] });
+  },
+  { roles: ['admin', 'super_admin'] }
+);
 
 /**
  * PATCH /api/admin/clinic/settings
  * Update the current clinic's settings
  */
-export const PATCH = withAuth(async (request: NextRequest, user: AuthUser) => {
-  try {
-    if (!user.clinicId) {
-      return NextResponse.json(
-        { error: 'User is not associated with a clinic' },
-        { status: 400 }
-      );
-    }
-
-    const body = await request.json();
-
-    // Get current clinic
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: user.clinicId },
-      select: { id: true, settings: true, timezone: true },
-    });
-
-    if (!clinic) {
-      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
-    }
-
-    // Merge new settings with existing
-    const currentSettings = (clinic.settings as Partial<ClinicSettings>) || {};
-    const updatedSettings = {
-      ...currentSettings,
-      ...body,
-    };
-
-    // Extract timezone to update the dedicated field
-    const { timezone, ...otherSettings } = updatedSettings;
-
-    // Update clinic
-    const updated = await prisma.clinic.update({
-      where: { id: user.clinicId },
-      data: {
-        settings: otherSettings,
-        ...(timezone && { timezone }),
-      },
-      select: {
-        id: true,
-        settings: true,
-        timezone: true,
-      },
-    });
-
-    // Create audit log
+export const PATCH = withAuth(
+  async (request: NextRequest, user: AuthUser) => {
     try {
-      await prisma.clinicAuditLog.create({
+      if (!user.clinicId) {
+        return NextResponse.json(
+          { error: 'User is not associated with a clinic' },
+          { status: 400 }
+        );
+      }
+
+      const body = await request.json();
+
+      // Get current clinic
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { id: true, settings: true, timezone: true },
+      });
+
+      if (!clinic) {
+        return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+      }
+
+      // Merge new settings with existing
+      const currentSettings = (clinic.settings as Partial<ClinicSettings>) || {};
+      const updatedSettings = {
+        ...currentSettings,
+        ...body,
+      };
+
+      // Extract timezone to update the dedicated field
+      const { timezone, ...otherSettings } = updatedSettings;
+
+      // Update clinic
+      const updated = await prisma.clinic.update({
+        where: { id: user.clinicId },
         data: {
-          clinicId: user.clinicId,
-          action: 'UPDATE_SETTINGS',
-          userId: user.id,
-          details: {
-            updatedBy: user.email,
-            changes: body,
-          },
+          settings: otherSettings,
+          ...(timezone && { timezone }),
+        },
+        select: {
+          id: true,
+          settings: true,
+          timezone: true,
         },
       });
-    } catch (auditError) {
-      logger.warn('Failed to create audit log for settings update');
+
+      // Create audit log
+      try {
+        await prisma.clinicAuditLog.create({
+          data: {
+            clinicId: user.clinicId,
+            action: 'UPDATE_SETTINGS',
+            userId: user.id,
+            details: {
+              updatedBy: user.id,
+              changes: body,
+            },
+          },
+        });
+      } catch (auditError) {
+        logger.warn('Failed to create audit log for settings update');
+      }
+
+      // Return merged settings
+      const finalSettings: ClinicSettings = {
+        ...DEFAULT_SETTINGS,
+        ...(updated.settings as Partial<ClinicSettings>),
+        timezone: updated.timezone || DEFAULT_SETTINGS.timezone,
+      };
+
+      logger.info(
+        `[CLINIC-SETTINGS] Admin ${user.email} updated settings for clinic ${user.clinicId}`
+      );
+
+      return NextResponse.json({
+        settings: finalSettings,
+        message: 'Settings updated successfully',
+      });
+    } catch (error) {
+      logger.error('Error updating clinic settings:', error);
+      return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
     }
-
-    // Return merged settings
-    const finalSettings: ClinicSettings = {
-      ...DEFAULT_SETTINGS,
-      ...(updated.settings as Partial<ClinicSettings>),
-      timezone: updated.timezone || DEFAULT_SETTINGS.timezone,
-    };
-
-    logger.info(`[CLINIC-SETTINGS] Admin ${user.email} updated settings for clinic ${user.clinicId}`);
-
-    return NextResponse.json({
-      settings: finalSettings,
-      message: 'Settings updated successfully',
-    });
-  } catch (error) {
-    logger.error('Error updating clinic settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to update settings' },
-      { status: 500 }
-    );
-  }
-}, { roles: ['admin', 'super_admin'] });
+  },
+  { roles: ['admin', 'super_admin'] }
+);

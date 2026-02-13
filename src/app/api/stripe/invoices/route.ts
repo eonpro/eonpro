@@ -215,9 +215,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
     const configStatus = {
       stripeConfigured,
       hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
-      secretKeyPrefix: process.env.STRIPE_SECRET_KEY?.substring(0, 7) || 'N/A',
       nodeEnv: process.env.NODE_ENV,
-      vercelEnv: process.env.VERCEL_ENV,
     };
 
     logger.info('[API] Invoice creation - Stripe configuration', configStatus);

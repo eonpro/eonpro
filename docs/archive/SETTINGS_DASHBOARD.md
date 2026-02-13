@@ -5,7 +5,9 @@
 A comprehensive settings & administration system with three main sections:
 
 ### 1. **🔧 Settings Dashboard** (`/api/admin/settings`)
+
 Central hub that provides:
+
 - System overview and health status
 - Integration status summary
 - Developer tools overview
@@ -16,20 +18,22 @@ Central hub that provides:
 ### 2. **🔌 Integration Management** (`/api/admin/integrations`)
 
 #### **Available Integrations:**
-| Integration | Purpose | Features |
-|------------|---------|----------|
-| **Stripe** | Payment processing | Payments, subscriptions, invoicing |
-| **Lifefile** | Pharmacy fulfillment | Prescriptions, tracking |
-| **Twilio** | Communications | SMS, voice, video, chat |
-| **SendGrid** | Email delivery | Transactional, marketing |
-| **AWS** | Cloud services | Storage (S3), compute, database |
-| **Sentry** | Error tracking | Errors, performance monitoring |
-| **OpenAI** | AI features | GPT-4, embeddings, SOAP notes |
-| **Zoom** | Telemedicine | Video consultations |
-| **Google** | Workspace integration | Calendar, Drive, Maps |
-| **Microsoft** | Office 365 | Teams, Outlook, SharePoint |
+
+| Integration   | Purpose               | Features                           |
+| ------------- | --------------------- | ---------------------------------- |
+| **Stripe**    | Payment processing    | Payments, subscriptions, invoicing |
+| **Lifefile**  | Pharmacy fulfillment  | Prescriptions, tracking            |
+| **Twilio**    | Communications        | SMS, voice, video, chat            |
+| **SendGrid**  | Email delivery        | Transactional, marketing           |
+| **AWS**       | Cloud services        | Storage (S3), compute, database    |
+| **Sentry**    | Error tracking        | Errors, performance monitoring     |
+| **OpenAI**    | AI features           | GPT-4, embeddings, SOAP notes      |
+| **Zoom**      | Telemedicine          | Video consultations                |
+| **Google**    | Workspace integration | Calendar, Drive, Maps              |
+| **Microsoft** | Office 365            | Teams, Outlook, SharePoint         |
 
 #### **Features:**
+
 - ✅ Secure credential encryption
 - ✅ Integration health monitoring
 - ✅ Activity logging
@@ -39,6 +43,7 @@ Central hub that provides:
 ### 3. **🔑 Developer Tools**
 
 #### **API Key Management** (`/api/admin/api-keys`)
+
 - Generate secure API keys with prefix `lfsk_`
 - Granular permission assignment
 - Rate limiting (10-10,000 requests/hour)
@@ -47,6 +52,7 @@ Central hub that provides:
 - Key revocation and rotation
 
 #### **Webhook Configuration** (`/api/admin/webhooks`)
+
 - Configure real-time event notifications
 - 25+ available events:
   - User events (created, updated, login)
@@ -59,6 +65,7 @@ Central hub that provides:
 - Delivery tracking and logs
 
 ### 4. **👥 User Management Integration**
+
 - User statistics by role and status
 - Recent user activity logs
 - Quick user creation
@@ -76,7 +83,9 @@ Central hub that provides:
   },
   "settings": {
     "categories": ["general", "security", "notifications"],
-    "items": { /* categorized settings */ }
+    "items": {
+      /* categorized settings */
+    }
   },
   "integrations": {
     "active": 5,
@@ -113,12 +122,14 @@ Central hub that provides:
 ## 🚀 **API Examples**
 
 ### Get Settings Dashboard
+
 ```bash
 curl http://localhost:3001/api/admin/settings \
   -H "Authorization: Bearer <admin-token>"
 ```
 
 ### Configure Integration
+
 ```bash
 curl -X POST http://localhost:3001/api/admin/integrations \
   -H "Authorization: Bearer <admin-token>" \
@@ -135,6 +146,7 @@ curl -X POST http://localhost:3001/api/admin/integrations \
 ```
 
 ### Generate API Key
+
 ```bash
 curl -X POST http://localhost:3001/api/admin/api-keys \
   -H "Authorization: Bearer <admin-token>" \
@@ -148,6 +160,7 @@ curl -X POST http://localhost:3001/api/admin/api-keys \
 ```
 
 ### Configure Webhook
+
 ```bash
 curl -X POST http://localhost:3001/api/admin/webhooks \
   -H "Authorization: Bearer <admin-token>" \
@@ -165,6 +178,7 @@ curl -X POST http://localhost:3001/api/admin/webhooks \
 ## 📱 **Frontend Integration Guide**
 
 ### Settings Dashboard Layout
+
 ```
 ┌─────────────────────────────────────────┐
 │            Settings Dashboard           │
@@ -191,6 +205,7 @@ curl -X POST http://localhost:3001/api/admin/webhooks \
 ## 🎯 **Use Cases**
 
 ### For Super Admins:
+
 - Complete system configuration control
 - Integration credential management
 - API key generation and revocation
@@ -198,6 +213,7 @@ curl -X POST http://localhost:3001/api/admin/webhooks \
 - User creation and management
 
 ### For Admins:
+
 - View system status and health
 - Manage user accounts
 - Configure basic integrations
@@ -205,6 +221,7 @@ curl -X POST http://localhost:3001/api/admin/webhooks \
 - View audit logs
 
 ### For Developers:
+
 - Generate API keys for external apps
 - Configure webhooks for real-time updates
 - Monitor integration health
@@ -222,12 +239,14 @@ curl -X POST http://localhost:3001/api/admin/webhooks \
 ## 🏆 **Achievement Complete**
 
 Your platform now has an **enterprise-grade settings dashboard** that rivals:
+
 - **AWS Console** (Cloud management)
 - **Stripe Dashboard** (Payment configuration)
 - **Twilio Console** (Communication settings)
 - **Google Cloud Console** (Service management)
 
 ### **System Capabilities:**
+
 - ✅ **10 Integration Providers** ready to configure
 - ✅ **25+ Webhook Events** for real-time updates
 - ✅ **Unlimited API Keys** with granular permissions
@@ -235,4 +254,5 @@ Your platform now has an **enterprise-grade settings dashboard** that rivals:
 - ✅ **Role-Based Access** for security
 - ✅ **Encrypted Credentials** for data protection
 
-The settings system is **production-ready** and provides everything needed to manage a healthcare platform at scale! 🚀
+The settings system is **production-ready** and provides everything needed to manage a healthcare
+platform at scale! 🚀

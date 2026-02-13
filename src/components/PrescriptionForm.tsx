@@ -12,6 +12,8 @@ import { US_STATE_OPTIONS } from '@/lib/usStates';
 import { formatDobInput } from '@/lib/format';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
+import { safeJson, SafeJsonParseError } from '@/lib/safe-json';
 
 type RxForm = {
   medicationKey: string;
@@ -222,90 +224,70 @@ export default function PrescriptionForm({
       .slice(0, 10);
   }, [patientQuery, patients]);
 
-  // Load provider(s) based on user role
+  // Load provider(s) - single API call, cookie auth, no client role guessing
   useEffect(() => {
     async function loadProviderData() {
       setIsLoadingProvider(true);
       setProviderLoadError(null);
 
-      try {
-        // Get auth token from localStorage
-        const token =
-          localStorage.getItem('token') ||
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('provider-token') ||
-          localStorage.getItem('admin-token') ||
-          localStorage.getItem('super_admin-token') ||
-          localStorage.getItem('staff-token');
+      const PROVIDER_DEBUG = typeof window !== 'undefined' && localStorage.getItem('PROVIDER_DEBUG') === 'true';
 
-        if (!token) {
-          setProviderLoadError('No authentication token found');
+      const trace = (msg: string, ctx?: Record<string, unknown>) => {
+        if (PROVIDER_DEBUG) {
+          logger.info(`[PrescriptionForm] ${msg}`, ctx ?? {});
+        }
+      };
+
+      try {
+        const activeClinicId = localStorage.getItem('activeClinicId');
+        const clinicNum = activeClinicId && !Number.isNaN(parseInt(activeClinicId, 10))
+          ? parseInt(activeClinicId, 10)
+          : null;
+
+        const url = clinicNum != null
+          ? `/api/provider/self?activeClinicId=${clinicNum}&clinicId=${clinicNum}`
+          : '/api/provider/self';
+
+        trace('Fetching', { url });
+
+        const res = await apiFetch(url, { cache: 'no-store' });
+
+        trace('Response', {
+          status: res.status,
+          contentType: res.headers.get('content-type') ?? 'unknown',
+        });
+
+        if (!res.ok) {
+          let parsed: { code?: string; message?: string; error?: string } = {};
+          try {
+            parsed = await safeJson(res);
+          } catch (parseErr) {
+            trace('Parse error', {
+              status: res.status,
+              msg: parseErr instanceof Error ? parseErr.message : String(parseErr),
+            });
+            setProviderLoadError(`Request failed (${res.status}). Please refresh and try again.`);
+            setIsLoadingProvider(false);
+            return;
+          }
+          const message =
+            parsed.code === 'PROVIDER_NOT_LINKED'
+              ? parsed.message ?? 'Your account is not linked to a provider profile. Please contact your administrator.'
+              : parsed.message ?? parsed.error ?? `Request failed (${res.status}). Please try again.`;
+          setProviderLoadError(message);
           setIsLoadingProvider(false);
           return;
         }
 
-        const headers: Record<string, string> = {
-          Authorization: `Bearer ${token}`,
-        };
+        const data = await safeJson<
+          | { provider: { id: number; firstName?: string; lastName?: string; titleLine?: string | null; npi?: string; signatureDataUrl?: string | null }; role: 'provider'; isComplete?: boolean; missing?: { npi?: boolean; dea?: boolean } }
+          | { providers: ProviderOption[]; role: 'admin' | 'super_admin' }
+        >(res);
 
-        const { getStoredUser } = await import('@/lib/auth/stored-role');
-        const storedUser = getStoredUser();
-        const role = (storedUser?.role as string)?.toLowerCase() || 'admin';
-        setUserRole(role);
+        trace('Parsed', { hasProvider: 'provider' in data && !!data.provider, hasProviders: 'providers' in data, role: 'provider' in data ? 'provider' : 'admin' });
 
-        // Try /api/providers/me first (works for providers with linked profile)
-        // credentials: include sends cookies (API may read provider-token from cookie)
-        let meRes = await fetch('/api/providers/me', {
-          headers,
-          credentials: 'include',
-          cache: 'no-store',
-        });
-        let meData: {
-          provider?: { id: number; firstName?: string; lastName?: string; titleLine?: string | null; npi?: string; signatureDataUrl?: string | null };
-          isComplete?: boolean;
-          missing?: { npi?: boolean; dea?: boolean };
-          message?: string;
-          error?: string;
-        } = {};
-        try {
-          meData = await meRes.json();
-        } catch {
-          // Non-JSON response - fall through
-        }
-
-        // Fallback: when /me returns 404 and role is provider, try /api/provider/settings
-        // (same API that successfully loads provider on Settings page)
-        if (!meRes.ok && meRes.status === 404 && (storedUser?.role?.toLowerCase() === 'provider' || role === 'provider')) {
-          const settingsRes = await fetch('/api/provider/settings', {
-            headers,
-            credentials: 'include',
-            cache: 'no-store',
-          });
-          if (settingsRes.ok) {
-            const settingsData = await settingsRes.json();
-            if (settingsData?.provider) {
-              meRes = { ok: true } as Response;
-              meData = {
-                provider: {
-                  id: settingsData.provider.id,
-                  firstName: settingsData.provider.firstName,
-                  lastName: settingsData.provider.lastName,
-                  titleLine: settingsData.provider.titleLine ?? null,
-                  npi: settingsData.provider.npi ?? '',
-                  signatureDataUrl: settingsData.provider.signatureDataUrl ?? null,
-                },
-                isComplete: !!(settingsData.provider.npi && settingsData.provider.dea),
-                missing: {
-                  npi: !settingsData.provider.npi,
-                  dea: !settingsData.provider.dea,
-                },
-              };
-            }
-          }
-        }
-
-        if (meRes.ok && meData.provider) {
-          const p = meData.provider;
+        if ('provider' in data && data.provider) {
+          const p = data.provider;
           const myProvider: ProviderOption = {
             id: p.id,
             firstName: p.firstName ?? '',
@@ -317,61 +299,51 @@ export default function PrescriptionForm({
           setSelfProvider(myProvider);
           setForm((f: any) => ({ ...f, providerId: myProvider.id }));
           setUserRole('provider');
-          logger.info(
-            `[PrescriptionForm] Provider self-loaded: ${myProvider.firstName} ${myProvider.lastName}`
-          );
-          if (!meData.isComplete && meData.missing) {
-            const missing = [];
-            if (meData.missing.npi) missing.push('NPI');
-            if (meData.missing.dea) missing.push('DEA');
+          logger.info(`[PrescriptionForm] Provider loaded: ${myProvider.firstName} ${myProvider.lastName}`);
+          if (!data.isComplete && data.missing) {
+            const missing: string[] = [];
+            if (data.missing.npi) missing.push('NPI');
+            if (data.missing.dea) missing.push('DEA');
             if (missing.length > 0) {
               setProviderLoadError(`Missing credentials: ${missing.join(', ')}`);
             }
           }
+        } else if ('providers' in data && data.providers?.length) {
+          setProviders(data.providers);
+          setForm((f: any) => ({ ...f, providerId: data.providers![0].id }));
+          setUserRole(data.role === 'super_admin' ? 'super_admin' : 'admin');
+          logger.info(`[PrescriptionForm] Loaded ${data.providers.length} providers for clinic`);
         } else {
-          // Fall back to providers list (admin/staff, or when /me returns 404)
-          const activeClinicId = localStorage.getItem('activeClinicId');
-          const url =
-            activeClinicId && !Number.isNaN(parseInt(activeClinicId, 10))
-              ? `/api/providers?clinicId=${encodeURIComponent(activeClinicId)}`
-              : '/api/providers';
-          const listRes = await fetch(url, {
-            headers,
-            credentials: 'include',
-            cache: 'no-store',
-          });
-          let listData: { providers?: ProviderOption[]; error?: string } = {};
-          try {
-            listData = await listRes.json();
-          } catch {
-            setProviderLoadError(
-              meData.message || meData.error || 'Could not load provider list'
-            );
-            return;
-          }
-
-          if (listRes.ok && listData.providers?.length) {
-            setProviders(listData.providers);
-            setForm((f: any) => ({ ...f, providerId: listData.providers![0].id }));
-            logger.info(
-              `[PrescriptionForm] Loaded ${listData.providers.length} providers for clinic`
-            );
-          } else {
-            setProviderLoadError(
-              meData.message ||
-                meData.error ||
-                listData.error ||
-                'Could not find your provider profile. Please ensure your account is linked to a provider.'
-            );
-            logger.warn('[PrescriptionForm] No provider found', {
-              meStatus: meRes.status,
-              meError: meData.error,
-            });
-          }
+          setProviderLoadError(
+            'Could not find your provider profile. Please ensure your account is linked to a provider.'
+          );
         }
-      } catch (err: any) {
-        logger.error('Failed to load provider data', err);
-        setProviderLoadError('Failed to load provider information');
+      } catch (err: unknown) {
+        const isAuthError = err && typeof err === 'object' && 'isAuthError' in err && (err as { isAuthError?: boolean }).isAuthError;
+        if (isAuthError) {
+          setProviderLoadError('Session expired. Please log in again.');
+          return;
+        }
+        if (err instanceof SafeJsonParseError) {
+          logger.error('[PrescriptionForm] JSON parse failed', {
+            status: err.status,
+            contentType: err.contentType,
+            bodyPreview: err.bodyPreview?.slice(0, 100),
+          });
+          setProviderLoadError(
+            `Invalid response from server (status ${err.status}). Please refresh and try again.`
+          );
+        } else if (err instanceof Error) {
+          logger.error('[PrescriptionForm] Provider load failed', { message: err.message });
+          setProviderLoadError(
+            err.message.includes('fetch') || err.message.includes('network')
+              ? 'Network error. Please check your connection and try again.'
+              : err.message
+          );
+        } else {
+          logger.error('[PrescriptionForm] Provider load failed', { err });
+          setProviderLoadError('Failed to load provider information. Please try again.');
+        }
       } finally {
         setIsLoadingProvider(false);
       }

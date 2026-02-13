@@ -51,10 +51,7 @@ export async function getActiveChallenges(
       isActive: true,
       startDate: { lte: now },
       endDate: { gte: now },
-      OR: [
-        { isPublic: true },
-        { clinicId: clinicId || undefined },
-      ],
+      OR: [{ isPublic: true }, { clinicId: clinicId || undefined }],
     },
     include: {
       participants: {
@@ -67,29 +64,48 @@ export async function getActiveChallenges(
     orderBy: { endDate: 'asc' },
   });
 
-  return challenges.map((c: { id: number; name: string; description: string; type: ChallengeType; imageUrl: string | null; startDate: Date; endDate: Date; targetValue: number; targetUnit: string; points: number; isActive: boolean; participants: Array<{ currentValue: number; completedAt: Date | null }>; _count: { participants: number } }) => {
-    const participation = c.participants[0];
-    const daysRemaining = Math.max(0, Math.ceil((c.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+  return challenges.map(
+    (c: {
+      id: number;
+      name: string;
+      description: string;
+      type: ChallengeType;
+      imageUrl: string | null;
+      startDate: Date;
+      endDate: Date;
+      targetValue: number;
+      targetUnit: string;
+      points: number;
+      isActive: boolean;
+      participants: Array<{ currentValue: number; completedAt: Date | null }>;
+      _count: { participants: number };
+    }) => {
+      const participation = c.participants[0];
+      const daysRemaining = Math.max(
+        0,
+        Math.ceil((c.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      );
 
-    return {
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      type: c.type,
-      imageUrl: c.imageUrl,
-      startDate: c.startDate,
-      endDate: c.endDate,
-      targetValue: c.targetValue,
-      targetUnit: c.targetUnit,
-      points: c.points,
-      isActive: c.isActive,
-      isJoined: !!participation,
-      currentProgress: participation?.currentValue || 0,
-      isCompleted: !!participation?.completedAt,
-      participantCount: c._count.participants,
-      daysRemaining,
-    };
-  });
+      return {
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        type: c.type,
+        imageUrl: c.imageUrl,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        targetValue: c.targetValue,
+        targetUnit: c.targetUnit,
+        points: c.points,
+        isActive: c.isActive,
+        isJoined: !!participation,
+        currentProgress: participation?.currentValue || 0,
+        isCompleted: !!participation?.completedAt,
+        participantCount: c._count.participants,
+        daysRemaining,
+      };
+    }
+  );
 }
 
 /**
@@ -132,7 +148,11 @@ export async function joinChallenge(patientId: number, challengeId: number): Pro
     },
   });
 
-  logger.info('Patient joined challenge', { patientId, challengeId, challengeName: challenge.name });
+  logger.info('Patient joined challenge', {
+    patientId,
+    challengeId,
+    challengeName: challenge.name,
+  });
 }
 
 /**
@@ -219,12 +239,17 @@ export async function getChallengeLeaderboard(
     },
   });
 
-  return participants.map((p: { patient: { firstName: string }; currentValue: number; completedAt: Date | null }, index: number) => ({
-    rank: index + 1,
-    displayName: `${p.patient.firstName.charAt(0)}***`,
-    progress: p.currentValue,
-    isCompleted: !!p.completedAt,
-  }));
+  return participants.map(
+    (
+      p: { patient: { firstName: string }; currentValue: number; completedAt: Date | null },
+      index: number
+    ) => ({
+      rank: index + 1,
+      displayName: `${p.patient.firstName.charAt(0)}***`,
+      progress: p.currentValue,
+      isCompleted: !!p.completedAt,
+    })
+  );
 }
 
 /**

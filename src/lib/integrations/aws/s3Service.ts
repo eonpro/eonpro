@@ -1,6 +1,6 @@
 /**
  * AWS S3 Storage Service
- * 
+ *
  * Handles file upload, download, and management operations
  */
 
@@ -15,14 +15,14 @@ import {
   CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { 
-  isS3Enabled, 
-  s3Config, 
+import {
+  isS3Enabled,
+  s3Config,
   STORAGE_CONFIG,
   FileCategory,
   FileStatus,
   FileAccessLevel,
-  S3_ERRORS 
+  S3_ERRORS,
 } from './s3Config';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
@@ -81,11 +81,11 @@ export function generateS3Key(
   const timestamp = Date.now();
   const uuid = uuidv4();
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, '_');
-  
+
   if (patientId) {
     return `${STORAGE_CONFIG.PATHS.PATIENTS}/${patientId}/${category}/${timestamp}-${uuid}-${sanitizedFileName}`;
   }
-  
+
   return `${category}/${timestamp}-${uuid}-${sanitizedFileName}`;
 }
 
@@ -99,7 +99,7 @@ export async function uploadToS3(params: UploadFileParams): Promise<S3FileRespon
   try {
     const client = getS3Client();
     const key = generateS3Key(params.category, params.fileName, params.patientId);
-    
+
     // Prepare upload command
     const command = new PutObjectCommand({
       Bucket: s3Config.bucketName,
@@ -120,26 +120,30 @@ export async function uploadToS3(params: UploadFileParams): Promise<S3FileRespon
 
     // Execute upload
     const response = await client.send(command);
-    
+
     // Generate signed URL for access
     const url = await generateSignedUrl(key, 'GET', 3600); // 1 hour expiry
-    
+
     return {
       key,
       url,
-      size: params.file instanceof Buffer ? params.file.length : 
-             params.file instanceof Uint8Array ? params.file.length : 
-             new Blob([params.file]).size,
+      size:
+        params.file instanceof Buffer
+          ? params.file.length
+          : params.file instanceof Uint8Array
+            ? params.file.length
+            : new Blob([params.file]).size,
       etag: response.ETag || '',
       contentType: params.contentType || 'application/octet-stream',
       lastModified: new Date(),
       metadata: params.metadata,
     };
   } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('[S3] Upload failed:', error);
-    throw new Error(S3_ERRORS.UPLOAD_FAILED);
+    const awsCode = error?.Code || error?.name;
+    logger.error('[S3] Upload failed:', { error, awsCode });
+    const err = new Error(S3_ERRORS.UPLOAD_FAILED) as Error & { awsCode?: string };
+    err.awsCode = awsCode;
+    throw err;
   }
 }
 
@@ -152,14 +156,14 @@ export async function downloadFromS3(key: string): Promise<Buffer> {
 
   try {
     const client = getS3Client();
-    
+
     const command = new GetObjectCommand({
       Bucket: s3Config.bucketName,
       Key: key,
     });
 
     const response = await client.send(command);
-    
+
     if (!response.Body) {
       throw new Error(S3_ERRORS.FILE_NOT_FOUND);
     }
@@ -169,17 +173,17 @@ export async function downloadFromS3(key: string): Promise<Buffer> {
     for await (const chunk of response.Body as any) {
       chunks.push(chunk);
     }
-    
+
     return Buffer.concat(chunks);
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[S3] Download failed:', error);
-    
+
     if (error.Code === 'NoSuchKey') {
       throw new Error(S3_ERRORS.FILE_NOT_FOUND);
     }
-    
+
     throw new Error(S3_ERRORS.DOWNLOAD_FAILED);
   }
 }
@@ -197,30 +201,31 @@ export async function generateSignedUrl(
 
   try {
     const client = getS3Client();
-    
-    const command = operation === 'PUT'
-      ? new PutObjectCommand({
-          Bucket: s3Config.bucketName,
-          Key: key,
-        })
-      : new GetObjectCommand({
-          Bucket: s3Config.bucketName,
-          Key: key,
-        });
+
+    const command =
+      operation === 'PUT'
+        ? new PutObjectCommand({
+            Bucket: s3Config.bucketName,
+            Key: key,
+          })
+        : new GetObjectCommand({
+            Bucket: s3Config.bucketName,
+            Key: key,
+          });
 
     const url = await getSignedUrl(client, command, { expiresIn });
-    
+
     // Use CloudFront URL if configured
     if (s3Config.cloudFrontUrl && operation === 'GET') {
       const cfUrl = new URL(url);
       cfUrl.host = new URL(s3Config.cloudFrontUrl).host;
       return cfUrl.toString();
     }
-    
+
     return url;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[S3] Failed to generate signed URL:', error);
     throw new Error('Failed to generate file access URL');
   }
@@ -235,7 +240,7 @@ export async function deleteFromS3(key: string): Promise<boolean> {
 
   try {
     const client = getS3Client();
-    
+
     const command = new DeleteObjectCommand({
       Bucket: s3Config.bucketName,
       Key: key,
@@ -245,7 +250,7 @@ export async function deleteFromS3(key: string): Promise<boolean> {
     return true;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[S3] Delete failed:', error);
     throw new Error(S3_ERRORS.DELETE_FAILED);
   }
@@ -280,7 +285,7 @@ export async function listS3Files(
 
   try {
     const client = getS3Client();
-    
+
     const command = new ListObjectsV2Command({
       Bucket: s3Config.bucketName,
       Prefix: prefix,
@@ -309,7 +314,7 @@ export async function listS3Files(
     return files;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[S3] List failed:', error);
     return [];
   }
@@ -328,14 +333,14 @@ export async function getFileMetadata(key: string): Promise<Record<string, any>>
 
   try {
     const client = getS3Client();
-    
+
     const command = new HeadObjectCommand({
       Bucket: s3Config.bucketName,
       Key: key,
     });
 
     const response = await client.send(command);
-    
+
     return {
       size: response.ContentLength,
       contentType: response.ContentType,
@@ -346,13 +351,13 @@ export async function getFileMetadata(key: string): Promise<Record<string, any>>
     };
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[S3] Failed to get metadata:', error);
-    
+
     if (error.Code === 'NoSuchKey') {
       throw new Error(S3_ERRORS.FILE_NOT_FOUND);
     }
-    
+
     throw error;
   }
 }
@@ -366,7 +371,7 @@ export async function archiveFile(key: string): Promise<string> {
   try {
     const client = getS3Client();
     const archiveKey = `${STORAGE_CONFIG.PATHS.ARCHIVES}/${key}`;
-    
+
     // Copy to archive
     const copyCommand = new CopyObjectCommand({
       Bucket: s3Config.bucketName,
@@ -375,14 +380,14 @@ export async function archiveFile(key: string): Promise<string> {
     });
 
     await client.send(copyCommand);
-    
+
     // Delete original
     await deleteFromS3(key);
-    
+
     return archiveKey;
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[S3] Archive failed:', error);
     throw new Error('Failed to archive file');
   }
@@ -395,7 +400,7 @@ export function validateFileType(fileName: string, contentType: string): boolean
     ...STORAGE_CONFIG.ALLOWED_DOCUMENT_TYPES,
     ...STORAGE_CONFIG.ALLOWED_MEDICAL_TYPES,
   ];
-  
+
   return allowedTypes.includes(contentType);
 }
 
@@ -404,11 +409,11 @@ export function validateFileSize(size: number, contentType: string): boolean {
   if (STORAGE_CONFIG.ALLOWED_IMAGE_TYPES.includes(contentType)) {
     return size <= STORAGE_CONFIG.MAX_IMAGE_SIZE;
   }
-  
+
   if (STORAGE_CONFIG.ALLOWED_DOCUMENT_TYPES.includes(contentType)) {
     return size <= STORAGE_CONFIG.MAX_DOCUMENT_SIZE;
   }
-  
+
   return size <= STORAGE_CONFIG.MAX_FILE_SIZE;
 }
 
@@ -420,13 +425,16 @@ export function calculateFileHash(buffer: Buffer): string {
 // Mock upload for development
 function mockUpload(params: UploadFileParams): S3FileResponse {
   const key = generateS3Key(params.category, params.fileName, params.patientId);
-  
+
   return {
     key,
     url: `https://mock-s3.lifefile.com/${key}`,
-    size: params.file instanceof Buffer ? params.file.length : 
-           params.file instanceof Uint8Array ? params.file.length : 
-           new Blob([params.file]).size,
+    size:
+      params.file instanceof Buffer
+        ? params.file.length
+        : params.file instanceof Uint8Array
+          ? params.file.length
+          : new Blob([params.file]).size,
     etag: 'mock-' + uuidv4(),
     contentType: params.contentType || 'application/octet-stream',
     lastModified: new Date(),

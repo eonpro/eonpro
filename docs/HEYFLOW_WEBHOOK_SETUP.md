@@ -1,7 +1,9 @@
 # Heyflow Webhook Integration - COMPREHENSIVE GUIDE
 
 ## Overview
-This document provides a complete guide for setting up, testing, and troubleshooting the Heyflow webhook integration with the EONPro ePrescribing platform.
+
+This document provides a complete guide for setting up, testing, and troubleshooting the Heyflow
+webhook integration with the EONPro ePrescribing platform.
 
 ## 🚀 Quick Start
 
@@ -9,12 +11,12 @@ This document provides a complete guide for setting up, testing, and troubleshoo
 
 We have multiple webhook endpoints for different purposes:
 
-| Endpoint | Purpose | Status |
-|----------|---------|---------|
-| `/api/webhooks/heyflow-intake-v2` | **PRODUCTION** - Main webhook with comprehensive logging | ✅ Active |
-| `/api/webhooks/heyflow-intake` | Legacy endpoint (still works) | ⚠️ Deprecated |
-| `/api/webhooks/heyflow-test` | Simple test endpoint (no auth) | 🧪 Testing |
-| `/api/webhooks/heyflow-debug` | Debug endpoint with verbose logging | 🔍 Debug |
+| Endpoint                          | Purpose                                                  | Status        |
+| --------------------------------- | -------------------------------------------------------- | ------------- |
+| `/api/webhooks/heyflow-intake-v2` | **PRODUCTION** - Main webhook with comprehensive logging | ✅ Active     |
+| `/api/webhooks/heyflow-intake`    | Legacy endpoint (still works)                            | ⚠️ Deprecated |
+| `/api/webhooks/heyflow-test`      | Simple test endpoint (no auth)                           | 🧪 Testing    |
+| `/api/webhooks/heyflow-debug`     | Debug endpoint with verbose logging                      | 🔍 Debug      |
 
 ### 2. Configure Heyflow
 
@@ -46,11 +48,13 @@ WEBHOOK_SUCCESS_NOTIFICATION_URL=https://your-slack-webhook-or-other-service
 ## 🔍 Monitoring Dashboard
 
 Access the webhook monitoring dashboard at:
+
 ```
 http://localhost:5000/webhooks/monitor
 ```
 
 Features:
+
 - Real-time webhook statistics
 - Recent webhook attempts with details
 - Manual webhook testing tool
@@ -60,6 +64,7 @@ Features:
 ## 📊 What Gets Logged
 
 Every webhook attempt is logged with:
+
 - **Headers** (sensitive data redacted)
 - **Full payload**
 - **Processing status** (SUCCESS, ERROR, INVALID_AUTH, etc.)
@@ -104,6 +109,7 @@ curl -X POST http://localhost:5000/api/webhooks/heyflow-intake-v2 \
 ### Method 3: Using the Test Endpoints
 
 For initial testing without auth:
+
 ```
 POST /api/webhooks/heyflow-test
 POST /api/webhooks/heyflow-debug
@@ -134,7 +140,7 @@ The webhook expects a payload with this structure:
     "lastName": "Doe",
     "email": "john@example.com",
     "phone": "555-1234",
-    "dateOfBirth": "1990-01-01",
+    "dateOfBirth": "1990-01-01"
     // ... other patient data
   },
   "answers": [
@@ -155,11 +161,13 @@ The webhook expects a payload with this structure:
 #### 1. No Webhooks Received
 
 **Check:**
+
 - Is your server publicly accessible? (Use ngrok for local testing)
 - Is the webhook URL correct in Heyflow?
 - Check firewall/security group settings
 
 **Debug:**
+
 ```bash
 # Check if your endpoint is reachable
 curl -I https://your-domain.com/api/webhooks/heyflow-intake-v2
@@ -168,39 +176,46 @@ curl -I https://your-domain.com/api/webhooks/heyflow-intake-v2
 #### 2. Authentication Failures (401 errors)
 
 **Check:**
+
 - Webhook secret matches between Heyflow and environment variables
 - Correct header name is being used (`x-heyflow-secret`)
 - No extra spaces in the secret value
 
 **Debug:**
+
 - Check the webhook monitor for `INVALID_AUTH` status
 - Review error messages in the logs
 
 #### 3. Payload Errors (400/422 errors)
 
 **Check:**
+
 - Payload structure matches expected format
 - Required fields are present
 - Data types are correct (dates, numbers, etc.)
 
 **Debug:**
+
 - Use the debug endpoint to see raw payload
 - Check `INVALID_PAYLOAD` entries in monitor
 
 #### 4. Processing Errors (500 errors)
 
 **Check:**
+
 - Database connection is working
 - All required services are running
 - File storage permissions are correct
 
 **Debug:**
+
 - Check server logs for detailed error messages
 - Review Sentry for error tracking (if configured)
 
 ### Checking Logs
 
 #### Application Logs
+
 ```bash
 # If using PM2
 pm2 logs
@@ -210,19 +225,20 @@ pm2 logs
 ```
 
 #### Database Logs
+
 ```sql
 -- Check recent webhook attempts
-SELECT * FROM "WebhookLog" 
-ORDER BY "createdAt" DESC 
+SELECT * FROM "WebhookLog"
+ORDER BY "createdAt" DESC
 LIMIT 10;
 
 -- Check specific endpoint
-SELECT * FROM "WebhookLog" 
+SELECT * FROM "WebhookLog"
 WHERE endpoint = '/api/webhooks/heyflow-intake-v2'
 ORDER BY "createdAt" DESC;
 
 -- Check error rate
-SELECT 
+SELECT
   status,
   COUNT(*) as count,
   AVG("processingTimeMs") as avg_time
@@ -241,6 +257,7 @@ GROUP BY status;
 4. **Caching**: Patient lookups are optimized with indexes
 
 ### Database Indexes:
+
 ```sql
 -- Already configured in schema
 @@index([endpoint, createdAt(sort: Desc)])
@@ -270,9 +287,10 @@ GROUP BY status;
 4. **Update Documentation**: Keep this guide current
 
 ### Cleanup Script:
+
 ```javascript
 // Clean logs older than 30 days
-import { cleanOldWebhookLogs } from "@/lib/webhookLogger";
+import { cleanOldWebhookLogs } from '@/lib/webhookLogger';
 
 async function maintenance() {
   const deleted = await cleanOldWebhookLogs(30);
@@ -309,6 +327,4 @@ If issues persist:
 
 ---
 
-*Last Updated: November 2024*
-*Platform: EONPro ePrescribing*
-*Integration: Heyflow Form Builder*
+_Last Updated: November 2024_ _Platform: EONPro ePrescribing_ _Integration: Heyflow Form Builder_

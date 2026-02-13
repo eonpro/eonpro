@@ -8,22 +8,35 @@ import { logger } from '@/lib/logger';
 /**
  * Middleware to check for Super Admin role
  */
-function withSuperAdminAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
+function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
 }
 
 // Validation schema for report query
 const reportQuerySchema = z.object({
-  clinicId: z.string().optional().transform((v) => v ? parseInt(v) : undefined),
+  clinicId: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v) : undefined)),
   periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
-  startDate: z.string().optional().transform((v) => v ? new Date(v) : undefined),
-  endDate: z.string().optional().transform((v) => v ? new Date(v) : undefined),
+  startDate: z
+    .string()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
+  endDate: z
+    .string()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
   status: z.enum(['PENDING', 'INVOICED', 'PAID', 'WAIVED', 'VOIDED']).optional(),
   feeType: z.enum(['PRESCRIPTION', 'TRANSMISSION', 'ADMIN']).optional(),
-  limit: z.string().optional().transform((v) => v ? parseInt(v) : 50),
-  offset: z.string().optional().transform((v) => v ? parseInt(v) : 0),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v) : 50)),
+  offset: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v) : 0)),
 });
 
 /**
@@ -34,7 +47,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
   try {
     const { searchParams } = new URL(req.url);
     const queryParams = Object.fromEntries(searchParams.entries());
-    
+
     const result = reportQuerySchema.safeParse(queryParams);
     if (!result.success) {
       return NextResponse.json(
@@ -43,7 +56,8 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       );
     }
 
-    const { clinicId, periodType, startDate, endDate, status, feeType, limit, offset } = result.data;
+    const { clinicId, periodType, startDate, endDate, status, feeType, limit, offset } =
+      result.data;
 
     // Default date range: last 30 days
     const effectiveStartDate = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -154,10 +168,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     logger.error('[SuperAdmin] Error getting fee reports', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to get fee reports' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get fee reports' }, { status: 500 });
   }
 });
 
@@ -178,7 +189,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
   try {
     const body = await req.json();
     const result = generateReportSchema.safeParse(body);
-    
+
     if (!result.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: result.error.flatten() },
@@ -199,7 +210,16 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     if (format === 'csv') {
       // Generate CSV
       const csvRows = [
-        ['Clinic ID', 'Clinic Name', 'Prescription Fees', 'Transmission Fees', 'Admin Fees', 'Total Fees', 'Prescription Count', 'Transmission Count'],
+        [
+          'Clinic ID',
+          'Clinic Name',
+          'Prescription Fees',
+          'Transmission Fees',
+          'Admin Fees',
+          'Total Fees',
+          'Prescription Count',
+          'Transmission Count',
+        ],
       ];
 
       for (const clinic of report.clinics) {
@@ -227,7 +247,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         '',
       ]);
 
-      const csv = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+      const csv = csvRows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
 
       return new NextResponse(csv, {
         headers: {
@@ -253,9 +273,6 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     logger.error('[SuperAdmin] Error generating fee report', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to generate fee report' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate fee report' }, { status: 500 });
   }
 });

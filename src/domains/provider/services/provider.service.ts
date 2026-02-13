@@ -122,7 +122,7 @@ export const providerService = {
         allClinicIds.push(userContext.clinicId);
       }
 
-      // Also fetch the user's clinicId and name directly from the database 
+      // Also fetch the user's clinicId and name directly from the database
       // (in case it's not in the token/context)
       let userName: { firstName?: string; lastName?: string } = {};
       try {
@@ -132,9 +132,9 @@ export const providerService = {
         });
         if (user?.clinicId && !allClinicIds.includes(user.clinicId)) {
           allClinicIds.push(user.clinicId);
-          logger.debug('[ProviderService] Added user.clinicId from database', { 
-            userId: userContext.id, 
-            clinicId: user.clinicId 
+          logger.debug('[ProviderService] Added user.clinicId from database', {
+            userId: userContext.id,
+            clinicId: user.clinicId,
           });
         }
         // Store name for fallback matching
@@ -142,8 +142,8 @@ export const providerService = {
           userName = { firstName: user.firstName, lastName: user.lastName };
         }
       } catch (error) {
-        logger.debug('[ProviderService] Could not fetch user from database', { 
-          userId: userContext.id 
+        logger.debug('[ProviderService] Could not fetch user from database', {
+          userId: userContext.id,
         });
       }
 
@@ -152,7 +152,7 @@ export const providerService = {
         const userClinics = await prisma.userClinic.findMany({
           where: {
             userId: userContext.id,
-            isActive: true
+            isActive: true,
           },
           select: { clinicId: true },
         });
@@ -162,11 +162,11 @@ export const providerService = {
             allClinicIds.push(uc.clinicId);
           }
         }
-        
-        logger.debug('[ProviderService] UserClinic entries', { 
-          userId: userContext.id, 
+
+        logger.debug('[ProviderService] UserClinic entries', {
+          userId: userContext.id,
           count: userClinics.length,
-          clinicIds: userClinics.map((uc: { clinicId: number }) => uc.clinicId)
+          clinicIds: userClinics.map((uc: { clinicId: number }) => uc.clinicId),
         });
       } catch (error) {
         // UserClinic table might not have data for this user
@@ -203,6 +203,55 @@ export const providerService = {
   },
 
   /**
+   * Get all clinic IDs a provider user can work at (for RX queue, approve-and-send, etc.).
+   * Union of: User.clinicId, UserClinic entries, ProviderClinic entries, legacy Provider.clinicId.
+   */
+  async getClinicIdsForProviderUser(
+    userId: number,
+    providerId: number | null | undefined
+  ): Promise<number[]> {
+    const clinicIds: number[] = [];
+
+    const [user, providerClinicIds, providerLegacyClinicId] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          clinicId: true,
+          userClinics: {
+            where: { isActive: true },
+            select: { clinicId: true },
+          },
+        },
+      }),
+      providerId != null
+        ? prisma.providerClinic.findMany({
+            where: { providerId, isActive: true },
+            select: { clinicId: true },
+          })
+        : Promise.resolve([]),
+      providerId != null
+        ? prisma.provider.findUnique({
+            where: { id: providerId },
+            select: { clinicId: true },
+          }).then((p) => p?.clinicId ?? null)
+        : Promise.resolve(null),
+    ]);
+
+    if (user?.clinicId && !clinicIds.includes(user.clinicId)) clinicIds.push(user.clinicId);
+    for (const uc of user?.userClinics ?? []) {
+      if (!clinicIds.includes(uc.clinicId)) clinicIds.push(uc.clinicId);
+    }
+    for (const pc of providerClinicIds) {
+      if (!clinicIds.includes(pc.clinicId)) clinicIds.push(pc.clinicId);
+    }
+    if (providerLegacyClinicId != null && !clinicIds.includes(providerLegacyClinicId)) {
+      clinicIds.push(providerLegacyClinicId);
+    }
+
+    return clinicIds;
+  },
+
+  /**
    * Create a new provider
    *
    * - Validates input
@@ -212,10 +261,7 @@ export const providerService = {
    * @throws ValidationError for invalid input
    * @throws ConflictError if NPI already registered
    */
-  async createProvider(
-    input: unknown,
-    userContext: UserContext
-  ): Promise<ProviderWithClinic> {
+  async createProvider(input: unknown, userContext: UserContext): Promise<ProviderWithClinic> {
     // Validate input
     const parsed = createProviderSchema.safeParse(input);
     if (!parsed.success) {
@@ -241,7 +287,7 @@ export const providerService = {
       npiRegistry = {
         valid: !!lookupResult.number,
         basic: lookupResult.basic,
-        addresses: lookupResult.addresses?.map(addr => ({
+        addresses: lookupResult.addresses?.map((addr) => ({
           addressPurpose: addr.addressPurpose ?? '',
           addressType: addr.addressType ?? '',
           city: addr.city,
@@ -270,9 +316,7 @@ export const providerService = {
     // Build title line from NPI registry if not provided
     let titleLine = data.titleLine;
     if (!titleLine && npiRegistry?.basic) {
-      const parts = [npiRegistry.basic.credential, npiRegistry.basic.lastName].filter(
-        Boolean
-      );
+      const parts = [npiRegistry.basic.credential, npiRegistry.basic.lastName].filter(Boolean);
       titleLine = parts.length > 0 ? parts.join(' ') : undefined;
     }
 
@@ -329,7 +373,10 @@ export const providerService = {
     // If changing NPI, check it's not already taken
     if (data.npi && data.npi !== existing.npi) {
       if (await providerRepository.npiExists(data.npi, id)) {
-        throw new ConflictError('This NPI is already registered', { field: 'npi', value: data.npi });
+        throw new ConflictError('This NPI is already registered', {
+          field: 'npi',
+          value: data.npi,
+        });
       }
     }
 
@@ -346,7 +393,7 @@ export const providerService = {
 
     logger.info('[ProviderService] updated provider', {
       providerId: id,
-      updatedBy: userContext.email,
+      updatedBy: userContext.id,
     });
 
     return provider;
@@ -382,7 +429,10 @@ export const providerService = {
     // Validate NPI format
     const parsed = verifyNpiSchema.safeParse({ npi });
     if (!parsed.success) {
-      throw new ValidationError('Invalid NPI format', zodIssuesToValidationErrors(parsed.error.issues));
+      throw new ValidationError(
+        'Invalid NPI format',
+        zodIssuesToValidationErrors(parsed.error.issues)
+      );
     }
 
     try {
@@ -391,7 +441,7 @@ export const providerService = {
       return {
         valid: !!lookupResult.number,
         basic: lookupResult.basic,
-        addresses: lookupResult.addresses?.map(addr => ({
+        addresses: lookupResult.addresses?.map((addr) => ({
           addressPurpose: addr.addressPurpose ?? '',
           addressType: addr.addressType ?? '',
           city: addr.city,
@@ -422,7 +472,10 @@ export const providerService = {
     // Validate input
     const parsed = setPasswordSchema.safeParse(input);
     if (!parsed.success) {
-      throw new ValidationError('Invalid password input', zodIssuesToValidationErrors(parsed.error.issues));
+      throw new ValidationError(
+        'Invalid password input',
+        zodIssuesToValidationErrors(parsed.error.issues)
+      );
     }
 
     // Check provider exists
@@ -636,10 +689,10 @@ export const providerService = {
     let unassignedCount = 0;
 
     for (const provider of providers) {
-      const hasClinic = 
-        provider.clinicId !== null || 
+      const hasClinic =
+        provider.clinicId !== null ||
         (provider.providerClinics && provider.providerClinics.length > 0);
-      
+
       if (hasClinic) {
         assignedCount++;
       } else {

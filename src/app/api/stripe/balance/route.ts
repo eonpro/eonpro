@@ -18,7 +18,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { formatCurrency } from '@/lib/stripe';
-import { getStripeForClinic, getStripeForPlatform, withConnectedAccount } from '@/lib/stripe/connect';
+import {
+  getStripeForClinic,
+  getStripeForPlatform,
+  withConnectedAccount,
+} from '@/lib/stripe/connect';
 import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
@@ -50,10 +54,7 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
       const clinicId = contextClinicId || user.clinicId;
 
       if (!clinicId) {
-        return NextResponse.json(
-          { error: 'Clinic context required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
       }
 
       stripeContext = await getStripeForClinic(clinicId);

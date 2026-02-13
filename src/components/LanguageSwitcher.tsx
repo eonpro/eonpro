@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
 /**
  * Language Switcher Component
- * 
+ *
  * Allows users to change the application language
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Globe, ChevronDown, Check } from 'lucide-react';
-import { 
+import {
   SUPPORTED_LANGUAGES,
   LanguageCode,
   getEnabledLanguages,
@@ -77,40 +77,36 @@ export function LanguageSwitcher({
         <div className={`relative ${className}`} ref={dropdownRef}>
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center space-x-2 px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            className="flex items-center space-x-2 rounded-lg border border-gray-300 px-3 py-2 transition-colors hover:bg-gray-50"
             aria-label="Change language"
           >
-            <Globe className="w-5 h-5 text-gray-600" />
+            <Globe className="h-5 w-5 text-gray-600" />
             {showFlag && <span>{currentLang.flag}</span>}
             <span className="text-sm font-medium text-gray-700">
               {showNativeName ? currentLang.nativeName : currentLang.code.toUpperCase()}
             </span>
-            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown
+              className={`h-4 w-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            />
           </button>
 
           {isOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+            <div className="absolute right-0 z-50 mt-2 max-h-96 w-64 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
               <div className="py-2">
                 {languages.map((lang: any) => (
                   <button
                     key={lang.code}
                     onClick={() => handleLanguageSelect(lang.code as LanguageCode)}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                    className="group flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-gray-50"
                   >
                     <div className="flex items-center space-x-3">
                       {showFlag && <span className="text-2xl">{lang.flag}</span>}
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {lang.nativeName}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {lang.name}
-                        </div>
+                        <div className="text-sm font-medium text-gray-900">{lang.nativeName}</div>
+                        <div className="text-xs text-gray-500">{lang.name}</div>
                       </div>
                     </div>
-                    {language === lang.code && (
-                      <Check className="w-4 h-4 text-blue-600" />
-                    )}
+                    {language === lang.code && <Check className="h-4 w-4 text-blue-600" />}
                   </button>
                 ))}
               </div>
@@ -130,7 +126,7 @@ export function LanguageSwitcher({
             <button
               key={lang.code}
               onClick={() => handleLanguageSelect(lang.code as LanguageCode)}
-              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
                 language === lang.code
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -152,45 +148,41 @@ export function LanguageSwitcher({
         <div className={className}>
           <button
             onClick={() => setIsOpen(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
           >
-            <Globe className="w-5 h-5" />
+            <Globe className="h-5 w-5" />
             <span>Change Language</span>
           </button>
 
           {isOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
-                <div className="px-6 py-4 border-b">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-lg bg-white">
+                <div className="border-b px-6 py-4">
                   <h2 className="text-xl font-semibold">Select Language</h2>
                 </div>
-                
-                <div className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+
+                <div className="grid max-h-[60vh] grid-cols-2 gap-4 overflow-y-auto p-6 sm:grid-cols-3">
                   {languages.map((lang: any) => (
                     <button
                       key={lang.code}
                       onClick={() => handleLanguageSelect(lang.code as LanguageCode)}
-                      className={`p-4 rounded-lg border-2 transition-all ${
+                      className={`rounded-lg border-2 p-4 transition-all ${
                         language === lang.code
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="text-3xl mb-2">{lang.flag}</div>
-                      <div className="font-medium text-gray-900">
-                        {lang.nativeName}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {lang.name}
-                      </div>
+                      <div className="mb-2 text-3xl">{lang.flag}</div>
+                      <div className="font-medium text-gray-900">{lang.nativeName}</div>
+                      <div className="mt-1 text-xs text-gray-500">{lang.name}</div>
                       {language === lang.code && (
-                        <Check className="w-5 h-5 text-blue-600 mx-auto mt-2" />
+                        <Check className="mx-auto mt-2 h-5 w-5 text-blue-600" />
                       )}
                     </button>
                   ))}
                 </div>
-                
-                <div className="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+
+                <div className="flex items-center justify-between border-t bg-gray-50 px-6 py-4">
                   <p className="text-sm text-gray-600">
                     Medical translations have been professionally reviewed
                   </p>
@@ -226,7 +218,7 @@ export function MiniLanguageSwitcher() {
       <select
         value={language}
         onChange={(e: any) => changeLanguage(e.target.value as LanguageCode)}
-        className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-label="Select language"
       >
         {languages.map((lang: any) => (

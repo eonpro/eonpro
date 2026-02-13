@@ -7,7 +7,9 @@
 
 import { useState, useEffect } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 import {
   CreditCard,
   Calendar,
@@ -60,35 +62,54 @@ export default function SubscriptionPage() {
   const loadSubscriptionData = async () => {
     setBillingError(null);
     try {
-      const res = await fetch('/api/patient-portal/billing', {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setBillingError(err?.error || 'Failed to load billing');
+      const res = await portalFetch('/api/patient-portal/billing');
+      const sessionErr = getPortalResponseError(res);
+      if (sessionErr) {
+        setBillingError(sessionErr);
         setLoading(false);
         return;
       }
-      const data = await res.json();
+      if (!res.ok) {
+        const err = await safeParseJson(res);
+        setBillingError(
+          err !== null && typeof err === 'object' && 'error' in err
+            ? String((err as { error?: unknown }).error)
+            : 'Failed to load billing'
+        );
+        setLoading(false);
+        return;
+      }
+      const data = await safeParseJson(res);
 
-      if (data.subscription) {
-        const sub = data.subscription;
+      if (data !== null && typeof data === 'object' && 'subscription' in data && (data as { subscription?: unknown }).subscription) {
+        const dataObj = data as {
+          subscription: {
+            id?: string;
+            amount?: number;
+            planName?: string;
+            status?: string;
+            interval?: string;
+            currentPeriodEnd?: string;
+            nextBillingDate?: string;
+          };
+          paymentMethods?: { brand?: string; last4?: string; expMonth?: number; expYear?: number }[];
+        };
+        const sub = dataObj.subscription;
         const amountCents = typeof sub.amount === 'number' ? sub.amount : 0;
         setSubscription({
           id: sub.id || '',
           planName: sub.planName || 'Subscription',
-          status: sub.status === 'ACTIVE' ? 'active' : (sub.status?.toLowerCase() || 'active'),
+          status: sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active',
           amount: amountCents / 100,
           interval: (sub.interval === 'year' ? 'year' : 'month') as 'month' | 'year',
           nextBillingDate: sub.currentPeriodEnd || sub.nextBillingDate || '',
           paymentMethod:
-            data.paymentMethods?.length > 0
+            dataObj.paymentMethods?.length
               ? {
-                  brand: data.paymentMethods[0].brand || 'card',
-                  last4: data.paymentMethods[0].last4 || '****',
-                  expMonth: data.paymentMethods[0].expMonth || 0,
-                  expYear: data.paymentMethods[0].expYear || 0,
+                  brand: dataObj.paymentMethods[0].brand || 'card',
+                  last4: dataObj.paymentMethods[0].last4 || '****',
+                  expMonth: dataObj.paymentMethods[0].expMonth || 0,
+                  expYear: dataObj.paymentMethods[0].expYear || 0,
                 }
               : undefined,
         });
@@ -96,7 +117,10 @@ export default function SubscriptionPage() {
         setSubscription(null);
       }
 
-      const invList = Array.isArray(data.invoices) ? data.invoices : [];
+      const invList =
+        data !== null && typeof data === 'object' && 'invoices' in data && Array.isArray((data as { invoices?: unknown[] }).invoices)
+          ? (data as { invoices: unknown[] }).invoices
+          : [];
       setInvoices(
         invList.map((inv: any) => ({
           id: String(inv.id),
@@ -107,7 +131,9 @@ export default function SubscriptionPage() {
         }))
       );
     } catch (e) {
-      console.error('Billing fetch error:', e);
+      logger.error('Billing fetch error', {
+        error: e instanceof Error ? e.message : 'Unknown',
+      });
       setBillingError('Failed to load billing');
     } finally {
       setLoading(false);
@@ -117,23 +143,32 @@ export default function SubscriptionPage() {
   const handleManageBilling = async () => {
     setManagingBilling(true);
     try {
-      const response = await fetch('/api/stripe/customer-portal', {
+      const response = await portalFetch('/api/stripe/customer-portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ returnUrl: window.location.href }),
       });
 
       if (response.ok) {
-        const { url } = await response.json();
+        const parsed = await safeParseJson(response);
+        const url =
+          parsed !== null && typeof parsed === 'object' && 'url' in parsed
+            ? (parsed as { url?: string }).url
+            : undefined;
         if (url) window.location.href = url;
         else alert('Billing portal is not configured. Please contact support.');
       } else {
-        const err = await response.json().catch(() => ({}));
-        alert(err?.error || 'Unable to open billing portal. Please contact support.');
+        const err = await safeParseJson(response);
+        const errMsg =
+          err !== null && typeof err === 'object' && 'error' in err
+            ? String((err as { error?: unknown }).error)
+            : 'Unable to open billing portal. Please contact support.';
+        alert(errMsg);
       }
     } catch (error) {
-      console.error('Error opening billing portal:', error);
+      logger.error('Error opening billing portal', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       alert('Unable to open billing portal. Please try again later.');
     } finally {
       setManagingBilling(false);
@@ -185,7 +220,8 @@ export default function SubscriptionPage() {
           <CreditCard className="mx-auto h-12 w-12 text-gray-300" />
           <h2 className="mt-4 text-lg font-semibold text-gray-900">No active subscription</h2>
           <p className="mt-2 text-sm text-gray-500">
-            You don&apos;t have an active subscription. Contact your clinic or complete checkout to get started.
+            You don&apos;t have an active subscription. Contact your clinic or complete checkout to
+            get started.
           </p>
           <button
             onClick={handleManageBilling}

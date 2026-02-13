@@ -58,6 +58,17 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+// Mock prisma (listProviders uses user, userClinic; getClinicIdsForProviderUser uses user, providerClinic, provider)
+vi.mock('@/lib/db', () => ({
+  prisma: {
+    user: { findUnique: vi.fn() },
+    userClinic: { findMany: vi.fn() },
+    providerClinic: { findMany: vi.fn() },
+    provider: { findUnique: vi.fn() },
+  },
+}));
+
+import { prisma } from '@/lib/db';
 import { lookupNpi } from '@/lib/npi';
 
 describe('ProviderService', () => {
@@ -105,6 +116,15 @@ describe('ProviderService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Defaults for listProviders (uses prisma.user + prisma.userClinic)
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      clinicId: 1,
+      firstName: 'Admin',
+      lastName: 'User',
+    } as any);
+    vi.mocked(prisma.userClinic.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.provider.findUnique).mockResolvedValue(null);
   });
 
   describe('getById', () => {
@@ -192,12 +212,16 @@ describe('ProviderService', () => {
       const result = await providerService.listProviders(mockUserContext);
 
       expect(result.providers).toEqual(providers);
-      expect(providerRepository.list).toHaveBeenCalledWith({
-        clinicId: 1,
-        userProviderId: undefined,
-        userEmail: 'admin@clinic.com',
-        includeShared: true,
-      });
+      expect(providerRepository.list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clinicIds: [1],
+          userProviderId: undefined,
+          userEmail: 'admin@clinic.com',
+          userFirstName: 'Admin',
+          userLastName: 'User',
+          includeShared: true,
+        })
+      );
     });
   });
 
@@ -385,17 +409,103 @@ describe('ProviderService', () => {
     });
   });
 
+  describe('getClinicIdsForProviderUser', () => {
+    it('returns user.clinicId when user has no UserClinic or ProviderClinic', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        clinicId: 5,
+        userClinics: [],
+      } as any);
+      vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.provider.findUnique).mockResolvedValue(null);
+
+      const result = await providerService.getClinicIdsForProviderUser(10, 100);
+
+      expect(result).toEqual([5]);
+    });
+
+    it('merges UserClinic clinicIds with user.clinicId', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        clinicId: 1,
+        userClinics: [{ clinicId: 2 }, { clinicId: 3 }],
+      } as any);
+      vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.provider.findUnique).mockResolvedValue(null);
+
+      const result = await providerService.getClinicIdsForProviderUser(10, null);
+
+      expect(result.sort()).toEqual([1, 2, 3]);
+    });
+
+    it('merges ProviderClinic clinicIds when providerId is set', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        clinicId: 1,
+        userClinics: [],
+      } as any);
+      vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([
+        { clinicId: 2 },
+        { clinicId: 3 },
+      ] as any);
+      vi.mocked(prisma.provider.findUnique).mockResolvedValue(null);
+
+      const result = await providerService.getClinicIdsForProviderUser(10, 100);
+
+      expect(result.sort()).toEqual([1, 2, 3]);
+    });
+
+    it('includes legacy Provider.clinicId when set', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        clinicId: 1,
+        userClinics: [],
+      } as any);
+      vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.provider.findUnique).mockResolvedValue({ clinicId: 4 } as any);
+
+      const result = await providerService.getClinicIdsForProviderUser(10, 100);
+
+      expect(result.sort()).toEqual([1, 4]);
+    });
+
+    it('returns empty array when user has no clinic and no providerId', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        clinicId: null,
+        userClinics: [],
+      } as any);
+      vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.provider.findUnique).mockResolvedValue(null);
+
+      const result = await providerService.getClinicIdsForProviderUser(10, null);
+
+      expect(result).toEqual([]);
+    });
+
+    it('deduplicates clinic IDs from all sources', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        clinicId: 1,
+        userClinics: [{ clinicId: 2 }],
+      } as any);
+      vi.mocked(prisma.providerClinic.findMany).mockResolvedValue([
+        { clinicId: 2 },
+        { clinicId: 3 },
+      ] as any);
+      vi.mocked(prisma.provider.findUnique).mockResolvedValue({ clinicId: 1 } as any);
+
+      const result = await providerService.getClinicIdsForProviderUser(10, 100);
+
+      expect(result.sort()).toEqual([1, 2, 3]);
+    });
+  });
+
   describe('verifyNpi', () => {
     it('should return NPI verification result', async () => {
-      const mockResult = {
-        valid: true,
+      vi.mocked(lookupNpi).mockResolvedValue({
+        number: '1234567890',
         basic: { firstName: 'John', lastName: 'Doe' },
-      };
-      vi.mocked(lookupNpi).mockResolvedValue(mockResult);
+      } as any);
 
       const result = await providerService.verifyNpi('1234567890');
 
-      expect(result).toEqual(mockResult);
+      expect(result.valid).toBe(true);
+      expect(result.basic).toEqual({ firstName: 'John', lastName: 'Doe' });
     });
 
     it('should throw ValidationError for invalid NPI format', async () => {

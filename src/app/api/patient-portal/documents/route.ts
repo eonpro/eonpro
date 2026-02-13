@@ -10,6 +10,8 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { PatientDocumentCategory } from '@prisma/client';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 
 const uploadDocumentSchema = z.object({
   patientId: z.number(),
@@ -23,6 +25,7 @@ const uploadDocumentSchema = z.object({
     'CONSENT_FORMS',
     'PRESCRIPTIONS',
     'IMAGING',
+    'ID_PHOTO',
     'OTHER',
   ]),
   data: z.string().optional(), // Base64 encoded data
@@ -41,6 +44,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     // For patient role, only allow access to their own documents
     let patientIdToQuery: number;
+    let clinicIdForAudit: number | undefined;
     if (user.role === 'patient') {
       if (!user.patientId) {
         return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
@@ -48,6 +52,21 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       patientIdToQuery = user.patientId;
     } else if (patientId) {
       patientIdToQuery = parseInt(patientId);
+      if (isNaN(patientIdToQuery)) {
+        return NextResponse.json({ error: 'Invalid patientId' }, { status: 400 });
+      }
+      // Clinic isolation: staff/admin can only list documents for patients in their clinic
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientIdToQuery },
+        select: { id: true, clinicId: true },
+      });
+      if (!patient) {
+        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      }
+      if (user.role !== 'super_admin' && user.clinicId != null && patient.clinicId !== user.clinicId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+      clinicIdForAudit = patient.clinicId ?? undefined;
     } else {
       return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
     }
@@ -71,10 +90,34 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       orderBy: { createdAt: 'desc' },
     });
 
+    try {
+      await auditLog(req, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: clinicIdForAudit ?? user.clinicId ?? undefined,
+        eventType: AuditEventType.DOCUMENT_VIEW,
+        resourceType: 'PatientDocument',
+        resourceId: String(patientIdToQuery),
+        patientId: patientIdToQuery,
+        action: 'portal_list_documents',
+        outcome: 'SUCCESS',
+        metadata: { documentCount: documents.length },
+      });
+    } catch (auditErr: unknown) {
+      logger.warn('Failed to create HIPAA audit log for portal documents list', {
+        patientId: patientIdToQuery,
+        userId: user.id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
     return NextResponse.json({ documents });
   } catch (error) {
-    logger.error('Failed to fetch patient documents', { error });
-    return NextResponse.json({ error: 'Failed to fetch documents' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-portal/documents',
+      context: { userId: user?.id },
+    });
   }
 });
 
@@ -152,8 +195,10 @@ export const POST = withAuth(async (req: NextRequest, user) => {
 
     return NextResponse.json({ document }, { status: 201 });
   } catch (error) {
-    logger.error('Failed to upload document', { error });
-    return NextResponse.json({ error: 'Failed to upload document' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-portal/documents',
+      context: { userId: user?.id },
+    });
   }
 });
 
@@ -204,7 +249,9 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('Failed to delete document', { error });
-    return NextResponse.json({ error: 'Failed to delete document' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'DELETE /api/patient-portal/documents',
+      context: { userId: user?.id },
+    });
   }
 });

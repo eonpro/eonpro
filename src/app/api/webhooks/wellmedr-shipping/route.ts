@@ -1,12 +1,12 @@
 /**
  * Wellmedr Lifefile Shipping Webhook
- * 
+ *
  * Receives shipping/tracking updates from Lifefile for Wellmedr prescriptions.
  * Stores data at the patient profile level in PatientShippingUpdate table.
- * 
+ *
  * CREDENTIALS: Read from clinic's Inbound Webhook Settings in admin UI
  * Configure at: /super-admin/clinics/[id] -> Pharmacy tab -> Inbound Webhook Settings
- * 
+ *
  * curl -X POST https://app.eonpro.io/api/webhooks/wellmedr-shipping \
  *   -H "Authorization: Basic $(echo -n 'username:password' | base64)" \
  *   -H "Content-Type: application/json" \
@@ -54,26 +54,28 @@ const shippingPayloadSchema = z.object({
   trackingNumber: z.string().min(1, 'Tracking number is required'),
   orderId: z.string().min(1, 'Order ID is required'),
   deliveryService: z.string().min(1, 'Delivery service is required'),
-  
+
   // Optional fields
   brand: z.string().optional().default('Wellmedr'),
   status: z.string().optional().default('shipped'),
   estimatedDelivery: z.string().optional(),
   actualDelivery: z.string().optional(),
   trackingUrl: z.string().url().optional(),
-  
+
   // Medication info (optional)
-  medication: z.object({
-    name: z.string().optional(),
-    strength: z.string().optional(),
-    quantity: z.string().optional(),
-    form: z.string().optional(),
-  }).optional(),
-  
+  medication: z
+    .object({
+      name: z.string().optional(),
+      strength: z.string().optional(),
+      quantity: z.string().optional(),
+      form: z.string().optional(),
+    })
+    .optional(),
+
   // Patient identification (optional, will try to find by order)
   patientEmail: z.string().email().optional(),
   patientId: z.string().optional(),
-  
+
   // Additional metadata
   timestamp: z.string().optional(),
   notes: z.string().optional(),
@@ -137,21 +139,21 @@ async function verifyBasicAuth(
  */
 function mapToShippingStatus(status: string): ShippingStatus {
   const statusMap: Record<string, ShippingStatus> = {
-    'pending': ShippingStatus.PENDING,
-    'label_created': ShippingStatus.LABEL_CREATED,
-    'shipped': ShippingStatus.SHIPPED,
-    'in_transit': ShippingStatus.IN_TRANSIT,
-    'out_for_delivery': ShippingStatus.OUT_FOR_DELIVERY,
-    'delivered': ShippingStatus.DELIVERED,
-    'returned': ShippingStatus.RETURNED,
-    'exception': ShippingStatus.EXCEPTION,
-    'cancelled': ShippingStatus.CANCELLED,
+    pending: ShippingStatus.PENDING,
+    label_created: ShippingStatus.LABEL_CREATED,
+    shipped: ShippingStatus.SHIPPED,
+    in_transit: ShippingStatus.IN_TRANSIT,
+    out_for_delivery: ShippingStatus.OUT_FOR_DELIVERY,
+    delivered: ShippingStatus.DELIVERED,
+    returned: ShippingStatus.RETURNED,
+    exception: ShippingStatus.EXCEPTION,
+    cancelled: ShippingStatus.CANCELLED,
     // Common variations
-    'labelcreated': ShippingStatus.LABEL_CREATED,
-    'intransit': ShippingStatus.IN_TRANSIT,
-    'outfordelivery': ShippingStatus.OUT_FOR_DELIVERY,
+    labelcreated: ShippingStatus.LABEL_CREATED,
+    intransit: ShippingStatus.IN_TRANSIT,
+    outfordelivery: ShippingStatus.OUT_FOR_DELIVERY,
   };
-  
+
   const normalized = status.toLowerCase().replace(/[_\s-]/g, '');
   return statusMap[normalized] || ShippingStatus.SHIPPED;
 }
@@ -161,13 +163,16 @@ function mapToShippingStatus(status: string): ShippingStatus {
  */
 function parseDate(dateStr: string | undefined): Date | undefined {
   if (!dateStr) return undefined;
-  
+
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return undefined;
     return date;
   } catch (error: unknown) {
-    logger.warn('[WELLMEDR SHIPPING] Date parse failed', { error: error instanceof Error ? error.message : 'Unknown error', dateStr });
+    logger.warn('[WELLMEDR SHIPPING] Date parse failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      dateStr,
+    });
     return undefined;
   }
 }
@@ -186,10 +191,7 @@ async function findPatient(
   const order = await prisma.order.findFirst({
     where: {
       clinicId,
-      OR: [
-        { lifefileOrderId },
-        { referenceId: lifefileOrderId },
-      ],
+      OR: [{ lifefileOrderId }, { referenceId: lifefileOrderId }],
     },
     include: {
       patient: true,
@@ -229,11 +231,7 @@ async function findPatient(
         clinicId,
         patientId: patient.id,
         // Look for orders without lifefileOrderId or with no tracking
-        OR: [
-          { lifefileOrderId: null },
-          { lifefileOrderId: '' },
-          { trackingNumber: null },
-        ],
+        OR: [{ lifefileOrderId: null }, { lifefileOrderId: '' }, { trackingNumber: null }],
       },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -242,7 +240,9 @@ async function findPatient(
     });
 
     if (recentOrder) {
-      logger.info(`[WELLMEDR SHIPPING] Found recent order ${recentOrder.id} for patient ${patient.id} without tracking`);
+      logger.info(
+        `[WELLMEDR SHIPPING] Found recent order ${recentOrder.id} for patient ${patient.id} without tracking`
+      );
       return { patient, order: recentOrder };
     }
 
@@ -262,7 +262,9 @@ async function findPatient(
     });
 
     if (recentOrderWithinMonth) {
-      logger.info(`[WELLMEDR SHIPPING] Found recent order ${recentOrderWithinMonth.id} within 30 days for patient ${patient.id}`);
+      logger.info(
+        `[WELLMEDR SHIPPING] Found recent order ${recentOrderWithinMonth.id} within 30 days for patient ${patient.id}`
+      );
       return { patient, order: recentOrderWithinMonth };
     }
 
@@ -279,7 +281,7 @@ async function findPatient(
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const requestId = `wellmedr-ship-${Date.now()}`;
-  
+
   let webhookLogData: any = {
     endpoint: '/api/webhooks/wellmedr-shipping',
     method: 'POST',
@@ -288,19 +290,21 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    logger.info('=' .repeat(60));
+    logger.info('='.repeat(60));
     logger.info(`[WELLMEDR SHIPPING] New webhook request - ${requestId}`);
     logger.info(`[WELLMEDR SHIPPING] Time: ${new Date().toISOString()}`);
 
     // Extract headers for logging
     const headers: Record<string, string> = {};
     req.headers.forEach((value, key) => {
-      headers[key] = key.toLowerCase().includes('auth') || key.toLowerCase().includes('secret')
-        ? '[REDACTED]'
-        : value;
+      headers[key] =
+        key.toLowerCase().includes('auth') || key.toLowerCase().includes('secret')
+          ? '[REDACTED]'
+          : value;
     });
     webhookLogData.headers = headers;
-    webhookLogData.ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    webhookLogData.ipAddress =
+      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     webhookLogData.userAgent = req.headers.get('user-agent') || 'unknown';
 
     // Get Wellmedr clinic with inbound webhook credentials
@@ -318,18 +322,12 @@ export async function POST(req: NextRequest) {
 
     if (!clinic) {
       logger.error('[WELLMEDR SHIPPING] Wellmedr clinic not found');
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 500 });
     }
 
     if (!clinic.lifefileInboundEnabled) {
       logger.warn('[WELLMEDR SHIPPING] Inbound webhook not enabled for clinic');
-      return NextResponse.json(
-        { error: 'Webhook not enabled' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Webhook not enabled' }, { status: 403 });
     }
 
     webhookLogData.clinicId = clinic.id;
@@ -337,18 +335,15 @@ export async function POST(req: NextRequest) {
     // Verify authentication against clinic's configured credentials
     const authHeader = req.headers.get('authorization');
     const isAuthenticated = await verifyBasicAuth(authHeader, clinic);
-    
+
     if (!isAuthenticated) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
-      
+
       await prisma.webhookLog.create({ data: webhookLogData });
-      
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Parse and validate payload
@@ -357,20 +352,14 @@ export async function POST(req: NextRequest) {
       throw new Error('Empty request body');
     }
 
-    let payload: any;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch (error) {
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const payload = safeParseJsonString<Record<string, unknown>>(rawBody);
+    if (payload === null) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
-      
       await prisma.webhookLog.create({ data: webhookLogData });
-      
-      return NextResponse.json(
-        { error: 'Invalid JSON payload' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
     webhookLogData.payload = payload;
@@ -378,36 +367,30 @@ export async function POST(req: NextRequest) {
     // Validate payload against schema
     const parseResult = shippingPayloadSchema.safeParse(payload);
     if (!parseResult.success) {
-      const errors = parseResult.error.issues.map(i => `${i.path.join('.')}: ${i.message}`);
+      const errors = parseResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
       logger.error('[WELLMEDR SHIPPING] Validation failed:', errors);
-      
+
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = errors.join(', ');
-      
+
       await prisma.webhookLog.create({ data: webhookLogData });
-      
-      return NextResponse.json(
-        { error: 'Invalid payload', details: errors },
-        { status: 400 }
-      );
+
+      return NextResponse.json({ error: 'Invalid payload', details: errors }, { status: 400 });
     }
 
     const data: ShippingPayload = parseResult.data;
-    
-    logger.info(`[WELLMEDR SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}`);
+
+    logger.info(
+      `[WELLMEDR SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}`
+    );
 
     // Find patient and order
-    const result = await findPatient(
-      clinic.id,
-      data.orderId,
-      data.patientEmail,
-      data.patientId
-    );
+    const result = await findPatient(clinic.id, data.orderId, data.patientEmail, data.patientId);
 
     if (!result) {
       logger.warn(`[WELLMEDR SHIPPING] Patient/Order not found for order ${data.orderId}`);
-      
+
       // Log the webhook but don't fail - the order might not be created yet
       webhookLogData.status = WebhookStatus.SUCCESS;
       webhookLogData.statusCode = 202;
@@ -416,9 +399,9 @@ export async function POST(req: NextRequest) {
         reason: 'Patient or order not found',
         orderId: data.orderId,
       };
-      
+
       await prisma.webhookLog.create({ data: webhookLogData });
-      
+
       return NextResponse.json(
         {
           success: false,
@@ -445,7 +428,7 @@ export async function POST(req: NextRequest) {
 
     let shippingUpdate;
     const shippingStatus = mapToShippingStatus(data.status || 'shipped');
-    
+
     const updateData = {
       carrier: data.deliveryService,
       trackingUrl: data.trackingUrl,
@@ -453,7 +436,8 @@ export async function POST(req: NextRequest) {
       statusNote: data.notes,
       shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
       estimatedDelivery: parseDate(data.estimatedDelivery),
-      actualDelivery: shippingStatus === ShippingStatus.DELIVERED ? new Date() : parseDate(data.actualDelivery),
+      actualDelivery:
+        shippingStatus === ShippingStatus.DELIVERED ? new Date() : parseDate(data.actualDelivery),
       medicationName: data.medication?.name,
       medicationStrength: data.medication?.strength,
       medicationQuantity: data.medication?.quantity,
@@ -501,7 +485,9 @@ export async function POST(req: NextRequest) {
       // This helps link orders that weren't properly connected to LifeFile initially
       if (!order.lifefileOrderId && data.orderId) {
         orderUpdateData.lifefileOrderId = data.orderId;
-        logger.info(`[WELLMEDR SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`);
+        logger.info(
+          `[WELLMEDR SHIPPING] Saving lifefileOrderId ${data.orderId} to order ${order.id}`
+        );
       }
 
       await prisma.order.update({
@@ -540,7 +526,7 @@ export async function POST(req: NextRequest) {
     await prisma.webhookLog.create({ data: webhookLogData });
 
     logger.info(`[WELLMEDR SHIPPING] Processing completed in ${processingTime}ms`);
-    logger.info('=' .repeat(60));
+    logger.info('='.repeat(60));
 
     // Return success response
     // Decrypt patient PHI for display in response
@@ -564,13 +550,14 @@ export async function POST(req: NextRequest) {
         patientId: patient.patientId,
         name: patientDisplayName,
       },
-      order: order ? {
-        id: order.id,
-        lifefileOrderId: order.lifefileOrderId,
-      } : null,
+      order: order
+        ? {
+            id: order.id,
+            lifefileOrderId: order.lifefileOrderId,
+          }
+        : null,
       processingTime: `${processingTime}ms`,
     });
-
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[WELLMEDR SHIPPING] Error processing webhook:', error);
@@ -627,14 +614,21 @@ export async function GET() {
     usage: {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic base64(username:password)',
+        Authorization: 'Basic base64(username:password)',
         'Content-Type': 'application/json',
       },
       requiredFields: ['trackingNumber', 'orderId', 'deliveryService'],
       optionalFields: [
-        'brand', 'status', 'estimatedDelivery', 'actualDelivery',
-        'trackingUrl', 'medication', 'patientEmail', 'patientId',
-        'timestamp', 'notes',
+        'brand',
+        'status',
+        'estimatedDelivery',
+        'actualDelivery',
+        'trackingUrl',
+        'medication',
+        'patientEmail',
+        'patientId',
+        'timestamp',
+        'notes',
       ],
     },
   });

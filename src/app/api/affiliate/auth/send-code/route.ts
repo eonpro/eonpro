@@ -1,6 +1,6 @@
 /**
  * Send OTP Code for Affiliate Login
- * 
+ *
  * Sends a 6-digit code via SMS for phone-based authentication.
  * Rate limited to prevent abuse.
  */
@@ -18,26 +18,20 @@ export async function POST(request: NextRequest) {
     const { phone } = await request.json();
 
     if (!phone || typeof phone !== 'string') {
-      return NextResponse.json(
-        { error: 'Phone number is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
     }
 
     // Normalize phone number
     const normalizedPhone = phone.replace(/\D/g, '');
     if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
-      return NextResponse.json(
-        { error: 'Invalid phone number format' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
     }
 
     // Rate limiting
     const now = Date.now();
     const rateKey = normalizedPhone;
     const rateLimit = rateLimitMap.get(rateKey);
-    
+
     if (rateLimit && rateLimit.resetAt > now && rateLimit.count >= 3) {
       const waitMinutes = Math.ceil((rateLimit.resetAt - now) / 60000);
       return NextResponse.json(
@@ -80,7 +74,7 @@ export async function POST(request: NextRequest) {
       logger.info('[Affiliate Auth] Phone not found (returning success anyway)', {
         phoneLastFour: normalizedPhone.slice(-4),
       });
-      
+
       return NextResponse.json({ success: true });
     }
 
@@ -116,7 +110,7 @@ export async function POST(request: NextRequest) {
         error: smsError instanceof Error ? smsError.message : 'Unknown error',
         affiliateId: affiliate.id,
       });
-      
+
       // In development, log the code
       if (process.env.NODE_ENV === 'development') {
         logger.info(`[DEV] OTP Code for ${phone}: ${code}`);
@@ -133,10 +127,7 @@ export async function POST(request: NextRequest) {
     logger.error('[Affiliate Auth] Send code error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    
-    return NextResponse.json(
-      { error: 'Failed to send code' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: 'Failed to send code' }, { status: 500 });
   }
 }

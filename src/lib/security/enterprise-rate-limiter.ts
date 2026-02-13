@@ -1,6 +1,6 @@
 /**
  * Enterprise Rate Limiter
- * 
+ *
  * Production-grade rate limiting for enterprise healthcare platform.
  * Features:
  * - Composite rate limiting (IP + email + combined)
@@ -8,7 +8,7 @@
  * - Trusted network support
  * - Admin override capabilities
  * - Full audit trail
- * 
+ *
  * @module security/enterprise-rate-limiter
  * @version 1.0.0
  */
@@ -107,15 +107,17 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 
 // Progressive security thresholds
 const SECURITY_THRESHOLDS = {
-  WARNING_START: 3,        // Show remaining attempts
-  CAPTCHA_START: 5,        // Require CAPTCHA
-  DELAY_START: 10,         // Add progressive delays
-  EMAIL_VERIFY_START: 15,  // Require email verification
-  SOFT_LOCK_START: 20,     // Soft lock account
+  WARNING_START: 3, // Show remaining attempts
+  CAPTCHA_START: 5, // Require CAPTCHA
+  DELAY_START: 10, // Add progressive delays
+  EMAIL_VERIFY_START: 15, // Require email verification
+  SOFT_LOCK_START: 20, // Soft lock account
 };
 
 // Progressive delay schedule (seconds)
-const DELAY_SCHEDULE = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 60, 120, 180, 300, 300, 300, 300, 300, 300];
+const DELAY_SCHEDULE = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 60, 120, 180, 300, 300, 300, 300, 300, 300,
+];
 
 // ============================================================================
 // Redis Client (Lazy Initialization)
@@ -133,7 +135,7 @@ async function getRedisClient(): Promise<any> {
   redisChecked = true;
 
   const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-  
+
   if (!redisUrl) {
     logger.info('[EnterpriseRateLimit] Redis not configured, using in-memory fallback');
     return null;
@@ -158,7 +160,9 @@ async function getRedisClient(): Promise<any> {
     logger.info('[EnterpriseRateLimit] Connected to Redis');
     return redisClient;
   } catch (error) {
-    logger.warn('[EnterpriseRateLimit] Redis connection failed, using in-memory fallback', { error });
+    logger.warn('[EnterpriseRateLimit] Redis connection failed, using in-memory fallback', {
+      error,
+    });
     redisAvailable = false;
     return null;
   }
@@ -182,21 +186,22 @@ function isIpInRange(ip: string, cidr: string): boolean {
   if (!cidr.includes('/')) {
     return ip === cidr;
   }
-  
+
   // CIDR notation parsing
   const [range, bits] = cidr.split('/');
   const mask = ~(2 ** (32 - parseInt(bits)) - 1);
-  
+
   const ipParts = ip.split('.').map(Number);
   const rangeParts = range.split('.').map(Number);
-  
+
   if (ipParts.length !== 4 || rangeParts.length !== 4) {
     return false;
   }
-  
+
   const ipNum = (ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3];
-  const rangeNum = (rangeParts[0] << 24) | (rangeParts[1] << 16) | (rangeParts[2] << 8) | rangeParts[3];
-  
+  const rangeNum =
+    (rangeParts[0] << 24) | (rangeParts[1] << 16) | (rangeParts[2] << 8) | rangeParts[3];
+
   return (ipNum & mask) === (rangeNum & mask);
 }
 
@@ -204,8 +209,8 @@ function isTrustedNetwork(ip: string, trustedRanges: string[]): boolean {
   if (!trustedRanges || trustedRanges.length === 0) {
     return false;
   }
-  
-  return trustedRanges.some(range => isIpInRange(ip, range));
+
+  return trustedRanges.some((range) => isIpInRange(ip, range));
 }
 
 // ============================================================================
@@ -214,7 +219,7 @@ function isTrustedNetwork(ip: string, trustedRanges: string[]): boolean {
 
 async function getEntry(key: string): Promise<RateLimitEntry | null> {
   const redis = await getRedisClient();
-  
+
   if (redis && redisAvailable) {
     try {
       const data = await redis.get(key);
@@ -226,13 +231,13 @@ async function getEntry(key: string): Promise<RateLimitEntry | null> {
       logger.warn('[EnterpriseRateLimit] Redis read failed', { key, error: err });
     }
   }
-  
+
   return memoryCache.get(key) || null;
 }
 
 async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number): Promise<void> {
   const redis = await getRedisClient();
-  
+
   if (redis && redisAvailable) {
     try {
       const isUpstash = !!process.env.UPSTASH_REDIS_REST_URL;
@@ -246,13 +251,13 @@ async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number):
       logger.warn('[EnterpriseRateLimit] Redis write failed', { key, error: err });
     }
   }
-  
+
   memoryCache.set(key, entry);
 }
 
 async function deleteEntry(key: string): Promise<void> {
   const redis = await getRedisClient();
-  
+
   if (redis && redisAvailable) {
     try {
       await redis.del(key);
@@ -260,7 +265,7 @@ async function deleteEntry(key: string): Promise<void> {
       logger.warn('[EnterpriseRateLimit] Redis delete failed', { key, error: err });
     }
   }
-  
+
   memoryCache.delete(key);
 }
 
@@ -295,10 +300,10 @@ export class EnterpriseRateLimiter {
   constructor(config: Partial<RateLimitConfig> = {}, namespace = 'auth') {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.namespace = namespace;
-    
+
     // Load trusted IPs from environment
     if (process.env.TRUSTED_IP_RANGES) {
-      this.config.trustedIpRanges = process.env.TRUSTED_IP_RANGES.split(',').map(s => s.trim());
+      this.config.trustedIpRanges = process.env.TRUSTED_IP_RANGES.split(',').map((s) => s.trim());
     }
   }
 
@@ -317,7 +322,10 @@ export class EnterpriseRateLimiter {
   /**
    * Generate cache keys
    */
-  private getKeys(ip: string, email?: string): { ipKey: string; emailKey?: string; comboKey?: string } {
+  private getKeys(
+    ip: string,
+    email?: string
+  ): { ipKey: string; emailKey?: string; comboKey?: string } {
     const ipKey = `${this.namespace}:ip:${ip}`;
     const emailKey = email ? `${this.namespace}:email:${email.toLowerCase()}` : undefined;
     const comboKey = email ? `${this.namespace}:combo:${ip}:${email.toLowerCase()}` : undefined;
@@ -327,27 +335,23 @@ export class EnterpriseRateLimiter {
   /**
    * Check rate limit and record attempt
    */
-  async checkAndRecord(
-    ip: string,
-    email?: string,
-    success = false
-  ): Promise<RateLimitResult> {
+  async checkAndRecord(ip: string, email?: string, success = false): Promise<RateLimitResult> {
     const now = Math.floor(Date.now() / 1000);
     const hourAgo = now - 3600;
-    
+
     const { ipKey, emailKey, comboKey } = this.getKeys(ip, email);
     const trusted = isTrustedNetwork(ip, this.config.trustedIpRanges || []);
-    
+
     // Apply multiplier for trusted networks
-    const multiplier = trusted ? (this.config.trustedNetworkMultiplier || 3) : 1;
+    const multiplier = trusted ? this.config.trustedNetworkMultiplier || 3 : 1;
     const effectiveIpLimit = this.config.ipLimitPerHour * multiplier;
     const effectiveEmailLimit = this.config.emailLimitPerHour * multiplier;
-    
+
     // Get current entries
     let ipEntry = await getEntry(ipKey);
     let emailEntry = emailKey ? await getEntry(emailKey) : null;
     let comboEntry = comboKey ? await getEntry(comboKey) : null;
-    
+
     // Reset expired entries
     if (ipEntry && ipEntry.firstAttempt < hourAgo) {
       ipEntry = null;
@@ -358,7 +362,7 @@ export class EnterpriseRateLimiter {
     if (comboEntry && comboEntry.firstAttempt < hourAgo) {
       comboEntry = null;
     }
-    
+
     // Initialize entries if needed
     const defaultEntry: RateLimitEntry = {
       attempts: 0,
@@ -369,22 +373,22 @@ export class EnterpriseRateLimiter {
       captchaRequired: false,
       emailVerificationRequired: false,
     };
-    
+
     ipEntry = ipEntry || { ...defaultEntry };
-    
+
     // Check for blocks
     if (ipEntry.blocked && ipEntry.blockedUntil && ipEntry.blockedUntil > now) {
       return this.createBlockedResponse(ipEntry, now, trusted);
     }
-    
+
     if (emailEntry?.blocked && emailEntry.blockedUntil && emailEntry.blockedUntil > now) {
       return this.createBlockedResponse(emailEntry, now, trusted);
     }
-    
+
     if (comboEntry?.blocked && comboEntry.blockedUntil && comboEntry.blockedUntil > now) {
       return this.createBlockedResponse(comboEntry, now, trusted);
     }
-    
+
     // On successful login, reset the rate limit for this email
     if (success && email) {
       await this.clearRateLimit(ip, email);
@@ -404,84 +408,85 @@ export class EnterpriseRateLimiter {
         emailAttempts: 0,
       };
     }
-    
+
     // Increment attempts
     ipEntry.attempts++;
     ipEntry.lastAttempt = now;
-    
+
     if (emailEntry) {
       emailEntry.attempts++;
       emailEntry.lastAttempt = now;
     } else if (emailKey) {
       emailEntry = { ...defaultEntry, attempts: 1 };
     }
-    
+
     if (comboEntry) {
       comboEntry.attempts++;
       comboEntry.lastAttempt = now;
     } else if (comboKey) {
       comboEntry = { ...defaultEntry, attempts: 1 };
     }
-    
+
     // Calculate effective attempts (max of IP and email)
     const effectiveAttempts = Math.max(
       ipEntry.attempts,
       emailEntry?.attempts || 0,
       comboEntry?.attempts || 0
     );
-    
+
     // Calculate security level
-    const securityLevel = this.config.enableProgressiveSecurity 
+    const securityLevel = this.config.enableProgressiveSecurity
       ? calculateSecurityLevel(effectiveAttempts)
       : 1;
-    
+
     // Check limits
     const ipExceeded = ipEntry.attempts > effectiveIpLimit;
     const emailExceeded = emailEntry && emailEntry.attempts > effectiveEmailLimit;
     const maxExceeded = effectiveAttempts >= this.config.maxAttempts;
-    
+
     // Determine response
     let allowed = true;
     let message = 'Request allowed';
     const requiresCaptcha = securityLevel >= 3;
     const requiresEmailVerification = securityLevel >= 5;
     const isLocked = securityLevel >= 6 || maxExceeded;
-    const delaySeconds = this.config.enableProgressiveSecurity 
+    const delaySeconds = this.config.enableProgressiveSecurity
       ? getDelayForAttempt(effectiveAttempts)
       : 0;
-    
+
     // Build unlock methods
     const unlockMethods: ('email_otp' | 'admin_unlock')[] = [];
     if (isLocked || securityLevel >= 4) {
       unlockMethods.push('email_otp');
       unlockMethods.push('admin_unlock');
     }
-    
+
     // Block if limits exceeded
     if (ipExceeded || emailExceeded || maxExceeded) {
       allowed = false;
-      
+
       // Apply block
       const blockUntil = now + this.config.blockDurationSeconds;
-      
+
       if (ipExceeded) {
         ipEntry.blocked = true;
         ipEntry.blockedUntil = blockUntil;
         message = `Too many requests from this IP. Please try again in ${Math.ceil(this.config.blockDurationSeconds / 60)} minutes.`;
       }
-      
+
       if (emailExceeded && emailEntry) {
         emailEntry.blocked = true;
         emailEntry.blockedUntil = blockUntil;
         message = `Too many attempts for this email. Please try again in ${Math.ceil(this.config.blockDurationSeconds / 60)} minutes.`;
       }
-      
+
       if (maxExceeded) {
         if (comboEntry) {
           comboEntry.blocked = true;
           comboEntry.blockedUntil = blockUntil;
         }
-        message = 'Account temporarily locked due to multiple failed attempts. Use email verification to unlock or contact support.';
+        message =
+          'Account temporarily locked due to multiple failed attempts. Use email verification to unlock or contact support.';
       }
     } else if (delaySeconds > 0) {
       message = `Please wait ${delaySeconds} seconds before trying again.`;
@@ -493,24 +498,24 @@ export class EnterpriseRateLimiter {
       const remaining = SECURITY_THRESHOLDS.CAPTCHA_START - effectiveAttempts;
       message = `${remaining} attempts remaining before additional security is required.`;
     }
-    
+
     // Update security flags
     ipEntry.securityLevel = securityLevel;
     ipEntry.captchaRequired = requiresCaptcha;
     ipEntry.emailVerificationRequired = requiresEmailVerification;
-    
+
     if (emailEntry) {
       emailEntry.securityLevel = securityLevel;
       emailEntry.captchaRequired = requiresCaptcha;
       emailEntry.emailVerificationRequired = requiresEmailVerification;
     }
-    
+
     if (comboEntry) {
       comboEntry.securityLevel = securityLevel;
       comboEntry.captchaRequired = requiresCaptcha;
       comboEntry.emailVerificationRequired = requiresEmailVerification;
     }
-    
+
     // Save entries
     const ttl = 3600; // 1 hour
     await setEntry(ipKey, ipEntry, ttl);
@@ -520,7 +525,7 @@ export class EnterpriseRateLimiter {
     if (comboKey && comboEntry) {
       await setEntry(comboKey, comboEntry, ttl);
     }
-    
+
     // Log rate limit event
     if (!allowed || securityLevel >= 3) {
       logger.warn('[EnterpriseRateLimit] Security event', {
@@ -535,7 +540,7 @@ export class EnterpriseRateLimiter {
         trusted,
       });
     }
-    
+
     return {
       allowed,
       attempts: effectiveAttempts,
@@ -556,9 +561,13 @@ export class EnterpriseRateLimiter {
   /**
    * Create response for blocked request
    */
-  private createBlockedResponse(entry: RateLimitEntry, now: number, trusted: boolean): RateLimitResult {
+  private createBlockedResponse(
+    entry: RateLimitEntry,
+    now: number,
+    trusted: boolean
+  ): RateLimitResult {
     const remainingBlock = entry.blockedUntil ? entry.blockedUntil - now : 0;
-    
+
     return {
       allowed: false,
       attempts: entry.attempts,
@@ -582,14 +591,14 @@ export class EnterpriseRateLimiter {
   async getStatus(ip: string, email?: string): Promise<RateLimitStatus> {
     const { ipKey, emailKey, comboKey } = this.getKeys(ip, email);
     const trusted = isTrustedNetwork(ip, this.config.trustedIpRanges || []);
-    const multiplier = trusted ? (this.config.trustedNetworkMultiplier || 3) : 1;
-    
+    const multiplier = trusted ? this.config.trustedNetworkMultiplier || 3 : 1;
+
     const [ipEntry, emailEntry, comboEntry] = await Promise.all([
       getEntry(ipKey),
       emailKey ? getEntry(emailKey) : null,
       comboKey ? getEntry(comboKey) : null,
     ]);
-    
+
     return {
       ip,
       email,
@@ -609,11 +618,11 @@ export class EnterpriseRateLimiter {
    */
   async clearRateLimit(ip: string, email?: string, adminUserId?: number): Promise<void> {
     const { ipKey, emailKey, comboKey } = this.getKeys(ip, email);
-    
+
     await deleteEntry(ipKey);
     if (emailKey) await deleteEntry(emailKey);
     if (comboKey) await deleteEntry(comboKey);
-    
+
     logger.info('[EnterpriseRateLimit] Rate limit cleared', {
       ip,
       email: email ? `${email.substring(0, 3)}***` : undefined,
@@ -627,13 +636,13 @@ export class EnterpriseRateLimiter {
   async isRateLimited(ip: string, email?: string): Promise<boolean> {
     const { ipKey, emailKey, comboKey } = this.getKeys(ip, email);
     const now = Math.floor(Date.now() / 1000);
-    
+
     const [ipEntry, emailEntry, comboEntry] = await Promise.all([
       getEntry(ipKey),
       emailKey ? getEntry(emailKey) : null,
       comboKey ? getEntry(comboKey) : null,
     ]);
-    
+
     if (ipEntry?.blocked && ipEntry.blockedUntil && ipEntry.blockedUntil > now) {
       return true;
     }
@@ -643,7 +652,7 @@ export class EnterpriseRateLimiter {
     if (comboEntry?.blocked && comboEntry.blockedUntil && comboEntry.blockedUntil > now) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -654,7 +663,7 @@ export class EnterpriseRateLimiter {
     return (handler: (req: NextRequest) => Promise<Response>) => {
       return async (req: NextRequest): Promise<Response> => {
         const ip = this.getClientIp(req);
-        
+
         // Try to extract email from request body for login requests
         let email: string | undefined;
         try {
@@ -664,9 +673,9 @@ export class EnterpriseRateLimiter {
         } catch {
           // Body not available or not JSON
         }
-        
+
         const result = await this.checkAndRecord(ip, email);
-        
+
         if (!result.allowed) {
           return NextResponse.json(
             {
@@ -683,22 +692,24 @@ export class EnterpriseRateLimiter {
               status: 429,
               headers: {
                 'X-RateLimit-Remaining': result.remainingAttempts.toString(),
-                'X-RateLimit-Reset': new Date((Math.floor(Date.now() / 1000) + result.resetInSeconds) * 1000).toISOString(),
+                'X-RateLimit-Reset': new Date(
+                  (Math.floor(Date.now() / 1000) + result.resetInSeconds) * 1000
+                ).toISOString(),
                 'Retry-After': result.resetInSeconds.toString(),
                 'X-Security-Level': result.securityLevel.toString(),
               },
             }
           );
         }
-        
+
         // Process request
         const response = await handler(req);
-        
+
         // Add rate limit headers
         const headers = new Headers(response.headers);
         headers.set('X-RateLimit-Remaining', result.remainingAttempts.toString());
         headers.set('X-Security-Level', result.securityLevel.toString());
-        
+
         return new Response(response.body, {
           status: response.status,
           statusText: response.statusText,
@@ -713,49 +724,68 @@ export class EnterpriseRateLimiter {
 // Pre-configured Instances
 // ============================================================================
 
+/** Lockout after N failed attempts (enterprise: 5). Override via AUTH_LOCKOUT_AFTER_ATTEMPTS */
+const AUTH_LOCKOUT_ATTEMPTS = parseInt(
+  process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '5',
+  10
+);
+
 /**
  * Authentication rate limiter (login, password reset, etc.)
+ * Enterprise: Lockout after 5 failed attempts (30 min block)
  */
-export const authRateLimiter = new EnterpriseRateLimiter({
-  ipLimitPerHour: 50,
-  emailLimitPerHour: 15,
-  maxAttempts: 20,
-  enableProgressiveSecurity: true,
-  blockDurationSeconds: 30 * 60, // 30 minutes
-}, 'auth');
+export const authRateLimiter = new EnterpriseRateLimiter(
+  {
+    ipLimitPerHour: 50,
+    emailLimitPerHour: 15,
+    maxAttempts: AUTH_LOCKOUT_ATTEMPTS,
+    enableProgressiveSecurity: true,
+    blockDurationSeconds: 30 * 60, // 30 minutes
+  },
+  'auth'
+);
 
 /**
  * Registration rate limiter
  */
-export const registrationRateLimiter = new EnterpriseRateLimiter({
-  ipLimitPerHour: 10,
-  emailLimitPerHour: 5,
-  maxAttempts: 5,
-  enableProgressiveSecurity: true,
-  blockDurationSeconds: 60 * 60, // 1 hour
-}, 'registration');
+export const registrationRateLimiter = new EnterpriseRateLimiter(
+  {
+    ipLimitPerHour: 10,
+    emailLimitPerHour: 5,
+    maxAttempts: 5,
+    enableProgressiveSecurity: true,
+    blockDurationSeconds: 60 * 60, // 1 hour
+  },
+  'registration'
+);
 
 /**
  * Password reset rate limiter
  */
-export const passwordResetRateLimiter = new EnterpriseRateLimiter({
-  ipLimitPerHour: 10,
-  emailLimitPerHour: 3,
-  maxAttempts: 5,
-  enableProgressiveSecurity: true,
-  blockDurationSeconds: 60 * 60, // 1 hour
-}, 'password-reset');
+export const passwordResetRateLimiter = new EnterpriseRateLimiter(
+  {
+    ipLimitPerHour: 10,
+    emailLimitPerHour: 3,
+    maxAttempts: 5,
+    enableProgressiveSecurity: true,
+    blockDurationSeconds: 60 * 60, // 1 hour
+  },
+  'password-reset'
+);
 
 /**
  * OTP verification rate limiter
  */
-export const otpRateLimiter = new EnterpriseRateLimiter({
-  ipLimitPerHour: 30,
-  emailLimitPerHour: 10,
-  maxAttempts: 10,
-  enableProgressiveSecurity: true,
-  blockDurationSeconds: 15 * 60, // 15 minutes
-}, 'otp');
+export const otpRateLimiter = new EnterpriseRateLimiter(
+  {
+    ipLimitPerHour: 30,
+    emailLimitPerHour: 10,
+    maxAttempts: 10,
+    enableProgressiveSecurity: true,
+    blockDurationSeconds: 15 * 60, // 15 minutes
+  },
+  'otp'
+);
 
 // ============================================================================
 // Utility Functions
@@ -772,12 +802,13 @@ export async function adminClearRateLimit(
   if (!ip && !email) {
     return { success: false, message: 'IP or email required' };
   }
-  
+
   try {
     await authRateLimiter.clearRateLimit(ip || 'unknown', email, adminUserId);
-    return { 
-      success: true, 
-      message: `Rate limit cleared for ${ip ? `IP: ${ip}` : ''} ${email ? `Email: ${email}` : ''}`.trim() 
+    return {
+      success: true,
+      message:
+        `Rate limit cleared for ${ip ? `IP: ${ip}` : ''} ${email ? `Email: ${email}` : ''}`.trim(),
     };
   } catch (error) {
     logger.error('[EnterpriseRateLimit] Admin clear failed', { ip, email, error });
@@ -805,14 +836,14 @@ export async function verifyUnlockAndClear(
 ): Promise<{ success: boolean; message: string }> {
   // In production, verify the unlock token from email OTP
   // For now, this is a placeholder that should integrate with your OTP service
-  
+
   try {
     // Verify token (implement your token verification logic)
     // const isValid = await verifyOtpToken(email, unlockToken);
     // if (!isValid) {
     //   return { success: false, message: 'Invalid unlock token' };
     // }
-    
+
     await authRateLimiter.clearRateLimit(ip, email);
     return { success: true, message: 'Account unlocked successfully' };
   } catch (error) {

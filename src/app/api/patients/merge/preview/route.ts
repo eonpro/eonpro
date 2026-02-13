@@ -39,55 +39,58 @@ const previewRequestSchema = z.object({
  * - conflicts: Any warnings or errors about the merge
  * - canMerge: Whether the merge can proceed
  */
-const previewHandler = withAuth(async (request, user) => {
-  try {
-    const body = await request.json();
+const previewHandler = withAuth(
+  async (request, user) => {
+    try {
+      const body = await request.json();
 
-    // Validate request body
-    const parsed = previewRequestSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new ValidationError(
-        'Invalid preview request',
-        parsed.error.errors.map((e) => ({
-          field: e.path.join('.'),
-          message: e.message,
-          code: e.code,
-        }))
+      // Validate request body
+      const parsed = previewRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new ValidationError(
+          'Invalid preview request',
+          parsed.error.errors.map((e) => ({
+            field: e.path.join('.'),
+            message: e.message,
+            code: e.code,
+          }))
+        );
+      }
+
+      const { sourcePatientId, targetPatientId } = parsed.data;
+
+      // Validate source and target are different
+      if (sourcePatientId === targetPatientId) {
+        throw new BadRequestError('Cannot merge a patient with themselves');
+      }
+
+      // Convert auth user to service UserContext
+      const userContext: UserContext = {
+        id: user.id,
+        email: user.email,
+        role: user.role as UserContext['role'],
+        clinicId: user.clinicId,
+        patientId: user.patientId,
+      };
+
+      // Get the merge preview
+      const preview = await patientMergeService.previewMerge(
+        sourcePatientId,
+        targetPatientId,
+        userContext
       );
+
+      return Response.json({
+        success: true,
+        preview,
+      });
+    } catch (error) {
+      return handleApiError(error, {
+        context: { route: 'POST /api/patients/merge/preview' },
+      });
     }
-
-    const { sourcePatientId, targetPatientId } = parsed.data;
-
-    // Validate source and target are different
-    if (sourcePatientId === targetPatientId) {
-      throw new BadRequestError('Cannot merge a patient with themselves');
-    }
-
-    // Convert auth user to service UserContext
-    const userContext: UserContext = {
-      id: user.id,
-      email: user.email,
-      role: user.role as UserContext['role'],
-      clinicId: user.clinicId,
-      patientId: user.patientId,
-    };
-
-    // Get the merge preview
-    const preview = await patientMergeService.previewMerge(
-      sourcePatientId,
-      targetPatientId,
-      userContext
-    );
-
-    return Response.json({
-      success: true,
-      preview,
-    });
-  } catch (error) {
-    return handleApiError(error, {
-      context: { route: 'POST /api/patients/merge/preview' },
-    });
-  }
-}, { roles: ['super_admin', 'admin'] });
+  },
+  { roles: ['super_admin', 'admin'] }
+);
 
 export const POST = previewHandler;

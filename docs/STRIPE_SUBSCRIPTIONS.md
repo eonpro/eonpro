@@ -1,16 +1,20 @@
 # 💳 Stripe Subscriptions Integration
 
 ## Overview
-Enhanced Stripe integration extracted from EONPRO EHR system, adding subscription billing capabilities to the Lifefile platform.
+
+Enhanced Stripe integration extracted from EONPRO EHR system, adding subscription billing
+capabilities to the Lifefile platform.
 
 ## ✅ What's Been Added
 
 ### 1. Feature Flag System
+
 - **Location**: `src/lib/features.ts`
 - **Purpose**: Safe rollout of new features
 - **Usage**: All new integrations are behind feature flags
 
 ### 2. Subscription Components
+
 - **Location**: `src/components/stripe/SubscriptionForm.tsx`
 - **Features**:
   - Plan selection UI
@@ -19,6 +23,7 @@ Enhanced Stripe integration extracted from EONPRO EHR system, adding subscriptio
   - Feature-flag protected
 
 ### 3. API Routes
+
 - **Create Subscription**: `/api/v2/stripe/create-subscription`
 - **Webhook Handler**: `/api/v2/stripe/webhook`
 - **Features**:
@@ -30,6 +35,7 @@ Enhanced Stripe integration extracted from EONPRO EHR system, adding subscriptio
 ## 🚀 How to Enable
 
 ### 1. Environment Variables
+
 Add to your `.env.local`:
 
 ```env
@@ -48,6 +54,7 @@ NEXT_PUBLIC_STRIPE_PRICE_ENTERPRISE=price_...
 ```
 
 ### 2. Database Schema (Optional)
+
 If you want to track subscriptions in your database:
 
 ```prisma
@@ -63,13 +70,15 @@ model Subscription {
   cancelledAt         DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
-  
+
   patient Patient? @relation(fields: [patientId], references: [id])
 }
 ```
 
 ### 3. Configure Webhook
+
 In Stripe Dashboard:
+
 1. Go to Developers → Webhooks
 2. Add endpoint: `https://yourdomain.com/api/v2/stripe/webhook`
 3. Select events:
@@ -83,8 +92,9 @@ In Stripe Dashboard:
 ## 📖 Usage
 
 ### Basic Implementation
+
 ```tsx
-import SubscriptionForm from "@/components/stripe/SubscriptionForm";
+import SubscriptionForm from '@/components/stripe/SubscriptionForm';
 
 export default function BillingPage() {
   return (
@@ -97,21 +107,23 @@ export default function BillingPage() {
 ```
 
 ### With Custom Plans
+
 ```tsx
 // Modify SUBSCRIPTION_PLANS in SubscriptionForm.tsx
 const SUBSCRIPTION_PLANS = [
   {
-    id: "custom",
-    name: "Custom Plan",
-    priceId: "price_xxx",
+    id: 'custom',
+    name: 'Custom Plan',
+    priceId: 'price_xxx',
     amount: 15000, // $150.00
-    interval: "month",
-    features: ["Your features here"]
-  }
+    interval: 'month',
+    features: ['Your features here'],
+  },
 ];
 ```
 
 ### Check Subscription Status
+
 ```tsx
 // In your API route or server component
 const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -129,6 +141,7 @@ const isActive = subscription.status === 'active';
 ## 🧪 Testing
 
 ### Test Mode
+
 1. Use Stripe test keys (start with `sk_test_` and `pk_test_`)
 2. Test cards:
    - Success: `4242 4242 4242 4242`
@@ -136,6 +149,7 @@ const isActive = subscription.status === 'active';
    - Authentication: `4000 0025 0000 3155`
 
 ### Local Testing
+
 ```bash
 # Enable feature flag
 echo "NEXT_PUBLIC_ENABLE_STRIPE_SUBSCRIPTIONS=true" >> .env.local
@@ -148,7 +162,9 @@ http://localhost:5000/billing/subscriptions
 ```
 
 ### Webhook Testing
+
 Use Stripe CLI for local webhook testing:
+
 ```bash
 # Install Stripe CLI
 brew install stripe/stripe-cli/stripe
@@ -163,13 +179,16 @@ stripe listen --forward-to localhost:5000/api/v2/stripe/webhook
 ## 📊 Monitoring
 
 ### Key Metrics
+
 - Subscription conversion rate
 - Churn rate
 - Payment failure rate
 - Average revenue per user (ARPU)
 
 ### Stripe Dashboard
+
 Monitor in real-time:
+
 - Active subscriptions
 - Revenue
 - Failed payments
@@ -178,6 +197,7 @@ Monitor in real-time:
 ## 🔄 Rollback Plan
 
 If issues arise:
+
 1. Set `NEXT_PUBLIC_ENABLE_STRIPE_SUBSCRIPTIONS=false`
 2. Subscriptions form will show "Coming soon" message
 3. Existing subscriptions continue working in Stripe
@@ -201,5 +221,5 @@ If issues arise:
 - [PCI Compliance](https://stripe.com/docs/security/guide)
 
 ---
-*Integration Date: November 24, 2024*
-*Source: EONPRO INDIA EHR (Stage Branch)*
+
+_Integration Date: November 24, 2024_ _Source: EONPRO INDIA EHR (Stage Branch)_

@@ -1,15 +1,20 @@
 /**
  * AWS KMS Integration for HIPAA-Compliant Key Management
- * 
+ *
  * This module provides secure encryption key management using AWS KMS.
  * Keys are never stored in environment variables in production - they're
  * retrieved from KMS at runtime.
- * 
+ *
  * @module security/kms
  * @security CRITICAL - This module handles master encryption keys
  */
 
-import { KMSClient, DecryptCommand, GenerateDataKeyCommand, EncryptCommand } from '@aws-sdk/client-kms';
+import {
+  KMSClient,
+  DecryptCommand,
+  GenerateDataKeyCommand,
+  EncryptCommand,
+} from '@aws-sdk/client-kms';
 import { logger } from '@/lib/logger';
 
 // ============================================================================
@@ -82,16 +87,16 @@ const keyCache = new Map<string, CachedKey>();
 
 function getCachedKey(keyId: string): Buffer | null {
   const cached = keyCache.get(keyId);
-  
+
   if (!cached) {
     return null;
   }
-  
+
   if (Date.now() > cached.expiresAt) {
     keyCache.delete(keyId);
     return null;
   }
-  
+
   return cached.key;
 }
 
@@ -123,21 +128,21 @@ export async function generateDataKey(): Promise<DataKey> {
   }
 
   const client = getKMSClient();
-  
+
   try {
     const command = new GenerateDataKeyCommand({
       KeyId: KMS_CONFIG.keyId,
       KeySpec: 'AES_256',
     });
-    
+
     const response = await client.send(command);
-    
+
     if (!response.Plaintext || !response.CiphertextBlob) {
       throw new Error('KMS did not return key material');
     }
-    
+
     logger.info('Generated new data encryption key from KMS');
-    
+
     return {
       plaintext: Buffer.from(response.Plaintext),
       ciphertext: Buffer.from(response.CiphertextBlob),
@@ -164,24 +169,24 @@ export async function decryptDataKey(encryptedKey: Buffer): Promise<Buffer> {
   }
 
   const client = getKMSClient();
-  
+
   try {
     const command = new DecryptCommand({
       CiphertextBlob: encryptedKey,
       KeyId: KMS_CONFIG.keyId,
     });
-    
+
     const response = await client.send(command);
-    
+
     if (!response.Plaintext) {
       throw new Error('KMS did not return decrypted key');
     }
-    
+
     const decryptedKey = Buffer.from(response.Plaintext);
-    
+
     // Cache the decrypted key
     setCachedKey(cacheKey, decryptedKey);
-    
+
     return decryptedKey;
   } catch (error) {
     logger.error('Failed to decrypt data key from KMS', error as Error);
@@ -199,19 +204,19 @@ export async function encryptWithKMS(plaintext: Buffer): Promise<Buffer> {
   }
 
   const client = getKMSClient();
-  
+
   try {
     const command = new EncryptCommand({
       KeyId: KMS_CONFIG.keyId,
       Plaintext: plaintext,
     });
-    
+
     const response = await client.send(command);
-    
+
     if (!response.CiphertextBlob) {
       throw new Error('KMS did not return ciphertext');
     }
-    
+
     return Buffer.from(response.CiphertextBlob);
   } catch (error) {
     logger.error('Failed to encrypt with KMS', error as Error);
@@ -228,19 +233,19 @@ export async function decryptWithKMS(ciphertext: Buffer): Promise<Buffer> {
   }
 
   const client = getKMSClient();
-  
+
   try {
     const command = new DecryptCommand({
       CiphertextBlob: ciphertext,
       KeyId: KMS_CONFIG.keyId,
     });
-    
+
     const response = await client.send(command);
-    
+
     if (!response.Plaintext) {
       throw new Error('KMS did not return plaintext');
     }
-    
+
     return Buffer.from(response.Plaintext);
   } catch (error) {
     logger.error('Failed to decrypt with KMS', error as Error);
@@ -263,45 +268,45 @@ export async function getEncryptionKey(): Promise<Buffer> {
   // In development/test, use environment variable
   if (!isKMSEnabled()) {
     const keyHex = process.env.ENCRYPTION_KEY;
-    
+
     if (!keyHex || keyHex.length !== 64) {
       throw new Error(
         'ENCRYPTION_KEY must be 64 hex characters (32 bytes). ' +
-        'Generate with: openssl rand -hex 32'
+          'Generate with: openssl rand -hex 32'
       );
     }
-    
+
     return Buffer.from(keyHex, 'hex');
   }
-  
+
   // In production, fetch from KMS (with caching)
   if (!encryptionKeyPromise) {
     encryptionKeyPromise = fetchEncryptionKeyFromKMS();
   }
-  
+
   return encryptionKeyPromise;
 }
 
 async function fetchEncryptionKeyFromKMS(): Promise<Buffer> {
   // Check if we have an encrypted key in environment (envelope encryption)
   const encryptedKeyBase64 = process.env.ENCRYPTED_PHI_KEY;
-  
+
   if (encryptedKeyBase64) {
     // Decrypt the data key using KMS
     const encryptedKey = Buffer.from(encryptedKeyBase64, 'base64');
     return decryptDataKey(encryptedKey);
   }
-  
+
   // Otherwise, generate a new data key (first run setup)
   logger.warn('No ENCRYPTED_PHI_KEY found, generating new data key');
   const dataKey = await generateDataKey();
-  
+
   // Log the encrypted key for storage (should be saved to secrets manager)
   logger.info('Generated new PHI encryption key', {
     encryptedKey: dataKey.ciphertext.toString('base64'),
     note: 'Save this as ENCRYPTED_PHI_KEY in your secrets',
   });
-  
+
   return dataKey.plaintext;
 }
 
@@ -316,13 +321,13 @@ export async function rotateEncryptionKey(): Promise<{
   if (!isKMSEnabled()) {
     throw new Error('Key rotation requires KMS to be enabled');
   }
-  
+
   const dataKey = await generateDataKey();
-  
+
   logger.security('Encryption key rotated', {
     newEncryptedKey: dataKey.ciphertext.toString('base64').substring(0, 20) + '...',
   });
-  
+
   return {
     newEncryptedKey: dataKey.ciphertext.toString('base64'),
     newPlaintextKey: dataKey.plaintext,
@@ -340,19 +345,19 @@ export async function verifyKMSAccess(): Promise<boolean> {
   if (!isKMSEnabled()) {
     return true; // KMS not required in development
   }
-  
+
   try {
     // Try to generate a data key as a connectivity test
     const testKey = await generateDataKey();
-    
+
     // Verify we can decrypt it
     const decrypted = await decryptDataKey(testKey.ciphertext);
-    
+
     // Verify the decrypted key matches
     if (!testKey.plaintext.equals(decrypted)) {
       throw new Error('Key decryption verification failed');
     }
-    
+
     logger.info('KMS access verified successfully');
     return true;
   } catch (error) {

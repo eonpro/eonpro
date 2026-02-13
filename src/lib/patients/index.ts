@@ -14,7 +14,7 @@ export {
   getConversionStatusBatch,
   countPatientsByStatus,
   type PatientStatusType,
-  type PatientStatusResult
+  type PatientStatusResult,
 } from './patientStatus';
 
 export {
@@ -23,5 +23,5 @@ export {
   isValidPatientIdFormat,
   parsePatientId,
   type GeneratePatientIdOptions,
-  type GeneratePatientIdResult
+  type GeneratePatientIdResult,
 } from './patientIdGenerator';

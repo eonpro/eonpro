@@ -18,15 +18,15 @@ vi.mock('@/lib/logger', () => ({
 describe('Prescription Helper Functions', () => {
   describe('normalizeDob', () => {
     const normalizeDob = (input: string): string => {
-      if (!input) return "";
-      if (input.includes("-")) {
+      if (!input) return '';
+      if (input.includes('-')) {
         return input;
       }
-      const parts = input.split("/");
+      const parts = input.split('/');
       if (parts.length === 3) {
         const [mm, dd, yyyy] = parts;
         if (yyyy && mm && dd) {
-          return `${yyyy.padStart(4, "0")}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+          return `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
         }
       }
       return input;
@@ -60,19 +60,19 @@ describe('Prescription Helper Functions', () => {
   describe('getClinicalDifferenceStatement', () => {
     const getClinicalDifferenceStatement = (medicationName: string): string | undefined => {
       const upperMedName = medicationName.toUpperCase();
-      
-      if (upperMedName.includes("TIRZEPATIDE")) {
-        return "Beyond Medical Necessary - This individual patient would benefit from Tirzepatide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
+
+      if (upperMedName.includes('TIRZEPATIDE')) {
+        return 'Beyond Medical Necessary - This individual patient would benefit from Tirzepatide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.';
       }
-      
-      if (upperMedName.includes("SEMAGLUTIDE")) {
-        return "Beyond Medical Necessary - This individual patient would benefit from Semaglutide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
+
+      if (upperMedName.includes('SEMAGLUTIDE')) {
+        return 'Beyond Medical Necessary - This individual patient would benefit from Semaglutide with Glycine to help with muscle loss and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.';
       }
-      
-      if (upperMedName.includes("TESTOSTERONE")) {
-        return "Beyond medical necessary - This individual patient will benefit from Testosterone with grapeseed oil due to allergic reactions to commercially available one and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.";
+
+      if (upperMedName.includes('TESTOSTERONE')) {
+        return 'Beyond medical necessary - This individual patient will benefit from Testosterone with grapeseed oil due to allergic reactions to commercially available one and use compounded vials that offer flexible dosing for patients and lowest effective dose to minimize side effects and increase outcomes and compliance. By submitting this prescription, you confirm that you have reviewed available drug product options and concluded that this compounded product is necessary for the patient receiving it.';
       }
-      
+
       return undefined;
     };
 
@@ -111,7 +111,7 @@ describe('Prescription Validation', () => {
   describe('Patient Data', () => {
     const validatePatientData = (patient: any): { valid: boolean; errors: string[] } => {
       const errors: string[] = [];
-      
+
       if (!patient.firstName?.trim()) errors.push('First name is required');
       if (!patient.lastName?.trim()) errors.push('Last name is required');
       if (!patient.dob) errors.push('Date of birth is required');
@@ -121,7 +121,7 @@ describe('Prescription Validation', () => {
       if (!patient.city?.trim()) errors.push('City is required');
       if (!patient.state?.trim()) errors.push('State is required');
       if (!patient.zip?.trim()) errors.push('ZIP code is required');
-      
+
       return {
         valid: errors.length === 0,
         errors,
@@ -187,21 +187,21 @@ describe('Prescription Validation', () => {
 
     const validateRx = (rx: any): { valid: boolean; errors: string[] } => {
       const errors: string[] = [];
-      
+
       if (!rx.medicationKey) {
         errors.push('Medication key is required');
       } else if (!VALID_MEDICATION_KEYS.includes(rx.medicationKey)) {
         errors.push(`Invalid medication key: ${rx.medicationKey}`);
       }
-      
+
       if (!rx.quantity || rx.quantity < 1) {
         errors.push('Quantity must be at least 1');
       }
-      
+
       if (!rx.sig?.trim()) {
         errors.push('Directions (sig) are required');
       }
-      
+
       return {
         valid: errors.length === 0,
         errors,
@@ -394,19 +394,19 @@ describe('Shipping Methods', () => {
   ];
 
   it('should have standard shipping option', () => {
-    const standard = SHIPPING_METHODS.find(m => m.id === 'standard');
+    const standard = SHIPPING_METHODS.find((m) => m.id === 'standard');
     expect(standard).toBeDefined();
     expect(standard?.label).toContain('Standard');
   });
 
   it('should have express shipping option', () => {
-    const express = SHIPPING_METHODS.find(m => m.id === 'express');
+    const express = SHIPPING_METHODS.find((m) => m.id === 'express');
     expect(express).toBeDefined();
   });
 
   it('should format shipping label correctly', () => {
     const getShippingLabel = (id: string): string => {
-      const method = SHIPPING_METHODS.find(m => m.id === id);
+      const method = SHIPPING_METHODS.find((m) => m.id === id);
       return method?.label ?? `Service ${id}`;
     };
 
@@ -468,7 +468,10 @@ describe('Error Handling', () => {
   describe('Error Types', () => {
     it('should categorize validation errors', () => {
       const ValidationError = class extends Error {
-        constructor(message: string, public field: string) {
+        constructor(
+          message: string,
+          public field: string
+        ) {
           super(message);
           this.name = 'ValidationError';
         }
@@ -481,7 +484,10 @@ describe('Error Handling', () => {
 
     it('should categorize API errors', () => {
       const APIError = class extends Error {
-        constructor(message: string, public statusCode: number) {
+        constructor(
+          message: string,
+          public statusCode: number
+        ) {
           super(message);
           this.name = 'APIError';
         }

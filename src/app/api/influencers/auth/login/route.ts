@@ -8,15 +8,12 @@ import { logger } from '@/lib/logger';
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
-    
+
     logger.debug('[Influencer Auth] Login attempt for:', { value: email });
     logger.debug('[Influencer Auth] Prisma instance:', { exists: !!prisma });
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
     // Find influencer by email
@@ -24,16 +21,13 @@ export async function POST(req: NextRequest) {
     if (!prisma) {
       throw new Error('Prisma client is not initialized');
     }
-    
+
     const influencer = await prisma.influencer.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
     });
 
     if (!influencer) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
     // Check if influencer has a password set
@@ -50,26 +44,23 @@ export async function POST(req: NextRequest) {
     try {
       isPasswordValid = await bcrypt.compare(password, influencer.passwordHash);
     } catch (err: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[Influencer Auth] Password comparison error:', err);
       throw err;
     }
-    
+
     if (!isPasswordValid) {
       logger.debug('[Influencer Auth] Password invalid');
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
     logger.debug('[Influencer Auth] Password valid');
 
     // Check if influencer is active
     if (influencer.status !== 'ACTIVE') {
-      logger.debug('[Influencer Auth] Status check failed:', { 
-        actual: influencer.status, 
-        expected: 'ACTIVE' 
+      logger.debug('[Influencer Auth] Status check failed:', {
+        actual: influencer.status,
+        expected: 'ACTIVE',
       });
       return NextResponse.json(
         { error: `Account is ${influencer.status.toLowerCase()}` },
@@ -80,7 +71,7 @@ export async function POST(req: NextRequest) {
     // Update last login
     await prisma.influencer.update({
       where: { id: influencer.id },
-      data: { lastLogin: new Date() }
+      data: { lastLogin: new Date() },
     });
 
     // Create JWT token
@@ -88,7 +79,7 @@ export async function POST(req: NextRequest) {
       id: influencer.id,
       email: influencer.email,
       name: influencer.name,
-      promoCode: influencer.promoCode
+      promoCode: influencer.promoCode,
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
@@ -103,29 +94,26 @@ export async function POST(req: NextRequest) {
         name: influencer.name,
         email: influencer.email,
         promoCode: influencer.promoCode,
-        commissionRate: influencer.commissionRate
-      }
+        commissionRate: influencer.commissionRate,
+      },
     });
 
     // Set HTTP-only cookie
     response.cookies.set('influencer-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "test",
+      secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/'
+      path: '/',
     });
 
     return response;
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Influencer Auth] Login error:', error);
     logger.error('[Influencer Auth] Error stack:', { value: error.stack });
-    return NextResponse.json(
-      { error: errorMessage || 'Failed to login' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage || 'Failed to login' }, { status: 500 });
   }
 }

@@ -15,7 +15,18 @@ import { z } from 'zod';
 const updateUserSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER', 'PATIENT', 'STAFF', 'SUPPORT', 'SALES_REP']).optional(),
+  role: z
+    .enum([
+      'SUPER_ADMIN',
+      'ADMIN',
+      'PROVIDER',
+      'INFLUENCER',
+      'PATIENT',
+      'STAFF',
+      'SUPPORT',
+      'SALES_REP',
+    ])
+    .optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION', 'LOCKED']).optional(),
   clinicId: z.number().nullable().optional(),
   permissions: z.array(z.string()).optional(),
@@ -206,7 +217,7 @@ async function updateUserHandler(
           userId: userId,
           action: 'USER_UPDATED',
           details: {
-            updatedBy: user.email,
+            updatedBy: user.id,
             updatedByRole: user.role,
             changes: Object.keys(validated),
             passwordChanged: !!validated.password,
@@ -221,7 +232,7 @@ async function updateUserHandler(
       logger.warn('Failed to create audit log:', { error: errMsg });
     }
 
-    logger.info(`User ${targetUser.email} updated by ${user.email}`);
+    logger.info('User updated', { targetUserId: targetUser.id, userId: user.id });
 
     return NextResponse.json({
       success: true,
@@ -262,18 +273,12 @@ async function deleteUserHandler(
     // Only super_admin can delete users
     const isSuperAdmin = user.role === 'super_admin';
     if (!isSuperAdmin) {
-      return NextResponse.json(
-        { error: 'Only Super Admins can delete users' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Only Super Admins can delete users' }, { status: 403 });
     }
 
     // Prevent self-deletion
     if (userId === user.id) {
-      return NextResponse.json(
-        { error: 'You cannot delete your own account' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -291,7 +296,7 @@ async function deleteUserHandler(
     if (action === 'delete') {
       // Hard delete
       await prisma.user.delete({ where: { id: userId } });
-      logger.warn(`User ${targetUser.email} permanently deleted by ${user.email}`);
+      logger.warn('User permanently deleted', { targetUserId: targetUser.id, userId: user.id });
 
       return NextResponse.json({
         success: true,
@@ -307,7 +312,7 @@ async function deleteUserHandler(
         },
       });
 
-      logger.info(`User ${targetUser.email} suspended by ${user.email}`);
+      logger.info('User suspended', { targetUserId: targetUser.id, userId: user.id });
 
       return NextResponse.json({
         success: true,
@@ -322,22 +327,17 @@ async function deleteUserHandler(
 
 // Wrap handlers with auth
 const wrappedGetHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withAuth((r: NextRequest, u: AuthUser) =>
-    getUserHandler(r, u, context)
-  )(req);
+  return withAuth((r: NextRequest, u: AuthUser) => getUserHandler(r, u, context))(req);
 };
 
 const wrappedPutHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withAuth((r: NextRequest, u: AuthUser) =>
-    updateUserHandler(r, u, context)
-  )(req);
+  return withAuth((r: NextRequest, u: AuthUser) => updateUserHandler(r, u, context))(req);
 };
 
 const wrappedDeleteHandler = (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-  return withAuth((r: NextRequest, u: AuthUser) =>
-    deleteUserHandler(r, u, context),
-    { roles: ['super_admin'] }
-  )(req);
+  return withAuth((r: NextRequest, u: AuthUser) => deleteUserHandler(r, u, context), {
+    roles: ['super_admin'],
+  })(req);
 };
 
 export const GET = wrappedGetHandler as any;

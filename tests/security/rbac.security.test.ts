@@ -1,16 +1,24 @@
 /**
  * Role-Based Access Control Security Tests
  * ========================================
- * 
+ *
  * Tests for authorization and role-based access including:
  * - Role hierarchy
  * - Permission enforcement
  * - Privilege escalation prevention
- * 
+ * - Centralized RBAC (requirePermission / hasPermission / PERMISSION_MATRIX)
+ *
  * @module tests/security/rbac
  */
 
 import { describe, it, expect } from 'vitest';
+import {
+  hasPermission,
+  requirePermission,
+  toPermissionContext,
+  PERMISSION_MATRIX,
+  type PermissionContext,
+} from '@/lib/rbac/permissions';
 
 // Role definitions matching the system
 const ROLES = {
@@ -184,7 +192,7 @@ describe('Role-Based Access Control', () => {
 
     it('should log privilege-escalated actions', () => {
       const auditLog: any[] = [];
-      
+
       const logPrivilegedAction = (userId: number, action: string, targetId: number) => {
         auditLog.push({
           timestamp: new Date(),
@@ -194,11 +202,98 @@ describe('Role-Based Access Control', () => {
           privileged: true,
         });
       };
-      
+
       logPrivilegedAction(1, 'USER_DELETE', 123);
-      
+
       expect(auditLog.length).toBe(1);
       expect(auditLog[0].privileged).toBe(true);
+    });
+  });
+
+  describe('Centralized RBAC (requirePermission / hasPermission)', () => {
+    it('provider cannot invoice:export', () => {
+      const ctx: PermissionContext = toPermissionContext({
+        role: 'provider',
+        clinicId: 1,
+      });
+      expect(hasPermission(ctx, 'invoice:export')).toBe(false);
+      expect(() => requirePermission(ctx, 'invoice:export')).toThrow('Forbidden');
+      const err = (() => {
+        try {
+          requirePermission(ctx, 'invoice:export');
+        } catch (e) {
+          return e as Error & { statusCode?: number };
+        }
+        return null;
+      })();
+      expect(err?.statusCode).toBe(403);
+    });
+
+    it('staff cannot patient:edit', () => {
+      const ctx: PermissionContext = toPermissionContext({
+        role: 'staff',
+        clinicId: 1,
+      });
+      expect(hasPermission(ctx, 'patient:edit')).toBe(false);
+      expect(() => requirePermission(ctx, 'patient:edit')).toThrow('Forbidden');
+    });
+
+    it('sales_rep cannot financial:view', () => {
+      const ctx: PermissionContext = toPermissionContext({
+        role: 'sales_rep',
+        clinicId: 1,
+      });
+      expect(hasPermission(ctx, 'financial:view')).toBe(false);
+      expect(() => requirePermission(ctx, 'financial:view')).toThrow('Forbidden');
+    });
+
+    it('admin can perform admin-level actions', () => {
+      const ctx: PermissionContext = toPermissionContext({
+        role: 'admin',
+        clinicId: 1,
+      });
+      // PERMISSION_MATRIX documents admin capabilities
+      expect(PERMISSION_MATRIX.admin?.['financial:view']).toBe(true);
+      expect(PERMISSION_MATRIX.admin?.['invoice:export']).toBe(true);
+      expect(PERMISSION_MATRIX.admin?.['patient:edit']).toBe(true);
+      expect(PERMISSION_MATRIX.admin?.['report:run']).toBe(true);
+      expect(PERMISSION_MATRIX.admin?.['invoice:view']).toBe(true);
+      // requirePermission must not throw for admin on these actions
+      expect(() => {
+        requirePermission(ctx, 'financial:view');
+        requirePermission(ctx, 'invoice:export');
+        requirePermission(ctx, 'patient:edit');
+        requirePermission(ctx, 'report:run');
+        requirePermission(ctx, 'invoice:view');
+      }).not.toThrow();
+    });
+
+    it('super_admin has all permissions in matrix', () => {
+      const role = 'super_admin';
+      const matrix = PERMISSION_MATRIX[role];
+      expect(matrix).toBeDefined();
+      expect(matrix['patient:view']).toBe(true);
+      expect(matrix['patient:edit']).toBe(true);
+      expect(matrix['invoice:export']).toBe(true);
+      expect(matrix['financial:view']).toBe(true);
+      expect(matrix['report:run']).toBe(true);
+      expect(matrix['message:view']).toBe(true);
+      expect(matrix['message:send']).toBe(true);
+      expect(matrix['order:view']).toBe(true);
+      expect(matrix['order:create']).toBe(true);
+    });
+
+    it('toPermissionContext normalizes user shape', () => {
+      const ctx = toPermissionContext({
+        role: 'provider',
+        clinicId: 2,
+        patientId: undefined,
+        providerId: 5,
+      });
+      expect(ctx.role).toBe('provider');
+      expect(ctx.clinicId).toBe(2);
+      expect(ctx.patientId).toBeNull();
+      expect(ctx.providerId).toBe(5);
     });
   });
 });

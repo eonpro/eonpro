@@ -27,9 +27,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(
-        new URL(`${REDIRECT_BASE}?error=missing_params`, req.url)
-      );
+      return NextResponse.redirect(new URL(`${REDIRECT_BASE}?error=missing_params`, req.url));
     }
 
     // Decode state to get provider and clinic IDs
@@ -37,22 +35,19 @@ export async function GET(req: NextRequest) {
     try {
       stateData = JSON.parse(Buffer.from(state, 'base64').toString());
     } catch {
-      return NextResponse.redirect(
-        new URL(`${REDIRECT_BASE}?error=invalid_state`, req.url)
-      );
+      return NextResponse.redirect(new URL(`${REDIRECT_BASE}?error=invalid_state`, req.url));
     }
 
     // Exchange code for tokens
-    const result = await exchangeCodeForTokens(
-      code,
-      stateData.providerId,
-      stateData.clinicId
-    );
+    const result = await exchangeCodeForTokens(code, stateData.providerId, stateData.clinicId);
 
     if (!result.success) {
       logger.error('Failed to exchange Google code', { error: result.error });
       return NextResponse.redirect(
-        new URL(`${REDIRECT_BASE}?error=${encodeURIComponent(result.error || 'exchange_failed')}`, req.url)
+        new URL(
+          `${REDIRECT_BASE}?error=${encodeURIComponent(result.error || 'exchange_failed')}`,
+          req.url
+        )
       );
     }
 
@@ -60,9 +55,7 @@ export async function GET(req: NextRequest) {
       providerId: stateData.providerId,
     });
 
-    return NextResponse.redirect(
-      new URL(`${REDIRECT_BASE}?success=google_connected`, req.url)
-    );
+    return NextResponse.redirect(new URL(`${REDIRECT_BASE}?success=google_connected`, req.url));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Google OAuth callback error', { error: errorMessage });

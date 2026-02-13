@@ -1,14 +1,14 @@
 /**
  * Patient Status Utility
  * ======================
- * 
+ *
  * Provides functions to determine if a patient has been "converted" from
  * an intake to a full patient based on payment or prescription activity.
- * 
+ *
  * Conversion criteria:
  * - Has a Payment with status = SUCCEEDED
  * - OR has any Order record (indicating prescription was written)
- * 
+ *
  * @module lib/patients/patientStatus
  */
 
@@ -30,18 +30,18 @@ export interface PatientStatusResult {
 export async function isConvertedPatient(patientId: number): Promise<boolean> {
   const [payment, order] = await Promise.all([
     prisma.payment.findFirst({
-      where: { 
-        patientId, 
-        status: 'SUCCEEDED' 
+      where: {
+        patientId,
+        status: 'SUCCEEDED',
       },
-      select: { id: true }
+      select: { id: true },
     }),
     prisma.order.findFirst({
       where: { patientId },
-      select: { id: true }
-    })
+      select: { id: true },
+    }),
   ]);
-  
+
   return !!(payment || order);
 }
 
@@ -51,31 +51,31 @@ export async function isConvertedPatient(patientId: number): Promise<boolean> {
 export async function getPatientStatus(patientId: number): Promise<PatientStatusResult> {
   const [payment, order] = await Promise.all([
     prisma.payment.findFirst({
-      where: { 
-        patientId, 
-        status: 'SUCCEEDED' 
+      where: {
+        patientId,
+        status: 'SUCCEEDED',
       },
-      select: { 
-        id: true, 
+      select: {
+        id: true,
         paidAt: true,
-        createdAt: true
+        createdAt: true,
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     }),
     prisma.order.findFirst({
       where: { patientId },
-      select: { 
-        id: true, 
-        createdAt: true 
+      select: {
+        id: true,
+        createdAt: true,
       },
-      orderBy: { createdAt: 'asc' }
-    })
+      orderBy: { createdAt: 'asc' },
+    }),
   ]);
-  
+
   const hasSuccessfulPayment = !!payment;
   const hasOrder = !!order;
   const isConverted = hasSuccessfulPayment || hasOrder;
-  
+
   // Determine conversion date (earliest of payment or order)
   let convertedAt: Date | undefined;
   if (isConverted) {
@@ -83,17 +83,17 @@ export async function getPatientStatus(patientId: number): Promise<PatientStatus
     if (payment?.paidAt) dates.push(payment.paidAt);
     if (payment?.createdAt) dates.push(payment.createdAt);
     if (order?.createdAt) dates.push(order.createdAt);
-    
+
     if (dates.length > 0) {
-      convertedAt = new Date(Math.min(...dates.map(d => d.getTime())));
+      convertedAt = new Date(Math.min(...dates.map((d) => d.getTime())));
     }
   }
-  
+
   return {
     status: isConverted ? 'patient' : 'intake',
     hasSuccessfulPayment,
     hasOrder,
-    convertedAt
+    convertedAt,
   };
 }
 
@@ -103,34 +103,34 @@ export async function getPatientStatus(patientId: number): Promise<PatientStatus
  */
 export async function getConvertedPatientIds(clinicId?: number): Promise<Set<number>> {
   const whereClause = clinicId ? { clinicId } : {};
-  
+
   const [patientsWithPayments, patientsWithOrders] = await Promise.all([
     prisma.payment.findMany({
-      where: { 
+      where: {
         status: 'SUCCEEDED',
-        patient: whereClause
+        patient: whereClause,
       },
       select: { patientId: true },
-      distinct: ['patientId']
+      distinct: ['patientId'],
     }),
     prisma.order.findMany({
       where: {
-        patient: whereClause
+        patient: whereClause,
       },
       select: { patientId: true },
-      distinct: ['patientId']
-    })
+      distinct: ['patientId'],
+    }),
   ]);
-  
+
   const convertedIds = new Set<number>();
-  
+
   for (const p of patientsWithPayments) {
     convertedIds.add(p.patientId);
   }
   for (const o of patientsWithOrders) {
     convertedIds.add(o.patientId);
   }
-  
+
   return convertedIds;
 }
 
@@ -144,25 +144,25 @@ export async function getConversionStatusBatch(
   if (patientIds.length === 0) {
     return new Map();
   }
-  
+
   const [paymentsResult, ordersResult] = await Promise.all([
     prisma.payment.findMany({
-      where: { 
+      where: {
         patientId: { in: patientIds },
-        status: 'SUCCEEDED' 
+        status: 'SUCCEEDED',
       },
       select: { patientId: true },
-      distinct: ['patientId']
+      distinct: ['patientId'],
     }),
     prisma.order.findMany({
-      where: { 
-        patientId: { in: patientIds }
+      where: {
+        patientId: { in: patientIds },
       },
       select: { patientId: true },
-      distinct: ['patientId']
-    })
+      distinct: ['patientId'],
+    }),
   ]);
-  
+
   const convertedIds = new Set<number>();
   for (const p of paymentsResult) {
     convertedIds.add(p.patientId);
@@ -170,12 +170,12 @@ export async function getConversionStatusBatch(
   for (const o of ordersResult) {
     convertedIds.add(o.patientId);
   }
-  
+
   const result = new Map<number, boolean>();
   for (const id of patientIds) {
     result.set(id, convertedIds.has(id));
   }
-  
+
   return result;
 }
 
@@ -188,18 +188,18 @@ export async function countPatientsByStatus(clinicId?: number): Promise<{
   patients: number;
 }> {
   const whereClause = clinicId ? { clinicId } : {};
-  
+
   const [totalCount, convertedIds] = await Promise.all([
     prisma.patient.count({ where: whereClause }),
-    getConvertedPatientIds(clinicId)
+    getConvertedPatientIds(clinicId),
   ]);
-  
+
   const patientsCount = convertedIds.size;
   const intakesCount = totalCount - patientsCount;
-  
+
   return {
     total: totalCount,
     intakes: intakesCount,
-    patients: patientsCount
+    patients: patientsCount,
   };
 }

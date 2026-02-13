@@ -1,19 +1,19 @@
 /**
  * Zoom Webhook Handler
- * 
+ *
  * Receives and processes Zoom webhook events for telehealth sessions.
  * Events: meeting.started, meeting.ended, participant_joined, etc.
- * 
+ *
  * @see https://marketplace.zoom.us/docs/api-reference/webhook-reference/
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { zoomConfig, ZOOM_WEBHOOK_EVENTS } from '@/lib/integrations/zoom/config';
-import { 
-  handleZoomWebhook, 
+import {
+  handleZoomWebhook,
   verifyWebhookSignature,
-  WebhookPayload 
+  WebhookPayload,
 } from '@/lib/integrations/zoom/telehealthService';
 import crypto from 'crypto';
 
@@ -25,11 +25,9 @@ export async function POST(req: NextRequest) {
   try {
     // Get raw body for signature verification
     const rawBody = await req.text();
-    let payload: any;
-
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const payload = safeParseJsonString<Record<string, unknown>>(rawBody);
+    if (payload === null) {
       logger.warn('Zoom webhook: Invalid JSON payload');
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
@@ -45,7 +43,7 @@ export async function POST(req: NextRequest) {
           .digest('hex');
 
         logger.info('Zoom webhook: URL validation request', { plainToken });
-        
+
         return NextResponse.json({
           plainToken,
           encryptedToken,

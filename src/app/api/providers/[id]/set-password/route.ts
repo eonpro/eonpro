@@ -17,10 +17,7 @@ import { handleApiError, ValidationError } from '@/domains/shared/errors';
  *
  * Request body: { password: string, confirmPassword: string }
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const resolvedParams = await params;
     const providerId = parseInt(resolvedParams.id, 10);
@@ -33,9 +30,7 @@ export async function POST(
 
     // Get actor email from headers
     const actorEmail =
-      request.headers.get('x-actor-email') ??
-      request.headers.get('x-user-email') ??
-      'system';
+      request.headers.get('x-actor-email') ?? request.headers.get('x-user-email') ?? 'system';
 
     const result = await providerService.setPassword(providerId, body, actorEmail);
 

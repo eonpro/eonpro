@@ -1,6 +1,6 @@
 /**
  * Affiliate Ref Codes API
- * 
+ *
  * GET - List affiliate's referral codes with stats
  * POST - Create a new referral code
  */
@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
 import crypto from 'crypto';
 
 const MAX_REF_CODES = 10;
@@ -48,21 +49,22 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         isActive: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     // Get stats for each ref code
     const refCodeStats = await Promise.all(
-      refCodes.map(async (code: typeof refCodes[number]) => {
+      refCodes.map(async (code: (typeof refCodes)[number]) => {
         // Get click count and last click from touches
         const [clickCount, lastClick] = await Promise.all([
           prisma.affiliateTouch.count({
-            where: { 
+            where: {
               affiliateId,
               refCode: code.refCode,
             },
           }),
           prisma.affiliateTouch.findFirst({
-            where: { 
+            where: {
               affiliateId,
               refCode: code.refCode,
             },
@@ -74,21 +76,23 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         // Get conversion count by finding touches with this refCode that have commission events
         // Note: This is an approximation since touchId links are optional
         const touchesWithRefCode = await prisma.affiliateTouch.findMany({
-          where: { 
+          where: {
             affiliateId,
             refCode: code.refCode,
           },
           select: { id: true },
+          take: AGGREGATION_TAKE,
         });
-        
-        const conversions = touchesWithRefCode.length > 0 
-          ? await prisma.affiliateCommissionEvent.count({
-              where: {
-                affiliateId,
-                touchId: { in: touchesWithRefCode.map((t: { id: number }) => t.id) },
-              },
-            })
-          : 0;
+
+        const conversions =
+          touchesWithRefCode.length > 0
+            ? await prisma.affiliateCommissionEvent.count({
+                where: {
+                  affiliateId,
+                  touchId: { in: touchesWithRefCode.map((t: { id: number }) => t.id) },
+                },
+              })
+            : 0;
 
         return {
           id: code.id.toString(),
@@ -121,10 +125,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate RefCodes] GET error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch ref codes' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch ref codes' }, { status: 500 });
   }
 }
 
@@ -138,10 +139,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     const { name } = await request.json();
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
     // Get affiliate
@@ -169,7 +167,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     // Generate unique ref code
     let refCode: string;
     let attempts = 0;
-    
+
     do {
       // Generate a short, readable code
       const randomPart = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -177,9 +175,9 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       attempts++;
     } while (
       attempts < 10 &&
-      await prisma.affiliateRefCode.findFirst({
+      (await prisma.affiliateRefCode.findFirst({
         where: { clinicId: affiliate.clinicId, refCode },
-      })
+      }))
     );
 
     // Create ref code
@@ -211,10 +209,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate RefCodes] POST error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to create ref code' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create ref code' }, { status: 500 });
   }
 }
 

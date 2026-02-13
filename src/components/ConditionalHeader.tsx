@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ClinicSwitcher } from "@/components/clinic/ClinicSwitcher";
-import { LogOut, User, Shield, Menu, X, ChevronRight } from "lucide-react";
-import { useState, useEffect } from "react";
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { ClinicSwitcher } from '@/components/clinic/ClinicSwitcher';
+import { LogOut, User, Shield, Menu, X, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface NavLink {
   href: string;
@@ -47,8 +47,16 @@ export default function ConditionalHeader() {
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('provider-token') || localStorage.getItem('super_admin-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('provider-token') ||
+      localStorage.getItem('super_admin-token');
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
     localStorage.removeItem('auth-token');
     localStorage.removeItem('admin-token');
     localStorage.removeItem('provider-token');
@@ -56,14 +64,16 @@ export default function ConditionalHeader() {
     localStorage.removeItem('user');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    document.cookie.split(';').forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, '')
+        .replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
     });
     window.location.href = '/login';
   };
 
   const userRole = user?.role?.toLowerCase() || '';
-  
+
   // Define navigation links with role access
   const navLinks: NavLink[] = [
     { href: '/super-admin', label: 'Super Admin', roles: ['super_admin'] },
@@ -75,8 +85,8 @@ export default function ConditionalHeader() {
     { href: '/settings', label: 'Settings', roles: ['admin', 'super_admin'] },
   ];
 
-  const visibleLinks = navLinks.filter(link => link.roles.includes(userRole));
-  
+  const visibleLinks = navLinks.filter((link) => link.roles.includes(userRole));
+
   const noHeaderPages = [
     '/',
     '/login',
@@ -97,10 +107,12 @@ export default function ConditionalHeader() {
     '/patients',
     '/intake-forms',
   ];
-  
-  const isNoHeaderPage = noHeaderPages.some(page => pathname?.startsWith(page)) && !pathname?.startsWith('/portal/affiliate');
+
+  const isNoHeaderPage =
+    noHeaderPages.some((page) => pathname?.startsWith(page)) &&
+    !pathname?.startsWith('/portal/affiliate');
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
-  
+
   if (isNoHeaderPage) {
     return null;
   }
@@ -112,84 +124,90 @@ export default function ConditionalHeader() {
 
   return (
     <>
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           {/* Logo + Clinic Switcher */}
           <div className="flex items-center gap-3">
             <Link href={getDashboardLink()} className="flex-shrink-0">
               <img
                 src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
                 alt="EONPRO logo"
-                className="h-8 sm:h-10 w-auto"
+                className="h-8 w-auto sm:h-10"
               />
             </Link>
-            
+
             {multiClinicEnabled && userRole !== 'super_admin' && (
-              <div className="hidden sm:block border-l border-gray-300 pl-3">
+              <div className="hidden border-l border-gray-300 pl-3 sm:block">
                 <ClinicSwitcher />
               </div>
             )}
-            
+
             {userRole === 'super_admin' && (
-              <span className="hidden sm:inline-block px-2 py-1 bg-slate-800 text-white text-xs font-medium rounded">
+              <span className="hidden rounded bg-slate-800 px-2 py-1 text-xs font-medium text-white sm:inline-block">
                 Super Admin
               </span>
             )}
           </div>
-          
+
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1 xl:space-x-4">
+          <nav className="hidden items-center space-x-1 lg:flex xl:space-x-4">
             {visibleLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   pathname === link.href || pathname?.startsWith(link.href + '/')
-                    ? 'text-teal-600 bg-teal-50' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-teal-50 text-teal-600'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 {link.label}
               </Link>
             ))}
-            
+
             {/* Desktop User Menu */}
             <div className="relative ml-2">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  userRole === 'super_admin' ? 'bg-slate-800' : 'bg-teal-100'
-                }`}>
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    userRole === 'super_admin' ? 'bg-slate-800' : 'bg-teal-100'
+                  }`}
+                >
                   {userRole === 'super_admin' ? (
-                    <Shield className="w-4 h-4 text-white" />
+                    <Shield className="h-4 w-4 text-white" />
                   ) : (
-                    <User className="w-4 h-4 text-teal-600" />
+                    <User className="h-4 w-4 text-teal-600" />
                   )}
                 </div>
               </button>
-              
+
               {showDropdown && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowDropdown(false)}
-                  />
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">{user?.name || user?.email}</p>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
+                    <div className="border-b border-gray-100 px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user?.name || user?.email}
+                      </p>
                       <p className="text-xs text-gray-500">{user?.email}</p>
-                      <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded ${
-                        userRole === 'super_admin' ? 'bg-slate-800 text-white' :
-                        userRole === 'admin' ? 'bg-purple-100 text-purple-700' :
-                        userRole === 'provider' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span
+                        className={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                          userRole === 'super_admin'
+                            ? 'bg-slate-800 text-white'
+                            : userRole === 'admin'
+                              ? 'bg-purple-100 text-purple-700'
+                              : userRole === 'provider'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
                         {user?.role?.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
-                    
+
                     {userRole === 'super_admin' && (
                       <Link
                         href="/super-admin"
@@ -199,13 +217,13 @@ export default function ConditionalHeader() {
                         Super Admin Dashboard
                       </Link>
                     )}
-                    
+
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     >
-                      <LogOut className="w-4 h-4" />
+                      <LogOut className="h-4 w-4" />
                       Sign Out
                     </button>
                   </div>
@@ -217,38 +235,40 @@ export default function ConditionalHeader() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition"
+            className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 lg:hidden"
             aria-label="Open menu"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="h-6 w-6" />
           </button>
         </div>
       </header>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 lg:hidden"
+        <div
+          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Mobile Menu Drawer */}
-      <div 
-        className={`fixed top-0 right-0 h-full w-[85%] max-w-sm bg-white z-50 transform transition-transform duration-300 ease-out lg:hidden ${
+      <div
+        className={`fixed right-0 top-0 z-50 h-full w-[85%] max-w-sm transform bg-white transition-transform duration-300 ease-out lg:hidden ${
           mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Mobile Menu Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between border-b border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              userRole === 'super_admin' ? 'bg-slate-800' : 'bg-teal-100'
-            }`}>
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                userRole === 'super_admin' ? 'bg-slate-800' : 'bg-teal-100'
+              }`}
+            >
               {userRole === 'super_admin' ? (
-                <Shield className="w-5 h-5 text-white" />
+                <Shield className="h-5 w-5 text-white" />
               ) : (
-                <User className="w-5 h-5 text-teal-600" />
+                <User className="h-5 w-5 text-teal-600" />
               )}
             </div>
             <div>
@@ -258,22 +278,27 @@ export default function ConditionalHeader() {
           </div>
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
+            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
             aria-label="Close menu"
           >
-            <X className="w-6 h-6" />
+            <X className="h-6 w-6" />
           </button>
         </div>
 
         {/* Mobile Role Badge */}
         {user?.role && (
-          <div className="px-4 py-2 border-b border-gray-100">
-            <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-              userRole === 'super_admin' ? 'bg-slate-800 text-white' :
-              userRole === 'admin' ? 'bg-purple-100 text-purple-700' :
-              userRole === 'provider' ? 'bg-blue-100 text-blue-700' :
-              'bg-gray-100 text-gray-700'
-            }`}>
+          <div className="border-b border-gray-100 px-4 py-2">
+            <span
+              className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                userRole === 'super_admin'
+                  ? 'bg-slate-800 text-white'
+                  : userRole === 'admin'
+                    ? 'bg-purple-100 text-purple-700'
+                    : userRole === 'provider'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-700'
+              }`}
+            >
               {user?.role?.replace('_', ' ').toUpperCase()}
             </span>
           </div>
@@ -281,8 +306,8 @@ export default function ConditionalHeader() {
 
         {/* Mobile Clinic Switcher */}
         {multiClinicEnabled && userRole !== 'super_admin' && (
-          <div className="px-4 py-3 border-b border-gray-200">
-            <p className="text-xs font-medium text-gray-500 uppercase mb-2">Clinic</p>
+          <div className="border-b border-gray-200 px-4 py-3">
+            <p className="mb-2 text-xs font-medium uppercase text-gray-500">Clinic</p>
             <ClinicSwitcher />
           </div>
         )}
@@ -296,28 +321,30 @@ export default function ConditionalHeader() {
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center justify-between px-4 py-3.5 text-base font-medium transition ${
                 pathname === link.href || pathname?.startsWith(link.href + '/')
-                  ? 'text-teal-600 bg-teal-50 border-r-4 border-teal-600' 
+                  ? 'border-r-4 border-teal-600 bg-teal-50 text-teal-600'
                   : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
               }`}
             >
               <span>{link.label}</span>
-              <ChevronRight className={`w-5 h-5 ${
-                pathname === link.href || pathname?.startsWith(link.href + '/')
-                  ? 'text-teal-600' 
-                  : 'text-gray-400'
-              }`} />
+              <ChevronRight
+                className={`h-5 w-5 ${
+                  pathname === link.href || pathname?.startsWith(link.href + '/')
+                    ? 'text-teal-600'
+                    : 'text-gray-400'
+                }`}
+              />
             </Link>
           ))}
         </nav>
 
         {/* Mobile Menu Footer */}
-        <div className="border-t border-gray-200 p-4 safe-bottom">
+        <div className="safe-bottom border-t border-gray-200 p-4">
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 active:bg-red-200 transition"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 font-medium text-red-600 transition hover:bg-red-100 active:bg-red-200"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="h-5 w-5" />
             Sign Out
           </button>
         </div>

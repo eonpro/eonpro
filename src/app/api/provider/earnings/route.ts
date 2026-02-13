@@ -1,6 +1,6 @@
 /**
  * Provider Earnings API
- * 
+ *
  * GET - Get current provider's earnings summary and history
  */
 
@@ -14,7 +14,7 @@ type DateRangePeriod = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'ytd';
 /**
  * GET /api/provider/earnings
  * Get current provider's earnings summary
- * 
+ *
  * Query params:
  * - period: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'ytd' | 'custom'
  * - startDate: ISO date string (required if period=custom)
@@ -41,7 +41,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Check if compensation is enabled
     const config = await providerRoutingService.getRoutingConfig(clinicId);
-    
+
     if (!config?.compensationEnabled) {
       return NextResponse.json({
         enabled: false,
@@ -65,7 +65,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Calculate date range
     let dateRange;
-    
+
     if (period === 'custom') {
       if (!startDateParam || !endDateParam) {
         return NextResponse.json(
@@ -82,10 +82,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Get compensation plan
-    const plan = await providerCompensationService.getCompensationPlan(
-      clinicId,
-      providerId
-    );
+    const plan = await providerCompensationService.getCompensationPlan(clinicId, providerId);
 
     // Get earnings for the period
     const earnings = await providerCompensationService.getProviderEarnings(

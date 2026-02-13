@@ -178,9 +178,7 @@ async function persistEventAsync(event: AddressValidationEvent): Promise<void> {
         processingTimeMs: event.processingTimeMs || null,
         errorMessage: event.errorMessage || null,
         // Store hashed/truncated input for debugging (not full PHI)
-        inputPreview: event.originalInput
-          ? event.originalInput.substring(0, 20) + '...'
-          : null,
+        inputPreview: event.originalInput ? event.originalInput.substring(0, 20) + '...' : null,
         createdAt: new Date(),
       },
     });
@@ -222,9 +220,7 @@ export function getAddressValidationMetrics(): {
         ? ((metrics.smartyValidated + metrics.smartyCorrected) / totalSmartyAttempts) * 100
         : 0,
     averageProcessingTimeMs:
-      metrics.totalRequests > 0
-        ? metrics.totalProcessingTimeMs / metrics.totalRequests
-        : 0,
+      metrics.totalRequests > 0 ? metrics.totalProcessingTimeMs / metrics.totalRequests : 0,
     totalRequests: metrics.totalRequests,
     breakdown: { ...metrics },
   };

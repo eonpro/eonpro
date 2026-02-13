@@ -13,7 +13,10 @@ import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import { getStripeForClinic, withConnectedAccount } from '@/lib/stripe/connect';
-import { syncSubscriptionFromStripe, cancelSubscriptionFromStripe } from '@/services/stripe/subscriptionSyncService';
+import {
+  syncSubscriptionFromStripe,
+  cancelSubscriptionFromStripe,
+} from '@/services/stripe/subscriptionSyncService';
 import type Stripe from 'stripe';
 
 export async function POST(request: NextRequest) {
@@ -43,9 +46,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Stripe is not configured for this clinic',
-          details: msg.includes('not configured') || msg.includes('not found')
-            ? msg
-            : 'Set EONMEDS_STRIPE_SECRET_KEY for Eonmeds, or connect Stripe in clinic settings.',
+          details:
+            msg.includes('not configured') || msg.includes('not found')
+              ? msg
+              : 'Set EONMEDS_STRIPE_SECRET_KEY for Eonmeds, or connect Stripe in clinic settings.',
         },
         { status: 400 }
       );
@@ -74,12 +78,20 @@ export async function POST(request: NextRequest) {
         subs = await stripe.subscriptions.list(listParams);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        const code = e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : undefined;
-        logger.error('[SyncSubscriptions] Stripe subscriptions.list failed', { clinicId, error: msg, code });
+        const code =
+          e && typeof e === 'object' && 'code' in e ? (e as { code: string }).code : undefined;
+        logger.error('[SyncSubscriptions] Stripe subscriptions.list failed', {
+          clinicId,
+          error: msg,
+          code,
+        });
         return NextResponse.json(
           {
             error: 'Failed to list subscriptions from Stripe',
-            details: code === 'StripeAuthenticationError' ? 'Invalid or missing Stripe API key for this clinic.' : msg,
+            details:
+              code === 'StripeAuthenticationError'
+                ? 'Invalid or missing Stripe API key for this clinic.'
+                : msg,
           },
           { status: 502 }
         );
@@ -87,8 +99,15 @@ export async function POST(request: NextRequest) {
 
       for (const sub of subs.data) {
         try {
-          if (sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'incomplete_expired') {
-            const r = await cancelSubscriptionFromStripe(sub.id, sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined);
+          if (
+            sub.status === 'canceled' ||
+            sub.status === 'unpaid' ||
+            sub.status === 'incomplete_expired'
+          ) {
+            const r = await cancelSubscriptionFromStripe(
+              sub.id,
+              sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined
+            );
             if (r.success && !r.skipped) results.canceled++;
             else if (r.skipped) results.skipped++;
           } else {

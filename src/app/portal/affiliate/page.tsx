@@ -74,16 +74,16 @@ export default function AffiliateDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-      
+
       try {
         // Fetch summary and trends in parallel
         const [summaryRes, trendsRes] = await Promise.all([
           fetch('/api/affiliate/summary', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
           }),
           fetch('/api/affiliate/trends?granularity=week', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
 
         if (summaryRes.ok) {
@@ -108,7 +108,7 @@ export default function AffiliateDashboard() {
   const handleCopyCode = async (code: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${code}`;
-    
+
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
@@ -126,9 +126,9 @@ export default function AffiliateDashboard() {
     );
   }
 
-  const totalEarnings = summary 
-    ? summary.summary.commissionPendingCents + 
-      summary.summary.commissionApprovedCents + 
+  const totalEarnings = summary
+    ? summary.summary.commissionPendingCents +
+      summary.summary.commissionApprovedCents +
       summary.summary.commissionPaidCents
     : 0;
 
@@ -136,12 +136,8 @@ export default function AffiliateDashboard() {
     <div className="p-4 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 lg:text-3xl">
-          Affiliate Dashboard
-        </h1>
-        <p className="mt-1 text-gray-500">
-          Track your performance and earnings
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900 lg:text-3xl">Affiliate Dashboard</h1>
+        <p className="mt-1 text-gray-500">Track your performance and earnings</p>
       </div>
 
       {/* Stats Grid */}
@@ -218,9 +214,7 @@ export default function AffiliateDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Performance */}
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
-            Weekly Performance
-          </h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Weekly Performance</h2>
           {trends && trends.trends.length > 0 ? (
             <div className="space-y-3">
               {trends.trends.slice(0, 8).map((week, i) => (
@@ -230,10 +224,14 @@ export default function AffiliateDashboard() {
                 >
                   <div>
                     <p className="font-medium text-gray-900">
-                      Week of {new Date(week.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      Week of{' '}
+                      {new Date(week.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                      })}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {typeof week.conversions === 'number' 
+                      {typeof week.conversions === 'number'
                         ? `${week.conversions} conversions`
                         : `${week.conversions} conversions`}
                     </p>
@@ -244,9 +242,7 @@ export default function AffiliateDashboard() {
                         +{formatCurrency(week.commissionCents)}
                       </p>
                     ) : (
-                      <p className="text-sm text-gray-400">
-                        Suppressed
-                      </p>
+                      <p className="text-sm text-gray-400">Suppressed</p>
                     )}
                   </div>
                 </div>
@@ -262,9 +258,7 @@ export default function AffiliateDashboard() {
         {/* Referral Links */}
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Your Referral Links
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900">Your Referral Links</h2>
             <a
               href="/portal/affiliate/ref-codes"
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
@@ -280,13 +274,9 @@ export default function AffiliateDashboard() {
                   className="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono font-medium text-gray-900">
-                      {ref.refCode}
-                    </p>
+                    <p className="font-mono font-medium text-gray-900">{ref.refCode}</p>
                     {ref.description && (
-                      <p className="truncate text-sm text-gray-500">
-                        {ref.description}
-                      </p>
+                      <p className="truncate text-sm text-gray-500">{ref.description}</p>
                     )}
                   </div>
                   <button
@@ -336,8 +326,8 @@ export default function AffiliateDashboard() {
             <div className="rounded-lg bg-white px-3 py-1.5">
               <span className="text-gray-500">Applies to:</span>{' '}
               <span className="font-medium text-gray-900">
-                {summary.currentPlan.appliesTo === 'FIRST_PAYMENT_ONLY' 
-                  ? 'First payment only' 
+                {summary.currentPlan.appliesTo === 'FIRST_PAYMENT_ONLY'
+                  ? 'First payment only'
                   : 'All payments'}
               </span>
             </div>
@@ -348,8 +338,9 @@ export default function AffiliateDashboard() {
       {/* Privacy Note */}
       <div className="mt-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
         <p>
-          <strong>Privacy Note:</strong> For your privacy and compliance, we only show aggregated metrics. 
-          Individual conversion details with fewer than 5 entries are displayed as "&lt;5" to protect customer privacy.
+          <strong>Privacy Note:</strong> For your privacy and compliance, we only show aggregated
+          metrics. Individual conversion details with fewer than 5 entries are displayed as "&lt;5"
+          to protect customer privacy.
         </p>
       </div>
     </div>

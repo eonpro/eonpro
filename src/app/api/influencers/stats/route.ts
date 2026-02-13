@@ -16,12 +16,12 @@ async function verifyInfluencerToken(req: NextRequest): Promise<JWTPayload | nul
   try {
     const token = req.cookies.get('influencer-token')?.value;
     if (!token) return null;
-    
+
     const { payload } = await jwtVerify(token, JWT_SECRET);
     return payload as unknown as JWTPayload;
   } catch (error: any) {
     // @ts-ignore
-   
+
     return null;
   }
 }
@@ -31,10 +31,7 @@ export async function GET(req: NextRequest) {
     // Verify authentication
     const influencer = await verifyInfluencerToken(req);
     if (!influencer) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get influencer statistics
@@ -46,7 +43,7 @@ export async function GET(req: NextRequest) {
         id: influencer.id,
         name: influencer.name,
         email: influencer.email,
-        promoCode: influencer.promoCode
+        promoCode: influencer.promoCode,
       },
       stats: {
         totalReferrals: stats.totalReferrals || 0,
@@ -59,29 +56,26 @@ export async function GET(req: NextRequest) {
           id: ref.id,
           patient: {
             firstName: ref.patient?.firstName || 'Unknown',
-            lastName: ref.patient?.lastName || 'Patient'
+            lastName: ref.patient?.lastName || 'Patient',
           },
           createdAt: ref.createdAt,
           isConverted: ref.isConverted,
           convertedAt: ref.convertedAt,
-          referralExpiresAt: ref.referralExpiresAt
+          referralExpiresAt: ref.referralExpiresAt,
         })),
         recentCommissions: (stats.recentCommissions || []).map((comm: any) => ({
           id: comm.id,
           invoiceId: comm.invoiceId,
           amount: (comm.commissionAmount || 0) / 100,
           status: comm.status,
-          createdAt: comm.createdAt
-        }))
-      }
+          createdAt: comm.createdAt,
+        })),
+      },
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('[Influencer Stats] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch statistics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch statistics' }, { status: 500 });
   }
 }

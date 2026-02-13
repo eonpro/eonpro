@@ -11,10 +11,15 @@ import { z } from 'zod';
 
 const chatSchema = z.object({
   message: z.string().min(1).max(1000),
-  history: z.array(z.object({
-    role: z.enum(['user', 'assistant']),
-    content: z.string(),
-  })).optional().default([]),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 /**
@@ -64,9 +69,6 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     return NextResponse.json(response);
   } catch (error) {
     logger.error('Patient AI chat error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process message' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to process message' }, { status: 500 });
   }
 });

@@ -20,28 +20,28 @@ Complete guide for setting up and working with the EONPRO development environmen
 
 ### Required
 
-| Software | Version | Notes |
-|----------|---------|-------|
-| Node.js | 20.x LTS | Use `nvm` for version management |
-| npm | 10.x+ | Comes with Node.js |
-| Git | 2.40+ | For version control |
+| Software | Version  | Notes                            |
+| -------- | -------- | -------------------------------- |
+| Node.js  | 20.x LTS | Use `nvm` for version management |
+| npm      | 10.x+    | Comes with Node.js               |
+| Git      | 2.40+    | For version control              |
 
 ### Recommended (Production-Like Development)
 
-| Software | Version | Notes |
-|----------|---------|-------|
-| PostgreSQL | 14+ | Primary database |
-| Redis | 7+ | Caching and sessions |
-| Docker | 24+ | For containerized development |
+| Software   | Version | Notes                         |
+| ---------- | ------- | ----------------------------- |
+| PostgreSQL | 14+     | Primary database              |
+| Redis      | 7+      | Caching and sessions          |
+| Docker     | 24+     | For containerized development |
 
 ### Optional
 
-| Software | Purpose |
-|----------|---------|
-| VS Code | Recommended IDE |
-| Postman/Insomnia | API testing |
-| pgAdmin | Database management |
-| Redis Insight | Redis debugging |
+| Software         | Purpose             |
+| ---------------- | ------------------- |
+| VS Code          | Recommended IDE     |
+| Postman/Insomnia | API testing         |
+| pgAdmin          | Database management |
+| Redis Insight    | Redis debugging     |
 
 ---
 
@@ -439,11 +439,13 @@ Add to `.vscode/launch.json`:
 ### Adding a New API Route
 
 1. Create route file:
+
    ```
    src/app/api/[domain]/[action]/route.ts
    ```
 
 2. Use the standard template:
+
    ```typescript
    import { NextRequest, NextResponse } from 'next/server';
    import { withAuth } from '@/lib/auth/middleware';
@@ -460,10 +462,7 @@ Add to `.vscode/launch.json`:
        return NextResponse.json({ data: result });
      } catch (error) {
        logger.error('Endpoint failed', { error });
-       return NextResponse.json(
-         { error: 'Operation failed' },
-         { status: 500 }
-       );
+       return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
      }
    });
    ```
@@ -480,11 +479,13 @@ Add to `.vscode/launch.json`:
 ### Adding a New Component
 
 1. Create in `src/components/`:
+
    ```
    src/components/MyComponent.tsx
    ```
 
 2. Use TypeScript interfaces:
+
    ```typescript
    interface MyComponentProps {
      title: string;

@@ -1,11 +1,14 @@
 # 📱 Twilio SMS Integration
 
 ## Overview
-Complete SMS notification system for patient communication, appointment reminders, and two-way messaging.
+
+Complete SMS notification system for patient communication, appointment reminders, and two-way
+messaging.
 
 ## ✅ Features
 
 ### 1. SMS Notifications
+
 - **Appointment Reminders**: Automated reminders with confirmation options
 - **Prescription Notifications**: Alert patients when prescriptions are ready
 - **Lab Results**: Notify patients when results are available
@@ -13,12 +16,14 @@ Complete SMS notification system for patient communication, appointment reminder
 - **Custom Messages**: Send personalized messages to patients
 
 ### 2. Two-Way Messaging
+
 - Patients can respond to messages
 - Keyword recognition (CONFIRM, CANCEL, RESCHEDULE, HELP)
 - Automated responses based on keywords
 - Message logging and tracking
 
 ### 3. Components
+
 - **SMS Composer**: Full-featured UI for sending messages
 - **Phone Number Formatting**: Automatic E.164 formatting
 - **Message Templates**: Pre-built templates for common scenarios
@@ -56,6 +61,7 @@ TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ### 3. Configure Webhook
 
 In Twilio Console:
+
 1. Go to Phone Numbers → Manage → Active Numbers
 2. Click on your phone number
 3. In the Messaging section, set webhook URL:
@@ -75,8 +81,8 @@ const response = await fetch('/api/v2/twilio/send-sms', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     to: '+1234567890',
-    message: 'Your appointment is confirmed for tomorrow at 2 PM'
-  })
+    message: 'Your appointment is confirmed for tomorrow at 2 PM',
+  }),
 });
 ```
 
@@ -104,11 +110,7 @@ export default function PatientPage() {
 import { sendAppointmentReminder } from '@/lib/integrations/twilio/smsService';
 
 // Send reminder
-const result = await sendAppointmentReminder(
-  patientId,
-  appointmentDate,
-  'Dr. Smith'
-);
+const result = await sendAppointmentReminder(patientId, appointmentDate, 'Dr. Smith');
 
 if (result.success) {
   console.log('Reminder sent:', result.messageId);
@@ -118,9 +120,11 @@ if (result.success) {
 ## 🔧 API Endpoints
 
 ### POST `/api/v2/twilio/send-sms`
+
 Send an SMS message
 
 **Request Body:**
+
 ```json
 {
   "to": "+1234567890",
@@ -130,6 +134,7 @@ Send an SMS message
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -142,6 +147,7 @@ Send an SMS message
 ```
 
 ### POST `/api/v2/twilio/webhook`
+
 Webhook endpoint for incoming SMS (configured in Twilio)
 
 ## 📊 Message Templates
@@ -149,26 +155,29 @@ Webhook endpoint for incoming SMS (configured in Twilio)
 ### Available Templates
 
 1. **Appointment Reminder**
+
    ```
-   Hi {name}, this is a reminder of your appointment with 
+   Hi {name}, this is a reminder of your appointment with
    Dr. {doctor} on {date}. Reply CONFIRM to confirm or CANCEL to cancel.
    ```
 
 2. **Prescription Ready**
+
    ```
-   Hi {name}, your prescription #{id} is ready for pickup. 
+   Hi {name}, your prescription #{id} is ready for pickup.
    Please visit us at your earliest convenience.
    ```
 
 3. **Lab Results**
+
    ```
-   Hi {name}, your lab results are now available. 
+   Hi {name}, your lab results are now available.
    Please log in to your patient portal to view them.
    ```
 
 4. **Payment Reminder**
    ```
-   Hi {name}, this is a reminder that your payment of ${amount} 
+   Hi {name}, this is a reminder that your payment of ${amount}
    is due on {date}. Please log in to pay.
    ```
 
@@ -176,19 +185,20 @@ Webhook endpoint for incoming SMS (configured in Twilio)
 
 Patients can reply with keywords:
 
-| Keyword | Action | Response |
-|---------|--------|----------|
-| CONFIRM | Confirm appointment | "Thank you for confirming your appointment!" |
-| CANCEL | Cancel appointment | "Your appointment has been cancelled." |
-| RESCHEDULE | Request reschedule | "Please call us at (555) 123-4567 to reschedule." |
-| HELP | Get help | "Reply CONFIRM to confirm, CANCEL to cancel..." |
-| STOP | Opt out | Standard Twilio opt-out |
+| Keyword    | Action              | Response                                          |
+| ---------- | ------------------- | ------------------------------------------------- |
+| CONFIRM    | Confirm appointment | "Thank you for confirming your appointment!"      |
+| CANCEL     | Cancel appointment  | "Your appointment has been cancelled."            |
+| RESCHEDULE | Request reschedule  | "Please call us at (555) 123-4567 to reschedule." |
+| HELP       | Get help            | "Reply CONFIRM to confirm, CANCEL to cancel..."   |
+| STOP       | Opt out             | Standard Twilio opt-out                           |
 
 ## 🧪 Testing
 
 ### Test Phone Numbers
 
 For testing without sending real SMS:
+
 - Use Twilio test credentials
 - Use Twilio test phone numbers: `+15005550006`
 
@@ -233,6 +243,7 @@ https://abc123.ngrok.io/api/v2/twilio/webhook
 ## 📈 Monitoring
 
 ### Key Metrics
+
 - Delivery rate
 - Response rate
 - Opt-out rate
@@ -240,13 +251,13 @@ https://abc123.ngrok.io/api/v2/twilio/webhook
 
 ### Message Status Codes
 
-| Status | Description |
-|--------|-------------|
-| queued | Message queued for delivery |
-| sent | Message sent to carrier |
-| delivered | Message delivered to device |
-| failed | Message failed to deliver |
-| undelivered | Message not delivered |
+| Status      | Description                 |
+| ----------- | --------------------------- |
+| queued      | Message queued for delivery |
+| sent        | Message sent to carrier     |
+| delivered   | Message delivered to device |
+| failed      | Message failed to deliver   |
+| undelivered | Message not delivered       |
 
 ## 🚧 Roadmap
 
@@ -262,18 +273,21 @@ https://abc123.ngrok.io/api/v2/twilio/webhook
 ## 🆘 Troubleshooting
 
 ### Message not sending?
+
 1. Check Twilio credentials in `.env.local`
 2. Verify phone number format (must be E.164)
 3. Check Twilio account balance
 4. Verify feature flag is enabled
 
 ### Webhook not working?
+
 1. Ensure webhook URL is publicly accessible
 2. Check Twilio signature validation
 3. Verify HTTP method is POST
 4. Check server logs for errors
 
 ### Phone number formatting issues?
+
 - US numbers: (555) 123-4567 → +15551234567
 - International: Include country code
 
@@ -285,5 +299,5 @@ https://abc123.ngrok.io/api/v2/twilio/webhook
 - [Status Callbacks](https://www.twilio.com/docs/sms/api/message-resource#message-status-values)
 
 ---
-*Integration Date: November 24, 2024*
-*Version: 1.0.0*
+
+_Integration Date: November 24, 2024_ _Version: 1.0.0_

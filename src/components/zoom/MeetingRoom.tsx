@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { isFeatureEnabled } from "@/lib/features";
+import { useState, useEffect, useRef } from 'react';
+import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import {
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  PhoneOff, 
+  Video,
+  VideoOff,
+  Mic,
+  MicOff,
+  PhoneOff,
   Monitor,
   Users,
   MessageSquare,
@@ -19,8 +19,8 @@ import {
   Loader2,
   AlertCircle,
   Clock,
-  UserCheck
-} from "lucide-react";
+  UserCheck,
+} from 'lucide-react';
 
 interface MeetingRoomProps {
   meetingId: string;
@@ -59,7 +59,7 @@ export default function MeetingRoom({
   const [showChat, setShowChat] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -68,7 +68,7 @@ export default function MeetingRoom({
   const screenStreamRef = useRef<MediaStream | null>(null);
 
   // Check if feature is enabled
-  const isEnabled = isFeatureEnabled("ZOOM_TELEHEALTH");
+  const isEnabled = isFeatureEnabled('ZOOM_TELEHEALTH');
   const useMock = !isEnabled || process.env.ZOOM_USE_MOCK === 'true';
 
   useEffect(() => {
@@ -93,12 +93,12 @@ export default function MeetingRoom({
   const initializeMeeting = async () => {
     try {
       setIsLoading(true);
-      
+
       if (useMock) {
         // Mock meeting initialization
         logger.debug('[ZOOM] Initializing mock meeting');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
         setParticipants([
           {
             id: 'host-1',
@@ -115,14 +115,14 @@ export default function MeetingRoom({
             isVideoOn: true,
           },
         ]);
-        
+
         if (role === 'host') {
           setWaitingRoomCount(1);
         }
-        
+
         // Initialize mock video streams
         await initializeLocalVideo();
-        
+
         setIsConnected(true);
       } else {
         // Initialize real Zoom SDK
@@ -131,10 +131,10 @@ export default function MeetingRoom({
         setError('Zoom SDK not loaded. Please configure Zoom credentials.');
       }
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    logger.error('[ZOOM] Initialization error:', err);
+      // @ts-ignore
+
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      logger.error('[ZOOM] Initialization error:', err);
       setError(errorMessage || 'Failed to join meeting');
     } finally {
       setIsLoading(false);
@@ -158,8 +158,8 @@ export default function MeetingRoom({
         remoteVideoRef.current.srcObject = stream.clone();
       }
     } catch (err: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('[ZOOM] Failed to access camera/microphone:', err);
       setIsVideoOn(false);
     }
@@ -167,7 +167,7 @@ export default function MeetingRoom({
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
-    
+
     // Toggle actual microphone if connected
     if (localVideoRef.current?.srcObject) {
       const stream = localVideoRef.current.srcObject as MediaStream;
@@ -179,7 +179,7 @@ export default function MeetingRoom({
 
   const toggleVideo = () => {
     setIsVideoOn(!isVideoOn);
-    
+
     // Toggle actual camera if connected
     if (localVideoRef.current?.srcObject) {
       const stream = localVideoRef.current.srcObject as MediaStream;
@@ -194,7 +194,7 @@ export default function MeetingRoom({
       setIsScreenSharing(false);
       // Stop screen share and clean up stream
       if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
         screenStreamRef.current = null;
       }
       if (remoteVideoRef.current && localVideoRef.current?.srcObject) {
@@ -213,9 +213,9 @@ export default function MeetingRoom({
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = screenStream;
         }
-        
+
         setIsScreenSharing(true);
-        
+
         // Listen for screen share end - the track will be stopped when the user clicks "Stop sharing"
         // which automatically triggers the 'ended' event and cleans up
         const videoTrack = screenStream.getVideoTracks()[0];
@@ -223,13 +223,15 @@ export default function MeetingRoom({
           setIsScreenSharing(false);
           screenStreamRef.current = null;
           if (remoteVideoRef.current && localVideoRef.current?.srcObject) {
-            remoteVideoRef.current.srcObject = (localVideoRef.current.srcObject as MediaStream).clone();
+            remoteVideoRef.current.srcObject = (
+              localVideoRef.current.srcObject as MediaStream
+            ).clone();
           }
         };
         videoTrack.addEventListener('ended', handleEnded);
       } catch (err: any) {
-    // @ts-ignore
-   
+        // @ts-ignore
+
         logger.error('[ZOOM] Screen share failed:', err);
       }
     }
@@ -238,9 +240,9 @@ export default function MeetingRoom({
   const admitFromWaitingRoom = (participantId: string) => {
     logger.debug('[ZOOM] Admitting participant:', { value: participantId });
     setWaitingRoomCount(Math.max(0, waitingRoomCount - 1));
-    
+
     // In real implementation, this would call the Zoom API
-    setParticipants(prev => [
+    setParticipants((prev) => [
       ...prev,
       {
         id: participantId,
@@ -258,7 +260,7 @@ export default function MeetingRoom({
       const stream = localVideoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track: any) => track.stop());
     }
-    
+
     if (remoteVideoRef.current?.srcObject) {
       const stream = remoteVideoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track: any) => track.stop());
@@ -266,7 +268,7 @@ export default function MeetingRoom({
 
     // Stop screen share stream if active
     if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
       screenStreamRef.current = null;
     }
 
@@ -278,7 +280,7 @@ export default function MeetingRoom({
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     if (hrs > 0) {
       return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
@@ -287,11 +289,13 @@ export default function MeetingRoom({
 
   if (!isEnabled) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
+      <div className="flex h-screen items-center justify-center bg-gray-900">
         <div className="text-center text-white">
-          <AlertCircle className="h-16 w-16 mx-auto mb-4 text-yellow-500" />
-          <h2 className="text-2xl font-semibold mb-2">Zoom Telehealth Not Enabled</h2>
-          <p className="text-gray-400">Please enable the Zoom Telehealth feature to use video consultations.</p>
+          <AlertCircle className="mx-auto mb-4 h-16 w-16 text-yellow-500" />
+          <h2 className="mb-2 text-2xl font-semibold">Zoom Telehealth Not Enabled</h2>
+          <p className="text-gray-400">
+            Please enable the Zoom Telehealth feature to use video consultations.
+          </p>
         </div>
       </div>
     );
@@ -299,11 +303,11 @@ export default function MeetingRoom({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
+      <div className="flex h-screen items-center justify-center bg-gray-900">
         <div className="text-center text-white">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
+          <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin" />
           <h2 className="text-xl">Joining meeting...</h2>
-          <p className="text-gray-400 mt-2">Meeting ID: {meetingId}</p>
+          <p className="mt-2 text-gray-400">Meeting ID: {meetingId}</p>
         </div>
       </div>
     );
@@ -311,14 +315,14 @@ export default function MeetingRoom({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
-        <div className="text-center text-white max-w-md">
-          <AlertCircle className="h-16 w-16 mx-auto mb-4 text-red-500" />
-          <h2 className="text-2xl font-semibold mb-2">Unable to Join Meeting</h2>
-          <p className="text-gray-400 mb-4">{error}</p>
+      <div className="flex h-screen items-center justify-center bg-gray-900">
+        <div className="max-w-md text-center text-white">
+          <AlertCircle className="mx-auto mb-4 h-16 w-16 text-red-500" />
+          <h2 className="mb-2 text-2xl font-semibold">Unable to Join Meeting</h2>
+          <p className="mb-4 text-gray-400">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700"
           >
             Try Again
           </button>
@@ -328,14 +332,14 @@ export default function MeetingRoom({
   }
 
   return (
-    <div className="h-screen bg-gray-900 flex flex-col">
+    <div className="flex h-screen flex-col bg-gray-900">
       {/* Header */}
-      <div className="bg-gray-800 px-6 py-3 flex items-center justify-between">
+      <div className="flex items-center justify-between bg-gray-800 px-6 py-3">
         <div className="flex items-center gap-4">
-          <h1 className="text-white font-semibold">Telehealth Consultation</h1>
-          <span className="text-gray-400 text-sm">Meeting ID: {meetingId}</span>
+          <h1 className="font-semibold text-white">Telehealth Consultation</h1>
+          <span className="text-sm text-gray-400">Meeting ID: {meetingId}</span>
           {useMock && (
-            <span className="text-yellow-500 text-xs bg-yellow-500/20 px-2 py-1 rounded">
+            <span className="rounded bg-yellow-500/20 px-2 py-1 text-xs text-yellow-500">
               DEMO MODE
             </span>
           )}
@@ -350,41 +354,41 @@ export default function MeetingRoom({
             <span className="text-white">{participants.length}</span>
           </div>
           {waitingRoomCount > 0 && (
-            <div className="flex items-center gap-2 bg-yellow-600/20 px-3 py-1 rounded">
+            <div className="flex items-center gap-2 rounded bg-yellow-600/20 px-3 py-1">
               <UserCheck className="h-4 w-4 text-yellow-500" />
-              <span className="text-yellow-500 text-sm">{waitingRoomCount} waiting</span>
+              <span className="text-sm text-yellow-500">{waitingRoomCount} waiting</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="flex flex-1">
         {/* Video Area */}
-        <div className="flex-1 relative bg-black" ref={videoContainerRef}>
+        <div className="relative flex-1 bg-black" ref={videoContainerRef}>
           {/* Remote Video (Main) */}
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-contain"
+            className="h-full w-full object-contain"
           />
-          
+
           {/* Local Video (PiP) */}
-          <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden shadow-lg">
+          <div className="absolute right-4 top-4 h-36 w-48 overflow-hidden rounded-lg bg-gray-800 shadow-lg">
             {isVideoOn ? (
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover mirror"
+                className="mirror h-full w-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="flex h-full w-full items-center justify-center">
                 <div className="text-center">
-                  <VideoOff className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-                  <span className="text-gray-400 text-sm">{userName}</span>
+                  <VideoOff className="mx-auto mb-2 h-8 w-8 text-gray-500" />
+                  <span className="text-sm text-gray-400">{userName}</span>
                 </div>
               </div>
             )}
@@ -392,7 +396,7 @@ export default function MeetingRoom({
 
           {/* Screen Share Indicator */}
           {isScreenSharing && (
-            <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-lg flex items-center gap-2">
+            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1 text-white">
               <Monitor className="h-4 w-4" />
               <span className="text-sm">Screen Sharing</span>
             </div>
@@ -401,7 +405,7 @@ export default function MeetingRoom({
 
         {/* Sidebar (Participants/Chat) */}
         {(showParticipants || showChat) && (
-          <div className="w-80 bg-gray-800 border-l border-gray-700">
+          <div className="w-80 border-l border-gray-700 bg-gray-800">
             <div className="flex border-b border-gray-700">
               <button
                 onClick={() => {
@@ -409,9 +413,7 @@ export default function MeetingRoom({
                   setShowChat(false);
                 }}
                 className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  showParticipants 
-                    ? 'text-white bg-gray-900' 
-                    : 'text-gray-400 hover:text-white'
+                  showParticipants ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 Participants ({participants.length})
@@ -422,9 +424,7 @@ export default function MeetingRoom({
                   setShowChat(true);
                 }}
                 className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  showChat 
-                    ? 'text-white bg-gray-900' 
-                    : 'text-gray-400 hover:text-white'
+                  showChat ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
                 Chat
@@ -433,16 +433,16 @@ export default function MeetingRoom({
 
             {/* Participants List */}
             {showParticipants && (
-              <div className="p-4 space-y-2">
+              <div className="space-y-2 p-4">
                 {/* Waiting Room */}
                 {role === 'host' && waitingRoomCount > 0 && (
-                  <div className="mb-4 p-3 bg-yellow-600/10 rounded-lg">
-                    <h3 className="text-yellow-500 text-sm font-semibold mb-2">
+                  <div className="mb-4 rounded-lg bg-yellow-600/10 p-3">
+                    <h3 className="mb-2 text-sm font-semibold text-yellow-500">
                       Waiting Room ({waitingRoomCount})
                     </h3>
                     <button
                       onClick={() => admitFromWaitingRoom('waiting-1')}
-                      className="w-full px-3 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
+                      className="w-full rounded bg-yellow-600 px-3 py-2 text-sm text-white hover:bg-yellow-700"
                     >
                       Admit All
                     </button>
@@ -451,16 +451,16 @@ export default function MeetingRoom({
 
                 {/* In Meeting */}
                 {participants.map((participant: any) => (
-                  <div 
+                  <div
                     key={participant.id}
-                    className="flex items-center justify-between p-2 rounded hover:bg-gray-700"
+                    className="flex items-center justify-between rounded p-2 hover:bg-gray-700"
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
                         {participant.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <span className="text-white text-sm">
+                        <span className="text-sm text-white">
                           {participant.name}
                           {participant.isHost && (
                             <span className="ml-2 text-xs text-blue-400">(Host)</span>
@@ -487,17 +487,17 @@ export default function MeetingRoom({
 
             {/* Chat */}
             {showChat && (
-              <div className="flex flex-col h-full">
+              <div className="flex h-full flex-col">
                 <div className="flex-1 p-4">
-                  <div className="text-center text-gray-500 text-sm">
+                  <div className="text-center text-sm text-gray-500">
                     Chat messages will appear here
                   </div>
                 </div>
-                <div className="p-4 border-t border-gray-700">
+                <div className="border-t border-gray-700 p-4">
                   <input
                     type="text"
                     placeholder="Type a message..."
-                    className="w-full px-3 py-2 bg-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-gray-700 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -511,10 +511,8 @@ export default function MeetingRoom({
         <div className="flex items-center justify-center gap-4">
           <button
             onClick={toggleMute}
-            className={`p-3 rounded-lg transition-colors ${
-              isMuted 
-                ? 'bg-red-600 hover:bg-red-700' 
-                : 'bg-gray-700 hover:bg-gray-600'
+            className={`rounded-lg p-3 transition-colors ${
+              isMuted ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600'
             }`}
           >
             {isMuted ? (
@@ -526,10 +524,8 @@ export default function MeetingRoom({
 
           <button
             onClick={toggleVideo}
-            className={`p-3 rounded-lg transition-colors ${
-              !isVideoOn 
-                ? 'bg-red-600 hover:bg-red-700' 
-                : 'bg-gray-700 hover:bg-gray-600'
+            className={`rounded-lg p-3 transition-colors ${
+              !isVideoOn ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600'
             }`}
           >
             {isVideoOn ? (
@@ -541,10 +537,8 @@ export default function MeetingRoom({
 
           <button
             onClick={toggleScreenShare}
-            className={`p-3 rounded-lg transition-colors ${
-              isScreenSharing 
-                ? 'bg-blue-600 hover:bg-blue-700' 
-                : 'bg-gray-700 hover:bg-gray-600'
+            className={`rounded-lg p-3 transition-colors ${
+              isScreenSharing ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-700 hover:bg-gray-600'
             }`}
           >
             <Monitor className="h-5 w-5 text-white" />
@@ -552,23 +546,23 @@ export default function MeetingRoom({
 
           <button
             onClick={() => setShowParticipants(!showParticipants)}
-            className="p-3 bg-gray-700 rounded-lg hover:bg-gray-600"
+            className="rounded-lg bg-gray-700 p-3 hover:bg-gray-600"
           >
             <Users className="h-5 w-5 text-white" />
           </button>
 
           <button
             onClick={() => setShowChat(!showChat)}
-            className="p-3 bg-gray-700 rounded-lg hover:bg-gray-600 relative"
+            className="relative rounded-lg bg-gray-700 p-3 hover:bg-gray-600"
           >
             <MessageSquare className="h-5 w-5 text-white" />
           </button>
 
           <button
             onClick={leaveMeeting}
-            className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
+            className="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700"
           >
-            <PhoneOff className="h-5 w-5 inline mr-2" />
+            <PhoneOff className="mr-2 inline h-5 w-5" />
             Leave Meeting
           </button>
         </div>

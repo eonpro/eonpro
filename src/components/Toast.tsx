@@ -90,11 +90,11 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg ${style.bg} ${style.border} animate-in slide-in-from-top-2 fade-in duration-200 max-w-md`}
+      className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg ${style.bg} ${style.border} animate-in slide-in-from-top-2 fade-in max-w-md duration-200`}
     >
       {/* Favicon/Icon */}
       <div className={`flex-shrink-0 ${style.icon}`}>
-        <Icon className="w-5 h-5" />
+        <Icon className="h-5 w-5" />
       </div>
 
       {/* Message */}
@@ -103,9 +103,9 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
       {/* Close button */}
       <button
         onClick={onClose}
-        className={`flex-shrink-0 p-1 rounded-lg hover:bg-black/5 transition-colors ${style.text}`}
+        className={`flex-shrink-0 rounded-lg p-1 transition-colors hover:bg-black/5 ${style.text}`}
       >
-        <X className="w-4 h-4" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   );
@@ -145,7 +145,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
       {/* Toast container - centered at top */}
       {toasts.length > 0 && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 pointer-events-none">
+        <div className="pointer-events-none fixed left-1/2 top-4 z-[9999] flex -translate-x-1/2 flex-col gap-2">
           {toasts.map((t) => (
             <div key={t.id} className="pointer-events-auto">
               <ToastItem toast={t} onClose={() => removeToast(t.id)} />

@@ -1,9 +1,9 @@
 /**
  * Per-Clinic Zoom Integration
- * 
+ *
  * Manages Zoom OAuth credentials and API access on a per-clinic basis.
  * Similar to clinic-lifefile.ts for Lifefile integration.
- * 
+ *
  * Each clinic can connect their own Zoom account for telehealth.
  * Falls back to platform-level credentials if clinic doesn't have their own.
  */
@@ -50,7 +50,9 @@ export interface ZoomOAuthTokens {
  * Get Zoom credentials for a specific clinic
  * Falls back to environment variables if clinic doesn't have credentials configured
  */
-export async function getClinicZoomCredentials(clinicId: number): Promise<ClinicZoomCredentials | null> {
+export async function getClinicZoomCredentials(
+  clinicId: number
+): Promise<ClinicZoomCredentials | null> {
   try {
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -91,17 +93,17 @@ export async function getClinicZoomCredentials(clinicId: number): Promise<Clinic
       // Decrypt sensitive credentials
       const clientId = decryptField(clinic.zoomClientId, 'clientId', clinicId);
       const clientSecret = decryptField(clinic.zoomClientSecret, 'clientSecret', clinicId);
-      const accessToken = clinic.zoomAccessToken 
-        ? decryptField(clinic.zoomAccessToken, 'accessToken', clinicId) 
+      const accessToken = clinic.zoomAccessToken
+        ? decryptField(clinic.zoomAccessToken, 'accessToken', clinicId)
         : undefined;
-      const refreshToken = clinic.zoomRefreshToken 
-        ? decryptField(clinic.zoomRefreshToken, 'refreshToken', clinicId) 
+      const refreshToken = clinic.zoomRefreshToken
+        ? decryptField(clinic.zoomRefreshToken, 'refreshToken', clinicId)
         : undefined;
-      const sdkKey = clinic.zoomSdkKey 
-        ? decryptField(clinic.zoomSdkKey, 'sdkKey', clinicId) 
+      const sdkKey = clinic.zoomSdkKey
+        ? decryptField(clinic.zoomSdkKey, 'sdkKey', clinicId)
         : undefined;
-      const sdkSecret = clinic.zoomSdkSecret 
-        ? decryptField(clinic.zoomSdkSecret, 'sdkSecret', clinicId) 
+      const sdkSecret = clinic.zoomSdkSecret
+        ? decryptField(clinic.zoomSdkSecret, 'sdkSecret', clinicId)
         : undefined;
 
       if (!clientId || !clientSecret) {
@@ -210,7 +212,7 @@ export function getZoomOAuthUrl(clinicId: number, redirectUri: string): string {
   // Or the clinic can input their client ID first
   const baseUrl = 'https://zoom.us/oauth/authorize';
   const state = Buffer.from(JSON.stringify({ clinicId, timestamp: Date.now() })).toString('base64');
-  
+
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: zoomConfig.clientId, // Platform client ID for initial OAuth
@@ -237,7 +239,7 @@ export async function exchangeZoomCode(
     const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
@@ -282,7 +284,7 @@ export async function refreshZoomToken(
     const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
@@ -316,7 +318,7 @@ export async function refreshZoomToken(
  */
 export async function getClinicZoomAccessToken(clinicId: number): Promise<string | null> {
   const credentials = await getClinicZoomCredentials(clinicId);
-  
+
   if (!credentials) {
     return null;
   }
@@ -471,7 +473,7 @@ export async function updateClinicZoomSettings(
  */
 export async function getClinicZoomUser(clinicId: number): Promise<any | null> {
   const accessToken = await getClinicZoomAccessToken(clinicId);
-  
+
   if (!accessToken) {
     return null;
   }
@@ -479,7 +481,7 @@ export async function getClinicZoomUser(clinicId: number): Promise<any | null> {
   try {
     const response = await fetch('https://api.zoom.us/v2/users/me', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
     });
@@ -520,7 +522,7 @@ export async function createClinicZoomMeeting(
     const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -537,7 +539,9 @@ export async function createClinicZoomMeeting(
           mute_upon_entry: true,
           waiting_room: credentials.waitingRoomEnabled,
           auto_recording: credentials.recordingEnabled ? 'cloud' : 'none',
-          encryption_type: credentials.hipaaCompliant ? 'enhanced_encryption' : 'enhanced_encryption',
+          encryption_type: credentials.hipaaCompliant
+            ? 'enhanced_encryption'
+            : 'enhanced_encryption',
           watermark: true,
           audio: 'both',
         },
@@ -575,7 +579,7 @@ export async function cancelClinicZoomMeeting(
     const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 

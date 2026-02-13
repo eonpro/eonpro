@@ -94,18 +94,18 @@ export default function FraudQueuePage() {
   const fetchAlerts = async () => {
     setLoading(true);
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    
+
     try {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
       });
-      
+
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (severityFilter !== 'all') params.set('severity', severityFilter);
 
       const response = await fetch(`/api/admin/affiliates/fraud-queue?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -126,7 +126,7 @@ export default function FraudQueuePage() {
       const response = await fetch('/api/admin/affiliates/fraud-queue', {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -179,7 +179,9 @@ export default function FraudQueuePage() {
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <div>
-              <p className="text-2xl font-bold text-red-700">{data?.stats.bySeverity.CRITICAL || 0}</p>
+              <p className="text-2xl font-bold text-red-700">
+                {data?.stats.bySeverity.CRITICAL || 0}
+              </p>
               <p className="text-sm text-red-600">Critical</p>
             </div>
           </div>
@@ -188,7 +190,9 @@ export default function FraudQueuePage() {
           <div className="flex items-center gap-3">
             <Shield className="h-5 w-5 text-orange-600" />
             <div>
-              <p className="text-2xl font-bold text-orange-700">{data?.stats.bySeverity.HIGH || 0}</p>
+              <p className="text-2xl font-bold text-orange-700">
+                {data?.stats.bySeverity.HIGH || 0}
+              </p>
               <p className="text-sm text-orange-600">High</p>
             </div>
           </div>
@@ -211,7 +215,10 @@ export default function FraudQueuePage() {
         <Filter className="h-5 w-5 text-gray-400" />
         <select
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
         >
           <option value="all">All Status</option>
@@ -223,7 +230,10 @@ export default function FraudQueuePage() {
         </select>
         <select
           value={severityFilter}
-          onChange={(e) => { setSeverityFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSeverityFilter(e.target.value);
+            setPage(1);
+          }}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
         >
           <option value="all">All Severity</option>
@@ -264,13 +274,17 @@ export default function FraudQueuePage() {
               {data?.alerts.map((alert) => {
                 const severity = severityConfig[alert.severity] || severityConfig.MEDIUM;
                 const status = statusConfig[alert.status] || statusConfig.OPEN;
-                
+
                 return (
                   <tr key={alert.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
-                        <p className="font-medium text-gray-900">{alert.alertType.replace(/_/g, ' ')}</p>
-                        <p className="max-w-xs truncate text-sm text-gray-500">{alert.description}</p>
+                        <p className="font-medium text-gray-900">
+                          {alert.alertType.replace(/_/g, ' ')}
+                        </p>
+                        <p className="max-w-xs truncate text-sm text-gray-500">
+                          {alert.description}
+                        </p>
                         <p className="mt-1 text-xs text-gray-400">{formatDate(alert.createdAt)}</p>
                       </div>
                     </td>
@@ -281,19 +295,23 @@ export default function FraudQueuePage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${severity.bgColor} ${severity.color}`}>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${severity.bgColor} ${severity.color}`}
+                      >
                         {alert.severity}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-900">
-                        {alert.affectedAmountCents 
+                        {alert.affectedAmountCents
                           ? formatCurrency(alert.affectedAmountCents)
                           : '-'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}
+                      >
                         {status.label}
                       </span>
                     </td>
@@ -328,14 +346,14 @@ export default function FraudQueuePage() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setPage(p => Math.min(data.pagination.totalPages, p + 1))}
+                onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
                 disabled={page === data.pagination.totalPages}
                 className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               >
@@ -357,7 +375,9 @@ export default function FraudQueuePage() {
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">{formatDate(selectedAlert.createdAt)}</p>
               </div>
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${severityConfig[selectedAlert.severity]?.bgColor} ${severityConfig[selectedAlert.severity]?.color}`}>
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${severityConfig[selectedAlert.severity]?.bgColor} ${severityConfig[selectedAlert.severity]?.color}`}
+              >
                 {selectedAlert.severity}
               </span>
             </div>
@@ -416,7 +436,8 @@ export default function FraudQueuePage() {
             ) : (
               <div className="rounded-lg bg-gray-50 p-4 text-center">
                 <p className="text-sm text-gray-500">
-                  This alert has been resolved as: <strong>{statusConfig[selectedAlert.status]?.label}</strong>
+                  This alert has been resolved as:{' '}
+                  <strong>{statusConfig[selectedAlert.status]?.label}</strong>
                 </p>
                 {selectedAlert.resolution && (
                   <p className="mt-1 text-sm text-gray-500">

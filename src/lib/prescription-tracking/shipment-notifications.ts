@@ -140,7 +140,9 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
     dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
   };
 
-  return carriers[carrier.toLowerCase()] || `https://www.google.com/search?q=${trackingNumber}+tracking`;
+  return (
+    carriers[carrier.toLowerCase()] || `https://www.google.com/search?q=${trackingNumber}+tracking`
+  );
 }
 
 // ============================================================================
@@ -230,7 +232,12 @@ export async function sendShipmentProcessingSMS(input: {
   medicationName: string;
 }): Promise<void> {
   const message = SMS_TEMPLATES.SHIPMENT_PROCESSING(input);
-  const result = await sendShipmentSMS(input.phone, message, input.patientId, 'SHIPMENT_PROCESSING');
+  const result = await sendShipmentSMS(
+    input.phone,
+    message,
+    input.patientId,
+    'SHIPMENT_PROCESSING'
+  );
 
   if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
@@ -262,7 +269,12 @@ export async function sendNextShipmentScheduledSMS(input: {
   nextShipmentDate: Date;
 }): Promise<void> {
   const message = SMS_TEMPLATES.NEXT_SHIPMENT_SCHEDULED(input);
-  const result = await sendShipmentSMS(input.phone, message, input.patientId, 'NEXT_SHIPMENT_SCHEDULED');
+  const result = await sendShipmentSMS(
+    input.phone,
+    message,
+    input.patientId,
+    'NEXT_SHIPMENT_SCHEDULED'
+  );
 
   if (!result.success && !result.blocked) {
     throw new Error(result.error || 'Failed to send SMS');
@@ -274,10 +286,15 @@ export async function sendNextShipmentScheduledSMS(input: {
  */
 export function getShipmentSMSTemplates(): Record<string, string> {
   return {
-    SHIPMENT_REMINDER: 'Hi {firstName}! Your {medication} shipment {shipmentNumber} of {totalShipments} is scheduled for {date}. We\'ll process it automatically - no action needed.',
-    SHIPMENT_PROCESSING: 'Hi {firstName}! Shipment {shipmentNumber} of {totalShipments} for your {medication} is being processed. We\'ll send tracking info once it ships.',
-    SHIPMENT_SHIPPED: '{firstName}, shipment {shipmentNumber} of {totalShipments} for your {medication} has shipped! Track your package: {trackingUrl}',
-    NEXT_SHIPMENT_SCHEDULED: '{firstName}, your next {medication} shipment ({shipmentNumber} of {totalShipments}) is scheduled for {date}. We\'ll remind you before it ships.',
-    FINAL_SHIPMENT_REMINDER: 'Hi {firstName}! Your final {medication} shipment ({shipmentNumber} of {totalShipments}) is scheduled for {date}. After this, you may want to renew your plan.',
+    SHIPMENT_REMINDER:
+      "Hi {firstName}! Your {medication} shipment {shipmentNumber} of {totalShipments} is scheduled for {date}. We'll process it automatically - no action needed.",
+    SHIPMENT_PROCESSING:
+      "Hi {firstName}! Shipment {shipmentNumber} of {totalShipments} for your {medication} is being processed. We'll send tracking info once it ships.",
+    SHIPMENT_SHIPPED:
+      '{firstName}, shipment {shipmentNumber} of {totalShipments} for your {medication} has shipped! Track your package: {trackingUrl}',
+    NEXT_SHIPMENT_SCHEDULED:
+      "{firstName}, your next {medication} shipment ({shipmentNumber} of {totalShipments}) is scheduled for {date}. We'll remind you before it ships.",
+    FINAL_SHIPMENT_REMINDER:
+      'Hi {firstName}! Your final {medication} shipment ({shipmentNumber} of {totalShipments}) is scheduled for {date}. After this, you may want to renew your plan.',
   };
 }

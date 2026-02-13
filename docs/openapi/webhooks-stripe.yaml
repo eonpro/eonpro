@@ -1,0 +1,62 @@
+# OpenAPI 3.0 - Stripe Webhook (Foundational)
+# Phase 3 C6: Request/response schemas for critical webhook. No codegen. Prepare for CI contract validation.
+openapi: 3.0.3
+info:
+  title: Platform Webhooks - Stripe
+  version: 0.1.0
+  description: |
+    Stripe webhook endpoint. Verified via Stripe-Signature header. Always returns 200 to avoid retries.
+
+paths:
+  /api/stripe/webhook:
+    post:
+      summary: Stripe webhook
+      operationId: stripeWebhook
+      tags: [webhooks, stripe]
+      description: |
+        Receives Stripe events (e.g. payment_intent.succeeded, invoice.payment_succeeded).
+        Signature must be verified with STRIPE_WEBHOOK_SECRET. Returns 200 even on processing failure (event queued to DLQ).
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+          description: Stripe signature for verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe Event object (evt_xxx). Top-level id and type are required.
+              required: [id, type]
+              properties:
+                id: { type: string }
+                type: { type: string }
+                data: { type: object }
+                livemode: { type: boolean }
+      responses:
+        '200':
+          description: Event received (processed or queued for retry)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { type: boolean }
+                  eventId: { type: string }
+                  processed: { type: boolean }
+                  duplicate: { type: boolean, description: "True if event was already processed (idempotency)" }
+                  duration: { type: integer }
+        '400':
+          description: Invalid signature or malformed body
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
+components:
+  schemas: {}

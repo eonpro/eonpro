@@ -13,7 +13,10 @@ interface ValidationResult {
 }
 
 // POST - Validate a discount code
-async function handlePost(req: NextRequest, user: AuthUser): Promise<NextResponse<ValidationResult | { error: string }>> {
+async function handlePost(
+  req: NextRequest,
+  user: AuthUser
+): Promise<NextResponse<ValidationResult | { error: string }>> {
   try {
     const body = await req.json();
     const { code, patientId, orderAmount, productIds, isFirstPurchase } = body;
@@ -34,9 +37,11 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
         code: code.toUpperCase(),
       },
       include: {
-        usages: patientId ? {
-          where: { patientId: parseInt(patientId) },
-        } : false,
+        usages: patientId
+          ? {
+              where: { patientId: parseInt(patientId) },
+            }
+          : false,
         _count: {
           select: { usages: true },
         },
@@ -64,14 +69,20 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
 
     // Check max uses
     if (discountCode.maxUses && discountCode.currentUses >= discountCode.maxUses) {
-      return NextResponse.json({ valid: false, error: 'This discount code has reached its usage limit' });
+      return NextResponse.json({
+        valid: false,
+        error: 'This discount code has reached its usage limit',
+      });
     }
 
     // Check per-patient limit
     if (patientId && discountCode.maxUsesPerPatient) {
       const patientUsages = Array.isArray(discountCode.usages) ? discountCode.usages.length : 0;
       if (patientUsages >= discountCode.maxUsesPerPatient) {
-        return NextResponse.json({ valid: false, error: 'You have already used this discount code the maximum number of times' });
+        return NextResponse.json({
+          valid: false,
+          error: 'You have already used this discount code the maximum number of times',
+        });
       }
     }
 
@@ -85,16 +96,19 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
         },
       });
       if (previousOrders > 0) {
-        return NextResponse.json({ valid: false, error: 'This discount code is only valid for first-time customers' });
+        return NextResponse.json({
+          valid: false,
+          error: 'This discount code is only valid for first-time customers',
+        });
       }
     }
 
     // Check minimum order amount
     if (discountCode.minOrderAmount && orderAmount && orderAmount < discountCode.minOrderAmount) {
       const minRequired = (discountCode.minOrderAmount / 100).toFixed(2);
-      return NextResponse.json({ 
-        valid: false, 
-        error: `Minimum order of $${minRequired} required for this discount` 
+      return NextResponse.json({
+        valid: false,
+        error: `Minimum order of $${minRequired} required for this discount`,
       });
     }
 
@@ -104,7 +118,10 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
         const allowedProducts = discountCode.productIds as number[];
         const hasValidProduct = productIds.some((id: number) => allowedProducts.includes(id));
         if (!hasValidProduct) {
-          return NextResponse.json({ valid: false, error: 'This discount code is not valid for the selected products' });
+          return NextResponse.json({
+            valid: false,
+            error: 'This discount code is not valid for the selected products',
+          });
         }
       }
 
@@ -113,7 +130,10 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
         const excludedProducts = discountCode.excludeProductIds as number[];
         const hasExcludedProduct = productIds.some((id: number) => excludedProducts.includes(id));
         if (hasExcludedProduct) {
-          return NextResponse.json({ valid: false, error: 'This discount code cannot be applied to some products in your cart' });
+          return NextResponse.json({
+            valid: false,
+            error: 'This discount code cannot be applied to some products in your cart',
+          });
         }
       }
     }

@@ -1,6 +1,6 @@
 /**
  * Get Current Affiliate User
- * 
+ *
  * Returns the authenticated affiliate's information.
  * Supports both new Affiliate model and legacy Influencer model.
  */
@@ -10,11 +10,12 @@ import { prisma } from '@/lib/db';
 import { jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { JWT_SECRET } from '@/lib/auth/config';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    
+
     // Try both cookie names for compatibility
     let token = cookieStore.get('affiliate_session')?.value;
     if (!token) {
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     // Verify JWT
@@ -34,11 +32,8 @@ export async function GET(request: NextRequest) {
       const result = await jwtVerify(token, JWT_SECRET);
       payload = result.payload;
     } catch (err) {
-      console.error('[Affiliate Auth] JWT verification failed:', err);
-      return NextResponse.json(
-        { error: 'Invalid session' },
-        { status: 401 }
-      );
+      logger.error('[Affiliate Auth] JWT verification failed', { error: err instanceof Error ? err.message : String(err) });
+      return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
     // Check if this is an Affiliate or Influencer login
@@ -74,10 +69,7 @@ export async function GET(request: NextRequest) {
       });
 
       if (!affiliate || affiliate.status === 'SUSPENDED') {
-        return NextResponse.json(
-          { error: 'Account not found or suspended' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Account not found or suspended' }, { status: 401 });
       }
 
       return NextResponse.json({
@@ -111,10 +103,7 @@ export async function GET(request: NextRequest) {
       });
 
       if (!influencer || influencer.status !== 'ACTIVE') {
-        return NextResponse.json(
-          { error: 'Account not found or inactive' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Account not found or inactive' }, { status: 401 });
       }
 
       return NextResponse.json({
@@ -134,15 +123,9 @@ export async function GET(request: NextRequest) {
     }
 
     // No valid ID in token
-    return NextResponse.json(
-      { error: 'Invalid session data' },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: 'Invalid session data' }, { status: 401 });
   } catch (error) {
-    console.error('[Affiliate Auth] Me error:', error);
-    return NextResponse.json(
-      { error: 'Authentication failed' },
-      { status: 500 }
-    );
+    logger.error('[Affiliate Auth] Me error', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }
 }

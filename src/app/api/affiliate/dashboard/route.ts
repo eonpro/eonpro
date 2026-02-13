@@ -1,6 +1,6 @@
 /**
  * Affiliate Dashboard Data API
- * 
+ *
  * Returns all data needed for the affiliate dashboard:
  * - Balance summary
  * - Performance metrics
@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * Handle dashboard for legacy Influencer model users
@@ -34,10 +35,12 @@ async function handleInfluencerDashboard(influencerId: number) {
   }
 
   // Calculate total earnings from commissions table
-  const totalEarningsAgg = await prisma.commission.aggregate({
-    where: { influencerId },
-    _sum: { commissionAmount: true },
-  }).catch(() => ({ _sum: { commissionAmount: null } }));
+  const totalEarningsAgg = await prisma.commission
+    .aggregate({
+      where: { influencerId },
+      _sum: { commissionAmount: true },
+    })
+    .catch(() => ({ _sum: { commissionAmount: null } }));
 
   // Calculate date ranges for this month
   const now = new Date();
@@ -46,23 +49,27 @@ async function handleInfluencerDashboard(influencerId: number) {
   // Get legacy commissions from Commission table
   const [monthlyCommissions, referralCount] = await Promise.all([
     // Get commissions from Commission table (legacy model)
-    prisma.commission.aggregate({
-      where: {
-        influencerId,
-        createdAt: { gte: startOfMonth },
-        status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-      },
-      _sum: { commissionAmount: true },
-      _count: true,
-    }).catch(() => ({ _sum: { commissionAmount: null }, _count: 0 })),
-    
+    prisma.commission
+      .aggregate({
+        where: {
+          influencerId,
+          createdAt: { gte: startOfMonth },
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        },
+        _sum: { commissionAmount: true },
+        _count: true,
+      })
+      .catch(() => ({ _sum: { commissionAmount: null }, _count: 0 })),
+
     // Get referral count from ReferralTracking
-    prisma.referralTracking.count({
-      where: {
-        influencerId,
-        createdAt: { gte: startOfMonth },
-      },
-    }).catch(() => 0),
+    prisma.referralTracking
+      .count({
+        where: {
+          influencerId,
+          createdAt: { gte: startOfMonth },
+        },
+      })
+      .catch(() => 0),
   ]);
 
   // Commission amounts are stored as dollars in legacy model
@@ -87,7 +94,8 @@ async function handleInfluencerDashboard(influencerId: number) {
     performance: {
       clicks: referralCount, // Use referral count as a proxy for activity
       conversions: conversionsThisMonth,
-      conversionRate: referralCount > 0 ? Math.round((conversionsThisMonth / referralCount) * 1000) / 10 : 0,
+      conversionRate:
+        referralCount > 0 ? Math.round((conversionsThisMonth / referralCount) * 1000) / 10 : 0,
       avgOrderValue: 0,
     },
     recentActivity: [],
@@ -103,12 +111,12 @@ async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
     const influencerId = user.influencerId;
-    
+
     // Handle legacy Influencer users
     if (!affiliateId && influencerId) {
       return handleInfluencerDashboard(influencerId);
     }
-    
+
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
@@ -122,10 +130,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         planAssignments: {
           where: {
             effectiveFrom: { lte: now },
-            OR: [
-              { effectiveTo: null },
-              { effectiveTo: { gte: now } },
-            ],
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
           },
           include: {
             commissionPlan: {
@@ -169,7 +174,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { commissionAmountCents: true },
       }),
-      
+
       // Pending balance (still in hold period)
       prisma.affiliateCommissionEvent.aggregate({
         where: {
@@ -178,7 +183,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { commissionAmountCents: true },
       }),
-      
+
       // This month earnings
       prisma.affiliateCommissionEvent.aggregate({
         where: {
@@ -189,7 +194,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _sum: { commissionAmountCents: true },
         _count: true,
       }),
-      
+
       // Last month earnings
       prisma.affiliateCommissionEvent.aggregate({
         where: {
@@ -202,7 +207,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { commissionAmountCents: true },
       }),
-      
+
       // This month clicks
       prisma.affiliateTouch.count({
         where: {
@@ -210,7 +215,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           createdAt: { gte: startOfMonth },
         },
       }),
-      
+
       // Recent commissions
       prisma.affiliateCommissionEvent.findMany({
         where: { affiliateId },
@@ -223,7 +228,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           status: true,
         },
       }),
-      
+
       // Recent payouts
       prisma.affiliatePayout.findMany({
         where: { affiliateId },
@@ -244,26 +249,25 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const thisMonth = thisMonthCommissions._sum.commissionAmountCents || 0;
     const lastMonth = lastMonthCommissions._sum.commissionAmountCents || 0;
     const conversionsThisMonth = thisMonthCommissions._count || 0;
-    
-    const monthOverMonthChange = lastMonth > 0
-      ? ((thisMonth - lastMonth) / lastMonth) * 100
-      : thisMonth > 0 ? 100 : 0;
 
-    const conversionRate = monthlyClicks > 0
-      ? (conversionsThisMonth / monthlyClicks) * 100
-      : 0;
+    const monthOverMonthChange =
+      lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : thisMonth > 0 ? 100 : 0;
+
+    const conversionRate = monthlyClicks > 0 ? (conversionsThisMonth / monthlyClicks) * 100 : 0;
 
     // Calculate tier progress
     let tierProgress = 0;
     const currentPlan = affiliate.planAssignments[0]?.commissionPlan;
     if (currentPlan && affiliate.currentTier) {
       const tiers = currentPlan.tiers;
-      const currentTierIndex = tiers.findIndex((t: typeof tiers[number]) => t.id === affiliate.currentTierId);
+      const currentTierIndex = tiers.findIndex(
+        (t: (typeof tiers)[number]) => t.id === affiliate.currentTierId
+      );
       const nextTier = tiers[currentTierIndex + 1];
-      
+
       if (nextTier) {
         const currentRevenue = affiliate.lifetimeRevenueCents;
-        const progressToNext = nextTier.minRevenueCents 
+        const progressToNext = nextTier.minRevenueCents
           ? (currentRevenue / nextTier.minRevenueCents) * 100
           : (affiliate.lifetimeConversions / (nextTier.minConversions || 1)) * 100;
         tierProgress = Math.min(progressToNext, 100);
@@ -274,14 +278,14 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     // Build recent activity feed
     const recentActivity = [
-      ...recentCommissions.map((c: typeof recentCommissions[number]) => ({
+      ...recentCommissions.map((c: (typeof recentCommissions)[number]) => ({
         id: `comm-${c.id}`,
         type: 'conversion' as const,
         amount: c.commissionAmountCents,
         createdAt: c.createdAt.toISOString(),
         description: c.status === 'PENDING' ? 'Pending commission' : 'New conversion',
       })),
-      ...recentPayouts.map((p: typeof recentPayouts[number]) => ({
+      ...recentPayouts.map((p: (typeof recentPayouts)[number]) => ({
         id: `payout-${p.id}`,
         type: 'payout' as const,
         amount: p.netAmountCents,
@@ -315,11 +319,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       recentActivity,
     });
   } catch (error) {
-    console.error('[Affiliate Dashboard] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to load dashboard' },
-      { status: 500 }
-    );
+    logger.error('[Affiliate Dashboard] Error', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: 'Failed to load dashboard' }, { status: 500 });
   }
 }
 

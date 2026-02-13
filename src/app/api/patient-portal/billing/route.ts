@@ -4,11 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2026-01-28.clover',
@@ -99,7 +100,9 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
             };
           } catch (error: unknown) {
             // No upcoming invoice
-            logger.warn('[Patient Billing] Failed to fetch upcoming invoice', { error: error instanceof Error ? error.message : 'Unknown error' });
+            logger.warn('[Patient Billing] Failed to fetch upcoming invoice', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
           }
         }
 
@@ -166,6 +169,27 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       pdfUrl: inv.pdfUrl,
     }));
 
+    try {
+      await auditLog(req, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: user.clinicId ?? undefined,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'Patient',
+        resourceId: String(user.patientId),
+        patientId: user.patientId,
+        action: 'portal_billing',
+        outcome: 'SUCCESS',
+      });
+    } catch (auditErr: unknown) {
+      logger.warn('Failed to create HIPAA audit log for portal billing', {
+        patientId: user.patientId,
+        userId: user.id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
     return NextResponse.json({
       subscription,
       paymentMethods,
@@ -173,16 +197,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       upcomingInvoice,
     });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[BILLING_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      patientId: user.patientId,
+    return handleApiError(error, {
+      route: 'GET /api/patient-portal/billing',
+      context: { userId: user?.id, patientId: user?.patientId },
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch billing data', errorId, code: 'BILLING_FETCH_ERROR' },
-      { status: 500 }
-    );
   }
 });
 

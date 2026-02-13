@@ -42,12 +42,15 @@ async function handler(req: NextRequest) {
 
     if (missingVars.length > 0) {
       logger.error('[SETUP-WELLMEDR] Missing required environment variables', { missingVars });
-      return NextResponse.json({
-        success: false,
-        error: 'Missing required environment variables',
-        missingVars,
-        hint: 'Configure these variables in your environment before running setup'
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Missing required environment variables',
+          missingVars,
+          hint: 'Configure these variables in your environment before running setup',
+        },
+        { status: 400 }
+      );
     }
 
     // Find Wellmedr clinic
@@ -57,25 +60,30 @@ async function handler(req: NextRequest) {
           { name: { contains: 'Wellmedr', mode: 'insensitive' } },
           { name: { contains: 'WELLMEDR', mode: 'insensitive' } },
           { subdomain: { contains: 'wellmedr', mode: 'insensitive' } },
-        ]
-      }
+        ],
+      },
     });
 
     if (!wellmedr) {
       // List existing clinics
       const clinics = await prisma.clinic.findMany({
-        select: { id: true, name: true, subdomain: true }
+        select: { id: true, name: true, subdomain: true },
       });
 
-      return NextResponse.json({
-        success: false,
-        error: 'Wellmedr clinic not found',
-        existingClinics: clinics,
-        hint: 'Create the Wellmedr clinic first in Super Admin → Clinics → New Clinic'
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Wellmedr clinic not found',
+          existingClinics: clinics,
+          hint: 'Create the Wellmedr clinic first in Super Admin → Clinics → New Clinic',
+        },
+        { status: 404 }
+      );
     }
 
-    logger.info(`[SETUP-WELLMEDR] Found Wellmedr clinic: ID=${wellmedr.id}, Name="${wellmedr.name}"`);
+    logger.info(
+      `[SETUP-WELLMEDR] Found Wellmedr clinic: ID=${wellmedr.id}, Name="${wellmedr.name}"`
+    );
 
     // Update with Lifefile credentials from environment
     const updated = await prisma.clinic.update({
@@ -90,7 +98,7 @@ async function handler(req: NextRequest) {
         lifefileLocationId: requiredEnvVars.WELLMEDR_LIFEFILE_LOCATION_ID,
         lifefileNetworkId: requiredEnvVars.WELLMEDR_LIFEFILE_NETWORK_ID,
         lifefilePracticeName: requiredEnvVars.WELLMEDR_LIFEFILE_PRACTICE_NAME,
-      }
+      },
     });
 
     logger.info('[SETUP-WELLMEDR] Successfully configured Wellmedr Lifefile credentials');
@@ -114,16 +122,18 @@ async function handler(req: NextRequest) {
         'Add Practice Phone in Super Admin → Clinics → Wellmedr → Pharmacy',
         'Add Practice Fax in Super Admin → Clinics → Wellmedr → Pharmacy',
         'Add Dr. Sigle to Wellmedr clinic in Super Admin → Users',
-        'Test by logging in as Dr. Sigle and switching to Wellmedr'
-      ]
+        'Test by logging in as Dr. Sigle and switching to Wellmedr',
+      ],
     });
-
   } catch (error: any) {
     logger.error('[SETUP-WELLMEDR] Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
 

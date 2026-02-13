@@ -7,7 +7,8 @@ import { logger } from '@/lib/logger';
 export function FeatureFlagsLogger() {
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      logger.debug('[FEATURE_FLAGS] Active:', 
+      logger.debug(
+        '[FEATURE_FLAGS] Active:',
         Object.entries(FEATURES)
           .filter(([, enabled]) => enabled)
           .map(([feature]) => feature)

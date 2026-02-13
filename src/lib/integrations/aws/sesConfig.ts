@@ -1,6 +1,6 @@
 /**
  * AWS SES (Simple Email Service) Configuration
- * 
+ *
  * Handles email sending configuration and templates
  */
 
@@ -55,7 +55,7 @@ export enum EmailTemplate {
   APPOINTMENT_REMINDER = 'appointment_reminder',
   APPOINTMENT_CANCELLED = 'appointment_cancelled',
   APPOINTMENT_RESCHEDULED = 'appointment_rescheduled',
-  
+
   // Order & Prescription
   ORDER_CONFIRMATION = 'order_confirmation',
   ORDER_SHIPPED = 'order_shipped',
@@ -63,29 +63,29 @@ export enum EmailTemplate {
   PRESCRIPTION_READY = 'prescription_ready',
   PRESCRIPTION_EXPIRING = 'prescription_expiring',
   REFILL_REMINDER = 'refill_reminder',
-  
+
   // Account & Security
   PASSWORD_RESET = 'password_reset',
   EMAIL_VERIFICATION = 'email_verification',
   TWO_FACTOR_CODE = 'two_factor_code',
   ACCOUNT_LOCKED = 'account_locked',
-  
+
   // Billing
   PAYMENT_RECEIVED = 'payment_received',
   PAYMENT_FAILED = 'payment_failed',
   SUBSCRIPTION_RENEWED = 'subscription_renewed',
   SUBSCRIPTION_CANCELLED = 'subscription_cancelled',
   INVOICE = 'invoice',
-  
+
   // Provider Communications
   PROVIDER_WELCOME = 'provider_welcome',
   NEW_PATIENT_ASSIGNED = 'new_patient_assigned',
   DOCUMENT_RECEIVED = 'document_received',
   SIGNATURE_REQUIRED = 'signature_required',
-  
+
   // Notification Digest
   NOTIFICATION_DIGEST = 'notification_digest',
-  
+
   // Custom
   CUSTOM = 'custom',
 }
@@ -117,26 +117,26 @@ export const EMAIL_CONFIG = {
     MAX_DELAY: 30000, // 30 seconds
     MULTIPLIER: 2,
   },
-  
+
   // Rate limiting
   RATE_LIMIT: {
     MAX_PER_SECOND: sesConfig.maxSendRate || 14,
     MAX_PER_DAY: 50000, // SES sandbox limit
   },
-  
+
   // Batch settings
   BATCH: {
     SIZE: 50,
     DELAY: 100, // ms between batches
   },
-  
+
   // Bounce handling
   BOUNCE: {
     SOFT_BOUNCE_RETRY: true,
     HARD_BOUNCE_BLACKLIST: true,
     COMPLAINT_BLACKLIST: true,
   },
-  
+
   // Template defaults
   TEMPLATE_DEFAULTS: {
     COMPANY_NAME: 'Lifefile Health',
@@ -166,32 +166,32 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplate, string> = {
   [EmailTemplate.APPOINTMENT_REMINDER]: 'Appointment Reminder - {{date}}',
   [EmailTemplate.APPOINTMENT_CANCELLED]: 'Appointment Cancelled',
   [EmailTemplate.APPOINTMENT_RESCHEDULED]: 'Appointment Rescheduled',
-  
+
   [EmailTemplate.ORDER_CONFIRMATION]: 'Order Confirmed - #{{orderId}}',
   [EmailTemplate.ORDER_SHIPPED]: 'Your Order Has Shipped!',
   [EmailTemplate.ORDER_DELIVERED]: 'Your Order Was Delivered',
   [EmailTemplate.PRESCRIPTION_READY]: 'Your Prescription is Ready',
   [EmailTemplate.PRESCRIPTION_EXPIRING]: 'Prescription Expiring Soon',
   [EmailTemplate.REFILL_REMINDER]: 'Time to Refill Your Medication',
-  
+
   [EmailTemplate.PASSWORD_RESET]: 'Reset Your Password',
   [EmailTemplate.EMAIL_VERIFICATION]: 'Verify Your Email Address',
   [EmailTemplate.TWO_FACTOR_CODE]: 'Your Security Code: {{code}}',
   [EmailTemplate.ACCOUNT_LOCKED]: 'Account Security Alert',
-  
+
   [EmailTemplate.PAYMENT_RECEIVED]: 'Payment Received - Thank You!',
   [EmailTemplate.PAYMENT_FAILED]: 'Payment Failed - Action Required',
   [EmailTemplate.SUBSCRIPTION_RENEWED]: 'Subscription Renewed',
   [EmailTemplate.SUBSCRIPTION_CANCELLED]: 'Subscription Cancelled',
   [EmailTemplate.INVOICE]: 'Invoice #{{invoiceNumber}}',
-  
+
   [EmailTemplate.PROVIDER_WELCOME]: 'Welcome to Lifefile Provider Portal',
   [EmailTemplate.NEW_PATIENT_ASSIGNED]: 'New Patient Assigned',
   [EmailTemplate.DOCUMENT_RECEIVED]: 'New Document Received',
   [EmailTemplate.SIGNATURE_REQUIRED]: 'Signature Required',
-  
+
   [EmailTemplate.NOTIFICATION_DIGEST]: 'Your Weekly Notification Summary',
-  
+
   [EmailTemplate.CUSTOM]: '{{subject}}',
 };
 

@@ -2,13 +2,14 @@
 
 **Document Version:** 1.0  
 **Last Updated:** January 21, 2026  
-**Classification:** INTERNAL - DevOps Team  
+**Classification:** INTERNAL - DevOps Team
 
 ---
 
 ## 1. Overview
 
-This document outlines the secrets management strategy for the EONPRO Telehealth Platform. It covers local development, staging, and production environments.
+This document outlines the secrets management strategy for the EONPRO Telehealth Platform. It covers
+local development, staging, and production environments.
 
 ### Security Principles
 
@@ -21,12 +22,12 @@ This document outlines the secrets management strategy for the EONPRO Telehealth
 
 ## 2. Secret Classification
 
-| Classification | Examples | Storage | Rotation |
-|---------------|----------|---------|----------|
-| **Critical** | ENCRYPTION_KEY, JWT_SECRET | AWS KMS | Annual + incident |
-| **High** | DATABASE_URL, API keys | AWS Secrets Manager | Quarterly |
-| **Medium** | SMTP credentials | Secrets Manager | Semi-annual |
-| **Low** | Feature flags | Environment variables | As needed |
+| Classification | Examples                   | Storage               | Rotation          |
+| -------------- | -------------------------- | --------------------- | ----------------- |
+| **Critical**   | ENCRYPTION_KEY, JWT_SECRET | AWS KMS               | Annual + incident |
+| **High**       | DATABASE_URL, API keys     | AWS Secrets Manager   | Quarterly         |
+| **Medium**     | SMTP credentials           | Secrets Manager       | Semi-annual       |
+| **Low**        | Feature flags              | Environment variables | As needed         |
 
 ---
 
@@ -92,6 +93,7 @@ Same as production but with staging service credentials.
 ### 5.1 AWS Secrets Manager (Recommended)
 
 Production secrets are stored in AWS Secrets Manager for:
+
 - Automatic rotation
 - Fine-grained IAM access control
 - Audit logging via CloudTrail
@@ -166,6 +168,7 @@ spec:
 For Vercel deployments:
 
 1. Use Vercel CLI to add secrets:
+
 ```bash
 vercel secrets add jwt-secret $(openssl rand -hex 32)
 vercel env add JWT_SECRET production < <(vercel secrets ls | grep jwt-secret)
@@ -179,12 +182,12 @@ vercel env add JWT_SECRET production < <(vercel secrets ls | grep jwt-secret)
 
 ### 6.1 Rotation Schedule
 
-| Secret | Frequency | Method |
-|--------|-----------|--------|
-| JWT_SECRET | Annual | Blue-green with overlap |
-| ENCRYPTION_KEY | On-incident | Re-encrypt all PHI |
-| DATABASE_URL | Quarterly | RDS automatic rotation |
-| API Keys | Quarterly | Regenerate in service |
+| Secret         | Frequency   | Method                  |
+| -------------- | ----------- | ----------------------- |
+| JWT_SECRET     | Annual      | Blue-green with overlap |
+| ENCRYPTION_KEY | On-incident | Re-encrypt all PHI      |
+| DATABASE_URL   | Quarterly   | RDS automatic rotation  |
+| API Keys       | Quarterly   | Regenerate in service   |
 
 ### 6.2 JWT Secret Rotation
 
@@ -247,11 +250,11 @@ DATABASE_URL=... OLD_KEY=... NEW_KEY=... npm run migrate:reencrypt-phi
 
 ### 7.2 Emergency Contacts
 
-| Role | Contact |
-|------|---------|
-| Security Lead | [PHONE] |
-| DevOps On-Call | [PHONE] |
-| AWS Support | [ACCOUNT #] |
+| Role           | Contact     |
+| -------------- | ----------- |
+| Security Lead  | [PHONE]     |
+| DevOps On-Call | [PHONE]     |
+| AWS Support    | [ACCOUNT #] |
 
 ---
 
@@ -286,6 +289,6 @@ Before deployment, verify:
 
 ## Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-01-21 | DevOps | Initial document |
+| Version | Date       | Author | Changes          |
+| ------- | ---------- | ------ | ---------------- |
+| 1.0     | 2026-01-21 | DevOps | Initial document |

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 
 /**
  * GET /api/messages/conversations - Get patient message conversations for provider
@@ -16,10 +18,11 @@ async function getHandler(request: NextRequest, user: AuthUser) {
   const startTime = Date.now();
 
   try {
+    requirePermission(toPermissionContext(user), 'message:view');
     logger.api('GET', '/api/messages/conversations', {
       userId: user.id,
       userRole: user.role,
-      clinicId: user.clinicId
+      clinicId: user.clinicId,
     });
 
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
@@ -29,12 +32,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     // Step 1: Get patients who have chat messages
     // Using basePrisma to avoid clinic filter interference with complex queries
-    const patientsWithMessages = await basePrisma.patient.findMany({
+    const patientsWithMessages = await prisma.patient.findMany({
       where: {
         ...clinicFilter,
         chatMessages: {
-          some: {} // Has at least one message
-        }
+          some: {}, // Has at least one message
+        },
       },
       select: {
         id: true,
@@ -49,49 +52,45 @@ async function getHandler(request: NextRequest, user: AuthUser) {
             createdAt: true,
             direction: true,
             readAt: true,
-          }
-        }
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
+        createdAt: 'desc',
       },
-      take: 100
+      take: 100,
     });
 
     // Step 2: Get unread counts for these patients in a separate efficient query
-    const patientIds = patientsWithMessages.map(p => p.id);
+    const patientIds = patientsWithMessages.map((p) => p.id);
 
     // Get unread message counts grouped by patient
-    const unreadCounts = await basePrisma.patientChatMessage.groupBy({
+    const unreadCounts = await prisma.patientChatMessage.groupBy({
       by: ['patientId'],
       where: {
         patientId: { in: patientIds },
         direction: 'INBOUND', // Patient -> Staff messages
         readAt: null, // Not read yet
-        ...clinicFilter
+        ...clinicFilter,
       },
       _count: {
-        id: true
-      }
+        id: true,
+      },
     });
 
     // Create a map for quick lookup
-    const unreadCountMap = new Map(
-      unreadCounts.map(uc => [uc.patientId, uc._count.id])
-    );
+    const unreadCountMap = new Map(unreadCounts.map((uc) => [uc.patientId, uc._count.id]));
 
     // Transform to frontend format
-    const conversations = patientsWithMessages.map(p => ({
+    const conversations = patientsWithMessages.map((p) => ({
       id: p.chatMessages[0]?.id || p.id,
       patientId: p.id,
       patientName: `${p.firstName} ${p.lastName}`.trim(),
       lastMessage: p.chatMessages[0]?.message || '',
-      timestamp: p.chatMessages[0]?.createdAt
-        ? formatTimestamp(p.chatMessages[0].createdAt)
-        : '',
+      timestamp: p.chatMessages[0]?.createdAt ? formatTimestamp(p.chatMessages[0].createdAt) : '',
       unread: (unreadCountMap.get(p.id) || 0) > 0,
       unreadCount: unreadCountMap.get(p.id) || 0,
-      priority: 'normal' as const
+      priority: 'normal' as const,
     }));
 
     // Sort by unread first, then by timestamp
@@ -102,13 +101,15 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     logger.debug('Conversations fetched', {
       count: conversations.length,
-      unreadTotal: conversations.filter(c => c.unread).length,
-      durationMs: Date.now() - startTime
+      unreadTotal: conversations.filter((c) => c.unread).length,
+      durationMs: Date.now() - startTime,
     });
+
+    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'message:view', { route: 'GET /api/messages/conversations' }));
 
     return NextResponse.json({
       ok: true,
-      conversations
+      conversations,
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -116,10 +117,10 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     logger.error('Error fetching conversations:', {
       error: errorMessage,
-      stack: errorStack,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
       userId: user.id,
       clinicId: user.clinicId,
-      durationMs: Date.now() - startTime
+      durationMs: Date.now() - startTime,
     });
 
     return NextResponse.json(
@@ -146,5 +147,5 @@ function formatTimestamp(date: Date): string {
 }
 
 export const GET = withAuth(getHandler, {
-  roles: ['super_admin', 'admin', 'provider']
+  roles: ['super_admin', 'admin', 'provider'],
 });

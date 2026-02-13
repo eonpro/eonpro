@@ -97,14 +97,14 @@ export const COMMON_FIELD_MAP: Record<string, string> = {
   // Patient Info
   'First name': 'first-name',
   'Last name': 'last-name',
-  'DOB': 'dob',
-  'email': 'email',
+  DOB: 'dob',
+  email: 'email',
   'phone number': 'phone',
-  'Gender': 'gender',
-  'State': 'state',
+  Gender: 'gender',
+  State: 'state',
 
   // Address
-  'Address': 'address',
+  Address: 'address',
   'Address [Street]': 'street',
   'Address [house]': 'house-number',
   'Address [City]': 'city',
@@ -123,8 +123,8 @@ export const COMMON_FIELD_MAP: Record<string, string> = {
   'Who reccomended OT Mens Health to you?': 'referrer-name',
   'Who recommended OT Mens Health to you?': 'referrer-name', // TRT has different spelling
   'INFLUENCER CODE': 'promo-code',
-  'Referrer': 'referrer-url',
-  'URL': 'submission-url',
+  Referrer: 'referrer-url',
+  URL: 'submission-url',
   'URL with parameters': 'submission-url-params',
 
   // Consent & Marketing
@@ -133,8 +133,8 @@ export const COMMON_FIELD_MAP: Record<string, string> = {
   'marketing consent': 'marketing-consent',
 
   // Medical Common
-  'Drinking': 'alcohol-use',
-  'Allergies': 'has-allergies',
+  Drinking: 'alcohol-use',
+  Allergies: 'has-allergies',
   'Allergies ': 'has-allergies', // Some tables have trailing space
   'Which allergies': 'allergy-details',
   'List of Allergies': 'allergy-details',
@@ -161,7 +161,7 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
 
     // Weight Goals
     'ideal weight': 'goal-weight',
-    'BMI': 'bmi',
+    BMI: 'bmi',
 
     // GLP-1 History
     'GLP-1 History': 'glp1-history',
@@ -186,8 +186,8 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
     // Contraindications (Critical for GLP-1)
     'Thyroid Cancer': 'thyroid-cancer-history',
     'Neoplasia type 2 (MEN 2)': 'men2-history',
-    'Pancreatitis': 'pancreatitis-history',
-    'Gastroparesis': 'gastroparesis',
+    Pancreatitis: 'pancreatitis-history',
+    Gastroparesis: 'gastroparesis',
     'Pregnant or Breastfeeding': 'pregnant-breastfeeding',
     'Type 2 Diabetes': 'type2-diabetes',
 
@@ -220,23 +220,23 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
   peptides: {
     'Symptoms ': 'symptoms',
     'Peptide choice': 'peptide-choice',
-    'goals': 'treatment-goals',
+    goals: 'treatment-goals',
     'What are you looking to Optimize?': 'optimization-goals',
     'Activity Level': 'activity-level',
     'Medications [current]': 'current-medications',
     'List of medications': 'medication-list',
     'Prescription Medications': 'prescription-medications',
     'Chronic Kidney Disease ': 'chronic-kidney-disease',
-    'Conditions': 'medical-conditions',
+    Conditions: 'medical-conditions',
     'Cancer ': 'cancer-history',
-    'Bloodowrk': 'recent-bloodwork',
+    Bloodowrk: 'recent-bloodwork',
     'B12 Deficiency': 'b12-deficiency',
   },
 
   nad_plus: {
     'NAD Goals': 'nad-goals',
     'Health Goals': 'health-goals',
-    'goals': 'treatment-goals',
+    goals: 'treatment-goals',
     'Used NAD Before': 'prior-nad-experience',
     'Prescription Medications': 'prescription-medications',
     'List of medications': 'medication-list',
@@ -252,12 +252,12 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
     // ═══════════════════════════════════════════════════════════════════
 
     // Symptoms & Duration
-    'Symptoms': 'symptoms',
+    Symptoms: 'symptoms',
     'How long have you notice': 'symptom-duration',
     'How often do these sexual issues occur?': 'symptom-frequency',
 
     // Treatment Goals
-    'goals': 'treatment-goals',
+    goals: 'treatment-goals',
 
     // Physical Activity & Lifestyle
     'Physical Active': 'physical-activity',
@@ -272,14 +272,14 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
     'Chronic Disease': 'chronic-disease',
     'Chronic Illnesses': 'chronic-illnesses',
     'Specific Conditions': 'specific-conditions',
-    'Cancer': 'cancer-history',
+    Cancer: 'cancer-history',
 
     // Medications
-    'Medications': 'current-medications',
+    Medications: 'current-medications',
     'List of Medications': 'medication-list',
 
     // Lab Work
-    'Labwork': 'recent-labwork',
+    Labwork: 'recent-labwork',
 
     // Allergies
     'Which allergies': 'allergy-details',
@@ -295,7 +295,7 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
     'Blood Pressure': 'blood-pressure',
     'Previous Therapies (Hormone, Pept, GLP1)': 'previous-therapies',
     'Self Administration': 'self-administration-comfort',
-    'bloodwork': 'recent-bloodwork',
+    bloodwork: 'recent-bloodwork',
     'Lab Results': 'lab-results',
   },
 
@@ -309,7 +309,7 @@ export const TREATMENT_FIELD_MAPS: Record<OvertimeTreatmentType, Record<string, 
     'Specific Supplements': 'specific-supplements',
     'Chronic Disease': 'chronic-disease',
     'List of disease': 'disease-list',
-    'Bloodowrk': 'recent-bloodwork',
+    Bloodowrk: 'recent-bloodwork',
   },
 };
 

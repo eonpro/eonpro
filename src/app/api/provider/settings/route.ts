@@ -64,6 +64,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
         orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        take: 100,
       });
 
       type UserClinicEntry = (typeof userClinics)[number];

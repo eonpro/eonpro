@@ -90,7 +90,7 @@ describe('Stripe Payment Service', () => {
   describe('createPaymentIntent', () => {
     it('should create payment intent for patient', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       mockStripeClient.paymentIntents.create.mockResolvedValue({
         id: 'pi_test123',
         client_secret: 'pi_test123_secret_xyz',
@@ -126,7 +126,7 @@ describe('Stripe Payment Service', () => {
 
     it('should include metadata in payment intent', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       mockStripeClient.paymentIntents.create.mockResolvedValue({
         id: 'pi_meta123',
         client_secret: 'secret',
@@ -157,7 +157,7 @@ describe('Stripe Payment Service', () => {
   describe('processPayment', () => {
     it('should process payment with payment method', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       mockStripeClient.paymentIntents.create.mockResolvedValue({
         id: 'pi_process123',
         client_secret: 'secret',
@@ -190,15 +190,14 @@ describe('Stripe Payment Service', () => {
       });
 
       expect(result).toBeDefined();
-      expect(mockStripeClient.paymentIntents.confirm).toHaveBeenCalledWith(
-        'pi_process123',
-        { payment_method: 'pm_test123' }
-      );
+      expect(mockStripeClient.paymentIntents.confirm).toHaveBeenCalledWith('pi_process123', {
+        payment_method: 'pm_test123',
+      });
     });
 
     it('should throw error if payment method not provided', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       await expect(
         StripePaymentService.processPayment({
           patientId: 1,
@@ -211,7 +210,7 @@ describe('Stripe Payment Service', () => {
   describe('updatePaymentFromIntent', () => {
     it('should update payment status from webhook', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         stripePaymentIntentId: 'pi_webhook123',
@@ -240,7 +239,7 @@ describe('Stripe Payment Service', () => {
 
     it('should update invoice when payment succeeds', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         stripePaymentIntentId: 'pi_invoice123',
@@ -266,7 +265,7 @@ describe('Stripe Payment Service', () => {
     it('should handle missing payment gracefully', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
       const { logger } = await import('@/lib/logger');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue(null);
 
       const paymentIntent: Partial<Stripe.PaymentIntent> = {
@@ -282,7 +281,7 @@ describe('Stripe Payment Service', () => {
 
     it('should handle failed payment status', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         stripePaymentIntentId: 'pi_failed123',
@@ -311,7 +310,7 @@ describe('Stripe Payment Service', () => {
   describe('refundPayment', () => {
     it('should create full refund', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
@@ -336,7 +335,7 @@ describe('Stripe Payment Service', () => {
 
     it('should create partial refund', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
@@ -360,31 +359,29 @@ describe('Stripe Payment Service', () => {
 
     it('should throw error if payment not found', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue(null);
 
-      await expect(
-        StripePaymentService.refundPayment(999)
-      ).rejects.toThrow('Payment with ID 999 not found');
+      await expect(StripePaymentService.refundPayment(999)).rejects.toThrow(
+        'Payment with ID 999 not found'
+      );
     });
 
     it('should throw error if no charge ID', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
         stripeChargeId: null,
       } as any);
 
-      await expect(
-        StripePaymentService.refundPayment(1)
-      ).rejects.toThrow('no charge ID');
+      await expect(StripePaymentService.refundPayment(1)).rejects.toThrow('no charge ID');
     });
 
     it('should update payment status after refund', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
@@ -408,7 +405,7 @@ describe('Stripe Payment Service', () => {
   describe('getPaymentMethods', () => {
     it('should return patient payment methods', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       const mockPaymentMethods = [
         { id: 'pm_1', card: { brand: 'visa', last4: '4242' } },
         { id: 'pm_2', card: { brand: 'mastercard', last4: '5555' } },
@@ -430,7 +427,7 @@ describe('Stripe Payment Service', () => {
 
     it('should return empty array for no payment methods', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       mockStripeClient.paymentMethods.list.mockResolvedValue({ data: [] });
 
       const result = await StripePaymentService.getPaymentMethods(1);
@@ -442,7 +439,7 @@ describe('Stripe Payment Service', () => {
   describe('attachPaymentMethod', () => {
     it('should attach payment method to customer', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       mockStripeClient.paymentMethods.attach.mockResolvedValue({
         id: 'pm_attached',
         customer: 'cus_test123',
@@ -451,17 +448,16 @@ describe('Stripe Payment Service', () => {
       const result = await StripePaymentService.attachPaymentMethod(1, 'pm_newcard');
 
       expect(result.id).toBe('pm_attached');
-      expect(mockStripeClient.paymentMethods.attach).toHaveBeenCalledWith(
-        'pm_newcard',
-        { customer: 'cus_test123' }
-      );
+      expect(mockStripeClient.paymentMethods.attach).toHaveBeenCalledWith('pm_newcard', {
+        customer: 'cus_test123',
+      });
     });
   });
 
   describe('detachPaymentMethod', () => {
     it('should detach payment method', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       mockStripeClient.paymentMethods.detach.mockResolvedValue({
         id: 'pm_detached',
         customer: null,
@@ -477,7 +473,7 @@ describe('Stripe Payment Service', () => {
   describe('getPatientPayments', () => {
     it('should return patient payment history', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       const mockPayments = [
         { id: 1, amount: 10000, status: 'SUCCEEDED', createdAt: new Date() },
         { id: 2, amount: 5000, status: 'REFUNDED', createdAt: new Date() },
@@ -499,10 +495,10 @@ describe('Stripe Payment Service', () => {
   describe('Status Mapping', () => {
     it('should map Stripe statuses correctly', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
-      
+
       // Access private method via testing
       const mapStripeStatus = (StripePaymentService as any).mapStripeStatus;
-      
+
       expect(mapStripeStatus('requires_payment_method')).toBe('PENDING');
       expect(mapStripeStatus('requires_confirmation')).toBe('PENDING');
       expect(mapStripeStatus('requires_action')).toBe('PENDING');
@@ -519,14 +515,14 @@ describe('Payment Amount Handling', () => {
     // $100.00 = 10000 cents
     const dollars = 100;
     const cents = dollars * 100;
-    
+
     expect(cents).toBe(10000);
   });
 
   it('should format cents to dollars', () => {
     const cents = 15050;
     const dollars = (cents / 100).toFixed(2);
-    
+
     expect(dollars).toBe('150.50');
   });
 
@@ -538,7 +534,7 @@ describe('Payment Amount Handling', () => {
     expect(validateAmount(10000)).toBe(true);
     expect(validateAmount(0)).toBe(false);
     expect(validateAmount(-100)).toBe(false);
-    expect(validateAmount(100.50)).toBe(false); // Must be integer cents
+    expect(validateAmount(100.5)).toBe(false); // Must be integer cents
   });
 });
 

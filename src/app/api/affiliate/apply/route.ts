@@ -1,6 +1,6 @@
 /**
  * Affiliate Application API
- * 
+ *
  * Public endpoint for submitting affiliate applications.
  * Resolves clinic from request domain.
  */
@@ -27,7 +27,9 @@ const applicationSchema = z.object({
   state: z.string().min(2, 'State is required').max(50),
   zipCode: z.string().min(5, 'ZIP code is required').max(20),
   country: z.string().default('US'),
-  socialProfiles: z.array(socialProfileSchema).min(1, 'At least one social media profile is required'),
+  socialProfiles: z
+    .array(socialProfileSchema)
+    .min(1, 'At least one social media profile is required'),
   website: z.string().url('Please enter a valid URL').optional().or(z.literal('')),
   audienceSize: z.string().optional(),
   promotionPlan: z.string().max(1000).optional(),
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
     // Validate input
     const validationResult = applicationSchema.safeParse(body);
     if (!validationResult.success) {
-      const errors = validationResult.error.errors.map(e => ({
+      const errors = validationResult.error.errors.map((e) => ({
         field: e.path.join('.'),
         message: e.message,
       }));
@@ -62,10 +64,7 @@ export async function POST(request: NextRequest) {
         error: clinicError instanceof Error ? clinicError.message : 'Unknown',
         domain,
       });
-      return NextResponse.json(
-        { error: 'Database error resolving clinic.' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Database error resolving clinic.' }, { status: 500 });
     }
 
     if (!clinic) {
@@ -75,7 +74,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     logger.info('[AffiliateApply] Clinic resolved', { clinicId: clinic.id, domain });
 
     // Rate limiting by email
@@ -107,21 +106,15 @@ export async function POST(request: NextRequest) {
         where: {
           clinicId: clinic.id,
           status: 'PENDING',
-          OR: [
-            { email: data.email.toLowerCase() },
-            { phone: normalizedPhone },
-          ],
+          OR: [{ email: data.email.toLowerCase() }, { phone: normalizedPhone }],
         },
       });
     } catch (findError) {
       logger.error('[AffiliateApply] Error checking existing application', {
         error: findError instanceof Error ? findError.message : 'Unknown',
-        stack: findError instanceof Error ? findError.stack : undefined,
+        ...(process.env.NODE_ENV === 'development' && { stack: findError instanceof Error ? findError.stack : undefined }),
       });
-      return NextResponse.json(
-        { error: 'Database error. Please try again.' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Database error. Please try again.' }, { status: 500 });
     }
 
     if (existingApplication) {
@@ -184,7 +177,7 @@ export async function POST(request: NextRequest) {
     } catch (createError) {
       logger.error('[AffiliateApply] Error creating application', {
         error: createError instanceof Error ? createError.message : 'Unknown',
-        stack: createError instanceof Error ? createError.stack : undefined,
+        ...(process.env.NODE_ENV === 'development' && { stack: createError instanceof Error ? createError.stack : undefined }),
         clinicId: clinic.id,
         email: data.email,
       });
@@ -204,13 +197,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Your application has been submitted successfully. We will review it and get back to you soon.',
+      message:
+        'Your application has been submitted successfully. We will review it and get back to you soon.',
       applicationId: application.id,
     });
   } catch (error) {
     logger.error('[AffiliateApply] Error submitting application', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       name: error instanceof Error ? error.name : undefined,
     });
 

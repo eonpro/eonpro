@@ -1,9 +1,9 @@
 /**
  * IP Intelligence Service
- * 
+ *
  * Provides IP address analysis for fraud detection.
  * Caches results in database for performance.
- * 
+ *
  * Supports integration with:
  * - IPQualityScore
  * - MaxMind GeoIP2
@@ -124,7 +124,7 @@ async function queryIpQualityScore(ip: string): Promise<IpIntelResult | null> {
       `https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}?${params}`,
       {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { Accept: 'application/json' },
       }
     );
 
@@ -184,10 +184,16 @@ function heuristicAnalysis(ip: string): IpIntelResult {
 
   // Check for common datacenter IP ranges (simplified)
   const datacenterPrefixes = [
-    '52.', '54.', '35.',    // AWS
-    '104.', '172.',          // Google Cloud
-    '40.', '52.', '13.',     // Azure
-    '198.51.', '203.0.',     // Documentation ranges (shouldn't be real traffic)
+    '52.',
+    '54.',
+    '35.', // AWS
+    '104.',
+    '172.', // Google Cloud
+    '40.',
+    '52.',
+    '13.', // Azure
+    '198.51.',
+    '203.0.', // Documentation ranges (shouldn't be real traffic)
   ];
 
   for (const prefix of datacenterPrefixes) {
@@ -310,8 +316,8 @@ export async function analyzeIps(ips: string[]): Promise<Map<string, IpIntelResu
   const batchSize = 5;
   for (let i = 0; i < ips.length; i += batchSize) {
     const batch = ips.slice(i, i + batchSize);
-    const batchResults = await Promise.all(batch.map(ip => analyzeIp(ip)));
-    
+    const batchResults = await Promise.all(batch.map((ip) => analyzeIp(ip)));
+
     batch.forEach((ip, index) => {
       results.set(ip, batchResults[index]);
     });

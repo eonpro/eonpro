@@ -1,6 +1,6 @@
 /**
  * Affiliate Login (Email + Password)
- * 
+ *
  * Authenticates affiliates using email and password.
  * Creates a session and returns a JWT token.
  */
@@ -20,10 +20,7 @@ export async function POST(request: NextRequest) {
     const { email, password } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -52,16 +49,13 @@ export async function POST(request: NextRequest) {
     if (affiliate && affiliate.user) {
       // Verify password
       const isValidPassword = await bcrypt.compare(password, affiliate.user.passwordHash);
-      
+
       if (!isValidPassword) {
         logger.warn('[Affiliate Auth] Invalid password (Affiliate table)', {
           affiliateId: affiliate.id,
         });
-        
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
+
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
       }
 
       // Create JWT token
@@ -121,24 +115,18 @@ export async function POST(request: NextRequest) {
     if (influencer && influencer.passwordHash) {
       // Verify password
       const isValidPassword = await bcrypt.compare(password, influencer.passwordHash);
-      
+
       if (!isValidPassword) {
         logger.warn('[Affiliate Auth] Invalid password (Influencer table)', {
           influencerId: influencer.id,
         });
-        
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
+
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
       }
 
       // Check status
       if (influencer.status !== 'ACTIVE') {
-        return NextResponse.json(
-          { error: 'Account is not active' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Account is not active' }, { status: 401 });
       }
 
       // Create JWT token (using influencer ID) - same format as /api/influencers/auth/login
@@ -202,20 +190,14 @@ export async function POST(request: NextRequest) {
     logger.info('[Affiliate Auth] Email not found', {
       email: normalizedEmail.substring(0, 3) + '***',
     });
-    
-    return NextResponse.json(
-      { error: 'Invalid email or password' },
-      { status: 401 }
-    );
+
+    return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   } catch (error) {
     logger.error('[Affiliate Auth] Login error', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
     });
-    
-    return NextResponse.json(
-      { error: 'Login failed' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }

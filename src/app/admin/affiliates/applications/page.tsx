@@ -113,7 +113,9 @@ export default function AdminAffiliateApplicationsPage() {
   const [plans, setPlans] = useState<CommissionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>(
+    'PENDING'
+  );
   const [counts, setCounts] = useState({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
 
   // Detail modal state
@@ -212,18 +214,23 @@ export default function AdminAffiliateApplicationsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/applications/${selectedApplication.id}/approve`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          commissionPlanId: approveForm.commissionPlanId ? parseInt(approveForm.commissionPlanId) : undefined,
-          initialRefCode: approveForm.initialRefCode || undefined,
-          reviewNotes: approveForm.reviewNotes || undefined,
-        }),
-      });
+      const response = await fetch(
+        `/api/admin/affiliates/applications/${selectedApplication.id}/approve`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            commissionPlanId: approveForm.commissionPlanId
+              ? parseInt(approveForm.commissionPlanId)
+              : undefined,
+            initialRefCode: approveForm.initialRefCode || undefined,
+            reviewNotes: approveForm.reviewNotes || undefined,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -250,16 +257,19 @@ export default function AdminAffiliateApplicationsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/applications/${selectedApplication.id}/reject`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reviewNotes: rejectNotes || undefined,
-        }),
-      });
+      const response = await fetch(
+        `/api/admin/affiliates/applications/${selectedApplication.id}/reject`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reviewNotes: rejectNotes || undefined,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -309,7 +319,7 @@ export default function AdminAffiliateApplicationsPage() {
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => window.location.href = '/admin/affiliates'}
+          onClick={() => (window.location.href = '/admin/affiliates')}
           className="mb-4 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -406,18 +416,20 @@ export default function AdminAffiliateApplicationsPage() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-2">
-                    {(application.socialProfiles as SocialProfile[]).slice(0, 3).map((profile, i) => (
-                      <a
-                        key={i}
-                        href={profile.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
-                      >
-                        <SocialIcon platform={profile.platform} />
-                        {profile.platform}
-                      </a>
-                    ))}
+                    {(application.socialProfiles as SocialProfile[])
+                      .slice(0, 3)
+                      .map((profile, i) => (
+                        <a
+                          key={i}
+                          href={profile.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-600 hover:bg-gray-200"
+                        >
+                          <SocialIcon platform={profile.platform} />
+                          {profile.platform}
+                        </a>
+                      ))}
                     {application.audienceSize && (
                       <span className="text-xs text-gray-400">{application.audienceSize}</span>
                     )}
@@ -488,7 +500,9 @@ export default function AdminAffiliateApplicationsPage() {
             <div className="space-y-4">
               {/* Contact Info */}
               <div className="rounded-lg bg-gray-50 p-4">
-                <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Contact Information</h3>
+                <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                  Contact Information
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Email</p>
@@ -503,19 +517,22 @@ export default function AdminAffiliateApplicationsPage() {
 
               {/* Address */}
               <div className="rounded-lg bg-gray-50 p-4">
-                <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Address</h3>
+                <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">Address</h3>
                 <p className="text-gray-900">{selectedApplication.addressLine1}</p>
                 {selectedApplication.addressLine2 && (
                   <p className="text-gray-900">{selectedApplication.addressLine2}</p>
                 )}
                 <p className="text-gray-600">
-                  {selectedApplication.city}, {selectedApplication.state} {selectedApplication.zipCode}
+                  {selectedApplication.city}, {selectedApplication.state}{' '}
+                  {selectedApplication.zipCode}
                 </p>
               </div>
 
               {/* Social Profiles */}
               <div className="rounded-lg bg-gray-50 p-4">
-                <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Social Profiles</h3>
+                <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                  Social Profiles
+                </h3>
                 <div className="space-y-2">
                   {(selectedApplication.socialProfiles as SocialProfile[]).map((profile, i) => (
                     <a
@@ -533,7 +550,8 @@ export default function AdminAffiliateApplicationsPage() {
                 </div>
                 {selectedApplication.audienceSize && (
                   <p className="mt-2 text-sm text-gray-600">
-                    Audience: <span className="font-medium">{selectedApplication.audienceSize}</span>
+                    Audience:{' '}
+                    <span className="font-medium">{selectedApplication.audienceSize}</span>
                   </p>
                 )}
                 {selectedApplication.website && (
@@ -553,15 +571,21 @@ export default function AdminAffiliateApplicationsPage() {
               {/* Promotion Plan */}
               {selectedApplication.promotionPlan && (
                 <div className="rounded-lg bg-gray-50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Promotion Plan</h3>
-                  <p className="whitespace-pre-wrap text-gray-900">{selectedApplication.promotionPlan}</p>
+                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                    Promotion Plan
+                  </h3>
+                  <p className="whitespace-pre-wrap text-gray-900">
+                    {selectedApplication.promotionPlan}
+                  </p>
                 </div>
               )}
 
               {/* Review Notes (if already reviewed) */}
               {selectedApplication.reviewNotes && (
                 <div className="rounded-lg bg-gray-50 p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Review Notes</h3>
+                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                    Review Notes
+                  </h3>
                   <p className="text-gray-900">{selectedApplication.reviewNotes}</p>
                 </div>
               )}
@@ -596,7 +620,9 @@ export default function AdminAffiliateApplicationsPage() {
             {selectedApplication.status === 'APPROVED' && selectedApplication.affiliate && (
               <div className="mt-6">
                 <button
-                  onClick={() => window.location.href = `/admin/affiliates/${selectedApplication.affiliate!.id}`}
+                  onClick={() =>
+                    (window.location.href = `/admin/affiliates/${selectedApplication.affiliate!.id}`)
+                  }
                   className="w-full rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700"
                 >
                   View Affiliate Profile
@@ -613,7 +639,8 @@ export default function AdminAffiliateApplicationsPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <h2 className="mb-4 text-xl font-bold text-gray-900">Approve Application</h2>
             <p className="mb-4 text-sm text-gray-600">
-              Approving <strong>{selectedApplication.fullName}</strong> will create their affiliate account.
+              Approving <strong>{selectedApplication.fullName}</strong> will create their affiliate
+              account.
             </p>
 
             <div className="space-y-4">
@@ -621,34 +648,44 @@ export default function AdminAffiliateApplicationsPage() {
                 <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
                 <select
                   value={approveForm.commissionPlanId}
-                  onChange={(e) => setApproveForm((f) => ({ ...f, commissionPlanId: e.target.value }))}
+                  onChange={(e) =>
+                    setApproveForm((f) => ({ ...f, commissionPlanId: e.target.value }))
+                  }
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 >
                   <option value="">Select a plan (optional)</option>
                   {plans.map((plan) => {
                     // Check if plan has separate initial/recurring rates
-                    const hasSeperateRates = plan.initialPercentBps !== null || 
+                    const hasSeperateRates =
+                      plan.initialPercentBps !== null ||
                       plan.initialFlatAmountCents !== null ||
                       plan.recurringPercentBps !== null ||
                       plan.recurringFlatAmountCents !== null;
-                    
+
                     let rateDisplay = '';
                     if (hasSeperateRates) {
-                      const initialRate = plan.planType === 'PERCENT' 
-                        ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                        : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
-                      const recurringRate = plan.planType === 'PERCENT'
-                        ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                        : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                      const initialRate =
+                        plan.planType === 'PERCENT'
+                          ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                          : formatCurrency(
+                              plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                            );
+                      const recurringRate =
+                        plan.planType === 'PERCENT'
+                          ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                          : formatCurrency(
+                              plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                            );
                       rateDisplay = `${initialRate} init / ${recurringRate} rec`;
                     } else {
-                      rateDisplay = plan.planType === 'PERCENT' && plan.percentBps
-                        ? formatPercent(plan.percentBps)
-                        : plan.flatAmountCents
-                        ? formatCurrency(plan.flatAmountCents)
-                        : 'N/A';
+                      rateDisplay =
+                        plan.planType === 'PERCENT' && plan.percentBps
+                          ? formatPercent(plan.percentBps)
+                          : plan.flatAmountCents
+                            ? formatCurrency(plan.flatAmountCents)
+                            : 'N/A';
                     }
-                    
+
                     return (
                       <option key={plan.id} value={plan.id}>
                         {plan.name} ({rateDisplay})
@@ -713,12 +750,15 @@ export default function AdminAffiliateApplicationsPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <h2 className="mb-4 text-xl font-bold text-gray-900">Reject Application</h2>
             <p className="mb-4 text-sm text-gray-600">
-              Are you sure you want to reject <strong>{selectedApplication.fullName}</strong>'s application?
+              Are you sure you want to reject <strong>{selectedApplication.fullName}</strong>'s
+              application?
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Reason (internal notes)</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Reason (internal notes)
+                </label>
                 <textarea
                   value={rejectNotes}
                   onChange={(e) => setRejectNotes(e.target.value)}

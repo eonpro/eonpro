@@ -2,9 +2,10 @@
 
 **Document Version:** 1.0  
 **Last Updated:** January 21, 2026  
-**Classification:** INTERNAL - Engineering Team  
+**Classification:** INTERNAL - Engineering Team
 
-**To enable Sentry in production:** see [SENTRY_SETUP.md](./SENTRY_SETUP.md) (env vars and checklist).
+**To enable Sentry in production:** see [SENTRY_SETUP.md](./SENTRY_SETUP.md) (env vars and
+checklist).
 
 ---
 
@@ -14,13 +15,13 @@ The EONPRO platform uses a comprehensive observability stack for monitoring, tra
 
 ### Stack Components
 
-| Component | Tool | Purpose |
-|-----------|------|---------|
-| **Error Tracking** | Sentry | Exception capture, stack traces |
-| **APM/Tracing** | Sentry Performance | Distributed tracing, spans |
-| **Metrics** | Sentry Metrics | Custom gauges, counters |
-| **Session Replay** | Sentry Replay | User session recording |
-| **Logging** | Custom Logger | Structured JSON logs |
+| Component          | Tool               | Purpose                         |
+| ------------------ | ------------------ | ------------------------------- |
+| **Error Tracking** | Sentry             | Exception capture, stack traces |
+| **APM/Tracing**    | Sentry Performance | Distributed tracing, spans      |
+| **Metrics**        | Sentry Metrics     | Custom gauges, counters         |
+| **Session Replay** | Sentry Replay      | User session recording          |
+| **Logging**        | Custom Logger      | Structured JSON logs            |
 
 ---
 
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
   return traceApiRoute(req, async (context: TraceContext) => {
     // context.requestId - unique request ID
     // context.traceId - distributed trace ID
-    
+
     return NextResponse.json({ data });
   });
 }
@@ -85,12 +86,12 @@ const response = await fetch(externalUrl, { headers });
 
 The platform automatically tracks:
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `api.response_time` | Distribution | API endpoint latency |
-| `db.query_time` | Distribution | Database query duration |
-| `http.server.duration` | Distribution | Request handling time |
-| `server.memory.heap` | Gauge | Heap memory usage |
+| Metric                 | Type         | Description             |
+| ---------------------- | ------------ | ----------------------- |
+| `api.response_time`    | Distribution | API endpoint latency    |
+| `db.query_time`        | Distribution | Database query duration |
+| `http.server.duration` | Distribution | Request handling time   |
+| `server.memory.heap`   | Gauge        | Heap memory usage       |
 
 ### 3.2 Custom Metrics
 
@@ -114,6 +115,7 @@ recordDistribution('order.processing_time', duration, 'millisecond');
 ### 4.1 Automatic Capture
 
 Sentry automatically captures:
+
 - Unhandled exceptions
 - Promise rejections
 - API errors (4xx, 5xx)
@@ -177,11 +179,11 @@ Session replay is enabled in production with HIPAA-compliant masking:
 
 Configure alerts in Sentry dashboard for:
 
-| Alert | Condition | Action |
-|-------|-----------|--------|
+| Alert       | Condition         | Action             |
+| ----------- | ----------------- | ------------------ |
 | Error Spike | >10 errors/minute | Slack notification |
-| P95 Latency | >2s response time | PagerDuty |
-| New Error | First occurrence | Email |
+| P95 Latency | >2s response time | PagerDuty          |
+| New Error   | First occurrence  | Email              |
 
 ### 6.2 Custom Alerts
 
@@ -211,6 +213,7 @@ Access in Sentry at https://sentry.io/organizations/[org]/dashboards/
 ### 7.2 Custom Widgets
 
 Create widgets for:
+
 - `api.response_time` by endpoint
 - `db.query_time` by table
 - Error count by category
@@ -271,15 +274,18 @@ NEXT_PUBLIC_SENTRY_DEBUG=true
 ### Common Issues
 
 **Events not appearing:**
+
 - Check `SENTRY_DSN` is set
 - Verify `NODE_ENV` is correct
 - Check sampling rates
 
 **Missing traces:**
+
 - Ensure `tracesSampleRate` > 0
 - Check `tracePropagationTargets`
 
 **PHI in error reports:**
+
 - Review `beforeSend` hooks
 - Check `maskAllInputs` setting
 
@@ -287,6 +293,6 @@ NEXT_PUBLIC_SENTRY_DEBUG=true
 
 ## Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-01-21 | Engineering | Initial document |
+| Version | Date       | Author      | Changes          |
+| ------- | ---------- | ----------- | ---------------- |
+| 1.0     | 2026-01-21 | Engineering | Initial document |

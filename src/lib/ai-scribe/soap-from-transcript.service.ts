@@ -1,6 +1,6 @@
 /**
  * AI Scribe - SOAP Note Generation from Transcripts
- * 
+ *
  * Converts telehealth session transcripts into structured SOAP notes
  * using OpenAI GPT-4 for medical documentation
  */
@@ -35,7 +35,10 @@ function useMaxCompletionTokens(model: string): boolean {
 /**
  * Get the correct token limit parameter for the model
  */
-function getTokenLimitParam(model: string, maxTokens: number): { max_tokens?: number; max_completion_tokens?: number } {
+function getTokenLimitParam(
+  model: string,
+  maxTokens: number
+): { max_tokens?: number; max_completion_tokens?: number } {
   if (useMaxCompletionTokens(model)) {
     return { max_completion_tokens: maxTokens };
   }
@@ -151,10 +154,8 @@ ${input.patientContext.recentVitals ? `- Recent Vitals: Weight ${input.patientCo
 `;
     }
 
-    const visitInfo = input.visitType 
-      ? `\nVISIT TYPE: ${input.visitType}`
-      : '';
-    
+    const visitInfo = input.visitType ? `\nVISIT TYPE: ${input.visitType}` : '';
+
     const chiefComplaintInfo = input.chiefComplaint
       ? `\nCHIEF COMPLAINT: ${input.chiefComplaint}`
       : '';
@@ -192,7 +193,7 @@ ${input.transcript}`;
     // Calculate costs (approximate)
     const promptTokens = response.usage?.prompt_tokens || 0;
     const completionTokens = response.usage?.completion_tokens || 0;
-    const estimatedCost = (promptTokens * 0.00001) + (completionTokens * 0.00003); // GPT-4 pricing
+    const estimatedCost = promptTokens * 0.00001 + completionTokens * 0.00003; // GPT-4 pricing
 
     const result: GeneratedSOAPNote = {
       subjective: parsed.subjective || 'No subjective information documented.',
@@ -204,9 +205,10 @@ ${input.transcript}`;
       cptCodes: parsed.cptCodes || [],
       followUpRecommendation: parsed.followUpRecommendation,
       metadata: {
-        transcriptDuration: input.segments.length > 0
-          ? input.segments[input.segments.length - 1].endTime - input.segments[0].startTime
-          : 0,
+        transcriptDuration:
+          input.segments.length > 0
+            ? input.segments[input.segments.length - 1].endTime - input.segments[0].startTime
+            : 0,
         wordCount: input.transcript.split(/\s+/).length,
         generatedAt: new Date(),
         model: response.model,
@@ -276,9 +278,7 @@ export async function saveScribeSOAPNote(
 /**
  * Generate summary of conversation for quick review
  */
-export async function generateConversationSummary(
-  transcript: string
-): Promise<{
+export async function generateConversationSummary(transcript: string): Promise<{
   summary: string;
   keyPoints: string[];
   actionItems: string[];
@@ -325,9 +325,7 @@ Return as JSON: { "summary": "string", "keyPoints": ["string"], "actionItems": [
 /**
  * Extract medication changes from transcript
  */
-export async function extractMedicationChanges(
-  transcript: string
-): Promise<{
+export async function extractMedicationChanges(transcript: string): Promise<{
   newMedications: Array<{ name: string; dose: string; frequency: string; instructions: string }>;
   discontinuedMedications: string[];
   doseChanges: Array<{ name: string; oldDose: string; newDose: string }>;
@@ -383,9 +381,7 @@ If no medication information is found, return empty arrays.`,
 /**
  * Check transcript for red flags or urgent concerns
  */
-export async function checkForRedFlags(
-  transcript: string
-): Promise<{
+export async function checkForRedFlags(transcript: string): Promise<{
   hasRedFlags: boolean;
   flags: Array<{ type: string; description: string; severity: 'low' | 'medium' | 'high' }>;
   recommendation: string;
@@ -429,7 +425,7 @@ Return as JSON:
     }
 
     const result = JSON.parse(content);
-    
+
     if (result.hasRedFlags) {
       logger.warn('Red flags detected in transcript', {
         flagCount: result.flags.length,

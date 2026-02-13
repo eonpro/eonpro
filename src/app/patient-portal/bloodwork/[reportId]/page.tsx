@@ -4,7 +4,8 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Activity, Heart, TestTube, Droplets, Sparkles } from 'lucide-react';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson } from '@/lib/utils/safe-json';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
@@ -70,14 +71,13 @@ export default function PatientPortalBloodworkReportPage({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/patient-portal/bloodwork/${reportId}`, {
-          headers: getAuthHeaders() as HeadersInit,
-          credentials: 'include',
-        });
+        const res = await portalFetch(`/api/patient-portal/bloodwork/${reportId}`);
         if (cancelled) return;
         if (res.ok) {
-          const data = await res.json();
-          setReport(data);
+          const data = await safeParseJson(res);
+          setReport(
+            data !== null && typeof data === 'object' ? (data as ReportDetail) : null
+          );
         } else {
           setError('Report not found');
         }
@@ -103,7 +103,11 @@ export default function PatientPortalBloodworkReportPage({
 
   const getCategoryLabel = (cat: string | null) => {
     if (!cat) return t('bloodworkOther');
-    return (t as (k: string) => string)(`bloodwork${cat.charAt(0).toUpperCase() + cat.slice(1)}`) || CATEGORY_LABELS[cat] || cat;
+    return (
+      (t as (k: string) => string)(`bloodwork${cat.charAt(0).toUpperCase() + cat.slice(1)}`) ||
+      CATEGORY_LABELS[cat] ||
+      cat
+    );
   };
 
   if (loading) {
@@ -131,7 +135,8 @@ export default function PatientPortalBloodworkReportPage({
   const { summary, results } = report;
   const total = summary.total || results.length;
   const optimal = summary.optimal ?? results.filter((r) => !r.flag).length;
-  const outOfRange = summary.outOfRange ?? results.filter((r) => r.flag === 'H' || r.flag === 'L').length;
+  const outOfRange =
+    summary.outOfRange ?? results.filter((r) => r.flag === 'H' || r.flag === 'L').length;
   const inRange = total - outOfRange;
 
   const byCategory = results.reduce<Record<string, ResultRow[]>>((acc, r) => {
@@ -141,7 +146,16 @@ export default function PatientPortalBloodworkReportPage({
     return acc;
   }, {});
 
-  const categoryOrder = ['heart', 'metabolic', 'hormones', 'liver', 'kidney', 'blood', 'nutrients', 'other'];
+  const categoryOrder = [
+    'heart',
+    'metabolic',
+    'hormones',
+    'liver',
+    'kidney',
+    'blood',
+    'nutrients',
+    'other',
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50/80 p-4 pb-24 md:p-6">
@@ -157,7 +171,8 @@ export default function PatientPortalBloodworkReportPage({
           <h1 className="text-xl font-bold text-gray-900">{report.labName}</h1>
           <p className="mt-1 text-sm text-gray-500">
             {t('bloodworkReportDate')}: {formatDate(report.reportedAt ?? report.createdAt)}
-            {report.collectedAt && ` · ${t('bloodworkCollected')}: ${formatDate(report.collectedAt)}`}
+            {report.collectedAt &&
+              ` · ${t('bloodworkCollected')}: ${formatDate(report.collectedAt)}`}
           </p>
 
           {/* Summary ring */}
@@ -206,9 +221,15 @@ export default function PatientPortalBloodworkReportPage({
               </div>
               <div className="text-sm">
                 <p className="font-medium text-gray-900">{t('bloodworkAllBiomarkers')}</p>
-                <p className="mt-1 text-green-600">{t('bloodworkOptimal')}: {optimal}</p>
-                <p className="text-amber-600">{t('bloodworkInRange')}: {inRange}</p>
-                <p className="text-red-600">{t('bloodworkOutOfRange')}: {outOfRange}</p>
+                <p className="mt-1 text-green-600">
+                  {t('bloodworkOptimal')}: {optimal}
+                </p>
+                <p className="text-amber-600">
+                  {t('bloodworkInRange')}: {inRange}
+                </p>
+                <p className="text-red-600">
+                  {t('bloodworkOutOfRange')}: {outOfRange}
+                </p>
               </div>
             </div>
           </div>
@@ -216,61 +237,72 @@ export default function PatientPortalBloodworkReportPage({
           {/* Results by category */}
           <div className="mt-8">
             <h2 className="text-lg font-semibold text-gray-900">{t('bloodworkSummary')}</h2>
-            {categoryOrder.filter((c) => byCategory[c]?.length).map((cat) => {
-              const rows = byCategory[cat];
-              const outCount = rows.filter((r) => r.flag === 'H' || r.flag === 'L').length;
-              const Icon = CATEGORY_ICONS[cat] || TestTube;
-              return (
-                <div key={cat} className="mt-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 font-medium text-gray-900">
-                      <Icon className="h-4 w-4 text-gray-500" />
-                      {getCategoryLabel(cat)}
-                    </span>
-                    {outCount > 0 && (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                        {outCount} {t('bloodworkNeedsAttention')}
+            {categoryOrder
+              .filter((c) => byCategory[c]?.length)
+              .map((cat) => {
+                const rows = byCategory[cat];
+                const outCount = rows.filter((r) => r.flag === 'H' || r.flag === 'L').length;
+                const Icon = CATEGORY_ICONS[cat] || TestTube;
+                return (
+                  <div
+                    key={cat}
+                    className="mt-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 font-medium text-gray-900">
+                        <Icon className="h-4 w-4 text-gray-500" />
+                        {getCategoryLabel(cat)}
                       </span>
+                      {outCount > 0 && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                          {outCount} {t('bloodworkNeedsAttention')}
+                        </span>
+                      )}
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {rows.map((r) => (
+                        <li
+                          key={r.id}
+                          className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm"
+                        >
+                          <span className="text-gray-700">{r.testName}</span>
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={
+                                r.flag === 'H' || r.flag === 'L'
+                                  ? 'font-semibold text-red-600'
+                                  : 'font-medium text-gray-900'
+                              }
+                            >
+                              {r.value} {r.unit}
+                            </span>
+                            {r.flag && (
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                  r.flag === 'H'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}
+                              >
+                                {r.flag === 'H' ? 'High' : 'Low'}
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {rows.some((r) => r.referenceRange) && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Ref:{' '}
+                        {rows
+                          .map((r) => r.referenceRange)
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
                     )}
                   </div>
-                  <ul className="mt-3 space-y-2">
-                    {rows.map((r) => (
-                      <li
-                        key={r.id}
-                        className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm"
-                      >
-                        <span className="text-gray-700">{r.testName}</span>
-                        <span className="flex items-center gap-2">
-                          <span
-                            className={
-                              r.flag === 'H' || r.flag === 'L'
-                                ? 'font-semibold text-red-600'
-                                : 'font-medium text-gray-900'
-                            }
-                          >
-                            {r.value} {r.unit}
-                          </span>
-                          {r.flag && (
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                                r.flag === 'H' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                              }`}
-                            >
-                              {r.flag === 'H' ? 'High' : 'Low'}
-                            </span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {rows.some((r) => r.referenceRange) && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      Ref: {rows.map((r) => r.referenceRange).filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       </div>

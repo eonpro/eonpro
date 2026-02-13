@@ -1,6 +1,6 @@
 /**
  * Centralized Auth Token Utility
- * 
+ *
  * Provides consistent token retrieval across the application.
  * Checks all possible token storage locations in priority order.
  */
@@ -23,7 +23,7 @@ const TOKEN_KEYS = [
 /**
  * Get the current auth token from localStorage
  * Checks multiple possible storage keys in order of priority
- * 
+ *
  * @returns The auth token string or null if not found
  */
 export function getAuthToken(): string | null {
@@ -43,7 +43,7 @@ export function getAuthToken(): string | null {
 
 /**
  * Check if user is authenticated (has any valid token)
- * 
+ *
  * @returns boolean indicating if a token exists
  */
 export function isAuthenticated(): boolean {
@@ -52,7 +52,7 @@ export function isAuthenticated(): boolean {
 
 /**
  * Get headers object with Authorization header
- * 
+ *
  * @returns Headers object with Bearer token or empty object
  */
 export function getAuthHeaders(): HeadersInit {
@@ -72,7 +72,7 @@ export function isServerlessEnvironment(): boolean {
   if (typeof window === 'undefined') {
     return false;
   }
-  
+
   const hostname = window.location.hostname;
   return (
     hostname.includes('.vercel.app') ||

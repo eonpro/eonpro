@@ -1,6 +1,6 @@
 /**
  * Unified Calendar Sync Service
- * 
+ *
  * Handles two-way synchronization between platform appointments and external calendars
  */
 
@@ -106,7 +106,9 @@ export async function getCalendarIntegrationStatus(
   });
 
   // Outlook status
-  const outlookIntegration = integrations.find((i: { provider: string }) => i.provider === 'outlook');
+  const outlookIntegration = integrations.find(
+    (i: { provider: string }) => i.provider === 'outlook'
+  );
   result.push({
     provider: 'outlook',
     isConnected: outlookConnected,
@@ -208,18 +210,20 @@ export async function syncAllCalendars(
     result.totalCreated += googleResult.created;
     result.totalUpdated += googleResult.updated;
     result.totalDeleted += googleResult.deleted;
-    result.allErrors.push(...googleResult.errors.map(e => `[Google] ${e}`));
+    result.allErrors.push(...googleResult.errors.map((e) => `[Google] ${e}`));
   }
 
   // Sync to Outlook
-  const outlookIntegration = integrations.find((i: { provider: string }) => i.provider === 'outlook');
+  const outlookIntegration = integrations.find(
+    (i: { provider: string }) => i.provider === 'outlook'
+  );
   if (outlookIntegration && ['to_external', 'both'].includes(outlookIntegration.syncDirection)) {
     const outlookResult = await syncAppointmentsToOutlook(providerId, clinicId);
     result.outlook = outlookResult;
     result.totalCreated += outlookResult.created;
     result.totalUpdated += outlookResult.updated;
     result.totalDeleted += outlookResult.deleted;
-    result.allErrors.push(...outlookResult.errors.map(e => `[Outlook] ${e}`));
+    result.allErrors.push(...outlookResult.errors.map((e) => `[Outlook] ${e}`));
   }
 
   logger.info('All calendars synced', {
@@ -310,9 +314,9 @@ export async function importExternalEventsAsBlockedTime(
     });
 
     // Filter out events that are already in our system
-    const newEvents = externalEvents.filter(event => {
+    const newEvents = externalEvents.filter((event) => {
       // Check if this event already exists
-      const exists = existingAppointments.some((appt: typeof existingAppointments[0]) => {
+      const exists = existingAppointments.some((appt: (typeof existingAppointments)[0]) => {
         if (event.externalId) {
           return (
             appt.googleCalendarEventId === event.externalId ||
@@ -371,9 +375,7 @@ export async function importExternalEventsAsBlockedTime(
 /**
  * Get calendar sync statistics for a provider
  */
-export async function getCalendarSyncStats(
-  providerId: number
-): Promise<{
+export async function getCalendarSyncStats(providerId: number): Promise<{
   totalSyncs: number;
   lastSyncAt: Date | null;
   eventsCreated: number;
@@ -390,10 +392,7 @@ export async function getCalendarSyncStats(
   const syncedAppointments = await prisma.appointment.count({
     where: {
       providerId,
-      OR: [
-        { googleCalendarEventId: { not: null } },
-        { outlookCalendarEventId: { not: null } },
-      ],
+      OR: [{ googleCalendarEventId: { not: null } }, { outlookCalendarEventId: { not: null } }],
     },
   });
 
@@ -403,9 +402,10 @@ export async function getCalendarSyncStats(
 
   return {
     totalSyncs: integrations.filter((i: { lastSyncAt: Date | null }) => i.lastSyncAt).length,
-    lastSyncAt: lastSyncDates.length > 0
-      ? new Date(Math.max(...lastSyncDates.map((d: Date) => d.getTime())))
-      : null,
+    lastSyncAt:
+      lastSyncDates.length > 0
+        ? new Date(Math.max(...lastSyncDates.map((d: Date) => d.getTime())))
+        : null,
     eventsCreated: syncedAppointments,
     eventsUpdated: 0, // Would need to track this separately
     eventsDeleted: 0, // Would need to track this separately

@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document evaluates the benefits and effort required to integrate the [weightlossintake codebase](https://github.com/eonpro/weightlossintake) into the main EonPro platform to provide internal intake form capabilities.
+This document evaluates the benefits and effort required to integrate the
+[weightlossintake codebase](https://github.com/eonpro/weightlossintake) into the main EonPro
+platform to provide internal intake form capabilities.
 
 ## Current Architecture
 
@@ -20,9 +22,11 @@ Patient Record + PDF Document
 
 ### Pain Points with External Forms
 
-1. **Data Normalization Complexity**: Each form platform sends data in different formats, requiring complex normalizers with hardcoded field IDs that break when forms are edited.
+1. **Data Normalization Complexity**: Each form platform sends data in different formats, requiring
+   complex normalizers with hardcoded field IDs that break when forms are edited.
 
-2. **No Real-time Feedback**: Cannot guide users through the form or validate responses in real-time.
+2. **No Real-time Feedback**: Cannot guide users through the form or validate responses in
+   real-time.
 
 3. **External Dependencies**: Reliance on Heyflow costs, rate limits, and availability.
 
@@ -91,12 +95,14 @@ lifefile-integration/
 **Effort Estimate**: 2-3 days for basic integration
 
 **Pros**:
+
 - Single codebase to maintain
 - Shared authentication/authorization
 - Direct database access (no webhook)
 - Consistent styling
 
 **Cons**:
+
 - Initial migration effort
 - Need to maintain form templates in database
 
@@ -107,10 +113,12 @@ Keep weightlossintake as a separate deployment, connected via improved webhooks.
 **Effort Estimate**: 1 day for webhook improvements
 
 **Pros**:
+
 - Already working
 - Isolated testing
 
 **Cons**:
+
 - Two codebases
 - External dependency
 - More complex data flow
@@ -150,15 +158,15 @@ Keep weightlossintake as a separate deployment, connected via improved webhooks.
 
 ## Benefits of Internal Forms
 
-| Benefit | Impact |
-|---------|--------|
-| No external costs | Save Heyflow subscription |
-| No rate limits | Handle any volume |
-| Direct data storage | No normalization bugs |
-| Real-time validation | Better UX |
-| Multilingual | Built-in i18n support |
-| Customization | Per-clinic forms |
-| Single domain | No redirect confusion |
+| Benefit              | Impact                    |
+| -------------------- | ------------------------- |
+| No external costs    | Save Heyflow subscription |
+| No rate limits       | Handle any volume         |
+| Direct data storage  | No normalization bugs     |
+| Real-time validation | Better UX                 |
+| Multilingual         | Built-in i18n support     |
+| Customization        | Per-clinic forms          |
+| Single domain        | No redirect confusion     |
 
 ---
 
@@ -175,9 +183,11 @@ For existing patients with external intake data:
 
 ## Decision
 
-**Recommended**: Proceed with **Option A (Direct Integration)** as it provides long-term benefits with manageable short-term effort.
+**Recommended**: Proceed with **Option A (Direct Integration)** as it provides long-term benefits
+with manageable short-term effort.
 
-The key form components can be integrated incrementally without disrupting current webhook-based intake.
+The key form components can be integrated incrementally without disrupting current webhook-based
+intake.
 
 ### Immediate Actions
 
@@ -199,19 +209,19 @@ Use React Hook Form with Zod validation:
 ```typescript
 const intakeSchema = z.object({
   // Personal Info
-  firstName: z.string().min(1, "Required"),
-  lastName: z.string().min(1, "Required"),
+  firstName: z.string().min(1, 'Required'),
+  lastName: z.string().min(1, 'Required'),
   email: z.string().email(),
   phone: z.string().min(10),
   dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  gender: z.enum(["male", "female", "other"]),
-  
+  gender: z.enum(['male', 'female', 'other']),
+
   // Address
   address1: z.string().min(1),
   city: z.string().min(1),
   state: z.string().length(2),
   zip: z.string().min(5),
-  
+
   // Medical (clinic-customizable)
   currentWeight: z.number().optional(),
   goalWeight: z.number().optional(),
@@ -226,22 +236,22 @@ const intakeSchema = z.object({
 // POST /api/intake/submit
 export async function POST(req: Request) {
   const data = await req.json();
-  
+
   // Validate
   const parsed = intakeSchema.safeParse(data);
   if (!parsed.success) {
     return Response.json({ errors: parsed.error.flatten() }, { status: 400 });
   }
-  
+
   // Create patient
   const patient = await prisma.patient.create({
     data: {
       ...parsed.data,
       clinicId,
-      source: "internal-intake",
+      source: 'internal-intake',
     },
   });
-  
+
   // Generate PDF and create document
   const pdf = await generateIntakePdf(parsed.data, patient);
   await prisma.patientDocument.create({
@@ -249,15 +259,14 @@ export async function POST(req: Request) {
       patientId: patient.id,
       data: pdf,
       intakeData: parsed.data,
-      category: "MEDICAL_INTAKE_FORM",
+      category: 'MEDICAL_INTAKE_FORM',
     },
   });
-  
+
   return Response.json({ success: true, patientId: patient.id });
 }
 ```
 
 ---
 
-*Document created: 2026-01-19*
-*Author: System Architecture Analysis*
+_Document created: 2026-01-19_ _Author: System Architecture Analysis_

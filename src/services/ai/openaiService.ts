@@ -217,7 +217,7 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
   // Use a CONSISTENT placeholder name that we can find-and-replace after generation
   const PLACEHOLDER_NAME = 'PATIENT_NAME_PLACEHOLDER';
   const PLACEHOLDER_AGE = 'PATIENT_AGE_PLACEHOLDER';
-  
+
   // Calculate real patient age from DOB for post-processing
   let realAge: number | null = null;
   if (input.dateOfBirth) {
@@ -225,7 +225,7 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     const today = new Date();
     realAge = Math.floor((today.getTime() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
   }
-  
+
   const anonymizedInput = {
     intakeData: anonymizeObject(input.intakeData),
     patientName: PLACEHOLDER_NAME, // Consistent placeholder we can replace
@@ -472,25 +472,33 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
     // This is CRITICAL - without this, AI-hallucinated names would appear in medical records!
     const replacePatientPlaceholders = (text: string): string => {
       let result = text;
-      
+
       // Replace name placeholder with real patient name
       result = result.replace(new RegExp(PLACEHOLDER_NAME, 'gi'), input.patientName);
-      
+
       // Replace age placeholder with real calculated age
       if (realAge !== null) {
         result = result.replace(new RegExp(PLACEHOLDER_AGE, 'gi'), String(realAge));
       }
-      
+
       // SAFETY: Also catch common AI hallucinations - generic names the AI might use
       // if it ignores our placeholder instructions
       const commonHallucinatedNames = [
-        'Lisa', 'John', 'Jane', 'Patient', 'Mr.', 'Mrs.', 'Ms.', 
-        'the patient', 'This patient', 'The individual'
+        'Lisa',
+        'John',
+        'Jane',
+        'Patient',
+        'Mr.',
+        'Mrs.',
+        'Ms.',
+        'the patient',
+        'This patient',
+        'The individual',
       ];
-      
+
       // Extract patient first name for targeted replacement
       const patientFirstName = input.patientName.split(' ')[0];
-      
+
       // Only replace at the START of subjective narratives to avoid over-replacement
       // Pattern: "Name, a XX-year-old" at the start of text
       const nameAgePattern = /^([A-Z][a-z]+),?\s+a\s+(\d{1,3})-year-old/i;
@@ -498,7 +506,7 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
       if (match) {
         const foundName = match[1];
         const foundAge = match[2];
-        
+
         // If the found name is NOT our patient's name, replace it
         if (foundName.toLowerCase() !== patientFirstName.toLowerCase()) {
           logger.warn('[SOAP] Detected AI-hallucinated name, replacing', {
@@ -516,13 +524,10 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
             wrong: foundAge,
             correct: realAge,
           });
-          result = result.replace(
-            nameAgePattern,
-            `${foundName}, a ${realAge}-year-old`
-          );
+          result = result.replace(nameAgePattern, `${foundName}, a ${realAge}-year-old`);
         }
       }
-      
+
       return result;
     };
 
@@ -780,9 +785,12 @@ FORMATTING REMINDER - CRITICAL:
           vitalsSection += `\n- Latest Recorded Weight: ${latestWeight.weight} ${latestWeight.unit} (recorded ${new Date(latestWeight.recordedAt).toLocaleDateString()})`;
         }
         if (intakeVitals) {
-          if (intakeVitals.weight) vitalsSection += `\n- Weight from Intake: ${intakeVitals.weight}`;
-          if (intakeVitals.height) vitalsSection += `\n- Height from Intake: ${intakeVitals.height}`;
-          if (intakeVitals.bloodPressure) vitalsSection += `\n- Blood Pressure: ${intakeVitals.bloodPressure}`;
+          if (intakeVitals.weight)
+            vitalsSection += `\n- Weight from Intake: ${intakeVitals.weight}`;
+          if (intakeVitals.height)
+            vitalsSection += `\n- Height from Intake: ${intakeVitals.height}`;
+          if (intakeVitals.bloodPressure)
+            vitalsSection += `\n- Blood Pressure: ${intakeVitals.bloodPressure}`;
           if (intakeVitals.bmi) vitalsSection += `\n- BMI: ${intakeVitals.bmi}`;
         }
       }
@@ -803,8 +811,10 @@ FORMATTING REMINDER - CRITICAL:
         shippingUpdates.forEach((s) => {
           trackingSection += `\n- ${s.carrier}: ${s.trackingNumber}`;
           trackingSection += `\n  Status: ${s.status}${s.statusDetail ? ` - ${s.statusDetail}` : ''}`;
-          if (s.estimatedDelivery) trackingSection += `\n  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`;
-          if (s.deliveredAt) trackingSection += `\n  Delivered: ${new Date(s.deliveredAt).toLocaleDateString()}`;
+          if (s.estimatedDelivery)
+            trackingSection += `\n  Estimated Delivery: ${new Date(s.estimatedDelivery).toLocaleDateString()}`;
+          if (s.deliveredAt)
+            trackingSection += `\n  Delivered: ${new Date(s.deliveredAt).toLocaleDateString()}`;
         });
       }
 
@@ -830,15 +840,19 @@ ${JSON.stringify(soapNotes, null, 2)}`;
       const suggestions = (context.suggestions as string[]) || [];
       const searchedName = context.searchedName || 'unknown';
       const message = context.message || 'Patient not found';
-      
+
       contextDescription = `Patient Not Found:
 Searched for: "${searchedName}"
 Result: ${message}
 
-${suggestions.length > 0 ? `Similar patients found that might match:
+${
+  suggestions.length > 0
+    ? `Similar patients found that might match:
 ${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}
 
-IMPORTANT: Suggest these similar patients to the user and ask if they meant one of them.` : 'No similar patients found in the system.'}`;
+IMPORTANT: Suggest these similar patients to the user and ask if they meant one of them.`
+    : 'No similar patients found in the system.'
+}`;
     } else if (context.statistics) {
       interface Statistics {
         totalPatients: number;

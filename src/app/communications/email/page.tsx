@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
 /**
  * Email Communications Center
- * 
+ *
  * Manage email templates and send notifications
  */
 
@@ -78,19 +78,24 @@ export default function EmailCommunicationsPage() {
       to: ['patient3@example.com'],
       subject: 'Order Confirmed - #ORD-12345',
       template: EmailTemplate.ORDER_CONFIRMATION,
-      status: "FAILED" as any,
+      status: 'FAILED' as any,
       sentAt: new Date('2024-11-22T16:45:00'),
       error: 'Invalid email address',
     },
   ]);
 
   // Template presets
-  const templatePresets: Partial<Record<EmailTemplate, {
-    icon: React.ElementType;
-    color: string;
-    description: string;
-    sampleData: Record<string, unknown>;
-  }>> = {
+  const templatePresets: Partial<
+    Record<
+      EmailTemplate,
+      {
+        icon: React.ElementType;
+        color: string;
+        description: string;
+        sampleData: Record<string, unknown>;
+      }
+    >
+  > = {
     [EmailTemplate.WELCOME]: {
       icon: User,
       color: 'text-blue-600',
@@ -152,8 +157,11 @@ export default function EmailCommunicationsPage() {
     setSendResult(null);
 
     try {
-      const recipientList = recipients.split(',').map((email: any) => email.trim()).filter(Boolean);
-      
+      const recipientList = recipients
+        .split(',')
+        .map((email: any) => email.trim())
+        .filter(Boolean);
+
       const response = await fetch('/api/v2/aws/ses/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -161,9 +169,10 @@ export default function EmailCommunicationsPage() {
           to: recipientList.length === 1 ? recipientList[0] : recipientList,
           subject: !template ? subject : undefined,
           template: template || undefined,
-          templateData: template && templatePresets[template as EmailTemplate]
-            ? templatePresets[template as EmailTemplate]?.sampleData
-            : undefined,
+          templateData:
+            template && templatePresets[template as EmailTemplate]
+              ? templatePresets[template as EmailTemplate]?.sampleData
+              : undefined,
           html: !template ? customHtml : undefined,
           text: !template ? customText : undefined,
         }),
@@ -178,13 +187,13 @@ export default function EmailCommunicationsPage() {
           id: Date.now().toString(),
           to: recipientList,
           subject: subject || `${template} Email`,
-          template: template as EmailTemplate || undefined,
+          template: (template as EmailTemplate) || undefined,
           status: 'sent',
           sentAt: new Date(),
           messageId: result.messageId,
         };
         setEmailLogs([newLog, ...emailLogs]);
-        
+
         // Clear form
         setRecipients('');
         setSubject('');
@@ -193,10 +202,10 @@ export default function EmailCommunicationsPage() {
         setCustomText('');
       }
     } catch (error: any) {
-    // @ts-ignore
-   
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    setSendResult({ error: errorMessage });
+      // @ts-ignore
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setSendResult({ error: errorMessage });
     } finally {
       setSending(false);
     }
@@ -223,8 +232,8 @@ export default function EmailCommunicationsPage() {
         setSubject(preview.subject);
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Preview error:', error);
     }
   };
@@ -232,7 +241,7 @@ export default function EmailCommunicationsPage() {
   return (
     <Feature feature="AWS_SES_EMAIL">
       <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -241,26 +250,36 @@ export default function EmailCommunicationsPage() {
                 <h1 className="text-3xl font-bold text-gray-900">Email Communications</h1>
               </div>
               <div className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-gray-400" />
+                <Clock className="h-5 w-5 text-gray-400" />
                 <span className="text-gray-600">Auto-save enabled</span>
               </div>
             </div>
-            <p className="text-gray-600 mt-2">
+            <p className="mt-2 text-gray-600">
               Send transactional emails and manage communication templates
             </p>
-            
+
             {/* Marketing Architecture Notice */}
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
               <div className="flex items-start gap-3">
-                <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                <svg
+                  className="mt-0.5 h-5 w-5 text-blue-600"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <div className="text-sm">
-                  <p className="font-medium text-blue-900">Marketing Campaigns Handled Externally</p>
-                  <p className="text-blue-700 mt-1">
-                    This system handles transactional emails only (orders, appointments, passwords). 
-                    For marketing campaigns, we recommend using SendGrid, Klaviyo, or similar platforms 
-                    for better deliverability, analytics, and compliance management.
+                  <p className="font-medium text-blue-900">
+                    Marketing Campaigns Handled Externally
+                  </p>
+                  <p className="mt-1 text-blue-700">
+                    This system handles transactional emails only (orders, appointments, passwords).
+                    For marketing campaigns, we recommend using SendGrid, Klaviyo, or similar
+                    platforms for better deliverability, analytics, and compliance management.
                   </p>
                 </div>
               </div>
@@ -268,24 +287,22 @@ export default function EmailCommunicationsPage() {
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-200">
               <nav className="flex space-x-8 px-6" aria-label="Tabs">
                 {(['compose', 'templates', 'logs'] as const).map((tab: any) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`
-                      py-4 px-1 border-b-2 font-medium text-sm capitalize
-                      ${activeTab === tab
+                    className={`border-b-2 px-1 py-4 text-sm font-medium capitalize ${
+                      activeTab === tab
                         ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }
-                    `}
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    } `}
                   >
-                    {tab === 'compose' && <Send className="inline w-4 h-4 mr-2" />}
-                    {tab === 'templates' && <FileText className="inline w-4 h-4 mr-2" />}
-                    {tab === 'logs' && <Clock className="inline w-4 h-4 mr-2" />}
+                    {tab === 'compose' && <Send className="mr-2 inline h-4 w-4" />}
+                    {tab === 'templates' && <FileText className="mr-2 inline h-4 w-4" />}
+                    {tab === 'logs' && <Clock className="mr-2 inline h-4 w-4" />}
                     {tab}
                   </button>
                 ))}
@@ -298,7 +315,7 @@ export default function EmailCommunicationsPage() {
                 <div className="space-y-6">
                   {/* Recipients */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Recipients
                     </label>
                     <input
@@ -306,42 +323,45 @@ export default function EmailCommunicationsPage() {
                       value={recipients}
                       onChange={(e: any) => setRecipients(e.target.value)}
                       placeholder="email@example.com, another@example.com"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="mt-1 text-xs text-gray-500">
                       Separate multiple emails with commas
                     </p>
                   </div>
 
                   {/* Template Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Email Template (Optional)
                     </label>
                     <div className="flex gap-2">
                       <select
                         value={template}
                         onChange={(e: any) => setTemplate(e.target.value as EmailTemplate | '')}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Custom Email</option>
                         {Object.values(EmailTemplate).map((tmpl: any) => (
                           <option key={tmpl} value={tmpl}>
-                            {tmpl.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                            {tmpl
+                              .replace(/_/g, ' ')
+                              .toLowerCase()
+                              .replace(/\b\w/g, (l: string) => l.toUpperCase())}
                           </option>
                         ))}
                       </select>
                       {template && (
                         <button
                           onClick={previewTemplate}
-                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                          className="rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
                         >
-                          <Eye className="w-5 h-5" />
+                          <Eye className="h-5 w-5" />
                         </button>
                       )}
                     </div>
                     {template && templatePresets[template as EmailTemplate] && (
-                      <p className="text-sm text-gray-600 mt-2">
+                      <p className="mt-2 text-sm text-gray-600">
                         {templatePresets[template as EmailTemplate]?.description}
                       </p>
                     )}
@@ -350,7 +370,7 @@ export default function EmailCommunicationsPage() {
                   {/* Subject (for custom emails) */}
                   {!template && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
                         Subject
                       </label>
                       <input
@@ -358,7 +378,7 @@ export default function EmailCommunicationsPage() {
                         value={subject}
                         onChange={(e: any) => setSubject(e.target.value)}
                         placeholder="Enter email subject"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   )}
@@ -366,7 +386,7 @@ export default function EmailCommunicationsPage() {
                   {/* HTML Content (for custom emails) */}
                   {!template && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
                         HTML Content
                       </label>
                       <textarea
@@ -374,7 +394,7 @@ export default function EmailCommunicationsPage() {
                         onChange={(e: any) => setCustomHtml(e.target.value)}
                         placeholder="<h1>Hello</h1><p>Your HTML content here...</p>"
                         rows={6}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   )}
@@ -382,7 +402,7 @@ export default function EmailCommunicationsPage() {
                   {/* Text Content (for custom emails) */}
                   {!template && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="mb-2 block text-sm font-medium text-gray-700">
                         Text Content
                       </label>
                       <textarea
@@ -390,22 +410,24 @@ export default function EmailCommunicationsPage() {
                         onChange={(e: any) => setCustomText(e.target.value)}
                         placeholder="Plain text version of your email..."
                         rows={4}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   )}
 
                   {/* Send Button */}
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-center justify-between">
                     <div>
                       {sendResult && (
-                        <div className={`flex items-center space-x-2 ${
-                          sendResult.error ? 'text-red-600' : 'text-green-600'
-                        }`}>
+                        <div
+                          className={`flex items-center space-x-2 ${
+                            sendResult.error ? 'text-red-600' : 'text-green-600'
+                          }`}
+                        >
                           {sendResult.error ? (
-                            <XCircle className="w-5 h-5" />
+                            <XCircle className="h-5 w-5" />
                           ) : (
-                            <CheckCircle className="w-5 h-5" />
+                            <CheckCircle className="h-5 w-5" />
                           )}
                           <span className="text-sm">
                             {sendResult.error || sendResult.message || 'Email sent successfully!'}
@@ -416,16 +438,16 @@ export default function EmailCommunicationsPage() {
                     <button
                       onClick={sendEmail}
                       disabled={sending || !recipients}
-                      className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                      className="flex items-center space-x-2 rounded-lg bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                     >
                       {sending ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <Loader2 className="h-5 w-5 animate-spin" />
                           <span>Sending...</span>
                         </>
                       ) : (
                         <>
-                          <Send className="w-5 h-5" />
+                          <Send className="h-5 w-5" />
                           <span>Send Email</span>
                         </>
                       )}
@@ -438,28 +460,29 @@ export default function EmailCommunicationsPage() {
             {/* Templates Tab */}
             {activeTab === 'templates' && (
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {Object.entries(templatePresets).map(([key, preset]) => {
                     const Icon = preset.icon;
                     return (
                       <div
                         key={key}
-                        className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
+                        className="cursor-pointer rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-lg"
                         onClick={() => {
                           setTemplate(key as EmailTemplate);
                           setActiveTab('compose');
                         }}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <Icon className={`w-6 h-6 ${preset.color}`} />
+                        <div className="mb-2 flex items-center justify-between">
+                          <Icon className={`h-6 w-6 ${preset.color}`} />
                           <span className="text-xs text-gray-500">Click to use</span>
                         </div>
-                        <h3 className="font-medium text-gray-900 mb-1">
-                          {key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                        <h3 className="mb-1 font-medium text-gray-900">
+                          {key
+                            .replace(/_/g, ' ')
+                            .toLowerCase()
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
                         </h3>
-                        <p className="text-sm text-gray-600">
-                          {preset.description}
-                        </p>
+                        <p className="text-sm text-gray-600">{preset.description}</p>
                       </div>
                     );
                   })}
@@ -470,60 +493,52 @@ export default function EmailCommunicationsPage() {
             {/* Logs Tab */}
             {activeTab === 'logs' && (
               <div className="p-6">
-                <div className="mb-4 flex justify-between items-center">
+                <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
                       <input
                         type="text"
                         placeholder="Search emails..."
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    <button className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                      <Filter className="w-4 h-4" />
+                    <button className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50">
+                      <Filter className="h-4 w-4" />
                       <span>Filter</span>
                     </button>
                   </div>
-                  <span className="text-sm text-gray-500">
-                    {emailLogs.length} emails sent
-                  </span>
+                  <span className="text-sm text-gray-500">{emailLogs.length} emails sent</span>
                 </div>
 
                 <div className="space-y-3">
                   {emailLogs.map((log: any) => (
                     <div
                       key={log.id}
-                      className={`border rounded-lg p-4 ${
+                      className={`rounded-lg border p-4 ${
                         log.status === 'failed' ? 'border-red-200 bg-red-50' : 'border-gray-200'
                       }`}
                     >
-                      <div className="flex justify-between items-start">
+                      <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
                             {log.status === 'sent' ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              <CheckCircle className="h-4 w-4 text-green-500" />
                             ) : log.status === 'failed' ? (
-                              <XCircle className="w-4 h-4 text-red-500" />
+                              <XCircle className="h-4 w-4 text-red-500" />
                             ) : (
-                              <Clock className="w-4 h-4 text-yellow-500" />
+                              <Clock className="h-4 w-4 text-yellow-500" />
                             )}
-                            <span className="font-medium text-gray-900">
-                              {log.subject}
-                            </span>
+                            <span className="font-medium text-gray-900">{log.subject}</span>
                             {log.template && (
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                              <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
                                 {log.template}
                               </span>
                             )}
                           </div>
-                          <div className="mt-1 text-sm text-gray-600">
-                            To: {log.to.join(', ')}
-                          </div>
+                          <div className="mt-1 text-sm text-gray-600">To: {log.to.join(', ')}</div>
                           {log.error && (
-                            <div className="mt-1 text-sm text-red-600">
-                              Error: {log.error}
-                            </div>
+                            <div className="mt-1 text-sm text-red-600">Error: {log.error}</div>
                           )}
                         </div>
                         <div className="text-right">
@@ -543,8 +558,8 @@ export default function EmailCommunicationsPage() {
           </div>
 
           {/* Stats */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Emails Sent</p>
@@ -552,11 +567,11 @@ export default function EmailCommunicationsPage() {
                     {emailLogs.filter((l: any) => l.status === 'sent').length}
                   </p>
                 </div>
-                <Send className="w-8 h-8 text-green-500" />
+                <Send className="h-8 w-8 text-green-500" />
               </div>
             </div>
-            
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Failed</p>
@@ -564,11 +579,11 @@ export default function EmailCommunicationsPage() {
                     {emailLogs.filter((l: any) => l.status === 'failed').length}
                   </p>
                 </div>
-                <AlertCircle className="w-8 h-8 text-red-500" />
+                <AlertCircle className="h-8 w-8 text-red-500" />
               </div>
             </div>
-            
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Templates</p>
@@ -576,17 +591,17 @@ export default function EmailCommunicationsPage() {
                     {Object.keys(templatePresets).length}
                   </p>
                 </div>
-                <FileText className="w-8 h-8 text-blue-500" />
+                <FileText className="h-8 w-8 text-blue-500" />
               </div>
             </div>
-            
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Send Rate</p>
                   <p className="text-lg font-bold text-gray-900">14/sec</p>
                 </div>
-                <Clock className="w-8 h-8 text-purple-500" />
+                <Clock className="h-8 w-8 text-purple-500" />
               </div>
             </div>
           </div>

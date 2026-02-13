@@ -64,21 +64,21 @@ const PATIENT_SUMMARY_SELECT = {
   clinicId: true,
 } as const;
 
-/** 
+/**
  * PHI fields that need encryption/decryption
- * 
+ *
  * SOC 2 Compliance: All PII/PHI fields must be encrypted at rest
  * - Direct identifiers: firstName, lastName, email, phone
  * - Health information: dob
  * - Location data: address1, address2, city, state, zip
- * 
+ *
  * @see docs/HIPAA_COMPLIANCE_EVIDENCE.md for compliance documentation
  */
 const PHI_FIELDS = [
   'firstName',
-  'lastName', 
-  'email', 
-  'phone', 
+  'lastName',
+  'email',
+  'phone',
   'dob',
   'address1',
   'address2',
@@ -532,7 +532,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // First nullify self-referencing FK (replyToId) to avoid FK violation during delete
         await tx.patientChatMessage.updateMany({
           where: { patientId: id },
-          data: { replyToId: null }
+          data: { replyToId: null },
         });
         await tx.patientChatMessage.deleteMany({ where: { patientId: id } });
 
@@ -652,7 +652,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // 13. Payment reconciliation records (nullable patientId)
         await tx.paymentReconciliation.updateMany({
           where: { patientId: id },
-          data: { patientId: null }
+          data: { patientId: null },
         });
 
         // 14. SMS logs (nullable patientId, but clean up anyway)
@@ -661,7 +661,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // 15. User association (nullable patientId)
         await tx.user.updateMany({
           where: { patientId: id },
-          data: { patientId: null }
+          data: { patientId: null },
         });
 
         // 16. Delete patient audit records (compliance note: may want to keep these)
@@ -670,7 +670,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         // 17. Clean up HIPAA audit entries and phone OTPs (no FK but good to clean)
         await tx.hIPAAAuditEntry.updateMany({
           where: { patientId: id },
-          data: { patientId: null }
+          data: { patientId: null },
         });
         await tx.phoneOtp.deleteMany({ where: { patientId: id } });
 
@@ -720,8 +720,15 @@ function decryptPatient<T extends Record<string, unknown>>(patient: T): T {
 }
 
 /**
+ * Safely extract string for PatientSummary (handles null/undefined from decryption failures)
+ */
+function safeStr(v: unknown): string {
+  return v != null && typeof v === 'string' ? v : '';
+}
+
+/**
  * Decrypt patient summary PHI fields
- * Gracefully handles decryption failures by returning raw data
+ * Gracefully handles decryption failures by returning raw data with safe fallbacks
  */
 function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary {
   let decrypted: Record<string, unknown>;
@@ -736,67 +743,96 @@ function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary
   }
 
   return {
-    id: decrypted.id as number,
-    patientId: decrypted.patientId as string | null,
-    firstName: decrypted.firstName as string,
-    lastName: decrypted.lastName as string,
-    email: decrypted.email as string,
-    phone: decrypted.phone as string,
-    dob: decrypted.dob as string,
-    gender: decrypted.gender as string,
-    address1: decrypted.address1 as string,
-    address2: decrypted.address2 as string | null,
-    city: decrypted.city as string,
-    state: decrypted.state as string,
-    zip: decrypted.zip as string,
-    tags: decrypted.tags as string[] | null,
-    source: decrypted.source as PatientSummary['source'],
-    createdAt: decrypted.createdAt as Date,
-    clinicId: decrypted.clinicId as number,
+    id: (decrypted.id as number) ?? 0,
+    patientId: (decrypted.patientId as string | null) ?? null,
+    firstName: safeStr(decrypted.firstName),
+    lastName: safeStr(decrypted.lastName),
+    email: safeStr(decrypted.email),
+    phone: safeStr(decrypted.phone),
+    dob: safeStr(decrypted.dob),
+    gender: safeStr(decrypted.gender),
+    address1: safeStr(decrypted.address1),
+    address2: (decrypted.address2 != null && typeof decrypted.address2 === 'string'
+      ? decrypted.address2
+      : null) as string | null,
+    city: safeStr(decrypted.city),
+    state: safeStr(decrypted.state),
+    zip: safeStr(decrypted.zip),
+    tags: (decrypted.tags as string[] | null) ?? null,
+    source: (decrypted.source as PatientSummary['source']) ?? null,
+    createdAt: (decrypted.createdAt as Date) ?? new Date(),
+    clinicId: (decrypted.clinicId as number) ?? 0,
   };
+}
+
+/**
+ * Safely coerce a value to a searchable lowercase string.
+ * Handles null, undefined, non-strings (e.g. from decryption edge cases).
+ */
+function toSearchableString(value: unknown): string {
+  if (value == null) return '';
+  const s = typeof value === 'string' ? value : String(value);
+  return s.toLowerCase().trim();
 }
 
 /**
  * Filter decrypted patients by search term (in-memory filtering)
  * NOTE: This is necessary because patient PHI is ENCRYPTED in the database.
  * SQL-level search on encrypted fields won't match plaintext search terms.
+ * Searches: firstName, lastName, patientId, email, phone for smart/fast matching.
  */
-function filterPatientsBySearch<T extends { firstName: string; lastName: string; patientId: string | null }>(
-  patients: T[],
-  search: string
-): T[] {
+function filterPatientsBySearch<
+  T extends {
+    firstName?: unknown;
+    lastName?: unknown;
+    patientId?: string | null;
+    email?: unknown;
+    phone?: unknown;
+  },
+>(patients: T[], search: string): T[] {
   const searchLower = search.toLowerCase().trim();
+  if (!searchLower) return patients;
+
   const searchTerms = searchLower.split(/\s+/).filter(Boolean);
 
   return patients.filter((patient) => {
-    const firstName = patient.firstName?.toLowerCase() || '';
-    const lastName = patient.lastName?.toLowerCase() || '';
-    const patientIdLower = patient.patientId?.toLowerCase() || '';
+    const firstName = toSearchableString(patient.firstName);
+    const lastName = toSearchableString(patient.lastName);
+    const patientIdLower = toSearchableString(patient.patientId);
+    const emailLower = toSearchableString(patient.email);
+    const phoneDigits = toSearchableString(patient.phone).replace(/\D/g, '');
 
-    // Single term: match against firstName, lastName, or patientId
+    // Build searchable strings for matching
+    const searchDigits = searchLower.replace(/\D/g, '');
+    const hasPhoneMatch =
+      searchDigits.length >= 3 && phoneDigits.length >= 3 && phoneDigits.includes(searchDigits);
+
+    // Single term: match against name, patientId, email, or phone
     if (searchTerms.length === 1) {
       const term = searchTerms[0];
       return (
         firstName.includes(term) ||
         lastName.includes(term) ||
-        patientIdLower.includes(term)
+        patientIdLower.includes(term) ||
+        emailLower.includes(term) ||
+        hasPhoneMatch
       );
     }
 
-    // Multiple terms: match as "firstName lastName" or any term
+    // Multiple terms: match as "firstName lastName" or all terms somewhere
     const fullName = `${firstName} ${lastName}`;
     const reverseName = `${lastName} ${firstName}`;
 
-    // Check if full search matches full name
     if (fullName.includes(searchLower) || reverseName.includes(searchLower)) {
       return true;
     }
 
-    // Check if all search terms appear somewhere in the name
-    return searchTerms.every(term =>
-      firstName.includes(term) ||
-      lastName.includes(term) ||
-      patientIdLower.includes(term)
+    return searchTerms.every(
+      (term) =>
+        firstName.includes(term) ||
+        lastName.includes(term) ||
+        patientIdLower.includes(term) ||
+        emailLower.includes(term)
     );
   });
 }
@@ -843,7 +879,9 @@ function buildWhereClause(filter: PatientFilterOptions): Prisma.PatientWhereInpu
 /**
  * Normalize pagination options with defaults and limits
  */
-function normalizePagination(options: PatientPaginationOptions): Required<PatientPaginationOptions> {
+function normalizePagination(
+  options: PatientPaginationOptions
+): Required<PatientPaginationOptions> {
   const rawLimit = options.limit ?? DEFAULT_LIMIT;
   return {
     limit: Math.min(Math.max(1, rawLimit), MAX_LIMIT),

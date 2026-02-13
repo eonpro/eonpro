@@ -2,9 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Search, Clock, CheckCircle, AlertCircle,
-  User, Mail, Phone, MapPin, Calendar, CreditCard,
-  ChevronRight, Eye
+  Search,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  CreditCard,
+  ChevronRight,
+  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -73,12 +82,13 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
   const loadDashboardData = async () => {
     try {
-      const token = localStorage.getItem('auth-token') ||
-                    localStorage.getItem('super_admin-token') ||
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('token');
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token') ||
+        localStorage.getItem('token');
 
-      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Fetch recent patient intakes (last 24 hours)
       const intakesResponse = await fetch('/api/patients?limit=20&recent=24h', {
@@ -92,10 +102,13 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       }
 
       // Fetch recent Stripe payments
-      const paymentsResponse = await fetch('/api/stripe/transactions?limit=10&type=charges&status=succeeded', {
-        credentials: 'include',
-        headers,
-      });
+      const paymentsResponse = await fetch(
+        '/api/stripe/transactions?limit=10&type=charges&status=succeeded',
+        {
+          credentials: 'include',
+          headers,
+        }
+      );
 
       if (paymentsResponse.ok) {
         const paymentsData = await paymentsResponse.json();
@@ -132,7 +145,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
     return formatDate(dateString);
   };
 
-  const filteredIntakes = recentIntakes.filter(patient => {
+  const filteredIntakes = recentIntakes.filter((patient) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -141,15 +154,15 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       patient.email?.toLowerCase().includes(query) ||
       patient.phone?.includes(query) ||
       patient.id?.toString().includes(query) ||
-      patient.tags?.some(tag => tag.toLowerCase().includes(query)) ||
+      patient.tags?.some((tag) => tag.toLowerCase().includes(query)) ||
       patient.address?.toLowerCase().includes(query)
     );
   });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#4fa77e] border-t-transparent"></div>
+      <div className="flex h-96 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent"></div>
       </div>
     );
   }
@@ -160,34 +173,45 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       <div className="flex items-center justify-between">
         <div>
           {/* System Status */}
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`w-2 h-2 rounded-full ${
-              systemStatus === 'healthy' ? 'bg-[#4fa77e]' :
-              systemStatus === 'warning' ? 'bg-amber-500' : 'bg-red-500'
-            }`} />
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <div className="mb-2 flex items-center gap-2">
+            <div
+              className={`h-2 w-2 rounded-full ${
+                systemStatus === 'healthy'
+                  ? 'bg-[#4fa77e]'
+                  : systemStatus === 'warning'
+                    ? 'bg-amber-500'
+                    : 'bg-red-500'
+              }`}
+            />
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
               SYSTEM: {systemStatus.toUpperCase()}
             </span>
           </div>
 
           {/* Date and Time - Same font size */}
           <p className="text-sm text-gray-800">
-            {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {currentTime.toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
           </p>
           <p className="text-sm text-gray-600">
-            {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
+            {currentTime
+              .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              .toLowerCase()}
           </p>
         </div>
 
         {/* Search */}
         <div className="relative w-96">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search patients"
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e] transition-all"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
           />
         </div>
       </div>
@@ -200,20 +224,20 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       </div>
 
       {/* Patient Intakes Section */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-100">
+      <div className="rounded-xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">New Patient Intakes</h2>
           <p className="text-sm text-gray-500">Received in the last 24 hours</p>
         </div>
 
         {/* Search within intakes */}
-        <div className="px-6 py-3 border-b border-gray-100">
+        <div className="border-b border-gray-100 px-6 py-3">
           <input
             type="text"
             placeholder="Search patients by name, email, phone, ID, tags, or address..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20 focus:border-[#4fa77e]"
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
           />
         </div>
 
@@ -222,58 +246,82 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  DOB
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Contact
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Address
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Tags
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredIntakes.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <Clock className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium">No patient intakes in the last 24 hours</p>
-                    <p className="text-sm text-gray-400 mt-1">New intakes will appear here automatically</p>
+                    <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                    <p className="font-medium text-gray-500">
+                      No patient intakes in the last 24 hours
+                    </p>
+                    <p className="mt-1 text-sm text-gray-400">
+                      New intakes will appear here automatically
+                    </p>
                   </td>
                 </tr>
               ) : (
                 filteredIntakes.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-gray-50/50 transition-colors">
+                  <tr key={patient.id} className="transition-colors hover:bg-gray-50/50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${
-                          new Date(patient.createdAt).getTime() > Date.now() - 3600000
-                            ? 'bg-[#4fa77e]'
-                            : 'bg-amber-400'
-                        }`} />
+                        <div
+                          className={`h-2 w-2 rounded-full ${
+                            new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                              ? 'bg-[#4fa77e]'
+                              : 'bg-amber-400'
+                          }`}
+                        />
                         <div>
                           <p className="font-medium text-gray-900">
                             {patient.firstName} {patient.lastName}
                           </p>
-                          <p className="text-xs text-gray-400">#{String(patient.id).padStart(6, '0')}</p>
+                          <p className="text-xs text-gray-400">
+                            #{String(patient.id).padStart(6, '0')}
+                          </p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-600">{formatDate(patient.dateOfBirth)}</p>
-                      <p className="text-xs text-gray-400 capitalize">({patient.gender})</p>
+                      <p className="text-xs capitalize text-gray-400">({patient.gender})</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-gray-600">{patient.phone}</p>
-                      <p className="text-xs text-gray-400 truncate max-w-[180px]">{patient.email}</p>
+                      <p className="max-w-[180px] truncate text-xs text-gray-400">
+                        {patient.email}
+                      </p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-600 truncate max-w-[200px]">{patient.address || '-'}</p>
+                      <p className="max-w-[200px] truncate text-sm text-gray-600">
+                        {patient.address || '-'}
+                      </p>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {patient.tags?.slice(0, 4).map((tag, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full"
+                            className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
                           >
                             #{tag}
                           </span>
@@ -286,7 +334,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
                     <td className="px-6 py-4">
                       <Link
                         href={`/admin/patients/${patient.id}`}
-                        className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium flex items-center gap-1"
+                        className="flex items-center gap-1 text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
                       >
                         View profile
                       </Link>
@@ -299,10 +347,10 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
         </div>
 
         {filteredIntakes.length > 0 && (
-          <div className="px-6 py-3 border-t border-gray-100 text-center">
+          <div className="border-t border-gray-100 px-6 py-3 text-center">
             <Link
               href="/admin/patients"
-              className="text-sm text-gray-500 hover:text-[#4fa77e] font-medium"
+              className="text-sm font-medium text-gray-500 hover:text-[#4fa77e]"
             >
               Load More
             </Link>
@@ -311,15 +359,15 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       </div>
 
       {/* Recent Payments Section */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="rounded-xl border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Recent Payments</h2>
             <p className="text-sm text-gray-500">Latest transactions from Stripe</p>
           </div>
           <Link
             href="/admin/finance"
-            className="text-sm text-[#4fa77e] hover:text-[#3d8a66] font-medium flex items-center gap-1"
+            className="flex items-center gap-1 text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
           >
             View all <ChevronRight className="h-4 w-4" />
           </Link>
@@ -328,15 +376,20 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
         <div className="divide-y divide-gray-100">
           {recentPayments.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <CreditCard className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No recent payments</p>
-              <p className="text-sm text-gray-400 mt-1">Payments will appear here as they are processed</p>
+              <CreditCard className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+              <p className="font-medium text-gray-500">No recent payments</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Payments will appear here as they are processed
+              </p>
             </div>
           ) : (
             recentPayments.map((payment) => (
-              <div key={payment.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+              <div
+                key={payment.id}
+                className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-gray-50/50"
+              >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-[#4fa77e]/10 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#4fa77e]/10">
                     <CreditCard className="h-5 w-5 text-[#4fa77e]" />
                   </div>
                   <div>

@@ -1,15 +1,18 @@
 # EONPRO Intake Webhook Integration
 
-This document explains how to configure your external intake platform to send patient intake forms to EONPRO.
+This document explains how to configure your external intake platform to send patient intake forms
+to EONPRO.
 
 ## Webhook Endpoint
 
 ### Production
+
 ```
 POST https://eonpro-kappa.vercel.app/api/webhooks/eonpro-intake
 ```
 
 ### Local Development
+
 ```
 POST http://localhost:3001/api/webhooks/eonpro-intake
 ```
@@ -19,16 +22,19 @@ POST http://localhost:3001/api/webhooks/eonpro-intake
 The webhook requires authentication via one of these methods:
 
 ### Option 1: X-Webhook-Secret Header (Recommended)
+
 ```
 X-Webhook-Secret: f472179eb675f8412331e6c24648a680124a85b57e0100683e35440df6e32c1c
 ```
 
 ### Option 2: Authorization Bearer Token
+
 ```
 Authorization: Bearer f472179eb675f8412331e6c24648a680124a85b57e0100683e35440df6e32c1c
 ```
 
 ### Option 3: X-API-Key Header
+
 ```
 X-API-Key: f472179eb675f8412331e6c24648a680124a85b57e0100683e35440df6e32c1c
 ```
@@ -42,6 +48,7 @@ EONPRO_INTAKE_WEBHOOK_SECRET=f472179eb675f8412331e6c24648a680124a85b57e0100683e3
 ```
 
 To generate a new secret (if rotating):
+
 ```bash
 openssl rand -hex 32
 ```
@@ -130,7 +137,11 @@ The webhook accepts multiple payload formats for flexibility.
     {
       "title": "Chief Complaint",
       "fields": [
-        { "id": "reason", "label": "Reason for Visit", "value": "Annual checkup and medication refill" },
+        {
+          "id": "reason",
+          "label": "Reason for Visit",
+          "value": "Annual checkup and medication refill"
+        },
         { "id": "symptoms", "label": "Current Symptoms", "value": "Occasional headaches" }
       ]
     }
@@ -163,24 +174,24 @@ The webhook accepts multiple payload formats for flexibility.
 
 The following fields are required (or will default to placeholders):
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| firstName | Yes | Patient's first name |
-| lastName | Yes | Patient's last name |
-| email | Yes | Patient's email (used for matching existing patients) |
-| phone | Recommended | Phone number (digits only or formatted) |
-| dateOfBirth/dob | Recommended | Format: YYYY-MM-DD or MM/DD/YYYY |
-| gender | Optional | M/F/Male/Female |
+| Field           | Required    | Description                                           |
+| --------------- | ----------- | ----------------------------------------------------- |
+| firstName       | Yes         | Patient's first name                                  |
+| lastName        | Yes         | Patient's last name                                   |
+| email           | Yes         | Patient's email (used for matching existing patients) |
+| phone           | Recommended | Phone number (digits only or formatted)               |
+| dateOfBirth/dob | Recommended | Format: YYYY-MM-DD or MM/DD/YYYY                      |
+| gender          | Optional    | M/F/Male/Female                                       |
 
 ## Address Fields
 
-| Field | Description |
-|-------|-------------|
-| streetAddress / address1 | Street address |
-| apartment / address2 | Unit/Apt number |
-| city | City name |
-| state | State code (FL) or full name (Florida) |
-| zipCode / zip | ZIP/Postal code |
+| Field                    | Description                            |
+| ------------------------ | -------------------------------------- |
+| streetAddress / address1 | Street address                         |
+| apartment / address2     | Unit/Apt number                        |
+| city                     | City name                              |
+| state                    | State code (FL) or full name (Florida) |
+| zipCode / zip            | ZIP/Postal code                        |
 
 ## Medical Fields (Captured as Intake Data)
 
@@ -208,6 +219,7 @@ All additional fields are captured and displayed in the patient's intake form:
 ## Response Format
 
 ### Success Response (200)
+
 ```json
 {
   "success": true,
@@ -225,6 +237,7 @@ All additional fields are captured and displayed in the patient's intake form:
 ```
 
 ### Error Response (401 - Unauthorized)
+
 ```json
 {
   "error": "Unauthorized",
@@ -233,6 +246,7 @@ All additional fields are captured and displayed in the patient's intake form:
 ```
 
 ### Error Response (400 - Bad Request)
+
 ```json
 {
   "error": "Invalid payload",
@@ -241,6 +255,7 @@ All additional fields are captured and displayed in the patient's intake form:
 ```
 
 ### Error Response (500 - Server Error)
+
 ```json
 {
   "success": false,
@@ -299,6 +314,7 @@ curl http://localhost:3001/api/webhooks/eonpro-intake
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -320,15 +336,15 @@ const sendIntake = async (intakeData) => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Webhook-Secret': process.env.EONPRO_WEBHOOK_SECRET
+      'X-Webhook-Secret': process.env.EONPRO_WEBHOOK_SECRET,
     },
     body: JSON.stringify({
       submissionId: `intake-${Date.now()}`,
       submittedAt: new Date().toISOString(),
-      data: intakeData
-    })
+      data: intakeData,
+    }),
   });
-  
+
   return response.json();
 };
 
@@ -338,7 +354,7 @@ const result = await sendIntake({
   lastName: 'Doe',
   email: 'john@example.com',
   phone: '5551234567',
-  reasonForVisit: 'Weight loss consultation'
+  reasonForVisit: 'Weight loss consultation',
 });
 
 console.log('Patient created:', result.data.patientId);
@@ -362,7 +378,7 @@ def send_intake(intake_data):
         "submittedAt": datetime.now().isoformat(),
         "data": intake_data
     }
-    
+
     response = requests.post(url, json=payload, headers=headers)
     return response.json()
 
@@ -384,13 +400,13 @@ print(f"Patient created: {result['data']['patientId']}")
 <?php
 function sendIntake($intakeData) {
     $url = "https://eonpro-kappa.vercel.app/api/webhooks/eonpro-intake";
-    
+
     $payload = json_encode([
         "submissionId" => "intake-" . time(),
         "submittedAt" => date('c'),
         "data" => $intakeData
     ]);
-    
+
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
@@ -399,10 +415,10 @@ function sendIntake($intakeData) {
         'Content-Type: application/json',
         'X-Webhook-Secret: ' . getenv('EONPRO_WEBHOOK_SECRET')
     ]);
-    
+
     $response = curl_exec($ch);
     curl_close($ch);
-    
+
     return json_decode($response, true);
 }
 
@@ -423,19 +439,23 @@ echo "Patient created: " . $result["data"]["patientId"];
 ## Troubleshooting
 
 ### 401 Unauthorized
+
 - Check that the webhook secret is correctly configured
 - Ensure header name matches (X-Webhook-Secret or Authorization)
 - Verify the secret value matches on both sides
 
 ### 400 Bad Request
+
 - Ensure the body is valid JSON
 - Check that required fields are included (firstName, lastName, email)
 
 ### Patient Not Created
+
 - Check server logs for normalization errors
 - Verify email is unique or use a different submissionId
 
 ### PDF Not Generated
+
 - Check storage permissions
 - Verify the storage directory exists
 
@@ -472,6 +492,7 @@ OPENAI_API_KEY=your-openai-key
 ## Support
 
 If you encounter issues:
+
 1. Check the server logs for detailed error messages
 2. Test with the health check endpoint first
 3. Use the cURL examples to verify connectivity

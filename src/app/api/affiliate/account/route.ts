@@ -1,6 +1,6 @@
 /**
  * Affiliate Account API
- * 
+ *
  * GET - Get affiliate profile, payout method, preferences, and tax status
  * PATCH - Update affiliate preferences
  */
@@ -70,12 +70,12 @@ async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
     const influencerId = user.influencerId;
-    
+
     // Handle legacy Influencer users
     if (!affiliateId && influencerId) {
       return handleInfluencerAccount(influencerId, user.id);
     }
-    
+
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
@@ -114,7 +114,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         if (tier) tierName = tier.name;
       } catch (error: unknown) {
         // Tier lookup failed, use default
-        logger.warn('[Affiliate Account] Tier lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+        logger.warn('[Affiliate Account] Tier lookup failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     }
 
@@ -142,7 +144,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       }
     } catch (error: unknown) {
       // Payout method lookup failed, leave as null
-      logger.warn('[Affiliate Account] Payout method lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('[Affiliate Account] Payout method lookup failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     // Get tax documents (optional)
@@ -159,7 +163,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       hasValidW9 = !!taxDoc;
     } catch (error: unknown) {
       // Tax doc lookup failed
-      logger.warn('[Affiliate Account] Tax document lookup failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('[Affiliate Account] Tax document lookup failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     // Calculate year-to-date earnings (optional)
@@ -177,7 +183,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       ytdEarnings = result._sum.commissionAmountCents || 0;
     } catch (error: unknown) {
       // YTD calculation failed
-      logger.warn('[Affiliate Account] YTD earnings calculation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('[Affiliate Account] YTD earnings calculation failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
 
     return NextResponse.json({
@@ -207,12 +215,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
   } catch (error) {
     logger.error('[Affiliate Account] GET error', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
     });
-    return NextResponse.json(
-      { error: 'Failed to load account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to load account' }, { status: 500 });
   }
 }
 
@@ -224,7 +229,13 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     }
 
     const body = await request.json();
-    const { emailNotifications, smsNotifications, weeklyReport, leaderboardOptIn, leaderboardAlias } = body;
+    const {
+      emailNotifications,
+      smsNotifications,
+      weeklyReport,
+      leaderboardOptIn,
+      leaderboardAlias,
+    } = body;
 
     // Update leaderboard settings if provided
     if (leaderboardOptIn !== undefined || leaderboardAlias !== undefined) {
@@ -235,7 +246,10 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
       if (leaderboardAlias !== undefined) {
         // Validate alias length and characters
         if (leaderboardAlias && leaderboardAlias.length > 30) {
-          return NextResponse.json({ error: 'Alias must be 30 characters or less' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Alias must be 30 characters or less' },
+            { status: 400 }
+          );
         }
         updateData.leaderboardAlias = leaderboardAlias || null;
       }
@@ -254,7 +268,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
         leaderboardAlias: true,
       },
     });
-    
+
     return NextResponse.json({
       preferences: {
         emailNotifications: emailNotifications ?? true,
@@ -270,10 +284,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate Account] PATCH error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to update account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update account' }, { status: 500 });
   }
 }
 

@@ -1,6 +1,6 @@
 /**
  * Server-side only Twilio Chat Token Service
- * 
+ *
  * This file handles token generation and should only be imported in server components/API routes
  */
 
@@ -8,33 +8,37 @@ import { isChatEnabled, ChatUserType } from './chatConfig';
 
 // Generate access token for Twilio Conversations
 // This function should only be called from server-side code (API routes)
-export function generateChatToken(
+export async function generateChatToken(
   identity: string,
   userType: ChatUserType = ChatUserType.PATIENT
-): string {
+): Promise<string> {
   if (!isChatEnabled()) {
     throw new Error('Twilio Chat is not enabled or configured');
   }
 
   // Check if mock mode
-  const isMockMode = !process.env.TWILIO_API_KEY || 
-                    !process.env.TWILIO_API_SECRET || 
-                    process.env.TWILIO_USE_MOCK === 'true';
+  const isMockMode =
+    !process.env.TWILIO_API_KEY ||
+    !process.env.TWILIO_API_SECRET ||
+    process.env.TWILIO_USE_MOCK === 'true';
 
   if (isMockMode) {
     // Return mock token
-    const mockToken = Buffer.from(JSON.stringify({
-      identity,
-      userType,
-      mock: true,
-      exp: Date.now() + 3600000, // 1 hour
-    })).toString('base64');
+    const mockToken = Buffer.from(
+      JSON.stringify({
+        identity,
+        userType,
+        mock: true,
+        exp: Date.now() + 3600000, // 1 hour
+      })
+    ).toString('base64');
 
     return `mock.${mockToken}`;
   }
 
   // Only import Twilio on the server side
-  const AccessToken = require('twilio').jwt.AccessToken;
+  const twilio = await import('twilio');
+  const AccessToken = twilio.default.jwt.AccessToken;
   const ChatGrant = AccessToken.ChatGrant;
 
   // Create access token

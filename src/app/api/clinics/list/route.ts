@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/db";
-import { NextResponse } from "next/server";
+import { prisma } from '@/lib/db';
+import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/clinics/list
@@ -21,14 +22,12 @@ export async function GET() {
       orderBy: {
         name: 'asc',
       },
+      take: 100,
     });
 
     return NextResponse.json({ clinics });
   } catch (error) {
-    console.error('Failed to fetch clinics:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch clinics', clinics: [] },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch clinics', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: 'Failed to fetch clinics', clinics: [] }, { status: 500 });
   }
 }

@@ -1,8 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BILLING_PLANS, getGroupedPlans, formatPlanPrice, getPlanById } from '@/config/billingPlans';
-import { formatCardNumber, validateCardNumber, validateExpiryDate, validateCVV, getCardBrand } from '@/lib/encryption';
+import {
+  BILLING_PLANS,
+  getGroupedPlans,
+  formatPlanPrice,
+  getPlanById,
+} from '@/config/billingPlans';
+import {
+  formatCardNumber,
+  validateCardNumber,
+  validateExpiryDate,
+  validateCVV,
+  getCardBrand,
+} from '@/lib/encryption';
 import { Patient, Provider, Order } from '@/types/models';
 
 interface ProcessPaymentFormProps {
@@ -16,7 +27,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState<string>('');
   const [isRecurring, setIsRecurring] = useState(false);
-  
+
   // Credit card fields
   const [cardNumber, setCardNumber] = useState('');
   const [cardholderName, setCardholderName] = useState('');
@@ -26,7 +37,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
   const [billingZip, setBillingZip] = useState('');
   const [saveCard, setSaveCard] = useState(true);
   const [cardBrand, setCardBrand] = useState('');
-  
+
   // Other states
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +53,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
       if (plan) {
         setAmount(plan.price / 100); // Convert cents to dollars
         setDescription(plan.description);
-        
+
         // Check if it's a monthly plan and set recurring
         const isMonthlyPlan = plan.category.includes('monthly');
         setIsRecurring(isMonthlyPlan);
@@ -58,11 +69,11 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
   const handleCardNumberChange = (value: string) => {
     const formatted = formatCardNumber(value);
     setCardNumber(formatted);
-    
+
     // Detect card brand
     const brand = getCardBrand(value);
     setCardBrand(brand);
-    
+
     // Validate card number
     if (value.replace(/\s/g, '').length >= 13) {
       if (!validateCardNumber(value)) {
@@ -104,7 +115,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
   const handleCVVChange = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
     setCvv(cleaned);
-    
+
     if (cleaned.length >= 3) {
       if (!validateCVV(cleaned, cardBrand)) {
         setCardErrors({ ...cardErrors, cvv: 'Invalid CVV' });
@@ -123,41 +134,41 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
 
   const validateForm = (): boolean => {
     const errors: { [key: string]: string } = {};
-    
+
     if (!cardNumber || cardNumber.trim().length === 0) {
       errors.cardNumber = 'Card number is required';
     } else if (!validateCardNumber(cardNumber)) {
       errors.cardNumber = 'Invalid card number';
     }
-    
+
     if (!cardholderName || cardholderName.trim().length === 0) {
       errors.cardholderName = 'Cardholder name is required';
     }
-    
+
     if (!expiryMonth || !expiryYear) {
       errors.expiry = 'Expiry date is required';
     } else if (!validateExpiryDate(expiryMonth, expiryYear)) {
       errors.expiry = 'Card has expired or invalid date';
     }
-    
+
     if (!cvv || cvv.trim().length === 0) {
       errors.cvv = 'CVV is required';
     } else if (!validateCVV(cvv, cardBrand)) {
       errors.cvv = 'Invalid CVV';
     }
-    
+
     if (!billingZip || billingZip.trim().length === 0) {
       errors.billingZip = 'Billing ZIP code is required';
     }
-    
+
     if (!amount || amount <= 0) {
       errors.amount = 'Amount must be greater than 0';
     }
-    
+
     if (!selectedPlanId && (!description || description.trim().length === 0)) {
       errors.description = 'Description is required for custom payments';
     }
-    
+
     setCardErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -182,7 +193,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
         body: JSON.stringify({
           patientId,
           amount: Math.round(amount * 100), // Convert to cents
-          description: description || (getPlanById(selectedPlanId)?.description || 'Custom Payment'),
+          description: description || getPlanById(selectedPlanId)?.description || 'Custom Payment',
           paymentDetails: {
             cardNumber: cardNumber.replace(/\s/g, ''),
             cardholderName,
@@ -191,14 +202,16 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
             cvv,
             billingZip,
             cardBrand,
-            saveCard
+            saveCard,
           },
-          subscription: isRecurring ? {
-            planId: selectedPlanId,
-            planName: getPlanById(selectedPlanId)?.name || '',
-            interval: 'month',
-            intervalCount: 1
-          } : null,
+          subscription: isRecurring
+            ? {
+                planId: selectedPlanId,
+                planName: getPlanById(selectedPlanId)?.name || '',
+                interval: 'month',
+                intervalCount: 1,
+              }
+            : null,
           notes,
         }),
       });
@@ -209,10 +222,12 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
         throw new Error(data.error || 'Failed to process payment');
       }
 
-      setSuccessMessage(isRecurring ? 
-        'Payment processed and recurring subscription set up successfully!' :
-        'Payment processed successfully!');
-      
+      setSuccessMessage(
+        isRecurring
+          ? 'Payment processed and recurring subscription set up successfully!'
+          : 'Payment processed successfully!'
+      );
+
       // Reset form
       setSelectedPlanId('');
       setAmount(0);
@@ -229,16 +244,16 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
       setCardBrand('');
       setCardErrors({});
       setFormSubmitted(false);
-      
+
       // Notify parent and trigger refresh
       setTimeout(() => {
         onSuccess();
       }, 1500);
     } catch (err: any) {
-    // @ts-ignore
-   
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    setError(errorMessage || 'An unexpected error occurred.');
+      // @ts-ignore
+
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage || 'An unexpected error occurred.');
     } finally {
       setSubmitting(false);
     }
@@ -269,16 +284,16 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
   const yearOptions = Array.from({ length: 11 }, (_, i) => currentYear + i);
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-xl font-semibold mb-4">Process Payment for {patientName}</h3>
+    <div className="rounded-lg bg-white p-6 shadow">
+      <h3 className="mb-4 text-xl font-semibold">Process Payment for {patientName}</h3>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       )}
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
           {successMessage}
         </div>
       )}
@@ -286,14 +301,14 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Billing Plan Selection */}
         <div>
-          <label htmlFor="billingPlan" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="billingPlan" className="mb-1 block text-sm font-medium text-gray-700">
             Select Billing Plan (Optional)
           </label>
           <select
             id="billingPlan"
             value={selectedPlanId}
             onChange={(e: any) => setSelectedPlanId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
           >
             <option value="">-- Custom Payment --</option>
             {Object.entries(groupedPlans).map(([groupName, group]) => (
@@ -317,7 +332,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
         {/* Amount and Description */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="amount" className="mb-1 block text-sm font-medium text-gray-700">
               Amount ($)
             </label>
             <input
@@ -325,7 +340,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
               id="amount"
               value={amount.toFixed(2)}
               onChange={(e: any) => handleAmountChange(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+              className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                 formSubmitted && cardErrors.amount ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="0.00"
@@ -334,10 +349,12 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
               step="0.01"
               disabled={!!selectedPlanId}
             />
-            {formSubmitted && cardErrors.amount && <p className="mt-1 text-sm text-red-600">{cardErrors.amount}</p>}
+            {formSubmitted && cardErrors.amount && (
+              <p className="mt-1 text-sm text-red-600">{cardErrors.amount}</p>
+            )}
           </div>
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="mb-1 block text-sm font-medium text-gray-700">
               Description
             </label>
             <input
@@ -345,24 +362,26 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
               id="description"
               value={description}
               onChange={(e: any) => setDescription(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+              className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                 formSubmitted && cardErrors.description ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Payment description"
               required
               disabled={!!selectedPlanId}
             />
-            {formSubmitted && cardErrors.description && <p className="mt-1 text-sm text-red-600">{cardErrors.description}</p>}
+            {formSubmitted && cardErrors.description && (
+              <p className="mt-1 text-sm text-red-600">{cardErrors.description}</p>
+            )}
           </div>
         </div>
 
         {/* Credit Card Information */}
         <div className="border-t pt-4">
-          <h4 className="text-lg font-medium text-gray-900 mb-4">Credit Card Information</h4>
-          
+          <h4 className="mb-4 text-lg font-medium text-gray-900">Credit Card Information</h4>
+
           {/* Card Number */}
           <div className="mb-4">
-            <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="cardNumber" className="mb-1 block text-sm font-medium text-gray-700">
               Card Number
             </label>
             <div className="relative">
@@ -371,7 +390,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
                 id="cardNumber"
                 value={cardNumber}
                 onChange={(e: any) => handleCardNumberChange(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+                className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                   formSubmitted && cardErrors.cardNumber ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="1234 5678 9012 3456"
@@ -384,12 +403,17 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
                 </span>
               )}
             </div>
-            {formSubmitted && cardErrors.cardNumber && <p className="mt-1 text-sm text-red-600">{cardErrors.cardNumber}</p>}
+            {formSubmitted && cardErrors.cardNumber && (
+              <p className="mt-1 text-sm text-red-600">{cardErrors.cardNumber}</p>
+            )}
           </div>
 
           {/* Cardholder Name */}
           <div className="mb-4">
-            <label htmlFor="cardholderName" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="cardholderName"
+              className="mb-1 block text-sm font-medium text-gray-700"
+            >
               Cardholder Name
             </label>
             <input
@@ -397,26 +421,26 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
               id="cardholderName"
               value={cardholderName}
               onChange={(e: any) => setCardholderName(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+              className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                 formSubmitted && cardErrors.cardholderName ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="John Doe"
               required
             />
-            {formSubmitted && cardErrors.cardholderName && <p className="mt-1 text-sm text-red-600">{cardErrors.cardholderName}</p>}
+            {formSubmitted && cardErrors.cardholderName && (
+              <p className="mt-1 text-sm text-red-600">{cardErrors.cardholderName}</p>
+            )}
           </div>
 
           {/* Expiry Date, CVV, ZIP */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Expiry Date
-              </label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Expiry Date</label>
               <div className="flex gap-2">
                 <select
                   value={expiryMonth}
                   onChange={(e: any) => handleExpiryMonthChange(e.target.value)}
-                  className={`flex-1 px-2 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+                  className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                     formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
                   }`}
                   required
@@ -431,7 +455,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
                 <select
                   value={expiryYear}
                   onChange={(e: any) => handleExpiryYearChange(e.target.value)}
-                  className={`flex-1 px-2 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+                  className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                     formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
                   }`}
                   required
@@ -444,10 +468,12 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
                   ))}
                 </select>
               </div>
-              {formSubmitted && cardErrors.expiry && <p className="mt-1 text-sm text-red-600">{cardErrors.expiry}</p>}
+              {formSubmitted && cardErrors.expiry && (
+                <p className="mt-1 text-sm text-red-600">{cardErrors.expiry}</p>
+              )}
             </div>
             <div>
-              <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="cvv" className="mb-1 block text-sm font-medium text-gray-700">
                 CVV
               </label>
               <input
@@ -455,17 +481,19 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
                 id="cvv"
                 value={cvv}
                 onChange={(e: any) => handleCVVChange(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+                className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                   formSubmitted && cardErrors.cvv ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder={cardBrand === 'American Express' ? '1234' : '123'}
                 maxLength={cardBrand === 'American Express' ? 4 : 3}
                 required
               />
-              {formSubmitted && cardErrors.cvv && <p className="mt-1 text-sm text-red-600">{cardErrors.cvv}</p>}
+              {formSubmitted && cardErrors.cvv && (
+                <p className="mt-1 text-sm text-red-600">{cardErrors.cvv}</p>
+              )}
             </div>
             <div>
-              <label htmlFor="billingZip" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="billingZip" className="mb-1 block text-sm font-medium text-gray-700">
                 Billing ZIP
               </label>
               <input
@@ -473,13 +501,15 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
                 id="billingZip"
                 value={billingZip}
                 onChange={(e: any) => setBillingZip(e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e] ${
+                className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                   formSubmitted && cardErrors.billingZip ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="12345"
                 required
               />
-              {formSubmitted && cardErrors.billingZip && <p className="mt-1 text-sm text-red-600">{cardErrors.billingZip}</p>}
+              {formSubmitted && cardErrors.billingZip && (
+                <p className="mt-1 text-sm text-red-600">{cardErrors.billingZip}</p>
+              )}
             </div>
           </div>
 
@@ -503,7 +533,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
 
         {/* Notes */}
         <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="notes" className="mb-1 block text-sm font-medium text-gray-700">
             Notes (Optional)
           </label>
           <textarea
@@ -511,13 +541,13 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
             value={notes}
             onChange={(e: any) => setNotes(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#4fa77e] focus:border-[#4fa77e]"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
             placeholder="Additional notes about this payment..."
           />
         </div>
 
         {/* Summary */}
-        <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+        <div className="space-y-2 rounded-lg bg-gray-50 p-4">
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Patient:</span>
             <span className="font-medium">{patientName}</span>
@@ -541,20 +571,20 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 justify-end">
+        <div className="flex justify-end gap-3">
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
           >
             Clear
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="px-6 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? 'Processing...' : (isRecurring ? 'Start Subscription' : 'Process Payment')}
+            {submitting ? 'Processing...' : isRecurring ? 'Start Subscription' : 'Process Payment'}
           </button>
         </div>
       </form>

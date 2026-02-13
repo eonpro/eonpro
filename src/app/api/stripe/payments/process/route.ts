@@ -27,14 +27,8 @@ interface SubscriptionInfo {
 
 export async function POST(request: Request) {
   try {
-    const {
-      patientId,
-      amount,
-      description,
-      paymentDetails,
-      subscription,
-      notes
-    } = await request.json();
+    const { patientId, amount, description, paymentDetails, subscription, notes } =
+      await request.json();
 
     if (!patientId || !amount || !description || !paymentDetails) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -48,13 +42,13 @@ export async function POST(request: Request) {
       cvv,
       billingZip,
       cardBrand,
-      saveCard
+      saveCard,
     } = paymentDetails as PaymentDetails;
 
     // Get or update patient
     const patient = await prisma.patient.findUnique({
       where: { id: parseInt(patientId) },
-      include: { paymentMethods: true }
+      include: { paymentMethods: true },
     });
 
     if (!patient) {
@@ -91,8 +85,8 @@ export async function POST(request: Request) {
             isActive: true,
             encryptionKeyId,
             fingerprint: crypto.createHash('sha256').update(cardNumber).digest('hex'),
-            lastUsedAt: new Date()
-          }
+            lastUsedAt: new Date(),
+          },
         });
 
         paymentMethodId = paymentMethod.id;
@@ -119,7 +113,7 @@ export async function POST(request: Request) {
             currentPeriodEnd: nextMonth,
             nextBillingDate: nextMonth,
             paymentMethodId: paymentMethodId!,
-          }
+          },
         });
 
         subscriptionId = createdSubscription.id;
@@ -132,8 +126,8 @@ export async function POST(request: Request) {
           await tx.patient.update({
             where: { id: patient.id },
             data: {
-              tags: [...currentTags, subscriptionTag, 'active-subscription']
-            }
+              tags: [...currentTags, subscriptionTag, 'active-subscription'],
+            },
           });
         }
       }
@@ -153,15 +147,15 @@ export async function POST(request: Request) {
             paymentMethodId,
             subscriptionId,
             planId: subscription?.planId,
-          } as any
-        }
+          } as any,
+        },
       });
 
       // Update payment method last used date
       if (paymentMethodId) {
         await tx.paymentMethod.update({
           where: { id: paymentMethodId },
-          data: { lastUsedAt: new Date() }
+          data: { lastUsedAt: new Date() },
         });
       }
 
@@ -179,12 +173,17 @@ export async function POST(request: Request) {
       payment,
       paymentMethodSaved: saveCard || !!subscription,
       subscriptionCreated: !!subscriptionId,
-      commissionProcessed
+      commissionProcessed,
     });
-
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error processing payment:', error instanceof Error ? error : new Error(errorMessage));
-    return NextResponse.json({ error: errorMessage || 'Failed to process payment' }, { status: 500 });
+    logger.error(
+      'Error processing payment:',
+      error instanceof Error ? error : new Error(errorMessage)
+    );
+    return NextResponse.json(
+      { error: errorMessage || 'Failed to process payment' },
+      { status: 500 }
+    );
   }
 }

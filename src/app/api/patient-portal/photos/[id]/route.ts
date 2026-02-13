@@ -200,9 +200,7 @@ async function handlePatch(
     // Generate fresh signed URLs
     const [s3Url, thumbnailUrl] = await Promise.all([
       generateSignedUrl(updatedPhoto.s3Key, 'GET', 3600),
-      updatedPhoto.thumbnailKey
-        ? generateSignedUrl(updatedPhoto.thumbnailKey, 'GET', 3600)
-        : null,
+      updatedPhoto.thumbnailKey ? generateSignedUrl(updatedPhoto.thumbnailKey, 'GET', 3600) : null,
     ]);
 
     logger.info('[Photos API] Photo updated', {

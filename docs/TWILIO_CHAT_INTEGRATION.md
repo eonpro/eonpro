@@ -2,11 +2,14 @@
 
 ## 🎯 Overview
 
-The Twilio Chat integration provides real-time messaging capabilities between patients and healthcare providers using Twilio Conversations API. This enables secure, HIPAA-compliant instant messaging within the platform.
+The Twilio Chat integration provides real-time messaging capabilities between patients and
+healthcare providers using Twilio Conversations API. This enables secure, HIPAA-compliant instant
+messaging within the platform.
 
 ## ✨ Features
 
 ### Core Functionality
+
 - **Real-time Messaging**: Instant message delivery with WebSocket connections
 - **Typing Indicators**: See when the other party is typing
 - **Read Receipts**: Know when messages have been read
@@ -16,6 +19,7 @@ The Twilio Chat integration provides real-time messaging capabilities between pa
 - **Group Chats**: Support for multi-participant conversations
 
 ### Healthcare-Specific Features
+
 - **HIPAA Compliance**: Encrypted messaging for patient data protection
 - **Provider Routing**: Automatic routing to available healthcare providers
 - **Priority Messages**: Flag urgent patient messages
@@ -33,6 +37,7 @@ The Twilio Chat integration provides real-time messaging capabilities between pa
    - Enable Twilio Conversations
 
 2. **Create Conversations Service**
+
    ```bash
    # In Twilio Console, navigate to:
    Messaging > Services > Conversations
@@ -109,17 +114,17 @@ import ChatWidget from "@/components/twilio/ChatWidget";
 #### Send Programmatic Messages
 
 ```typescript
-import { ChatClientManager } from "@/lib/integrations/twilio/chatService";
+import { ChatClientManager } from '@/lib/integrations/twilio/chatService';
 
 const chatManager = new ChatClientManager(userId, userType);
 await chatManager.initialize(token);
 
 const conversation = await chatManager.getOrCreateConversation(
-  "consultation-123",
-  "Consultation with Dr. Smith"
+  'consultation-123',
+  'Consultation with Dr. Smith'
 );
 
-await chatManager.sendMessage(conversation, "Hello, Doctor!");
+await chatManager.sendMessage(conversation, 'Hello, Doctor!');
 ```
 
 #### API Endpoints
@@ -152,6 +157,7 @@ Body: {
 #### Using Quick Responses
 
 Providers have pre-defined responses for common scenarios:
+
 - "Hello! How can I help you today?"
 - "I'll review your information and get back to you shortly."
 - "Please schedule a follow-up if symptoms persist."
@@ -205,26 +211,30 @@ for (let i = 0; i < 10; i++) {
 ## 🔒 Security & HIPAA Compliance
 
 ### Encryption
+
 - **In Transit**: TLS 1.2+ for all connections
 - **At Rest**: AES-256 encryption in Twilio's storage
 - **End-to-End**: Optional E2E encryption available
 
 ### Access Control
+
 - JWT-based authentication
 - Role-based permissions (patient/provider/admin)
 - Automatic token refresh
 - Session timeout after inactivity
 
 ### Audit Trail
+
 - All messages logged with timestamps
 - User actions tracked
 - Export capability for compliance
 
 ### HIPAA Safeguards
+
 ```typescript
 // Automatic PHI detection and warning
 if (detectPHI(message)) {
-  showWarning("This message may contain sensitive health information");
+  showWarning('This message may contain sensitive health information');
 }
 
 // Consent verification
@@ -236,17 +246,20 @@ if (!patient.hasSignedHIPAAConsent) {
 ## 📊 Monitoring & Analytics
 
 ### Key Metrics
+
 - Average response time
 - Message volume by hour/day
 - Active conversations
 - User satisfaction ratings
 
 ### Dashboard Access
+
 ```
 Admin Console > Analytics > Chat Metrics
 ```
 
 ### Alerts
+
 - Provider response time > 5 minutes
 - High priority messages unread > 10 minutes
 - System errors or connection issues
@@ -256,6 +269,7 @@ Admin Console > Analytics > Chat Metrics
 ### Common Issues
 
 1. **"Chat not connecting"**
+
    ```bash
    # Check Twilio credentials
    # Verify TWILIO_CHAT_SERVICE_SID is correct
@@ -263,6 +277,7 @@ Admin Console > Analytics > Chat Metrics
    ```
 
 2. **"Token expired"**
+
    ```bash
    # Tokens auto-refresh, but check:
    - Token TTL settings (default 1 hour)
@@ -279,6 +294,7 @@ Admin Console > Analytics > Chat Metrics
 ### Debug Mode
 
 Enable debug logging:
+
 ```javascript
 localStorage.setItem('TWILIO_CHAT_DEBUG', 'true');
 ```
@@ -286,18 +302,21 @@ localStorage.setItem('TWILIO_CHAT_DEBUG', 'true');
 ## 📈 Best Practices
 
 ### For Providers
+
 1. Respond within 5 minutes during business hours
 2. Use quick responses for efficiency
 3. Flag urgent messages appropriately
 4. Close conversations when complete
 
 ### For Developers
+
 1. Implement proper error handling
 2. Cache tokens appropriately
 3. Clean up connections on unmount
 4. Monitor WebSocket connections
 
 ### For System Admins
+
 1. Regular backup of conversation metadata
 2. Monitor Twilio usage and costs
 3. Review chat logs for compliance
@@ -306,6 +325,7 @@ localStorage.setItem('TWILIO_CHAT_DEBUG', 'true');
 ## 🎯 Roadmap
 
 ### Phase 1 (Current)
+
 - ✅ Basic messaging
 - ✅ Typing indicators
 - ✅ Read receipts
@@ -313,12 +333,14 @@ localStorage.setItem('TWILIO_CHAT_DEBUG', 'true');
 - ✅ Mock service for testing
 
 ### Phase 2 (Next)
+
 - [ ] Voice/Video calls from chat
 - [ ] AI-powered response suggestions
 - [ ] Automated appointment scheduling
 - [ ] Chat bot for common questions
 
 ### Phase 3 (Future)
+
 - [ ] Multi-language support
 - [ ] Screen sharing
 - [ ] Chat transcription
@@ -327,6 +349,7 @@ localStorage.setItem('TWILIO_CHAT_DEBUG', 'true');
 ## 📞 Support
 
 For issues or questions:
+
 - **Technical Issues**: Create a ticket in the admin console
 - **Twilio Support**: [support.twilio.com](https://support.twilio.com)
 - **Documentation**: Check `/docs` folder

@@ -51,13 +51,13 @@ export async function createFormTemplate(
     if (!input.name?.trim()) {
       throw new Error('Form name is required');
     }
-    
+
     if (!input.questions || input.questions.length === 0) {
       throw new Error('At least one question is required');
     }
 
     // Create template with questions in a transaction
-    const template = await prisma.$transaction(async (tx: any) => {
+    const template = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create the template
       const newTemplate = await tx.intakeFormTemplate.create({
         data: {
@@ -65,7 +65,7 @@ export async function createFormTemplate(
           description: input.description?.trim(),
           treatmentType: input.treatmentType,
           isActive: true,
-          metadata: (input.metadata  || {}) as any,
+          metadata: (input.metadata || {}) as any,
           providerId: providerId as number | undefined,
           createdById: createdById || undefined,
         },
@@ -97,13 +97,12 @@ export async function createFormTemplate(
 
     // Clear cache
     templateCache.clear();
-    
+
     logger.info(`Form template created: ${template.id} - ${template.name}`);
     return template;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to create form template', error);
     throw error;
   }
@@ -118,11 +117,11 @@ export async function getFormTemplates(
 ): Promise<any[]> {
   try {
     const where: Prisma.IntakeFormTemplateWhereInput = {};
-    
+
     if (!includeInactive) {
       where.isActive = true;
     }
-    
+
     if (providerId) {
       where.OR = [
         { providerId: null }, // Shared templates
@@ -146,10 +145,9 @@ export async function getFormTemplates(
     });
 
     return templates;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to get form templates', error);
     throw error;
   }
@@ -158,10 +156,7 @@ export async function getFormTemplates(
 /**
  * Get a single form template by ID
  */
-export async function getFormTemplate(
-  templateId: number,
-  includeStats = false
-): Promise<any> {
+export async function getFormTemplate(templateId: number, includeStats = false): Promise<any> {
   try {
     // Check cache first
     const cacheKey = `${templateId}-${includeStats}`;
@@ -218,10 +213,9 @@ export async function getFormTemplate(
     });
 
     return template;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to get form template', error);
     throw error;
   }
@@ -235,7 +229,7 @@ export async function updateFormTemplate(
   updates: Partial<CreateFormTemplateInput>
 ): Promise<any> {
   try {
-    const template = await prisma.$transaction(async (tx: any) => {
+    const template = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update template
       const updated = await tx.intakeFormTemplate.update({
         where: { id: templateId },
@@ -283,13 +277,12 @@ export async function updateFormTemplate(
 
     // Clear cache
     templateCache.clear();
-    
+
     logger.info(`Form template updated: ${templateId}`);
     return template;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to update form template', error);
     throw error;
   }
@@ -307,12 +300,11 @@ export async function deleteFormTemplate(templateId: number): Promise<void> {
 
     // Clear cache
     templateCache.clear();
-    
+
     logger.info(`Form template deleted: ${templateId}`);
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to delete form template', error);
     throw error;
   }
@@ -338,7 +330,7 @@ export async function createFormLink(input: FormLinkInput): Promise<IntakeFormLi
 
     // Create unique link ID
     const linkId = nanoid(12);
-    
+
     // Calculate expiration (default 30 days)
     const expiresAt = addDays(new Date(), input.expiresInDays || 30);
 
@@ -348,7 +340,7 @@ export async function createFormLink(input: FormLinkInput): Promise<IntakeFormLi
         patientEmail: input.patientEmail.toLowerCase(),
         patientPhone: input.patientPhone || undefined,
         expiresAt,
-        metadata: (input.metadata  || {}) as any,
+        metadata: (input.metadata || {}) as any,
       },
       include: {
         template: {
@@ -362,10 +354,9 @@ export async function createFormLink(input: FormLinkInput): Promise<IntakeFormLi
 
     logger.info(`Form link created: ${linkId} for ${input.patientEmail}`);
     return link;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to create form link', error);
     throw error;
   }
@@ -417,10 +408,9 @@ export async function getFormByLinkId(linkId: string): Promise<any> {
     }
 
     return link;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to get form by link ID', error);
     throw error;
   }
@@ -438,7 +428,7 @@ export async function submitFormResponses(
   try {
     // Get link and verify
     const link = await getFormByLinkId(linkId);
-    
+
     if (link.submission?.status === 'completed') {
       throw new Error('This form has already been submitted');
     }
@@ -446,7 +436,7 @@ export async function submitFormResponses(
     // Validate required questions
     const requiredQuestions = link.template.questions.filter((q: any) => q.isRequired);
     const responseMap = new Map(responses.map((r: any) => [r.questionId, r]));
-    
+
     for (const question of requiredQuestions) {
       const response = responseMap.get(question.id);
       if (!response || !response.answer?.trim()) {
@@ -462,13 +452,13 @@ export async function submitFormResponses(
     if (!patientId && patientInfo?.email) {
       // Get clinicId from template for data integrity
       const templateClinicId = link.template.clinicId;
-      
+
       // Find or create patient within the clinic context
       let patient = await prisma.patient.findFirst({
-        where: { 
+        where: {
           email: patientInfo.email.toLowerCase(),
           ...(templateClinicId && { clinicId: templateClinicId }),
-        }
+        },
       });
 
       if (!patient) {
@@ -479,7 +469,7 @@ export async function submitFormResponses(
             templateId: link.template.id,
           });
         }
-        
+
         patient = await prisma.patient.create({
           data: {
             email: patientInfo.email.toLowerCase(),
@@ -493,7 +483,7 @@ export async function submitFormResponses(
             state: '',
             zip: '',
             clinicId: templateClinicId, // Inherit from template
-          }
+          },
         });
       } else {
         // Update existing patient
@@ -503,14 +493,14 @@ export async function submitFormResponses(
             firstName: patientInfo.firstName || patient.firstName,
             lastName: patientInfo.lastName || patient.lastName,
             phone: patientInfo.phone || patient.phone,
-          }
+          },
         });
       }
       patientId = patient.id;
     }
 
     // Submit the form
-    const submission = await prisma.$transaction(async (tx: any) => {
+    const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       let sub;
 
       // Check if there's an existing submission for this link
@@ -571,10 +561,9 @@ export async function submitFormResponses(
 
     logger.info(`Form submitted: ${linkId}`);
     return submission;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to submit form responses', error);
     throw error;
   }
@@ -590,7 +579,7 @@ export async function getFormSubmissions(
 ): Promise<any[]> {
   try {
     const where: any = {};
-    
+
     if (templateId) where.templateId = templateId;
     if (patientId) where.patientId = patientId;
     if (status) where.status = status;
@@ -623,10 +612,9 @@ export async function getFormSubmissions(
     });
 
     return submissions;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to get form submissions', error);
     throw error;
   }
@@ -661,9 +649,7 @@ export async function exportFormSubmission(submissionId: number): Promise<any> {
     }
 
     // Structure the data for export
-    const responseMap = new Map(
-      submission.responses.map((r: any) => [r.questionId, r.answer])
-    );
+    const responseMap = new Map(submission.responses.map((r: any) => [r.questionId, r.answer]));
 
     const structuredData = {
       formName: submission.template.name,
@@ -682,10 +668,9 @@ export async function exportFormSubmission(submissionId: number): Promise<any> {
     };
 
     return structuredData;
-    
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to export form submission', error);
     throw error;
   }

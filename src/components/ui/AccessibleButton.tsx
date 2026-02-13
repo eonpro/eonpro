@@ -37,7 +37,8 @@ const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonProps>(
     ref
   ) => {
     // Base styles
-    const baseStyles = 'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseStyles =
+      'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
     // Variant styles
     const variantStyles = {
@@ -87,7 +88,7 @@ const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonProps>(
         {loading ? (
           <>
             <svg
-              className="animate-spin -ml-1 mr-2 h-4 w-4"
+              className="-ml-1 mr-2 h-4 w-4 animate-spin"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"

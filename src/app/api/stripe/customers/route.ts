@@ -37,7 +37,7 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
 
     const { stripe, stripeAccountId, clinicId, isPlatformAccount } = context;
     const { searchParams } = new URL(request.url);
-    
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
     const startingAfter = searchParams.get('starting_after') || undefined;
     const email = searchParams.get('email') || undefined;
@@ -45,14 +45,16 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
     const endDate = searchParams.get('endDate');
     const includeCharges = searchParams.get('includeCharges') !== 'false';
     const includeSubscriptions = searchParams.get('includeSubscriptions') !== 'false';
-    
+
     // Build date filter
-    const createdFilter: Stripe.RangeQueryParam | undefined = 
-      startDate || endDate ? {
-        ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
-        ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
-      } : undefined;
-    
+    const createdFilter: Stripe.RangeQueryParam | undefined =
+      startDate || endDate
+        ? {
+            ...(startDate && { gte: Math.floor(new Date(startDate).getTime() / 1000) }),
+            ...(endDate && { lte: Math.floor(new Date(endDate).getTime() / 1000) }),
+          }
+        : undefined;
+
     // Fetch customers
     const customerParams: Stripe.CustomerListParams = {
       limit,
@@ -68,20 +70,20 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
       : customerParams;
 
     const customers = await stripe.customers.list(listOptions as Stripe.CustomerListParams);
-    
+
     // Process customers with additional data
     let totalLifetimeValue = 0;
     let totalCustomers = customers.data.length;
     let customersWithPaymentMethod = 0;
     let customersWithSubscription = 0;
-    
+
     const formattedCustomers = await Promise.all(
       customers.data.map(async (customer) => {
         let charges: any[] = [];
         let totalSpent = 0;
         let chargeCount = 0;
         let subscriptions: any[] = [];
-        
+
         // Get customer's charges
         if (includeCharges) {
           try {
@@ -89,17 +91,20 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
               customer: customer.id,
               limit: 100,
             });
-            
-            charges = customerCharges.data.filter(c => c.status === 'succeeded');
+
+            charges = customerCharges.data.filter((c) => c.status === 'succeeded');
             totalSpent = charges.reduce((sum, c) => sum + c.amount, 0);
             chargeCount = charges.length;
             totalLifetimeValue += totalSpent;
           } catch (error: unknown) {
             // Charges might fail for some customers
-            logger.warn('[STRIPE CUSTOMERS] Failed to fetch charges for customer', { customerId: customer.id, error: error instanceof Error ? error.message : 'Unknown error' });
+            logger.warn('[STRIPE CUSTOMERS] Failed to fetch charges for customer', {
+              customerId: customer.id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
           }
         }
-        
+
         // Get customer's subscriptions
         if (includeSubscriptions) {
           try {
@@ -107,44 +112,56 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
               customer: customer.id,
               limit: 10,
             });
-            
-            subscriptions = customerSubs.data.map(sub => {
+
+            subscriptions = customerSubs.data.map((sub) => {
               // Access subscription properties safely
-              const subData = sub as unknown as { 
-                id: string; 
-                status: string; 
-                current_period_end: number; 
+              const subData = sub as unknown as {
+                id: string;
+                status: string;
+                current_period_end: number;
                 cancel_at_period_end: boolean;
-                items: { data: Array<{ price: { id: string; product: string | { id: string } }; quantity: number | null }> };
+                items: {
+                  data: Array<{
+                    price: { id: string; product: string | { id: string } };
+                    quantity: number | null;
+                  }>;
+                };
               };
               return {
                 id: subData.id,
                 status: subData.status,
                 currentPeriodEnd: new Date(subData.current_period_end * 1000).toISOString(),
                 cancelAtPeriodEnd: subData.cancel_at_period_end,
-                items: subData.items.data.map(item => ({
+                items: subData.items.data.map((item) => ({
                   priceId: item.price.id,
-                  productId: typeof item.price.product === 'string' ? item.price.product : item.price.product?.id,
+                  productId:
+                    typeof item.price.product === 'string'
+                      ? item.price.product
+                      : item.price.product?.id,
                   quantity: item.quantity,
                 })),
               };
             });
-            
-            if (subscriptions.some(s => s.status === 'active')) {
+
+            if (subscriptions.some((s) => s.status === 'active')) {
               customersWithSubscription++;
             }
           } catch (error: unknown) {
             // Subscriptions might fail
-            logger.warn('[STRIPE CUSTOMERS] Failed to fetch subscriptions for customer', { customerId: customer.id, error: error instanceof Error ? error.message : 'Unknown error' });
+            logger.warn('[STRIPE CUSTOMERS] Failed to fetch subscriptions for customer', {
+              customerId: customer.id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
           }
         }
-        
+
         // Check for payment methods
-        const hasPaymentMethod = !!customer.default_source || !!customer.invoice_settings?.default_payment_method;
+        const hasPaymentMethod =
+          !!customer.default_source || !!customer.invoice_settings?.default_payment_method;
         if (hasPaymentMethod) {
           customersWithPaymentMethod++;
         }
-        
+
         return {
           id: customer.id,
           email: customer.email,
@@ -157,12 +174,14 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
           // Linked patient ID from metadata
           patientId: customer.metadata?.patientId || null,
           // Address
-          address: customer.address ? {
-            city: customer.address.city,
-            state: customer.address.state,
-            country: customer.address.country,
-            postalCode: customer.address.postal_code,
-          } : null,
+          address: customer.address
+            ? {
+                city: customer.address.city,
+                state: customer.address.state,
+                country: customer.address.country,
+                postalCode: customer.address.postal_code,
+              }
+            : null,
           // Payment info
           hasPaymentMethod,
           defaultPaymentMethod: customer.invoice_settings?.default_payment_method || null,
@@ -176,22 +195,28 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
             totalSpentFormatted: formatCurrency(totalSpent),
             chargeCount,
             averageOrderValue: chargeCount > 0 ? Math.round(totalSpent / chargeCount) : 0,
-            averageOrderValueFormatted: chargeCount > 0 ? formatCurrency(Math.round(totalSpent / chargeCount)) : '$0.00',
-            firstCharge: charges.length > 0 ? new Date(charges[charges.length - 1].created * 1000).toISOString() : null,
-            lastCharge: charges.length > 0 ? new Date(charges[0].created * 1000).toISOString() : null,
+            averageOrderValueFormatted:
+              chargeCount > 0 ? formatCurrency(Math.round(totalSpent / chargeCount)) : '$0.00',
+            firstCharge:
+              charges.length > 0
+                ? new Date(charges[charges.length - 1].created * 1000).toISOString()
+                : null,
+            lastCharge:
+              charges.length > 0 ? new Date(charges[0].created * 1000).toISOString() : null,
           },
           subscriptions,
-          activeSubscriptionCount: subscriptions.filter(s => s.status === 'active').length,
+          activeSubscriptionCount: subscriptions.filter((s) => s.status === 'active').length,
           // Tax info
           taxExempt: customer.tax_exempt,
-          taxIds: customer.tax_ids?.data?.map(t => ({
-            type: t.type,
-            value: t.value,
-          })) || [],
+          taxIds:
+            customer.tax_ids?.data?.map((t) => ({
+              type: t.type,
+              value: t.value,
+            })) || [],
         };
       })
     );
-    
+
     // Summary statistics
     const summary = {
       totalCustomers,
@@ -200,20 +225,25 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
       totalLifetimeValue,
       totalLifetimeValueFormatted: formatCurrency(totalLifetimeValue),
       averageLTV: totalCustomers > 0 ? Math.round(totalLifetimeValue / totalCustomers) : 0,
-      averageLTVFormatted: totalCustomers > 0 ? formatCurrency(Math.round(totalLifetimeValue / totalCustomers)) : '$0.00',
-      paymentMethodRate: totalCustomers > 0 
-        ? ((customersWithPaymentMethod / totalCustomers) * 100).toFixed(1) + '%'
-        : '0%',
-      subscriptionRate: totalCustomers > 0
-        ? ((customersWithSubscription / totalCustomers) * 100).toFixed(1) + '%'
-        : '0%',
+      averageLTVFormatted:
+        totalCustomers > 0
+          ? formatCurrency(Math.round(totalLifetimeValue / totalCustomers))
+          : '$0.00',
+      paymentMethodRate:
+        totalCustomers > 0
+          ? ((customersWithPaymentMethod / totalCustomers) * 100).toFixed(1) + '%'
+          : '0%',
+      subscriptionRate:
+        totalCustomers > 0
+          ? ((customersWithSubscription / totalCustomers) * 100).toFixed(1) + '%'
+          : '0%',
     };
-    
+
     logger.info('[STRIPE CUSTOMERS] Retrieved customers', {
       count: formattedCustomers.length,
       totalLTV: formatCurrency(totalLifetimeValue),
     });
-    
+
     return NextResponse.json({
       success: true,
       customers: formattedCustomers,
@@ -221,14 +251,15 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
       pagination: {
         hasMore: customers.has_more,
         limit,
-        ...(formattedCustomers.length > 0 && { lastId: formattedCustomers[formattedCustomers.length - 1].id }),
+        ...(formattedCustomers.length > 0 && {
+          lastId: formattedCustomers[formattedCustomers.length - 1].id,
+        }),
       },
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error: any) {
     logger.error('[STRIPE CUSTOMERS] Error:', error);
-    
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch customers' },
       { status: 500 }

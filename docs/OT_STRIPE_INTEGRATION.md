@@ -5,6 +5,7 @@ This document describes the dedicated Stripe integration for `ot.eonpro.io`.
 ## Overview
 
 Overtime (OT) has its own Stripe account, separate from:
+
 - EonMeds (platform account)
 - Other clinics using Stripe Connect
 
@@ -81,10 +82,12 @@ If not exists, create via admin panel or API.
 ## Affiliate Conversion Credit
 
 When a patient is created with an affiliate code (via intake form):
+
 - `Patient.attributionAffiliateId` is set
 - `Patient.attributionRefCode` stores the code used
 
 When OT processes a payment for this patient:
+
 1. Webhook calls `processPaymentForCommission()`
 2. System checks `patient.attributionAffiliateId`
 3. If affiliate exists and is active:
@@ -135,6 +138,7 @@ stripe trigger checkout.session.completed
 ### Webhook Logs
 
 Failed webhooks are logged to `WebhookLog` table with:
+
 - `source: 'stripe-ot'`
 - `status: 'FAILED'`
 - `metadata.clinicSubdomain: 'ot'`
@@ -142,6 +146,7 @@ Failed webhooks are logged to `WebhookLog` table with:
 ### Payment Reconciliation
 
 All processed payments are logged to `PaymentReconciliation` table with:
+
 - Match method and confidence
 - Whether patient was created
 - Invoice and payment IDs
@@ -156,15 +161,15 @@ OT has comprehensive financial reporting available at `/api/stripe/reports/ot`.
 
 ### Report Types
 
-| Report Type | Description | Use Case |
-|-------------|-------------|----------|
-| `executive` | High-level KPIs and metrics | Leadership dashboards |
-| `revenue` | Detailed revenue breakdown with trends | Financial analysis |
-| `affiliate` | Affiliate attribution and commission tracking | Partner management |
-| `patients` | Patient acquisition and lifetime value | Growth metrics |
-| `transactions` | Detailed transaction log with filtering | Accounting |
-| `products` | Product/treatment performance analysis | Product management |
-| `reconciliation` | Payment reconciliation for accounting | Month-end close |
+| Report Type      | Description                                   | Use Case              |
+| ---------------- | --------------------------------------------- | --------------------- |
+| `executive`      | High-level KPIs and metrics                   | Leadership dashboards |
+| `revenue`        | Detailed revenue breakdown with trends        | Financial analysis    |
+| `affiliate`      | Affiliate attribution and commission tracking | Partner management    |
+| `patients`       | Patient acquisition and lifetime value        | Growth metrics        |
+| `transactions`   | Detailed transaction log with filtering       | Accounting            |
+| `products`       | Product/treatment performance analysis        | Product management    |
+| `reconciliation` | Payment reconciliation for accounting         | Month-end close       |
 
 ### API Usage
 
@@ -187,15 +192,15 @@ GET /api/stripe/reports/ot?type=reconciliation
 
 ### Query Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `type` | string | `executive` | Report type (see above) |
-| `startDate` | ISO date | 30 days ago | Start of reporting period |
-| `endDate` | ISO date | Today | End of reporting period |
-| `groupBy` | `day`/`week`/`month` | `day` | Time period grouping |
-| `export` | `csv`/`json` | `json` | Export format |
-| `limit` | number | `100` | Max transactions (transactions report) |
-| `cursor` | string | - | Pagination cursor (transactions report) |
+| Parameter   | Type                 | Default     | Description                             |
+| ----------- | -------------------- | ----------- | --------------------------------------- |
+| `type`      | string               | `executive` | Report type (see above)                 |
+| `startDate` | ISO date             | 30 days ago | Start of reporting period               |
+| `endDate`   | ISO date             | Today       | End of reporting period                 |
+| `groupBy`   | `day`/`week`/`month` | `day`       | Time period grouping                    |
+| `export`    | `csv`/`json`         | `json`      | Export format                           |
+| `limit`     | number               | `100`       | Max transactions (transactions report)  |
+| `cursor`    | string               | -           | Pagination cursor (transactions report) |
 
 ### Executive Report KPIs
 
@@ -230,14 +235,14 @@ Reports are **strictly isolated** to OT's Stripe account:
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `src/app/api/stripe/webhook/ot/route.ts` | OT webhook endpoint |
-| `src/app/api/stripe/reports/ot/route.ts` | OT financial reports endpoint |
-| `src/lib/stripe/connect.ts` | Multi-tenant Stripe routing |
-| `src/lib/stripe/config.ts` | OT Stripe configuration |
-| `src/services/stripe/paymentMatchingService.ts` | Patient matching logic |
-| `src/services/affiliate/affiliateCommissionService.ts` | Commission processing |
+| File                                                   | Purpose                       |
+| ------------------------------------------------------ | ----------------------------- |
+| `src/app/api/stripe/webhook/ot/route.ts`               | OT webhook endpoint           |
+| `src/app/api/stripe/reports/ot/route.ts`               | OT financial reports endpoint |
+| `src/lib/stripe/connect.ts`                            | Multi-tenant Stripe routing   |
+| `src/lib/stripe/config.ts`                             | OT Stripe configuration       |
+| `src/services/stripe/paymentMatchingService.ts`        | Patient matching logic        |
+| `src/services/affiliate/affiliateCommissionService.ts` | Commission processing         |
 
 ## Troubleshooting
 

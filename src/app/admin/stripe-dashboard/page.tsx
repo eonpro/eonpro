@@ -3,11 +3,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  DollarSign, TrendingUp, CreditCard, AlertTriangle, Users,
-  ArrowUpRight, ArrowDownRight, RefreshCw, Download, ExternalLink,
-  Wallet, Receipt, ShieldAlert, Package, Link2, Calendar,
-  ChevronDown, Loader2, CheckCircle, XCircle, Clock, Ban, Building2,
-  ChevronLeft, ChevronRight, Filter
+  DollarSign,
+  TrendingUp,
+  CreditCard,
+  AlertTriangle,
+  Users,
+  ArrowUpRight,
+  ArrowDownRight,
+  RefreshCw,
+  Download,
+  ExternalLink,
+  Wallet,
+  Receipt,
+  ShieldAlert,
+  Package,
+  Link2,
+  Calendar,
+  ChevronDown,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Ban,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
 } from 'lucide-react';
 
 // Date range options
@@ -27,10 +48,14 @@ const DATE_RANGES = [
 ];
 
 // Helper to get date range timestamps
-function getDateRange(range: string, customStart?: string, customEnd?: string): { startDate?: string; endDate?: string } {
+function getDateRange(
+  range: string,
+  customStart?: string,
+  customEnd?: string
+): { startDate?: string; endDate?: string } {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
+
   switch (range) {
     case 'today':
       return { startDate: today.toISOString() };
@@ -210,20 +235,24 @@ function StatCard({
 
   return (
     <div
-      className={`rounded-xl border p-5 ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      className={`rounded-xl border p-5 ${colorClasses[color]} ${onClick ? 'cursor-pointer transition-shadow hover:shadow-md' : ''}`}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between mb-3">
-        <Icon className="w-5 h-5 opacity-80" />
+      <div className="mb-3 flex items-center justify-between">
+        <Icon className="h-5 w-5 opacity-80" />
         {trend && (
           <span className={trend === 'up' ? 'text-emerald-500' : 'text-red-500'}>
-            {trend === 'up' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+            {trend === 'up' ? (
+              <ArrowUpRight className="h-4 w-4" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4" />
+            )}
           </span>
         )}
       </div>
       <p className="text-sm font-medium opacity-80">{title}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
-      {subValue && <p className="text-xs opacity-60 mt-1">{subValue}</p>}
+      <p className="mt-1 text-2xl font-bold">{value}</p>
+      {subValue && <p className="mt-1 text-xs opacity-60">{subValue}</p>}
     </div>
   );
 }
@@ -243,12 +272,18 @@ function StatusBadge({ status }: { status: string }) {
     void: { bg: 'bg-gray-100', text: 'text-gray-700', icon: Ban },
   };
 
-  const config = statusConfig[status.toLowerCase()] || { bg: 'bg-gray-100', text: 'text-gray-700', icon: Clock };
+  const config = statusConfig[status.toLowerCase()] || {
+    bg: 'bg-gray-100',
+    text: 'text-gray-700',
+    icon: Clock,
+  };
   const Icon = config.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-      <Icon className="w-3 h-3" />
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${config.bg} ${config.text}`}
+    >
+      <Icon className="h-3 w-3" />
       {status.replace(/_/g, ' ')}
     </span>
   );
@@ -259,14 +294,16 @@ export default function StripeDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'disputes' | 'payouts' | 'products' | 'customers' | 'connect'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'disputes' | 'payouts' | 'products' | 'customers' | 'connect'
+  >('overview');
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Date range filtering
   const [dateRange, setDateRange] = useState('this_month');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  
+
   // Pagination
   const [disputesPage, setDisputesPage] = useState(1);
   const [payoutsPage, setPayoutsPage] = useState(1);
@@ -275,7 +312,7 @@ export default function StripeDashboard() {
   const [hasMoreDisputes, setHasMoreDisputes] = useState(false);
   const [hasMorePayouts, setHasMorePayouts] = useState(false);
   const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
-  
+
   // Clinic selection (for multi-tenant)
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
@@ -316,7 +353,7 @@ export default function StripeDashboard() {
         return;
       }
       setUserRole(role);
-      
+
       // Load clinics for super_admin
       if (role === 'super_admin') {
         loadClinics();
@@ -388,20 +425,23 @@ export default function StripeDashboard() {
       if (startDate) dateParams.set('startDate', startDate);
       if (endDate) dateParams.set('endDate', endDate);
       const dateQuery = dateParams.toString() ? `&${dateParams.toString()}` : '';
-      
+
       // Build URLs with clinic filter
       const clinicParam = selectedClinicId ? `&clinicId=${selectedClinicId}` : '';
-      
+
       // Fetch all data in parallel
-      const [balanceRes, reportRes, disputesRes, payoutsRes, productsRes, customersRes] = await Promise.all([
-        fetch(`/api/stripe/balance?includeTransactions=false${clinicParam}`),
-        fetch(`/api/stripe/reports?type=summary${clinicParam}${dateQuery}`),
-        fetch(`/api/stripe/disputes?limit=${pageSize}${clinicParam}${dateQuery}`),
-        fetch(`/api/stripe/payouts?limit=${pageSize}${clinicParam}${dateQuery}`),
-        fetch(`/api/stripe/products?limit=50${clinicParam}`),
-        fetch(`/api/stripe/customers?limit=${pageSize}&includeCharges=true&includeSubscriptions=false${clinicParam}`),
-      ]);
-      
+      const [balanceRes, reportRes, disputesRes, payoutsRes, productsRes, customersRes] =
+        await Promise.all([
+          fetch(`/api/stripe/balance?includeTransactions=false${clinicParam}`),
+          fetch(`/api/stripe/reports?type=summary${clinicParam}${dateQuery}`),
+          fetch(`/api/stripe/disputes?limit=${pageSize}${clinicParam}${dateQuery}`),
+          fetch(`/api/stripe/payouts?limit=${pageSize}${clinicParam}${dateQuery}`),
+          fetch(`/api/stripe/products?limit=50${clinicParam}`),
+          fetch(
+            `/api/stripe/customers?limit=${pageSize}&includeCharges=true&includeSubscriptions=false${clinicParam}`
+          ),
+        ]);
+
       // Also fetch connect status if a clinic is selected
       if (selectedClinicId) {
         const connectRes = await fetch(`/api/stripe/connect?clinicId=${selectedClinicId}`);
@@ -471,7 +511,15 @@ export default function StripeDashboard() {
       return;
     }
     fetchData();
-  }, [fetchData, selectedClinicId, dateRange, customStartDate, customEndDate, userRole, clinicStripeStatus]);
+  }, [
+    fetchData,
+    selectedClinicId,
+    dateRange,
+    customStartDate,
+    customEndDate,
+    userRole,
+    clinicStripeStatus,
+  ]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -501,7 +549,7 @@ export default function StripeDashboard() {
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     if (disputes.length > 0) params.set('starting_after', disputes[disputes.length - 1].id);
-    
+
     const res = await fetch(`/api/stripe/disputes?${params}`);
     if (res.ok) {
       const data = await res.json();
@@ -518,7 +566,7 @@ export default function StripeDashboard() {
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     if (payouts.length > 0) params.set('starting_after', payouts[payouts.length - 1].id);
-    
+
     const res = await fetch(`/api/stripe/payouts?${params}`);
     if (res.ok) {
       const data = await res.json();
@@ -533,7 +581,7 @@ export default function StripeDashboard() {
     params.set('limit', pageSize.toString());
     params.set('includeCharges', 'true');
     if (customers.length > 0) params.set('starting_after', customers[customers.length - 1].id);
-    
+
     const res = await fetch(`/api/stripe/customers?${params}`);
     if (res.ok) {
       const data = await res.json();
@@ -542,24 +590,24 @@ export default function StripeDashboard() {
     }
   };
 
-  const selectedClinic = clinics.find(c => c.id === selectedClinicId);
+  const selectedClinic = clinics.find((c) => c.id === selectedClinicId);
 
   // For non-super-admin users, check if their clinic has Stripe
   if (userRole === 'admin' && clinicStripeStatus.checked && !clinicStripeStatus.hasStripe) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md text-center bg-white rounded-xl shadow-lg p-8">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CreditCard className="w-8 h-8 text-gray-400" />
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="max-w-md rounded-xl bg-white p-8 text-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+            <CreditCard className="h-8 w-8 text-gray-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Stripe Not Configured</h2>
-          <p className="text-gray-600 mb-6">
+          <h2 className="mb-2 text-xl font-bold text-gray-900">Stripe Not Configured</h2>
+          <p className="mb-6 text-gray-600">
             Your clinic does not have a Stripe account connected. Please contact your administrator
             to set up payment processing for your clinic.
           </p>
           <button
             onClick={() => router.push('/admin')}
-            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+            className="rounded-lg bg-emerald-600 px-6 py-2 text-white transition hover:bg-emerald-700"
           >
             Return to Dashboard
           </button>
@@ -571,9 +619,9 @@ export default function StripeDashboard() {
   // Wait for Stripe status check for admins
   if (userRole === 'admin' && !clinicStripeStatus.checked) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-4" />
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-emerald-600" />
           <p className="text-gray-500">Checking Stripe configuration...</p>
         </div>
       </div>
@@ -582,9 +630,9 @@ export default function StripeDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-4" />
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-emerald-600" />
           <p className="text-gray-500">Loading Stripe data...</p>
         </div>
       </div>
@@ -594,36 +642,39 @@ export default function StripeDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="sticky top-0 z-10 border-b bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <CreditCard className="w-6 h-6 text-purple-600" />
+              <div className="rounded-lg bg-purple-100 p-2">
+                <CreditCard className="h-6 w-6 text-purple-600" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Stripe Dashboard</h1>
                 <p className="text-sm text-gray-500">
-                  {selectedClinic ? `${selectedClinic.name}` : 'Platform Account (EONmeds)'} - Real-time financial data
+                  {selectedClinic ? `${selectedClinic.name}` : 'Platform Account (EONmeds)'} -
+                  Real-time financial data
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-wrap items-center gap-3">
               {/* Date Range Selector */}
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
+                <Calendar className="h-4 w-4 text-gray-400" />
                 <select
                   value={dateRange}
                   onChange={(e) => handleDateRangeChange(e.target.value)}
-                  className="px-3 py-2 text-sm border rounded-lg bg-white focus:ring-2 focus:ring-purple-500"
+                  className="rounded-lg border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
                 >
                   {DATE_RANGES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
                   ))}
                 </select>
               </div>
-              
+
               {/* Custom Date Range */}
               {dateRange === 'custom' && (
                 <div className="flex items-center gap-2">
@@ -631,82 +682,93 @@ export default function StripeDashboard() {
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="px-3 py-2 text-sm border rounded-lg"
+                    className="rounded-lg border px-3 py-2 text-sm"
                   />
                   <span className="text-gray-400">to</span>
                   <input
                     type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="px-3 py-2 text-sm border rounded-lg"
+                    className="rounded-lg border px-3 py-2 text-sm"
                   />
                 </div>
               )}
-              
+
               {/* Clinic Selector (Super Admin only) */}
               {userRole === 'super_admin' && clinics.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-gray-400" />
+                  <Building2 className="h-4 w-4 text-gray-400" />
                   <select
                     value={selectedClinicId || ''}
-                    onChange={(e) => handleClinicChange(e.target.value ? parseInt(e.target.value) : null)}
-                    className="px-3 py-2 text-sm border rounded-lg bg-white focus:ring-2 focus:ring-purple-500"
+                    onChange={(e) =>
+                      handleClinicChange(e.target.value ? parseInt(e.target.value) : null)
+                    }
+                    className="rounded-lg border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="">Platform Account (All)</option>
                     {clinics.map((clinic) => (
                       <option key={clinic.id} value={clinic.id}>
                         {clinic.name}
                         {clinic.stripePlatformAccount ? ' (Platform)' : ''}
-                        {clinic.stripeAccountId && !clinic.stripePlatformAccount ? ' (Connected)' : ''}
+                        {clinic.stripeAccountId && !clinic.stripePlatformAccount
+                          ? ' (Connected)'
+                          : ''}
                       </option>
                     ))}
                   </select>
                 </div>
               )}
-              
+
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
               <a
                 href="https://dashboard.stripe.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition"
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="h-4 w-4" />
                 Stripe Dashboard
               </a>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mt-4 -mb-px">
+          <div className="-mb-px mt-4 flex gap-1">
             {[
               { id: 'overview', label: 'Overview', icon: TrendingUp },
-              { id: 'disputes', label: 'Disputes', icon: ShieldAlert, badge: disputeSummary?.pending },
+              {
+                id: 'disputes',
+                label: 'Disputes',
+                icon: ShieldAlert,
+                badge: disputeSummary?.pending,
+              },
               { id: 'payouts', label: 'Payouts', icon: Wallet },
               { id: 'products', label: 'Products', icon: Package },
               { id: 'customers', label: 'Customers', icon: Users },
-              ...(selectedClinicId && userRole === 'super_admin' ? [{ id: 'connect', label: 'Connect Settings', icon: Link2 }] : []),
+              ...(selectedClinicId && userRole === 'super_admin'
+                ? [{ id: 'connect', label: 'Connect Settings', icon: Link2 }]
+                : []),
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition ${
+                className={`flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition ${
                   activeTab === tab.id
-                    ? 'bg-gray-50 text-purple-600 border-t border-x border-gray-200'
+                    ? 'border-x border-t border-gray-200 bg-gray-50 text-purple-600'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <tab.icon className="w-4 h-4" />
+                <tab.icon className="h-4 w-4" />
                 {tab.label}
                 {tab.badge && tab.badge > 0 && (
-                  <span className="px-1.5 py-0.5 text-xs font-bold bg-red-100 text-red-600 rounded-full">
+                  <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-bold text-red-600">
                     {tab.badge}
                   </span>
                 )}
@@ -717,10 +779,10 @@ export default function StripeDashboard() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="mx-auto max-w-7xl px-6 py-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
+          <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <AlertTriangle className="h-5 w-5" />
             {error}
           </div>
         )}
@@ -731,47 +793,43 @@ export default function StripeDashboard() {
             report={report}
             disputes={disputes}
             disputeSummary={disputeSummary}
-            dateRangeLabel={DATE_RANGES.find(r => r.value === dateRange)?.label || 'Selected Period'}
+            dateRangeLabel={
+              DATE_RANGES.find((r) => r.value === dateRange)?.label || 'Selected Period'
+            }
           />
         )}
 
         {activeTab === 'disputes' && (
-          <DisputesTab 
-            disputes={disputes} 
-            summary={disputeSummary} 
+          <DisputesTab
+            disputes={disputes}
+            summary={disputeSummary}
             onLoadMore={loadMoreDisputes}
             hasMore={hasMoreDisputes}
           />
         )}
 
         {activeTab === 'payouts' && (
-          <PayoutsTab 
-            payouts={payouts} 
+          <PayoutsTab
+            payouts={payouts}
             summary={payoutSummary}
             onLoadMore={loadMorePayouts}
             hasMore={hasMorePayouts}
           />
         )}
 
-        {activeTab === 'products' && (
-          <ProductsTab products={products} summary={productSummary} />
-        )}
+        {activeTab === 'products' && <ProductsTab products={products} summary={productSummary} />}
 
         {activeTab === 'customers' && (
-          <CustomersTab 
-            customers={customers} 
+          <CustomersTab
+            customers={customers}
             summary={customerSummary}
             onLoadMore={loadMoreCustomers}
             hasMore={hasMoreCustomers}
           />
         )}
-        
+
         {activeTab === 'connect' && selectedClinicId && (
-          <ConnectTab 
-            clinicId={selectedClinicId} 
-            status={connectStatus} 
-            onRefresh={fetchData}
-          />
+          <ConnectTab clinicId={selectedClinicId} status={connectStatus} onRefresh={fetchData} />
         )}
       </div>
     </div>
@@ -796,11 +854,13 @@ function OverviewTab({
     <div className="space-y-6">
       {/* Current Balance Cards - Not Date Filtered */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <h3 className="text-sm font-medium text-gray-500">Current Balance</h3>
-          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">Real-time</span>
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+            Real-time
+          </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             title="Available Balance"
             value={balance?.totalAvailableFormatted || '$0.00'}
@@ -834,11 +894,13 @@ function OverviewTab({
 
       {/* Subscriptions - Current State */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <h3 className="text-sm font-medium text-gray-500">Recurring Revenue</h3>
-          <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-600 rounded-full">Current subscriptions</span>
+          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-600">
+            Current subscriptions
+          </span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             title="Monthly Recurring Revenue"
             value={report?.subscriptions?.mrrFormatted || '$0.00'}
@@ -871,14 +933,15 @@ function OverviewTab({
 
       {/* Disputes Alert */}
       {disputeSummary?.pending > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <ShieldAlert className="w-5 h-5 text-red-600" />
+            <div className="rounded-lg bg-red-100 p-2">
+              <ShieldAlert className="h-5 w-5 text-red-600" />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-red-800">
-                {disputeSummary.pending} Dispute{disputeSummary.pending > 1 ? 's' : ''} Need Response
+                {disputeSummary.pending} Dispute{disputeSummary.pending > 1 ? 's' : ''} Need
+                Response
               </h3>
               <p className="text-sm text-red-600">
                 Total disputed: {disputeSummary.totalDisputedFormatted}
@@ -888,7 +951,7 @@ function OverviewTab({
               href="https://dashboard.stripe.com/disputes"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition"
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
             >
               View in Stripe
             </a>
@@ -898,15 +961,15 @@ function OverviewTab({
 
       {/* Recent Disputes */}
       {disputes.length > 0 && (
-        <div className="bg-white rounded-xl border p-6">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-red-500" />
+        <div className="rounded-xl border bg-white p-6">
+          <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
+            <ShieldAlert className="h-5 w-5 text-red-500" />
             Recent Disputes
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="text-left text-sm text-gray-500 border-b">
+                <tr className="border-b text-left text-sm text-gray-500">
                   <th className="pb-3 font-medium">Amount</th>
                   <th className="pb-3 font-medium">Reason</th>
                   <th className="pb-3 font-medium">Status</th>
@@ -936,19 +999,19 @@ function OverviewTab({
 }
 
 // Disputes Tab
-function DisputesTab({ 
-  disputes, 
-  summary, 
-  onLoadMore, 
-  hasMore 
-}: { 
-  disputes: Dispute[]; 
+function DisputesTab({
+  disputes,
+  summary,
+  onLoadMore,
+  hasMore,
+}: {
+  disputes: Dispute[];
   summary: any;
   onLoadMore: () => void;
   hasMore: boolean;
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
-  
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     await onLoadMore();
@@ -958,7 +1021,7 @@ function DisputesTab({
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           title="Total Disputed"
           value={summary?.totalDisputedFormatted || '$0.00'}
@@ -989,7 +1052,7 @@ function DisputesTab({
 
       {/* Win Rate */}
       {summary?.winRate && (
-        <div className="bg-white rounded-xl border p-6">
+        <div className="rounded-xl border bg-white p-6">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-gray-900">Dispute Win Rate</h3>
@@ -1001,14 +1064,14 @@ function DisputesTab({
       )}
 
       {/* Disputes Table */}
-      <div className="bg-white rounded-xl border p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="rounded-xl border bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">All Disputes ({disputes.length})</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-sm text-gray-500 border-b">
+              <tr className="border-b text-left text-sm text-gray-500">
                 <th className="pb-3 font-medium">ID</th>
                 <th className="pb-3 font-medium">Amount</th>
                 <th className="pb-3 font-medium">Reason</th>
@@ -1035,18 +1098,18 @@ function DisputesTab({
             </tbody>
           </table>
         </div>
-        
+
         {/* Load More Button */}
         {hasMore && (
           <div className="mt-4 text-center">
             <button
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+              className="rounded-lg bg-gray-100 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
             >
               {loadingMore ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Loading...
                 </span>
               ) : (
@@ -1061,19 +1124,19 @@ function DisputesTab({
 }
 
 // Payouts Tab
-function PayoutsTab({ 
-  payouts, 
+function PayoutsTab({
+  payouts,
   summary,
   onLoadMore,
-  hasMore
-}: { 
-  payouts: Payout[]; 
+  hasMore,
+}: {
+  payouts: Payout[];
   summary: any;
   onLoadMore: () => void;
   hasMore: boolean;
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
-  
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     await onLoadMore();
@@ -1083,7 +1146,7 @@ function PayoutsTab({
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           title="Total Paid Out"
           value={summary?.totalPaidOutFormatted || '$0.00'}
@@ -1111,12 +1174,12 @@ function PayoutsTab({
       </div>
 
       {/* Payouts Table */}
-      <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Payouts ({payouts.length})</h3>
+      <div className="rounded-xl border bg-white p-6">
+        <h3 className="mb-4 font-semibold text-gray-900">Payouts ({payouts.length})</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-sm text-gray-500 border-b">
+              <tr className="border-b text-left text-sm text-gray-500">
                 <th className="pb-3 font-medium">ID</th>
                 <th className="pb-3 font-medium">Amount</th>
                 <th className="pb-3 font-medium">Status</th>
@@ -1137,18 +1200,18 @@ function PayoutsTab({
             </tbody>
           </table>
         </div>
-        
+
         {/* Load More Button */}
         {hasMore && (
           <div className="mt-4 text-center">
             <button
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+              className="rounded-lg bg-gray-100 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
             >
               {loadingMore ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Loading...
                 </span>
               ) : (
@@ -1167,7 +1230,7 @@ function ProductsTab({ products, summary }: { products: Product[]; summary: any 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           title="Total Products"
           value={summary?.totalProducts?.toString() || '0'}
@@ -1195,13 +1258,13 @@ function ProductsTab({ products, summary }: { products: Product[]; summary: any 
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {products.map((product) => (
           <div
             key={product.id}
-            className={`bg-white rounded-xl border p-4 ${!product.active ? 'opacity-60' : ''}`}
+            className={`rounded-xl border bg-white p-4 ${!product.active ? 'opacity-60' : ''}`}
           >
-            <div className="flex items-start justify-between mb-2">
+            <div className="mb-2 flex items-start justify-between">
               <h4 className="font-semibold text-gray-900">{product.name}</h4>
               <StatusBadge status={product.active ? 'active' : 'inactive'} />
             </div>
@@ -1223,19 +1286,19 @@ function ProductsTab({ products, summary }: { products: Product[]; summary: any 
 }
 
 // Customers Tab
-function CustomersTab({ 
-  customers, 
+function CustomersTab({
+  customers,
   summary,
   onLoadMore,
-  hasMore
-}: { 
-  customers: Customer[]; 
+  hasMore,
+}: {
+  customers: Customer[];
   summary: any;
   onLoadMore: () => void;
   hasMore: boolean;
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
-  
+
   const handleLoadMore = async () => {
     setLoadingMore(true);
     await onLoadMore();
@@ -1245,7 +1308,7 @@ function CustomersTab({
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard
           title="Total Customers"
           value={summary?.totalCustomers?.toString() || '0'}
@@ -1273,12 +1336,12 @@ function CustomersTab({
       </div>
 
       {/* Customers Table */}
-      <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Customers ({customers.length})</h3>
+      <div className="rounded-xl border bg-white p-6">
+        <h3 className="mb-4 font-semibold text-gray-900">Customers ({customers.length})</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-sm text-gray-500 border-b">
+              <tr className="border-b text-left text-sm text-gray-500">
                 <th className="pb-3 font-medium">Customer</th>
                 <th className="pb-3 font-medium">Email</th>
                 <th className="pb-3 font-medium">Total Spent</th>
@@ -1297,7 +1360,7 @@ function CustomersTab({
                   <td className="py-3 text-gray-500">{customer.analytics?.chargeCount || 0}</td>
                   <td className="py-3">
                     {customer.activeSubscriptionCount > 0 ? (
-                      <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
                         {customer.activeSubscriptionCount} active
                       </span>
                     ) : (
@@ -1309,18 +1372,18 @@ function CustomersTab({
             </tbody>
           </table>
         </div>
-        
+
         {/* Load More Button */}
         {hasMore && (
           <div className="mt-4 text-center">
             <button
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition disabled:opacity-50"
+              className="rounded-lg bg-gray-100 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-200 disabled:opacity-50"
             >
               {loadingMore ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Loading...
                 </span>
               ) : (
@@ -1335,13 +1398,13 @@ function CustomersTab({
 }
 
 // Connect Tab - Stripe Connect Management
-function ConnectTab({ 
-  clinicId, 
-  status, 
-  onRefresh 
-}: { 
-  clinicId: number; 
-  status: any; 
+function ConnectTab({
+  clinicId,
+  status,
+  onRefresh,
+}: {
+  clinicId: number;
+  status: any;
   onRefresh: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -1353,23 +1416,23 @@ function ConnectTab({
       setError('Email is required');
       return;
     }
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const res = await fetch('/api/stripe/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clinicId, email }),
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to create account');
       }
-      
+
       // Redirect to onboarding
       window.open(data.onboardingUrl, '_blank');
       onRefresh();
@@ -1431,77 +1494,85 @@ function ConnectTab({
   return (
     <div className="space-y-6">
       {/* Current Status */}
-      <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Link2 className="w-5 h-5 text-purple-500" />
+      <div className="rounded-xl border bg-white p-6">
+        <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
+          <Link2 className="h-5 w-5 text-purple-500" />
           Stripe Connect Status
         </h3>
-        
+
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         {isPlatform ? (
-          <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="w-5 h-5 text-purple-600" />
+          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-purple-600" />
               <span className="font-semibold text-purple-900">Platform Account</span>
             </div>
             <p className="text-sm text-purple-700">
-              This clinic uses the platform's Stripe account directly (EONmeds). 
-              All transactions are processed through the main account.
+              This clinic uses the platform's Stripe account directly (EONmeds). All transactions
+              are processed through the main account.
             </p>
           </div>
         ) : hasAccount ? (
           <div className="space-y-4">
-            <div className={`p-4 rounded-lg border ${
-              stripeStatus.onboardingComplete 
-                ? 'bg-emerald-50 border-emerald-200' 
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
+            <div
+              className={`rounded-lg border p-4 ${
+                stripeStatus.onboardingComplete
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : 'border-yellow-200 bg-yellow-50'
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {stripeStatus.onboardingComplete ? (
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
                   ) : (
-                    <Clock className="w-5 h-5 text-yellow-600" />
+                    <Clock className="h-5 w-5 text-yellow-600" />
                   )}
-                  <span className={`font-semibold ${
-                    stripeStatus.onboardingComplete ? 'text-emerald-900' : 'text-yellow-900'
-                  }`}>
+                  <span
+                    className={`font-semibold ${
+                      stripeStatus.onboardingComplete ? 'text-emerald-900' : 'text-yellow-900'
+                    }`}
+                  >
                     {stripeStatus.onboardingComplete ? 'Connected' : 'Onboarding Incomplete'}
                   </span>
                 </div>
-                <span className="text-sm font-mono text-gray-500">
-                  {stripeStatus.accountId}
-                </span>
+                <span className="font-mono text-sm text-gray-500">{stripeStatus.accountId}</span>
               </div>
             </div>
 
             {/* Status Details */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500 mb-1">Charges</p>
-                <p className={`font-semibold ${stripeStatus.chargesEnabled ? 'text-emerald-600' : 'text-red-600'}`}>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="mb-1 text-xs text-gray-500">Charges</p>
+                <p
+                  className={`font-semibold ${stripeStatus.chargesEnabled ? 'text-emerald-600' : 'text-red-600'}`}
+                >
                   {stripeStatus.chargesEnabled ? 'Enabled' : 'Disabled'}
                 </p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500 mb-1">Payouts</p>
-                <p className={`font-semibold ${stripeStatus.payoutsEnabled ? 'text-emerald-600' : 'text-red-600'}`}>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="mb-1 text-xs text-gray-500">Payouts</p>
+                <p
+                  className={`font-semibold ${stripeStatus.payoutsEnabled ? 'text-emerald-600' : 'text-red-600'}`}
+                >
                   {stripeStatus.payoutsEnabled ? 'Enabled' : 'Disabled'}
                 </p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500 mb-1">Details Submitted</p>
-                <p className={`font-semibold ${stripeStatus.detailsSubmitted ? 'text-emerald-600' : 'text-yellow-600'}`}>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="mb-1 text-xs text-gray-500">Details Submitted</p>
+                <p
+                  className={`font-semibold ${stripeStatus.detailsSubmitted ? 'text-emerald-600' : 'text-yellow-600'}`}
+                >
                   {stripeStatus.detailsSubmitted ? 'Yes' : 'No'}
                 </p>
               </div>
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-500 mb-1">Connected</p>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="mb-1 text-xs text-gray-500">Connected</p>
                 <p className="font-semibold text-gray-700">
                   {stripeStatus.connectedAt ? formatDate(stripeStatus.connectedAt) : '-'}
                 </p>
@@ -1509,14 +1580,14 @@ function ConnectTab({
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-4 border-t">
+            <div className="flex gap-3 border-t pt-4">
               {!stripeStatus.onboardingComplete && (
                 <button
                   onClick={handleContinueOnboarding}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-yellow-500 px-4 py-2 text-white transition hover:bg-yellow-600 disabled:opacity-50"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="h-4 w-4" />
                   Continue Onboarding
                 </button>
               )}
@@ -1524,55 +1595,59 @@ function ConnectTab({
                 <button
                   onClick={handleOpenDashboard}
                   disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition hover:bg-purple-700 disabled:opacity-50"
                 >
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="h-4 w-4" />
                   Open Stripe Dashboard
                 </button>
               )}
               <button
                 onClick={handleSyncStatus}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg border px-4 py-2 transition hover:bg-gray-50 disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 Sync Status
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-5 h-5 text-gray-500" />
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-gray-500" />
                 <span className="font-semibold text-gray-700">No Stripe Account Connected</span>
               </div>
               <p className="text-sm text-gray-600">
-                This clinic doesn't have a connected Stripe account. Create one to enable 
-                direct payments to this clinic.
+                This clinic doesn't have a connected Stripe account. Create one to enable direct
+                payments to this clinic.
               </p>
             </div>
 
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-3">Create Connected Account</h4>
+            <div className="rounded-lg border p-4">
+              <h4 className="mb-3 font-medium">Create Connected Account</h4>
               <div className="flex gap-3">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="clinic@example.com"
-                  className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 rounded-lg border px-3 py-2 focus:ring-2 focus:ring-purple-500"
                 />
                 <button
                   onClick={handleCreateAccount}
                   disabled={loading || !email}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition hover:bg-purple-700 disabled:opacity-50"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Link2 className="h-4 w-4" />
+                  )}
                   Connect Stripe
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="mt-2 text-xs text-gray-500">
                 The clinic owner will receive an email to complete Stripe onboarding.
               </p>
             </div>
@@ -1581,26 +1656,32 @@ function ConnectTab({
       </div>
 
       {/* How it Works */}
-      <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">How Stripe Connect Works</h3>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold mb-3">1</div>
-            <h4 className="font-medium mb-1">Create Account</h4>
+      <div className="rounded-xl border bg-white p-6">
+        <h3 className="mb-4 font-semibold text-gray-900">How Stripe Connect Works</h3>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg bg-gray-50 p-4">
+            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+              1
+            </div>
+            <h4 className="mb-1 font-medium">Create Account</h4>
             <p className="text-sm text-gray-600">
               Enter the clinic's email to create a connected Stripe account.
             </p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold mb-3">2</div>
-            <h4 className="font-medium mb-1">Complete Onboarding</h4>
+          <div className="rounded-lg bg-gray-50 p-4">
+            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+              2
+            </div>
+            <h4 className="mb-1 font-medium">Complete Onboarding</h4>
             <p className="text-sm text-gray-600">
               Clinic owner completes Stripe's identity verification and bank setup.
             </p>
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold mb-3">3</div>
-            <h4 className="font-medium mb-1">Start Accepting Payments</h4>
+          <div className="rounded-lg bg-gray-50 p-4">
+            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+              3
+            </div>
+            <h4 className="mb-1 font-medium">Start Accepting Payments</h4>
             <p className="text-sm text-gray-600">
               Payments go directly to the clinic's bank account.
             </p>

@@ -25,65 +25,68 @@ import type { NotificationCategory } from '@/hooks/useNotifications';
 // Category Configuration - Apple-style icons and colors
 // ============================================================================
 
-const categoryConfig: Record<NotificationCategory, {
-  icon: typeof Bell;
-  gradient: string;
-  iconColor: string;
-  label: string;
-}> = {
+const categoryConfig: Record<
+  NotificationCategory,
+  {
+    icon: typeof Bell;
+    gradient: string;
+    iconColor: string;
+    label: string;
+  }
+> = {
   PRESCRIPTION: {
     icon: Pill,
     gradient: 'from-purple-500 to-purple-600',
     iconColor: 'text-white',
-    label: 'Prescriptions'
+    label: 'Prescriptions',
   },
   PATIENT: {
     icon: FileText,
     gradient: 'from-blue-500 to-blue-600',
     iconColor: 'text-white',
-    label: 'New Intake'
+    label: 'New Intake',
   },
   ORDER: {
     icon: Package,
     gradient: 'from-green-500 to-green-600',
     iconColor: 'text-white',
-    label: 'Orders'
+    label: 'Orders',
   },
   SYSTEM: {
     icon: AlertCircle,
     gradient: 'from-orange-500 to-orange-600',
     iconColor: 'text-white',
-    label: 'System'
+    label: 'System',
   },
   APPOINTMENT: {
     icon: Calendar,
     gradient: 'from-cyan-500 to-cyan-600',
     iconColor: 'text-white',
-    label: 'Appointments'
+    label: 'Appointments',
   },
   MESSAGE: {
     icon: MessageSquare,
     gradient: 'from-indigo-500 to-indigo-600',
     iconColor: 'text-white',
-    label: 'New Chat'
+    label: 'New Chat',
   },
   PAYMENT: {
     icon: CreditCard,
     gradient: 'from-emerald-500 to-emerald-600',
     iconColor: 'text-white',
-    label: 'Payment'
+    label: 'Payment',
   },
   REFILL: {
     icon: RefreshCw,
     gradient: 'from-pink-500 to-pink-600',
     iconColor: 'text-white',
-    label: 'RX Queue'
+    label: 'RX Queue',
   },
   SHIPMENT: {
     icon: Truck,
     gradient: 'from-amber-500 to-amber-600',
     iconColor: 'text-white',
-    label: 'Shipment'
+    label: 'Shipment',
   },
 };
 
@@ -133,11 +136,14 @@ function AppleToast({ toast, onDismiss, onClick, position }: AppleToastProps) {
     return () => clearInterval(interval);
   }, [toast.createdAt]);
 
-  const handleDragEnd = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (Math.abs(info.offset.x) > 100 || Math.abs(info.velocity.x) > 500) {
-      onDismiss();
-    }
-  }, [onDismiss]);
+  const handleDragEnd = useCallback(
+    (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+      if (Math.abs(info.offset.x) > 100 || Math.abs(info.velocity.x) > 500) {
+        onDismiss();
+      }
+    },
+    [onDismiss]
+  );
 
   const isLeft = position.includes('left');
 
@@ -148,14 +154,14 @@ function AppleToast({ toast, onDismiss, onClick, position }: AppleToastProps) {
         opacity: 0,
         y: position.includes('top') ? -20 : 20,
         x: isLeft ? -100 : 100,
-        scale: 0.9
+        scale: 0.9,
       }}
       animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
       exit={{
         opacity: 0,
         x: isLeft ? -100 : 100,
         scale: 0.9,
-        transition: { duration: 0.2 }
+        transition: { duration: 0.2 },
       }}
       style={{ x, opacity, scale }}
       drag="x"
@@ -168,49 +174,49 @@ function AppleToast({ toast, onDismiss, onClick, position }: AppleToastProps) {
       className="relative cursor-pointer select-none"
     >
       {/* Apple-style glass morphism card */}
-      <div className="relative w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl bg-white/95 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/20">
+      <div className="relative w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/20 bg-white/95 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl">
         {/* Subtle gradient overlay for depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/50 to-transparent pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/50 to-transparent" />
 
         {/* Content */}
         <div className="relative p-4">
           <div className="flex items-start gap-3">
             {/* App Icon - Apple style with gradient */}
-            <div className={`flex-shrink-0 w-11 h-11 rounded-[12px] bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-lg`}>
+            <div
+              className={`h-11 w-11 flex-shrink-0 rounded-[12px] bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-lg`}
+            >
               <Icon className={`h-6 w-6 ${config.iconColor}`} strokeWidth={2} />
             </div>
 
             {/* Text Content */}
-            <div className="flex-1 min-w-0 pt-0.5">
+            <div className="min-w-0 flex-1 pt-0.5">
               {/* App Name & Time */}
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              <div className="mb-0.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                   {config.label}
                 </span>
-                <span className="text-[11px] text-gray-400">
-                  {timeAgo}
-                </span>
+                <span className="text-[11px] text-gray-400">{timeAgo}</span>
               </div>
 
               {/* Title */}
-              <h4 className="text-[15px] font-semibold text-gray-900 leading-tight truncate">
+              <h4 className="truncate text-[15px] font-semibold leading-tight text-gray-900">
                 {toast.title}
               </h4>
 
               {/* Message */}
-              <p className="text-[13px] text-gray-600 leading-snug line-clamp-2 mt-0.5">
+              <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-gray-600">
                 {toast.message}
               </p>
 
               {/* Priority Badge */}
               {toast.priority === 'URGENT' && (
-                <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full uppercase">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                   Urgent
                 </div>
               )}
               {toast.priority === 'HIGH' && (
-                <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded-full uppercase">
+                <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                   Important
                 </div>
               )}
@@ -218,8 +224,11 @@ function AppleToast({ toast, onDismiss, onClick, position }: AppleToastProps) {
 
             {/* Close Button */}
             <button
-              onClick={(e) => { e.stopPropagation(); onDismiss(); }}
-              className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors group"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDismiss();
+              }}
+              className="group flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200"
             >
               <X className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
             </button>
@@ -227,18 +236,14 @@ function AppleToast({ toast, onDismiss, onClick, position }: AppleToastProps) {
 
           {/* Action hint */}
           {toast.actionUrl && (
-            <div className="flex items-center justify-center mt-3 pt-3 border-t border-gray-100/80">
-              <span className="text-[12px] font-medium text-blue-500">
-                Tap to view details
-              </span>
+            <div className="mt-3 flex items-center justify-center border-t border-gray-100/80 pt-3">
+              <span className="text-[12px] font-medium text-blue-500">Tap to view details</span>
             </div>
           )}
         </div>
 
         {/* Progress indicator for auto-dismiss */}
-        {!toast.isPinned && toast.priority !== 'URGENT' && (
-          <ProgressBar toast={toast} />
-        )}
+        {!toast.isPinned && toast.priority !== 'URGENT' && <ProgressBar toast={toast} />}
       </div>
     </motion.div>
   );
@@ -272,7 +277,7 @@ function ProgressBar({ toast }: { toast: ToastNotification }) {
   }, [toast.expiresAt]);
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-100 overflow-hidden">
+    <div className="absolute bottom-0 left-0 right-0 h-1 overflow-hidden bg-gray-100">
       <motion.div
         className="h-full bg-gradient-to-r from-blue-400 to-blue-500"
         style={{ width: `${progress}%` }}
@@ -335,9 +340,9 @@ export default function NotificationToastContainer() {
           initial={{ opacity: 0, scale: 0.9, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: -10 }}
-          className="flex items-center gap-3 px-4 py-3 bg-gray-900/95 backdrop-blur-xl text-white rounded-2xl shadow-xl"
+          className="flex items-center gap-3 rounded-2xl bg-gray-900/95 px-4 py-3 text-white shadow-xl backdrop-blur-xl"
         >
-          <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/20">
             <Moon className="h-4 w-4 text-purple-400" />
           </div>
           <div className="flex-1">
@@ -346,7 +351,7 @@ export default function NotificationToastContainer() {
           </div>
           <button
             onClick={toggleDnd}
-            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-medium transition-colors"
+            className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/20"
           >
             Turn Off
           </button>
@@ -360,12 +365,10 @@ export default function NotificationToastContainer() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between px-2"
         >
-          <span className="text-xs font-medium text-gray-500">
-            {toasts.length} notifications
-          </span>
+          <span className="text-xs font-medium text-gray-500">{toasts.length} notifications</span>
           <button
             onClick={dismissAllToasts}
-            className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors"
+            className="text-xs font-medium text-blue-500 transition-colors hover:text-blue-600"
           >
             Clear All
           </button>
@@ -398,11 +401,7 @@ export default function NotificationToastContainer() {
 
       {/* Overflow indicator */}
       {toasts.length > 4 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-2"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="py-2 text-center">
           <span className="text-xs font-medium text-gray-400">
             +{toasts.length - 4} more notifications
           </span>

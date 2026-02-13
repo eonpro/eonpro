@@ -1,9 +1,9 @@
 /**
  * Utility Functions Index
  * =======================
- * 
+ *
  * Re-exports all utility functions for easy importing.
- * 
+ *
  * Usage:
  *   import { safeJsonParse, isBrowser, useIsMounted } from '@/lib/utils';
  */

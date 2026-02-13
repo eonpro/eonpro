@@ -1,9 +1,9 @@
 /**
  * Affiliate Tracking API
- * 
+ *
  * Records affiliate touches for attribution tracking.
  * Public endpoint (no auth required) - used by tracking script.
- * 
+ *
  * POST /api/affiliate/track
  */
 
@@ -20,16 +20,16 @@ const RATE_WINDOW = 60 * 1000; // 1 minute
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
-  
+
   if (!entry || entry.resetAt < now) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
     return true;
   }
-  
+
   if (entry.count >= RATE_LIMIT) {
     return false;
   }
-  
+
   entry.count++;
   return true;
 }
@@ -67,13 +67,10 @@ export async function POST(request: NextRequest) {
     const forwardedFor = request.headers.get('x-forwarded-for');
     const realIp = request.headers.get('x-real-ip');
     const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
-    
+
     // Rate limiting
     if (!checkRateLimit(clientIp)) {
-      return NextResponse.json(
-        { error: 'Too many requests' },
-        { status: 429 }
-      );
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     // Parse body
@@ -168,10 +165,7 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to record touch' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to record touch' }, { status: 500 });
   }
 }
 
@@ -182,17 +176,14 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    
+
     const refCode = searchParams.get('ref') || searchParams.get('refcode');
     const clickId = searchParams.get('clickid') || searchParams.get('click_id');
     const subId1 = searchParams.get('sub1') || searchParams.get('subid1');
     const subId2 = searchParams.get('sub2') || searchParams.get('subid2');
-    
+
     if (!refCode) {
-      return NextResponse.json(
-        { error: 'Missing ref code' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing ref code' }, { status: 400 });
     }
 
     // Look up the ref code
@@ -240,10 +231,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Return 1x1 transparent GIF for pixel tracking
-    const gif = Buffer.from(
-      'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-      'base64'
-    );
+    const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 
     return new NextResponse(gif, {
       headers: {
@@ -256,9 +244,6 @@ export async function GET(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
 }

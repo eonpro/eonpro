@@ -1,18 +1,26 @@
 /**
  * API endpoint to process test Stripe payments
+ * Requires authentication (admin/provider for testing).
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { isFeatureEnabled } from "@/lib/features";
-import { getStripe } from "@/lib/stripe";
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyAuth } from '@/lib/auth/middleware';
+import { isFeatureEnabled } from '@/lib/features';
+import { getStripe } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
   try {
-    // Check feature flag
-    if (!isFeatureEnabled("STRIPE_SUBSCRIPTIONS")) {
+    const authResult = await verifyAuth(req);
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    if (!isFeatureEnabled('STRIPE_SUBSCRIPTIONS')) {
       return NextResponse.json(
-        { error: "Stripe Subscriptions feature is not enabled" },
+        { error: 'Stripe Subscriptions feature is not enabled' },
         { status: 403 }
       );
     }
@@ -39,7 +47,7 @@ export async function POST(req: NextRequest) {
 
       if (testCard === 'declined') {
         return NextResponse.json(
-          { error: "Payment declined", payment: mockPayment },
+          { error: 'Payment declined', payment: mockPayment },
           { status: 400 }
         );
       }
@@ -56,7 +64,7 @@ export async function POST(req: NextRequest) {
     // Process real Stripe payment
     try {
       const stripe = getStripe();
-      
+
       // For testing, we'll create a payment intent but not confirm it
       // This avoids actual charges in test mode
       const paymentIntent = await stripe.paymentIntents.create({
@@ -78,10 +86,10 @@ export async function POST(req: NextRequest) {
       if (testCard === 'declined') {
         // Cancel the payment intent to simulate decline
         await stripe.paymentIntents.cancel(paymentIntent.id);
-        
+
         return NextResponse.json(
-          { 
-            error: "Payment declined",
+          {
+            error: 'Payment declined',
             paymentId: paymentIntent.id,
             status: 'canceled',
           },
@@ -100,20 +108,17 @@ export async function POST(req: NextRequest) {
         mock: false,
       });
     } catch (stripeError: any) {
-    const errorMessage = stripeError instanceof Error ? stripeError.message : String(stripeError);
+      const errorMessage = stripeError instanceof Error ? stripeError.message : String(stripeError);
       logger.error('[STRIPE_TEST] Payment failed:', { value: stripeError });
-      return NextResponse.json(
-        { error: "Payment failed", details: errorMessage },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Payment failed', details: errorMessage }, { status: 400 });
     }
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_TEST] Error:', error);
     return NextResponse.json(
-      { error: "Failed to process test payment", details: errorMessage },
+      { error: 'Failed to process test payment', details: errorMessage },
       { status: 500 }
     );
   }

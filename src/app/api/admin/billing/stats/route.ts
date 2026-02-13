@@ -1,30 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { PaymentStatus, SubscriptionStatus } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { PaymentStatus, SubscriptionStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAdminAuth } from '@/lib/auth/middleware';
 
-export async function GET(req: NextRequest) {
+export const GET = withAdminAuth(async (req: NextRequest, user) => {
   try {
-    // Verify admin authentication - billing data is sensitive
-    const auth = await verifyAuth(req);
-    if (!auth.success || !auth.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const allowedRoles = ['super_admin', 'admin'];
-    if (!allowedRoles.includes(auth.user.role)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
     // Get current month start
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Build clinic filter for non-super-admin users
-    const clinicFilter = auth.user.role !== 'super_admin' && auth.user.clinicId
-      ? { clinicId: auth.user.clinicId }
-      : {};
+    const clinicFilter =
+      user.role !== 'super_admin' && user.clinicId
+        ? { clinicId: user.clinicId }
+        : {};
 
     // Fetch total revenue (all successful payments)
     const totalRevenueData = await prisma.payment.aggregate({
@@ -73,7 +63,7 @@ export async function GET(req: NextRequest) {
         ...clinicFilter,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
       take: 20,
       include: {
@@ -92,11 +82,11 @@ export async function GET(req: NextRequest) {
     });
 
     // Format recent payments
-    const formattedPayments = recentPayments.map((payment: any) => ({
+    const formattedPayments = recentPayments.map((payment: (typeof recentPayments)[number]) => ({
       id: payment.id,
       patientName: payment.invoice?.patient
         ? `${payment.invoice.patient.firstName} ${payment.invoice.patient.lastName}`
-        : "Unknown Patient",
+        : 'Unknown Patient',
       patientId: payment.invoice?.patient?.id || 0,
       amount: payment.amount / 100,
       status: payment.status,
@@ -108,11 +98,11 @@ export async function GET(req: NextRequest) {
     // Fetch pending invoices
     const pendingInvoices = await prisma.invoice.findMany({
       where: {
-        status: "DRAFT", // Assuming DRAFT means pending payment
+        status: 'DRAFT', // Assuming DRAFT means pending payment
         ...clinicFilter,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
       take: 20,
       include: {
@@ -127,11 +117,11 @@ export async function GET(req: NextRequest) {
     });
 
     // Format pending invoices
-    const formattedInvoices = pendingInvoices.map((invoice: any) => ({
+    const formattedInvoices = pendingInvoices.map((invoice: (typeof pendingInvoices)[number]) => ({
       id: invoice.id,
       patientName: invoice.patient
         ? `${invoice.patient.firstName} ${invoice.patient.lastName}`
-        : "Unknown Patient",
+        : 'Unknown Patient',
       patientId: invoice.patient?.id || 0,
       amount: invoice.amountDue / 100,
       dueDate: invoice.dueDate?.toISOString() || undefined,
@@ -146,11 +136,12 @@ export async function GET(req: NextRequest) {
       recentPayments: formattedPayments,
       pendingInvoices: formattedInvoices,
     });
-  } catch (error: any) {
-    logger.error("[Admin Billing Stats API] Error fetching stats:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch billing statistics" },
-      { status: 500 }
+  } catch (error) {
+    logger.error(
+      'Admin Billing Stats API error',
+      error instanceof Error ? error : undefined,
+      { route: 'GET /api/admin/billing/stats' }
     );
+    return NextResponse.json({ error: 'Failed to fetch billing statistics' }, { status: 500 });
   }
-}
+});

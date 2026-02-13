@@ -1,9 +1,9 @@
 /**
  * User Profile API
- * 
+ *
  * Handles user profile information retrieval and updates.
  * Works for all authenticated users.
- * 
+ *
  * GET - Get current user's profile information
  * PATCH - Update profile information (firstName, lastName, phone)
  */
@@ -81,10 +81,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to get profile' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get profile' }, { status: 500 });
   }
 }
 
@@ -95,12 +92,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 async function handlePatch(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
-    
+
     // Validate input
     const parseResult = updateProfileSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
-        { 
+        {
           error: 'Validation failed',
           details: parseResult.error.flatten(),
         },
@@ -112,15 +109,15 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     // Build update object with only provided fields
     const updateData: Record<string, unknown> = {};
-    
+
     if (firstName !== undefined) {
       updateData.firstName = firstName;
     }
-    
+
     if (lastName !== undefined) {
       updateData.lastName = lastName;
     }
-    
+
     if (phone !== undefined) {
       updateData.phone = phone || null;
     }
@@ -136,10 +133,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     // If no fields to update
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: 'No fields to update' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
     // Update user
@@ -172,10 +166,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to update profile' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
 }
 

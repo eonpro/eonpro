@@ -1,38 +1,38 @@
 /**
  * Unified Intake Webhook Handler
- * 
+ *
  * This endpoint handles intake form submissions from multiple sources:
  *   - Heyflow forms
  *   - MedLink platform
  *   - WeightLossIntake platform
  *   - Internal forms
- * 
+ *
  * The source is determined by the `source` query parameter or by the presence
  * of specific headers.
- * 
+ *
  * Endpoints:
  *   POST /api/webhooks/intake?source=heyflow
  *   POST /api/webhooks/intake?source=medlink
  *   POST /api/webhooks/intake?source=weightlossintake
  *   POST /api/webhooks/intake?source=internal
- * 
+ *
  * Authentication:
  *   Uses the appropriate secret based on source:
  *   - HEYFLOW_WEBHOOK_SECRET / MEDLINK_WEBHOOK_SECRET
  *   - WEIGHTLOSSINTAKE_WEBHOOK_SECRET
- *   
+ *
  *   Accepts headers: x-webhook-secret, x-api-key, Authorization: Bearer
  */
 
-import { NextRequest } from "next/server";
-import { logger } from "@/lib/logger";
-import { normalizeMedLinkPayload } from "@/lib/medlink/intakeNormalizer";
-import { IntakeProcessor, IntakeSource } from "@/lib/webhooks/intake-processor";
-import { logWebhookAttempt } from "@/lib/webhookLogger";
-import { WebhookStatus } from "@prisma/client";
-import * as Sentry from "@sentry/nextjs";
+import { NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
+import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
+import { IntakeProcessor, IntakeSource } from '@/lib/webhooks/intake-processor';
+import { logWebhookAttempt } from '@/lib/webhookLogger';
+import { WebhookStatus } from '@prisma/client';
+import * as Sentry from '@sentry/nextjs';
 
-const ENDPOINT = "/api/webhooks/intake";
+const ENDPOINT = '/api/webhooks/intake';
 
 // Map sources to their secret environment variables
 const SOURCE_SECRETS: Record<IntakeSource, string[]> = {
@@ -45,17 +45,20 @@ const SOURCE_SECRETS: Record<IntakeSource, string[]> = {
 
 // Map sources to their default clinic subdomains
 const SOURCE_CLINICS: Record<IntakeSource, string | null> = {
-  heyflow: null,  // Multi-clinic
-  medlink: null,  // Multi-clinic
-  weightlossintake: 'eonmeds',  // EONMEDS only
-  eonpro: 'eonmeds',  // EONMEDS only
-  internal: null,  // Clinic specified in payload
+  heyflow: null, // Multi-clinic
+  medlink: null, // Multi-clinic
+  weightlossintake: 'eonmeds', // EONMEDS only
+  eonpro: 'eonmeds', // EONMEDS only
+  internal: null, // Clinic specified in payload
 };
 
 function detectSource(req: NextRequest): IntakeSource {
   // Check query parameter first
   const urlSource = req.nextUrl.searchParams.get('source');
-  if (urlSource && ['heyflow', 'medlink', 'weightlossintake', 'eonpro', 'internal'].includes(urlSource)) {
+  if (
+    urlSource &&
+    ['heyflow', 'medlink', 'weightlossintake', 'eonpro', 'internal'].includes(urlSource)
+  ) {
     return urlSource as IntakeSource;
   }
 
@@ -71,13 +74,14 @@ function detectSource(req: NextRequest): IntakeSource {
   return 'heyflow';
 }
 
-function authenticate(req: NextRequest, source: IntakeSource): { valid: boolean; method?: string; error?: string } {
+function authenticate(
+  req: NextRequest,
+  source: IntakeSource
+): { valid: boolean; method?: string; error?: string } {
   const secretEnvVars = SOURCE_SECRETS[source];
-  
+
   // Get all possible secrets for this source
-  const validSecrets = secretEnvVars
-    .map(envVar => process.env[envVar])
-    .filter(Boolean);
+  const validSecrets = secretEnvVars.map((envVar) => process.env[envVar]).filter(Boolean);
 
   if (validSecrets.length === 0) {
     logger.warn(`[INTAKE WEBHOOK] No secret configured for source: ${source}`);
@@ -90,12 +94,12 @@ function authenticate(req: NextRequest, source: IntakeSource): { valid: boolean;
     'x-heyflow-secret': req.headers.get('x-heyflow-secret'),
     'x-medlink-secret': req.headers.get('x-medlink-secret'),
     'x-api-key': req.headers.get('x-api-key'),
-    'authorization': req.headers.get('authorization'),
+    authorization: req.headers.get('authorization'),
   };
 
   for (const [header, value] of Object.entries(authHeaders)) {
     if (!value) continue;
-    
+
     for (const secret of validSecrets) {
       if (value === secret || value === `Bearer ${secret}`) {
         return { valid: true, method: header };
@@ -105,7 +109,9 @@ function authenticate(req: NextRequest, source: IntakeSource): { valid: boolean;
 
   return {
     valid: false,
-    error: `Authentication failed. Headers present: ${Object.keys(authHeaders).filter(k => authHeaders[k as keyof typeof authHeaders]).join(', ')}`,
+    error: `Authentication failed. Headers present: ${Object.keys(authHeaders)
+      .filter((k) => authHeaders[k as keyof typeof authHeaders])
+      .join(', ')}`,
   };
 }
 
@@ -132,14 +138,17 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = authResult.error;
       await logWebhookAttempt(webhookLogData);
-      
-      return Response.json({
-        error: 'Unauthorized',
-        requestId,
-        details: authResult.error,
-      }, { status: 401 });
+
+      return Response.json(
+        {
+          error: 'Unauthorized',
+          requestId,
+          details: authResult.error,
+        },
+        { status: 401 }
+      );
     }
-    
+
     logger.debug(`[INTAKE WEBHOOK ${requestId}] Authenticated via: ${authResult.method}`);
 
     // Step 3: Parse payload
@@ -153,11 +162,14 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON payload';
       await logWebhookAttempt(webhookLogData);
-      
-      return Response.json({
-        error: 'Invalid JSON payload',
-        requestId,
-      }, { status: 400 });
+
+      return Response.json(
+        {
+          error: 'Invalid JSON payload',
+          requestId,
+        },
+        { status: 400 }
+      );
     }
 
     // Step 4: Normalize payload
@@ -171,14 +183,17 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 422;
       webhookLogData.errorMessage = `Normalization failed: ${normalizeError.message}`;
       await logWebhookAttempt(webhookLogData);
-      
+
       Sentry.captureException(normalizeError, { extra: { payload, requestId } });
-      
-      return Response.json({
-        error: 'Failed to normalize payload',
-        requestId,
-        details: normalizeError.message,
-      }, { status: 422 });
+
+      return Response.json(
+        {
+          error: 'Failed to normalize payload',
+          requestId,
+          details: normalizeError.message,
+        },
+        { status: 422 }
+      );
     }
 
     // Step 5: Extract options from payload
@@ -204,7 +219,7 @@ export async function POST(req: NextRequest) {
 
     // Step 7: Log success and return
     const processingTimeMs = Date.now() - startTime;
-    
+
     webhookLogData.status = WebhookStatus.SUCCESS;
     webhookLogData.statusCode = 200;
     webhookLogData.responseData = result;
@@ -213,38 +228,41 @@ export async function POST(req: NextRequest) {
 
     logger.info(`[INTAKE WEBHOOK ${requestId}] SUCCESS in ${processingTimeMs}ms`);
 
-    return Response.json({
-      requestId,
-      source,
-      ...result,
-      success: true, // Place last to ensure it's not overwritten by result
-    }, { status: 200 });
-
+    return Response.json(
+      {
+        requestId,
+        source,
+        ...result,
+        success: true, // Place last to ensure it's not overwritten by result
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`[INTAKE WEBHOOK ${requestId}] Unexpected error:`, error);
-    
+
     Sentry.captureException(error, { extra: { requestId } });
-    
+
     webhookLogData.status = WebhookStatus.ERROR;
     webhookLogData.statusCode = 500;
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
     await logWebhookAttempt(webhookLogData);
 
-    return Response.json({
-      error: 'Internal server error',
-      requestId,
-      details: errorMessage,
-    }, { status: 500 });
+    return Response.json(
+      {
+        error: 'Internal server error',
+        requestId,
+        details: errorMessage,
+      },
+      { status: 500 }
+    );
   }
 }
 
 // Health check
 export async function GET(req: NextRequest) {
-  const stats = await import("@/lib/webhookLogger").then(m =>
-    m.getWebhookStats(ENDPOINT, 7)
-  );
+  const stats = await import('@/lib/webhookLogger').then((m) => m.getWebhookStats(ENDPOINT, 7));
 
   return Response.json({
     endpoint: ENDPOINT,

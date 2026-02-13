@@ -1,6 +1,6 @@
 /**
  * AWS SES Configuration API Endpoint
- * 
+ *
  * Returns current SES configuration status
  */
 
@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
       hasSecretKey: !!sesConfig.secretAccessKey,
       maxSendRate: sesConfig.maxSendRate,
     },
-    message: enabled 
+    message: enabled
       ? 'SES is fully configured and enabled'
-      : !featureEnabled 
+      : !featureEnabled
         ? 'Feature flag AWS_SES_EMAIL is not enabled'
         : 'SES credentials are not fully configured',
   });

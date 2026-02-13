@@ -91,7 +91,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       const res = await fetch(`/api/patient-chat?patientId=${patient.id}&limit=100`, {
         credentials: 'include',
         headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
       });
 
@@ -136,7 +136,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       readAt: null,
     };
 
-    setMessages(prev => [...prev, tempMessage]);
+    setMessages((prev) => [...prev, tempMessage]);
     setNewMessage('');
     setSending(true);
     setError(null);
@@ -148,23 +148,21 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
         credentials: 'include',
         body: JSON.stringify({
           patientId: patient.id,
           message: messageText,
           channel: sendViaSms ? 'SMS' : 'WEB',
-        })
+        }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         // Replace temp message with actual message
-        setMessages(prev => prev.map(msg =>
-          msg.id === tempId ? data : msg
-        ));
+        setMessages((prev) => prev.map((msg) => (msg.id === tempId ? data : msg)));
 
         // Reload messages to sync
         setTimeout(() => loadMessages(false), 1000);
@@ -176,11 +174,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       logger.error('Failed to send message', { error: errMsg });
 
       // Mark message as failed
-      setMessages(prev => prev.map(msg =>
-        msg.id === tempId
-          ? { ...msg, status: 'FAILED' as const }
-          : msg
-      ));
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === tempId ? { ...msg, status: 'FAILED' as const } : msg))
+      );
       setError(`Failed to send: ${errMsg}`);
     } finally {
       setSending(false);
@@ -194,7 +190,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       return new Intl.DateTimeFormat('en-US', {
         hour: 'numeric',
         minute: '2-digit',
-        hour12: true
+        hour12: true,
       }).format(date);
     } catch {
       return '—';
@@ -220,7 +216,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       return messageDate.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+        year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
       });
     } catch {
       return '—';
@@ -256,31 +252,37 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   };
 
   // Group messages by date
-  const groupedMessages = messages.reduce((groups, message) => {
-    const date = formatDate(message.createdAt);
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(message);
-    return groups;
-  }, {} as Record<string, ChatMessage[]>);
+  const groupedMessages = messages.reduce(
+    (groups, message) => {
+      const date = formatDate(message.createdAt);
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+      return groups;
+    },
+    {} as Record<string, ChatMessage[]>
+  );
 
   return (
-    <div className="bg-white rounded-lg border flex flex-col h-[600px]">
+    <div className="flex h-[600px] flex-col rounded-lg border bg-white">
       {/* Header */}
-      <div className="border-b px-6 py-4 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <span className="text-blue-600 font-semibold">
-              {patient.firstName.charAt(0)}{patient.lastName.charAt(0)}
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+            <span className="font-semibold text-blue-600">
+              {patient.firstName.charAt(0)}
+              {patient.lastName.charAt(0)}
             </span>
           </div>
           <div>
-            <h3 className="font-semibold">{patient.firstName} {patient.lastName}</h3>
+            <h3 className="font-semibold">
+              {patient.firstName} {patient.lastName}
+            </h3>
             <div className="flex items-center gap-2 text-sm text-gray-600">
               {patientPhone && <span>{patientPhone}</span>}
               {unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
                   {unreadCount} new
                 </span>
               )}
@@ -289,7 +291,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         </div>
         <button
           onClick={() => loadMessages(true)}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
           title="Refresh messages"
         >
           <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
@@ -297,24 +299,26 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-6">
         {loading && messages.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-gray-600 mt-2">Loading messages...</p>
+          <div className="py-8 text-center">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading messages...</p>
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center py-8">
-            <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+          <div className="py-8 text-center">
+            <MessageCircle className="mx-auto mb-3 h-12 w-12 text-gray-400" />
             <p className="text-gray-600">No messages yet</p>
-            <p className="text-sm text-gray-500 mt-1">Start the conversation by sending a message</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Start the conversation by sending a message
+            </p>
           </div>
         ) : (
           <>
             {Object.entries(groupedMessages).map(([date, dateMessages]) => (
               <div key={date}>
-                <div className="text-center my-4">
-                  <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">
+                <div className="my-4 text-center">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs text-gray-500 shadow-sm">
                     {date}
                   </span>
                 </div>
@@ -328,15 +332,15 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                       className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} mb-3`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                        className={`max-w-xs rounded-2xl px-4 py-3 lg:max-w-md ${
                           isOutgoing
-                            ? 'bg-blue-600 text-white rounded-br-md'
-                            : 'bg-white border shadow-sm rounded-bl-md'
+                            ? 'rounded-br-md bg-blue-600 text-white'
+                            : 'rounded-bl-md border bg-white shadow-sm'
                         }`}
                       >
                         {/* Sender info for incoming messages */}
                         {!isOutgoing && message.senderName && (
-                          <p className="text-xs font-medium text-blue-600 mb-1">
+                          <p className="mb-1 text-xs font-medium text-blue-600">
                             {message.senderName}
                           </p>
                         )}
@@ -344,26 +348,32 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                         {/* Reply preview */}
                         {message.replyTo && (
                           <div
-                            className={`mb-2 px-3 py-1.5 rounded-lg text-xs border-l-2 ${
+                            className={`mb-2 rounded-lg border-l-2 px-3 py-1.5 text-xs ${
                               isOutgoing
-                                ? 'bg-white/10 border-white/50'
-                                : 'bg-gray-50 border-gray-300'
+                                ? 'border-white/50 bg-white/10'
+                                : 'border-gray-300 bg-gray-50'
                             }`}
                           >
-                            <p className={`font-medium ${isOutgoing ? 'text-white/80' : 'text-gray-600'}`}>
+                            <p
+                              className={`font-medium ${isOutgoing ? 'text-white/80' : 'text-gray-600'}`}
+                            >
                               {message.replyTo.senderName}
                             </p>
-                            <p className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}>
+                            <p
+                              className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}
+                            >
                               {message.replyTo.message}
                             </p>
                           </div>
                         )}
 
-                        <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+                        <p className="whitespace-pre-wrap text-sm">{message.message}</p>
 
-                        <div className={`flex items-center gap-1.5 mt-1.5 ${
-                          isOutgoing ? 'text-blue-200 justify-end' : 'text-gray-400'
-                        }`}>
+                        <div
+                          className={`mt-1.5 flex items-center gap-1.5 ${
+                            isOutgoing ? 'justify-end text-blue-200' : 'text-gray-400'
+                          }`}
+                        >
                           <span className="text-xs">{formatTime(message.createdAt)}</span>
                           {getChannelIcon(message.channel)}
                           {isOutgoing && getStatusIcon(message.status)}
@@ -382,19 +392,21 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       {/* Input Area */}
       <div className="border-t px-6 py-4">
         {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-2 rounded-lg mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between rounded-lg bg-red-50 p-2 text-sm text-red-600">
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">✕</button>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
+              ✕
+            </button>
           </div>
         )}
 
         {/* Channel selector */}
         {patientPhone && (
-          <div className="flex items-center gap-2 mb-3">
+          <div className="mb-3 flex items-center gap-2">
             <span className="text-xs text-gray-500">Send via:</span>
             <button
               onClick={() => setSendViaSms(false)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ${
                 !sendViaSms
                   ? 'bg-blue-100 text-blue-700'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -405,7 +417,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             </button>
             <button
               onClick={() => setSendViaSms(true)}
-              className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition ${
+              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition ${
                 sendViaSms
                   ? 'bg-green-100 text-green-700'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -424,13 +436,13 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-            placeholder={sendViaSms ? "Type a message to send via SMS..." : "Type a message..."}
-            className="flex-1 px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder={sendViaSms ? 'Type a message to send via SMS...' : 'Type a message...'}
+            className="flex-1 rounded-xl border px-4 py-2.5 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={sendMessage}
             disabled={!newMessage.trim() || sending}
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center gap-2"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending ? (
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -440,11 +452,10 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           </button>
         </div>
 
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="mt-2 text-xs text-gray-500">
           {sendViaSms
             ? `SMS will be sent to ${patientPhone}`
-            : "Message will appear in patient's app"
-          }
+            : "Message will appear in patient's app"}
         </p>
       </div>
     </div>

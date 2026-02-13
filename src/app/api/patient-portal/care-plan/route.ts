@@ -8,6 +8,8 @@ import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 
 /**
  * GET /api/patient-portal/care-plan
@@ -45,29 +47,42 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     // Calculate progress for each goal
-    const goalsWithProgress = carePlan.goals.map((goal: { id: number; name: string; description: string | null; targetValue: number | null; currentValue: number | null; unit: string | null; targetDate: Date | null; status: string }) => {
-      const progress =
-        goal.targetValue && goal.currentValue
-          ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
-          : goal.status === 'COMPLETED'
-          ? 100
-          : 0;
+    const goalsWithProgress = carePlan.goals.map(
+      (goal: {
+        id: number;
+        name: string;
+        description: string | null;
+        targetValue: number | null;
+        currentValue: number | null;
+        unit: string | null;
+        targetDate: Date | null;
+        status: string;
+      }) => {
+        const progress =
+          goal.targetValue && goal.currentValue
+            ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
+            : goal.status === 'COMPLETED'
+              ? 100
+              : 0;
 
-      return {
-        id: goal.id,
-        name: goal.name,
-        description: goal.description,
-        targetValue: goal.targetValue,
-        currentValue: goal.currentValue,
-        unit: goal.unit,
-        targetDate: goal.targetDate,
-        status: goal.status,
-        progress,
-      };
-    });
+        return {
+          id: goal.id,
+          name: goal.name,
+          description: goal.description,
+          targetValue: goal.targetValue,
+          currentValue: goal.currentValue,
+          unit: goal.unit,
+          targetDate: goal.targetDate,
+          status: goal.status,
+          progress,
+        };
+      }
+    );
 
     // Determine current phase based on goals completed
-    const completedGoals = goalsWithProgress.filter((g: { status: string }) => g.status === 'COMPLETED').length;
+    const completedGoals = goalsWithProgress.filter(
+      (g: { status: string }) => g.status === 'COMPLETED'
+    ).length;
     const totalGoals = goalsWithProgress.length;
     let phase = 'Getting Started';
     if (totalGoals > 0) {
@@ -82,6 +97,27 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const nextGoal = goalsWithProgress.find((g: { status: string }) => g.status === 'IN_PROGRESS');
     const nextMilestone = nextGoal ? `Complete: ${nextGoal.name}` : null;
 
+    try {
+      await auditLog(req, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: user.clinicId ?? undefined,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'CarePlan',
+        resourceId: String(carePlan.id),
+        patientId: user.patientId,
+        action: 'portal_care_plan',
+        outcome: 'SUCCESS',
+      });
+    } catch (auditErr: unknown) {
+      logger.warn('Failed to create HIPAA audit log for portal care plan', {
+        patientId: user.patientId,
+        userId: user.id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
     return NextResponse.json({
       carePlan: {
         id: carePlan.id,
@@ -92,28 +128,31 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         endDate: carePlan.endDate,
         phase,
         goals: goalsWithProgress,
-        activities: carePlan.activities.map((a: { id: number; name: string; description: string | null; frequency: string | null; status: string; completedAt: Date | null }) => ({
-          id: a.id,
-          name: a.name,
-          description: a.description,
-          frequency: a.frequency || 'As needed',
-          status: a.status,
-          lastCompletedAt: a.completedAt,
-        })),
+        activities: carePlan.activities.map(
+          (a: {
+            id: number;
+            name: string;
+            description: string | null;
+            frequency: string | null;
+            status: string;
+            completedAt: Date | null;
+          }) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description,
+            frequency: a.frequency || 'As needed',
+            status: a.status,
+            lastCompletedAt: a.completedAt,
+          })
+        ),
         nextMilestone,
         providerNotes: carePlan.notes,
       },
     });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[CARE_PLAN_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      patientId: user.patientId,
+    return handleApiError(error, {
+      route: 'GET /api/patient-portal/care-plan',
+      context: { userId: user?.id, patientId: user?.patientId },
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch care plan', errorId, code: 'CARE_PLAN_FETCH_ERROR' },
-      { status: 500 }
-    );
   }
 });

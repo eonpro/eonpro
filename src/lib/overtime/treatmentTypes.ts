@@ -64,40 +64,40 @@ export const TREATMENT_TYPE_TAGS: Record<OvertimeTreatmentType, string[]> = {
  */
 export const AIRTABLE_TABLE_TO_TREATMENT: Record<string, OvertimeTreatmentType> = {
   // Direct matches
-  'weight_loss': 'weight_loss',
+  weight_loss: 'weight_loss',
   'weight-loss': 'weight_loss',
-  'weightloss': 'weight_loss',
+  weightloss: 'weight_loss',
   'Weight Loss': 'weight_loss',
 
-  'peptides': 'peptides',
-  'Peptides': 'peptides',
+  peptides: 'peptides',
+  Peptides: 'peptides',
 
-  'nad_plus': 'nad_plus',
+  nad_plus: 'nad_plus',
   'nad-plus': 'nad_plus',
   'nad+': 'nad_plus',
   'NAD+': 'nad_plus',
-  'nadplus': 'nad_plus',
-  'nad': 'nad_plus',
-  'NAD': 'nad_plus',
+  nadplus: 'nad_plus',
+  nad: 'nad_plus',
+  NAD: 'nad_plus',
 
-  'better_sex': 'better_sex',
+  better_sex: 'better_sex',
   'better-sex': 'better_sex',
-  'bettersex': 'better_sex',
+  bettersex: 'better_sex',
   'Better Sex': 'better_sex',
-  'sexual_health': 'better_sex',
-  'ed': 'better_sex',
+  sexual_health: 'better_sex',
+  ed: 'better_sex',
 
-  'testosterone': 'testosterone',
-  'trt': 'testosterone',
+  testosterone: 'testosterone',
+  trt: 'testosterone',
   'Testosterone Replacement': 'testosterone',
-  'testosterone_replacement': 'testosterone',
-  'hormone': 'testosterone',
+  testosterone_replacement: 'testosterone',
+  hormone: 'testosterone',
 
-  'baseline_bloodwork': 'baseline_bloodwork',
+  baseline_bloodwork: 'baseline_bloodwork',
   'baseline-bloodwork': 'baseline_bloodwork',
-  'baseline': 'baseline_bloodwork',
-  'bloodwork': 'baseline_bloodwork',
-  'labs': 'baseline_bloodwork',
+  baseline: 'baseline_bloodwork',
+  bloodwork: 'baseline_bloodwork',
+  labs: 'baseline_bloodwork',
   'Baseline/Bloodwork': 'baseline_bloodwork',
 };
 
@@ -131,15 +131,30 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
 
   // Heuristic detection based on field presence
   // Weight Loss indicators (including Airtable exact field names)
-  if (payload['glp1-last-30'] || payload['glp1-experience'] || payload['goal-weight'] || payload['weight-loss-motivation'] ||
-      // Airtable exact field names for OT Mens - Weight Loss
-      payload['GLP-1 History'] || payload['Type of GLP-1'] ||
-      payload['Semaglutide Dose'] || payload['Semaglutide Side Effects'] || payload['Semaglutide Success'] ||
-      payload['Tirzepatide Dose'] || payload['Tirzepatide Side Effects'] || payload['Tirzepatide Success'] ||
-      payload['Happy with GLP-1 Dose'] || payload['ideal weight'] || payload['starting weight'] ||
-      payload['How would your life change by losing weight'] || payload['Personalized Treatment'] ||
-      payload['Neoplasia type 2 (MEN 2)'] || payload['Thyroid Cancer'] || payload['Pancreatitis'] ||
-      payload['Gastroparesis']) {
+  if (
+    payload['glp1-last-30'] ||
+    payload['glp1-experience'] ||
+    payload['goal-weight'] ||
+    payload['weight-loss-motivation'] ||
+    // Airtable exact field names for OT Mens - Weight Loss
+    payload['GLP-1 History'] ||
+    payload['Type of GLP-1'] ||
+    payload['Semaglutide Dose'] ||
+    payload['Semaglutide Side Effects'] ||
+    payload['Semaglutide Success'] ||
+    payload['Tirzepatide Dose'] ||
+    payload['Tirzepatide Side Effects'] ||
+    payload['Tirzepatide Success'] ||
+    payload['Happy with GLP-1 Dose'] ||
+    payload['ideal weight'] ||
+    payload['starting weight'] ||
+    payload['How would your life change by losing weight'] ||
+    payload['Personalized Treatment'] ||
+    payload['Neoplasia type 2 (MEN 2)'] ||
+    payload['Thyroid Cancer'] ||
+    payload['Pancreatitis'] ||
+    payload['Gastroparesis']
+  ) {
     return 'weight_loss';
   }
 
@@ -154,16 +169,30 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
   }
 
   // Better Sex indicators (including Airtable exact field names)
-  if (payload['ed-history'] || payload['ed-severity'] || payload['libido-level'] || payload['performance-anxiety'] ||
-      // Airtable exact field names for OT Mens - Better Sex
-      payload['How often do these sexual issues occur?'] || payload['How long have you notice'] ||
-      payload['meds with nitrates or nitroglycerin'] || payload['Chest Pains'] ||
-      payload['Heart condition'] || payload['Physical Active'] || payload['Smoke/Nicotine']) {
+  if (
+    payload['ed-history'] ||
+    payload['ed-severity'] ||
+    payload['libido-level'] ||
+    payload['performance-anxiety'] ||
+    // Airtable exact field names for OT Mens - Better Sex
+    payload['How often do these sexual issues occur?'] ||
+    payload['How long have you notice'] ||
+    payload['meds with nitrates or nitroglycerin'] ||
+    payload['Chest Pains'] ||
+    payload['Heart condition'] ||
+    payload['Physical Active'] ||
+    payload['Smoke/Nicotine']
+  ) {
     return 'better_sex';
   }
 
   // Testosterone indicators
-  if (payload['trt-symptoms'] || payload['previous-trt'] || payload['testosterone-level'] || payload['free-testosterone']) {
+  if (
+    payload['trt-symptoms'] ||
+    payload['previous-trt'] ||
+    payload['testosterone-level'] ||
+    payload['free-testosterone']
+  ) {
     return 'testosterone';
   }
 
@@ -198,7 +227,15 @@ export function isCheckoutComplete(payload: Record<string, unknown>): boolean {
 
   for (const field of checkoutFields) {
     const value = payload[field];
-    if (value === true || value === 'true' || value === 'Yes' || value === 'yes' || value === '1' || value === 'paid' || value === 'completed') {
+    if (
+      value === true ||
+      value === 'true' ||
+      value === 'Yes' ||
+      value === 'yes' ||
+      value === '1' ||
+      value === 'paid' ||
+      value === 'completed'
+    ) {
       return true;
     }
   }

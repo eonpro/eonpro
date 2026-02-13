@@ -276,6 +276,22 @@ describe('TicketService', () => {
     });
   });
 
+  describe('assign', () => {
+    it('does not create TicketAssignment when assignedToId is null (unassign)', async () => {
+      const mockTx = {
+        ticketStatusHistory: { create: vi.fn().mockResolvedValue({}) },
+        ticketAssignment: { create: vi.fn() },
+      };
+      mocks.mockTransaction.mockImplementation((fn: (tx: unknown) => Promise<unknown>) => fn(mockTx));
+      mocks.mockFindById.mockResolvedValue(mockTicket);
+      mocks.mockUpdate.mockResolvedValue(undefined);
+
+      await ticketService.assign(1, { assignedToId: null }, adminContext);
+
+      expect(mockTx.ticketAssignment.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('changeStatus', () => {
     it('throws NotFoundError when ticket does not exist', async () => {
       mocks.mockFindById.mockResolvedValue(null);

@@ -68,7 +68,9 @@ export async function checkAchievements(
       select: { achievementId: true },
     });
 
-    const unlockedIdSet = new Set(unlockedIds.map((a: { achievementId: number }) => a.achievementId));
+    const unlockedIdSet = new Set(
+      unlockedIds.map((a: { achievementId: number }) => a.achievementId)
+    );
 
     const allAchievements = await prisma.achievement.findMany();
 
@@ -200,7 +202,9 @@ async function checkCriteria(
 /**
  * Get all achievements with progress for a patient
  */
-export async function getPatientAchievements(patientId: number): Promise<AchievementWithProgress[]> {
+export async function getPatientAchievements(
+  patientId: number
+): Promise<AchievementWithProgress[]> {
   const [allAchievements, patientAchievements, streaks] = await Promise.all([
     prisma.achievement.findMany({
       where: { isSecret: false },
@@ -215,39 +219,57 @@ export async function getPatientAchievements(patientId: number): Promise<Achieve
   ]);
 
   const unlockedMap = new Map<number, { achievementId: number; unlockedAt: Date }>(
-    patientAchievements.map((pa: { achievementId: number; unlockedAt: Date }) => [pa.achievementId, pa] as [number, { achievementId: number; unlockedAt: Date }])
+    patientAchievements.map(
+      (pa: { achievementId: number; unlockedAt: Date }) =>
+        [pa.achievementId, pa] as [number, { achievementId: number; unlockedAt: Date }]
+    )
   );
 
   const streakMap = new Map<StreakType, { currentStreak: number; longestStreak: number }>(
-    streaks.map((s: { streakType: StreakType; currentStreak: number; longestStreak: number }) => [s.streakType, s] as [StreakType, { currentStreak: number; longestStreak: number }])
+    streaks.map(
+      (s: { streakType: StreakType; currentStreak: number; longestStreak: number }) =>
+        [s.streakType, s] as [StreakType, { currentStreak: number; longestStreak: number }]
+    )
   );
 
-  return allAchievements.map((achievement: { id: number; code: string; name: string; description: string; category: AchievementCategory; tier: AchievementTier; icon: string | null; points: number; criteria: unknown }) => {
-    const unlocked = unlockedMap.get(achievement.id);
-    const criteria = achievement.criteria as AchievementCriteria;
+  return allAchievements.map(
+    (achievement: {
+      id: number;
+      code: string;
+      name: string;
+      description: string;
+      category: AchievementCategory;
+      tier: AchievementTier;
+      icon: string | null;
+      points: number;
+      criteria: unknown;
+    }) => {
+      const unlocked = unlockedMap.get(achievement.id);
+      const criteria = achievement.criteria as AchievementCriteria;
 
-    let progress = 0;
-    if (unlocked) {
-      progress = 100;
-    } else {
-      // Calculate progress toward achievement
-      progress = calculateProgress(criteria, streakMap);
+      let progress = 0;
+      if (unlocked) {
+        progress = 100;
+      } else {
+        // Calculate progress toward achievement
+        progress = calculateProgress(criteria, streakMap);
+      }
+
+      return {
+        id: achievement.id,
+        code: achievement.code,
+        name: achievement.name,
+        description: achievement.description,
+        category: achievement.category,
+        tier: achievement.tier,
+        icon: achievement.icon,
+        points: achievement.points,
+        isUnlocked: !!unlocked,
+        progress,
+        unlockedAt: unlocked?.unlockedAt,
+      };
     }
-
-    return {
-      id: achievement.id,
-      code: achievement.code,
-      name: achievement.name,
-      description: achievement.description,
-      category: achievement.category,
-      tier: achievement.tier,
-      icon: achievement.icon,
-      points: achievement.points,
-      isUnlocked: !!unlocked,
-      progress,
-      unlockedAt: unlocked?.unlockedAt,
-    };
-  });
+  );
 }
 
 /**
@@ -271,7 +293,10 @@ function calculateProgress(
 /**
  * Mark achievements as seen
  */
-export async function markAchievementsSeen(patientId: number, achievementIds: number[]): Promise<void> {
+export async function markAchievementsSeen(
+  patientId: number,
+  achievementIds: number[]
+): Promise<void> {
   await prisma.patientAchievement.updateMany({
     where: {
       patientId,
@@ -290,18 +315,33 @@ export async function getUnseenAchievements(patientId: number): Promise<Unlocked
     include: { achievement: true },
   });
 
-  return unseen.map((pa: { achievement: { id: number; code: string; name: string; description: string; category: AchievementCategory; tier: AchievementTier; icon: string | null; points: number }; unlockedAt: Date; seen: boolean }) => ({
-    id: pa.achievement.id,
-    code: pa.achievement.code,
-    name: pa.achievement.name,
-    description: pa.achievement.description,
-    category: pa.achievement.category,
-    tier: pa.achievement.tier,
-    icon: pa.achievement.icon,
-    points: pa.achievement.points,
-    unlockedAt: pa.unlockedAt,
-    seen: pa.seen,
-  }));
+  return unseen.map(
+    (pa: {
+      achievement: {
+        id: number;
+        code: string;
+        name: string;
+        description: string;
+        category: AchievementCategory;
+        tier: AchievementTier;
+        icon: string | null;
+        points: number;
+      };
+      unlockedAt: Date;
+      seen: boolean;
+    }) => ({
+      id: pa.achievement.id,
+      code: pa.achievement.code,
+      name: pa.achievement.name,
+      description: pa.achievement.description,
+      category: pa.achievement.category,
+      tier: pa.achievement.tier,
+      icon: pa.achievement.icon,
+      points: pa.achievement.points,
+      unlockedAt: pa.unlockedAt,
+      seen: pa.seen,
+    })
+  );
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
  * Revenue Analytics Service
- * 
+ *
  * Provides comprehensive revenue metrics, trends, and forecasting for clinics.
  * All amounts are stored and returned in cents.
  */
@@ -9,15 +9,15 @@ import { prisma, withClinicContext } from '@/lib/db';
 import { stripe, getStripe } from '@/lib/stripe';
 import { getStripeForClinic } from '@/lib/stripe/connect';
 import { logger } from '@/lib/logger';
-import { 
-  startOfDay, 
-  endOfDay, 
-  startOfWeek, 
-  startOfMonth, 
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  startOfMonth,
   startOfYear,
   endOfMonth,
-  subDays, 
-  subMonths, 
+  subDays,
+  subMonths,
   subYears,
   format,
   eachDayOfInterval,
@@ -108,12 +108,12 @@ export class RevenueAnalyticsService {
    * Get revenue overview for a clinic
    */
   static async getRevenueOverview(
-    clinicId: number, 
+    clinicId: number,
     dateRange: DateRange
   ): Promise<RevenueOverview> {
     return withClinicContext(clinicId, async () => {
       const { start, end } = dateRange;
-      
+
       // Get payments in the date range
       const payments = await prisma.payment.findMany({
         where: {
@@ -130,13 +130,18 @@ export class RevenueAnalyticsService {
       });
 
       // Calculate metrics
-      const successfulPayments = payments.filter((p: { status: string }) => p.status === 'SUCCEEDED');
+      const successfulPayments = payments.filter(
+        (p: { status: string }) => p.status === 'SUCCEEDED'
+      );
       const failedPayments = payments.filter((p: { status: string }) => p.status === 'FAILED');
-      
-      const grossRevenue = successfulPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+
+      const grossRevenue = successfulPayments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0
+      );
       const fees = 0; // Fee not tracked at payment level
       const netRevenue = grossRevenue;
-      
+
       // Get refunds
       const refunds = await prisma.payment.aggregate({
         where: {
@@ -153,15 +158,14 @@ export class RevenueAnalyticsService {
       });
 
       const totalRefunds = refunds._sum.amount || 0;
-      const avgOrderValue = successfulPayments.length > 0 
-        ? Math.round(grossRevenue / successfulPayments.length)
-        : 0;
+      const avgOrderValue =
+        successfulPayments.length > 0 ? Math.round(grossRevenue / successfulPayments.length) : 0;
 
       // Calculate period growth
       const periodLength = differenceInDays(end, start);
       const previousPeriodStart = subDays(start, periodLength);
       const previousPeriodEnd = subDays(end, periodLength);
-      
+
       const previousPayments = await prisma.payment.aggregate({
         where: {
           clinicId,
@@ -177,9 +181,12 @@ export class RevenueAnalyticsService {
       });
 
       const previousGross = previousPayments._sum.amount || 0;
-      const periodGrowth = previousGross > 0 
-        ? ((grossRevenue - previousGross) / previousGross) * 100
-        : grossRevenue > 0 ? 100 : 0;
+      const periodGrowth =
+        previousGross > 0
+          ? ((grossRevenue - previousGross) / previousGross) * 100
+          : grossRevenue > 0
+            ? 100
+            : 0;
 
       return {
         grossRevenue,
@@ -252,8 +259,8 @@ export class RevenueAnalyticsService {
 
       // Group by interval
       const trends: RevenueTrend[] = intervals.map((intervalStart, index) => {
-        const intervalEnd = intervals[index + 1] 
-          ? new Date(intervals[index + 1].getTime() - 1) 
+        const intervalEnd = intervals[index + 1]
+          ? new Date(intervals[index + 1].getTime() - 1)
           : end;
 
         const intervalPayments = payments.filter((p: { createdAt: Date }) => {
@@ -261,10 +268,17 @@ export class RevenueAnalyticsService {
           return date >= intervalStart && date <= intervalEnd;
         });
 
-        const successful = intervalPayments.filter((p: { status: string }) => p.status === 'SUCCEEDED');
-        const refunded = intervalPayments.filter((p: { status: string }) => p.status === 'REFUNDED');
+        const successful = intervalPayments.filter(
+          (p: { status: string }) => p.status === 'SUCCEEDED'
+        );
+        const refunded = intervalPayments.filter(
+          (p: { status: string }) => p.status === 'REFUNDED'
+        );
 
-        const grossRevenue = successful.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+        const grossRevenue = successful.reduce(
+          (sum: number, p: { amount: number }) => sum + p.amount,
+          0
+        );
         const refunds = refunded.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
 
         return {
@@ -308,17 +322,24 @@ export class RevenueAnalyticsService {
       // Calculate current MRR (normalize all intervals to monthly)
       const calculateMonthlyAmount = (amount: number, interval: string): number => {
         switch (interval?.toUpperCase()) {
-          case 'WEEKLY': return amount * 4;
-          case 'MONTHLY': return amount;
-          case 'QUARTERLY': return Math.round(amount / 3);
-          case 'SEMI_ANNUAL': return Math.round(amount / 6);
-          case 'ANNUAL': return Math.round(amount / 12);
-          default: return amount; // Assume monthly
+          case 'WEEKLY':
+            return amount * 4;
+          case 'MONTHLY':
+            return amount;
+          case 'QUARTERLY':
+            return Math.round(amount / 3);
+          case 'SEMI_ANNUAL':
+            return Math.round(amount / 6);
+          case 'ANNUAL':
+            return Math.round(amount / 12);
+          default:
+            return amount; // Assume monthly
         }
       };
 
       const totalMrr = activeSubscriptions.reduce(
-        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) =>
+          sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
@@ -327,7 +348,8 @@ export class RevenueAnalyticsService {
         (sub: { createdAt: Date }) => sub.createdAt >= startOfCurrentMonth
       );
       const newMrr = newSubscriptions.reduce(
-        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) =>
+          sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
@@ -347,17 +369,17 @@ export class RevenueAnalyticsService {
       });
 
       const churnedMrr = churnedSubscriptions.reduce(
-        (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+        (sum: number, sub: { amount: number; interval?: string }) =>
+          sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
         0
       );
 
       // Get previous month's MRR for growth calculation
       const previousMrr = await this.calculateHistoricalMrr(clinicId, endOfPreviousMonth);
-      
+
       const netNewMrr = newMrr - churnedMrr;
-      const mrrGrowthRate = previousMrr > 0 
-        ? ((totalMrr - previousMrr) / previousMrr) * 100 
-        : totalMrr > 0 ? 100 : 0;
+      const mrrGrowthRate =
+        previousMrr > 0 ? ((totalMrr - previousMrr) / previousMrr) * 100 : totalMrr > 0 ? 100 : 0;
 
       return {
         totalMrr,
@@ -404,7 +426,7 @@ export class RevenueAnalyticsService {
       const productMap = new Map<number, { name: string; revenue: number; quantity: number }>();
       let totalRevenue = 0;
 
-      invoiceItems.forEach((item: typeof invoiceItems[number]) => {
+      invoiceItems.forEach((item: (typeof invoiceItems)[number]) => {
         if (!item.productId) return;
 
         const existing = productMap.get(item.productId);
@@ -430,9 +452,8 @@ export class RevenueAnalyticsService {
           productName: data.name,
           revenue: data.revenue,
           quantity: data.quantity,
-          percentageOfTotal: totalRevenue > 0 
-            ? Math.round((data.revenue / totalRevenue) * 10000) / 100 
-            : 0,
+          percentageOfTotal:
+            totalRevenue > 0 ? Math.round((data.revenue / totalRevenue) * 10000) / 100 : 0,
         }))
         .sort((a, b) => b.revenue - a.revenue);
 
@@ -469,7 +490,7 @@ export class RevenueAnalyticsService {
       const methodMap = new Map<string, { revenue: number; count: number }>();
       let totalRevenue = 0;
 
-      payments.forEach((payment: typeof payments[number]) => {
+      payments.forEach((payment: (typeof payments)[number]) => {
         const method = payment.paymentMethod || 'unknown';
         const existing = methodMap.get(method);
         totalRevenue += payment.amount;
@@ -490,9 +511,8 @@ export class RevenueAnalyticsService {
           method,
           revenue: data.revenue,
           count: data.count,
-          percentageOfTotal: totalRevenue > 0 
-            ? Math.round((data.revenue / totalRevenue) * 10000) / 100 
-            : 0,
+          percentageOfTotal:
+            totalRevenue > 0 ? Math.round((data.revenue / totalRevenue) * 10000) / 100 : 0,
         }))
         .sort((a, b) => b.revenue - a.revenue);
 
@@ -503,23 +523,20 @@ export class RevenueAnalyticsService {
   /**
    * Generate revenue forecast for upcoming months
    */
-  static async getForecast(
-    clinicId: number,
-    months: number = 6
-  ): Promise<RevenueForecast[]> {
+  static async getForecast(clinicId: number, months: number = 6): Promise<RevenueForecast[]> {
     return withClinicContext(clinicId, async () => {
       const now = new Date();
-      
+
       // Get historical monthly revenue (last 12 months)
       const historicalMonths = 12;
       const historicalStart = subMonths(startOfMonth(now), historicalMonths);
-      
+
       const historicalRevenue: number[] = [];
-      
+
       for (let i = historicalMonths; i > 0; i--) {
         const monthStart = startOfMonth(subMonths(now, i));
         const monthEnd = endOfMonth(subMonths(now, i));
-        
+
         const monthPayments = await prisma.payment.aggregate({
           where: {
             clinicId,
@@ -533,14 +550,14 @@ export class RevenueAnalyticsService {
             amount: true,
           },
         });
-        
+
         historicalRevenue.push(monthPayments._sum.amount || 0);
       }
 
       // Simple linear regression forecast
       // In production, consider more sophisticated models
       const forecasts: RevenueForecast[] = [];
-      
+
       // Calculate average monthly growth rate
       const growthRates: number[] = [];
       for (let i = 1; i < historicalRevenue.length; i++) {
@@ -550,26 +567,30 @@ export class RevenueAnalyticsService {
           );
         }
       }
-      
-      const avgGrowthRate = growthRates.length > 0 
-        ? growthRates.reduce((a: number, b: number) => a + b, 0) / growthRates.length
-        : 0;
-      
+
+      const avgGrowthRate =
+        growthRates.length > 0
+          ? growthRates.reduce((a: number, b: number) => a + b, 0) / growthRates.length
+          : 0;
+
       // Calculate standard deviation for confidence bounds
-      const mean = historicalRevenue.reduce((a: number, b: number) => a + b, 0) / historicalRevenue.length;
-      const variance = historicalRevenue.reduce((sum: number, val: number) => sum + Math.pow(val - mean, 2), 0) / historicalRevenue.length;
+      const mean =
+        historicalRevenue.reduce((a: number, b: number) => a + b, 0) / historicalRevenue.length;
+      const variance =
+        historicalRevenue.reduce((sum: number, val: number) => sum + Math.pow(val - mean, 2), 0) /
+        historicalRevenue.length;
       const stdDev = Math.sqrt(variance);
-      
+
       const lastMonthRevenue = historicalRevenue[historicalRevenue.length - 1] || mean;
-      
+
       for (let i = 1; i <= months; i++) {
         const forecastMonth = addMonths(now, i);
         const predictedRevenue = Math.round(lastMonthRevenue * Math.pow(1 + avgGrowthRate, i));
-        
+
         // Confidence decreases with distance from current month
-        const confidence = Math.max(50, 95 - (i * 7.5));
-        const uncertaintyFactor = 1 + (i * 0.1);
-        
+        const confidence = Math.max(50, 95 - i * 7.5);
+        const uncertaintyFactor = 1 + i * 0.1;
+
         forecasts.push({
           month: format(forecastMonth, 'yyyy-MM'),
           predictedRevenue,
@@ -608,11 +629,11 @@ export class RevenueAnalyticsService {
         grossRevenue: calculateChange(currentPeriod.grossRevenue, previousPeriod.grossRevenue),
         netRevenue: calculateChange(currentPeriod.netRevenue, previousPeriod.netRevenue),
         paymentCount: calculateChange(
-          currentPeriod.successfulPayments, 
+          currentPeriod.successfulPayments,
           previousPeriod.successfulPayments
         ),
         averageOrderValue: calculateChange(
-          currentPeriod.averageOrderValue, 
+          currentPeriod.averageOrderValue,
           previousPeriod.averageOrderValue
         ),
       },
@@ -622,10 +643,7 @@ export class RevenueAnalyticsService {
   /**
    * Helper: Calculate historical MRR at a specific point in time
    */
-  private static async calculateHistoricalMrr(
-    clinicId: number, 
-    asOfDate: Date
-  ): Promise<number> {
+  private static async calculateHistoricalMrr(clinicId: number, asOfDate: Date): Promise<number> {
     // Get subscriptions that were active at the given date
     const subscriptions = await prisma.subscription.findMany({
       where: {
@@ -647,17 +665,24 @@ export class RevenueAnalyticsService {
 
     const calculateMonthlyAmount = (amount: number, interval: string): number => {
       switch (interval?.toUpperCase()) {
-        case 'WEEKLY': return amount * 4;
-        case 'MONTHLY': return amount;
-        case 'QUARTERLY': return Math.round(amount / 3);
-        case 'SEMI_ANNUAL': return Math.round(amount / 6);
-        case 'ANNUAL': return Math.round(amount / 12);
-        default: return amount;
+        case 'WEEKLY':
+          return amount * 4;
+        case 'MONTHLY':
+          return amount;
+        case 'QUARTERLY':
+          return Math.round(amount / 3);
+        case 'SEMI_ANNUAL':
+          return Math.round(amount / 6);
+        case 'ANNUAL':
+          return Math.round(amount / 12);
+        default:
+          return amount;
       }
     };
 
     return subscriptions.reduce(
-      (sum: number, sub: { amount: number; interval?: string }) => sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
+      (sum: number, sub: { amount: number; interval?: string }) =>
+        sum + calculateMonthlyAmount(sub.amount, sub.interval || 'MONTHLY'),
       0
     );
   }
@@ -668,7 +693,7 @@ export class RevenueAnalyticsService {
   static async updateDailyMetrics(clinicId: number, date: Date = new Date()): Promise<void> {
     const dayStart = startOfDay(date);
     const dayEnd = endOfDay(date);
-    
+
     const overview = await this.getRevenueOverview(clinicId, { start: dayStart, end: dayEnd });
     const mrr = await this.getMrrBreakdown(clinicId);
 
@@ -707,6 +732,8 @@ export class RevenueAnalyticsService {
       },
     });
 
-    logger.debug(`Updated financial metrics for clinic ${clinicId} on ${format(dayStart, 'yyyy-MM-dd')}`);
+    logger.debug(
+      `Updated financial metrics for clinic ${clinicId} on ${format(dayStart, 'yyyy-MM-dd')}`
+    );
   }
 }

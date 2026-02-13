@@ -36,6 +36,10 @@ if (SENTRY_DSN) {
       "Network request failed",
       "Failed to fetch",
       
+      // Sentry transport failures (CORS, 404 on invalid DSN, ad-blockers)
+      /Access to fetch.*sentry\.io.*blocked by CORS/,
+      /ingest\.us\.sentry\.io.*404|503/,
+      
       // User cancellations
       "Request aborted",
       "User cancelled",
@@ -133,15 +137,6 @@ if (SENTRY_DSN) {
     // Transport options (keepalive is now default in v10)
   });
   
-  // Set initial user context if available - wrapped in setTimeout to avoid hydration issues
-  if (typeof window !== 'undefined') {
-    setTimeout(() => {
-      const userEmail = localStorage.getItem('userEmail');
-      if (userEmail) {
-        Sentry.setUser({
-          email: userEmail.replace(/^(.{2}).*@/, '$1***@'),
-        });
-      }
-    }, 0);
-  }
+  // User context is set dynamically when the auth session is verified.
+  // We no longer read from localStorage to avoid XSS exposure of PII.
 }

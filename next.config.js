@@ -8,7 +8,14 @@ const nextConfig = {
 
   outputFileTracingRoot: path.resolve(__dirname),
 
-  serverExternalPackages: ['@prisma/client', '@napi-rs/canvas', 'pdf-parse'],
+  serverExternalPackages: [
+    '@prisma/client',
+    '@napi-rs/canvas',
+    'pdf-parse',
+    'puppeteer',
+    'pdfkit',
+    '@pdf-lib/fontkit',
+  ],
 
   // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).
   // ignoreBuildErrors kept for Vercel OOM; production deploy is gated by CI type-check.
@@ -71,27 +78,9 @@ const nextConfig = {
     };
   },
 
-  // Headers for security and caching
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-XSS-Protection', value: '1; mode=block' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        ],
-      },
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'X-DNS-Prefetch-Control', value: 'on' },
-          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
-        ],
-      },
-    ];
-  },
+  // Security headers are set in src/middleware.ts (single authoritative source).
+  // Do NOT duplicate them here — next.config.js headers can conflict with middleware
+  // (e.g. middleware sets X-Frame-Options: SAMEORIGIN while config set DENY).
   
   // Webpack configuration (when using --webpack for production)
   webpack: (config, { isServer, nextRuntime }) => {

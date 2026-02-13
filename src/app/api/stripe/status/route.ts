@@ -149,7 +149,8 @@ async function getStripeStatusHandler(request: NextRequest, user: AuthUser) {
       chargesEnabled: false,
       payoutsEnabled: false,
       detailsSubmitted: false,
-      message: 'No Stripe account connected. Connect via Stripe Connect or contact support for dedicated account setup.',
+      message:
+        'No Stripe account connected. Connect via Stripe Connect or contact support for dedicated account setup.',
     });
   } catch (error) {
     logger.error('[STRIPE STATUS] Error:', error);

@@ -1,4 +1,4 @@
-import { Outfit } from 'next/font/google'
+import { Outfit } from 'next/font/google';
 
 // Fallback font - Outfit from Google Fonts
 // This is similar to Sofia Pro and can be used as a temporary replacement
@@ -9,7 +9,7 @@ export const outfitFont = Outfit({
   variable: '--font-outfit',
   display: 'swap',
   fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Arial', 'sans-serif'],
-})
+});
 
 // Instructions for switching to Sofia Pro:
 // 1. Add your Sofia Pro font files to public/fonts/

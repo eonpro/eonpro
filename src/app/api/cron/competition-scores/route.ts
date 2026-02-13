@@ -1,84 +1,63 @@
 /**
  * Competition Score Update Cron Job
- * 
+ *
+ * Updates scores for all active competitions per clinic.
+ * Uses runCronPerTenant + runWithClinicContext for full tenant isolation.
+ *
  * POST /api/cron/competition-scores
- * 
- * Updates scores for all active competitions, recalculates rankings,
- * and handles status transitions (scheduled -> active -> completed).
- * 
- * Should be called every 5 minutes via Vercel Cron or external scheduler.
- * 
- * @security Requires CRON_SECRET header for authentication
+ * Schedule: every 5 minutes (Vercel Cron or external scheduler).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { updateAllActiveCompetitionScores } from '@/services/affiliate/leaderboardService';
+import { runWithClinicContext } from '@/lib/db';
+import { updateActiveCompetitionScoresForClinic } from '@/services/affiliate/leaderboardService';
+import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 
-// Verify cron secret
-function verifyCronSecret(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  
-  // In development, allow without secret
-  if (process.env.NODE_ENV === 'development') {
-    return true;
-  }
-  
-  // Check for secret in header
-  const authHeader = request.headers.get('authorization');
-  if (authHeader === `Bearer ${cronSecret}`) {
-    return true;
-  }
-  
-  // Also check x-cron-secret header (Vercel cron uses this)
-  const cronHeader = request.headers.get('x-cron-secret');
-  if (cronHeader === cronSecret) {
-    return true;
-  }
-  
-  return false;
-}
+type PerClinicResult = { updated: number; errors: number };
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
+  if (!verifyCronAuth(request)) {
+    logger.warn('[Cron Competition Scores] Unauthorized request');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // Verify authentication
-    if (!verifyCronSecret(request)) {
-      logger.warn('[Cron Competition Scores] Unauthorized request');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    logger.info('[Cron Competition Scores] Starting score update (per-tenant)');
 
-    logger.info('[Cron Competition Scores] Starting score update');
+    const { results, totalDurationMs } = await runCronPerTenant<PerClinicResult>({
+      jobName: 'competition-scores',
+      perClinic: async (clinicId) => {
+        return runWithClinicContext(clinicId, () => updateActiveCompetitionScoresForClinic(clinicId));
+      },
+    });
 
-    // Update all active competition scores
-    const result = await updateAllActiveCompetitionScores();
-
+    const totalUpdated = results.reduce((sum, r) => sum + (r.data?.updated ?? 0), 0);
+    const totalErrors = results.reduce((sum, r) => sum + (r.data?.errors ?? 0), 0);
     const duration = Date.now() - startTime;
-    
+
     logger.info('[Cron Competition Scores] Update completed', {
-      updated: result.updated,
-      errors: result.errors,
+      updated: totalUpdated,
+      errors: totalErrors,
+      totalDurationMs,
       durationMs: duration,
     });
 
     return NextResponse.json({
       success: true,
-      updated: result.updated,
-      errors: result.errors,
+      updated: totalUpdated,
+      errors: totalErrors,
       durationMs: duration,
+      totalDurationMs,
     });
-
   } catch (error) {
     logger.error('[Cron Competition Scores] Update failed', { error });
-    return NextResponse.json(
-      { error: 'Failed to update competition scores' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update competition scores' }, { status: 500 });
   }
 }
 
-// Also support GET for easier testing/manual triggers
 export async function GET(request: NextRequest) {
   return POST(request);
 }

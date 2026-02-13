@@ -1,0 +1,151 @@
+# OpenAPI 3.0 - V2 Invoices API (Foundational)
+# Phase 3 C6: Request/response schemas only. No codegen. Prepare for future CI contract validation.
+openapi: 3.0.3
+info:
+  title: Platform API v2 - Invoices
+  version: 0.1.0
+  description: |
+    V2 invoice endpoints. Auth: Bearer JWT (provider/admin). Clinic context required.
+
+paths:
+  /api/v2/invoices:
+    get:
+      summary: List invoices
+      operationId: listInvoices
+      tags: [v2, invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: patientId
+          in: query
+          schema: { type: integer }
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, open, paid, uncollectible, void] }
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices: { type: array, items: { $ref: '#/components/schemas/InvoiceSummary' } }
+                  total: { type: integer }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      summary: Create invoice
+      operationId: createInvoice
+      tags: [v2, invoices]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateInvoiceRequest' }
+      responses:
+        '200':
+          description: Created invoice
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/v2/invoices/{id}:
+    get:
+      summary: Get invoice by ID
+      operationId: getInvoice
+      tags: [v2, invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Invoice details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Invoice' }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        code: { type: string }
+        statusCode: { type: integer }
+        requestId: { type: string }
+        timestamp: { type: string, format: date-time }
+    InvoiceSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        patientId: { type: integer }
+        status: { type: string }
+        amountDue: { type: number }
+        amountPaid: { type: number }
+        createdAt: { type: string, format: date-time }
+    Invoice:
+      type: object
+      properties:
+        id: { type: integer }
+        patientId: { type: integer }
+        clinicId: { type: integer }
+        status: { type: string }
+        lineItems: { type: array }
+        amountDue: { type: number }
+        amountPaid: { type: number }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateInvoiceRequest:
+      type: object
+      required: [patientId, lineItems]
+      properties:
+        patientId: { type: integer }
+        lineItems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [description, quantity, unitPrice]
+            properties:
+              description: { type: string }
+              quantity: { type: integer, minimum: 1 }
+              unitPrice: { type: number, minimum: 0 }
+        description: { type: string }
+        dueInDays: { type: integer }
+        isDraft: { type: boolean }

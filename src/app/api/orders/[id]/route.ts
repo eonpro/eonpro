@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import lifefile from '@/lib/lifefile';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { logger } from '@/lib/logger';
 
 type Params = {
@@ -29,10 +30,12 @@ type Params = {
  */
 export async function GET(req: NextRequest, { params }: Params) {
   try {
-    // SECURITY FIX: This endpoint was previously unauthenticated
     const authResult = await verifyAuth(req);
     if (!authResult.success) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (authResult.user) {
+      requirePermission(toPermissionContext(authResult.user), 'order:view');
     }
 
     const resolvedParams = await params;
@@ -49,10 +52,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   } catch (error) {
     // Return 502 for Lifefile API errors (external service)
     if (error instanceof Error) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 502 }
-      );
+      return NextResponse.json({ success: false, error: error.message }, { status: 502 });
     }
 
     return handleApiError(error, {

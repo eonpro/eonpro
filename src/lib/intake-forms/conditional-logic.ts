@@ -1,9 +1,9 @@
 /**
  * Form Conditional Logic Evaluator
- * 
+ *
  * Evaluates conditional logic rules to determine if a question should be displayed
  * based on the current form responses.
- * 
+ *
  * ConditionalLogic Schema:
  * {
  *   rules: [
@@ -20,7 +20,17 @@
 
 export interface ConditionalRule {
   questionId: number;
-  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty' | 'in' | 'not_in';
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'not_contains'
+    | 'greater_than'
+    | 'less_than'
+    | 'is_empty'
+    | 'is_not_empty'
+    | 'in'
+    | 'not_in';
   value?: string | string[] | number;
 }
 
@@ -33,62 +43,61 @@ export interface ConditionalLogic {
 /**
  * Evaluate a single conditional rule
  */
-export function evaluateRule(
-  rule: ConditionalRule,
-  responses: Record<number, string>
-): boolean {
+export function evaluateRule(rule: ConditionalRule, responses: Record<number, string>): boolean {
   const responseValue = responses[rule.questionId] || '';
-  
+
   switch (rule.operator) {
     case 'equals':
       return responseValue === String(rule.value);
-      
+
     case 'not_equals':
       return responseValue !== String(rule.value);
-      
+
     case 'contains':
       if (Array.isArray(rule.value)) {
         // For checkbox responses, check if any value matches
-        const responseValues = responseValue.split(',').map(v => v.trim());
-        return rule.value.some(v => responseValues.includes(v));
+        const responseValues = responseValue.split(',').map((v) => v.trim());
+        return rule.value.some((v) => responseValues.includes(v));
       }
       return responseValue.toLowerCase().includes(String(rule.value).toLowerCase());
-      
+
     case 'not_contains':
       if (Array.isArray(rule.value)) {
-        const responseValues = responseValue.split(',').map(v => v.trim());
-        return !rule.value.some(v => responseValues.includes(v));
+        const responseValues = responseValue.split(',').map((v) => v.trim());
+        return !rule.value.some((v) => responseValues.includes(v));
       }
       return !responseValue.toLowerCase().includes(String(rule.value).toLowerCase());
-      
+
     case 'greater_than':
       const numValue = parseFloat(responseValue);
-      const compareValueGt = typeof rule.value === 'number' ? rule.value : parseFloat(String(rule.value));
+      const compareValueGt =
+        typeof rule.value === 'number' ? rule.value : parseFloat(String(rule.value));
       return !isNaN(numValue) && !isNaN(compareValueGt) && numValue > compareValueGt;
-      
+
     case 'less_than':
       const numValueLt = parseFloat(responseValue);
-      const compareValueLt = typeof rule.value === 'number' ? rule.value : parseFloat(String(rule.value));
+      const compareValueLt =
+        typeof rule.value === 'number' ? rule.value : parseFloat(String(rule.value));
       return !isNaN(numValueLt) && !isNaN(compareValueLt) && numValueLt < compareValueLt;
-      
+
     case 'is_empty':
       return !responseValue || responseValue.trim() === '';
-      
+
     case 'is_not_empty':
       return !!(responseValue && responseValue.trim() !== '');
-      
+
     case 'in':
       if (Array.isArray(rule.value)) {
-        return rule.value.map(v => String(v)).includes(responseValue);
+        return rule.value.map((v) => String(v)).includes(responseValue);
       }
       return false;
-      
+
     case 'not_in':
       if (Array.isArray(rule.value)) {
-        return !rule.value.map(v => String(v)).includes(responseValue);
+        return !rule.value.map((v) => String(v)).includes(responseValue);
       }
       return true;
-      
+
     default:
       return true;
   }
@@ -110,21 +119,21 @@ export function evaluateConditionalLogic(
   const { rules, logic = 'AND', action = 'show' } = conditionalLogic;
 
   // Evaluate all rules
-  const results = rules.map(rule => evaluateRule(rule, responses));
+  const results = rules.map((rule) => evaluateRule(rule, responses));
 
   // Combine results based on logic
   let conditionMet: boolean;
   if (logic === 'OR') {
-    conditionMet = results.some(r => r);
+    conditionMet = results.some((r) => r);
   } else {
-    conditionMet = results.every(r => r);
+    conditionMet = results.every((r) => r);
   }
 
   // Apply action
   if (action === 'hide') {
     return !conditionMet;
   }
-  
+
   return conditionMet;
 }
 
@@ -135,7 +144,7 @@ export function getVisibleQuestions<T extends { id: number; conditionalLogic?: a
   questions: T[],
   responses: Record<number, string>
 ): T[] {
-  return questions.filter(question => {
+  return questions.filter((question) => {
     return evaluateConditionalLogic(question.conditionalLogic, responses);
   });
 }
@@ -143,12 +152,14 @@ export function getVisibleQuestions<T extends { id: number; conditionalLogic?: a
 /**
  * Validate that required visible questions have responses
  */
-export function validateVisibleRequiredQuestions<T extends { 
-  id: number; 
-  isRequired: boolean;
-  conditionalLogic?: any;
-  questionText: string;
-}>(
+export function validateVisibleRequiredQuestions<
+  T extends {
+    id: number;
+    isRequired: boolean;
+    conditionalLogic?: any;
+    questionText: string;
+  },
+>(
   questions: T[],
   responses: Record<number, string>
 ): { valid: boolean; errors: Record<number, string> } {
@@ -173,12 +184,14 @@ export function validateVisibleRequiredQuestions<T extends {
 /**
  * Build conditional logic from a simple condition string
  * Useful for UI builders
- * 
+ *
  * Example: "Q1 equals 'Yes'" -> { rules: [{ questionId: 1, operator: 'equals', value: 'Yes' }] }
  */
 export function parseSimpleCondition(condition: string): ConditionalLogic | null {
-  const match = condition.match(/^Q(\d+)\s+(equals|not_equals|contains|greater_than|less_than|is_empty|is_not_empty)\s*'?([^']*)'?$/i);
-  
+  const match = condition.match(
+    /^Q(\d+)\s+(equals|not_equals|contains|greater_than|less_than|is_empty|is_not_empty)\s*'?([^']*)'?$/i
+  );
+
   if (!match) {
     return null;
   }
@@ -191,11 +204,13 @@ export function parseSimpleCondition(condition: string): ConditionalLogic | null
   }
 
   return {
-    rules: [{
-      questionId,
-      operator: operator.toLowerCase() as ConditionalRule['operator'],
-      value: value || undefined,
-    }],
+    rules: [
+      {
+        questionId,
+        operator: operator.toLowerCase() as ConditionalRule['operator'],
+        value: value || undefined,
+      },
+    ],
     logic: 'AND',
     action: 'show',
   };

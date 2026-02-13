@@ -1,11 +1,11 @@
 /**
  * Client-Side Logger
- * 
+ *
  * A safe logger for client-side code that:
  * - Only logs in development mode (production suppresses logs)
  * - Strips sensitive data automatically
  * - Provides consistent logging interface
- * 
+ *
  * Usage:
  * import { clientLogger } from '@/lib/clientLogger';
  * clientLogger.log('Message');
@@ -50,7 +50,7 @@ function filterSensitiveData(data: unknown): unknown {
   if (typeof data === 'object') {
     const filtered: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-      const isSensitive = SENSITIVE_PATTERNS.some(pattern => pattern.test(key));
+      const isSensitive = SENSITIVE_PATTERNS.some((pattern) => pattern.test(key));
       filtered[key] = isSensitive ? '[REDACTED]' : filterSensitiveData(value);
     }
     return filtered;
@@ -65,7 +65,7 @@ function filterSensitiveData(data: unknown): unknown {
 function createLogEntry(level: LogLevel, message: string, ...args: unknown[]) {
   const timestamp = new Date().toISOString();
   const filteredArgs = args.map(filterSensitiveData);
-  
+
   return {
     timestamp,
     level,
@@ -103,7 +103,11 @@ export const clientLogger = {
     // Warnings are shown in all environments
     const entry = createLogEntry('warn', message, ...args);
     if (isDevelopment) {
-      console.warn(`[${entry.timestamp}] WARN:`, message, ...filterSensitiveData(args) as unknown[]);
+      console.warn(
+        `[${entry.timestamp}] WARN:`,
+        message,
+        ...(filterSensitiveData(args) as unknown[])
+      );
     }
   },
 
@@ -113,7 +117,7 @@ export const clientLogger = {
     console.error(
       `[${entry.timestamp}] ERROR:`,
       message,
-      ...(isDevelopment ? args : filterSensitiveData(args) as unknown[])
+      ...(isDevelopment ? args : (filterSensitiveData(args) as unknown[]))
     );
   },
 };

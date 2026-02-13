@@ -62,13 +62,7 @@ export function CardSkeleton({
   };
 
   return (
-    <div
-      className={cn(
-        'rounded-xl bg-white shadow-sm',
-        paddingClasses[padding],
-        className
-      )}
-    >
+    <div className={cn('rounded-xl bg-white shadow-sm', paddingClasses[padding], className)}>
       {showAvatar && (
         <div className="mb-4 flex items-center gap-3">
           <Skeleton className="h-10 w-10 rounded-full" />
@@ -80,10 +74,7 @@ export function CardSkeleton({
       )}
       <div className="space-y-3">
         {Array.from({ length: lines }).map((_, i) => (
-          <Skeleton
-            key={i}
-            className={cn('h-4', i === lines - 1 ? 'w-3/4' : 'w-full')}
-          />
+          <Skeleton key={i} className={cn('h-4', i === lines - 1 ? 'w-3/4' : 'w-full')} />
         ))}
       </div>
     </div>
@@ -114,7 +105,7 @@ export function ListSkeleton({
     <div className={cn('divide-y divide-gray-100 rounded-xl bg-white', className)}>
       {Array.from({ length: items }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 p-4">
-          {showAvatar && <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />}
+          {showAvatar && <Skeleton className="h-10 w-10 flex-shrink-0 rounded-full" />}
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
@@ -165,9 +156,7 @@ export function TableSkeleton({
             <tr key={rowI}>
               {Array.from({ length: columns }).map((_, colI) => (
                 <td key={colI} className="px-6 py-4">
-                  <Skeleton
-                    className={cn('h-4', colI === 0 ? 'w-32' : 'w-20')}
-                  />
+                  <Skeleton className={cn('h-4', colI === 0 ? 'w-32' : 'w-20')} />
                 </td>
               ))}
             </tr>
@@ -234,16 +223,9 @@ interface ChartSkeletonProps {
   className?: string;
 }
 
-export function ChartSkeleton({
-  type = 'bar',
-  height = 300,
-  className,
-}: ChartSkeletonProps) {
+export function ChartSkeleton({ type = 'bar', height = 300, className }: ChartSkeletonProps) {
   return (
-    <div
-      className={cn('rounded-xl bg-white p-6 shadow-sm', className)}
-      style={{ height }}
-    >
+    <div className={cn('rounded-xl bg-white p-6 shadow-sm', className)} style={{ height }}>
       {/* Chart Header */}
       <div className="mb-4 flex items-center justify-between">
         <Skeleton className="h-5 w-32" />
@@ -275,9 +257,7 @@ export function ChartSkeleton({
             <Skeleton className="h-48 w-48 rounded-full" />
           </div>
         )}
-        {type === 'area' && (
-          <Skeleton className="h-full w-full rounded-lg" />
-        )}
+        {type === 'area' && <Skeleton className="h-full w-full rounded-lg" />}
       </div>
     </div>
   );
@@ -320,7 +300,7 @@ export function GridSkeleton({
       {Array.from({ length: items }).map((_, i) => (
         <div key={i} className="overflow-hidden rounded-xl bg-white shadow-sm">
           <Skeleton className={cn('w-full', aspectClasses[aspectRatio])} />
-          <div className="p-3 space-y-2">
+          <div className="space-y-2 p-3">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
           </div>
@@ -342,11 +322,7 @@ interface FormSkeletonProps {
   className?: string;
 }
 
-export function FormSkeleton({
-  fields = 4,
-  showSubmit = true,
-  className,
-}: FormSkeletonProps) {
+export function FormSkeleton({ fields = 4, showSubmit = true, className }: FormSkeletonProps) {
   return (
     <div className={cn('space-y-6', className)}>
       {Array.from({ length: fields }).map((_, i) => (
@@ -355,9 +331,7 @@ export function FormSkeleton({
           <Skeleton className="h-10 w-full rounded-lg" />
         </div>
       ))}
-      {showSubmit && (
-        <Skeleton className="h-12 w-full rounded-lg" />
-      )}
+      {showSubmit && <Skeleton className="h-12 w-full rounded-lg" />}
     </div>
   );
 }
@@ -374,20 +348,13 @@ interface TextSkeletonProps {
   className?: string;
 }
 
-export function TextSkeleton({
-  lines = 4,
-  showHeading = true,
-  className,
-}: TextSkeletonProps) {
+export function TextSkeleton({ lines = 4, showHeading = true, className }: TextSkeletonProps) {
   return (
     <div className={cn('space-y-4', className)}>
       {showHeading && <Skeleton className="h-8 w-1/3" />}
       <div className="space-y-2">
         {Array.from({ length: lines }).map((_, i) => (
-          <Skeleton
-            key={i}
-            className={cn('h-4', i === lines - 1 ? 'w-2/3' : 'w-full')}
-          />
+          <Skeleton key={i} className={cn('h-4', i === lines - 1 ? 'w-2/3' : 'w-full')} />
         ))}
       </div>
     </div>

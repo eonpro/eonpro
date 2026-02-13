@@ -1,6 +1,6 @@
 /**
  * AWS SES Email Preview API Endpoint
- * 
+ *
  * Renders email templates for preview
  */
 
@@ -17,15 +17,12 @@ export async function POST(request: NextRequest) {
     const { template, data } = await request.json();
 
     if (!template) {
-      return NextResponse.json(
-        { error: 'Template is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Template is required' }, { status: 400 });
     }
 
     // Render template
     let rendered;
-    
+
     if (!isFeatureEnabled('AWS_SES_EMAIL')) {
       // Use mock service
       rendered = await mockSESService.renderTemplate(template as EmailTemplate, data || {});
@@ -50,13 +47,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Preview] Error:', error);
-    
-    return NextResponse.json(
-      { error: errorMessage || 'Preview failed' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: errorMessage || 'Preview failed' }, { status: 500 });
   }
 }

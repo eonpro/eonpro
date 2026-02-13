@@ -1,6 +1,6 @@
 /**
  * Affiliate Tax Information API
- * 
+ *
  * POST - Submit W-9 form
  */
 
@@ -18,25 +18,22 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     }
 
     const body = await request.json();
-    const { 
-      legalName, 
-      businessName, 
-      taxClassification, 
-      taxId, 
+    const {
+      legalName,
+      businessName,
+      taxClassification,
+      taxId,
       taxIdType,
-      address, 
-      city, 
-      state, 
+      address,
+      city,
+      state,
       zipCode,
-      certify 
+      certify,
     } = body;
 
     // Validate required fields
     if (!legalName || !taxId || !address || !city || !state || !zipCode) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     if (!certify) {
@@ -47,10 +44,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     }
 
     if (taxId.length !== 9) {
-      return NextResponse.json(
-        { error: 'Invalid tax ID number' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid tax ID number' }, { status: 400 });
     }
 
     // Create tax document record
@@ -70,12 +64,12 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       },
     });
 
-    logger.info('[Affiliate Tax] W-9 submitted', { 
-      affiliateId, 
+    logger.info('[Affiliate Tax] W-9 submitted', {
+      affiliateId,
       documentId: taxDocument.id,
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       documentId: taxDocument.id,
     });
@@ -83,10 +77,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     logger.error('[Affiliate Tax] POST error', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to submit W-9' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to submit W-9' }, { status: 500 });
   }
 }
 

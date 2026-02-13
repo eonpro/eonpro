@@ -88,7 +88,9 @@ export async function recordStreakActivity(update: StreakUpdate): Promise<Streak
 
     // Calculate days since last activity
     const daysSinceLastActivity = streak.lastActivityAt
-      ? Math.floor((today.getTime() - new Date(streak.lastActivityAt).getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (today.getTime() - new Date(streak.lastActivityAt).getTime()) / (1000 * 60 * 60 * 24)
+        )
       : 999;
 
     let newCurrentStreak = streak.currentStreak;
@@ -132,7 +134,12 @@ export async function recordStreakActivity(update: StreakUpdate): Promise<Streak
 
     // Award points based on streak length
     const points = calculateStreakPoints(newCurrentStreak);
-    await awardPoints(patientId, points, PointReason.STREAK_CONTINUED, `${streakType} streak day ${newCurrentStreak}`);
+    await awardPoints(
+      patientId,
+      points,
+      PointReason.STREAK_CONTINUED,
+      `${streakType} streak day ${newCurrentStreak}`
+    );
 
     // Check for streak-based achievements
     await checkAchievements(patientId, {
@@ -167,7 +174,10 @@ export async function getPatientStreaks(patientId: number): Promise<StreakInfo[]
 /**
  * Get a specific streak
  */
-export async function getStreak(patientId: number, streakType: StreakType): Promise<StreakInfo | null> {
+export async function getStreak(
+  patientId: number,
+  streakType: StreakType
+): Promise<StreakInfo | null> {
   const streak = await prisma.patientStreak.findUnique({
     where: {
       patientId_streakType: { patientId, streakType },
@@ -224,7 +234,8 @@ function formatStreakInfo(streak: {
       (today.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)
     );
     // Streak is active if logged today or yesterday (with freeze available)
-    isActive = daysSinceLastActivity <= 1 ||
+    isActive =
+      daysSinceLastActivity <= 1 ||
       (daysSinceLastActivity === 2 && streak.freezesUsed < streak.freezesAllowed);
   }
 

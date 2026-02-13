@@ -51,10 +51,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     logger.info('Email verified via link', { userId: result.userId });
 
     // Redirect to success page
-    return NextResponse.redirect(
-      new URL('/email-verified?status=success', req.url)
-    );
-
+    return NextResponse.redirect(new URL('/email-verified?status=success', req.url));
   } catch (error: any) {
     logger.error('Error verifying email via link:', error);
     return NextResponse.redirect(
@@ -74,50 +71,30 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     // Validate input
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
 
     // Generate OTP code
     const code = generateOTP();
 
     // Store verification code
-    const stored = await storeVerificationCode(
-      email.toLowerCase(),
-      code,
-      'email_verification'
-    );
+    const stored = await storeVerificationCode(email.toLowerCase(), code, 'email_verification');
 
     if (!stored) {
-      return NextResponse.json(
-        { error: 'Failed to generate verification code' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to generate verification code' }, { status: 500 });
     }
 
     // Send email
-    const sent = await sendVerificationEmail(
-      email.toLowerCase(),
-      code,
-      'email_verification'
-    );
+    const sent = await sendVerificationEmail(email.toLowerCase(), code, 'email_verification');
 
     if (!sent) {
-      return NextResponse.json(
-        { error: 'Failed to send verification email' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });
     }
 
     logger.info(`Verification email sent to ${email}`);
@@ -129,11 +106,11 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       ...(process.env.NODE_ENV === 'development' && { code }),
     });
   } catch (error: unknown) {
-    logger.error('Error sending verification email:', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json(
-      { error: 'Failed to send verification email' },
-      { status: 500 }
+    logger.error(
+      'Error sending verification email:',
+      error instanceof Error ? error : new Error(String(error))
     );
+    return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });
   }
 });
 
@@ -148,24 +125,14 @@ export const PUT = standardRateLimit(async (req: NextRequest) => {
 
     // Validate input
     if (!email || !code) {
-      return NextResponse.json(
-        { error: 'Email and code are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email and code are required' }, { status: 400 });
     }
 
     // Verify the code
-    const result = await verifyOTPCode(
-      email.toLowerCase(),
-      code,
-      'email_verification'
-    );
+    const result = await verifyOTPCode(email.toLowerCase(), code, 'email_verification');
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
     logger.info(`Email verified for ${email}`);
@@ -176,10 +143,10 @@ export const PUT = standardRateLimit(async (req: NextRequest) => {
       email: result.email,
     });
   } catch (error: unknown) {
-    logger.error('Error verifying email:', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json(
-      { error: 'Failed to verify email' },
-      { status: 500 }
+    logger.error(
+      'Error verifying email:',
+      error instanceof Error ? error : new Error(String(error))
     );
+    return NextResponse.json({ error: 'Failed to verify email' }, { status: 500 });
   }
 });

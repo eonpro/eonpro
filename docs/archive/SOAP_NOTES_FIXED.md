@@ -2,7 +2,9 @@
 
 ## Problem Solved
 
-The SOAP notes were being generated with made-up data instead of using the actual intake form responses from MedLink. Patricia's SOAP was showing:
+The SOAP notes were being generated with made-up data instead of using the actual intake form
+responses from MedLink. Patricia's SOAP was showing:
+
 - ❌ Weight: 220 lbs (made up)
 - ❌ Has diabetes and sleep apnea (made up)
 - ❌ Previous GLP-1 trial with side effects (made up)
@@ -10,7 +12,9 @@ The SOAP notes were being generated with made-up data instead of using the actua
 ## The Fix
 
 ### 1. **Webhook Data Handling**
+
 Added support for the `data` object structure in the MedLink normalizer:
+
 ```javascript
 // Now properly extracts answers from payload.data
 if (payload?.data && typeof payload.data === 'object') {
@@ -22,12 +26,14 @@ if (payload?.data && typeof payload.data === 'object') {
 ```
 
 ### 2. **Data Parsing Fix**
+
 Fixed the SOAP service to properly handle data stored as byte arrays:
+
 ```javascript
 // Handles both byte array format and proper string format
 if (rawDataStr.match(/^\d+,\d+,\d+/)) {
   // Data stored as comma-separated bytes
-  const bytes = rawDataStr.split(',').map(b => parseInt(b.trim()));
+  const bytes = rawDataStr.split(',').map((b) => parseInt(b.trim()));
   dataStr = Buffer.from(bytes).toString('utf8');
 }
 ```
@@ -35,6 +41,7 @@ if (rawDataStr.match(/^\d+,\d+,\d+/)) {
 ## Verification
 
 Patricia's SOAP note now correctly shows:
+
 - ✅ **Starting Weight**: 190 lbs (from intake)
 - ✅ **BMI**: 31.61 (from intake)
 - ✅ **Goal**: Lose 40 lbs to reach 150 lbs (from intake)
@@ -61,9 +68,11 @@ Patricia's SOAP note now correctly shows:
 ## Test Results
 
 Successfully generated SOAP Note #13 for Patricia Altamirano with:
+
 - Correct weight and BMI from intake form
 - Accurate medical history assessment
 - Appropriate GLP-1 recommendations based on actual data
 - Medical necessity for compounded formulation
 
-The system is now fully operational and generating clinically accurate SOAP notes based on actual patient intake data!
+The system is now fully operational and generating clinically accurate SOAP notes based on actual
+patient intake data!

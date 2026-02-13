@@ -2,16 +2,17 @@
 
 ## Overview
 
-This guide walks through setting up AWS RDS Proxy for the EonPro healthcare platform to solve connection pooling issues in serverless (Vercel) environments.
+This guide walks through setting up AWS RDS Proxy for the EonPro healthcare platform to solve
+connection pooling issues in serverless (Vercel) environments.
 
 ## Why RDS Proxy?
 
-| Problem | Solution |
-|---------|----------|
+| Problem                                          | Solution                               |
+| ------------------------------------------------ | -------------------------------------- |
 | Serverless functions create too many connections | RDS Proxy pools and reuses connections |
-| Connections exhaust RDS limits (79 max) | Proxy manages connection multiplexing |
-| Cold starts create connection spikes | Proxy maintains warm connection pool |
-| Database credentials in app code | IAM authentication available |
+| Connections exhaust RDS limits (79 max)          | Proxy manages connection multiplexing  |
+| Cold starts create connection spikes             | Proxy maintains warm connection pool   |
+| Database credentials in app code                 | IAM authentication available           |
 
 ## Prerequisites
 
@@ -193,15 +194,17 @@ aws rds describe-db-proxies \
 
 ```bash
 # In Vercel Dashboard or CLI:
-DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@eonpro-proxy.proxy-cx8o24ooodj4.us-east-2.rds.amazonaws.com:5432/postgres?sslmode=require"
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@eonpro-proxy.proxy-cx8o24ooodj4.us-east-2.rds.amazonaws.com:5432/postgres?sslmode=require&connection_limit=1&pool_timeout=15"
 USE_RDS_PROXY="true"
 ```
 
 ### Connection String Format
 
 ```
-postgresql://username:password@PROXY_ENDPOINT:5432/database?sslmode=require
+postgresql://username:password@PROXY_ENDPOINT:5432/database?sslmode=require&connection_limit=1&pool_timeout=15
 ```
+
+> `connection_limit=1` keeps each Vercel function instance to one DB connection. The app injects these params if omitted.
 
 ---
 
@@ -242,6 +245,7 @@ aws rds describe-db-proxy-targets \
 ### CloudWatch Metrics
 
 Monitor these metrics in CloudWatch:
+
 - `DatabaseConnections` - Active connections to RDS
 - `ClientConnections` - Client connections to proxy
 - `QueryRequests` - Queries processed
@@ -277,6 +281,7 @@ USE_RDS_PROXY="false"
 ## Cost Estimate
 
 RDS Proxy pricing (us-east-2):
+
 - **vCPU hours**: $0.015 per vCPU per hour
 - For a db.t3.micro equivalent: ~$10-15/month
 
@@ -296,6 +301,7 @@ This is minimal compared to the cost of connection-related downtime.
 ## Troubleshooting
 
 ### Connection Timeout
+
 ```bash
 # Check target group health
 aws rds describe-db-proxy-targets \
@@ -304,6 +310,7 @@ aws rds describe-db-proxy-targets \
 ```
 
 ### Authentication Failures
+
 ```bash
 # Verify secret format
 aws secretsmanager get-secret-value \
@@ -313,6 +320,7 @@ aws secretsmanager get-secret-value \
 ```
 
 ### Proxy Not Available
+
 ```bash
 # Check proxy status and events
 aws rds describe-db-proxies \
@@ -324,14 +332,14 @@ aws rds describe-db-proxies \
 
 ## Quick Reference
 
-| Item | Value |
-|------|-------|
-| Proxy Name | `eonpro-proxy` |
-| Region | `us-east-2` |
-| Engine | PostgreSQL |
-| Port | 5432 |
-| Idle Timeout | 1800 seconds |
-| TLS | Required |
+| Item         | Value          |
+| ------------ | -------------- |
+| Proxy Name   | `eonpro-proxy` |
+| Region       | `us-east-2`    |
+| Engine       | PostgreSQL     |
+| Port         | 5432           |
+| Idle Timeout | 1800 seconds   |
+| TLS          | Required       |
 
 ---
 

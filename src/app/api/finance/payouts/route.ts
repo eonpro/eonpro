@@ -1,6 +1,6 @@
 /**
  * Finance Payouts API
- * 
+ *
  * GET /api/finance/payouts
  * Returns payout data and balances from database records
  */
@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import { subDays, subMonths, startOfMonth, format } from 'date-fns';
 
@@ -27,14 +29,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    // SECURITY: Verify user has access to this clinic's financial data
+    requirePermission(toPermissionContext(user), 'financial:view');
     if (!verifyClinicAccess(user, clinicId)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     return withClinicContext(clinicId, async () => {
       const thirtyDaysAgo = subDays(new Date(), 30);
-      
+
       // Get payments for fee calculations
       const recentPayments = await prisma.payment.findMany({
         where: {
@@ -46,16 +48,22 @@ export async function GET(request: NextRequest) {
           amount: true,
           createdAt: true,
         },
+        take: AGGREGATION_TAKE,
       });
 
       // Calculate totals
-      const totalGross = recentPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
-      
+      const totalGross = recentPayments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0
+      );
+
       // Estimate fees (approximately 2.9% + $0.30 per transaction for Stripe)
-      const stripeFees = Math.round(recentPayments.reduce((sum: number, p: { amount: number }) => {
-        return sum + (p.amount * 0.029) + 30; // 2.9% + $0.30 in cents
-      }, 0));
-      
+      const stripeFees = Math.round(
+        recentPayments.reduce((sum: number, p: { amount: number }) => {
+          return sum + p.amount * 0.029 + 30; // 2.9% + $0.30 in cents
+        }, 0)
+      );
+
       // Calculate monthly payouts from invoice data
       const threeMonthsAgo = subMonths(new Date(), 3);
       const monthlyPayments = await prisma.invoice.findMany({
@@ -68,12 +76,13 @@ export async function GET(request: NextRequest) {
           amountPaid: true,
           paidAt: true,
         },
+        take: AGGREGATION_TAKE,
       });
 
       // Group by month
       const monthlyPayouts: Array<{ month: string; gross: number; fees: number; net: number }> = [];
       const monthMap = new Map<string, number>();
-      
+
       monthlyPayments.forEach((payment: { amountPaid: number; paidAt: Date | null }) => {
         if (payment.paidAt) {
           const monthKey = format(payment.paidAt, 'yyyy-MM');
@@ -120,9 +129,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch payout data', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch payout data' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch payout data' }, { status: 500 });
   }
 }

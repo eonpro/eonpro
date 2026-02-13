@@ -15,7 +15,10 @@ export async function GET(request: NextRequest) {
     const inviteToken = searchParams.get('invite');
 
     if (!inviteToken || inviteToken.length < 32) {
-      return NextResponse.json({ valid: false, error: 'Invalid or missing invite link' }, { status: 400 });
+      return NextResponse.json(
+        { valid: false, error: 'Invalid or missing invite link' },
+        { status: 400 }
+      );
     }
 
     const result = await validateInviteToken(inviteToken);
@@ -23,7 +26,8 @@ export async function GET(request: NextRequest) {
     if (!result) {
       return NextResponse.json({
         valid: false,
-        error: 'This invite link is invalid or has expired. Please request a new one from your care team.',
+        error:
+          'This invite link is invalid or has expired. Please request a new one from your care team.',
       });
     }
 
@@ -43,7 +47,9 @@ export async function GET(request: NextRequest) {
       clinicLogoUrl: clinic?.logoUrl ?? null,
     });
   } catch (err) {
-    logger.error('[ValidateInvite] Error', { error: err instanceof Error ? err.message : 'Unknown' });
+    logger.error('[ValidateInvite] Error', {
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     return NextResponse.json({ valid: false, error: 'Unable to validate invite' }, { status: 500 });
   }
 }

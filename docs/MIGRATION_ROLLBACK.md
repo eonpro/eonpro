@@ -1,8 +1,10 @@
 # Database Migration Rollback Procedures
 
-This document outlines the procedures for rolling back database migrations in the EONPRO healthcare platform.
+This document outlines the procedures for rolling back database migrations in the EONPRO healthcare
+platform.
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Quick Reference](#quick-reference)
 - [Rollback Scenarios](#rollback-scenarios)
@@ -12,9 +14,11 @@ This document outlines the procedures for rolling back database migrations in th
 
 ## Overview
 
-EONPRO uses Prisma for database migrations. All migrations should be **idempotent** (safe to run multiple times) to minimize rollback complexity.
+EONPRO uses Prisma for database migrations. All migrations should be **idempotent** (safe to run
+multiple times) to minimize rollback complexity.
 
 ### Key Principles
+
 1. **Prevention First**: Validate migrations in CI before production
 2. **Idempotent Design**: All migrations use `IF NOT EXISTS` checks
 3. **Minimal Risk**: Schema changes are additive when possible
@@ -44,10 +48,12 @@ npm run db:migrate:validate
 ### Scenario 1: Migration Failed During Deployment
 
 **Symptoms:**
+
 - Deployment fails with migration error
 - `prisma migrate status` shows failed migration
 
 **Resolution:**
+
 ```bash
 # 1. Check which migration failed
 npx prisma migrate status
@@ -62,16 +68,19 @@ npm run vercel-build
 ### Scenario 2: Migration Succeeded But Caused Issues
 
 **Symptoms:**
+
 - Application errors after deployment
 - Database queries failing on new schema
 
 **Resolution:**
+
 1. **Assess the impact** - Check Sentry/logs for errors
 2. **Decide on approach:**
    - **Option A**: Fix forward (create new migration to fix)
    - **Option B**: Rollback (only if critical)
 
 For Option B (manual rollback):
+
 ```sql
 -- Connect to production database with READ/WRITE access
 -- Execute the rollback SQL from the migration file
@@ -84,10 +93,12 @@ ALTER TABLE "MyTable" DROP COLUMN IF EXISTS "newColumn";
 ### Scenario 3: Data Migration Corrupted Data
 
 **Symptoms:**
+
 - Data integrity issues
 - Business logic failures
 
 **Resolution:**
+
 1. **Stop the bleeding** - Disable affected features if needed
 2. **Assess data impact** - How many records affected?
 3. **Restore from backup** (if critical) or **fix forward** (if minor)
@@ -97,6 +108,7 @@ ALTER TABLE "MyTable" DROP COLUMN IF EXISTS "newColumn";
 ### Procedure A: Rolling Back a Schema Change
 
 1. **Identify the migration**
+
    ```bash
    npx prisma migrate status
    ```
@@ -106,15 +118,17 @@ ALTER TABLE "MyTable" DROP COLUMN IF EXISTS "newColumn";
    - Find the `ROLLBACK SQL` section at the bottom
 
 3. **Execute rollback SQL**
+
    ```bash
    # Connect to database
    psql $DATABASE_URL
-   
+
    # Execute rollback commands
    \i /path/to/rollback.sql
    ```
 
 4. **Update Prisma migration history**
+
    ```bash
    npx prisma migrate resolve --rolled-back <migration_name>
    ```
@@ -143,12 +157,14 @@ Data migrations are harder to rollback because they transform existing data.
 **Use only when system is down and needs immediate recovery**
 
 1. **Get the last known-good database backup**
+
    ```bash
    # List available backups (AWS RDS example)
    aws rds describe-db-snapshots --db-instance-identifier eonpro-prod
    ```
 
 2. **Restore to a new instance**
+
    ```bash
    aws rds restore-db-instance-from-db-snapshot \
      --db-instance-identifier eonpro-prod-recovery \
@@ -215,6 +231,7 @@ Data migrations are harder to rollback because they transform existing data.
 ## Contact
 
 For migration emergencies, contact:
+
 - **On-call Engineer**: Check PagerDuty
 - **Database Admin**: [Contact Info]
 - **Platform Lead**: [Contact Info]

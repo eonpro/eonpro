@@ -3,12 +3,14 @@
 ## 🎯 Executive Summary
 
 ### Business Objectives
+
 - **Reduce Payment Friction**: Enable providers to send payment links directly to patients
 - **Improve Collection Rates**: Multiple communication channels (SMS, Email, Copy)
 - **Card Update Management**: Proactive card update requests before expiration
 - **Track Payment Performance**: Analytics on link usage and conversion rates
 
 ### Key Features
+
 1. ✅ **Checkout Link Generation** - One-click payment link creation
 2. ✅ **Multi-Channel Distribution** - SMS, Email, or manual sharing
 3. ✅ **Card Update Links** - Secure card-on-file updates
@@ -58,25 +60,26 @@
 ## 🔄 User Flow Diagrams
 
 ### Checkout Link Flow
+
 ```mermaid
 sequenceDiagram
     participant Provider
     participant Platform
     participant Stripe
     participant Patient
-    
+
     Provider->>Platform: Create checkout link
     Platform->>Stripe: Create checkout session
     Stripe-->>Platform: Return session URL
     Platform->>Platform: Generate short URL
     Platform->>Provider: Return link
-    
+
     alt Email/SMS
         Platform->>Patient: Send payment link
     else Copy Link
         Provider->>Patient: Share link manually
     end
-    
+
     Patient->>Platform: Click link
     Platform->>Patient: Redirect to Stripe
     Patient->>Stripe: Complete payment
@@ -85,13 +88,14 @@ sequenceDiagram
 ```
 
 ### Card Update Flow
+
 ```mermaid
 sequenceDiagram
     participant System
     participant Patient
     participant Platform
     participant Stripe
-    
+
     System->>Platform: Detect expiring card
     Platform->>Stripe: Create setup intent
     Platform->>Patient: Send update link
@@ -105,36 +109,37 @@ sequenceDiagram
 ## 💾 Database Schema
 
 ### Core Tables
+
 ```sql
 -- Payment Links Table
 CREATE TABLE payment_links (
     id UUID PRIMARY KEY,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    
+
     -- Link Details
     stripe_url TEXT,
     short_url VARCHAR(10) UNIQUE NOT NULL,
     type VARCHAR(20) NOT NULL, -- CHECKOUT, CARD_UPDATE, SUBSCRIPTION
     status VARCHAR(20) NOT NULL, -- ACTIVE, EXPIRED, COMPLETED, CANCELLED
-    
+
     -- Payment Info
     amount DECIMAL(10,2),
     currency VARCHAR(3) DEFAULT 'USD',
     description TEXT,
     metadata JSONB,
-    
+
     -- Relations
     patient_id UUID REFERENCES patients(id),
     provider_id UUID REFERENCES providers(id) NOT NULL,
     customer_id VARCHAR(50), -- Stripe customer ID
-    
+
     -- Tracking
     expires_at TIMESTAMP,
     completed_at TIMESTAMP,
     click_count INTEGER DEFAULT 0,
     last_clicked_at TIMESTAMP,
-    
+
     -- Communication
     sent_via_email BOOLEAN DEFAULT FALSE,
     sent_via_sms BOOLEAN DEFAULT FALSE,
@@ -142,7 +147,7 @@ CREATE TABLE payment_links (
     sms_sent_at TIMESTAMP,
     recipient_email VARCHAR(255),
     recipient_phone VARCHAR(20),
-    
+
     -- Payment Result
     payment_intent_id VARCHAR(50),
     invoice_id VARCHAR(50),
@@ -170,30 +175,35 @@ CREATE INDEX idx_payment_links_expires ON payment_links(expires_at);
 ## 🚀 Implementation Roadmap
 
 ### Phase 1: Foundation (Week 1)
+
 - [ ] Database schema and migrations
 - [ ] Stripe service integration
 - [ ] Basic API endpoints
 - [ ] Authentication middleware
 
 ### Phase 2: Core Features (Week 2)
+
 - [ ] Checkout link generation
 - [ ] Card update links
 - [ ] Short URL service
 - [ ] Link expiration logic
 
 ### Phase 3: Communication (Week 3)
+
 - [ ] Email template system
 - [ ] SMS integration
 - [ ] In-app notifications
 - [ ] Bulk sending capabilities
 
 ### Phase 4: UI/UX (Week 4)
+
 - [ ] Dashboard components
 - [ ] Link generator interface
 - [ ] Analytics dashboard
 - [ ] Mobile optimization
 
 ### Phase 5: Testing & Launch (Week 5)
+
 - [ ] End-to-end testing
 - [ ] Security audit
 - [ ] Performance optimization
@@ -204,6 +214,7 @@ CREATE INDEX idx_payment_links_expires ON payment_links(expires_at);
 ### API Endpoints
 
 #### 1. Create Checkout Link
+
 ```typescript
 POST /api/billing/checkout-link
 Authorization: Bearer {token}
@@ -245,6 +256,7 @@ Response:
 ```
 
 #### 2. Create Card Update Link
+
 ```typescript
 POST /api/billing/card-update-link
 Authorization: Bearer {token}
@@ -267,6 +279,7 @@ Response:
 ```
 
 #### 3. Get Link Analytics
+
 ```typescript
 GET /api/billing/links/{linkId}/analytics
 Authorization: Bearer {token}
@@ -292,6 +305,7 @@ Response:
 ### Service Layer Implementation
 
 #### Stripe Payment Service
+
 ```typescript
 import Stripe from 'stripe';
 import { prisma } from '@/lib/db';
@@ -299,13 +313,13 @@ import { generateShortCode } from '@/lib/utils/shortUrl';
 
 export class StripePaymentLinkService {
   private stripe: Stripe;
-  
+
   constructor() {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: '2023-10-16',
     });
   }
-  
+
   async createCheckoutLink({
     amount,
     description,
@@ -318,14 +332,16 @@ export class StripePaymentLinkService {
     // Create Stripe checkout session
     const session = await this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: 'usd',
-          product_data: { name: description },
-          unit_amount: Math.round(amount * 100),
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: { name: description },
+            unit_amount: Math.round(amount * 100),
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      }],
+      ],
       mode: 'payment',
       success_url: `${process.env.NEXTAUTH_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXTAUTH_URL}/billing/cancel`,
@@ -335,12 +351,12 @@ export class StripePaymentLinkService {
         providerId,
         ...metadata,
       },
-      expires_at: Math.floor(Date.now() / 1000) + (expiresIn * 3600),
+      expires_at: Math.floor(Date.now() / 1000) + expiresIn * 3600,
     });
-    
+
     // Generate short URL
     const shortCode = await generateShortCode();
-    
+
     // Save to database
     const paymentLink = await prisma.paymentLink.create({
       data: {
@@ -357,10 +373,10 @@ export class StripePaymentLinkService {
         expiresAt: new Date(Date.now() + expiresIn * 3600 * 1000),
       },
     });
-    
+
     return paymentLink;
   }
-  
+
   async createCardUpdateLink({
     customerId,
     patientId,
@@ -379,9 +395,9 @@ export class StripePaymentLinkService {
         type: 'CARD_UPDATE',
       },
     });
-    
+
     const shortCode = await generateShortCode();
-    
+
     const paymentLink = await prisma.paymentLink.create({
       data: {
         stripeUrl: session.url,
@@ -394,10 +410,10 @@ export class StripePaymentLinkService {
         expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000), // 30 days
       },
     });
-    
+
     return paymentLink;
   }
-  
+
   async handleWebhook(event: Stripe.Event): Promise<void> {
     switch (event.type) {
       case 'checkout.session.completed':
@@ -408,10 +424,10 @@ export class StripePaymentLinkService {
         break;
     }
   }
-  
+
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const { metadata } = session;
-    
+
     // Update payment link status
     await prisma.paymentLink.updateMany({
       where: {
@@ -426,7 +442,7 @@ export class StripePaymentLinkService {
         receiptUrl: session.receipt_url,
       },
     });
-    
+
     // Create payment record
     if (metadata?.patientId) {
       await prisma.payment.create({
@@ -444,6 +460,7 @@ export class StripePaymentLinkService {
 ```
 
 ### Communication Service
+
 ```typescript
 import { Twilio } from 'twilio';
 import { sendEmail } from '@/lib/email';
@@ -451,31 +468,25 @@ import { prisma } from '@/lib/db';
 
 export class PaymentLinkCommunicationService {
   private twilio: Twilio;
-  
+
   constructor() {
-    this.twilio = new Twilio(
-      process.env.TWILIO_ACCOUNT_SID!,
-      process.env.TWILIO_AUTH_TOKEN!
-    );
+    this.twilio = new Twilio(process.env.TWILIO_ACCOUNT_SID!, process.env.TWILIO_AUTH_TOKEN!);
   }
-  
-  async sendViaEmail(
-    linkId: string,
-    recipient: string,
-    customMessage?: string
-  ): Promise<void> {
+
+  async sendViaEmail(linkId: string, recipient: string, customMessage?: string): Promise<void> {
     const link = await prisma.paymentLink.findUnique({
       where: { id: linkId },
       include: { provider: true, patient: true },
     });
-    
+
     if (!link) throw new Error('Link not found');
-    
+
     const emailData = {
       to: recipient,
-      subject: link.type === 'CHECKOUT' 
-        ? `Payment Request from ${link.provider.name}`
-        : `Update Your Payment Method`,
+      subject:
+        link.type === 'CHECKOUT'
+          ? `Payment Request from ${link.provider.name}`
+          : `Update Your Payment Method`,
       template: link.type === 'CHECKOUT' ? 'payment-request' : 'card-update',
       data: {
         providerName: link.provider.name,
@@ -487,9 +498,9 @@ export class PaymentLinkCommunicationService {
         expiresAt: link.expiresAt,
       },
     };
-    
+
     await sendEmail(emailData);
-    
+
     // Update link record
     await prisma.paymentLink.update({
       where: { id: linkId },
@@ -500,32 +511,29 @@ export class PaymentLinkCommunicationService {
       },
     });
   }
-  
-  async sendViaSMS(
-    linkId: string,
-    phoneNumber: string,
-    customMessage?: string
-  ): Promise<void> {
+
+  async sendViaSMS(linkId: string, phoneNumber: string, customMessage?: string): Promise<void> {
     const link = await prisma.paymentLink.findUnique({
       where: { id: linkId },
       include: { provider: true },
     });
-    
+
     if (!link) throw new Error('Link not found');
-    
-    const message = customMessage || 
+
+    const message =
+      customMessage ||
       `${link.provider.name}: ` +
-      (link.type === 'CHECKOUT' 
-        ? `Payment request for $${link.amount}. Pay here: `
-        : `Please update your payment method: `) +
-      `${process.env.NEXTAUTH_URL}/go/${link.shortUrl}`;
-    
+        (link.type === 'CHECKOUT'
+          ? `Payment request for $${link.amount}. Pay here: `
+          : `Please update your payment method: `) +
+        `${process.env.NEXTAUTH_URL}/go/${link.shortUrl}`;
+
     await this.twilio.messages.create({
       body: message,
       from: process.env.TWILIO_PHONE_NUMBER!,
       to: phoneNumber,
     });
-    
+
     // Update link record
     await prisma.paymentLink.update({
       where: { id: linkId },
@@ -536,23 +544,20 @@ export class PaymentLinkCommunicationService {
       },
     });
   }
-  
-  async sendBulkLinks(
-    linkIds: string[],
-    method: 'email' | 'sms' | 'both'
-  ): Promise<void> {
+
+  async sendBulkLinks(linkIds: string[], method: 'email' | 'sms' | 'both'): Promise<void> {
     const links = await prisma.paymentLink.findMany({
       where: { id: { in: linkIds } },
       include: { patient: true },
     });
-    
+
     for (const link of links) {
       if (!link.patient) continue;
-      
+
       if ((method === 'email' || method === 'both') && link.patient.email) {
         await this.sendViaEmail(link.id, link.patient.email);
       }
-      
+
       if ((method === 'sms' || method === 'both') && link.patient.phone) {
         await this.sendViaSMS(link.id, link.patient.phone);
       }
@@ -564,18 +569,21 @@ export class PaymentLinkCommunicationService {
 ## 🔒 Security Considerations
 
 ### 1. Link Security
+
 - **Signed URLs**: HMAC signature validation
 - **Expiration**: Automatic link expiration
 - **Rate Limiting**: Prevent abuse
 - **IP Validation**: Optional IP restrictions
 
 ### 2. PCI Compliance
+
 - **No Card Storage**: All card data handled by Stripe
 - **Tokenization**: Use Stripe tokens only
 - **HTTPS Only**: Enforce SSL/TLS
 - **Audit Logs**: Track all payment activities
 
 ### 3. Access Control
+
 - **Role-Based**: Only providers can create links
 - **Patient Validation**: Verify patient ownership
 - **Admin Override**: Super admin capabilities
@@ -584,6 +592,7 @@ export class PaymentLinkCommunicationService {
 ## 📈 Analytics & Reporting
 
 ### Key Metrics to Track
+
 1. **Link Performance**
    - Click-through rate
    - Conversion rate
@@ -603,6 +612,7 @@ export class PaymentLinkCommunicationService {
    - Device usage
 
 ### Dashboard Views
+
 ```typescript
 interface PaymentLinkAnalytics {
   // Overview Stats
@@ -610,7 +620,7 @@ interface PaymentLinkAnalytics {
   totalAmountRequested: number;
   totalAmountCollected: number;
   averageConversionRate: number;
-  
+
   // Time-based Metrics
   linksByDay: Array<{
     date: string;
@@ -618,7 +628,7 @@ interface PaymentLinkAnalytics {
     completed: number;
     expired: number;
   }>;
-  
+
   // Channel Performance
   channelMetrics: {
     email: {
@@ -637,7 +647,7 @@ interface PaymentLinkAnalytics {
       converted: number;
     };
   };
-  
+
   // Provider Performance
   topProviders: Array<{
     providerId: string;
@@ -652,6 +662,7 @@ interface PaymentLinkAnalytics {
 ## 🧪 Testing Strategy
 
 ### Unit Tests
+
 ```typescript
 describe('StripePaymentLinkService', () => {
   it('should create checkout link with correct parameters', async () => {
@@ -660,26 +671,27 @@ describe('StripePaymentLinkService', () => {
       description: 'Test payment',
       providerId: 'provider_123',
     });
-    
+
     expect(link.shortUrl).toBeDefined();
     expect(link.status).toBe('ACTIVE');
     expect(link.amount).toBe(100);
   });
-  
+
   it('should handle webhook for completed payment', async () => {
     const event = createMockStripeEvent('checkout.session.completed');
     await service.handleWebhook(event);
-    
+
     const link = await prisma.paymentLink.findUnique({
       where: { paymentIntentId: event.data.object.payment_intent },
     });
-    
+
     expect(link.status).toBe('COMPLETED');
   });
 });
 ```
 
 ### Integration Tests
+
 ```typescript
 describe('Payment Link E2E', () => {
   it('should complete full payment flow', async () => {
@@ -688,17 +700,15 @@ describe('Payment Link E2E', () => {
       .post('/api/billing/checkout-link')
       .send({ amount: 100, description: 'Test' })
       .expect(201);
-    
+
     // Simulate click
-    await request(app)
-      .get(`/go/${linkResponse.body.shortUrl}`)
-      .expect(302);
-    
+    await request(app).get(`/go/${linkResponse.body.shortUrl}`).expect(302);
+
     // Verify tracking
     const link = await prisma.paymentLink.findUnique({
       where: { id: linkResponse.body.id },
     });
-    
+
     expect(link.clickCount).toBe(1);
   });
 });
@@ -707,6 +717,7 @@ describe('Payment Link E2E', () => {
 ## 📱 UI/UX Mockups
 
 ### Payment Link Generator
+
 ```
 ┌────────────────────────────────────────┐
 │         Generate Payment Link          │
@@ -735,6 +746,7 @@ describe('Payment Link E2E', () => {
 ```
 
 ### Link Management Dashboard
+
 ```
 ┌────────────────────────────────────────┐
 │     Payment Links    [+ New Link]     │
@@ -761,6 +773,7 @@ describe('Payment Link E2E', () => {
 ## 🚨 Error Handling
 
 ### Common Error Scenarios
+
 1. **Stripe API Failures**
    - Retry with exponential backoff
    - Queue for later processing
@@ -779,6 +792,7 @@ describe('Payment Link E2E', () => {
 ## 📋 Deployment Checklist
 
 ### Pre-deployment
+
 - [ ] Stripe webhook endpoint configured
 - [ ] SMS credentials verified
 - [ ] Email templates tested
@@ -788,6 +802,7 @@ describe('Payment Link E2E', () => {
 - [ ] Rate limiting configured
 
 ### Post-deployment
+
 - [ ] Webhook signature verification working
 - [ ] Email delivery confirmed
 - [ ] SMS delivery confirmed
@@ -798,18 +813,21 @@ describe('Payment Link E2E', () => {
 ## 🎯 Success Criteria
 
 ### Business Metrics
+
 - **Payment Completion Rate**: > 70%
 - **Average Time to Payment**: < 2 hours
 - **Failed Payment Recovery**: > 50%
 - **Link Click Rate**: > 80%
 
 ### Technical Metrics
+
 - **API Response Time**: < 200ms p95
 - **Link Generation Time**: < 500ms
 - **Webhook Processing**: < 1 second
 - **System Uptime**: 99.9%
 
 ### User Satisfaction
+
 - **Provider NPS**: > 8/10
 - **Patient Payment Experience**: > 4.5/5
 - **Support Tickets**: < 5% of transactions
@@ -818,18 +836,21 @@ describe('Payment Link E2E', () => {
 ## 🔄 Future Enhancements
 
 ### Phase 2 Features
+
 1. **Payment Plans**: Split payments over time
 2. **Recurring Payments**: Subscription management
 3. **Insurance Integration**: EOB processing
 4. **Multi-currency**: International payments
 
 ### Phase 3 Features
+
 1. **A/B Testing**: Message optimization
 2. **AI Recommendations**: Best time to send
 3. **Bulk Operations**: Mass link generation
 4. **White-label**: Custom domains per provider
 
 ### Phase 4 Features
+
 1. **Mobile SDK**: Native app integration
 2. **QR Codes**: In-office payments
 3. **Voice Payments**: Phone-based collection

@@ -6,32 +6,42 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 // Schema for Lifefile settings update - passthrough allows extra fields to be stripped
-const lifefileSettingsSchema = z.object({
-  // Outbound (sending TO Lifefile)
-  lifefileEnabled: z.boolean().optional(),
-  lifefileBaseUrl: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  lifefileUsername: z.string().optional().nullable(),
-  lifefilePassword: z.string().optional().nullable(),
-  lifefileVendorId: z.string().optional().nullable(),
-  lifefilePracticeId: z.string().optional().nullable(),
-  lifefileLocationId: z.string().optional().nullable(),
-  lifefileNetworkId: z.string().optional().nullable(),
-  lifefilePracticeName: z.string().optional().nullable(),
-  lifefilePracticeAddress: z.string().optional().nullable(),
-  lifefilePracticePhone: z.string().optional().nullable(),
-  lifefilePracticeFax: z.string().optional().nullable(),
-  lifefileWebhookSecret: z.string().optional().nullable(),
-  lifefileDatapushUsername: z.string().optional().nullable(),
-  lifefileDatapushPassword: z.string().optional().nullable(),
-  // Inbound (receiving FROM Lifefile)
-  lifefileInboundEnabled: z.boolean().optional(),
-  lifefileInboundPath: z.string().optional().nullable().transform(v => v === '' ? null : v),
-  lifefileInboundUsername: z.string().optional().nullable(),
-  lifefileInboundPassword: z.string().optional().nullable(),
-  lifefileInboundSecret: z.string().optional().nullable(),
-  lifefileInboundAllowedIPs: z.string().optional().nullable(),
-  lifefileInboundEvents: z.array(z.string()).optional().default([]),
-}).passthrough(); // Allow extra fields to pass through (they'll be ignored)
+const lifefileSettingsSchema = z
+  .object({
+    // Outbound (sending TO Lifefile)
+    lifefileEnabled: z.boolean().optional(),
+    lifefileBaseUrl: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => (v === '' ? null : v)),
+    lifefileUsername: z.string().optional().nullable(),
+    lifefilePassword: z.string().optional().nullable(),
+    lifefileVendorId: z.string().optional().nullable(),
+    lifefilePracticeId: z.string().optional().nullable(),
+    lifefileLocationId: z.string().optional().nullable(),
+    lifefileNetworkId: z.string().optional().nullable(),
+    lifefilePracticeName: z.string().optional().nullable(),
+    lifefilePracticeAddress: z.string().optional().nullable(),
+    lifefilePracticePhone: z.string().optional().nullable(),
+    lifefilePracticeFax: z.string().optional().nullable(),
+    lifefileWebhookSecret: z.string().optional().nullable(),
+    lifefileDatapushUsername: z.string().optional().nullable(),
+    lifefileDatapushPassword: z.string().optional().nullable(),
+    // Inbound (receiving FROM Lifefile)
+    lifefileInboundEnabled: z.boolean().optional(),
+    lifefileInboundPath: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => (v === '' ? null : v)),
+    lifefileInboundUsername: z.string().optional().nullable(),
+    lifefileInboundPassword: z.string().optional().nullable(),
+    lifefileInboundSecret: z.string().optional().nullable(),
+    lifefileInboundAllowedIPs: z.string().optional().nullable(),
+    lifefileInboundEvents: z.array(z.string()).optional().default([]),
+  })
+  .passthrough(); // Allow extra fields to pass through (they'll be ignored)
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -52,178 +62,184 @@ export const GET = withAuth(
       // Query clinic with all fields
       let clinic: any;
       let hasInboundFields = true;
-    
-    try {
-      clinic = await prisma.clinic.findUnique({
-        where: { id: clinicId },
-        select: {
-          id: true,
-          name: true,
-          subdomain: true, // Use subdomain instead of non-existent slug
-          // Outbound settings
-          lifefileEnabled: true,
-          lifefileBaseUrl: true,
-          lifefileUsername: true,
-          lifefilePassword: true,
-          lifefileVendorId: true,
-          lifefilePracticeId: true,
-          lifefileLocationId: true,
-          lifefileNetworkId: true,
-          lifefilePracticeName: true,
-          lifefilePracticeAddress: true,
-          lifefilePracticePhone: true,
-          lifefilePracticeFax: true,
-          lifefileWebhookSecret: true,
-          lifefileDatapushUsername: true,
-          lifefileDatapushPassword: true,
-          // Inbound settings
-          lifefileInboundEnabled: true,
-          lifefileInboundPath: true,
-          lifefileInboundUsername: true,
-          lifefileInboundPassword: true,
-          lifefileInboundSecret: true,
-          lifefileInboundAllowedIPs: true,
-          lifefileInboundEvents: true,
-        },
-      });
-    } catch (dbError: any) {
-      logger.error(`[LIFEFILE GET] Database query failed for clinic ${clinicId}:`, dbError);
-      return Response.json({ error: 'Database query failed', detail: dbError.message }, { status: 500 });
-    }
-    
-    // Log what we got from database
-    logger.info(`[LIFEFILE GET] Query result for clinic ${clinicId}:`, {
-      hasClinic: !!clinic,
-      inboundEnabled: clinic?.lifefileInboundEnabled,
-      inboundPath: clinic?.lifefileInboundPath,
-    });
 
-    if (!clinic) {
-      return Response.json({ error: 'Clinic not found' }, { status: 404 });
-    }
-
-    // Decrypt username for display, mask passwords
-    let decryptedUsername = clinic.lifefileUsername;
-    if (clinic.lifefileUsername) {
       try {
-        const decrypted = decrypt(clinic.lifefileUsername);
-        if (decrypted) {
-          decryptedUsername = decrypted;
-        }
-      } catch (e) {
-        // If decryption fails, show placeholder - don't expose encrypted value
-        logger.warn(`Failed to decrypt username for clinic ${clinicId}, showing placeholder`);
-        decryptedUsername = '[encrypted - please re-enter]';
+        clinic = await prisma.clinic.findUnique({
+          where: { id: clinicId },
+          select: {
+            id: true,
+            name: true,
+            subdomain: true, // Use subdomain instead of non-existent slug
+            // Outbound settings
+            lifefileEnabled: true,
+            lifefileBaseUrl: true,
+            lifefileUsername: true,
+            lifefilePassword: true,
+            lifefileVendorId: true,
+            lifefilePracticeId: true,
+            lifefileLocationId: true,
+            lifefileNetworkId: true,
+            lifefilePracticeName: true,
+            lifefilePracticeAddress: true,
+            lifefilePracticePhone: true,
+            lifefilePracticeFax: true,
+            lifefileWebhookSecret: true,
+            lifefileDatapushUsername: true,
+            lifefileDatapushPassword: true,
+            // Inbound settings
+            lifefileInboundEnabled: true,
+            lifefileInboundPath: true,
+            lifefileInboundUsername: true,
+            lifefileInboundPassword: true,
+            lifefileInboundSecret: true,
+            lifefileInboundAllowedIPs: true,
+            lifefileInboundEvents: true,
+          },
+        });
+      } catch (dbError: any) {
+        logger.error(`[LIFEFILE GET] Database query failed for clinic ${clinicId}:`, dbError);
+        return Response.json(
+          { error: 'Database query failed', detail: dbError.message },
+          { status: 500 }
+        );
       }
-    }
 
-    // Build masked settings - start with outbound only
-    const maskedSettings: any = {
-      id: clinic.id,
-      name: clinic.name,
-      slug: clinic.subdomain || null, // Using subdomain as slug
-      // Outbound
-      lifefileEnabled: clinic.lifefileEnabled,
-      lifefileBaseUrl: clinic.lifefileBaseUrl,
-      lifefileUsername: decryptedUsername,
-      lifefilePassword: clinic.lifefilePassword ? '••••••••' : null,
-      lifefileVendorId: clinic.lifefileVendorId,
-      lifefilePracticeId: clinic.lifefilePracticeId,
-      lifefileLocationId: clinic.lifefileLocationId,
-      lifefileNetworkId: clinic.lifefileNetworkId,
-      lifefilePracticeName: clinic.lifefilePracticeName,
-      lifefilePracticeAddress: clinic.lifefilePracticeAddress,
-      lifefilePracticePhone: clinic.lifefilePracticePhone,
-      lifefilePracticeFax: clinic.lifefilePracticeFax,
-      lifefileWebhookSecret: clinic.lifefileWebhookSecret ? '••••••••' : null,
-      lifefileDatapushUsername: clinic.lifefileDatapushUsername,
-      lifefileDatapushPassword: clinic.lifefileDatapushPassword ? '••••••••' : null,
-      // Computed fields
-      hasCredentials: !!(
-        clinic.lifefileBaseUrl &&
-        clinic.lifefileUsername &&
-        clinic.lifefilePassword &&
-        clinic.lifefileVendorId &&
-        clinic.lifefilePracticeId
-      ),
-    };
+      // Log what we got from database
+      logger.info(`[LIFEFILE GET] Query result for clinic ${clinicId}:`, {
+        hasClinic: !!clinic,
+        inboundEnabled: clinic?.lifefileInboundEnabled,
+        inboundPath: clinic?.lifefileInboundPath,
+      });
 
-    // Add inbound fields if they exist in the database
-    logger.info(`[LIFEFILE GET] Clinic ${clinicId} hasInboundFields=${hasInboundFields}`, {
-      inboundEnabled: clinic.lifefileInboundEnabled,
-      inboundPath: clinic.lifefileInboundPath,
-      hasInboundUsername: !!clinic.lifefileInboundUsername,
-      hasInboundPassword: !!clinic.lifefileInboundPassword,
-      inboundEvents: clinic.lifefileInboundEvents,
-    });
-    
-    if (hasInboundFields) {
-      // Decrypt inbound username
-      let decryptedInboundUsername = clinic.lifefileInboundUsername;
-      if (clinic.lifefileInboundUsername) {
+      if (!clinic) {
+        return Response.json({ error: 'Clinic not found' }, { status: 404 });
+      }
+
+      // Decrypt username for display, mask passwords
+      let decryptedUsername = clinic.lifefileUsername;
+      if (clinic.lifefileUsername) {
         try {
-          const decrypted = decrypt(clinic.lifefileInboundUsername);
+          const decrypted = decrypt(clinic.lifefileUsername);
           if (decrypted) {
-            decryptedInboundUsername = decrypted;
+            decryptedUsername = decrypted;
           }
         } catch (e) {
-          logger.warn(`Failed to decrypt inbound username for clinic ${clinicId}, showing placeholder`);
-          decryptedInboundUsername = '[encrypted - please re-enter]';
+          // If decryption fails, show placeholder - don't expose encrypted value
+          logger.warn(`Failed to decrypt username for clinic ${clinicId}, showing placeholder`);
+          decryptedUsername = '[encrypted - please re-enter]';
         }
       }
 
-      // Generate webhook URL
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'https://app.eonpro.io';
-      const inboundWebhookUrl = clinic.lifefileInboundPath
-        ? `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`
-        : null;
+      // Build masked settings - start with outbound only
+      const maskedSettings: any = {
+        id: clinic.id,
+        name: clinic.name,
+        slug: clinic.subdomain || null, // Using subdomain as slug
+        // Outbound
+        lifefileEnabled: clinic.lifefileEnabled,
+        lifefileBaseUrl: clinic.lifefileBaseUrl,
+        lifefileUsername: decryptedUsername,
+        lifefilePassword: clinic.lifefilePassword ? '••••••••' : null,
+        lifefileVendorId: clinic.lifefileVendorId,
+        lifefilePracticeId: clinic.lifefilePracticeId,
+        lifefileLocationId: clinic.lifefileLocationId,
+        lifefileNetworkId: clinic.lifefileNetworkId,
+        lifefilePracticeName: clinic.lifefilePracticeName,
+        lifefilePracticeAddress: clinic.lifefilePracticeAddress,
+        lifefilePracticePhone: clinic.lifefilePracticePhone,
+        lifefilePracticeFax: clinic.lifefilePracticeFax,
+        lifefileWebhookSecret: clinic.lifefileWebhookSecret ? '••••••••' : null,
+        lifefileDatapushUsername: clinic.lifefileDatapushUsername,
+        lifefileDatapushPassword: clinic.lifefileDatapushPassword ? '••••••••' : null,
+        // Computed fields
+        hasCredentials: !!(
+          clinic.lifefileBaseUrl &&
+          clinic.lifefileUsername &&
+          clinic.lifefilePassword &&
+          clinic.lifefileVendorId &&
+          clinic.lifefilePracticeId
+        ),
+      };
 
-      // DEBUG: Log raw database values
-      logger.info(`[LIFEFILE GET DEBUG] Raw clinic data:`, {
-        rawInboundEnabled: clinic.lifefileInboundEnabled,
-        rawInboundPath: clinic.lifefileInboundPath,
-        rawInboundUsername: clinic.lifefileInboundUsername ? '[encrypted]' : null,
-        rawInboundPassword: clinic.lifefileInboundPassword ? '[encrypted]' : null,
-        rawInboundEvents: clinic.lifefileInboundEvents,
+      // Add inbound fields if they exist in the database
+      logger.info(`[LIFEFILE GET] Clinic ${clinicId} hasInboundFields=${hasInboundFields}`, {
+        inboundEnabled: clinic.lifefileInboundEnabled,
+        inboundPath: clinic.lifefileInboundPath,
+        hasInboundUsername: !!clinic.lifefileInboundUsername,
+        hasInboundPassword: !!clinic.lifefileInboundPassword,
+        inboundEvents: clinic.lifefileInboundEvents,
       });
-      
-      maskedSettings.lifefileInboundEnabled = clinic.lifefileInboundEnabled;
-      maskedSettings.lifefileInboundPath = clinic.lifefileInboundPath;
-      maskedSettings.lifefileInboundUsername = decryptedInboundUsername;
-      maskedSettings.lifefileInboundPassword = clinic.lifefileInboundPassword ? '••••••••' : null;
-      maskedSettings.lifefileInboundSecret = clinic.lifefileInboundSecret ? '••••••••' : null;
-      maskedSettings.lifefileInboundAllowedIPs = clinic.lifefileInboundAllowedIPs;
-      maskedSettings.lifefileInboundEvents = clinic.lifefileInboundEvents;
-      
-      // DEBUG: Log what we're about to return
-      logger.info(`[LIFEFILE GET DEBUG] Response values:`, {
-        respInboundEnabled: maskedSettings.lifefileInboundEnabled,
-        respInboundPath: maskedSettings.lifefileInboundPath,
-        respInboundUsername: maskedSettings.lifefileInboundUsername,
-        respInboundPassword: maskedSettings.lifefileInboundPassword,
-        respInboundEvents: maskedSettings.lifefileInboundEvents,
-      });
-      maskedSettings.hasInboundCredentials = !!(
-        clinic.lifefileInboundPath &&
-        clinic.lifefileInboundUsername &&
-        clinic.lifefileInboundPassword
-      );
-      maskedSettings.inboundWebhookUrl = inboundWebhookUrl;
-      maskedSettings.inboundFieldsAvailable = true;
-      
-      logger.info(`[LIFEFILE GET] Returning inbound settings for clinic ${clinicId}`, {
-        inboundEnabled: maskedSettings.lifefileInboundEnabled,
-        inboundPath: maskedSettings.lifefileInboundPath,
-        hasUsername: !!maskedSettings.lifefileInboundUsername,
-        hasPassword: !!maskedSettings.lifefileInboundPassword,
-        hasInboundCredentials: maskedSettings.hasInboundCredentials,
-      });
-    } else {
-      // Inbound fields not available - indicate migration needed
-      maskedSettings.inboundFieldsAvailable = false;
-    }
+
+      if (hasInboundFields) {
+        // Decrypt inbound username
+        let decryptedInboundUsername = clinic.lifefileInboundUsername;
+        if (clinic.lifefileInboundUsername) {
+          try {
+            const decrypted = decrypt(clinic.lifefileInboundUsername);
+            if (decrypted) {
+              decryptedInboundUsername = decrypted;
+            }
+          } catch (e) {
+            logger.warn(
+              `Failed to decrypt inbound username for clinic ${clinicId}, showing placeholder`
+            );
+            decryptedInboundUsername = '[encrypted - please re-enter]';
+          }
+        }
+
+        // Generate webhook URL
+        const baseUrl =
+          process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : 'https://app.eonpro.io';
+        const inboundWebhookUrl = clinic.lifefileInboundPath
+          ? `${baseUrl}/api/webhooks/lifefile/inbound/${clinic.lifefileInboundPath}`
+          : null;
+
+        // DEBUG: Log raw database values
+        logger.info(`[LIFEFILE GET DEBUG] Raw clinic data:`, {
+          rawInboundEnabled: clinic.lifefileInboundEnabled,
+          rawInboundPath: clinic.lifefileInboundPath,
+          rawInboundUsername: clinic.lifefileInboundUsername ? '[encrypted]' : null,
+          rawInboundPassword: clinic.lifefileInboundPassword ? '[encrypted]' : null,
+          rawInboundEvents: clinic.lifefileInboundEvents,
+        });
+
+        maskedSettings.lifefileInboundEnabled = clinic.lifefileInboundEnabled;
+        maskedSettings.lifefileInboundPath = clinic.lifefileInboundPath;
+        maskedSettings.lifefileInboundUsername = decryptedInboundUsername;
+        maskedSettings.lifefileInboundPassword = clinic.lifefileInboundPassword ? '••••••••' : null;
+        maskedSettings.lifefileInboundSecret = clinic.lifefileInboundSecret ? '••••••••' : null;
+        maskedSettings.lifefileInboundAllowedIPs = clinic.lifefileInboundAllowedIPs;
+        maskedSettings.lifefileInboundEvents = clinic.lifefileInboundEvents;
+
+        // DEBUG: Log what we're about to return
+        logger.info(`[LIFEFILE GET DEBUG] Response values:`, {
+          respInboundEnabled: maskedSettings.lifefileInboundEnabled,
+          respInboundPath: maskedSettings.lifefileInboundPath,
+          respInboundUsername: maskedSettings.lifefileInboundUsername,
+          respInboundPassword: maskedSettings.lifefileInboundPassword,
+          respInboundEvents: maskedSettings.lifefileInboundEvents,
+        });
+        maskedSettings.hasInboundCredentials = !!(
+          clinic.lifefileInboundPath &&
+          clinic.lifefileInboundUsername &&
+          clinic.lifefileInboundPassword
+        );
+        maskedSettings.inboundWebhookUrl = inboundWebhookUrl;
+        maskedSettings.inboundFieldsAvailable = true;
+
+        logger.info(`[LIFEFILE GET] Returning inbound settings for clinic ${clinicId}`, {
+          inboundEnabled: maskedSettings.lifefileInboundEnabled,
+          inboundPath: maskedSettings.lifefileInboundPath,
+          hasUsername: !!maskedSettings.lifefileInboundUsername,
+          hasPassword: !!maskedSettings.lifefileInboundPassword,
+          hasInboundCredentials: maskedSettings.hasInboundCredentials,
+        });
+      } else {
+        // Inbound fields not available - indicate migration needed
+        maskedSettings.inboundFieldsAvailable = false;
+      }
 
       return Response.json({ settings: maskedSettings });
     } catch (error: any) {
@@ -258,7 +274,7 @@ export const PUT = withAuth(
       hasInboundPassword: !!body.lifefileInboundPassword,
       inboundEvents: body.lifefileInboundEvents,
     });
-    
+
     const parsed = lifefileSettingsSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -270,7 +286,7 @@ export const PUT = withAuth(
     }
 
     const settings = parsed.data;
-    
+
     // DEBUG: Log parsed settings to see what Zod gave us
     logger.info(`[LIFEFILE PUT DEBUG] After Zod parsing for clinic ${clinicId}:`, {
       parsedKeys: Object.keys(settings),
@@ -309,12 +325,14 @@ export const PUT = withAuth(
       } else if (settings.lifefileUsername) {
         // Check if value looks already encrypted (3 base64 parts with colons)
         const parts = settings.lifefileUsername.split(':');
-        const looksEncrypted = parts.length === 3 &&
-          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
+        const looksEncrypted =
+          parts.length === 3 && parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
 
         if (looksEncrypted) {
           // Already encrypted - store as-is to prevent double encryption
-          logger.warn(`[LIFEFILE] Username for clinic ${clinicId} appears already encrypted, storing as-is`);
+          logger.warn(
+            `[LIFEFILE] Username for clinic ${clinicId} appears already encrypted, storing as-is`
+          );
           updateData.lifefileUsername = settings.lifefileUsername;
         } else {
           // Encrypt plaintext username
@@ -330,12 +348,14 @@ export const PUT = withAuth(
       if (settings.lifefilePassword) {
         // Check if value looks already encrypted (3 base64 parts with colons)
         const parts = settings.lifefilePassword.split(':');
-        const looksEncrypted = parts.length === 3 &&
-          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
+        const looksEncrypted =
+          parts.length === 3 && parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
 
         if (looksEncrypted) {
           // Already encrypted - store as-is to prevent double encryption
-          logger.warn(`[LIFEFILE] Password for clinic ${clinicId} appears already encrypted, storing as-is`);
+          logger.warn(
+            `[LIFEFILE] Password for clinic ${clinicId} appears already encrypted, storing as-is`
+          );
           updateData.lifefilePassword = settings.lifefilePassword;
         } else {
           // Encrypt plaintext password
@@ -379,7 +399,10 @@ export const PUT = withAuth(
     }
 
     // Only update webhook secret if a new one is provided
-    if (settings.lifefileWebhookSecret !== undefined && settings.lifefileWebhookSecret !== '••••••••') {
+    if (
+      settings.lifefileWebhookSecret !== undefined &&
+      settings.lifefileWebhookSecret !== '••••••••'
+    ) {
       updateData.lifefileWebhookSecret = settings.lifefileWebhookSecret
         ? encrypt(settings.lifefileWebhookSecret)
         : null;
@@ -390,7 +413,10 @@ export const PUT = withAuth(
     }
 
     // Only update datapush password if a new one is provided
-    if (settings.lifefileDatapushPassword !== undefined && settings.lifefileDatapushPassword !== '••••••••') {
+    if (
+      settings.lifefileDatapushPassword !== undefined &&
+      settings.lifefileDatapushPassword !== '••••••••'
+    ) {
       updateData.lifefileDatapushPassword = settings.lifefileDatapushPassword
         ? encrypt(settings.lifefileDatapushPassword)
         : null;
@@ -408,7 +434,9 @@ export const PUT = withAuth(
 
     if (settings.lifefileInboundEnabled !== undefined) {
       updateData.lifefileInboundEnabled = settings.lifefileInboundEnabled;
-      logger.info(`[LIFEFILE PUT INBOUND] Added inboundEnabled to updateData: ${settings.lifefileInboundEnabled}`);
+      logger.info(
+        `[LIFEFILE PUT INBOUND] Added inboundEnabled to updateData: ${settings.lifefileInboundEnabled}`
+      );
     } else {
       logger.info(`[LIFEFILE PUT INBOUND] inboundEnabled is undefined, NOT adding to updateData`);
     }
@@ -419,9 +447,14 @@ export const PUT = withAuth(
       if (settings.lifefileInboundPath) {
         const pathRegex = /^[a-zA-Z0-9_-]+$/;
         if (!pathRegex.test(settings.lifefileInboundPath)) {
-          logger.warn(`[LIFEFILE PUT INBOUND] Invalid path format: ${settings.lifefileInboundPath}`);
+          logger.warn(
+            `[LIFEFILE PUT INBOUND] Invalid path format: ${settings.lifefileInboundPath}`
+          );
           return Response.json(
-            { error: 'Invalid webhook path format. Use only letters, numbers, hyphens, and underscores.' },
+            {
+              error:
+                'Invalid webhook path format. Use only letters, numbers, hyphens, and underscores.',
+            },
             { status: 400 }
           );
         }
@@ -433,7 +466,9 @@ export const PUT = withAuth(
           },
         });
         if (existingPath) {
-          logger.warn(`[LIFEFILE PUT INBOUND] Path already in use: ${settings.lifefileInboundPath}`);
+          logger.warn(
+            `[LIFEFILE PUT INBOUND] Path already in use: ${settings.lifefileInboundPath}`
+          );
           return Response.json(
             { error: 'Webhook path already in use by another clinic.' },
             { status: 400 }
@@ -441,7 +476,9 @@ export const PUT = withAuth(
         }
       }
       updateData.lifefileInboundPath = settings.lifefileInboundPath || null;
-      logger.info(`[LIFEFILE PUT INBOUND] Added inboundPath to updateData: ${settings.lifefileInboundPath || null}`);
+      logger.info(
+        `[LIFEFILE PUT INBOUND] Added inboundPath to updateData: ${settings.lifefileInboundPath || null}`
+      );
     } else {
       logger.info(`[LIFEFILE PUT INBOUND] inboundPath is undefined, NOT adding to updateData`);
     }
@@ -452,8 +489,8 @@ export const PUT = withAuth(
       } else if (settings.lifefileInboundUsername) {
         // Check if already encrypted
         const parts = settings.lifefileInboundUsername.split(':');
-        const looksEncrypted = parts.length === 3 &&
-          parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
+        const looksEncrypted =
+          parts.length === 3 && parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p));
 
         if (looksEncrypted) {
           updateData.lifefileInboundUsername = settings.lifefileInboundUsername;
@@ -465,13 +502,19 @@ export const PUT = withAuth(
       }
     }
 
-    if (settings.lifefileInboundPassword !== undefined && settings.lifefileInboundPassword !== '••••••••') {
+    if (
+      settings.lifefileInboundPassword !== undefined &&
+      settings.lifefileInboundPassword !== '••••••••'
+    ) {
       updateData.lifefileInboundPassword = settings.lifefileInboundPassword
         ? encrypt(settings.lifefileInboundPassword)
         : null;
     }
 
-    if (settings.lifefileInboundSecret !== undefined && settings.lifefileInboundSecret !== '••••••••') {
+    if (
+      settings.lifefileInboundSecret !== undefined &&
+      settings.lifefileInboundSecret !== '••••••••'
+    ) {
       updateData.lifefileInboundSecret = settings.lifefileInboundSecret
         ? encrypt(settings.lifefileInboundSecret)
         : null;
@@ -516,7 +559,7 @@ export const PUT = withAuth(
         lifefileInboundEvents: true,
       },
     });
-    
+
     // DEBUG: Verify what was actually saved by re-querying database
     const verifyClinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -526,7 +569,7 @@ export const PUT = withAuth(
         lifefileInboundUsername: true,
         lifefileInboundPassword: true,
         lifefileInboundEvents: true,
-      }
+      },
     });
     logger.info(`[LIFEFILE PUT VERIFY] Direct database read after update for clinic ${clinicId}:`, {
       inboundEnabled: verifyClinic?.lifefileInboundEnabled,
@@ -537,7 +580,10 @@ export const PUT = withAuth(
     });
 
     // Log the update
-    logger.info(`[SUPER-ADMIN] Lifefile settings updated for clinic ${clinicId} by ${user.email}`);
+        logger.info('[SUPER-ADMIN] Lifefile settings updated for clinic', {
+      clinicId,
+      userId: user.id,
+    });
 
     // Create audit log
     await prisma.clinicAuditLog.create({
@@ -547,7 +593,7 @@ export const PUT = withAuth(
         userId: user.id,
         details: {
           updatedFields: Object.keys(updateData),
-          updatedBy: user.email,
+          updatedBy: user.id,
         },
       },
     });
@@ -671,11 +717,14 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
     }
 
     if (errors.length > 0) {
-      return Response.json({
-        success: false,
-        error: 'Inbound webhook configuration incomplete',
-        details: errors,
-      }, { status: 400 });
+      return Response.json(
+        {
+          success: false,
+          error: 'Inbound webhook configuration incomplete',
+          details: errors,
+        },
+        { status: 400 }
+      );
     }
 
     // Decrypt credentials to send a test request
@@ -729,7 +778,7 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader,
+        Authorization: authHeader,
         'X-Webhook-Test': 'true',
       },
       body: JSON.stringify(testPayload),
@@ -771,15 +820,18 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
         errorMessage = 'Server temporarily unavailable. Please try again in a moment.';
       }
 
-      return Response.json({
-        success: false,
-        error: errorMessage,
-        details: {
-          webhookUrl,
-          statusCode: response.status,
-          response: responseData,
+      return Response.json(
+        {
+          success: false,
+          error: errorMessage,
+          details: {
+            webhookUrl,
+            statusCode: response.status,
+            response: responseData,
+          },
         },
-      }, { status: 400 });
+        { status: 400 }
+      );
     }
   } catch (error: any) {
     logger.error(`[SUPER-ADMIN] Inbound webhook test error for clinic ${clinicId}:`, error);
@@ -792,11 +844,14 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
       errorMessage = 'Database connection issue. Please try again.';
     }
 
-    return Response.json({
-      success: false,
-      error: errorMessage,
-      detail: error.message,
-    }, { status: 500 });
+    return Response.json(
+      {
+        success: false,
+        error: errorMessage,
+        detail: error.message,
+      },
+      { status: 500 }
+    );
   }
 }
 

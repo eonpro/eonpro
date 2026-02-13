@@ -33,12 +33,12 @@ export async function POST(request: NextRequest) {
     }
 
     const validatedData: CreatePaymentData = validationResult.data;
-    
+
     // Create payment intent or process payment
     if (validatedData.paymentMethodId) {
       // Process payment immediately with saved payment method
       const payment = await StripePaymentService.processPayment(validatedData);
-      
+
       return NextResponse.json({
         success: true,
         payment,
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Create payment intent for client-side confirmation
       const result = await StripePaymentService.createPaymentIntent(validatedData);
-      
+
       return NextResponse.json({
         success: true,
         payment: result.payment,
@@ -55,8 +55,11 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[API] Error creating payment:', error instanceof Error ? error : new Error(String(error)));
-    
+    logger.error(
+      '[API] Error creating payment:',
+      error instanceof Error ? error : new Error(String(error))
+    );
+
     return NextResponse.json(
       { error: 'Failed to create payment', message: errorMessage },
       { status: 500 }
@@ -68,32 +71,27 @@ export async function GET(request: NextRequest) {
   try {
     // Dynamic import to avoid build-time errors
     const { StripePaymentService } = await import('@/services/stripe/paymentService');
-    
+
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get('patientId');
-    
+
     if (!patientId) {
-      return NextResponse.json(
-        { error: 'Patient ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });
     }
-    
+
     // Get patient payments
-    const payments = await StripePaymentService.getPatientPayments(
-      parseInt(patientId, 10)
-    );
-    
+    const payments = await StripePaymentService.getPatientPayments(parseInt(patientId, 10));
+
     return NextResponse.json({
       success: true,
       payments,
     });
   } catch (error: unknown) {
-    logger.error('[API] Error fetching payments:', error instanceof Error ? error : new Error(String(error)));
-    
-    return NextResponse.json(
-      { error: 'Failed to fetch payments' },
-      { status: 500 }
+    logger.error(
+      '[API] Error fetching payments:',
+      error instanceof Error ? error : new Error(String(error))
     );
+
+    return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
   }
 }

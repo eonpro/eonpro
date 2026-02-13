@@ -1814,6 +1814,37 @@ export default function ClinicDetailPage() {
                   </div>
                 ))}
               </div>
+              <p className="mt-4 text-sm text-gray-500">
+                Sync Default Features adds missing default keys (e.g. BLOODWORK_LABS) without
+                overwriting explicit off.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!clinicId) return;
+                  try {
+                    const token = localStorage.getItem('auth-token');
+                    const res = await fetch(
+                      `/api/super-admin/clinics/${clinicId}/sync-feature-defaults`,
+                      {
+                        method: 'POST',
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      }
+                    );
+                    const data = await res.json();
+                    if (res.ok) {
+                      alert(data.updated ? `Synced: ${data.keysAdded?.join(', ') || 'defaults'}` : data.message);
+                      fetchClinic();
+                    } else alert(data.error || 'Failed to sync');
+                  } catch (e) {
+                    alert('Failed to sync defaults');
+                  }
+                }}
+                className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <Package className="h-4 w-4" />
+                Sync Default Features
+              </button>
             </div>
           </div>
         )}

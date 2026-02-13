@@ -40,7 +40,7 @@ export async function storeVerificationCode(
   try {
     // Store verification code with 15-minute expiration
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    
+
     // Using PatientAudit table as temporary storage for verification codes
     // In production, create a dedicated VerificationCodes table
     await prisma.patientAudit.create({
@@ -91,7 +91,7 @@ export async function verifyOTPCode(
     }
 
     const data = JSON.parse(verificationRecord.diff as string);
-    
+
     // Check if code is expired
     if (new Date() > new Date(data.expiresAt)) {
       return {
@@ -131,7 +131,7 @@ export async function verifyOTPCode(
     });
 
     logger.info(`Email verified successfully for ${email}`);
-    
+
     return {
       success: true,
       message: 'Email verified successfully',
@@ -155,9 +155,10 @@ export async function sendVerificationEmail(
   type: 'email_verification' | 'password_reset'
 ): Promise<boolean> {
   try {
-    const subject = type === 'email_verification' 
-      ? 'Verify Your Email Address - EONPRO'
-      : 'Reset Your Password - EONPRO';
+    const subject =
+      type === 'email_verification'
+        ? 'Verify Your Email Address - EONPRO'
+        : 'Reset Your Password - EONPRO';
 
     const result = await sendEmail({
       to: email,
@@ -184,14 +185,16 @@ export async function sendVerificationEmail(
 /**
  * Generate email HTML template with EONPRO branding
  */
-function generateEmailTemplate(code: string, type: 'email_verification' | 'password_reset'): string {
-  const title = type === 'email_verification' 
-    ? 'Verify Your Email Address' 
-    : 'Reset Your Password';
-    
-  const message = type === 'email_verification'
-    ? 'Please use the following code to verify your email address:'
-    : 'Please use the following code to reset your password:';
+function generateEmailTemplate(
+  code: string,
+  type: 'email_verification' | 'password_reset'
+): string {
+  const title = type === 'email_verification' ? 'Verify Your Email Address' : 'Reset Your Password';
+
+  const message =
+    type === 'email_verification'
+      ? 'Please use the following code to verify your email address:'
+      : 'Please use the following code to reset your password:';
 
   return `
     <!DOCTYPE html>
@@ -273,7 +276,7 @@ export async function cleanupExpiredCodes(): Promise<void> {
           },
         },
       });
-      
+
       logger.info(`Cleaned up ${expiredRecords.length} expired verification codes`);
     }
   } catch (error) {

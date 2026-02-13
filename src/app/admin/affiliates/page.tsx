@@ -110,11 +110,11 @@ export default function AdminAffiliatesPage() {
     try {
       const [affiliatesRes, plansRes] = await Promise.all([
         fetch('/api/admin/affiliates', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         }),
         fetch('/api/admin/commission-plans', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       if (affiliatesRes.ok) {
@@ -144,13 +144,13 @@ export default function AdminAffiliatesPage() {
       const response = await fetch('/api/admin/affiliates', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           ...createForm,
-          commissionPlanId: createForm.commissionPlanId 
-            ? parseInt(createForm.commissionPlanId) 
+          commissionPlanId: createForm.commissionPlanId
+            ? parseInt(createForm.commissionPlanId)
             : undefined,
         }),
       });
@@ -181,7 +181,7 @@ export default function AdminAffiliatesPage() {
   const handleCopyCode = async (code: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${code}`;
-    
+
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
@@ -191,10 +191,11 @@ export default function AdminAffiliatesPage() {
     }
   };
 
-  const filteredAffiliates = affiliates.filter(a => 
-    a.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.refCodes.some(r => r.refCode.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredAffiliates = affiliates.filter(
+    (a) =>
+      a.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.refCodes.some((r) => r.refCode.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const statusColors: Record<string, string> = {
@@ -292,7 +293,9 @@ export default function AdminAffiliatesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(affiliates.reduce((sum, a) => sum + a.stats.totalCommissionCents, 0))}
+                {formatCurrency(
+                  affiliates.reduce((sum, a) => sum + a.stats.totalCommissionCents, 0)
+                )}
               </p>
               <p className="text-sm text-gray-500">Total Commissions</p>
             </div>
@@ -354,7 +357,7 @@ export default function AdminAffiliatesPage() {
                       <button
                         key={ref.id}
                         onClick={() => handleCopyCode(ref.refCode)}
-                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700 hover:bg-gray-200"
+                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700 hover:bg-gray-200"
                       >
                         {ref.refCode}
                         {copiedCode === ref.refCode ? (
@@ -380,21 +383,28 @@ export default function AdminAffiliatesPage() {
                       <p className="text-xs text-gray-500">
                         {(() => {
                           const plan = affiliate.currentPlan!;
-                          const hasSeperateRates = plan.initialPercentBps !== null || 
+                          const hasSeperateRates =
+                            plan.initialPercentBps !== null ||
                             plan.initialFlatAmountCents !== null ||
                             plan.recurringPercentBps !== null ||
                             plan.recurringFlatAmountCents !== null;
-                          
+
                           if (hasSeperateRates) {
-                            const initialRate = plan.planType === 'PERCENT' 
-                              ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                              : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
-                            const recurringRate = plan.planType === 'PERCENT'
-                              ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                              : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                            const initialRate =
+                              plan.planType === 'PERCENT'
+                                ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                                : formatCurrency(
+                                    plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                                  );
+                            const recurringRate =
+                              plan.planType === 'PERCENT'
+                                ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                                : formatCurrency(
+                                    plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                                  );
                             return `${initialRate} / ${recurringRate}`;
                           }
-                          
+
                           return plan.planType === 'PERCENT' && plan.percentBps
                             ? formatPercent(plan.percentBps)
                             : plan.flatAmountCents
@@ -409,16 +419,16 @@ export default function AdminAffiliatesPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="text-sm">
-                    <p className="text-gray-900">
-                      {affiliate.stats.totalConversions} conversions
-                    </p>
+                    <p className="text-gray-900">{affiliate.stats.totalConversions} conversions</p>
                     <p className="text-gray-500">
                       {formatCurrency(affiliate.stats.totalCommissionCents)} earned
                     </p>
                   </div>
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
-                  <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}>
+                  <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${statusColors[affiliate.status] || 'bg-gray-100 text-gray-800'}`}
+                  >
                     {affiliate.status}
                   </span>
                 </td>
@@ -448,7 +458,7 @@ export default function AdminAffiliatesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <h2 className="mb-4 text-xl font-bold text-gray-900">Create Affiliate</h2>
-            
+
             <form onSubmit={handleCreateAffiliate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Email *</label>
@@ -456,7 +466,7 @@ export default function AdminAffiliatesPage() {
                   type="email"
                   required
                   value={createForm.email}
-                  onChange={(e) => setCreateForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
@@ -467,7 +477,7 @@ export default function AdminAffiliatesPage() {
                   type="password"
                   required
                   value={createForm.password}
-                  onChange={(e) => setCreateForm(f => ({ ...f, password: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
@@ -478,7 +488,7 @@ export default function AdminAffiliatesPage() {
                   type="text"
                   required
                   value={createForm.displayName}
-                  onChange={(e) => setCreateForm(f => ({ ...f, displayName: e.target.value }))}
+                  onChange={(e) => setCreateForm((f) => ({ ...f, displayName: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
@@ -489,7 +499,7 @@ export default function AdminAffiliatesPage() {
                   <input
                     type="text"
                     value={createForm.firstName}
-                    onChange={(e) => setCreateForm(f => ({ ...f, firstName: e.target.value }))}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
@@ -498,7 +508,7 @@ export default function AdminAffiliatesPage() {
                   <input
                     type="text"
                     value={createForm.lastName}
-                    onChange={(e) => setCreateForm(f => ({ ...f, lastName: e.target.value }))}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                   />
                 </div>
@@ -509,7 +519,9 @@ export default function AdminAffiliatesPage() {
                 <input
                   type="text"
                   value={createForm.initialRefCode}
-                  onChange={(e) => setCreateForm(f => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))
+                  }
                   placeholder="e.g., PARTNER_ABC"
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
@@ -519,34 +531,44 @@ export default function AdminAffiliatesPage() {
                 <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
                 <select
                   value={createForm.commissionPlanId}
-                  onChange={(e) => setCreateForm(f => ({ ...f, commissionPlanId: e.target.value }))}
+                  onChange={(e) =>
+                    setCreateForm((f) => ({ ...f, commissionPlanId: e.target.value }))
+                  }
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 >
                   <option value="">Select a plan...</option>
                   {plans.map((plan) => {
                     // Check if plan has separate initial/recurring rates
-                    const hasSeperateRates = plan.initialPercentBps !== null || 
+                    const hasSeperateRates =
+                      plan.initialPercentBps !== null ||
                       plan.initialFlatAmountCents !== null ||
                       plan.recurringPercentBps !== null ||
                       plan.recurringFlatAmountCents !== null;
-                    
+
                     let rateDisplay = '';
                     if (hasSeperateRates) {
-                      const initialRate = plan.planType === 'PERCENT' 
-                        ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                        : formatCurrency(plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0);
-                      const recurringRate = plan.planType === 'PERCENT'
-                        ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                        : formatCurrency(plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0);
+                      const initialRate =
+                        plan.planType === 'PERCENT'
+                          ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                          : formatCurrency(
+                              plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                            );
+                      const recurringRate =
+                        plan.planType === 'PERCENT'
+                          ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                          : formatCurrency(
+                              plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                            );
                       rateDisplay = `${initialRate} initial / ${recurringRate} recurring`;
                     } else {
-                      rateDisplay = plan.planType === 'PERCENT' && plan.percentBps
-                        ? formatPercent(plan.percentBps)
-                        : plan.flatAmountCents
-                          ? formatCurrency(plan.flatAmountCents)
-                          : 'N/A';
+                      rateDisplay =
+                        plan.planType === 'PERCENT' && plan.percentBps
+                          ? formatPercent(plan.percentBps)
+                          : plan.flatAmountCents
+                            ? formatCurrency(plan.flatAmountCents)
+                            : 'N/A';
                     }
-                    
+
                     return (
                       <option key={plan.id} value={plan.id}>
                         {plan.name} ({rateDisplay})
@@ -557,9 +579,7 @@ export default function AdminAffiliatesPage() {
               </div>
 
               {createError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {createError}
-                </div>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</div>
               )}
 
               <div className="flex gap-3 pt-2">

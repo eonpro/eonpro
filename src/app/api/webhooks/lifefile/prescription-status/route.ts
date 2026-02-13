@@ -1,10 +1,10 @@
 /**
  * Webhook endpoint for Lifefile prescription status updates
  * Receives real-time updates about prescription fulfillment
- * 
+ *
  * CREDENTIALS: Looks up clinic by username from Inbound Webhook Settings
  * Configure at: /super-admin/clinics/[id] -> Pharmacy tab -> Inbound Webhook Settings
- * 
+ *
  * Authentication: Basic Auth - username determines which clinic
  */
 
@@ -13,6 +13,12 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { WebhookStatus } from '@prisma/client';
 import { decrypt } from '@/lib/security/encryption';
+import {
+  extractLifefileOrderIdentifiers,
+  buildOrderLookupWhere,
+  sanitizeEventType,
+  MAX_WEBHOOK_BODY_BYTES,
+} from '@/lib/webhooks/lifefile-payload';
 
 /**
  * Safely decrypt a credential field
@@ -57,7 +63,7 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
 
     // Check if username is one of the accepted LifeFile patterns
     const usernameAccepted = ACCEPTED_USERNAMES.includes(providedUsername);
-    
+
     if (!usernameAccepted) {
       logger.error(`[LIFEFILE PRESCRIPTION] Username not in accepted list: ${providedUsername}`);
       return { clinic: null, authenticated: false };
@@ -84,10 +90,12 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
     // Find clinic by matching password
     for (const clinic of clinics) {
       let decryptedPassword: string | null = null;
-      
+
       try {
         decryptedPassword = decrypt(clinic.lifefileInboundPassword);
-        logger.info(`[LIFEFILE PRESCRIPTION] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`);
+        logger.info(
+          `[LIFEFILE PRESCRIPTION] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`
+        );
       } catch (e: any) {
         logger.error(`[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`, e.message);
         // Continue to try other clinics
@@ -102,7 +110,6 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
 
     logger.error(`[LIFEFILE PRESCRIPTION] No clinic found with matching password`);
     return { clinic: null, authenticated: false };
-
   } catch (error) {
     logger.error('[LIFEFILE PRESCRIPTION] Error in auth:', error);
     return null;
@@ -115,7 +122,7 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
  */
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
-  
+
   let webhookLogData: any = {
     endpoint: '/api/webhooks/lifefile/prescription-status',
     method: 'POST',
@@ -124,16 +131,38 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // Get raw body
+    // Get raw body with size limit (DoS protection)
+    const contentLength = req.headers.get('content-length');
+    if (contentLength) {
+      const len = parseInt(contentLength, 10);
+      if (!Number.isFinite(len) || len < 0 || len > MAX_WEBHOOK_BODY_BYTES) {
+        webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
+        webhookLogData.statusCode = 413;
+        webhookLogData.errorMessage = 'Payload too large';
+        await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+          logger.warn('[LifeFile RxStatus] Failed to persist webhook log for oversized content-length', { error: err instanceof Error ? err.message : String(err) });
+        });
+        return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+      }
+    }
     const rawBody = await req.text();
-    
-    // Extract headers for logging
+    if (rawBody.length > MAX_WEBHOOK_BODY_BYTES) {
+      webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
+      webhookLogData.statusCode = 413;
+      webhookLogData.errorMessage = 'Payload too large';
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for oversized payload', { error: err instanceof Error ? err.message : String(err) });
+      });
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+
+    // Extract headers for logging (no PHI)
     const headers: Record<string, string> = {};
     req.headers.forEach((value, key) => {
       headers[key] = key.toLowerCase().includes('auth') ? '[REDACTED]' : value;
     });
     webhookLogData.headers = headers;
-    webhookLogData.ipAddress = req.headers.get('x-forwarded-for') || 'unknown';
+    webhookLogData.ipAddress = req.headers.get('x-forwarded-for') ?? 'unknown';
 
     logger.info('[LIFEFILE PRESCRIPTION] Webhook received');
 
@@ -144,47 +173,83 @@ export async function POST(req: NextRequest) {
     if (!authResult || !authResult.clinic || !authResult.authenticated) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
-      webhookLogData.errorMessage = !authResult?.clinic 
-        ? 'Clinic not found for username' 
+      webhookLogData.errorMessage = !authResult?.clinic
+        ? 'Clinic not found for username'
         : 'Invalid password';
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for auth failure', { error: err instanceof Error ? err.message : String(err) });
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const clinic = authResult.clinic;
     webhookLogData.clinicId = clinic.id;
 
-    // Parse payload
-    let payload: any;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
+    // Parse payload (safe parse; no prototype pollution from payload)
+    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+    const parsed = safeParseJsonString<unknown>(rawBody);
+    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      webhookLogData.errorMessage = 'Invalid JSON or payload must be an object';
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for invalid JSON', { error: err instanceof Error ? err.message : String(err) });
+      });
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
+    const payload = parsed as Record<string, unknown>;
 
     webhookLogData.payload = payload;
 
-    // Extract key fields
-    const orderId = payload.orderId || payload.order_id;
-    const referenceId = payload.referenceId || payload.reference_id;
-    const status = payload.status;
-    const trackingNumber = payload.trackingNumber || payload.tracking_number;
-    const trackingUrl = payload.trackingUrl || payload.tracking_url;
+    // Extract key fields (support nested payload: order.*, data.*, prescription.*)
+    const { orderId, referenceId } = extractLifefileOrderIdentifiers(payload);
+    const rawStatus = payload.status;
+    const rawTrackingNumber = payload.trackingNumber ?? payload.tracking_number;
+    const rawTrackingUrl = payload.trackingUrl ?? payload.tracking_url;
+    const status =
+      typeof rawStatus === 'string' && rawStatus.trim().length > 0
+        ? rawStatus.trim().slice(0, 128)
+        : undefined;
+    const trackingNumber =
+      typeof rawTrackingNumber === 'string' && rawTrackingNumber.trim().length > 0
+        ? rawTrackingNumber.trim().slice(0, 255)
+        : typeof rawTrackingNumber === 'number' && Number.isFinite(rawTrackingNumber)
+          ? String(rawTrackingNumber).slice(0, 255)
+          : undefined;
+    const trackingUrl =
+      typeof rawTrackingUrl === 'string' && rawTrackingUrl.trim().length > 0
+        ? rawTrackingUrl.trim().slice(0, 2048)
+        : undefined;
 
-    logger.info(`[LIFEFILE PRESCRIPTION] Processing - Clinic: ${clinic.name}, Order: ${orderId}, Status: ${status}`);
+    logger.info('[LIFEFILE PRESCRIPTION] Processing', {
+      clinicId: clinic.id,
+      clinicName: clinic.name,
+      orderId: orderId ?? '(none)',
+      referenceId: referenceId ?? '(none)',
+      status,
+      payloadKeys: Object.keys(payload as object),
+    });
+
+    const where = buildOrderLookupWhere(clinic.id, orderId, referenceId);
+    if (!where) {
+      logger.warn('[LIFEFILE PRESCRIPTION] No orderId or referenceId in payload', {
+        payloadKeys: Object.keys(payload as object),
+      });
+      webhookLogData.status = WebhookStatus.ERROR;
+      webhookLogData.statusCode = 400;
+      webhookLogData.errorMessage = 'Missing orderId or referenceId';
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for missing order identifiers', { error: err instanceof Error ? err.message : String(err) });
+      });
+      return NextResponse.json(
+        { error: 'Missing orderId or referenceId in payload' },
+        { status: 400 }
+      );
+    }
 
     // Find the order (scoped to the authenticated clinic)
     const order = await prisma.order.findFirst({
-      where: {
-        clinicId: clinic.id,
-        OR: [
-          { lifefileOrderId: orderId || '' },
-          { referenceId: referenceId || '' },
-        ].filter(c => Object.values(c)[0]),
-      },
+      where,
       include: {
         patient: {
           select: { id: true, clinicId: true },
@@ -193,20 +258,29 @@ export async function POST(req: NextRequest) {
     });
 
     if (!order) {
-      logger.warn(`[LIFEFILE PRESCRIPTION] Order not found: ${orderId || referenceId}`);
-      
+      logger.warn('[LIFEFILE PRESCRIPTION] Order not found', {
+        clinicId: clinic.id,
+        orderId,
+        referenceId,
+      });
+
       webhookLogData.status = WebhookStatus.SUCCESS;
       webhookLogData.statusCode = 202;
       webhookLogData.responseData = { processed: false, reason: 'Order not found' };
-      await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+        logger.warn('[LifeFile RxStatus] Failed to persist webhook log for order not found', { error: err instanceof Error ? err.message : String(err) });
+      });
 
-      return NextResponse.json({
-        success: false,
-        message: 'Order not found',
-        clinic: clinic.name,
-        orderId,
-        referenceId,
-      }, { status: 202 });
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Order not found',
+          clinic: clinic.name,
+          orderId: orderId ?? undefined,
+          referenceId: referenceId ?? undefined,
+        },
+        { status: 202 }
+      );
     }
 
     // Update order with new status/tracking info
@@ -224,14 +298,21 @@ export async function POST(req: NextRequest) {
       data: updateData,
     });
 
-    // Create order event for audit trail
+    // Create order event for audit trail (sanitized eventType to prevent injection)
+    const eventType = sanitizeEventType(status ? `prescription_${status}` : 'prescription_update');
+    const note =
+      trackingNumber != null
+        ? `Tracking: ${trackingNumber.slice(0, 100)}`
+        : status != null
+          ? `Status: ${status.slice(0, 64)}`
+          : 'Update';
     await prisma.orderEvent.create({
       data: {
         orderId: order.id,
-        lifefileOrderId: orderId,
-        eventType: `prescription_${status || 'update'}`,
-        payload: payload,
-        note: trackingNumber ? `Tracking: ${trackingNumber}` : `Status: ${status}`,
+        lifefileOrderId: orderId ?? undefined,
+        eventType,
+        payload: payload as object,
+        note,
       },
     });
 
@@ -247,7 +328,9 @@ export async function POST(req: NextRequest) {
     };
     webhookLogData.processingTimeMs = processingTime;
 
-    await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+    await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      logger.warn('[LifeFile RxStatus] Failed to persist webhook log', { error: err instanceof Error ? err.message : String(err) });
+    });
 
     logger.info(`[LIFEFILE PRESCRIPTION] Processed in ${processingTime}ms`);
 
@@ -260,17 +343,21 @@ export async function POST(req: NextRequest) {
       trackingNumber,
       processingTime: `${processingTime}ms`,
     });
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[LIFEFILE PRESCRIPTION] Error:', error);
+    logger.error('[LIFEFILE PRESCRIPTION] Error', {
+      message: errorMessage,
+      name: error instanceof Error ? error.name : undefined,
+    });
 
     webhookLogData.status = WebhookStatus.ERROR;
     webhookLogData.statusCode = 500;
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    await prisma.webhookLog.create({ data: webhookLogData }).catch(() => {});
+    await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      logger.warn('[LifeFile RxStatus] Failed to persist webhook log for processing error', { error: err instanceof Error ? err.message : String(err) });
+    });
 
     return NextResponse.json(
       { error: 'Internal server error', message: errorMessage },

@@ -2,14 +2,14 @@
  * CLINIC INVOICE SERVICE
  * ======================
  * Manages clinic platform invoices for EONPRO billing
- * 
+ *
  * Features:
  * - Invoice generation from aggregated fee events
  * - Stripe invoice creation and management
  * - PDF report generation
  * - Invoice lifecycle management (draft → pending → sent → paid)
  * - Payment tracking
- * 
+ *
  * @module services/billing/clinicInvoiceService
  */
 
@@ -105,6 +105,71 @@ export const clinicInvoiceService = {
 
     const number = String(count + 1).padStart(5, '0');
     return `${prefix}${number}`;
+  },
+
+  /**
+   * Preview pending fees for a clinic/period (no invoice created).
+   * Use for "Create invoice" flow to show totals before generating.
+   */
+  async previewPendingFees(
+    clinicId: number,
+    periodStart: Date,
+    periodEnd: Date
+  ): Promise<{
+    feeCount: number;
+    prescriptionCount: number;
+    transmissionCount: number;
+    prescriptionFeeTotal: number;
+    transmissionFeeTotal: number;
+    adminFeeTotal: number;
+    totalAmountCents: number;
+    hasConfig: boolean;
+  }> {
+    const config = await platformFeeService.getFeeConfig(clinicId);
+    const pendingFees = await prisma.platformFeeEvent.findMany({
+      where: {
+        clinicId,
+        status: 'PENDING',
+        createdAt: { gte: periodStart, lte: periodEnd },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let prescriptionFeeTotal = 0;
+    let transmissionFeeTotal = 0;
+    let adminFeeTotal = 0;
+    let prescriptionCount = 0;
+    let transmissionCount = 0;
+
+    for (const fee of pendingFees) {
+      switch (fee.feeType) {
+        case 'PRESCRIPTION':
+          prescriptionFeeTotal += fee.amountCents;
+          prescriptionCount++;
+          break;
+        case 'TRANSMISSION':
+          transmissionFeeTotal += fee.amountCents;
+          transmissionCount++;
+          break;
+        case 'ADMIN':
+          adminFeeTotal += fee.amountCents;
+          break;
+      }
+    }
+
+    const totalAmountCents =
+      prescriptionFeeTotal + transmissionFeeTotal + adminFeeTotal;
+
+    return {
+      feeCount: pendingFees.length,
+      prescriptionCount,
+      transmissionCount,
+      prescriptionFeeTotal,
+      transmissionFeeTotal,
+      adminFeeTotal,
+      totalAmountCents,
+      hasConfig: !!config && config.isActive,
+    };
   },
 
   /**
@@ -233,10 +298,7 @@ export const clinicInvoiceService = {
   /**
    * Finalize a draft invoice (make it pending)
    */
-  async finalizeInvoice(
-    invoiceId: number,
-    actorId?: number
-  ): Promise<ClinicPlatformInvoice> {
+  async finalizeInvoice(invoiceId: number, actorId?: number): Promise<ClinicPlatformInvoice> {
     const invoice = await prisma.clinicPlatformInvoice.findUnique({
       where: { id: invoiceId },
     });
@@ -610,6 +672,28 @@ export const clinicInvoiceService = {
     return result.count;
   },
 
+  /**
+   * Check and mark overdue invoices for a single clinic (for per-tenant cron).
+   */
+  async checkOverdueInvoicesForClinic(clinicId: number): Promise<number> {
+    const now = new Date();
+
+    const result = await prisma.clinicPlatformInvoice.updateMany({
+      where: {
+        clinicId,
+        status: { in: ['PENDING', 'SENT'] },
+        dueDate: { lt: now },
+      },
+      data: { status: 'OVERDUE' },
+    });
+
+    if (result.count > 0) {
+      logger.info('[ClinicInvoiceService] Marked invoices as overdue', { clinicId, count: result.count });
+    }
+
+    return result.count;
+  },
+
   // --------------------------------------------------------------------------
   // Invoice Queries
   // --------------------------------------------------------------------------
@@ -731,7 +815,7 @@ export const clinicInvoiceService = {
 
     for (const inv of invoices) {
       totalAmountCents += inv.totalAmountCents;
-      
+
       switch (inv.status) {
         case 'DRAFT':
           draftCount++;
@@ -848,15 +932,18 @@ export const clinicInvoiceService = {
     });
 
     // Group by clinic
-    const clinicMap = new Map<number, {
-      clinicId: number;
-      clinicName: string;
-      prescriptionFees: number;
-      transmissionFees: number;
-      adminFees: number;
-      prescriptionCount: number;
-      transmissionCount: number;
-    }>();
+    const clinicMap = new Map<
+      number,
+      {
+        clinicId: number;
+        clinicName: string;
+        prescriptionFees: number;
+        transmissionFees: number;
+        adminFees: number;
+        prescriptionCount: number;
+        transmissionCount: number;
+      }
+    >();
 
     for (const fee of fees) {
       const existing = clinicMap.get(fee.clinicId) || {
@@ -964,27 +1051,39 @@ function generateInvoiceEmailHtml(invoice: {
             <th>Count</th>
             <th>Amount</th>
           </tr>
-          ${invoice.prescriptionFeeTotal > 0 ? `
+          ${
+            invoice.prescriptionFeeTotal > 0
+              ? `
           <tr>
             <td>Medical Prescription Fees</td>
             <td>${invoice.prescriptionCount}</td>
             <td>${formatCurrency(invoice.prescriptionFeeTotal)}</td>
           </tr>
-          ` : ''}
-          ${invoice.transmissionFeeTotal > 0 ? `
+          `
+              : ''
+          }
+          ${
+            invoice.transmissionFeeTotal > 0
+              ? `
           <tr>
             <td>Prescription Transmission Fees</td>
             <td>${invoice.transmissionCount}</td>
             <td>${formatCurrency(invoice.transmissionFeeTotal)}</td>
           </tr>
-          ` : ''}
-          ${invoice.adminFeeTotal > 0 ? `
+          `
+              : ''
+          }
+          ${
+            invoice.adminFeeTotal > 0
+              ? `
           <tr>
             <td>Weekly Admin/Platform Fee</td>
             <td>-</td>
             <td>${formatCurrency(invoice.adminFeeTotal)}</td>
           </tr>
-          ` : ''}
+          `
+              : ''
+          }
           <tr class="total">
             <td colspan="2">Total Due</td>
             <td>${formatCurrency(invoice.totalAmountCents)}</td>
@@ -993,11 +1092,15 @@ function generateInvoiceEmailHtml(invoice: {
         
         <p><strong>Due Date:</strong> ${invoice.dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         
-        ${invoice.stripeInvoiceUrl ? `
+        ${
+          invoice.stripeInvoiceUrl
+            ? `
         <p>
           <a href="${invoice.stripeInvoiceUrl}" class="button">Pay Invoice Online</a>
         </p>
-        ` : ''}
+        `
+            : ''
+        }
         
         <p>If you have any questions about this invoice, please contact billing@eonpro.com.</p>
         

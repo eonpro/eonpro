@@ -3,8 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  User, Shield, PenTool, Key, Save, Trash2, Upload,
-  Check, AlertCircle, Eye, EyeOff, Building2
+  User,
+  Shield,
+  PenTool,
+  Key,
+  Save,
+  Trash2,
+  Upload,
+  Check,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Building2,
 } from 'lucide-react';
 
 interface ProviderSettings {
@@ -50,7 +60,9 @@ export default function ProviderSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState<'profile' | 'credentials' | 'signature' | 'password'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'credentials' | 'signature' | 'password'>(
+    'profile'
+  );
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -79,21 +91,24 @@ export default function ProviderSettingsPage() {
   const [hasDrawnSignature, setHasDrawnSignature] = useState(false);
 
   useEffect(() => {
-    // Check authentication
     const user = localStorage.getItem('user');
     if (!user) {
       router.push('/login');
       return;
     }
-
-    const data = JSON.parse(user);
-    if (data.role?.toLowerCase() !== 'provider') {
+    try {
+      const data = JSON.parse(user);
+      if (data.role?.toLowerCase() !== 'provider') {
+        router.push('/login');
+        return;
+      }
+      setUserData(data);
+      fetchSettings();
+    } catch {
+      localStorage.removeItem('user');
       router.push('/login');
       return;
     }
-
-    setUserData(data);
-    fetchSettings();
   }, [router]);
 
   const fetchSettings = async () => {
@@ -173,8 +188,8 @@ export default function ProviderSettingsPage() {
 
       // Calculate scaling to fit image within canvas while maintaining aspect ratio
       const padding = 20; // Add some padding
-      const maxWidth = canvas.width - (padding * 2);
-      const maxHeight = canvas.height - (padding * 2);
+      const maxWidth = canvas.width - padding * 2;
+      const maxHeight = canvas.height - padding * 2;
 
       let drawWidth = img.width;
       let drawHeight = img.height;
@@ -198,7 +213,9 @@ export default function ProviderSettingsPage() {
     img.src = dataUrl;
   };
 
-  const getCoordinates = (e: React.MouseEvent | React.TouchEvent): { x: number; y: number } | null => {
+  const getCoordinates = (
+    e: React.MouseEvent | React.TouchEvent
+  ): { x: number; y: number } | null => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -442,9 +459,9 @@ export default function ProviderSettingsPage() {
 
       // Auto-populate from NPI registry
       const basic = data.result.basic || {};
-      const address = data.result.addresses?.find(
-        (addr: any) => addr.addressPurpose === 'LOCATION'
-      ) || data.result.addresses?.[0];
+      const address =
+        data.result.addresses?.find((addr: any) => addr.addressPurpose === 'LOCATION') ||
+        data.result.addresses?.[0];
 
       if (basic.firstName || basic.first_name) {
         setFirstName(basic.firstName || basic.first_name || firstName);
@@ -526,43 +543,43 @@ export default function ProviderSettingsPage() {
   ];
 
   return (
-    <div className="p-6 lg:p-8 min-h-screen">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen p-6 lg:p-8">
+      <div className="mx-auto max-w-4xl space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#4fa77e] to-[#3d9268] rounded-2xl p-6 text-white shadow-sm">
-          <h1 className="text-2xl font-bold mb-2">Settings</h1>
+        <div className="rounded-2xl bg-gradient-to-r from-[#4fa77e] to-[#3d9268] p-6 text-white shadow-sm">
+          <h1 className="mb-2 text-2xl font-bold">Settings</h1>
           <p className="text-green-100">Manage your profile, credentials, and signature</p>
         </div>
 
         {/* Alerts */}
         {error && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
             <AlertCircle className="h-5 w-5" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-green-700">
             <Check className="h-5 w-5" />
             <span>{success}</span>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="border-b border-gray-100">
-            <nav className="flex -mb-px">
+            <nav className="-mb-px flex">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    className={`flex items-center gap-2 border-b-2 px-6 py-4 text-sm font-medium transition-colors ${
                       activeTab === tab.id
                         ? 'border-[#4fa77e] text-[#4fa77e]'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -577,66 +594,62 @@ export default function ProviderSettingsPage() {
             {/* Profile Tab */}
             {activeTab === 'profile' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       First Name
                     </label>
                     <input
                       type="text"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Last Name
                     </label>
                     <input
                       type="text"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Email</label>
                   <input
                     type="email"
                     value={settings?.user?.email || ''}
                     disabled
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-500"
                   />
                   <p className="mt-1 text-xs text-gray-500">Contact support to change your email</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">Phone</label>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     placeholder="(555) 123-4567"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     Title / Specialty
                   </label>
                   <input
                     type="text"
                     value={titleLine}
                     onChange={(e) => setTitleLine(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     placeholder="e.g., Board Certified Internal Medicine"
                   />
                 </div>
@@ -644,15 +657,15 @@ export default function ProviderSettingsPage() {
                 {/* Clinics */}
                 {settings?.hasMultipleClinics && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Building2 className="h-4 w-4 inline mr-1" />
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      <Building2 className="mr-1 inline h-4 w-4" />
                       Associated Clinics
                     </label>
                     <div className="space-y-2">
                       {settings.clinics.map((clinic) => (
                         <div
                           key={clinic.id}
-                          className={`p-3 rounded-lg border ${
+                          className={`rounded-lg border p-3 ${
                             clinic.id === settings.activeClinicId
                               ? 'border-green-500 bg-green-50'
                               : 'border-gray-200 bg-gray-50'
@@ -661,7 +674,7 @@ export default function ProviderSettingsPage() {
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{clinic.name}</span>
                             {clinic.isPrimary && (
-                              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                              <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
                                 Primary
                               </span>
                             )}
@@ -677,10 +690,10 @@ export default function ProviderSettingsPage() {
                   <button
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3d9268] disabled:opacity-50"
                   >
                     {saving ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
                       <Save className="h-4 w-4" />
                     )}
@@ -696,56 +709,57 @@ export default function ProviderSettingsPage() {
                 {settings?.provider?.npi ? (
                   <>
                     {/* Existing credentials - read only */}
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
                       <p className="text-sm text-green-700">
-                        <Check className="h-4 w-4 inline mr-1" />
-                        Your provider credentials are registered. Contact your clinic administrator to update them.
+                        <Check className="mr-1 inline h-4 w-4" />
+                        Your provider credentials are registered. Contact your clinic administrator
+                        to update them.
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           NPI Number
                         </label>
                         <input
                           type="text"
                           value={settings?.provider?.npi || 'Not set'}
                           disabled
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-700"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           DEA Number
                         </label>
                         <input
                           type="text"
                           value={settings?.provider?.dea || 'Not set'}
                           disabled
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-700"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           License Number
                         </label>
                         <input
                           type="text"
                           value={settings?.provider?.licenseNumber || 'Not set'}
                           disabled
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-mono"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 font-mono text-gray-700"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           License State
                         </label>
                         <input
                           type="text"
                           value={settings?.provider?.licenseState || 'Not set'}
                           disabled
-                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-gray-700"
                         />
                       </div>
                     </div>
@@ -753,12 +767,12 @@ export default function ProviderSettingsPage() {
                 ) : (
                   <>
                     {/* Register credentials form */}
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <p className="text-sm text-amber-800 font-medium">
-                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-medium text-amber-800">
+                        <AlertCircle className="mr-1 inline h-4 w-4" />
                         Provider Credentials Required
                       </p>
-                      <p className="text-sm text-amber-700 mt-1">
+                      <p className="mt-1 text-sm text-amber-700">
                         To write prescriptions, you need to register your NPI and DEA credentials.
                       </p>
                     </div>
@@ -766,7 +780,7 @@ export default function ProviderSettingsPage() {
                     <div className="space-y-4">
                       {/* NPI with verification */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           NPI Number *
                         </label>
                         <div className="flex gap-2">
@@ -778,20 +792,20 @@ export default function ProviderSettingsPage() {
                               setNpiVerified(false);
                             }}
                             placeholder="Enter your 10-digit NPI"
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
+                            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 font-mono focus:ring-2 focus:ring-green-500"
                           />
                           <button
                             type="button"
                             onClick={verifyNpi}
                             disabled={verifyingNpi || npi.length !== 10 || npiVerified}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            className={`rounded-lg px-4 py-2 font-medium transition-colors ${
                               npiVerified
                                 ? 'bg-green-100 text-green-700'
                                 : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
                             }`}
                           >
                             {verifyingNpi ? (
-                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                             ) : npiVerified ? (
                               <Check className="h-5 w-5" />
                             ) : (
@@ -800,16 +814,16 @@ export default function ProviderSettingsPage() {
                           </button>
                         </div>
                         {npiVerified && (
-                          <p className="text-sm text-green-600 mt-1">
-                            <Check className="h-4 w-4 inline mr-1" />
+                          <p className="mt-1 text-sm text-green-600">
+                            <Check className="mr-1 inline h-4 w-4" />
                             NPI verified successfully
                           </p>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="mb-2 block text-sm font-medium text-gray-700">
                             DEA Number
                           </label>
                           <input
@@ -817,34 +831,87 @@ export default function ProviderSettingsPage() {
                             value={dea}
                             onChange={(e) => setDea(e.target.value.toUpperCase())}
                             placeholder="e.g., AB1234567"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2 font-mono focus:ring-2 focus:ring-green-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="mb-2 block text-sm font-medium text-gray-700">
                             License Number
                           </label>
                           <input
                             type="text"
                             value={licenseNumber}
                             onChange={(e) => setLicenseNumber(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono"
+                            className="w-full rounded-lg border border-gray-300 px-4 py-2 font-mono focus:ring-2 focus:ring-green-500"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           License State
                         </label>
                         <select
                           value={licenseState}
                           onChange={(e) => setLicenseState(e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                          className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-green-500"
                         >
                           <option value="">Select State</option>
-                          {['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'].map(s => (
-                            <option key={s} value={s}>{s}</option>
+                          {[
+                            'AL',
+                            'AK',
+                            'AZ',
+                            'AR',
+                            'CA',
+                            'CO',
+                            'CT',
+                            'DE',
+                            'FL',
+                            'GA',
+                            'HI',
+                            'ID',
+                            'IL',
+                            'IN',
+                            'IA',
+                            'KS',
+                            'KY',
+                            'LA',
+                            'ME',
+                            'MD',
+                            'MA',
+                            'MI',
+                            'MN',
+                            'MS',
+                            'MO',
+                            'MT',
+                            'NE',
+                            'NV',
+                            'NH',
+                            'NJ',
+                            'NM',
+                            'NY',
+                            'NC',
+                            'ND',
+                            'OH',
+                            'OK',
+                            'OR',
+                            'PA',
+                            'RI',
+                            'SC',
+                            'SD',
+                            'TN',
+                            'TX',
+                            'UT',
+                            'VT',
+                            'VA',
+                            'WA',
+                            'WV',
+                            'WI',
+                            'WY',
+                          ].map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -853,10 +920,10 @@ export default function ProviderSettingsPage() {
                         <button
                           onClick={handleRegisterCredentials}
                           disabled={saving || !npiVerified}
-                          className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
+                          className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3d9268] disabled:opacity-50"
                         >
                           {saving ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                           ) : (
                             <Save className="h-4 w-4" />
                           )}
@@ -873,16 +940,17 @@ export default function ProviderSettingsPage() {
             {activeTab === 'signature' && (
               <div className="space-y-6">
                 <p className="text-sm text-gray-600">
-                  Draw your signature below or upload an image. This signature will be used on prescriptions and documents.
+                  Draw your signature below or upload an image. This signature will be used on
+                  prescriptions and documents.
                 </p>
 
                 {/* Signature Canvas */}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4">
                   <canvas
                     ref={canvasRef}
                     width={600}
                     height={200}
-                    className="w-full bg-white border border-gray-200 rounded cursor-crosshair touch-none"
+                    className="w-full cursor-crosshair touch-none rounded border border-gray-200 bg-white"
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
@@ -897,13 +965,13 @@ export default function ProviderSettingsPage() {
                 <div className="flex flex-wrap items-center gap-4">
                   <button
                     onClick={clearSignature}
-                    className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
                   >
                     <Trash2 className="h-4 w-4" />
                     Clear
                   </button>
 
-                  <label className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer border border-gray-200">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200">
                     <Upload className="h-4 w-4" />
                     Upload Image
                     <input
@@ -919,10 +987,10 @@ export default function ProviderSettingsPage() {
                   <button
                     onClick={handleSaveSignature}
                     disabled={saving || !hasDrawnSignature}
-                    className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3d9268] disabled:opacity-50"
                   >
                     {saving ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
                       <Save className="h-4 w-4" />
                     )}
@@ -933,13 +1001,11 @@ export default function ProviderSettingsPage() {
                 {/* Current Signature Preview */}
                 {signatureData && !hasDrawnSignature && (
                   <div className="mt-6">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">Current Saved Signature</h3>
-                    <div className="inline-block p-4 bg-white border border-gray-200 rounded-lg">
-                      <img
-                        src={signatureData}
-                        alt="Current signature"
-                        className="max-h-24"
-                      />
+                    <h3 className="mb-2 text-sm font-medium text-gray-700">
+                      Current Saved Signature
+                    </h3>
+                    <div className="inline-block rounded-lg border border-gray-200 bg-white p-4">
+                      <img src={signatureData} alt="Current signature" className="max-h-24" />
                     </div>
                   </div>
                 )}
@@ -948,9 +1014,9 @@ export default function ProviderSettingsPage() {
 
             {/* Password Tab */}
             {activeTab === 'password' && (
-              <div className="space-y-6 max-w-md">
+              <div className="max-w-md space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     Current Password
                   </label>
                   <div className="relative">
@@ -958,20 +1024,24 @@ export default function ProviderSettingsPage() {
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-12 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showCurrentPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     New Password
                   </label>
                   <div className="relative">
@@ -979,28 +1049,32 @@ export default function ProviderSettingsPage() {
                       type={showNewPassword ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-12 focus:border-transparent focus:ring-2 focus:ring-green-500"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      {showNewPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
                     </button>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">Minimum 8 characters</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     Confirm New Password
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
                   />
                 </div>
 
@@ -1008,10 +1082,10 @@ export default function ProviderSettingsPage() {
                   <button
                     onClick={handleChangePassword}
                     disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-                    className="flex items-center gap-2 px-6 py-2 bg-[#4fa77e] text-white rounded-xl hover:bg-[#3d9268] disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3d9268] disabled:opacity-50"
                   >
                     {saving ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
                       <Key className="h-4 w-4" />
                     )}

@@ -95,10 +95,13 @@ export async function generatePatientId(
       // Check if it's a unique constraint violation (P2002)
       const prismaError = error as { code?: string; meta?: { target?: string[] } };
       if (prismaError.code === 'P2002' && prismaError.meta?.target?.includes('patientId')) {
-        logger.warn(`[PatientIdGenerator] ID conflict on attempt ${attempt + 1}/${maxRetries + 1}`, {
-          clinicId,
-          error: prismaError.code,
-        });
+        logger.warn(
+          `[PatientIdGenerator] ID conflict on attempt ${attempt + 1}/${maxRetries + 1}`,
+          {
+            clinicId,
+            error: prismaError.code,
+          }
+        );
 
         // On conflict, try to resync the counter
         if (attempt >= 2) {
@@ -200,7 +203,9 @@ async function resyncPatientCounter(clinicId: number): Promise<void> {
       data: { current: highestNum + 1 },
     });
 
-    logger.info(`[PatientIdGenerator] Resynced counter for clinic ${clinicId} to ${highestNum + 1}`);
+    logger.info(
+      `[PatientIdGenerator] Resynced counter for clinic ${clinicId} to ${highestNum + 1}`
+    );
   } catch (error) {
     logger.error(`[PatientIdGenerator] Failed to resync counter`, {
       clinicId,
@@ -273,7 +278,9 @@ export function isValidPatientIdFormat(patientId: string): boolean {
  * @param patientId - The patient ID to parse
  * @returns Object with prefix and number, or null if invalid
  */
-export function parsePatientId(patientId: string): { prefix: string | null; number: string } | null {
+export function parsePatientId(
+  patientId: string
+): { prefix: string | null; number: string } | null {
   const match = patientId.match(/^(?:([A-Z]{2,5})-)?(.+)$/);
   if (!match) {
     return null;

@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
-  
+
   const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
     status: 200,
     headers: {
       'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
+      Pragma: 'no-cache',
+      Expires: '0',
     },
   });
 }

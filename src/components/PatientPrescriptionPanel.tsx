@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
-import PrescriptionForm from "@/components/PrescriptionForm";
+import { useMemo } from 'react';
+import PrescriptionForm from '@/components/PrescriptionForm';
 
- type PatientPrescriptionPanelProps = {
+type PatientPrescriptionPanelProps = {
   patient: {
     id: number;
     firstName: string;
@@ -21,21 +21,24 @@ import PrescriptionForm from "@/components/PrescriptionForm";
   onSuccess?: () => void;
 };
 
-export default function PatientPrescriptionPanel({ patient, onSuccess }: PatientPrescriptionPanelProps) {
+export default function PatientPrescriptionPanel({
+  patient,
+  onSuccess,
+}: PatientPrescriptionPanelProps) {
   const patientContext = useMemo(
     () => ({
       id: patient.id,
       firstName: patient.firstName,
       lastName: patient.lastName,
-      dob: patient.dob ?? "",
-      gender: patient.gender ?? "",
-      phone: patient.phone ?? "",
-      email: patient.email ?? "",
-      address1: patient.address1 ?? "",
-      address2: patient.address2 ?? "",
-      city: patient.city ?? "",
-      state: patient.state ?? "",
-      zip: patient.zip ?? "",
+      dob: patient.dob ?? '',
+      gender: patient.gender ?? '',
+      phone: patient.phone ?? '',
+      email: patient.email ?? '',
+      address1: patient.address1 ?? '',
+      address2: patient.address2 ?? '',
+      city: patient.city ?? '',
+      state: patient.state ?? '',
+      zip: patient.zip ?? '',
     }),
     [patient]
   );

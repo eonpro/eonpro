@@ -2,7 +2,7 @@
  * VERIFY OTP API
  * ==============
  * Verifies a 6-digit OTP code and logs the user in
- * 
+ *
  * POST /api/auth/verify-otp
  * Body: { phone: string, code: string }
  */
@@ -25,37 +25,39 @@ export async function POST(req: NextRequest): Promise<Response> {
   try {
     const body = await req.json();
     const validated = verifyOtpSchema.safeParse(body);
-    
+
     if (!validated.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: validated.error.issues },
         { status: 400 }
       );
     }
-    
+
     const { phone, code } = validated.data;
-    
+
     // Format phone number
     const formattedPhone = formatPhoneNumber(phone);
     if (!formattedPhone) {
-      return NextResponse.json(
-        { error: 'Invalid phone number format' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
     }
-    
+
     // Find the OTP record
-    const otpRecord = await prisma.phoneOtp.findFirst({
-      where: {
-        phone: formattedPhone,
-        code: code,
-        expiresAt: {
-          gt: new Date(),
+    const otpRecord = await prisma.phoneOtp
+      .findFirst({
+        where: {
+          phone: formattedPhone,
+          code: code,
+          expiresAt: {
+            gt: new Date(),
+          },
+          used: false,
         },
-        used: false,
-      },
-    }).catch(() => null);
-    
+      })
+      .catch((err) => {
+        logger.warn('[VerifyOTP] Failed to query OTP record', { error: err instanceof Error ? err.message : String(err) });
+        return null;
+      });
+
     if (!otpRecord) {
       logger.warn('Invalid or expired OTP attempt', { phone: formattedPhone });
       return NextResponse.json(
@@ -63,20 +65,38 @@ export async function POST(req: NextRequest): Promise<Response> {
         { status: 401 }
       );
     }
-    
+
     // Mark OTP as used
-    await prisma.phoneOtp.update({
-      where: { id: otpRecord.id },
-      data: { used: true, usedAt: new Date() },
-    }).catch(() => {});
-    
+    await prisma.phoneOtp
+      .update({
+        where: { id: otpRecord.id },
+        data: { used: true, usedAt: new Date() },
+      })
+      .catch((err) => {
+        logger.warn('[VerifyOTP] Failed to mark OTP as used', { error: err instanceof Error ? err.message : String(err), otpId: otpRecord.id });
+      });
+
     // Find the account
-    type UserData = { id: number; email: string; firstName: string; lastName: string; role: string; clinicId: number | null; status?: string };
-    type PatientData = { id: number; email: string | null; firstName: string; lastName: string; clinicId: number | null };
+    type UserData = {
+      id: number;
+      email: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      clinicId: number | null;
+      status?: string;
+    };
+    type PatientData = {
+      id: number;
+      email: string | null;
+      firstName: string;
+      lastName: string;
+      clinicId: number | null;
+    };
     let user: UserData | null = null;
     let patient: PatientData | null = null;
     let isPatientLogin = false;
-    
+
     // If OTP has userId, get the user
     if (otpRecord.userId) {
       user = await prisma.user.findUnique({
@@ -92,7 +112,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         },
       });
     }
-    
+
     // If OTP has patientId, get the patient
     if (!user && otpRecord.patientId) {
       patient = await prisma.patient.findUnique({
@@ -107,17 +127,13 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
       isPatientLogin = true;
     }
-    
+
     // If still no account found, search by phone
     if (!user && !patient) {
       // Check Provider first (which has the phone field)
       const provider = await prisma.provider.findFirst({
         where: {
-          OR: [
-            { phone: formattedPhone },
-            { phone: phone },
-            { phone: phone.replace(/\D/g, '') },
-          ],
+          OR: [{ phone: formattedPhone }, { phone: phone }, { phone: phone.replace(/\D/g, '') }],
         },
         select: {
           id: true,
@@ -137,20 +153,16 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
         },
       });
-      
+
       if (provider?.user) {
         user = provider.user;
       }
-      
+
       // Check Patient if no provider found
       if (!user) {
         patient = await prisma.patient.findFirst({
           where: {
-            OR: [
-              { phone: formattedPhone },
-              { phone: phone },
-              { phone: phone.replace(/\D/g, '') },
-            ],
+            OR: [{ phone: formattedPhone }, { phone: phone }, { phone: phone.replace(/\D/g, '') }],
           },
           select: {
             id: true,
@@ -163,14 +175,11 @@ export async function POST(req: NextRequest): Promise<Response> {
         isPatientLogin = !!patient;
       }
     }
-    
+
     if (!user && !patient) {
-      return NextResponse.json(
-        { error: 'Account not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
-    
+
     // Check if user account is active
     if (user && user.status !== 'ACTIVE') {
       return NextResponse.json(
@@ -178,29 +187,30 @@ export async function POST(req: NextRequest): Promise<Response> {
         { status: 403 }
       );
     }
-    
+
     // Generate JWT token
-    const tokenPayload: any = isPatientLogin && patient
-      ? {
-          id: patient.id,
-          email: patient.email,
-          firstName: patient.firstName,
-          lastName: patient.lastName,
-          role: 'patient',
-          clinicId: patient.clinicId,
-          patientId: patient.id, // CRITICAL: Include patientId for patient portal API access
-          isPatient: true,
-        }
-      : {
-          id: user!.id,
-          email: user!.email,
-          firstName: user!.firstName,
-          lastName: user!.lastName,
-          role: user!.role?.toLowerCase(),
-          clinicId: user!.clinicId,
-          patientId: ('patientId' in user! && user!.patientId) ? user!.patientId : undefined,
-        };
-    
+    const tokenPayload: any =
+      isPatientLogin && patient
+        ? {
+            id: patient.id,
+            email: patient.email,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+            role: 'patient',
+            clinicId: patient.clinicId,
+            patientId: patient.id, // CRITICAL: Include patientId for patient portal API access
+            isPatient: true,
+          }
+        : {
+            id: user!.id,
+            email: user!.email,
+            firstName: user!.firstName,
+            lastName: user!.lastName,
+            role: user!.role?.toLowerCase(),
+            clinicId: user!.clinicId,
+            patientId: 'patientId' in user! && user!.patientId ? user!.patientId : undefined,
+          };
+
     // For provider users, add providerId to token
     if (!isPatientLogin && user && user.role?.toLowerCase() === 'provider') {
       // Check if user has providerId or linked provider
@@ -226,13 +236,13 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
       }
     }
-    
+
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
       .sign(JWT_SECRET);
-    
+
     // Log successful login
     logger.info('Successful OTP login', {
       userId: user?.id,
@@ -240,7 +250,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       phone: formattedPhone,
       loginMethod: 'phone_otp',
     });
-    
+
     // Create audit log
     try {
       await prisma.auditLog.create({
@@ -256,29 +266,32 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     } catch (error: unknown) {
       // Audit log failure shouldn't block login
-      logger.warn('[VERIFY-OTP] Audit log creation failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.warn('[VERIFY-OTP] Audit log creation failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
-    
+
     // Return token and user data
-    const userData = isPatientLogin && patient
-      ? {
-          id: patient.id,
-          email: patient.email,
-          firstName: patient.firstName,
-          lastName: patient.lastName,
-          role: 'patient',
-          clinicId: patient.clinicId,
-          patientId: patient.id, // CRITICAL: Include patientId for patient portal
-        }
-      : {
-          id: user!.id,
-          email: user!.email,
-          firstName: user!.firstName,
-          lastName: user!.lastName,
-          role: user!.role,
-          clinicId: user!.clinicId,
-          patientId: ('patientId' in user! && user!.patientId) ? user!.patientId : undefined,
-        };
+    const userData =
+      isPatientLogin && patient
+        ? {
+            id: patient.id,
+            email: patient.email,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+            role: 'patient',
+            clinicId: patient.clinicId,
+            patientId: patient.id, // CRITICAL: Include patientId for patient portal
+          }
+        : {
+            id: user!.id,
+            email: user!.email,
+            firstName: user!.firstName,
+            lastName: user!.lastName,
+            role: user!.role,
+            clinicId: user!.clinicId,
+            patientId: 'patientId' in user! && user!.patientId ? user!.patientId : undefined,
+          };
 
     const response = NextResponse.json({
       success: true,
@@ -304,12 +317,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
 
     return response;
-    
   } catch (error: any) {
     logger.error('Error in verify-otp endpoint', { error: error.message });
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
 }

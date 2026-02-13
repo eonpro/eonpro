@@ -23,17 +23,18 @@ export default function AuditLogsPage() {
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || 
-                    localStorage.getItem('token') ||
-                    localStorage.getItem('admin-token') ||
-                    localStorage.getItem('super_admin-token');
-                    
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('token') ||
+        localStorage.getItem('admin-token') ||
+        localStorage.getItem('super_admin-token');
+
       const response = await fetch('/api/admin/audit-logs?limit=100', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setLogs(data.logs || []);
@@ -49,7 +50,7 @@ export default function AuditLogsPage() {
     fetchLogs();
   }, [fetchLogs]);
 
-  const filteredLogs = logs.filter(log => {
+  const filteredLogs = logs.filter((log) => {
     if (filterAction !== 'all' && !log.action.toLowerCase().includes(filterAction)) {
       return false;
     }
@@ -65,8 +66,10 @@ export default function AuditLogsPage() {
   });
 
   const getActionColor = (action: string) => {
-    if (action.includes('CREATE') || action.includes('RECEIVED')) return 'bg-green-100 text-green-800';
-    if (action.includes('UPDATE') || action.includes('MODIFIED')) return 'bg-blue-100 text-blue-800';
+    if (action.includes('CREATE') || action.includes('RECEIVED'))
+      return 'bg-green-100 text-green-800';
+    if (action.includes('UPDATE') || action.includes('MODIFIED'))
+      return 'bg-blue-100 text-blue-800';
     if (action.includes('DELETE') || action.includes('REMOVED')) return 'bg-red-100 text-red-800';
     if (action.includes('LOGIN') || action.includes('AUTH')) return 'bg-purple-100 text-purple-800';
     return 'bg-gray-100 text-gray-800';
@@ -77,36 +80,36 @@ export default function AuditLogsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
-          <p className="text-gray-500 mt-1">Track all system activities and changes</p>
+          <p className="mt-1 text-gray-500">Track all system activities and changes</p>
         </div>
         <button
           onClick={fetchLogs}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 transition-colors hover:bg-gray-50"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search logs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
             />
           </div>
-          
+
           <select
             value={filterAction}
             onChange={(e) => setFilterAction(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className="rounded-lg border border-gray-300 px-4 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
           >
             <option value="all">All Actions</option>
             <option value="create">Creates</option>
@@ -119,24 +122,24 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Logs Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   Timestamp
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   Action
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   Table
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   Record ID
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                   IP Address
                 </th>
               </tr>
@@ -145,23 +148,23 @@ export default function AuditLogsPage() {
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
+                    <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin" />
                     Loading audit logs...
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                    <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <FileText className="mx-auto mb-2 h-8 w-8 text-gray-400" />
                     No audit logs found
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <Calendar className="h-4 w-4 text-gray-400" />
                         <div>
                           <div className="text-sm text-gray-900">
                             {new Date(log.createdAt).toLocaleDateString()}
@@ -172,18 +175,20 @@ export default function AuditLogsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${getActionColor(log.action)}`}
+                      >
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <span className="text-sm text-gray-700">{log.tableName}</span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-sm text-gray-500 font-mono">{log.recordId}</span>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="font-mono text-sm text-gray-500">{log.recordId}</span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="whitespace-nowrap px-4 py-3">
                       <span className="text-sm text-gray-500">{log.ipAddress}</span>
                     </td>
                   </tr>

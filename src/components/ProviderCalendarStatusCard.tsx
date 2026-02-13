@@ -2,22 +2,22 @@
 
 /**
  * Provider Calendar Status Card
- * 
+ *
  * Displays calendar sync and Zoom status on the provider dashboard.
  * Shows connected calendars, upcoming telehealth sessions, and quick actions.
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, 
-  Video, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  Calendar,
+  Video,
+  CheckCircle,
+  XCircle,
+  Clock,
   ExternalLink,
   Settings,
   RefreshCw,
-  Users
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -52,16 +52,18 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
     google: false,
     outlook: false,
     apple: false,
-    lastSyncAt: null
+    lastSyncAt: null,
   });
   const [upcomingSessions, setUpcomingSessions] = useState<TelehealthSession[]>([]);
   const [zoomEnabled, setZoomEnabled] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStatus();
   }, []);
 
   const fetchStatus = async () => {
+    setCalendarError(null);
     try {
       // Fetch calendar status
       const calRes = await fetch('/api/calendar-sync?action=status');
@@ -72,8 +74,16 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
           google: integrations.find((i: any) => i.provider === 'google')?.isConnected || false,
           outlook: integrations.find((i: any) => i.provider === 'outlook')?.isConnected || false,
           apple: integrations.find((i: any) => i.provider === 'apple')?.isConnected || false,
-          lastSyncAt: integrations.find((i: any) => i.lastSyncAt)?.lastSyncAt || null
+          lastSyncAt: integrations.find((i: any) => i.lastSyncAt)?.lastSyncAt || null,
         });
+      } else {
+        const errBody = await calRes.json().catch(() => ({}));
+        if (calRes.status === 404 && errBody.code === 'PROVIDER_NOT_LINKED') {
+          setCalendarError(
+            errBody.hint ||
+              'Your account is not linked to a provider profile. Ask an admin to link your user.'
+          );
+        }
       }
 
       // Fetch upcoming telehealth sessions
@@ -93,15 +103,34 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
   const connectedCount = [
     calendarStatus.google,
     calendarStatus.outlook,
-    calendarStatus.apple
+    calendarStatus.apple,
   ].filter(Boolean).length;
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-4 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/3 mb-3"></div>
-        <div className="h-8 bg-gray-200 rounded mb-2"></div>
-        <div className="h-8 bg-gray-200 rounded"></div>
+      <div className="animate-pulse rounded-lg bg-white p-4 shadow">
+        <div className="mb-3 h-4 w-1/3 rounded bg-gray-200"></div>
+        <div className="mb-2 h-8 rounded bg-gray-200"></div>
+        <div className="h-8 rounded bg-gray-200"></div>
+      </div>
+    );
+  }
+
+  if (calendarError) {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 shadow">
+        <div className="mb-2 flex items-center gap-2 text-amber-800">
+          <Calendar className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm font-medium">Calendar</span>
+        </div>
+        <p className="text-sm text-amber-700">{calendarError}</p>
+        <button
+          type="button"
+          onClick={() => fetchStatus()}
+          className="mt-2 text-sm font-medium text-amber-800 underline hover:text-amber-900"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -109,12 +138,12 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
   if (compact) {
     // Compact version for sidebar
     return (
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-gray-900 text-sm">Calendar & Video</h3>
-          <Link 
+      <div className="rounded-lg bg-white p-4 shadow">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-900">Calendar & Video</h3>
+          <Link
             href="/provider/settings/calendar"
-            className="text-[var(--brand-primary,#4fa77e)] hover:underline text-xs"
+            className="text-xs text-[var(--brand-primary,#4fa77e)] hover:underline"
           >
             Settings
           </Link>
@@ -123,8 +152,8 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
         <div className="space-y-2">
           {/* Calendar Status */}
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 flex items-center">
-              <Calendar className="w-4 h-4 mr-2" />
+            <span className="flex items-center text-gray-600">
+              <Calendar className="mr-2 h-4 w-4" />
               Calendars
             </span>
             <span className={connectedCount > 0 ? 'text-green-600' : 'text-gray-400'}>
@@ -134,8 +163,8 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
 
           {/* Zoom Status */}
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600 flex items-center">
-              <Video className="w-4 h-4 mr-2" />
+            <span className="flex items-center text-gray-600">
+              <Video className="mr-2 h-4 w-4" />
               Zoom
             </span>
             <span className={zoomEnabled ? 'text-green-600' : 'text-gray-400'}>
@@ -145,16 +174,16 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
 
           {/* Upcoming Session */}
           {upcomingSessions.length > 0 && (
-            <div className="mt-3 pt-3 border-t">
-              <p className="text-xs text-gray-500 mb-1">Next Video Call</p>
+            <div className="mt-3 border-t pt-3">
+              <p className="mb-1 text-xs text-gray-500">Next Video Call</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium truncate">
+                <span className="truncate text-sm font-medium">
                   {upcomingSessions[0].patient.firstName} {upcomingSessions[0].patient.lastName}
                 </span>
                 <span className="text-xs text-gray-500">
                   {new Date(upcomingSessions[0].scheduledAt).toLocaleTimeString([], {
                     hour: '2-digit',
-                    minute: '2-digit'
+                    minute: '2-digit',
                   })}
                 </span>
               </div>
@@ -167,18 +196,18 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
 
   // Full version
   return (
-    <div className="bg-white rounded-lg shadow">
-      <div className="p-4 border-b border-gray-100">
+    <div className="rounded-lg bg-white shadow">
+      <div className="border-b border-gray-100 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-gray-900 flex items-center">
-            <Calendar className="w-5 h-5 mr-2 text-[var(--brand-primary,#4fa77e)]" />
+          <h3 className="flex items-center font-medium text-gray-900">
+            <Calendar className="mr-2 h-5 w-5 text-[var(--brand-primary,#4fa77e)]" />
             Calendar & Telehealth
           </h3>
           <Link
             href="/provider/settings/calendar"
-            className="text-sm text-[var(--brand-primary,#4fa77e)] hover:underline flex items-center"
+            className="flex items-center text-sm text-[var(--brand-primary,#4fa77e)] hover:underline"
           >
-            <Settings className="w-4 h-4 mr-1" />
+            <Settings className="mr-1 h-4 w-4" />
             Settings
           </Link>
         </div>
@@ -187,45 +216,60 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
       <div className="p-4">
         {/* Calendar Connections */}
         <div className="mb-4">
-          <p className="text-sm text-gray-500 mb-2">Connected Calendars</p>
+          <p className="mb-2 text-sm text-gray-500">Connected Calendars</p>
           <div className="flex space-x-3">
-            <div className={`flex items-center px-3 py-2 rounded-full text-sm ${
-              calendarStatus.google 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-gray-50 text-gray-400 border border-gray-200'
-            }`}>
-              <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <div
+              className={`flex items-center rounded-full px-3 py-2 text-sm ${
+                calendarStatus.google
+                  ? 'border border-green-200 bg-green-50 text-green-700'
+                  : 'border border-gray-200 bg-gray-50 text-gray-400'
+              }`}
+            >
+              <svg className="mr-1 h-4 w-4" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
               </svg>
               Google
-              {calendarStatus.google && <CheckCircle className="w-3 h-3 ml-1" />}
+              {calendarStatus.google && <CheckCircle className="ml-1 h-3 w-3" />}
             </div>
-            <div className={`flex items-center px-3 py-2 rounded-full text-sm ${
-              calendarStatus.outlook 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-gray-50 text-gray-400 border border-gray-200'
-            }`}>
-              <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M24 7.387v10.478c0 .23-.08.424-.238.576-.157.152-.355.228-.594.228H8.22l-.324-.228V7.387l.324-.228h14.947c.24 0 .438.076.595.228.157.152.237.346.237.576z"/>
+            <div
+              className={`flex items-center rounded-full px-3 py-2 text-sm ${
+                calendarStatus.outlook
+                  ? 'border border-green-200 bg-green-50 text-green-700'
+                  : 'border border-gray-200 bg-gray-50 text-gray-400'
+              }`}
+            >
+              <svg className="mr-1 h-4 w-4" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M24 7.387v10.478c0 .23-.08.424-.238.576-.157.152-.355.228-.594.228H8.22l-.324-.228V7.387l.324-.228h14.947c.24 0 .438.076.595.228.157.152.237.346.237.576z"
+                />
               </svg>
               Outlook
-              {calendarStatus.outlook && <CheckCircle className="w-3 h-3 ml-1" />}
+              {calendarStatus.outlook && <CheckCircle className="ml-1 h-3 w-3" />}
             </div>
-            <div className={`flex items-center px-3 py-2 rounded-full text-sm ${
-              calendarStatus.apple 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-gray-50 text-gray-400 border border-gray-200'
-            }`}>
-              <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83z"/>
+            <div
+              className={`flex items-center rounded-full px-3 py-2 text-sm ${
+                calendarStatus.apple
+                  ? 'border border-green-200 bg-green-50 text-green-700'
+                  : 'border border-gray-200 bg-gray-50 text-gray-400'
+              }`}
+            >
+              <svg className="mr-1 h-4 w-4" viewBox="0 0 24 24">
+                <path
+                  fill="currentColor"
+                  d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83z"
+                />
               </svg>
               Apple
-              {calendarStatus.apple && <CheckCircle className="w-3 h-3 ml-1" />}
+              {calendarStatus.apple && <CheckCircle className="ml-1 h-3 w-3" />}
             </div>
           </div>
           {calendarStatus.lastSyncAt && (
-            <p className="text-xs text-gray-400 mt-2 flex items-center">
-              <RefreshCw className="w-3 h-3 mr-1" />
+            <p className="mt-2 flex items-center text-xs text-gray-400">
+              <RefreshCw className="mr-1 h-3 w-3" />
               Last sync: {new Date(calendarStatus.lastSyncAt).toLocaleString()}
             </p>
           )}
@@ -233,32 +277,32 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
 
         {/* Upcoming Telehealth Sessions */}
         <div>
-          <p className="text-sm text-gray-500 mb-2 flex items-center">
-            <Video className="w-4 h-4 mr-1" />
+          <p className="mb-2 flex items-center text-sm text-gray-500">
+            <Video className="mr-1 h-4 w-4" />
             Upcoming Video Consultations
           </p>
-          
+
           {!zoomEnabled ? (
-            <div className="text-center py-4 bg-gray-50 rounded-lg">
-              <Video className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <div className="rounded-lg bg-gray-50 py-4 text-center">
+              <Video className="mx-auto mb-2 h-8 w-8 text-gray-300" />
               <p className="text-sm text-gray-500">Zoom not configured</p>
               <p className="text-xs text-gray-400">Contact admin to enable telehealth</p>
             </div>
           ) : upcomingSessions.length === 0 ? (
-            <div className="text-center py-4 bg-gray-50 rounded-lg">
-              <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <div className="rounded-lg bg-gray-50 py-4 text-center">
+              <Clock className="mx-auto mb-2 h-8 w-8 text-gray-300" />
               <p className="text-sm text-gray-500">No upcoming sessions</p>
             </div>
           ) : (
             <div className="space-y-2">
               {upcomingSessions.slice(0, 3).map((session) => (
-                <div 
+                <div
                   key={session.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3 hover:bg-gray-100"
                 >
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-[var(--brand-primary-light,#e8f5f0)] flex items-center justify-center mr-3">
-                      <Users className="w-4 h-4 text-[var(--brand-primary,#4fa77e)]" />
+                    <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary-light,#e8f5f0)]">
+                      <Users className="h-4 w-4 text-[var(--brand-primary,#4fa77e)]" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
@@ -270,9 +314,10 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
                           month: 'short',
                           day: 'numeric',
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })}
-                        {' · '}{session.duration} min
+                        {' · '}
+                        {session.duration} min
                       </p>
                     </div>
                   </div>
@@ -280,18 +325,18 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
                     href={session.joinUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 flex items-center"
+                    className="flex items-center rounded-md bg-blue-500 px-3 py-1.5 text-sm text-white hover:bg-blue-600"
                   >
-                    <Video className="w-3 h-3 mr-1" />
+                    <Video className="mr-1 h-3 w-3" />
                     Join
                   </a>
                 </div>
               ))}
-              
+
               {upcomingSessions.length > 3 && (
                 <Link
                   href="/provider/telehealth"
-                  className="block text-center text-sm text-[var(--brand-primary,#4fa77e)] hover:underline py-2"
+                  className="block py-2 text-center text-sm text-[var(--brand-primary,#4fa77e)] hover:underline"
                 >
                   View all {upcomingSessions.length} sessions
                 </Link>

@@ -12,13 +12,15 @@
  * - Input sanitization
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { basePrisma } from "@/lib/db";
-import { logger } from "@/lib/logger";
-import { withAuth, AuthUser } from "@/lib/auth/middleware";
-import { standardRateLimit } from "@/lib/rateLimit";
-import { sendSMS, formatPhoneNumber } from "@/lib/integrations/twilio/smsService";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
+import { standardRateLimit } from '@/lib/rateLimit';
+import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
+import { z } from 'zod';
 
 // Input sanitization
 function sanitizeText(text: string): string {
@@ -33,7 +35,7 @@ function sanitizeText(text: string): string {
 
 // Validation schema
 const sendMessageSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform(val => {
+  patientId: z.union([z.string(), z.number()]).transform((val) => {
     const num = typeof val === 'string' ? parseInt(val, 10) : val;
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
@@ -49,15 +51,15 @@ async function canAccessPatient(
   user: AuthUser,
   patientId: number
 ): Promise<{ allowed: boolean; patient?: any; reason?: string }> {
-  const patient = await basePrisma.patient.findUnique({
+  const patient = await prisma.patient.findUnique({
     where: { id: patientId },
     select: {
       id: true,
       firstName: true,
       lastName: true,
       phone: true,
-      clinicId: true
-    }
+      clinicId: true,
+    },
   });
 
   if (!patient) {
@@ -79,12 +81,12 @@ async function canAccessPatient(
 
   // Staff must be in same clinic as patient
   if (user.clinicId && patient.clinicId && user.clinicId !== patient.clinicId) {
-    const userClinic = await basePrisma.userClinic.findFirst({
+    const userClinic = await prisma.userClinic.findFirst({
       where: {
         userId: user.id,
         clinicId: patient.clinicId,
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     if (!userClinic) {
@@ -106,6 +108,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
   const startTime = Date.now();
 
   try {
+    requirePermission(toPermissionContext(user), 'message:send');
     const body = await request.json();
     const parseResult = sendMessageSchema.safeParse(body);
 
@@ -113,10 +116,10 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json(
         {
           error: 'Invalid input',
-          details: parseResult.error.issues.map(i => ({
+          details: parseResult.error.issues.map((i) => ({
             field: i.path.join('.'),
-            message: i.message
-          }))
+            message: i.message,
+          })),
         },
         { status: 400 }
       );
@@ -128,10 +131,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     // Check access
     const accessCheck = await canAccessPatient(user, patientId);
     if (!accessCheck.allowed) {
-      return NextResponse.json(
-        { error: accessCheck.reason || 'Access denied' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: accessCheck.reason || 'Access denied' }, { status: 403 });
     }
 
     const patient = accessCheck.patient!;
@@ -148,10 +148,10 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     // Determine direction and sender info
     const isPatient = user.role === 'patient';
     const direction = isPatient ? 'INBOUND' : 'OUTBOUND';
-    const senderType = isPatient ? 'PATIENT' : (user.role === 'provider' ? 'PROVIDER' : 'STAFF');
+    const senderType = isPatient ? 'PATIENT' : user.role === 'provider' ? 'PROVIDER' : 'STAFF';
 
     // Create the message
-    const chatMessage = await basePrisma.patientChatMessage.create({
+    const chatMessage = await prisma.patientChatMessage.create({
       data: {
         patientId,
         clinicId: clinicId || null,
@@ -160,17 +160,20 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         channel,
         senderType,
         senderId: isPatient ? null : user.id,
-        senderName: isPatient
-          ? `${patient.firstName} ${patient.lastName}`
-          : user.email,
+        senderName: isPatient ? `${patient.firstName} ${patient.lastName}` : user.email,
         status: 'SENT',
         threadId: `thread_${patientId}_${Date.now()}`,
         metadata: {
           createdBy: user.id,
           userAgent: request.headers.get('user-agent'),
         },
-      }
+      },
     });
+
+    await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'message:send', {
+      patientId,
+      route: 'POST /api/messages/send',
+    }));
 
     // Send SMS if requested (outside DB transaction)
     let smsStatus = null;
@@ -183,33 +186,33 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         });
 
         if (smsResult.success) {
-          await basePrisma.patientChatMessage.update({
+          await prisma.patientChatMessage.update({
             where: { id: chatMessage.id },
             data: {
               status: 'DELIVERED',
               externalId: smsResult.messageId,
               deliveredAt: new Date(),
-            }
+            },
           });
           smsStatus = 'delivered';
         } else {
-          await basePrisma.patientChatMessage.update({
+          await prisma.patientChatMessage.update({
             where: { id: chatMessage.id },
             data: {
               status: 'FAILED',
               failureReason: smsResult.error || 'SMS delivery failed',
-            }
+            },
           });
           smsStatus = 'failed';
         }
       } catch (smsError) {
         const errMsg = smsError instanceof Error ? smsError.message : 'SMS error';
-        await basePrisma.patientChatMessage.update({
+        await prisma.patientChatMessage.update({
           where: { id: chatMessage.id },
           data: {
             status: 'FAILED',
             failureReason: errMsg,
-          }
+          },
         });
         smsStatus = 'failed';
         logger.error('SMS delivery failed', { error: errMsg, patientId });
@@ -218,7 +221,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
     // Audit log
     try {
-      await basePrisma.auditLog.create({
+      await prisma.auditLog.create({
         data: {
           action: 'CHAT_SEND',
           resource: 'PatientChatMessage',
@@ -229,8 +232,8 @@ async function postHandler(request: NextRequest, user: AuthUser) {
             messageId: chatMessage.id,
             channel,
             smsStatus,
-          }
-        }
+          },
+        },
       });
     } catch (auditError) {
       logger.error('Failed to create audit log', { error: auditError });
@@ -246,18 +249,20 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     });
 
     // Return in frontend-expected format
-    return NextResponse.json({
-      success: true,
-      message: {
-        id: chatMessage.id,
-        sender: direction === 'INBOUND' ? 'patient' : 'provider',
-        content: chatMessage.message,
-        timestamp: formatTimestamp(chatMessage.createdAt),
-        channel: chatMessage.channel,
-        status: chatMessage.status,
-      }
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        message: {
+          id: chatMessage.id,
+          sender: direction === 'INBOUND' ? 'patient' : 'provider',
+          content: chatMessage.message,
+          timestamp: formatTimestamp(chatMessage.createdAt),
+          channel: chatMessage.channel,
+          status: chatMessage.status,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     logger.error('Failed to send message', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -265,23 +270,20 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       durationMs: Date.now() - startTime,
     });
 
-    return NextResponse.json(
-      { error: 'Failed to send message' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
 }
 
 function formatTimestamp(date: Date): string {
   return date.toLocaleTimeString('en-US', {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 
 // Export with auth and rate limiting
 export const POST = standardRateLimit(
   withAuth(postHandler, {
-    roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient']
+    roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient'],
   })
 );

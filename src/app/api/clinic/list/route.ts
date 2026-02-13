@@ -36,6 +36,7 @@ export const GET = withAuth(
 
       const clinics = await prisma.clinic.findMany({
         where: whereClause,
+        take: 100,
         select: {
           id: true,
           name: true,

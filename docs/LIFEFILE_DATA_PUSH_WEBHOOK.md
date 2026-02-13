@@ -2,14 +2,16 @@
 
 ## Overview
 
-The Lifefile Data Push Service webhook endpoint receives real-time updates for prescription (Rx) events and order status changes from the Lifefile platform. This webhook processes both XML and JSON payloads and updates the local database accordingly.
+The Lifefile Data Push Service webhook endpoint receives real-time updates for prescription (Rx)
+events and order status changes from the Lifefile platform. This webhook processes both XML and JSON
+payloads and updates the local database accordingly.
 
 ## Endpoint Details
 
 - **URL**: `/api/webhooks/lifefile-data-push`
 - **Method**: `POST`
 - **Authentication**: Basic Authentication
-- **Content Types**: 
+- **Content Types**:
   - `application/json`
   - `application/xml`
   - `text/xml`
@@ -37,6 +39,7 @@ Authorization: Basic base64(username:password)
 ```
 
 Example:
+
 ```bash
 curl -X POST https://your-domain.com/api/webhooks/lifefile-data-push \
   -u "username:password" \
@@ -49,6 +52,7 @@ curl -X POST https://your-domain.com/api/webhooks/lifefile-data-push \
 ### 1. Rx Events
 
 Triggered when prescription-related events occur:
+
 - Prescription created
 - Prescription approved
 - Prescription denied
@@ -56,6 +60,7 @@ Triggered when prescription-related events occur:
 - Prescription cancelled
 
 **Example JSON Payload:**
+
 ```json
 {
   "type": "rx_event",
@@ -80,6 +85,7 @@ Triggered when prescription-related events occur:
 ### 2. Order Status Updates
 
 Triggered when order status changes:
+
 - Order submitted
 - Order processing
 - Order approved
@@ -88,6 +94,7 @@ Triggered when order status changes:
 - Order cancelled
 
 **Example JSON Payload:**
+
 ```json
 {
   "type": "order_status",
@@ -106,6 +113,7 @@ Triggered when order status changes:
 ```
 
 **Example XML Payload:**
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <OrderStatusUpdate>
@@ -125,6 +133,7 @@ Triggered when order status changes:
 ## Response Format
 
 ### Success Response (200 OK)
+
 ```json
 {
   "success": true,
@@ -140,6 +149,7 @@ Triggered when order status changes:
 ```
 
 ### Error Response (401 Unauthorized)
+
 ```json
 {
   "error": "Unauthorized"
@@ -147,6 +157,7 @@ Triggered when order status changes:
 ```
 
 ### Error Response (500 Internal Server Error)
+
 ```json
 {
   "error": "Internal server error",
@@ -232,18 +243,17 @@ curl http://localhost:3002/api/webhooks/lifefile-data-push
 Webhook activity is logged in the `WebhookLog` table and can be viewed through:
 
 1. **Database Query**:
+
 ```sql
-SELECT * FROM WebhookLog 
+SELECT * FROM WebhookLog
 WHERE endpoint = '/api/webhooks/lifefile-data-push'
 ORDER BY createdAt DESC
 LIMIT 10;
 ```
 
-2. **Application Logs**:
-All webhook activities are logged with the prefix `[LIFEFILE DATA PUSH]`
+2. **Application Logs**: All webhook activities are logged with the prefix `[LIFEFILE DATA PUSH]`
 
-3. **Admin Dashboard**:
-Navigate to Admin Console → Webhook Monitor to view recent webhook activity
+3. **Admin Dashboard**: Navigate to Admin Console → Webhook Monitor to view recent webhook activity
 
 ## Security Considerations
 
@@ -273,6 +283,7 @@ Navigate to Admin Console → Webhook Monitor to view recent webhook activity
 ### Debug Mode
 
 Enable debug logging by setting:
+
 ```env
 LOG_LEVEL=debug
 ```
@@ -289,6 +300,7 @@ To configure the Data Push Service on Lifefile's side:
 ## Support
 
 For issues or questions:
+
 - Check the application logs for detailed error messages
 - Review the webhook logs in the database
 - Contact Lifefile support for platform-specific configuration

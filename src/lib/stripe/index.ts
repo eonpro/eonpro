@@ -1,6 +1,6 @@
 /**
  * Stripe Module - Enterprise Integration
- * 
+ *
  * This module provides all Stripe-related functionality including:
  * - Configuration management
  * - Client initialization

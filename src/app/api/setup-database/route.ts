@@ -26,39 +26,42 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const setupKey = searchParams.get('key');
-  
+
   if (setupKey !== expectedKey) {
     logger.warn('[SETUP-DB] Invalid setup key provided');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  
+
   try {
     logger.info('[SETUP-DB] Running database setup...');
-    
+
     // Run Prisma db push
     const { stdout, stderr } = await execAsync('npx prisma db push --accept-data-loss');
-    
+
     // Generate Prisma Client
     await execAsync('npx prisma generate');
-    
+
     logger.info('[SETUP-DB] Database setup complete');
-    
+
     return NextResponse.json({
       success: true,
       message: 'Database setup complete!',
       output: stdout,
-      warnings: stderr || 'None'
+      warnings: stderr || 'None',
     });
-    
   } catch (error: unknown) {
     const errorObj = error as { message?: string; stderr?: string; stdout?: string };
     logger.error('[SETUP-DB] Database setup failed:', { error: errorObj.message });
-    return NextResponse.json({
-      success: false,
-      error: errorObj.message || 'Setup failed',
-      details: process.env.NODE_ENV === 'development' 
-        ? (errorObj.stderr || errorObj.stdout) 
-        : 'Check server logs'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: errorObj.message || 'Setup failed',
+        details:
+          process.env.NODE_ENV === 'development'
+            ? errorObj.stderr || errorObj.stdout
+            : 'Check server logs',
+      },
+      { status: 500 }
+    );
   }
 }

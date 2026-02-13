@@ -1,14 +1,14 @@
 /**
  * Apple Calendar Service
- * 
+ *
  * Apple Calendar primarily uses iCal subscriptions for external calendar integration.
  * Unlike Google and Outlook, Apple doesn't provide a REST API for iCloud Calendar.
- * 
+ *
  * This service provides:
  * 1. iCal subscription URL generation for Apple Calendar
  * 2. Tracking of Apple Calendar connections
  * 3. Instructions for users on how to subscribe
- * 
+ *
  * Note: For true two-way sync with Apple Calendar, users would need to:
  * - Use our iCal subscription (one-way: our appointments → their calendar)
  * - Or use Google/Outlook calendar sync with their Apple account
@@ -16,10 +16,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { 
-  createCalendarSubscription, 
-  generateSubscriptionToken 
-} from './ical.service';
+import { createCalendarSubscription, generateSubscriptionToken } from './ical.service';
 
 // ============================================================================
 // Types
@@ -45,7 +42,7 @@ export async function isAppleCalendarConnected(providerId: number): Promise<bool
       providerId,
       provider: 'apple',
       isActive: true,
-    }
+    },
   });
 
   return !!integration;
@@ -59,7 +56,7 @@ export async function getAppleCalendarStatus(providerId: number) {
     where: {
       providerId,
       provider: 'apple',
-    }
+    },
   });
 
   // Also check for iCal subscriptions
@@ -74,7 +71,7 @@ export async function getAppleCalendarStatus(providerId: number) {
       name: true,
       lastAccessedAt: true,
       accessCount: true,
-    }
+    },
   });
 
   return {
@@ -102,16 +99,12 @@ export async function setupAppleCalendar(
   }
 ): Promise<AppleCalendarSetup> {
   // Create iCal subscription
-  const subscription = await createCalendarSubscription(
-    providerId,
-    clinicId,
-    {
-      name: 'Appointments (Apple Calendar)',
-      includePatientNames: options?.includePatientNames ?? false,
-      includeMeetingLinks: options?.includeMeetingLinks ?? true,
-      syncRangeDays: 90,
-    }
-  );
+  const subscription = await createCalendarSubscription(providerId, clinicId, {
+    name: 'Appointments (Apple Calendar)',
+    includePatientNames: options?.includePatientNames ?? false,
+    includeMeetingLinks: options?.includeMeetingLinks ?? true,
+    syncRangeDays: 90,
+  });
 
   // Create or update provider calendar integration record
   await prisma.providerCalendarIntegration.upsert({
@@ -119,14 +112,17 @@ export async function setupAppleCalendar(
       providerId_provider: {
         providerId,
         provider: 'apple',
-      }
+      },
     },
     update: {
       isActive: true,
       syncEnabled: true,
       lastSyncAt: new Date(),
       // Store subscription info in lastError field temporarily until metadata field is added
-      lastError: JSON.stringify({ subscriptionId: subscription.id, setupAt: new Date().toISOString() }),
+      lastError: JSON.stringify({
+        subscriptionId: subscription.id,
+        setupAt: new Date().toISOString(),
+      }),
     } as any,
     create: {
       providerId,
@@ -135,8 +131,11 @@ export async function setupAppleCalendar(
       syncEnabled: true,
       syncDirection: 'to_external', // iCal is one-way (our data → their calendar)
       // Store subscription info in lastError field temporarily until metadata field is added
-      lastError: JSON.stringify({ subscriptionId: subscription.id, setupAt: new Date().toISOString() }),
-    } as any
+      lastError: JSON.stringify({
+        subscriptionId: subscription.id,
+        setupAt: new Date().toISOString(),
+      }),
+    } as any,
   });
 
   // Generate URLs
@@ -173,16 +172,14 @@ export async function setupAppleCalendar(
 /**
  * Disconnect Apple Calendar integration
  */
-export async function disconnectAppleCalendar(
-  providerId: number
-): Promise<{ success: boolean }> {
+export async function disconnectAppleCalendar(providerId: number): Promise<{ success: boolean }> {
   try {
     // Get the integration to find subscription ID
     const integration = await prisma.providerCalendarIntegration.findFirst({
       where: {
         providerId,
         provider: 'apple',
-      }
+      },
     });
 
     // Deactivate related subscriptions (stored in lastError field temporarily)
@@ -192,7 +189,7 @@ export async function disconnectAppleCalendar(
         if (metadata.subscriptionId) {
           await prisma.calendarSubscription.update({
             where: { id: metadata.subscriptionId },
-            data: { isActive: false }
+            data: { isActive: false },
           });
         }
       } catch {
@@ -210,7 +207,7 @@ export async function disconnectAppleCalendar(
         isActive: false,
         accessToken: null,
         refreshToken: null,
-      }
+      },
     });
 
     logger.info('Apple Calendar disconnected', { providerId });
@@ -231,39 +228,39 @@ export async function disconnectAppleCalendar(
 
 /**
  * Full CalDAV Integration Notes:
- * 
+ *
  * Apple Calendar uses CalDAV (RFC 4791) for full calendar sync.
  * Implementing a CalDAV server would require:
- * 
+ *
  * 1. CalDAV Server Implementation:
  *    - WebDAV base layer (RFC 4918)
  *    - CalDAV extension (RFC 4791)
  *    - CardDAV for contacts (RFC 6352) - optional
- * 
+ *
  * 2. Authentication:
  *    - Apple-specific authentication (app-specific passwords)
  *    - Or OAuth with Sign in with Apple (limited calendar access)
- * 
+ *
  * 3. Sync Protocol:
  *    - PROPFIND for listing calendars
  *    - REPORT for fetching events
  *    - PUT for creating/updating events
  *    - DELETE for removing events
  *    - MKCALENDAR for creating calendars
- * 
+ *
  * 4. Libraries:
  *    - sabre/dav (PHP) - most complete
  *    - radicale (Python) - simpler
  *    - No mature Node.js CalDAV server library
- * 
+ *
  * For our use case, iCal subscriptions provide the best balance of:
  * - Easy setup for users
  * - Low maintenance
  * - Good enough sync for appointments
- * 
+ *
  * The main limitation is one-way sync (our data → user's calendar).
  * If the user creates events in Apple Calendar, they won't sync back.
- * 
+ *
  * For bi-directional sync with Apple devices, we recommend:
  * - Use Google Calendar integration (syncs with Apple via Google account)
  * - Or use Outlook integration (syncs via Exchange ActiveSync)

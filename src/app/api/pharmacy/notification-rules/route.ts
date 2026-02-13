@@ -18,7 +18,7 @@ const notificationRuleSchema = z.object({
     'DELIVERED',
     'CANCELLED',
     'ON_HOLD',
-    'FAILED'
+    'FAILED',
   ]),
   sendSMS: z.boolean(),
   sendChat: z.boolean(),
@@ -34,16 +34,12 @@ const notificationRuleSchema = z.object({
 export const GET = withAdminAuth(async (req: NextRequest) => {
   try {
     const rules = await (prisma as any).notificationRule.findMany({
-      orderBy: { triggerStatus: 'asc' }
+      orderBy: { triggerStatus: 'asc' },
     });
 
     return NextResponse.json({ rules });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to fetch notification rules' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch notification rules' }, { status: 500 });
   }
 });
 
@@ -61,19 +57,15 @@ export const POST = withAdminAuth(async (req: NextRequest) => {
     }
 
     const rule = await (prisma as any).notificationRule.create({
-      data: parsed.data as any
+      data: parsed.data as any,
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      rule 
+    return NextResponse.json({
+      success: true,
+      rule,
     });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to create notification rule' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create notification rule' }, { status: 500 });
   }
 });
 
@@ -84,27 +76,20 @@ export const PUT = withAdminAuth(async (req: NextRequest) => {
     const { id, ...data } = body;
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Rule ID required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Rule ID required' }, { status: 400 });
     }
 
     const rule = await (prisma as any).notificationRule.update({
       where: { id },
-      data: data as any
+      data: data as any,
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      rule 
+    return NextResponse.json({
+      success: true,
+      rule,
     });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to update notification rule' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update notification rule' }, { status: 500 });
   }
 });
 
@@ -115,25 +100,18 @@ export const DELETE = withAdminAuth(async (req: NextRequest) => {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Rule ID required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Rule ID required' }, { status: 400 });
     }
 
     await (prisma as any).notificationRule.delete({
-      where: { id: parseInt(id) }
+      where: { id: parseInt(id) },
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: 'Rule deleted successfully'
+      message: 'Rule deleted successfully',
     });
-
   } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to delete notification rule' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete notification rule' }, { status: 500 });
   }
 });

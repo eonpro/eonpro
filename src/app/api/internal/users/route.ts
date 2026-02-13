@@ -23,12 +23,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const excludeSelf = searchParams.get('excludeSelf') !== 'false';
-    
+
     logger.api('GET', '/api/internal/users', {
       userId: user.id,
       userRole: user.role,
       clinicId: user.clinicId,
-      search
+      search,
     });
 
     // Determine which clinics the user has access to
@@ -42,11 +42,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       const userClinics = await prisma.userClinic.findMany({
         where: {
           userId: user.id,
-          isActive: true
+          isActive: true,
         },
         select: {
-          clinicId: true
-        }
+          clinicId: true,
+        },
+        take: 100,
       });
 
       accessibleClinicIds = userClinics.map((uc: { clinicId: number }) => uc.clinicId);
@@ -61,10 +62,10 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const whereClause: Record<string, unknown> = {
       // Exclude patients - they use patient chat
       NOT: {
-        role: UserRole.PATIENT
+        role: UserRole.PATIENT,
       },
       // Only active users
-      status: UserStatus.ACTIVE
+      status: UserStatus.ACTIVE,
     };
 
     // Apply clinic filter for non-super-admin users
@@ -77,7 +78,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       whereClause.OR = [
         { clinicId: { in: accessibleClinicIds } },
         { userClinics: { some: { clinicId: { in: accessibleClinicIds }, isActive: true } } },
-        { role: UserRole.SUPER_ADMIN } // Always show Platform Administrators
+        { role: UserRole.SUPER_ADMIN }, // Always show Platform Administrators
       ];
     }
 
@@ -91,15 +92,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       const searchConditions = [
         { firstName: { contains: search, mode: 'insensitive' as const } },
         { lastName: { contains: search, mode: 'insensitive' as const } },
-        { email: { contains: search, mode: 'insensitive' as const } }
+        { email: { contains: search, mode: 'insensitive' as const } },
       ];
 
       // If we already have OR conditions for clinic filtering, we need to AND them
       if (whereClause.OR) {
-        whereClause.AND = [
-          { OR: whereClause.OR as unknown[] },
-          { OR: searchConditions }
-        ];
+        whereClause.AND = [{ OR: whereClause.OR as unknown[] }, { OR: searchConditions }];
         delete whereClause.OR;
       } else {
         whereClause.OR = searchConditions;
@@ -108,6 +106,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     const users = await prisma.user.findMany({
       where: whereClause,
+      take: 100,
       select: {
         id: true,
         firstName: true,
@@ -118,15 +117,15 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         provider: {
           select: {
             id: true,
-            titleLine: true
-          }
+            titleLine: true,
+          },
         },
         // Include clinic info for display
         clinic: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
         // Include all user's clinics for multi-clinic users
         userClinics: {
@@ -136,22 +135,18 @@ async function getHandler(request: NextRequest, user: AuthUser) {
             clinic: {
               select: {
                 id: true,
-                name: true
-              }
-            }
-          }
-        }
+                name: true,
+              },
+            },
+          },
+        },
       },
-      orderBy: [
-        { role: 'asc' },
-        { firstName: 'asc' },
-        { lastName: 'asc' }
-      ],
-      take: 100 // Limit for performance
+      orderBy: [{ role: 'asc' }, { firstName: 'asc' }, { lastName: 'asc' }],
+      take: 100, // Limit for performance
     });
 
     // Transform to add display info
-    const transformedUsers = users.map((u: typeof users[number]) => {
+    const transformedUsers = users.map((u: (typeof users)[number]) => {
       // Get all clinic names for display
       const clinicNames: string[] = [];
       if (u.clinic?.name) {
@@ -175,16 +170,16 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         role: displayRole,
         originalRole: u.role,
         clinicId: u.clinicId,
-        clinicName: isSuperAdmin ? 'All Clinics' : (clinicNames[0] || null),
+        clinicName: isSuperAdmin ? 'All Clinics' : clinicNames[0] || null,
         clinics: isSuperAdmin ? ['All Clinics'] : clinicNames,
         specialty: u.provider?.titleLine || null,
         isOnline: false, // Placeholder for future real-time presence
-        isPlatformAdmin: isSuperAdmin // Flag for UI to highlight
+        isPlatformAdmin: isSuperAdmin, // Flag for UI to highlight
       };
     });
 
     // Sort to put Platform Admins at the top for easy access
-    type TransformedUser = typeof transformedUsers[number];
+    type TransformedUser = (typeof transformedUsers)[number];
     transformedUsers.sort((a: TransformedUser, b: TransformedUser) => {
       if (a.isPlatformAdmin && !b.isPlatformAdmin) return -1;
       if (!a.isPlatformAdmin && b.isPlatformAdmin) return 1;
@@ -197,14 +192,14 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       meta: {
         total: transformedUsers.length,
         userClinicId: user.clinicId,
-        accessibleClinics: accessibleClinicIds.length || 'all'
-      }
+        accessibleClinics: accessibleClinicIds.length || 'all',
+      },
     });
   } catch (error) {
     // Log detailed error for debugging
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCode = (error as any)?.code || 'unknown';
-    
+
     logger.error('Error fetching internal users:', {
       message: errorMessage,
       code: errorCode,
@@ -212,7 +207,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       clinicId: user.clinicId,
       role: user.role,
     });
-    
+
     // Return empty array instead of 500 - allows app to function
     return NextResponse.json({
       ok: true,
@@ -221,8 +216,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         total: 0,
         userClinicId: user.clinicId,
         accessibleClinics: 0,
-        error: 'Failed to fetch users - feature temporarily unavailable'
-      }
+        error: 'Failed to fetch users - feature temporarily unavailable',
+      },
     });
   }
 }
@@ -230,5 +225,5 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 // Export handler with authentication
 // Include all staff roles that should have access to internal chat
 export const GET = withAuth(getHandler, {
-  roles: ['super_admin', 'admin', 'provider', 'staff', 'support']
+  roles: ['super_admin', 'admin', 'provider', 'staff', 'support'],
 });

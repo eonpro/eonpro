@@ -1,16 +1,16 @@
 /**
  * Patient Analytics Service
- * 
+ *
  * Provides patient payment analytics, LTV calculations, cohort analysis,
  * and retention metrics.
  */
 
 import { prisma, withClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { 
-  startOfMonth, 
+import {
+  startOfMonth,
   endOfMonth,
-  subMonths, 
+  subMonths,
   format,
   differenceInMonths,
   eachMonthOfInterval,
@@ -137,10 +137,7 @@ export class PatientAnalyticsService {
   /**
    * Calculate lifetime value for a specific patient
    */
-  static async getPatientLTV(
-    clinicId: number,
-    patientId: number
-  ): Promise<PatientLTV | null> {
+  static async getPatientLTV(clinicId: number, patientId: number): Promise<PatientLTV | null> {
     return withClinicContext(clinicId, async () => {
       const patient = await prisma.patient.findFirst({
         where: { id: patientId, clinicId },
@@ -168,17 +165,19 @@ export class PatientAnalyticsService {
         },
       });
 
-      const totalRevenue = payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+      const totalRevenue = payments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0
+      );
       const firstPayment = payments[0]?.createdAt || null;
       const lastPayment = payments[payments.length - 1]?.createdAt || null;
-      
-      const monthsActive = firstPayment && lastPayment 
-        ? Math.max(1, differenceInMonths(lastPayment, firstPayment) + 1)
-        : 0;
-      
-      const avgMonthlySpend = monthsActive > 0 
-        ? Math.round(totalRevenue / monthsActive)
-        : 0;
+
+      const monthsActive =
+        firstPayment && lastPayment
+          ? Math.max(1, differenceInMonths(lastPayment, firstPayment) + 1)
+          : 0;
+
+      const avgMonthlySpend = monthsActive > 0 ? Math.round(totalRevenue / monthsActive) : 0;
 
       // Get subscription status
       const subscription = await prisma.subscription.findFirst({
@@ -237,17 +236,19 @@ export class PatientAnalyticsService {
       });
 
       // Group patients into cohorts
-      const cohortMap = new Map<string, {
-        patientIds: number[];
-        payments: Array<{ patientId: number; amount: number; date: Date }>;
-      }>();
+      const cohortMap = new Map<
+        string,
+        {
+          patientIds: number[];
+          payments: Array<{ patientId: number; amount: number; date: Date }>;
+        }
+      >();
 
-      patients.forEach((patient: typeof patients[number]) => {
+      patients.forEach((patient: (typeof patients)[number]) => {
         if (patient.payments.length === 0) return;
 
-        const cohortDate = cohortBy === 'signup' 
-          ? patient.createdAt 
-          : patient.payments[0].createdAt;
+        const cohortDate =
+          cohortBy === 'signup' ? patient.createdAt : patient.payments[0].createdAt;
 
         // Filter to date range
         if (cohortDate < rangeStart || cohortDate > rangeEnd) return;
@@ -294,25 +295,28 @@ export class PatientAnalyticsService {
               .map((p: { patientId: number }) => p.patientId)
           );
 
-          retention[month] = data.patientIds.length > 0
-            ? Math.round((activePatients.size / data.patientIds.length) * 100)
-            : 0;
+          retention[month] =
+            data.patientIds.length > 0
+              ? Math.round((activePatients.size / data.patientIds.length) * 100)
+              : 0;
 
           revenue[month] = data.payments
             .filter((p: { date: Date }) => p.date >= monthStart && p.date <= monthEnd)
             .reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
         }
 
-        const totalRevenue = data.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+        const totalRevenue = data.payments.reduce(
+          (sum: number, p: { amount: number }) => sum + p.amount,
+          0
+        );
 
         cohorts.push({
           cohort: cohortKey,
           size: data.patientIds.length,
           retention,
           revenue,
-          averageLTV: data.patientIds.length > 0
-            ? Math.round(totalRevenue / data.patientIds.length)
-            : 0,
+          averageLTV:
+            data.patientIds.length > 0 ? Math.round(totalRevenue / data.patientIds.length) : 0,
         });
       }
 
@@ -323,19 +327,16 @@ export class PatientAnalyticsService {
   /**
    * Generate retention matrix for visualization
    */
-  static async getRetentionMatrix(
-    clinicId: number,
-    months: number = 12
-  ): Promise<RetentionMatrix> {
+  static async getRetentionMatrix(clinicId: number, months: number = 12): Promise<RetentionMatrix> {
     const cohorts = await this.getCohortAnalysis(clinicId, 'signup', {
       start: subMonths(new Date(), months),
       end: new Date(),
     });
 
-    const monthLabels = cohorts.map(c => c.cohort);
+    const monthLabels = cohorts.map((c) => c.cohort);
     const maxRetentionMonths = 13; // Month 0 through 12
 
-    const data = cohorts.map(cohort => ({
+    const data = cohorts.map((cohort) => ({
       cohort: cohort.cohort,
       size: cohort.size,
       retention: Array.from({ length: maxRetentionMonths }, (_, i) => cohort.retention[i] || 0),
@@ -343,12 +344,12 @@ export class PatientAnalyticsService {
 
     // Calculate average retention for each month
     const averageRetention = Array.from({ length: maxRetentionMonths }, (_, monthIndex) => {
-      const retentionValues = data
-        .map(d => d.retention[monthIndex])
-        .filter(v => v > 0);
-      
+      const retentionValues = data.map((d) => d.retention[monthIndex]).filter((v) => v > 0);
+
       return retentionValues.length > 0
-        ? Math.round(retentionValues.reduce((a: number, b: number) => a + b, 0) / retentionValues.length)
+        ? Math.round(
+            retentionValues.reduce((a: number, b: number) => a + b, 0) / retentionValues.length
+          )
         : 0;
     });
 
@@ -395,7 +396,7 @@ export class PatientAnalyticsService {
       let totalDelay = 0;
       let delayCount = 0;
 
-      payments.forEach((payment: typeof payments[number]) => {
+      payments.forEach((payment: (typeof payments)[number]) => {
         if (payment.status === 'FAILED') {
           failed++;
           return;
@@ -440,10 +441,7 @@ export class PatientAnalyticsService {
   /**
    * Identify patients at risk of churning
    */
-  static async getAtRiskPatients(
-    clinicId: number,
-    limit: number = 20
-  ): Promise<AtRiskPatient[]> {
+  static async getAtRiskPatients(clinicId: number, limit: number = 20): Promise<AtRiskPatient[]> {
     return withClinicContext(clinicId, async () => {
       const now = new Date();
       const thirtyDaysAgo = subMonths(now, 1);
@@ -542,7 +540,8 @@ export class PatientAnalyticsService {
 
           atRiskPatients.push({
             patientId: patient.id,
-            patientName: `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim(),
+            patientName:
+              `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim(),
             email: safeDecrypt(patient.email),
             riskScore: Math.min(100, riskScore),
             riskFactors,
@@ -555,9 +554,7 @@ export class PatientAnalyticsService {
       }
 
       // Sort by risk score and limit results
-      return atRiskPatients
-        .sort((a, b) => b.riskScore - a.riskScore)
-        .slice(0, limit);
+      return atRiskPatients.sort((a, b) => b.riskScore - a.riskScore).slice(0, limit);
     });
   }
 
@@ -587,8 +584,11 @@ export class PatientAnalyticsService {
       let totalPatients = 0;
       let totalRevenue = 0;
 
-      patients.forEach((patient: typeof patients[number]) => {
-        const revenue = patient.payments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
+      patients.forEach((patient: (typeof patients)[number]) => {
+        const revenue = patient.payments.reduce(
+          (sum: number, p: { amount: number }) => sum + p.amount,
+          0
+        );
         totalPatients++;
         totalRevenue += revenue;
 
@@ -612,45 +612,41 @@ export class PatientAnalyticsService {
           segment: 'VIP',
           count: segments.vip.count,
           totalRevenue: segments.vip.revenue,
-          averageLTV: segments.vip.count > 0 
-            ? Math.round(segments.vip.revenue / segments.vip.count)
-            : 0,
-          percentageOfTotal: totalPatients > 0
-            ? Math.round((segments.vip.count / totalPatients) * 100)
-            : 0,
+          averageLTV:
+            segments.vip.count > 0 ? Math.round(segments.vip.revenue / segments.vip.count) : 0,
+          percentageOfTotal:
+            totalPatients > 0 ? Math.round((segments.vip.count / totalPatients) * 100) : 0,
         },
         {
           segment: 'Regular',
           count: segments.regular.count,
           totalRevenue: segments.regular.revenue,
-          averageLTV: segments.regular.count > 0
-            ? Math.round(segments.regular.revenue / segments.regular.count)
-            : 0,
-          percentageOfTotal: totalPatients > 0
-            ? Math.round((segments.regular.count / totalPatients) * 100)
-            : 0,
+          averageLTV:
+            segments.regular.count > 0
+              ? Math.round(segments.regular.revenue / segments.regular.count)
+              : 0,
+          percentageOfTotal:
+            totalPatients > 0 ? Math.round((segments.regular.count / totalPatients) * 100) : 0,
         },
         {
           segment: 'Occasional',
           count: segments.occasional.count,
           totalRevenue: segments.occasional.revenue,
-          averageLTV: segments.occasional.count > 0
-            ? Math.round(segments.occasional.revenue / segments.occasional.count)
-            : 0,
-          percentageOfTotal: totalPatients > 0
-            ? Math.round((segments.occasional.count / totalPatients) * 100)
-            : 0,
+          averageLTV:
+            segments.occasional.count > 0
+              ? Math.round(segments.occasional.revenue / segments.occasional.count)
+              : 0,
+          percentageOfTotal:
+            totalPatients > 0 ? Math.round((segments.occasional.count / totalPatients) * 100) : 0,
         },
         {
           segment: 'New',
           count: segments.new.count,
           totalRevenue: segments.new.revenue,
-          averageLTV: segments.new.count > 0
-            ? Math.round(segments.new.revenue / segments.new.count)
-            : 0,
-          percentageOfTotal: totalPatients > 0
-            ? Math.round((segments.new.count / totalPatients) * 100)
-            : 0,
+          averageLTV:
+            segments.new.count > 0 ? Math.round(segments.new.revenue / segments.new.count) : 0,
+          percentageOfTotal:
+            totalPatients > 0 ? Math.round((segments.new.count / totalPatients) * 100) : 0,
         },
       ];
     });
@@ -711,21 +707,26 @@ export class PatientAnalyticsService {
       if (!patient) return null;
 
       // Calculate summary metrics
-      const successfulPayments = patient.payments.filter((p: { status: string }) => p.status === 'SUCCEEDED');
-      const totalRevenue = successfulPayments.reduce((sum: number, p: { amount: number }) => sum + p.amount, 0);
-      
+      const successfulPayments = patient.payments.filter(
+        (p: { status: string }) => p.status === 'SUCCEEDED'
+      );
+      const totalRevenue = successfulPayments.reduce(
+        (sum: number, p: { amount: number }) => sum + p.amount,
+        0
+      );
+
       const outstandingInvoices = patient.invoices.filter(
         (inv: { status: string }) => inv.status === 'OPEN' || inv.status === 'DRAFT'
       );
       const outstandingBalance = outstandingInvoices.reduce(
-        (sum: number, inv: { amount: number | null }) => sum + (inv.amount || 0), 0
+        (sum: number, inv: { amount: number | null }) => sum + (inv.amount || 0),
+        0
       );
 
       const monthsActive = differenceInMonths(new Date(), patient.createdAt) || 1;
       const lifetimeValue = totalRevenue;
-      const avgOrderValue = successfulPayments.length > 0
-        ? Math.round(totalRevenue / successfulPayments.length)
-        : 0;
+      const avgOrderValue =
+        successfulPayments.length > 0 ? Math.round(totalRevenue / successfulPayments.length) : 0;
 
       return {
         patient: {
@@ -741,14 +742,14 @@ export class PatientAnalyticsService {
           lifetimeValue,
           averageOrderValue: avgOrderValue,
         },
-        payments: patient.payments.map((p: typeof patient.payments[number]) => ({
+        payments: patient.payments.map((p: (typeof patient.payments)[number]) => ({
           id: p.id,
           amount: p.amount,
           status: p.status,
           date: p.createdAt,
           method: p.paymentMethod,
         })),
-        subscriptions: patient.subscriptions.map((s: typeof patient.subscriptions[number]) => ({
+        subscriptions: patient.subscriptions.map((s: (typeof patient.subscriptions)[number]) => ({
           id: s.id,
           status: s.status,
           planName: s.planName,
@@ -756,7 +757,7 @@ export class PatientAnalyticsService {
           startDate: s.createdAt,
           endDate: s.canceledAt,
         })),
-        invoices: patient.invoices.map((inv: typeof patient.invoices[number]) => ({
+        invoices: patient.invoices.map((inv: (typeof patient.invoices)[number]) => ({
           id: inv.id,
           status: inv.status,
           amount: inv.amount || 0,
@@ -796,21 +797,17 @@ export class PatientAnalyticsService {
         },
       });
 
-      const ltvs = patients.map((p: typeof patients[number]) => 
+      const ltvs = patients.map((p: (typeof patients)[number]) =>
         p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0)
       );
-      
+
       const patientsWithPayments = ltvs.filter((ltv: number) => ltv > 0).length;
       const totalLTV = ltvs.reduce((a: number, b: number) => a + b, 0);
-      const averageLTV = patients.length > 0 
-        ? Math.round(totalLTV / patients.length)
-        : 0;
+      const averageLTV = patients.length > 0 ? Math.round(totalLTV / patients.length) : 0;
 
       // Calculate median
       const sortedLTVs = [...ltvs].sort((a, b) => a - b);
-      const medianLTV = sortedLTVs.length > 0
-        ? sortedLTVs[Math.floor(sortedLTVs.length / 2)]
-        : 0;
+      const medianLTV = sortedLTVs.length > 0 ? sortedLTVs[Math.floor(sortedLTVs.length / 2)] : 0;
 
       // Active subscriptions
       const activeSubscriptions = await prisma.subscription.count({
@@ -827,9 +824,11 @@ export class PatientAnalyticsService {
       });
 
       // Calculate churn rate (churned / (active + churned))
-      const churnRate = (activeSubscriptions + churnedLast30Days) > 0
-        ? Math.round((churnedLast30Days / (activeSubscriptions + churnedLast30Days)) * 10000) / 100
-        : 0;
+      const churnRate =
+        activeSubscriptions + churnedLast30Days > 0
+          ? Math.round((churnedLast30Days / (activeSubscriptions + churnedLast30Days)) * 10000) /
+            100
+          : 0;
 
       return {
         totalPatients: patients.length,

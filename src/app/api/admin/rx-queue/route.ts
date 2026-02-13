@@ -1,13 +1,13 @@
 /**
  * Admin RX Queue API Route
  * ========================
- * 
+ *
  * Read-only unified view of all pending prescription activity for admins.
  * Aggregates data from:
  * - Paid invoices awaiting prescription
  * - SOAP notes in DRAFT status
  * - Refills pending approval or provider action
- * 
+ *
  * @module api/admin/rx-queue
  */
 
@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 
 // Helper to safely decrypt a field
@@ -23,7 +24,7 @@ const safeDecrypt = (value: string | null): string | null => {
   try {
     const parts = value.split(':');
     // Min length of 2 to handle short encrypted values
-    if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+    if (parts.length === 3 && parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
       return decryptPHI(value);
     }
     return value; // Not encrypted, return as-is
@@ -70,7 +71,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         where: {
           status: 'PAID',
           prescriptionProcessed: false,
-          ...(clinicId && { clinicId })
+          ...(clinicId && { clinicId }),
         },
         include: {
           patient: {
@@ -78,23 +79,25 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               id: true,
               firstName: true,
               lastName: true,
-              email: true
-            }
+              email: true,
+            },
           },
           clinic: {
             select: {
               id: true,
-              name: true
-            }
-          }
+              name: true,
+            },
+          },
         },
-        orderBy: { paidAt: 'asc' }
+        orderBy: { paidAt: 'asc' },
+        take: 100,
       });
 
       for (const invoice of invoices) {
         const metadata = invoice.metadata as Record<string, unknown> | null;
-        const treatment = metadata?.product as string || metadata?.treatment as string || 'Unknown Treatment';
-        
+        const treatment =
+          (metadata?.product as string) || (metadata?.treatment as string) || 'Unknown Treatment';
+
         // Apply search filter - decrypt names first
         const firstName = safeDecrypt(invoice.patient.firstName) || invoice.patient.firstName;
         const lastName = safeDecrypt(invoice.patient.lastName) || invoice.patient.lastName;
@@ -118,8 +121,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           metadata: {
             invoiceId: invoice.id,
             invoiceNumber: metadata?.invoiceNumber || `INV-${invoice.id}`,
-            plan: metadata?.plan
-          }
+            plan: metadata?.plan,
+          },
         });
       }
     }
@@ -129,7 +132,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const soapNotes = await prisma.sOAPNote.findMany({
         where: {
           status: 'DRAFT',
-          ...(clinicId && { patient: { clinicId } })
+          ...(clinicId && { patient: { clinicId } }),
         },
         include: {
           patient: {
@@ -142,19 +145,20 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               clinic: {
                 select: {
                   id: true,
-                  name: true
-                }
-              }
-            }
+                  name: true,
+                },
+              },
+            },
           },
           approvedByProvider: {
             select: {
               firstName: true,
-              lastName: true
-            }
-          }
+              lastName: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
+        take: 100,
       });
 
       for (const note of soapNotes) {
@@ -183,8 +187,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             generatedByAI: note.generatedByAI,
             createdBy: note.approvedByProvider
               ? `${note.approvedByProvider.firstName} ${note.approvedByProvider.lastName}`
-              : 'System'
-          }
+              : 'System',
+          },
         });
       }
     }
@@ -194,7 +198,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const refills = await prisma.refillQueue.findMany({
         where: {
           status: { in: ['PENDING_ADMIN', 'PENDING_PROVIDER', 'APPROVED', 'PENDING_PAYMENT'] },
-          ...(clinicId && { clinicId })
+          ...(clinicId && { clinicId }),
         },
         include: {
           patient: {
@@ -202,17 +206,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               id: true,
               firstName: true,
               lastName: true,
-              email: true
-            }
+              email: true,
+            },
           },
           clinic: {
             select: {
               id: true,
-              name: true
-            }
-          }
+              name: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
+        take: 100,
       });
 
       for (const refill of refills) {
@@ -226,10 +231,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
         // Map status to human-readable
         const statusMap: Record<string, string> = {
-          'PENDING_PAYMENT': 'Refill - Awaiting Payment',
-          'PENDING_ADMIN': 'Refill - Awaiting Admin Approval',
-          'APPROVED': 'Refill - Approved, Awaiting Provider',
-          'PENDING_PROVIDER': 'Refill - In Provider Queue'
+          PENDING_PAYMENT: 'Refill - Awaiting Payment',
+          PENDING_ADMIN: 'Refill - Awaiting Admin Approval',
+          APPROVED: 'Refill - Approved, Awaiting Provider',
+          PENDING_PROVIDER: 'Refill - In Provider Queue',
         };
 
         queueItems.push({
@@ -241,7 +246,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           patientEmail: safeDecrypt(refill.patient.email),
           clinicId: refill.clinicId,
           clinicName: refill.clinic?.name || null,
-          treatment: refill.medicationName 
+          treatment: refill.medicationName
             ? `${refill.medicationName}${refill.medicationStrength ? ` ${refill.medicationStrength}` : ''}`
             : 'Refill',
           createdAt: refill.createdAt.toISOString(),
@@ -252,8 +257,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             refillIntervalDays: refill.refillIntervalDays,
             nextRefillDate: refill.nextRefillDate?.toISOString(),
             requestedEarly: refill.requestedEarly,
-            patientNotes: refill.patientNotes
-          }
+            patientNotes: refill.patientNotes,
+          },
         });
       }
     }
@@ -264,9 +269,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Calculate counts by type
     const counts = {
       total: queueItems.length,
-      invoices: queueItems.filter(i => i.type === 'invoice').length,
-      soap_notes: queueItems.filter(i => i.type === 'soap_note').length,
-      refills: queueItems.filter(i => i.type === 'refill').length
+      invoices: queueItems.filter((i) => i.type === 'invoice').length,
+      soap_notes: queueItems.filter((i) => i.type === 'soap_note').length,
+      refills: queueItems.filter((i) => i.type === 'refill').length,
     };
 
     logger.info('[ADMIN-RX-QUEUE] List RX queue', {
@@ -274,7 +279,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       clinicId,
       filter,
       counts,
-      search: search || undefined
+      search: search || undefined,
     });
 
     return NextResponse.json({
@@ -283,19 +288,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       meta: {
         filter,
         search: search || undefined,
-        isReadOnly: true
-      }
+        isReadOnly: true,
+      },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[ADMIN-RX-QUEUE] Error listing RX queue', {
-      error: errorMessage,
-      userId: user.id
-    });
-    return NextResponse.json(
-      { error: 'Failed to fetch RX queue', details: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'GET /api/admin/rx-queue' });
   }
 }
 

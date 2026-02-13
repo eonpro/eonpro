@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { X } from "lucide-react";
-import PatientPrescriptionPanel from "./PatientPrescriptionPanel";
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import PatientPrescriptionPanel from './PatientPrescriptionPanel';
 
 type PrescriptionModalProps = {
   patient: {
@@ -24,11 +24,11 @@ type PrescriptionModalProps = {
   onSuccess: () => void;
 };
 
-export default function PrescriptionModal({ 
-  patient, 
-  isOpen, 
-  onClose, 
-  onSuccess 
+export default function PrescriptionModal({
+  patient,
+  isOpen,
+  onClose,
+  onSuccess,
 }: PrescriptionModalProps) {
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -46,33 +46,30 @@ export default function PrescriptionModal({
   return (
     <>
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-40"
-        onClick={onClose}
-      />
-      
+      <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={onClose} />
+
       {/* Modal */}
       <div className="fixed inset-0 z-50 overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-4">
-          <div className="relative w-full max-w-4xl bg-[#f9f8f6] rounded-lg shadow-xl">
+          <div className="relative w-full max-w-4xl rounded-lg bg-[#f9f8f6] shadow-xl">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
+            <div className="flex items-center justify-between border-b p-6">
               <h2 className="text-2xl font-semibold">
                 New Prescription for {patient.firstName} {patient.lastName}
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             {/* Content */}
-            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <div className="max-h-[calc(100vh-200px)] overflow-y-auto p-6">
               {showSuccess ? (
                 <div className="flex flex-col items-center justify-center py-20">
-                  <div className="rounded-full bg-green-100 p-4 mb-4">
+                  <div className="mb-4 rounded-full bg-green-100 p-4">
                     <svg
                       className="h-12 w-12 text-green-600"
                       fill="none"
@@ -87,18 +84,13 @@ export default function PrescriptionModal({
                       />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  <h3 className="mb-2 text-xl font-semibold text-gray-900">
                     Prescription Submitted Successfully!
                   </h3>
-                  <p className="text-gray-600">
-                    The prescription has been sent to the pharmacy.
-                  </p>
+                  <p className="text-gray-600">The prescription has been sent to the pharmacy.</p>
                 </div>
               ) : (
-                <PatientPrescriptionPanel 
-                  patient={patient} 
-                  onSuccess={handleSuccess}
-                />
+                <PatientPrescriptionPanel patient={patient} onSuccess={handleSuccess} />
               )}
             </div>
           </div>

@@ -149,7 +149,7 @@ export interface RawAddressInput {
   billing_address?: string;
   address?: string;
   full_address?: string;
-  
+
   // Individual components
   address1?: string;
   address_line1?: string;
@@ -157,7 +157,7 @@ export interface RawAddressInput {
   addressLine1?: string;
   street_address?: string;
   streetAddress?: string;
-  
+
   address2?: string;
   address_line2?: string;
   address_line_2?: string;
@@ -166,16 +166,16 @@ export interface RawAddressInput {
   apt?: string;
   suite?: string;
   unit?: string;
-  
+
   city?: string;
   shipping_city?: string;
   shippingCity?: string;
-  
+
   state?: string;
   shipping_state?: string;
   shippingState?: string;
   province?: string;
-  
+
   zip?: string;
   zipCode?: string;
   zip_code?: string;
@@ -183,7 +183,7 @@ export interface RawAddressInput {
   postalCode?: string;
   shipping_zip?: string;
   shippingZip?: string;
-  
+
   country?: string;
   shipping_country?: string;
   shippingCountry?: string;

@@ -1,12 +1,12 @@
 /**
  * Provider Debug Endpoint
  * ========================
- * 
+ *
  * GET /api/providers/debug
- * 
+ *
  * Returns diagnostic information about why certain providers
  * may or may not appear in the provider list for the current user.
- * 
+ *
  * SECURITY: Restricted to super_admin and admin roles only.
  */
 
@@ -53,17 +53,17 @@ export const GET = withAuth(
 
     // Step 2: Collect all clinic IDs (same logic as service)
     const allClinicIds: number[] = [];
-    
+
     // From JWT context
     if (user.clinicId) {
       allClinicIds.push(user.clinicId);
     }
-    
+
     // From User.clinicId in database
     if (userRecord?.clinicId && !allClinicIds.includes(userRecord.clinicId)) {
       allClinicIds.push(userRecord.clinicId);
     }
-    
+
     // From UserClinic table
     if (userRecord?.userClinics) {
       for (const uc of userRecord.userClinics) {
@@ -110,23 +110,25 @@ export const GET = withAuth(
           },
         },
       },
+      orderBy: { id: 'asc' },
+      take: 1000,
     });
 
     // Step 4: Analyze each provider's visibility
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const providerAnalysis = allProviders.map((p: any) => {
       const reasons: string[] = [];
-      
+
       // Check condition 1: User's linked provider
       if (user.providerId === p.id) {
         reasons.push('✅ Condition 1: User is linked to this provider (user.providerId)');
       }
-      
+
       // Check condition 2: Email match
       if (p.email && user.email.toLowerCase() === p.email.toLowerCase()) {
         reasons.push('✅ Condition 2: Provider email matches user email');
       }
-      
+
       // Check condition 3: ProviderClinic junction
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const matchingProviderClinics = p.providerClinics.filter(
@@ -138,12 +140,12 @@ export const GET = withAuth(
           `✅ Condition 3: Has ProviderClinic entries for user's clinics: ${matchingProviderClinics.map((pc: any) => pc.clinic.name).join(', ')}`
         );
       }
-      
+
       // Check condition 4: Legacy clinicId
       if (p.clinicId && allClinicIds.includes(p.clinicId)) {
         reasons.push(`✅ Condition 4: Legacy clinicId (${p.clinicId}) matches user's clinics`);
       }
-      
+
       // Check condition 5: Via User->UserClinic
       if (p.user?.userClinics) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,7 +159,7 @@ export const GET = withAuth(
           );
         }
       }
-      
+
       // Check condition 6: Shared provider (clinicId null)
       if (p.clinicId === null) {
         reasons.push('✅ Condition 6: Shared provider (no clinic assignment)');
@@ -231,6 +233,8 @@ export const GET = withAuth(
         isActive: true,
         clinicId: allClinicIds.length > 0 ? { in: allClinicIds } : undefined,
       },
+      orderBy: { id: 'asc' },
+      take: 1000,
       include: {
         user: {
           select: {

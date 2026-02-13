@@ -7,11 +7,13 @@ The system now supports provider account passwords for enhanced security when ap
 ## Features Added
 
 ### 1. Database Schema Updates
+
 - Added `passwordHash` field to Provider model
 - Added `passwordResetToken` and `passwordResetExpires` for future password reset functionality
 - Added `lastLogin` to track provider activity
 
 ### 2. API Endpoint
+
 - **POST** `/api/providers/[id]/set-password`
   - Sets or updates a provider's account password
   - Requires password (min 8 chars) and confirmation
@@ -20,17 +22,20 @@ The system now supports provider account passwords for enhanced security when ap
 ### 3. UI Components
 
 #### ProviderPasswordSetup Component
+
 - Modal-based password setup interface
 - Shows "Set Password" for new providers
 - Shows "Change Password" for providers with existing passwords
 - Real-time validation and error handling
 
 #### EditProviderForm Updates
+
 - Added password setup button next to "Save Changes"
 - Shows password status (set/not set)
 - Integrated with the ProviderPasswordSetup component
 
 ### 4. Command Line Setup
+
 - Script: `scripts/setup-provider-password.js`
 - Run: `node scripts/setup-provider-password.js`
 - Interactive CLI to set provider passwords
@@ -49,6 +54,7 @@ The system now supports provider account passwords for enhanced security when ap
    ```bash
    node scripts/setup-provider-password.js
    ```
+
    - Select provider ID from list
    - Enter new password
    - Confirm password
@@ -56,11 +62,13 @@ The system now supports provider account passwords for enhanced security when ap
 ### SOAP Note Approval Process
 
 **Current System** (Per-Note Passwords):
+
 - Each SOAP note gets its own password when approved
 - Password is specific to that note only
 - Used for editing that specific approved note
 
 **With Provider Passwords** (Can be enhanced):
+
 - Provider authenticates with their account password
 - Can approve multiple SOAP notes without creating new passwords each time
 - More secure and consistent
@@ -68,13 +76,14 @@ The system now supports provider account passwords for enhanced security when ap
 ## Testing
 
 1. Set up a provider password:
+
    ```bash
    node scripts/setup-provider-password.js
    ```
 
 2. Access the provider edit page:
    - Navigate to `/providers/[id]`
-   - Click "Edit" 
+   - Click "Edit"
    - Use the "Set Password" button
 
 3. The password will be used for:

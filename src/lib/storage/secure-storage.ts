@@ -9,8 +9,8 @@ import crypto from 'crypto';
 import { logger } from '@/lib/logger';
 
 // Private storage directory (outside public)
-const PRIVATE_STORAGE_BASE = process.env.PRIVATE_STORAGE_PATH || 
-  path.join(process.cwd(), 'private-storage');
+const PRIVATE_STORAGE_BASE =
+  process.env.PRIVATE_STORAGE_PATH || path.join(process.cwd(), 'private-storage');
 
 // Ensure private storage directory exists
 async function ensureStorageDir(subPath: string): Promise<string> {
@@ -41,9 +41,9 @@ export function isAllowedFileType(mimeType: string): boolean {
     'image/gif',
     'text/plain',
     'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ];
-  
+
   return allowedTypes.includes(mimeType.toLowerCase());
 }
 
@@ -70,39 +70,39 @@ export async function storeFile(
     if (!isAllowedFileType(metadata.mimeType)) {
       throw new Error(`File type not allowed: ${metadata.mimeType}`);
     }
-    
+
     // Generate secure filename
     const filename = generateSecureFilename(originalName);
-    
+
     // Create directory structure: /clinicId/patientId/category/
     const relativePath = path.join(
       String(metadata.clinicId || 'default'),
       String(metadata.patientId),
       category
     );
-    
+
     const storageDir = await ensureStorageDir(relativePath);
     const fullPath = path.join(storageDir, filename);
-    
+
     // Write file
     await fs.writeFile(fullPath, file);
-    
+
     // Get file stats
     const stats = await fs.stat(fullPath);
-    
+
     // Log file storage for audit
     logger.db('CREATE', 'file_storage', {
       filename,
       path: relativePath,
       size: stats.size,
       patientId: metadata.patientId,
-      uploadedBy: metadata.uploadedBy
+      uploadedBy: metadata.uploadedBy,
     });
-    
+
     return {
       filename,
       path: path.join(relativePath, filename),
-      size: stats.size
+      size: stats.size,
     };
   } catch (error) {
     logger.error('Failed to store file securely:', error);
@@ -126,20 +126,20 @@ export async function retrieveFile(
     if (normalizedPath.includes('..')) {
       throw new Error('Invalid file path');
     }
-    
+
     // Verify patient ID in path if provided
     if (expectedPatientId && !normalizedPath.includes(String(expectedPatientId))) {
       throw new Error('File access denied');
     }
-    
+
     const fullPath = path.join(PRIVATE_STORAGE_BASE, normalizedPath);
-    
+
     // Check file exists
     await fs.access(fullPath);
-    
+
     // Read file
     const data = await fs.readFile(fullPath);
-    
+
     // Determine MIME type from extension
     const ext = path.extname(fullPath).toLowerCase();
     const mimeTypes: Record<string, string> = {
@@ -150,12 +150,12 @@ export async function retrieveFile(
       '.gif': 'image/gif',
       '.txt': 'text/plain',
       '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     };
-    
+
     return {
       data,
-      mimeType: mimeTypes[ext] || 'application/octet-stream'
+      mimeType: mimeTypes[ext] || 'application/octet-stream',
     };
   } catch (error) {
     logger.error('Failed to retrieve file:', error);
@@ -166,31 +166,28 @@ export async function retrieveFile(
 /**
  * Delete file from secure storage
  */
-export async function deleteFile(
-  filePath: string,
-  expectedPatientId?: number
-): Promise<boolean> {
+export async function deleteFile(filePath: string, expectedPatientId?: number): Promise<boolean> {
   try {
     // Prevent path traversal
     const normalizedPath = path.normalize(filePath);
     if (normalizedPath.includes('..')) {
       throw new Error('Invalid file path');
     }
-    
+
     // Verify patient ID in path if provided
     if (expectedPatientId && !normalizedPath.includes(String(expectedPatientId))) {
       throw new Error('File access denied');
     }
-    
+
     const fullPath = path.join(PRIVATE_STORAGE_BASE, normalizedPath);
-    
+
     // Delete file
     await fs.unlink(fullPath);
-    
+
     logger.db('DELETE', 'file_storage', {
-      path: normalizedPath
+      path: normalizedPath,
     });
-    
+
     return true;
   } catch (error) {
     logger.error('Failed to delete file:', error);
@@ -207,46 +204,41 @@ export async function migratePublicFiles(): Promise<{
 }> {
   const results = {
     migrated: 0,
-    failed: 0
+    failed: 0,
   };
-  
+
   try {
     // Check public directories
     const publicDirs = [
       path.join(process.cwd(), 'public', 'uploads', 'documents'),
-      path.join(process.cwd(), 'public', 'intake-pdfs')
+      path.join(process.cwd(), 'public', 'intake-pdfs'),
     ];
-    
+
     for (const dir of publicDirs) {
       try {
         const files = await fs.readdir(dir);
-        
+
         for (const file of files) {
           try {
             const sourcePath = path.join(dir, file);
             const stats = await fs.stat(sourcePath);
-            
+
             if (stats.isFile()) {
               // Read file
               const data = await fs.readFile(sourcePath);
-              
+
               // Store in secure location
               // Note: You'll need to determine patient/clinic from filename or database
-              const stored = await storeFile(
-                data,
-                file,
-                'migrated',
-                {
-                  patientId: 0, // You'll need to lookup from database
-                  clinicId: 1,
-                  uploadedBy: 0, // System migration
-                  mimeType: 'application/octet-stream'
-                }
-              );
-              
+              const stored = await storeFile(data, file, 'migrated', {
+                patientId: 0, // You'll need to lookup from database
+                clinicId: 1,
+                uploadedBy: 0, // System migration
+                mimeType: 'application/octet-stream',
+              });
+
               // Delete original
               await fs.unlink(sourcePath);
-              
+
               results.migrated++;
               logger.info(`Migrated file: ${file} to ${stored.path}`);
             }
@@ -259,7 +251,7 @@ export async function migratePublicFiles(): Promise<{
         logger.error(`Cannot read directory ${dir}:`, error);
       }
     }
-    
+
     return results;
   } catch (error) {
     logger.error('Migration failed:', error);
@@ -270,27 +262,27 @@ export async function migratePublicFiles(): Promise<{
 // Cleanup old temp files
 export async function cleanupTempFiles(olderThanHours: number = 24): Promise<number> {
   let cleaned = 0;
-  
+
   try {
     const tempDir = path.join(PRIVATE_STORAGE_BASE, 'temp');
     const files = await fs.readdir(tempDir).catch(() => []);
-    
-    const cutoffTime = Date.now() - (olderThanHours * 60 * 60 * 1000);
-    
+
+    const cutoffTime = Date.now() - olderThanHours * 60 * 60 * 1000;
+
     for (const file of files) {
       const filePath = path.join(tempDir, file);
       const stats = await fs.stat(filePath);
-      
+
       if (stats.mtime.getTime() < cutoffTime) {
         await fs.unlink(filePath);
         cleaned++;
       }
     }
-    
+
     if (cleaned > 0) {
       logger.info(`Cleaned up ${cleaned} temporary files`);
     }
-    
+
     return cleaned;
   } catch (error) {
     logger.error('Temp file cleanup failed:', error);

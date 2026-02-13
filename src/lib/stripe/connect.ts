@@ -1,11 +1,11 @@
 /**
  * STRIPE CONNECT MULTI-TENANT SUPPORT
- * 
+ *
  * Handles Stripe Connect for multi-clinic setup:
  * - EONmeds: Platform account (direct Stripe calls)
  * - OT (Overtime): Dedicated account (ot.eonpro.io)
  * - Other Clinics: Connected accounts (Stripe Connect)
- * 
+ *
  * Usage:
  * - For platform operations: getStripeForPlatform()
  * - For clinic operations: getStripeForClinic(clinicId)
@@ -52,8 +52,8 @@ const dedicatedAccountClients: Map<string, Stripe> = new Map();
  * so Finance Hub and all Stripe API calls for Eonmeds use the correct account.
  */
 const DEDICATED_ACCOUNT_CONFIG: Record<string, { envPrefix: string; displayName: string }> = {
-  'eonmeds': { envPrefix: 'EONMEDS', displayName: 'EonMeds' },
-  'ot': { envPrefix: 'OT', displayName: 'Overtime (OT)' },
+  eonmeds: { envPrefix: 'EONMEDS', displayName: 'EonMeds' },
+  ot: { envPrefix: 'OT', displayName: 'Overtime (OT)' },
   // Add more dedicated accounts here:
   // 'another-clinic': { envPrefix: 'ANOTHER', displayName: 'Another Clinic' },
 };
@@ -65,7 +65,7 @@ function getConnectPlatformStripe(): Stripe {
     if (!secretKey) {
       throw new Error(
         'STRIPE_CONNECT_PLATFORM_SECRET_KEY not configured. ' +
-        'This should be a separate Stripe account from EonMeds, used for Connect functionality.'
+          'This should be a separate Stripe account from EonMeds, used for Connect functionality.'
       );
     }
     connectPlatformStripe = new Stripe(secretKey, {
@@ -232,12 +232,14 @@ export async function getStripeForClinic(clinicId: number): Promise<StripeContex
       clinicId: clinic.id,
     };
   }
-  
+
   // Verify connected account is ready
   if (!clinic.stripeChargesEnabled) {
-    logger.warn(`[STRIPE CONNECT] Clinic ${clinicId} has connected account but charges not enabled`);
+    logger.warn(
+      `[STRIPE CONNECT] Clinic ${clinicId} has connected account but charges not enabled`
+    );
   }
-  
+
   return {
     stripe,
     stripeAccountId: clinic.stripeAccountId,
@@ -266,7 +268,7 @@ export function withConnectedAccount<T extends object>(
 
 /**
  * Create a Stripe Connect account for a clinic
- * 
+ *
  * @param clinicId - The clinic ID
  * @param options - Account creation options
  * @param options.email - Email for the connected account
@@ -284,20 +286,20 @@ export async function createConnectedAccount(
   }
 ): Promise<{ accountId: string; onboardingUrl: string }> {
   const stripe = getPlatformStripe();
-  
+
   const clinic = await prisma.clinic.findUnique({
     where: { id: clinicId },
     select: { id: true, name: true, stripeAccountId: true },
   });
-  
+
   if (!clinic) {
     throw new Error(`Clinic ${clinicId} not found`);
   }
-  
+
   if (clinic.stripeAccountId) {
     throw new Error(`Clinic ${clinicId} already has a connected account`);
   }
-  
+
   // Create connected account
   const account = await stripe.accounts.create({
     type: 'standard', // Standard accounts have their own dashboard
@@ -313,7 +315,7 @@ export async function createConnectedAccount(
       transfers: { requested: true },
     },
   });
-  
+
   // Update clinic with account ID
   await prisma.clinic.update({
     where: { id: clinicId },
@@ -323,11 +325,11 @@ export async function createConnectedAccount(
       stripeConnectedAt: new Date(),
     },
   });
-  
+
   // Default return path for self-service flow
   const returnPath = options.returnPath || '/admin/settings/stripe';
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-  
+
   // Create account link for onboarding
   const accountLink = await stripe.accountLinks.create({
     account: account.id,
@@ -335,12 +337,12 @@ export async function createConnectedAccount(
     return_url: `${baseUrl}${returnPath}?stripe=complete`,
     type: 'account_onboarding',
   });
-  
+
   logger.info('[STRIPE CONNECT] Created connected account', {
     clinicId,
     accountId: account.id,
   });
-  
+
   return {
     accountId: account.id,
     onboardingUrl: accountLink.url,
@@ -349,35 +351,32 @@ export async function createConnectedAccount(
 
 /**
  * Get onboarding link for existing connected account
- * 
+ *
  * @param clinicId - The clinic ID
  * @param returnPath - Custom return path after onboarding (default: /admin/settings/stripe)
  */
-export async function getOnboardingLink(
-  clinicId: number,
-  returnPath?: string
-): Promise<string> {
+export async function getOnboardingLink(clinicId: number, returnPath?: string): Promise<string> {
   const stripe = getPlatformStripe();
-  
+
   const clinic = await prisma.clinic.findUnique({
     where: { id: clinicId },
     select: { stripeAccountId: true },
   });
-  
+
   if (!clinic?.stripeAccountId) {
     throw new Error(`Clinic ${clinicId} has no connected account`);
   }
-  
+
   const path = returnPath || '/admin/settings/stripe';
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-  
+
   const accountLink = await stripe.accountLinks.create({
     account: clinic.stripeAccountId,
     refresh_url: `${baseUrl}${path}?stripe=refresh`,
     return_url: `${baseUrl}${path}?stripe=complete`,
     type: 'account_onboarding',
   });
-  
+
   return accountLink.url;
 }
 
@@ -386,16 +385,16 @@ export async function getOnboardingLink(
  */
 export async function getDashboardLink(clinicId: number): Promise<string> {
   const stripe = getPlatformStripe();
-  
+
   const clinic = await prisma.clinic.findUnique({
     where: { id: clinicId },
     select: { stripeAccountId: true },
   });
-  
+
   if (!clinic?.stripeAccountId) {
     throw new Error(`Clinic ${clinicId} has no connected account`);
   }
-  
+
   const loginLink = await stripe.accounts.createLoginLink(clinic.stripeAccountId);
   return loginLink.url;
 }
@@ -403,20 +402,22 @@ export async function getDashboardLink(clinicId: number): Promise<string> {
 /**
  * Sync connected account status from Stripe
  */
-export async function syncConnectedAccountStatus(clinicId: number): Promise<ConnectedAccountStatus> {
+export async function syncConnectedAccountStatus(
+  clinicId: number
+): Promise<ConnectedAccountStatus> {
   const stripe = getPlatformStripe();
-  
+
   const clinic = await prisma.clinic.findUnique({
     where: { id: clinicId },
     select: { stripeAccountId: true },
   });
-  
+
   if (!clinic?.stripeAccountId) {
     throw new Error(`Clinic ${clinicId} has no connected account`);
   }
-  
+
   const account = await stripe.accounts.retrieve(clinic.stripeAccountId);
-  
+
   const status: ConnectedAccountStatus = {
     accountId: account.id,
     chargesEnabled: account.charges_enabled,
@@ -429,7 +430,7 @@ export async function syncConnectedAccountStatus(clinicId: number): Promise<Conn
       pastDue: account.requirements?.past_due || [],
     },
   };
-  
+
   // Update clinic with latest status
   await prisma.clinic.update({
     where: { id: clinicId },
@@ -441,14 +442,14 @@ export async function syncConnectedAccountStatus(clinicId: number): Promise<Conn
       stripeAccountStatus: status.onboardingComplete ? 'active' : 'pending',
     },
   });
-  
+
   logger.info('[STRIPE CONNECT] Synced account status', {
     clinicId,
     accountId: account.id,
     chargesEnabled: status.chargesEnabled,
     payoutsEnabled: status.payoutsEnabled,
   });
-  
+
   return status;
 }
 
@@ -457,19 +458,19 @@ export async function syncConnectedAccountStatus(clinicId: number): Promise<Conn
  */
 export async function deleteConnectedAccount(clinicId: number): Promise<void> {
   const stripe = getPlatformStripe();
-  
+
   const clinic = await prisma.clinic.findUnique({
     where: { id: clinicId },
     select: { stripeAccountId: true },
   });
-  
+
   if (!clinic?.stripeAccountId) {
     throw new Error(`Clinic ${clinicId} has no connected account`);
   }
-  
+
   // Delete the account from Stripe
   await stripe.accounts.del(clinic.stripeAccountId);
-  
+
   // Clear clinic's Stripe fields
   await prisma.clinic.update({
     where: { id: clinicId },
@@ -483,7 +484,7 @@ export async function deleteConnectedAccount(clinicId: number): Promise<void> {
       stripeConnectedAt: null,
     },
   });
-  
+
   logger.info('[STRIPE CONNECT] Deleted connected account', {
     clinicId,
     accountId: clinic.stripeAccountId,
@@ -499,59 +500,44 @@ export async function deleteConnectedAccount(clinicId: number): Promise<void> {
  */
 export async function getClinicBalance(clinicId: number) {
   const context = await getStripeForClinic(clinicId);
-  
+
   const balance = await context.stripe.balance.retrieve(
     context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined
   );
-  
+
   return balance;
 }
 
 /**
  * List charges for a clinic
  */
-export async function getClinicCharges(
-  clinicId: number,
-  params: Stripe.ChargeListParams = {}
-) {
+export async function getClinicCharges(clinicId: number, params: Stripe.ChargeListParams = {}) {
   const context = await getStripeForClinic(clinicId);
-  
-  const charges = await context.stripe.charges.list(
-    withConnectedAccount(context, params)
-  );
-  
+
+  const charges = await context.stripe.charges.list(withConnectedAccount(context, params));
+
   return charges;
 }
 
 /**
  * List payouts for a clinic
  */
-export async function getClinicPayouts(
-  clinicId: number,
-  params: Stripe.PayoutListParams = {}
-) {
+export async function getClinicPayouts(clinicId: number, params: Stripe.PayoutListParams = {}) {
   const context = await getStripeForClinic(clinicId);
-  
-  const payouts = await context.stripe.payouts.list(
-    withConnectedAccount(context, params)
-  );
-  
+
+  const payouts = await context.stripe.payouts.list(withConnectedAccount(context, params));
+
   return payouts;
 }
 
 /**
  * List customers for a clinic
  */
-export async function getClinicCustomers(
-  clinicId: number,
-  params: Stripe.CustomerListParams = {}
-) {
+export async function getClinicCustomers(clinicId: number, params: Stripe.CustomerListParams = {}) {
   const context = await getStripeForClinic(clinicId);
-  
-  const customers = await context.stripe.customers.list(
-    withConnectedAccount(context, params)
-  );
-  
+
+  const customers = await context.stripe.customers.list(withConnectedAccount(context, params));
+
   return customers;
 }
 
@@ -563,42 +549,32 @@ export async function getClinicSubscriptions(
   params: Stripe.SubscriptionListParams = {}
 ) {
   const context = await getStripeForClinic(clinicId);
-  
+
   const subscriptions = await context.stripe.subscriptions.list(
     withConnectedAccount(context, params)
   );
-  
+
   return subscriptions;
 }
 
 /**
  * List disputes for a clinic
  */
-export async function getClinicDisputes(
-  clinicId: number,
-  params: Stripe.DisputeListParams = {}
-) {
+export async function getClinicDisputes(clinicId: number, params: Stripe.DisputeListParams = {}) {
   const context = await getStripeForClinic(clinicId);
-  
-  const disputes = await context.stripe.disputes.list(
-    withConnectedAccount(context, params)
-  );
-  
+
+  const disputes = await context.stripe.disputes.list(withConnectedAccount(context, params));
+
   return disputes;
 }
 
 /**
  * List products for a clinic
  */
-export async function getClinicProducts(
-  clinicId: number,
-  params: Stripe.ProductListParams = {}
-) {
+export async function getClinicProducts(clinicId: number, params: Stripe.ProductListParams = {}) {
   const context = await getStripeForClinic(clinicId);
-  
-  const products = await context.stripe.products.list(
-    withConnectedAccount(context, params)
-  );
-  
+
+  const products = await context.stripe.products.list(withConnectedAccount(context, params));
+
   return products;
 }

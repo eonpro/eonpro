@@ -17,7 +17,11 @@ import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 // ID Photo Types (require verification)
 // =============================================================================
 
-const ID_PHOTO_TYPES = [PatientPhotoType.ID_FRONT, PatientPhotoType.ID_BACK, PatientPhotoType.SELFIE];
+const ID_PHOTO_TYPES = [
+  PatientPhotoType.ID_FRONT,
+  PatientPhotoType.ID_BACK,
+  PatientPhotoType.SELFIE,
+];
 
 // =============================================================================
 // GET /api/admin/patient-photos/pending
@@ -151,10 +155,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch pending photos' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch pending photos' }, { status: 500 });
   }
 }
 

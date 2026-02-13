@@ -141,26 +141,26 @@ class QueueManager {
     // Email processor
     this.processors.set(JobType.SEND_EMAIL, async (job: Job<EmailJobData>) => {
       const { to, subject, body, template, attachments } = job.data;
-      
+
       // Update progress
       await job.updateProgress(10);
-      
+
       // TODO: Integrate with actual email service (SendGrid, SES, etc.)
       logger.info('Sending email', { to, subject });
-      
+
       // Simulate email sending
       await new Promise((resolve: any) => setTimeout(resolve, 1000));
-      
+
       await job.updateProgress(100);
     });
 
     // SMS processor
     this.processors.set(JobType.SEND_SMS, async (job: Job<SMSJobData>) => {
       const { to, message } = job.data;
-      
+
       // TODO: Integrate with Twilio or other SMS service
       logger.info('Sending SMS', { to, message: message.substring(0, 50) });
-      
+
       // Simulate SMS sending
       await new Promise((resolve: any) => setTimeout(resolve, 500));
     });
@@ -168,25 +168,25 @@ class QueueManager {
     // Report processor
     this.processors.set(JobType.GENERATE_REPORT, async (job: Job<ReportJobData>) => {
       const { type, startDate, endDate, format, userId } = job.data;
-      
+
       await job.updateProgress(10);
-      
+
       // TODO: Implement actual report generation
       logger.info('Generating report', { type, format, userId });
-      
+
       // Simulate report generation
       await new Promise((resolve: any) => setTimeout(resolve, 5000));
-      
+
       await job.updateProgress(100);
     });
 
     // Payment processor
     this.processors.set(JobType.PROCESS_PAYMENT, async (job: Job<PaymentJobData>) => {
       const { orderId, amount, currency, paymentMethod } = job.data;
-      
+
       // TODO: Integrate with Stripe or other payment gateway
       logger.info('Processing payment', { orderId, amount, currency });
-      
+
       // Simulate payment processing
       await new Promise((resolve: any) => setTimeout(resolve, 2000));
     });
@@ -194,10 +194,10 @@ class QueueManager {
     // Notification processor
     this.processors.set(JobType.SEND_NOTIFICATION, async (job: Job<NotificationJobData>) => {
       const { userId, type, title, message, data } = job.data;
-      
+
       // TODO: Implement push notification service
       logger.info('Sending notification', { userId, type, title });
-      
+
       // Simulate notification sending
       await new Promise((resolve: any) => setTimeout(resolve, 300));
     });
@@ -205,7 +205,7 @@ class QueueManager {
     // Webhook processor
     this.processors.set(JobType.WEBHOOK_DELIVERY, async (job: Job<WebhookJobData>) => {
       const { url, method, headers, body, signature } = job.data;
-      
+
       try {
         const response = await fetch(url, {
           method,
@@ -223,8 +223,8 @@ class QueueManager {
 
         logger.info('Webhook delivered successfully', { url, method });
       } catch (error: any) {
-    // @ts-ignore
-   
+        // @ts-ignore
+
         logger.error('Webhook delivery failed', { url, method, error });
         throw error;
       }
@@ -237,15 +237,11 @@ class QueueManager {
       throw new Error(`No processor registered for job type: ${jobType}`);
     }
 
-    const worker = new Worker(
-      jobType,
-      processor,
-      {
-        connection,
-        concurrency: this.config.concurrency || 5,
-        autorun: true,
-      }
-    );
+    const worker = new Worker(jobType, processor, {
+      connection,
+      concurrency: this.config.concurrency || 5,
+      autorun: true,
+    });
 
     worker.on('completed', (job: any) => {
       logger.debug(`Worker completed job ${job.id} of type ${jobType}`);
@@ -288,20 +284,13 @@ class QueueManager {
       throw new Error(`Queue not found for job type: ${jobType}`);
     }
 
-    const job = await queue.add(
-      `${jobType}_${Date.now()}`,
-      data,
-      options
-    );
+    const job = await queue.add(`${jobType}_${Date.now()}`, data, options);
 
     logger.debug(`Job ${job.id} added to queue ${jobType}`);
     return job as Job<T>;
   }
 
-  async addBulkJobs<T>(
-    jobType: JobType,
-    jobs: Array<{ data: T; opts?: any }>
-  ): Promise<Job<T>[]> {
+  async addBulkJobs<T>(jobType: JobType, jobs: Array<{ data: T; opts?: any }>): Promise<Job<T>[]> {
     const queue = this.queues.get(jobType);
     if (!queue) {
       throw new Error(`Queue not found for job type: ${jobType}`);
@@ -406,17 +395,17 @@ class QueueManager {
 
   async getAllQueueStatuses(): Promise<Record<string, any>> {
     const statuses: Record<string, any> = {};
-    
+
     for (const jobType of Object.values(JobType)) {
       try {
         statuses[jobType] = await this.getQueueStatus(jobType);
       } catch (error: any) {
-    // @ts-ignore
-   
+        // @ts-ignore
+
         statuses[jobType] = { error: 'Unable to fetch status' };
       }
     }
-    
+
     return statuses;
   }
 }
@@ -449,7 +438,10 @@ export const jobQueue = {
     return getQueueManager().addJob(JobType.PROCESS_PAYMENT, data, options);
   },
 
-  async sendNotification(data: NotificationJobData, options?: any): Promise<Job<NotificationJobData>> {
+  async sendNotification(
+    data: NotificationJobData,
+    options?: any
+  ): Promise<Job<NotificationJobData>> {
     return getQueueManager().addJob(JobType.SEND_NOTIFICATION, data, options);
   },
 

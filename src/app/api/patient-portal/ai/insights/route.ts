@@ -5,7 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { generatePatientInsights, generateWeeklySummary } from '@/services/ai/patientAssistantService';
+import {
+  generatePatientInsights,
+  generateWeeklySummary,
+} from '@/services/ai/patientAssistantService';
 import { logger } from '@/lib/logger';
 
 /**
@@ -31,9 +34,6 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     return NextResponse.json({ insights });
   } catch (error) {
     logger.error('Patient insights error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate insights' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate insights' }, { status: 500 });
   }
 });

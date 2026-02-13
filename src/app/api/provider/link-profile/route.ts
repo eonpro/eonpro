@@ -29,7 +29,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           id: userData.provider.id,
           name: `${userData.provider.firstName} ${userData.provider.lastName}`,
           npi: userData.provider.npi,
-        }
+        },
       });
     }
 
@@ -40,11 +40,15 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
 
     if (!provider) {
-      return NextResponse.json({
-        success: false,
-        error: 'No provider profile found for this email. Please register your NPI in Settings > Credentials.',
-        needsRegistration: true,
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'No provider profile found for this email. Please register your NPI in Settings > Credentials.',
+          needsRegistration: true,
+        },
+        { status: 404 }
+      );
     }
 
     // Link the provider to the user
@@ -62,7 +66,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         id: provider.id,
         name: `${provider.firstName} ${provider.lastName}`,
         npi: provider.npi,
-      }
+      },
     });
   } catch (error: any) {
     logger.error('Error linking provider profile', { error: error.message, userId: user.id });

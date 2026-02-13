@@ -338,13 +338,7 @@ export interface TicketListFilters {
 export interface TicketListOptions {
   page?: number;
   limit?: number;
-  sortBy?:
-    | 'createdAt'
-    | 'updatedAt'
-    | 'lastActivityAt'
-    | 'priority'
-    | 'dueDate'
-    | 'ticketNumber';
+  sortBy?: 'createdAt' | 'updatedAt' | 'lastActivityAt' | 'priority' | 'dueDate' | 'ticketNumber';
   sortOrder?: 'asc' | 'desc';
   includeDeleted?: boolean;
 }

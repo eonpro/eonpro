@@ -52,14 +52,11 @@ type ApiHandler<TBody = unknown, TQuery = unknown> = (
  */
 export function withApiMiddleware<
   TBody extends ZodSchema = ZodSchema,
-  TQuery extends ZodSchema = ZodSchema
->(
-  config: ApiConfig<TBody, TQuery>,
-  handler: ApiHandler<z.infer<TBody>, z.infer<TQuery>>
-) {
+  TQuery extends ZodSchema = ZodSchema,
+>(config: ApiConfig<TBody, TQuery>, handler: ApiHandler<z.infer<TBody>, z.infer<TQuery>>) {
   // Select rate limiter
   let rateLimiter: ReturnType<typeof rateLimit> | null = null;
-  
+
   if (config.rateLimitConfig) {
     rateLimiter = rateLimit(config.rateLimitConfig);
   } else {
@@ -89,11 +86,11 @@ export function withApiMiddleware<
   ): Promise<NextResponse> => {
     const startTime = Date.now();
     const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
-    
+
     try {
       // Await params if they're a promise (Next.js 15+)
       const params = routeContext.params ? await routeContext.params : {};
-      
+
       // Build context
       const context: ApiContext<z.infer<TBody>, z.infer<TQuery>> = {
         body: undefined as z.infer<TBody>,
@@ -121,10 +118,10 @@ export function withApiMiddleware<
 
       // Execute handler
       const response = await handler(request, context);
-      
+
       // Add request ID to response
       response.headers.set('x-request-id', requestId);
-      
+
       // Log request
       const duration = Date.now() - startTime;
       logger.api(request.method, request.nextUrl.pathname, {
@@ -132,7 +129,7 @@ export function withApiMiddleware<
         duration,
         requestId,
       });
-      
+
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -142,9 +139,9 @@ export function withApiMiddleware<
         duration,
         requestId,
       });
-      
+
       return NextResponse.json(
-        { 
+        {
           error: 'Internal server error',
           requestId,
         },
@@ -157,7 +154,7 @@ export function withApiMiddleware<
   if (rateLimiter) {
     return rateLimiter(wrappedHandler);
   }
-  
+
   return wrappedHandler;
 }
 
@@ -188,7 +185,10 @@ export function createPostHandler<TBody extends ZodSchema = ZodSchema>(
  */
 export function withRateLimit(
   tier: RateLimitTier,
-  handler: (request: NextRequest, context?: { params?: Promise<Record<string, string>> }) => Promise<NextResponse>
+  handler: (
+    request: NextRequest,
+    context?: { params?: Promise<Record<string, string>> }
+  ) => Promise<NextResponse>
 ) {
   switch (tier) {
     case 'strict':

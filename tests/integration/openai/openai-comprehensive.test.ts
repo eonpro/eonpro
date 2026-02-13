@@ -12,17 +12,19 @@ vi.mock('openai', () => ({
       completions: {
         create: vi.fn().mockResolvedValue({
           id: 'chatcmpl-123',
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                subjective: 'Patient reports weight loss goals',
-                objective: 'BMI 32, BP 120/80',
-                assessment: 'Good candidate for GLP-1',
-                plan: 'Start semaglutide 0.25mg weekly',
-                medicalNecessity: 'Compounded medication required',
-              }),
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  subjective: 'Patient reports weight loss goals',
+                  objective: 'BMI 32, BP 120/80',
+                  assessment: 'Good candidate for GLP-1',
+                  plan: 'Start semaglutide 0.25mg weekly',
+                  medicalNecessity: 'Compounded medication required',
+                }),
+              },
             },
-          }],
+          ],
           usage: {
             prompt_tokens: 100,
             completion_tokens: 200,
@@ -145,7 +147,7 @@ describe('Rate Limiting', () => {
 
       async checkLimit(): Promise<boolean> {
         const now = Date.now();
-        this.requests = this.requests.filter(time => now - time < this.windowMs);
+        this.requests = this.requests.filter((time) => now - time < this.windowMs);
 
         if (this.requests.length >= this.maxRequests) {
           return false;
@@ -405,7 +407,7 @@ describe('SOAP Note Generation', () => {
       if (typeof field === 'object' && field !== null) {
         return Object.entries(field)
           .map(([key, value]) => {
-            const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
             return `${title}: ${value}`;
           })
           .join('\n');
@@ -613,7 +615,10 @@ describe('OpenAI Error Handling', () => {
         return { retry: false, message: 'Invalid OpenAI API key. Please check configuration.' };
       }
       if (error.status >= 500) {
-        return { retry: true, message: 'OpenAI service temporarily unavailable. Please try again.' };
+        return {
+          retry: true,
+          message: 'OpenAI service temporarily unavailable. Please try again.',
+        };
       }
       return { retry: false, message: `OpenAI error: ${error.message}` };
     };
@@ -653,9 +658,8 @@ describe('Usage Statistics', () => {
           dailyTokens: this.dailyTokens,
           dailyCost: this.dailyCost,
           requestCount: this.requestCount,
-          averageTokensPerRequest: this.requestCount > 0 
-            ? Math.round(this.dailyTokens / this.requestCount) 
-            : 0,
+          averageTokensPerRequest:
+            this.requestCount > 0 ? Math.round(this.dailyTokens / this.requestCount) : 0,
         };
       }
 
@@ -668,7 +672,7 @@ describe('Usage Statistics', () => {
 
     it('should track usage', () => {
       const tracker = new UsageTracker();
-      
+
       tracker.addUsage(1000, 0.03);
       tracker.addUsage(500, 0.015);
 
@@ -680,7 +684,7 @@ describe('Usage Statistics', () => {
 
     it('should calculate average tokens per request', () => {
       const tracker = new UsageTracker();
-      
+
       tracker.addUsage(1000, 0.03);
       tracker.addUsage(2000, 0.06);
 
@@ -690,7 +694,7 @@ describe('Usage Statistics', () => {
 
     it('should reset stats', () => {
       const tracker = new UsageTracker();
-      
+
       tracker.addUsage(1000, 0.03);
       tracker.reset();
 
@@ -719,8 +723,8 @@ describe('Message History', () => {
         this.messages.push(message);
         if (this.messages.length > this.maxMessages) {
           // Keep system message, remove oldest user/assistant message
-          const systemMessages = this.messages.filter(m => m.role === 'system');
-          const otherMessages = this.messages.filter(m => m.role !== 'system');
+          const systemMessages = this.messages.filter((m) => m.role === 'system');
+          const otherMessages = this.messages.filter((m) => m.role !== 'system');
           otherMessages.shift();
           this.messages = [...systemMessages, ...otherMessages];
         }
@@ -737,7 +741,7 @@ describe('Message History', () => {
 
     it('should add messages', () => {
       const history = new ConversationHistory();
-      
+
       history.add({ role: 'user', content: 'Hello' });
       history.add({ role: 'assistant', content: 'Hi there!' });
 
@@ -747,7 +751,7 @@ describe('Message History', () => {
 
     it('should enforce max messages limit', () => {
       const history = new ConversationHistory(3);
-      
+
       history.add({ role: 'user', content: '1' });
       history.add({ role: 'assistant', content: '2' });
       history.add({ role: 'user', content: '3' });
@@ -759,7 +763,7 @@ describe('Message History', () => {
 
     it('should clear history', () => {
       const history = new ConversationHistory();
-      
+
       history.add({ role: 'user', content: 'Hello' });
       history.clear();
 

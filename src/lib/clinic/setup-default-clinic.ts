@@ -11,7 +11,7 @@ export async function setupDefaultClinic() {
   try {
     // Check if default clinic already exists
     const existingClinic = await prisma.clinic.findFirst({
-      where: { subdomain: 'main' }
+      where: { subdomain: 'main' },
     });
 
     if (existingClinic) {
@@ -53,11 +53,11 @@ export async function setupDefaultClinic() {
           city: 'New York',
           state: 'NY',
           zip: '10001',
-          country: 'USA'
+          country: 'USA',
         },
         primaryColor: '#3B82F6',
         secondaryColor: '#10B981',
-      }
+      },
     });
 
     logger.info('Created default clinic:', defaultClinic.name);
@@ -72,42 +72,42 @@ export async function setupDefaultClinic() {
     // Update providers
     const providersUpdated = await prisma.provider.updateMany({
       where: { clinicId: null },
-      data: { clinicId }
+      data: { clinicId },
     });
     logger.info(`Updated ${providersUpdated.count} providers`);
 
     // Update users
     const usersUpdated = await prisma.user.updateMany({
       where: { clinicId: null },
-      data: { clinicId }
+      data: { clinicId },
     });
     logger.info(`Updated ${usersUpdated.count} users`);
 
     // Update orders
     const ordersUpdated = await prisma.order.updateMany({
       where: { clinicId: null },
-      data: { clinicId }
+      data: { clinicId },
     });
     logger.info(`Updated ${ordersUpdated.count} orders`);
 
     // Update invoices
     const invoicesUpdated = await prisma.invoice.updateMany({
       where: { clinicId: null },
-      data: { clinicId }
+      data: { clinicId },
     });
     logger.info(`Updated ${invoicesUpdated.count} invoices`);
 
     // Update tickets
     const ticketsUpdated = await prisma.ticket.updateMany({
       where: { clinicId: null },
-      data: { clinicId }
+      data: { clinicId },
     });
     logger.info(`Updated ${ticketsUpdated.count} tickets`);
 
     // Update other models as needed...
-    
+
     logger.info('[CLINIC] Successfully migrated all data to default clinic');
-    
+
     return defaultClinic;
   } catch (error) {
     logger.error('Error setting up default clinic:', error);
@@ -122,7 +122,7 @@ if (require.main === module) {
       logger.info('Setup completed');
       process.exit(0);
     })
-    .catch(error => {
+    .catch((error) => {
       logger.error('Setup failed:', error);
       process.exit(1);
     });

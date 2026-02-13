@@ -39,19 +39,13 @@ export async function GET(request: NextRequest) {
         request.cookies.get('influencer-token')?.value;
 
     if (!token) {
-      return NextResponse.json(
-        { authenticated: false, user: null },
-        { status: 200 }
-      );
+      return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
     }
 
     // SECURITY: Server-side JWT verification with secret that stays server-side
     if (!JWT_SECRET) {
       logger.error('[AUTH/SESSION] JWT_SECRET not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     const secret = new TextEncoder().encode(JWT_SECRET);
@@ -97,16 +91,10 @@ export async function GET(request: NextRequest) {
       logger.security('[AUTH/SESSION] Invalid token verification attempt', {
         error: errorMessage,
       });
-      return NextResponse.json(
-        { authenticated: false, user: null },
-        { status: 200 }
-      );
+      return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
     }
 
     logger.error('[AUTH/SESSION] Session verification error', { error: errorMessage });
-    return NextResponse.json(
-      { error: 'Session verification failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Session verification failed' }, { status: 500 });
   }
 }

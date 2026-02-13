@@ -1,49 +1,49 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import ChatWidget from "@/components/twilio/ChatWidget";
-import { Feature } from "@/components/Feature";
-import { MessageCircle, Users, Search, Filter, Circle, Star } from "lucide-react";
-import { ChatUserType } from "@/lib/integrations/twilio/chatConfig";
+import { useState, useEffect } from 'react';
+import ChatWidget from '@/components/twilio/ChatWidget';
+import { Feature } from '@/components/Feature';
+import { MessageCircle, Users, Search, Filter, Circle, Star } from 'lucide-react';
+import { ChatUserType } from '@/lib/integrations/twilio/chatConfig';
 
 // Sample data for demo - using static dates to avoid hydration issues
-const baseTime = new Date("2024-11-25T10:00:00Z");
+const baseTime = new Date('2024-11-25T10:00:00Z');
 const sampleConversations = [
   {
-    id: "conv-001",
-    patientId: "pat-001",
-    patientName: "John Doe",
-    lastMessage: "Thank you for the prescription, doctor.",
+    id: 'conv-001',
+    patientId: 'pat-001',
+    patientName: 'John Doe',
+    lastMessage: 'Thank you for the prescription, doctor.',
     lastMessageTime: new Date(baseTime.getTime() - 1000 * 60 * 5), // 5 minutes ago
     unreadCount: 0,
     online: true,
     priority: false,
   },
   {
-    id: "conv-002", 
-    patientId: "pat-002",
-    patientName: "Jane Smith",
-    lastMessage: "When should I take the medication?",
+    id: 'conv-002',
+    patientId: 'pat-002',
+    patientName: 'Jane Smith',
+    lastMessage: 'When should I take the medication?',
     lastMessageTime: new Date(baseTime.getTime() - 1000 * 60 * 30), // 30 minutes ago
     unreadCount: 2,
     online: true,
     priority: true,
   },
   {
-    id: "conv-003",
-    patientId: "pat-003",
-    patientName: "Robert Johnson",
-    lastMessage: "My symptoms have improved, thanks!",
+    id: 'conv-003',
+    patientId: 'pat-003',
+    patientName: 'Robert Johnson',
+    lastMessage: 'My symptoms have improved, thanks!',
     lastMessageTime: new Date(baseTime.getTime() - 1000 * 60 * 60 * 2), // 2 hours ago
     unreadCount: 0,
     online: false,
     priority: false,
   },
   {
-    id: "conv-004",
-    patientId: "pat-004",
-    patientName: "Emily Davis",
-    lastMessage: "Is it normal to feel dizzy?",
+    id: 'conv-004',
+    patientId: 'pat-004',
+    patientName: 'Emily Davis',
+    lastMessage: 'Is it normal to feel dizzy?',
     lastMessageTime: new Date(baseTime.getTime() - 1000 * 60 * 60 * 24), // 1 day ago
     unreadCount: 1,
     online: false,
@@ -53,17 +53,18 @@ const sampleConversations = [
 
 export default function ChatManagementPage() {
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState(false);
   const [filterUnread, setFilterUnread] = useState(false);
 
   // Filter conversations based on search and filters
   const filteredConversations = sampleConversations.filter((conv: any) => {
-    const matchesSearch = conv.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         conv.lastMessage.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      conv.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      conv.lastMessage.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPriority = !filterPriority || conv.priority;
     const matchesUnread = !filterUnread || conv.unreadCount > 0;
-    
+
     return matchesSearch && matchesPriority && matchesUnread;
   });
 
@@ -84,25 +85,25 @@ export default function ChatManagementPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="mb-6 rounded-lg bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MessageCircle className="h-8 w-8 text-blue-600" />
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">Chat Management Center</h1>
-                  <p className="text-gray-600 mt-1">
+                  <p className="mt-1 text-gray-600">
                     Real-time messaging with patients and healthcare providers
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <Circle className="h-3 w-3 text-green-500 fill-green-500" />
+                  <Circle className="h-3 w-3 fill-green-500 text-green-500" />
                   <span>Online</span>
                 </div>
-                <div className="bg-red-100 text-red-700 px-3 py-1 rounded-full">
+                <div className="rounded-full bg-red-100 px-3 py-1 text-red-700">
                   {totalUnread} unread
                 </div>
               </div>
@@ -112,56 +113,54 @@ export default function ChatManagementPage() {
           <Feature
             feature="TWILIO_CHAT"
             fallback={
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <MessageCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h2 className="text-2xl font-semibold mb-2">Chat Coming Soon</h2>
-                <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              <div className="rounded-lg bg-white p-12 text-center shadow-sm">
+                <MessageCircle className="mx-auto mb-4 h-16 w-16 text-gray-400" />
+                <h2 className="mb-2 text-2xl font-semibold">Chat Coming Soon</h2>
+                <p className="mx-auto mb-8 max-w-md text-gray-600">
                   Real-time messaging between patients and providers will be available soon.
                 </p>
-                
-                <div className="grid md:grid-cols-3 gap-6 text-left max-w-3xl mx-auto mt-8">
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">Instant Messaging</h3>
+
+                <div className="mx-auto mt-8 grid max-w-3xl gap-6 text-left md:grid-cols-3">
+                  <div className="rounded-lg border p-4">
+                    <h3 className="mb-2 font-semibold">Instant Messaging</h3>
                     <p className="text-sm text-gray-600">
                       Real-time chat with typing indicators and read receipts
                     </p>
                   </div>
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">📎 File Sharing</h3>
+                  <div className="rounded-lg border p-4">
+                    <h3 className="mb-2 font-semibold">📎 File Sharing</h3>
                     <p className="text-sm text-gray-600">
                       Share medical documents, images, and prescriptions
                     </p>
                   </div>
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-2">🔔 Smart Notifications</h3>
-                    <p className="text-sm text-gray-600">
-                      Push notifications for urgent messages
-                    </p>
+                  <div className="rounded-lg border p-4">
+                    <h3 className="mb-2 font-semibold">🔔 Smart Notifications</h3>
+                    <p className="text-sm text-gray-600">Push notifications for urgent messages</p>
                   </div>
                 </div>
               </div>
             }
           >
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid gap-6 lg:grid-cols-3">
               {/* Conversations List */}
-              <div className="lg:col-span-1 bg-white rounded-lg shadow-sm">
-                <div className="p-4 border-b">
+              <div className="rounded-lg bg-white shadow-sm lg:col-span-1">
+                <div className="border-b p-4">
                   <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e: any) => setSearchTerm(e.target.value)}
                       placeholder="Search conversations..."
-                      className="w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border py-2 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setFilterPriority(!filterPriority)}
-                      className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded text-sm transition-colors ${
-                        filterPriority 
-                          ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                      className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-sm transition-colors ${
+                        filterPriority
+                          ? 'border border-yellow-300 bg-yellow-100 text-yellow-700'
                           : 'bg-gray-100 text-gray-600'
                       }`}
                     >
@@ -170,9 +169,9 @@ export default function ChatManagementPage() {
                     </button>
                     <button
                       onClick={() => setFilterUnread(!filterUnread)}
-                      className={`flex-1 flex items-center justify-center gap-1 py-1 px-2 rounded text-sm transition-colors ${
+                      className={`flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-sm transition-colors ${
                         filterUnread
-                          ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                          ? 'border border-blue-300 bg-blue-100 text-blue-700'
                           : 'bg-gray-100 text-gray-600'
                       }`}
                     >
@@ -184,36 +183,37 @@ export default function ChatManagementPage() {
 
                 <div className="max-h-[600px] overflow-y-auto">
                   {filteredConversations.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      No conversations found
-                    </div>
+                    <div className="p-8 text-center text-gray-500">No conversations found</div>
                   ) : (
                     filteredConversations.map((conv: any) => (
                       <div
                         key={conv.id}
                         onClick={() => setSelectedConversation(conv)}
-                        className={`p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${
+                        className={`cursor-pointer border-b p-4 transition-colors hover:bg-gray-50 ${
                           selectedConversation?.id === conv.id ? 'bg-blue-50' : ''
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="mb-2 flex items-start justify-between">
                           <div className="flex items-center gap-2">
                             <div className="relative">
-                              <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold">
-                                {conv.patientName.split(' ').map((n: any) => n[0]).join('')}
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-600">
+                                {conv.patientName
+                                  .split(' ')
+                                  .map((n: any) => n[0])
+                                  .join('')}
                               </div>
                               {conv.online && (
-                                <Circle className="absolute bottom-0 right-0 h-3 w-3 text-green-400 fill-green-400" />
+                                <Circle className="absolute bottom-0 right-0 h-3 w-3 fill-green-400 text-green-400" />
                               )}
                             </div>
                             <div className="flex-1">
-                              <h4 className="font-medium flex items-center gap-2">
+                              <h4 className="flex items-center gap-2 font-medium">
                                 {conv.patientName}
                                 {conv.priority && (
-                                  <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                                  <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
                                 )}
                               </h4>
-                              <p className="text-sm text-gray-600 line-clamp-1">
+                              <p className="line-clamp-1 text-sm text-gray-600">
                                 {conv.lastMessage}
                               </p>
                             </div>
@@ -222,7 +222,7 @@ export default function ChatManagementPage() {
                         <div className="flex items-center justify-between text-xs text-gray-500">
                           <span>{formatTime(conv.lastMessageTime)}</span>
                           {conv.unreadCount > 0 && (
-                            <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                            <span className="rounded-full bg-blue-600 px-2 py-0.5 text-white">
                               {conv.unreadCount}
                             </span>
                           )}
@@ -236,7 +236,7 @@ export default function ChatManagementPage() {
               {/* Chat Area */}
               <div className="lg:col-span-2">
                 {selectedConversation ? (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="rounded-lg bg-white p-6 shadow-sm">
                     <div className="mb-4">
                       <h2 className="text-xl font-semibold">
                         Chat with {selectedConversation.patientName}
@@ -245,9 +245,9 @@ export default function ChatManagementPage() {
                         Patient ID: {selectedConversation.patientId}
                       </p>
                     </div>
-                    
+
                     {/* Embedded Chat Widget */}
-                    <div className="border rounded-lg p-4 bg-gray-50">
+                    <div className="rounded-lg border bg-gray-50 p-4">
                       <ChatWidget
                         userId="provider-001"
                         userName="Dr. Smith"
@@ -256,10 +256,10 @@ export default function ChatManagementPage() {
                         recipientName={selectedConversation.patientName}
                         conversationId={selectedConversation.id}
                       />
-                      
-                      <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+
+                      <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                         <p className="text-sm text-yellow-800">
-                          <strong>Demo Mode:</strong> This is a demonstration of the chat interface. 
+                          <strong>Demo Mode:</strong> This is a demonstration of the chat interface.
                           In production, this would connect to real Twilio Conversations.
                         </p>
                       </div>
@@ -267,23 +267,23 @@ export default function ChatManagementPage() {
 
                     {/* Quick Actions */}
                     <div className="mt-6 grid grid-cols-3 gap-4">
-                      <button className="p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm">
+                      <button className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700 transition-colors hover:bg-blue-100">
                         📋 View Patient Record
                       </button>
-                      <button className="p-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors text-sm">
+                      <button className="rounded-lg bg-green-50 p-3 text-sm text-green-700 transition-colors hover:bg-green-100">
                         💊 Send Prescription
                       </button>
-                      <button className="p-3 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors text-sm">
+                      <button className="rounded-lg bg-purple-50 p-3 text-sm text-purple-700 transition-colors hover:bg-purple-100">
                         📅 Schedule Appointment
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-lg shadow-sm h-full min-h-[600px] flex items-center justify-center">
+                  <div className="flex h-full min-h-[600px] items-center justify-center rounded-lg bg-white shadow-sm">
                     <div className="text-center text-gray-500">
-                      <MessageCircle className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                      <MessageCircle className="mx-auto mb-4 h-16 w-16 text-gray-300" />
                       <p className="text-lg">Select a conversation to start chatting</p>
-                      <p className="text-sm mt-2">Choose from the list on the left</p>
+                      <p className="mt-2 text-sm">Choose from the list on the left</p>
                     </div>
                   </div>
                 )}
@@ -292,19 +292,19 @@ export default function ChatManagementPage() {
 
             {/* Statistics */}
             <div className="mt-6 grid grid-cols-4 gap-4">
-              <div className="bg-white rounded-lg shadow-sm p-4">
+              <div className="rounded-lg bg-white p-4 shadow-sm">
                 <div className="text-2xl font-bold text-blue-600">247</div>
                 <div className="text-sm text-gray-600">Total Conversations</div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm p-4">
+              <div className="rounded-lg bg-white p-4 shadow-sm">
                 <div className="text-2xl font-bold text-green-600">12</div>
                 <div className="text-sm text-gray-600">Active Now</div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm p-4">
+              <div className="rounded-lg bg-white p-4 shadow-sm">
                 <div className="text-2xl font-bold text-yellow-600">3.2min</div>
                 <div className="text-sm text-gray-600">Avg Response Time</div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm p-4">
+              <div className="rounded-lg bg-white p-4 shadow-sm">
                 <div className="text-2xl font-bold text-purple-600">98%</div>
                 <div className="text-sm text-gray-600">Satisfaction Rate</div>
               </div>

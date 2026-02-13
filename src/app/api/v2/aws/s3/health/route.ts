@@ -1,6 +1,6 @@
 /**
  * AWS S3 Health Check API Endpoint
- * 
+ *
  * Checks if S3 bucket is accessible
  */
 
@@ -36,19 +36,19 @@ export async function GET(request: NextRequest) {
       const command = new HeadBucketCommand({
         Bucket: s3Config.bucketName,
       });
-      
+
       await client.send(command);
-      
+
       return NextResponse.json({
         healthy: true,
         message: 'S3 bucket is accessible',
         bucket: s3Config.bucketName,
       });
     } catch (error: any) {
-    // @ts-ignore
-   
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({
+      // @ts-ignore
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return NextResponse.json({
         healthy: false,
         message: `Cannot access bucket: ${errorMessage}`,
         error: error.Code || error.name,
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({
       healthy: false,

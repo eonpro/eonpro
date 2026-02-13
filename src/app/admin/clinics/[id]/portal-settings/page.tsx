@@ -356,8 +356,9 @@ export default function ClinicPortalSettingsPage() {
               <Image className="h-5 w-5 text-[#4fa77e]" />
               Branding Assets
             </h2>
-            <p className="text-sm text-gray-500 mb-6">
-              Upload your clinic's logo, icon, and favicon to white-label the platform for your patients.
+            <p className="mb-6 text-sm text-gray-500">
+              Upload your clinic's logo, icon, and favicon to white-label the platform for your
+              patients.
             </p>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -483,7 +484,8 @@ export default function ClinicPortalSettingsPage() {
               Patient Portal Features
             </h2>
             <p className="mb-4 text-sm text-gray-500">
-              Turn on or off tabs and tools per clinic. Disabled features are hidden from the patient portal.
+              Turn on or off tabs and tools per clinic. Disabled features are hidden from the
+              patient portal.
             </p>
             <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
               <span className="text-sm font-medium text-gray-700">Apply preset by treatment:</span>
@@ -516,54 +518,148 @@ export default function ClinicPortalSettingsPage() {
               {
                 groupLabel: 'Tracking & Progress',
                 features: [
-                  { key: 'showWeightTracking' as PortalFeatureKey, label: 'Weight Tracking', desc: 'Progress page: log and track weight' },
-                  { key: 'showWaterTracking' as PortalFeatureKey, label: 'Water Tracking', desc: 'Progress page: water intake' },
-                  { key: 'showExerciseTracking' as PortalFeatureKey, label: 'Exercise Tracking', desc: 'Progress page: exercise log' },
-                  { key: 'showSleepTracking' as PortalFeatureKey, label: 'Sleep Tracking', desc: 'Progress page: sleep log' },
-                  { key: 'showDietaryPlans' as PortalFeatureKey, label: 'Nutrition', desc: 'Progress page: nutrition log' },
-                  { key: 'showProgressPhotos' as PortalFeatureKey, label: 'Progress Photos', desc: 'Photo uploads for progress' },
-                  { key: 'showHealthScore' as PortalFeatureKey, label: 'Health Score', desc: 'Health score dashboard' },
-                  { key: 'showAchievements' as PortalFeatureKey, label: 'Achievements', desc: 'Gamification and achievements' },
+                  {
+                    key: 'showWeightTracking' as PortalFeatureKey,
+                    label: 'Weight Tracking',
+                    desc: 'Progress page: log and track weight',
+                  },
+                  {
+                    key: 'showWaterTracking' as PortalFeatureKey,
+                    label: 'Water Tracking',
+                    desc: 'Progress page: water intake',
+                  },
+                  {
+                    key: 'showExerciseTracking' as PortalFeatureKey,
+                    label: 'Exercise Tracking',
+                    desc: 'Progress page: exercise log',
+                  },
+                  {
+                    key: 'showSleepTracking' as PortalFeatureKey,
+                    label: 'Sleep Tracking',
+                    desc: 'Progress page: sleep log',
+                  },
+                  {
+                    key: 'showDietaryPlans' as PortalFeatureKey,
+                    label: 'Nutrition',
+                    desc: 'Progress page: nutrition log',
+                  },
+                  {
+                    key: 'showProgressPhotos' as PortalFeatureKey,
+                    label: 'Progress Photos',
+                    desc: 'Photo uploads for progress',
+                  },
+                  {
+                    key: 'showHealthScore' as PortalFeatureKey,
+                    label: 'Health Score',
+                    desc: 'Health score dashboard',
+                  },
+                  {
+                    key: 'showAchievements' as PortalFeatureKey,
+                    label: 'Achievements',
+                    desc: 'Gamification and achievements',
+                  },
                 ],
               },
               {
                 groupLabel: 'Tools & Calculators',
                 features: [
-                  { key: 'showBMICalculator' as PortalFeatureKey, label: 'BMI Calculator', desc: 'BMI calculator tool' },
-                  { key: 'showCalorieCalculator' as PortalFeatureKey, label: 'Calorie Calculator', desc: 'Calorie deficit calculator' },
-                  { key: 'showDoseCalculator' as PortalFeatureKey, label: 'Dose Calculator', desc: 'Medication dose calculator' },
-                  { key: 'showSymptomChecker' as PortalFeatureKey, label: 'Symptom Checker', desc: 'Symptom checker tool' },
+                  {
+                    key: 'showBMICalculator' as PortalFeatureKey,
+                    label: 'BMI Calculator',
+                    desc: 'BMI calculator tool',
+                  },
+                  {
+                    key: 'showCalorieCalculator' as PortalFeatureKey,
+                    label: 'Calorie Calculator',
+                    desc: 'Calorie deficit calculator',
+                  },
+                  {
+                    key: 'showDoseCalculator' as PortalFeatureKey,
+                    label: 'Dose Calculator',
+                    desc: 'Medication dose calculator',
+                  },
+                  {
+                    key: 'showSymptomChecker' as PortalFeatureKey,
+                    label: 'Symptom Checker',
+                    desc: 'Symptom checker tool',
+                  },
                 ],
               },
               {
                 groupLabel: 'Care & Communication',
                 features: [
-                  { key: 'showAppointments' as PortalFeatureKey, label: 'Appointments', desc: 'Book and view appointments' },
-                  { key: 'showCarePlan' as PortalFeatureKey, label: 'Care Plan', desc: 'My Care Plan tab' },
-                  { key: 'showCareTeam' as PortalFeatureKey, label: 'Care Team', desc: 'Care team view' },
-                  { key: 'showChat' as PortalFeatureKey, label: 'Chat', desc: 'Messaging with care team' },
-                  { key: 'showTelehealth' as PortalFeatureKey, label: 'Telehealth', desc: 'Video visits' },
-                  { key: 'showCommunityChat' as PortalFeatureKey, label: 'Community Chat', desc: 'Patient community (if enabled)' },
+                  {
+                    key: 'showAppointments' as PortalFeatureKey,
+                    label: 'Appointments',
+                    desc: 'Book and view appointments',
+                  },
+                  {
+                    key: 'showCarePlan' as PortalFeatureKey,
+                    label: 'Care Plan',
+                    desc: 'My Care Plan tab',
+                  },
+                  {
+                    key: 'showCareTeam' as PortalFeatureKey,
+                    label: 'Care Team',
+                    desc: 'Care team view',
+                  },
+                  {
+                    key: 'showChat' as PortalFeatureKey,
+                    label: 'Chat',
+                    desc: 'Messaging with care team',
+                  },
+                  {
+                    key: 'showTelehealth' as PortalFeatureKey,
+                    label: 'Telehealth',
+                    desc: 'Video visits',
+                  },
+                  {
+                    key: 'showCommunityChat' as PortalFeatureKey,
+                    label: 'Community Chat',
+                    desc: 'Patient community (if enabled)',
+                  },
                 ],
               },
               {
                 groupLabel: 'Content & Resources',
                 features: [
-                  { key: 'showResources' as PortalFeatureKey, label: 'Resources & Videos', desc: 'Tutorial videos and guides' },
-                  { key: 'showLabResults' as PortalFeatureKey, label: 'Lab Results', desc: 'View lab results' },
+                  {
+                    key: 'showResources' as PortalFeatureKey,
+                    label: 'Resources & Videos',
+                    desc: 'Tutorial videos and guides',
+                  },
+                  {
+                    key: 'showLabResults' as PortalFeatureKey,
+                    label: 'Lab Results',
+                    desc: 'View lab results',
+                  },
                 ],
               },
               {
                 groupLabel: 'Orders & Billing',
                 features: [
-                  { key: 'showMedicationReminders' as PortalFeatureKey, label: 'Medication Reminders', desc: 'Medication reminder functionality' },
-                  { key: 'showShipmentTracking' as PortalFeatureKey, label: 'Shipment Tracking', desc: 'Order tracking' },
-                  { key: 'showBilling' as PortalFeatureKey, label: 'Billing & Subscription', desc: 'Payment and subscription management' },
+                  {
+                    key: 'showMedicationReminders' as PortalFeatureKey,
+                    label: 'Medication Reminders',
+                    desc: 'Medication reminder functionality',
+                  },
+                  {
+                    key: 'showShipmentTracking' as PortalFeatureKey,
+                    label: 'Shipment Tracking',
+                    desc: 'Order tracking',
+                  },
+                  {
+                    key: 'showBilling' as PortalFeatureKey,
+                    label: 'Billing & Subscription',
+                    desc: 'Payment and subscription management',
+                  },
                 ],
               },
             ].map(({ groupLabel, features: groupFeatures }) => (
               <div key={groupLabel} className="mb-6 last:mb-0">
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{groupLabel}</h3>
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  {groupLabel}
+                </h3>
                 <div className="space-y-1">
                   {groupFeatures.map(({ key, label, desc }) => (
                     <div
@@ -592,13 +688,16 @@ export default function ClinicPortalSettingsPage() {
               Portal Access (Auto-invite)
             </h2>
             <p className="mb-4 text-sm text-gray-500">
-              Automatically send a one-time &quot;Create your patient portal&quot; email when treatment starts.
+              Automatically send a one-time &quot;Create your patient portal&quot; email when
+              treatment starts.
             </p>
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-gray-100 py-2">
                 <div>
                   <p className="font-medium text-gray-900">On first payment</p>
-                  <p className="text-sm text-gray-500">Send portal invite when a payment is recorded for the patient</p>
+                  <p className="text-sm text-gray-500">
+                    Send portal invite when a payment is recorded for the patient
+                  </p>
                 </div>
                 <Toggle
                   enabled={settings.autoInviteOnFirstPayment}
@@ -608,7 +707,9 @@ export default function ClinicPortalSettingsPage() {
               <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="font-medium text-gray-900">On first prescription/order</p>
-                  <p className="text-sm text-gray-500">Send portal invite when the first order is created for the patient</p>
+                  <p className="text-sm text-gray-500">
+                    Send portal invite when the first order is created for the patient
+                  </p>
                 </div>
                 <Toggle
                   enabled={settings.autoInviteOnFirstOrder}

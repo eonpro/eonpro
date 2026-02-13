@@ -29,10 +29,7 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const userContext = {
@@ -68,19 +65,13 @@ export const POST = withAuth(async (request, user, { params }: RouteParams) => {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const body = await request.json();
 
     if (!body.content?.trim()) {
-      return NextResponse.json(
-        { error: 'Comment content is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Comment content is required' }, { status: 400 });
     }
 
     const userContext = {

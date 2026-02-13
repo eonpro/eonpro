@@ -40,7 +40,7 @@ describe('Twilio SMS Service', () => {
   describe('Phone Number Validation', () => {
     it('should validate E.164 format phone numbers', async () => {
       const { validatePhoneNumber } = await import('@/lib/integrations/twilio/smsService');
-      
+
       expect(validatePhoneNumber('+15551234567')).toBe(true);
       expect(validatePhoneNumber('+442071234567')).toBe(true);
       expect(validatePhoneNumber('+8613912345678')).toBe(true);
@@ -48,7 +48,7 @@ describe('Twilio SMS Service', () => {
 
     it('should reject invalid phone numbers', async () => {
       const { validatePhoneNumber } = await import('@/lib/integrations/twilio/smsService');
-      
+
       expect(validatePhoneNumber('5551234567')).toBe(false);
       expect(validatePhoneNumber('555-123-4567')).toBe(false);
       expect(validatePhoneNumber('(555) 123-4567')).toBe(false);
@@ -60,7 +60,7 @@ describe('Twilio SMS Service', () => {
   describe('Phone Number Formatting', () => {
     it('should format 10-digit US numbers', async () => {
       const { formatPhoneNumber } = await import('@/lib/integrations/twilio/smsService');
-      
+
       expect(formatPhoneNumber('5551234567')).toBe('+15551234567');
       expect(formatPhoneNumber('555-123-4567')).toBe('+15551234567');
       expect(formatPhoneNumber('(555) 123-4567')).toBe('+15551234567');
@@ -68,21 +68,21 @@ describe('Twilio SMS Service', () => {
 
     it('should format 11-digit US numbers with country code', async () => {
       const { formatPhoneNumber } = await import('@/lib/integrations/twilio/smsService');
-      
+
       expect(formatPhoneNumber('15551234567')).toBe('+15551234567');
       expect(formatPhoneNumber('1-555-123-4567')).toBe('+15551234567');
     });
 
     it('should preserve numbers already in E.164 format', async () => {
       const { formatPhoneNumber } = await import('@/lib/integrations/twilio/smsService');
-      
+
       expect(formatPhoneNumber('+15551234567')).toBe('+15551234567');
       expect(formatPhoneNumber('+442071234567')).toBe('+442071234567');
     });
 
     it('should use custom country code', async () => {
       const { formatPhoneNumber } = await import('@/lib/integrations/twilio/smsService');
-      
+
       expect(formatPhoneNumber('7911234567', '+44')).toBe('+447911234567');
     });
   });
@@ -155,8 +155,7 @@ describe('Twilio SMS Service', () => {
     });
 
     it('should generate welcome message', () => {
-      const template = (name: string) =>
-        `Welcome to EONPRO, ${name}! Reply HELP for assistance.`;
+      const template = (name: string) => `Welcome to EONPRO, ${name}! Reply HELP for assistance.`;
 
       const message = template('Alice');
 
@@ -176,47 +175,37 @@ describe('Twilio SMS Service', () => {
 
     it('should recognize CONFIRM keywords', () => {
       const messageBody = 'confirm';
-      const isConfirm = keywords.CONFIRM.some(kw => 
-        messageBody.toLowerCase().includes(kw)
-      );
+      const isConfirm = keywords.CONFIRM.some((kw) => messageBody.toLowerCase().includes(kw));
 
       expect(isConfirm).toBe(true);
     });
 
     it('should recognize CANCEL keywords', () => {
       const messageBody = 'cancel my appointment';
-      const isCancel = keywords.CANCEL.some(kw => 
-        messageBody.toLowerCase().includes(kw)
-      );
+      const isCancel = keywords.CANCEL.some((kw) => messageBody.toLowerCase().includes(kw));
 
       expect(isCancel).toBe(true);
     });
 
     it('should recognize RESCHEDULE keywords', () => {
       const messageBody = 'I need to reschedule';
-      const isReschedule = keywords.RESCHEDULE.some(kw => 
-        messageBody.toLowerCase().includes(kw)
-      );
+      const isReschedule = keywords.RESCHEDULE.some((kw) => messageBody.toLowerCase().includes(kw));
 
       expect(isReschedule).toBe(true);
     });
 
     it('should recognize HELP keywords', () => {
       const messageBody = 'help';
-      const isHelp = keywords.HELP.some(kw => 
-        messageBody.toLowerCase().includes(kw)
-      );
+      const isHelp = keywords.HELP.some((kw) => messageBody.toLowerCase().includes(kw));
 
       expect(isHelp).toBe(true);
     });
 
     it('should be case-insensitive', () => {
       const testCases = ['CONFIRM', 'Confirm', 'confirm', 'CoNfIrM'];
-      
-      testCases.forEach(testCase => {
-        const isConfirm = keywords.CONFIRM.some(kw => 
-          testCase.toLowerCase().includes(kw)
-        );
+
+      testCases.forEach((testCase) => {
+        const isConfirm = keywords.CONFIRM.some((kw) => testCase.toLowerCase().includes(kw));
         expect(isConfirm).toBe(true);
       });
     });
@@ -231,14 +220,14 @@ describe('Twilio SMS Service', () => {
       ];
 
       const results: { to: string; sent: boolean }[] = [];
-      
+
       for (const msg of messages) {
         // Simulate sending
         results.push({ to: msg.to, sent: true });
       }
 
       expect(results).toHaveLength(3);
-      expect(results.every(r => r.sent)).toBe(true);
+      expect(results.every((r) => r.sent)).toBe(true);
     });
 
     it('should handle partial failures', async () => {
@@ -248,7 +237,7 @@ describe('Twilio SMS Service', () => {
         { to: '+15553333333', body: 'Message 3', shouldFail: false },
       ];
 
-      const results = messages.map(msg => ({
+      const results = messages.map((msg) => ({
         to: msg.to,
         success: !msg.shouldFail,
       }));
@@ -279,18 +268,21 @@ describe('Twilio SMS Service', () => {
     });
 
     it('should generate reschedule response', () => {
-      const response = 'To reschedule your appointment, please call us at (555) 123-4567 or visit our website.';
+      const response =
+        'To reschedule your appointment, please call us at (555) 123-4567 or visit our website.';
       expect(response).toContain('reschedule');
     });
 
     it('should generate help response', () => {
-      const response = 'Reply CONFIRM to confirm, CANCEL to cancel, or RESCHEDULE to change your appointment. Call (555) 123-4567 for assistance.';
+      const response =
+        'Reply CONFIRM to confirm, CANCEL to cancel, or RESCHEDULE to change your appointment. Call (555) 123-4567 for assistance.';
       expect(response).toContain('CONFIRM');
       expect(response).toContain('CANCEL');
     });
 
     it('should generate default response', () => {
-      const response = 'Thank you for your message. A staff member will respond soon. Reply HELP for options.';
+      const response =
+        'Thank you for your message. A staff member will respond soon. Reply HELP for options.';
       expect(response).toContain('Thank you');
       expect(response).toContain('HELP');
     });
@@ -302,21 +294,21 @@ describe('Twilio API Route Validation', () => {
     it('should require phone number', () => {
       const body = { message: 'Test' };
       const isValid = body.message && (body as any).to;
-      
+
       expect(isValid).toBeFalsy();
     });
 
     it('should require message', () => {
       const body = { to: '+15559876543' };
       const isValid = body.to && (body as any).message;
-      
+
       expect(isValid).toBeFalsy();
     });
 
     it('should accept valid request', () => {
       const body = { to: '+15559876543', message: 'Test message' };
       const isValid = body.to && body.message;
-      
+
       expect(isValid).toBeTruthy();
     });
   });
@@ -363,14 +355,15 @@ describe('Twilio Error Handling', () => {
 
   describe('Error Messages', () => {
     it('should provide user-friendly invalid phone message', () => {
-      const userMessage = 'Invalid phone number format. Please use E.164 format (e.g., +15551234567).';
-      
+      const userMessage =
+        'Invalid phone number format. Please use E.164 format (e.g., +15551234567).';
+
       expect(userMessage).toContain('E.164');
     });
 
     it('should provide user-friendly rate limit message', () => {
       const userMessage = 'Too many SMS requests. Please try again later.';
-      
+
       expect(userMessage).toContain('try again');
     });
   });

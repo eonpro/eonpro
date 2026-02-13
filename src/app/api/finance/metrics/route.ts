@@ -1,6 +1,6 @@
 /**
  * Finance Metrics API
- * 
+ *
  * GET /api/finance/metrics
  * Returns aggregated financial KPIs for the dashboard
  */
@@ -9,12 +9,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE } from '@/lib/pagination';
+import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
-import {
-  startOfYear,
-  subDays,
-  startOfMonth,
-} from 'date-fns';
+import { startOfYear, subDays, startOfMonth } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
@@ -31,7 +30,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    // SECURITY: Verify user has access to this clinic's financial data
+    requirePermission(toPermissionContext(user), 'financial:view');
     if (!verifyClinicAccess(user, clinicId)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -84,9 +83,9 @@ export async function GET(request: NextRequest) {
           where: {
             clinicId,
             status: 'PAID',
-            paidAt: { 
-              gte: subDays(startDate, range === '7d' ? 7 : range === '90d' ? 90 : 30), 
-              lt: startDate 
+            paidAt: {
+              gte: subDays(startDate, range === '7d' ? 7 : range === '90d' ? 90 : 30),
+              lt: startDate,
             },
           },
           _sum: { amountPaid: true },
@@ -96,14 +95,17 @@ export async function GET(request: NextRequest) {
       // Calculate revenue metrics from invoices
       const grossRevenue = paidInvoices._sum.amountPaid || 0;
       const previousGross = previousPeriodInvoices._sum.amountPaid || 0;
-      const periodGrowth = previousGross > 0 
-        ? Math.round(((grossRevenue - previousGross) / previousGross) * 10000) / 100
-        : grossRevenue > 0 ? 100 : 0;
-      
+      const periodGrowth =
+        previousGross > 0
+          ? Math.round(((grossRevenue - previousGross) / previousGross) * 10000) / 100
+          : grossRevenue > 0
+            ? 100
+            : 0;
+
       // Estimate fees (~2.9% for Stripe)
       const estimatedFees = Math.round(grossRevenue * 0.029);
       const netRevenue = grossRevenue - estimatedFees;
-      
+
       // Average order value from paid invoices count
       const invoiceCount = paidInvoices._count || 0;
       const averageOrderValue = invoiceCount > 0 ? Math.round(grossRevenue / invoiceCount) : 0;
@@ -118,6 +120,7 @@ export async function GET(request: NextRequest) {
           amount: true,
           interval: true,
         },
+        take: AGGREGATION_TAKE,
       });
 
       // Calculate MRR (normalize to monthly)
@@ -153,10 +156,11 @@ export async function GET(request: NextRequest) {
         select: {
           amount: true,
         },
+        take: AGGREGATION_TAKE,
       });
 
       const outstandingAmount = outstandingInvoices.reduce(
-        (sum: number, inv: { amount: number | null }) => sum + (inv.amount || 0), 
+        (sum: number, inv: { amount: number | null }) => sum + (inv.amount || 0),
         0
       );
 
@@ -169,11 +173,14 @@ export async function GET(request: NextRequest) {
           canceledAt: { gte: monthStart },
         },
       });
-      
+
       const totalActiveAtMonthStart = activeSubscriptions.length + canceledThisMonth;
-      const churnRate = totalActiveAtMonthStart > 0 
-        ? Math.round((canceledThisMonth / totalActiveAtMonthStart) * 10000) / 100
-        : 0;
+      const churnRate =
+        totalActiveAtMonthStart > 0
+          ? Math.round((canceledThisMonth / totalActiveAtMonthStart) * 10000) / 100
+          : 0;
+
+      await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'financial:view', { route: 'GET /api/finance/metrics' }));
 
       return NextResponse.json({
         grossRevenue,
@@ -193,9 +200,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to fetch finance metrics', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch finance metrics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch finance metrics' }, { status: 500 });
   }
 }

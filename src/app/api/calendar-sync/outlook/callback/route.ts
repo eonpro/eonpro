@@ -1,6 +1,6 @@
 /**
  * Outlook Calendar OAuth Callback
- * 
+ *
  * Handles the OAuth2 callback from Microsoft after user authorization
  */
 
@@ -20,7 +20,10 @@ export async function GET(req: NextRequest) {
     if (error) {
       logger.error('Microsoft OAuth error', { error, errorDescription });
       return NextResponse.redirect(
-        new URL(`/dashboard/settings/integrations?error=${encodeURIComponent(errorDescription || error)}`, req.url)
+        new URL(
+          `/dashboard/settings/integrations?error=${encodeURIComponent(errorDescription || error)}`,
+          req.url
+        )
       );
     }
 
@@ -50,7 +53,10 @@ export async function GET(req: NextRequest) {
     if (!result.success) {
       logger.error('Failed to exchange Outlook code', { error: result.error });
       return NextResponse.redirect(
-        new URL(`/dashboard/settings/integrations?error=${encodeURIComponent(result.error || 'exchange_failed')}`, req.url)
+        new URL(
+          `/dashboard/settings/integrations?error=${encodeURIComponent(result.error || 'exchange_failed')}`,
+          req.url
+        )
       );
     }
 

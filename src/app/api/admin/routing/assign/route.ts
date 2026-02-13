@@ -1,6 +1,6 @@
 /**
  * Admin Routing - Manual Assignment API
- * 
+ *
  * POST - Admin manually assigns a prescription to a provider
  */
 
@@ -22,7 +22,7 @@ const assignSchema = z.object({
 async function handlePost(req: NextRequest, user: AuthUser) {
   try {
     const clinicId = user.clinicId;
-    
+
     // Super admin can assign for any clinic (clinicId might be in body)
     // Admin must have a clinic
     if (!clinicId && user.role !== 'super_admin') {
@@ -34,7 +34,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     const body = await req.json();
     const parsed = assignSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parsed.error.issues },
@@ -52,11 +52,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
 
     // Perform manual assignment
-    const result = await providerRoutingService.manuallyAssign(
-      orderId,
-      providerId,
-      user.id
-    );
+    const result = await providerRoutingService.manuallyAssign(orderId, providerId, user.id);
 
     logger.info('[ADMIN-ROUTING] Assignment successful', {
       orderId,
@@ -72,12 +68,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     if (errorMessage.includes('not found')) {
-      return NextResponse.json(
-        { error: errorMessage },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: errorMessage }, { status: 404 });
     }
 
     logger.error('[ADMIN-ROUTING] Error assigning prescription', {

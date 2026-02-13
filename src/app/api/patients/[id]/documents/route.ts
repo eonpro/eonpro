@@ -1,4 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
+
+// Allow larger uploads (10MB) and longer duration for S3 uploads
+export const maxDuration = 60;
 import { prisma } from '@/lib/db';
 import { PatientDocumentCategory } from '@prisma/client';
 import { logger } from '@/lib/logger';
@@ -9,6 +12,7 @@ import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { ensureTenantResource } from '@/lib/tenant-response';
 import { handleApiError } from '@/domains/shared/errors';
 
 export const GET = withAuthParams(
@@ -22,25 +26,17 @@ export const GET = withAuthParams(
         return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
       }
 
-      // Check patient access
+      // Check patient access (tenant 404: same response for not-found and wrong clinic)
       const patient = await prisma.patient.findUnique({
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-
-      if (!patient) {
-        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-      }
-
+      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const notFound = ensureTenantResource(patient, clinicId);
+      if (notFound) return notFound;
       // Patients can only access their own documents
-      // Check if user is a patient and if their patientId matches
       if (user.role === 'patient' && user.patientId !== patientId) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-      }
-
-      // Check clinic access
-      if (user.clinicId && patient.clinicId !== user.clinicId) {
-        return NextResponse.json({ error: 'Patient not in your clinic' }, { status: 403 });
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
 
       // Log access for audit
@@ -53,6 +49,7 @@ export const GET = withAuthParams(
       const documents = await prisma.patientDocument.findMany({
         where: { patientId },
         orderBy: { createdAt: 'desc' },
+        take: 100,
         select: {
           id: true,
           filename: true,
@@ -63,48 +60,70 @@ export const GET = withAuthParams(
         },
       });
 
-      // Transform the documents to match the frontend interface
-      // Always use the API route for viewing documents to ensure proper authentication
-      const formattedDocuments = documents.map((doc: any) => {
-        const createdAt = doc.createdAt;
-        const uploadedAt =
-          createdAt instanceof Date
-            ? createdAt.toISOString()
-            : createdAt
-              ? new Date(createdAt).toISOString()
-              : new Date().toISOString();
-        return {
-          id: doc.id,
-          filename: doc.filename || 'Untitled Document',
-          category: doc.category || 'other',
-          mimeType: doc.mimeType || 'application/octet-stream',
-          uploadedAt,
-          url: `/api/patients/${patientId}/documents/${doc.id}`,
-          downloadUrl: `/api/patients/${patientId}/documents/${doc.id}/download`,
-        };
-      });
+      // Safe date to ISO string (never throws)
+      const toSafeIso = (value: unknown): string => {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+        if (value != null) {
+          try {
+            const d = new Date(value as string | number | Date);
+            if (!Number.isNaN(d.getTime())) return d.toISOString();
+          } catch {
+            // ignore
+          }
+        }
+        return new Date().toISOString();
+      };
 
-      // HIPAA: Log PHI/document access for compliance
-      await auditLog(request, {
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        clinicId: user.clinicId ?? undefined,
-        eventType: AuditEventType.DOCUMENT_VIEW,
-        resourceType: 'PatientDocument',
-        resourceId: String(patientId),
-        patientId,
-        action: 'list_documents',
-        outcome: 'SUCCESS',
-        metadata: { documentCount: documents.length },
-      });
+      // Transform the documents to match the frontend interface
+      const formattedDocuments = documents.map((doc: { id: number; filename?: string | null; category?: string | null; mimeType?: string | null; createdAt: unknown }) => ({
+        id: doc.id,
+        filename: doc.filename ?? 'Untitled Document',
+        category: doc.category ?? 'other',
+        mimeType: doc.mimeType ?? 'application/octet-stream',
+        uploadedAt: toSafeIso(doc.createdAt),
+        url: `/api/patients/${patientId}/documents/${doc.id}`,
+        downloadUrl: `/api/patients/${patientId}/documents/${doc.id}/download`,
+      }));
+
+      // HIPAA: Log PHI/document access for compliance (non-blocking: list still returned if audit fails)
+      try {
+        await auditLog(request, {
+          userId: user.id,
+          userEmail: user.email,
+          userRole: user.role,
+          clinicId: user.clinicId ?? undefined,
+          eventType: AuditEventType.DOCUMENT_VIEW,
+          resourceType: 'PatientDocument',
+          resourceId: String(patientId),
+          patientId,
+          action: 'list_documents',
+          outcome: 'SUCCESS',
+          metadata: { documentCount: documents.length },
+        });
+      } catch (auditErr: unknown) {
+        logger.warn('Failed to create HIPAA audit log for documents list', {
+          patientId,
+          userId: user.id,
+          error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+        });
+      }
 
       return NextResponse.json(formattedDocuments);
     } catch (error: unknown) {
-      return handleApiError(error, {
-        route: 'GET /api/patients/[id]/documents',
-        context: { patientId },
-      });
+      // Ensure we always return JSON so the client gets a structured error (see docs/FIX_DOCUMENTS_500.md)
+      try {
+        return handleApiError(error, {
+          route: 'GET /api/patients/[id]/documents',
+          context: { patientId },
+        });
+      } catch (fallbackErr: unknown) {
+        const msg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error';
+        logger.error('Documents list: handleApiError threw', { patientId, error: msg });
+        return NextResponse.json(
+          { error: 'Failed to load documents. Please try again or contact support.', code: 'INTERNAL_ERROR' },
+          { status: 500 }
+        );
+      }
     }
   },
   { roles: ['admin', 'provider', 'staff', 'patient'] }
@@ -120,24 +139,17 @@ export const POST = withAuthParams(
         return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
       }
 
-      // Check patient access
+      // Check patient access (tenant 404 normalization)
       const patient = await prisma.patient.findUnique({
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-
-      if (!patient) {
-        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-      }
-
-      // Only providers and admins can upload documents (patients can't upload their own)
-      if (user.role === 'patient') {
-        return NextResponse.json({ error: 'Patients cannot upload documents' }, { status: 403 });
-      }
-
-      // Check clinic access
-      if (user.clinicId && patient.clinicId !== user.clinicId) {
-        return NextResponse.json({ error: 'Patient not in your clinic' }, { status: 403 });
+      const clinicIdForPost = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+      const notFoundPost = ensureTenantResource(patient, clinicIdForPost);
+      if (notFoundPost) return notFoundPost;
+      if (!patient) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      if (user.role === 'patient' && user.patientId !== patientId) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
 
       // Log upload for audit
@@ -178,6 +190,7 @@ export const POST = withAuthParams(
         insurance: PatientDocumentCategory.INSURANCE,
         'consent-forms': PatientDocumentCategory.CONSENT_FORMS,
         'intake-forms': PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+        'id-photo': PatientDocumentCategory.ID_PHOTO,
         other: PatientDocumentCategory.OTHER,
         // Also support uppercase format
         MEDICAL_RECORDS: PatientDocumentCategory.MEDICAL_RECORDS,
@@ -187,6 +200,7 @@ export const POST = withAuthParams(
         INSURANCE: PatientDocumentCategory.INSURANCE,
         CONSENT_FORMS: PatientDocumentCategory.CONSENT_FORMS,
         INTAKE_FORMS: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+        ID_PHOTO: PatientDocumentCategory.ID_PHOTO,
         OTHER: PatientDocumentCategory.OTHER,
       };
 
@@ -213,6 +227,7 @@ export const POST = withAuthParams(
         CONSENT_FORMS: FileCategory.CONSENT_FORMS,
         MEDICAL_INTAKE_FORM: FileCategory.INTAKE_FORMS,
         INTAKE_FORMS: FileCategory.INTAKE_FORMS,
+        ID_PHOTO: FileCategory.PATIENT_PHOTOS,
         OTHER: FileCategory.OTHER,
       };
 
@@ -271,6 +286,7 @@ export const POST = withAuthParams(
               error:
                 'Document upload is not available. Please contact support to enable cloud storage.',
               code: 'STORAGE_NOT_CONFIGURED',
+              diagnostic: '/api/diagnostics/document-upload',
             },
             { status: 503 }
           );
@@ -324,7 +340,7 @@ export const POST = withAuthParams(
       logger.error('Error uploading documents', {
         userId: user?.id,
         error: errorMessage,
-        stack: error instanceof Error ? error.stack : undefined,
+        ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       });
       // Storage/S3 failures: return 503 and point users to Lab tab for lab PDFs
       const isStorageError =
@@ -333,14 +349,24 @@ export const POST = withAuthParams(
         ) ||
         (error?.name && /NetworkError|TimeoutError/i.test(error.name));
       const status = isStorageError ? 503 : 500;
-      const body: { error: string; code?: string } = {
+      const body: {
+        error: string;
+        code?: string;
+        diagnostic?: string;
+        awsCode?: string;
+      } = {
         error: isStorageError
           ? 'Document storage is temporarily unavailable. For lab results, use the Lab tab and upload a Quest PDF there.'
           : `Upload failed: ${errorMessage}`,
       };
-      if (isStorageError) body.code = 'STORAGE_UNAVAILABLE';
+      if (isStorageError) {
+        body.code = 'STORAGE_UNAVAILABLE';
+        body.diagnostic = '/api/diagnostics/document-upload';
+        const awsCode = (error as { awsCode?: string })?.awsCode;
+        if (awsCode) body.awsCode = awsCode; // e.g. AccessDenied, NoSuchBucket
+      }
       return NextResponse.json(body, { status });
     }
   },
-  { roles: ['admin', 'provider', 'staff'] }
+  { roles: ['admin', 'provider', 'staff', 'patient'] }
 );

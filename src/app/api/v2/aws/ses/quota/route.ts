@@ -1,6 +1,6 @@
 /**
  * AWS SES Quota API Endpoint
- * 
+ *
  * Returns current send quota and usage
  */
 
@@ -38,13 +38,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(quota);
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Quota] Error:', error);
-    
-    return NextResponse.json(
-      { error: errorMessage || 'Failed to get quota' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: errorMessage || 'Failed to get quota' }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import {
   isDLQConfigured,
@@ -19,18 +19,7 @@ import {
   queueFailedSubmission,
 } from '@/lib/queue/deadLetterQueue';
 
-export async function GET(req: NextRequest) {
-  // Check authentication
-  const auth = await verifyAuth(req);
-  if (!auth.success || !auth.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Check for admin role
-  if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-  }
-
+async function handleGet(req: NextRequest, user: AuthUser) {
   if (!isDLQConfigured()) {
     return NextResponse.json({
       configured: false,
@@ -86,17 +75,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
-  // Check authentication
-  const auth = await verifyAuth(req);
-  if (!auth.success || !auth.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-  }
-
+async function handleDelete(req: NextRequest, user: AuthUser) {
   if (!isDLQConfigured()) {
     return NextResponse.json({ error: 'DLQ not configured' }, { status: 400 });
   }
@@ -112,7 +91,7 @@ export async function DELETE(req: NextRequest) {
     const removed = await removeSubmission(id);
 
     if (removed) {
-      logger.info(`[DLQ Admin] Removed submission ${id} by ${auth.user.email}`);
+      logger.info('[DLQ Admin] Removed submission', { submissionId: id, userId: user.id });
       return NextResponse.json({ success: true, message: `Removed submission ${id}` });
     } else {
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
@@ -129,17 +108,7 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  // Check authentication
-  const auth = await verifyAuth(req);
-  if (!auth.success || !auth.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
-    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-  }
-
+async function handlePost(req: NextRequest, user: AuthUser) {
   if (!isDLQConfigured()) {
     return NextResponse.json({ error: 'DLQ not configured' }, { status: 400 });
   }
@@ -161,7 +130,10 @@ export async function POST(req: NextRequest) {
         metadata
       );
 
-      logger.info(`[DLQ Admin] Manually queued submission ${queuedId} by ${auth.user.email}`);
+      logger.info('[DLQ Admin] Manually queued submission', {
+      queuedId,
+      userId: user.id,
+    });
       return NextResponse.json({ success: true, id: queuedId });
     }
 
@@ -182,7 +154,10 @@ export async function POST(req: NextRequest) {
       );
 
       const result = await response.json();
-      logger.info(`[DLQ Admin] Triggered manual retry by ${auth.user.email}`, result);
+      logger.info('[DLQ Admin] Triggered manual retry', {
+      userId: user.id,
+      result,
+    });
       return NextResponse.json(result);
     }
 
@@ -198,3 +173,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const GET = withAdminAuth(handleGet);
+export const DELETE = withAdminAuth(handleDelete);
+export const POST = withAdminAuth(handlePost);

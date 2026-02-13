@@ -1,6 +1,6 @@
 /**
  * AI Scribe Module Exports
- * 
+ *
  * Extends Becca AI with real-time transcription and documentation
  */
 

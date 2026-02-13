@@ -1,8 +1,8 @@
 /**
  * Admin Affiliate Application Reject API
- * 
+ *
  * POST /api/admin/affiliates/applications/[id]/reject - Reject application
- * 
+ *
  * @security Super Admin or Admin only
  */
 

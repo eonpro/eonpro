@@ -3,12 +3,16 @@ import { Server as HTTPServer } from 'http';
 import { logger } from '@/lib/logger';
 import { verifyToken } from '@/lib/auth/session';
 import cache from '@/lib/cache/redis';
+import { tenantCacheKey } from '@/lib/cache/tenant-cache-keys';
+
+const PRESENCE_NAMESPACE = 'presence';
 
 export interface SocketUser {
   id: string;
   email: string;
   role: string;
   socketId: string;
+  clinicId?: number;
 }
 
 export interface RoomConfig {
@@ -23,29 +27,29 @@ export enum EventType {
   CONNECTION = 'connection',
   DISCONNECT = 'disconnect',
   ERROR = 'error',
-  
+
   // Authentication
   AUTHENTICATE = 'authenticate',
   AUTHENTICATED = 'authenticated',
   UNAUTHORIZED = 'unauthorized',
-  
+
   // User presence
   USER_ONLINE = 'user:online',
   USER_OFFLINE = 'user:offline',
   USER_STATUS = 'user:status',
-  
+
   // Messaging
   MESSAGE_SEND = 'message:send',
   MESSAGE_RECEIVE = 'message:receive',
   MESSAGE_TYPING = 'message:typing',
   MESSAGE_READ = 'message:read',
-  
+
   // Appointments
   APPOINTMENT_CREATED = 'appointment:created',
   APPOINTMENT_UPDATED = 'appointment:updated',
   APPOINTMENT_CANCELLED = 'appointment:cancelled',
   APPOINTMENT_REMINDER = 'appointment:reminder',
-  
+
   // Video calls
   VIDEO_CALL_START = 'video:call:start',
   VIDEO_CALL_JOIN = 'video:call:join',
@@ -53,22 +57,22 @@ export enum EventType {
   VIDEO_CALL_OFFER = 'video:call:offer',
   VIDEO_CALL_ANSWER = 'video:call:answer',
   VIDEO_CALL_ICE = 'video:call:ice',
-  
+
   // Notifications
   NOTIFICATION_PUSH = 'notification:push',
   NOTIFICATION_READ = 'notification:read',
   NOTIFICATION_CLEAR = 'notification:clear',
-  
+
   // Real-time updates
   DATA_UPDATE = 'data:update',
   DATA_DELETE = 'data:delete',
   DATA_SYNC = 'data:sync',
-  
+
   // System events
   SYSTEM_ALERT = 'system:alert',
   SYSTEM_MAINTENANCE = 'system:maintenance',
   SYSTEM_STATUS = 'system:status',
-  
+
   // Collaboration
   DOCUMENT_UPDATE = 'document:update',
   DOCUMENT_CURSOR = 'document:cursor',
@@ -94,7 +98,7 @@ class WebSocketService {
 
     this.setupMiddleware();
     this.setupEventHandlers();
-    
+
     logger.info('WebSocket service initialized');
   }
 
@@ -105,7 +109,7 @@ class WebSocketService {
     this.io.use(async (socket: Socket, next) => {
       try {
         const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
-        
+
         if (!token) {
           return next(new Error('Authentication required'));
         }
@@ -117,11 +121,11 @@ class WebSocketService {
 
         // Attach user to socket
         (socket as any).user = user;
-        
+
         next();
       } catch (error: any) {
-    // @ts-ignore
-   
+        // @ts-ignore
+
         logger.error('WebSocket authentication error:', error);
         next(new Error('Authentication failed'));
       }
@@ -133,7 +137,7 @@ class WebSocketService {
 
     this.io.on(EventType.CONNECTION, (socket: Socket) => {
       const user = (socket as any).user;
-      
+
       if (user) {
         this.handleUserConnection(socket, user);
       }
@@ -192,23 +196,29 @@ class WebSocketService {
   }
 
   private async handleUserConnection(socket: Socket, user: any): Promise<void> {
+    const clinicId = user.clinicId != null ? Number(user.clinicId) : undefined;
     const socketUser: SocketUser = {
       id: user.id,
       email: user.email,
       role: user.role,
       socketId: socket.id,
+      clinicId,
     };
 
     // Store user information
     this.users.set(socket.id, socketUser);
     this.userSockets.set(user.id, socket.id);
 
-    // Cache user online status
-    await cache.set(`user:online:${user.id}`, true, { ttl: 3600 });
+    // Cache user online status (tenant-scoped when clinicId present)
+    const presenceKey =
+      clinicId != null
+        ? tenantCacheKey(clinicId, 'user', 'online', user.id)
+        : `user:online:${user.id}`;
+    await cache.set(presenceKey, true, { namespace: PRESENCE_NAMESPACE, ttl: 3600 });
 
     // Join user-specific room
     socket.join(`user:${user.id}`);
-    
+
     // Join role-specific room
     socket.join(`role:${user.role}`);
 
@@ -224,19 +234,23 @@ class WebSocketService {
       timestamp: new Date().toISOString(),
     });
 
-    logger.info(`User ${user.email} connected via WebSocket`);
+    logger.info('User connected via WebSocket', { userId: user.id });
   }
 
   private async handleUserDisconnection(socket: Socket): Promise<void> {
     const user = this.users.get(socket.id);
-    
+
     if (user) {
       // Remove user information
       this.users.delete(socket.id);
       this.userSockets.delete(user.id);
 
-      // Update cache
-      await cache.delete(`user:online:${user.id}`);
+      // Update cache (same key as set: tenant-scoped when clinicId present)
+      const presenceKey =
+        user.clinicId != null
+          ? tenantCacheKey(user.clinicId, 'user', 'online', user.id)
+          : `user:online:${user.id}`;
+      await cache.delete(presenceKey, { namespace: PRESENCE_NAMESPACE });
 
       // Leave all rooms
       const rooms = Array.from(socket.rooms);
@@ -252,7 +266,7 @@ class WebSocketService {
         timestamp: new Date().toISOString(),
       });
 
-      logger.info(`User ${user.email} disconnected from WebSocket`);
+      logger.info('User disconnected from WebSocket', { userId: user.id });
     }
   }
 
@@ -270,8 +284,8 @@ class WebSocketService {
         });
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Authentication error:', error);
       socket.emit(EventType.UNAUTHORIZED, {
         message: 'Authentication failed',
@@ -376,7 +390,7 @@ class WebSocketService {
     if (!user) return;
 
     socket.join(roomName);
-    
+
     // Track room membership
     if (!this.rooms.has(roomName)) {
       this.rooms.set(roomName, new Set());
@@ -390,7 +404,7 @@ class WebSocketService {
       timestamp: new Date().toISOString(),
     });
 
-    logger.debug(`User ${user.email} joined room ${roomName}`);
+    logger.debug('User joined room', { userId: user.id, roomName });
   }
 
   private leaveRoom(socket: Socket, roomName: string): void {
@@ -398,7 +412,7 @@ class WebSocketService {
     if (!user) return;
 
     socket.leave(roomName);
-    
+
     // Update room membership
     this.rooms.get(roomName)?.delete(user.id);
     if (this.rooms.get(roomName)?.size === 0) {
@@ -412,7 +426,7 @@ class WebSocketService {
       timestamp: new Date().toISOString(),
     });
 
-    logger.debug(`User ${user.email} left room ${roomName}`);
+    logger.debug('User left room', { userId: user.id, roomName });
   }
 
   private handleDataUpdate(socket: Socket, data: any): void {
@@ -476,8 +490,13 @@ class WebSocketService {
     return Array.from(this.userSockets.keys());
   }
 
-  public async getUserStatus(userId: string): Promise<boolean> {
-    const isOnline = await cache.get<boolean>(`user:online:${userId}`);
+  /** Check if user is online. Pass clinicId when checking within a tenant to use tenant-scoped presence key. */
+  public async getUserStatus(userId: string, clinicId?: number): Promise<boolean> {
+    const presenceKey =
+      clinicId != null
+        ? tenantCacheKey(clinicId, 'user', 'online', userId)
+        : `user:online:${userId}`;
+    const isOnline = await cache.get<boolean>(presenceKey, { namespace: PRESENCE_NAMESPACE });
     return isOnline || false;
   }
 
@@ -508,7 +527,7 @@ class WebSocketService {
       // Close all connections
       this.io.close();
       this.io = null;
-      
+
       // Clear data
       this.users.clear();
       this.rooms.clear();

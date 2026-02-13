@@ -2,11 +2,14 @@
  * SERVERLESS DATABASE CONNECTION POOL
  * ====================================
  *
- * Enterprise-grade connection management optimized for Vercel serverless:
- * - Aggressive connection limits (1-2 per function instance)
- * - Immediate connection release on function completion
- * - Connection draining utilities
- * - RDS Proxy compatibility
+ * Optimized for Vercel serverless to avoid P2024 (connection pool timeout):
+ * - connection_limit=1 per function instance on Vercel (set via URL params)
+ * - Use PgBouncer or RDS Proxy in production so many instances share a small DB connection pool
+ *
+ * If you see "Timed out fetching a new connection from the connection pool" (P2024):
+ * 1. Ensure DATABASE_URL is used with ?connection_limit=1 (this module sets it when not in URL)
+ * 2. Do not set DATABASE_CONNECTION_LIMIT > 1 on Vercel
+ * 3. Use a connection pooler: PgBouncer (e.g. Supabase pooler) or AWS RDS Proxy
  *
  * @module ServerlessPool
  */
@@ -53,30 +56,30 @@ export interface ServerlessPoolConfig {
 export function getServerlessConfig(): ServerlessPoolConfig {
   const isVercel = !!process.env.VERCEL;
   const isProduction = process.env.NODE_ENV === 'production';
-  const useRdsProxy = process.env.USE_RDS_PROXY === 'true' ||
-    process.env.DATABASE_URL?.includes('.proxy-');
-  const usePgBouncer = process.env.DATABASE_URL?.includes('pgbouncer=true') ||
-    process.env.USE_PGBOUNCER === 'true';
+  const useRdsProxy =
+    process.env.USE_RDS_PROXY === 'true' || process.env.DATABASE_URL?.includes('.proxy-');
+  const usePgBouncer =
+    process.env.DATABASE_URL?.includes('pgbouncer=true') || process.env.USE_PGBOUNCER === 'true';
 
-  // Explicit environment variable override takes priority
+  // Explicit environment variable override takes priority (but capped on Vercel)
   const explicitLimit = process.env.DATABASE_CONNECTION_LIMIT;
 
   let connectionLimit: number;
 
   if (explicitLimit) {
-    // Explicit override - use it but cap for safety
-    connectionLimit = Math.min(parseInt(explicitLimit, 10), 10);
+    // Explicit override - cap strictly on Vercel to prevent pool exhaustion (P2024)
+    const requested = parseInt(explicitLimit, 10) || 5;
+    const cap = isVercel ? 1 : 10; // Vercel: always 1 unless using external pooler
+    connectionLimit = Math.min(requested, cap);
   } else if (useRdsProxy || usePgBouncer) {
-    // With proxy, we can be slightly more generous
-    connectionLimit = isVercel ? 3 : 5;
+    // With proxy/pooler, one connection per instance is enough
+    connectionLimit = isVercel ? 1 : 5;
   } else if (isVercel && isProduction) {
-    // CRITICAL: Raw RDS without proxy in Vercel = VERY conservative
-    // With 100 concurrent functions at 2 connections each = 200 connections
-    // RDS db.t3.micro only supports ~80 connections
+    // CRITICAL: Avoid P2024 "Timed out fetching a new connection from the connection pool"
+    // Each serverless instance = one Prisma client. Limit 1 = one connection per instance.
     connectionLimit = 1;
   } else if (isVercel) {
-    // Vercel preview/development
-    connectionLimit = 2;
+    connectionLimit = 1;
   } else {
     // Local development or non-serverless
     connectionLimit = 5;
@@ -84,7 +87,7 @@ export function getServerlessConfig(): ServerlessPoolConfig {
 
   return {
     connectionLimit,
-    poolTimeout: isVercel ? 15 : 30, // Shorter timeout in serverless
+    poolTimeout: isVercel ? 15 : 30, // Match Prisma default 15s so we don't fail before pool
     connectTimeout: 10,
     idleTimeout: isVercel ? 10 : 60, // Release idle connections quickly
     statementTimeout: 30000, // 30s statement timeout
@@ -291,11 +294,13 @@ export async function getPoolStats(prisma: PrismaClient): Promise<{
   waitingClients: number;
 }> {
   try {
-    const result = await prisma.$queryRaw<Array<{
-      active: bigint;
-      idle: bigint;
-      max_conn: string;
-    }>>`
+    const result = await prisma.$queryRaw<
+      Array<{
+        active: bigint;
+        idle: bigint;
+        max_conn: string;
+      }>
+    >`
       SELECT
         (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active,
         (SELECT count(*) FROM pg_stat_activity WHERE state = 'idle') as idle,
@@ -342,7 +347,7 @@ export function logPoolConfiguration(): void {
   if (isVercel && !config.useRdsProxy && !config.usePgBouncer) {
     logger.warn(
       '[ServerlessPool] Running on Vercel without RDS Proxy or PgBouncer. ' +
-      'Consider enabling USE_RDS_PROXY=true for better connection management.'
+        'Consider enabling USE_RDS_PROXY=true for better connection management.'
     );
   }
 }

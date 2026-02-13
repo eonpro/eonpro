@@ -119,7 +119,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     // Hydration (0-100)
     const totalWater = waterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
     const avgWater = waterLogs.length > 0 ? totalWater / 7 : 0;
-    const previousTotalWater = previousWaterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
+    const previousTotalWater = previousWaterLogs.reduce(
+      (sum: number, log: any) => sum + log.amount,
+      0
+    );
     const previousAvgWater = previousWaterLogs.length > 0 ? previousTotalWater / 7 : 0;
     const waterScore = Math.min(100, (avgWater / 64) * 100);
     const waterTrend: 'up' | 'down' | 'stable' =
@@ -136,22 +139,25 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         waterTrend === 'up'
           ? `+${Math.round(avgWater - previousAvgWater)}oz from last week`
           : waterTrend === 'down'
-          ? `${Math.round(avgWater - previousAvgWater)}oz from last week`
-          : 'Same as last week',
+            ? `${Math.round(avgWater - previousAvgWater)}oz from last week`
+            : 'Same as last week',
       score: Math.round(waterScore),
       lastUpdated: waterLogs.length > 0 ? 'Today' : 'No data',
     });
 
     // Exercise (0-100)
     const totalExercise = exerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
-    const previousTotalExercise = previousExerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
+    const previousTotalExercise = previousExerciseLogs.reduce(
+      (sum: number, log: any) => sum + log.duration,
+      0
+    );
     const exerciseScore = Math.min(100, (totalExercise / 150) * 100);
     const exerciseTrend: 'up' | 'down' | 'stable' =
       totalExercise > previousTotalExercise + 15
         ? 'up'
         : totalExercise < previousTotalExercise - 15
-        ? 'down'
-        : 'stable';
+          ? 'down'
+          : 'stable';
 
     metrics.push({
       id: 'exercise',
@@ -165,17 +171,26 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           ? `${totalExercise > previousTotalExercise ? '+' : ''}${totalExercise - previousTotalExercise}min from last week`
           : 'Same as last week',
       score: Math.round(exerciseScore),
-      lastUpdated: exerciseLogs.length > 0 ? formatLastUpdated(exerciseLogs[0].recordedAt) : 'No data',
+      lastUpdated:
+        exerciseLogs.length > 0 ? formatLastUpdated(exerciseLogs[0].recordedAt) : 'No data',
     });
 
     // Sleep (0-100)
     const totalSleep = sleepLogs.reduce((sum: number, log: any) => sum + (log.duration || 0), 0);
     const avgSleep = sleepLogs.length > 0 ? totalSleep / sleepLogs.length : 0;
     const sleepScore = Math.min(100, (avgSleep / 8) * 100);
-    const previousTotalSleep = previousSleepLogs.reduce((sum: number, log: any) => sum + (log.duration || 0), 0);
-    const previousAvgSleep = previousSleepLogs.length > 0 ? previousTotalSleep / previousSleepLogs.length : 0;
+    const previousTotalSleep = previousSleepLogs.reduce(
+      (sum: number, log: any) => sum + (log.duration || 0),
+      0
+    );
+    const previousAvgSleep =
+      previousSleepLogs.length > 0 ? previousTotalSleep / previousSleepLogs.length : 0;
     const sleepTrend: 'up' | 'down' | 'stable' =
-      avgSleep > previousAvgSleep + 0.5 ? 'up' : avgSleep < previousAvgSleep - 0.5 ? 'down' : 'stable';
+      avgSleep > previousAvgSleep + 0.5
+        ? 'up'
+        : avgSleep < previousAvgSleep - 0.5
+          ? 'down'
+          : 'stable';
 
     metrics.push({
       id: 'sleep',
@@ -184,7 +199,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       unit: 'hrs/night',
       target: 8,
       trend: sleepTrend,
-      trendValue: sleepTrend === 'stable' ? 'Same as last week' : `${sleepTrend === 'up' ? '+' : ''}${(avgSleep - previousAvgSleep).toFixed(1)}hrs`,
+      trendValue:
+        sleepTrend === 'stable'
+          ? 'Same as last week'
+          : `${sleepTrend === 'up' ? '+' : ''}${(avgSleep - previousAvgSleep).toFixed(1)}hrs`,
       score: Math.round(sleepScore),
       lastUpdated: sleepLogs.length > 0 ? formatLastUpdated(sleepLogs[0].recordedAt) : 'No data',
     });
@@ -224,10 +242,14 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     // Generate insights
     const insights: string[] = [];
     if (waterScore < 80) {
-      insights.push('Drinking more water can help with medication effectiveness and reduce side effects.');
+      insights.push(
+        'Drinking more water can help with medication effectiveness and reduce side effects.'
+      );
     }
     if (exerciseScore < 70) {
-      insights.push(`Adding ${Math.max(0, 150 - totalExercise)} more minutes of exercise this week would boost your score.`);
+      insights.push(
+        `Adding ${Math.max(0, 150 - totalExercise)} more minutes of exercise this week would boost your score.`
+      );
     }
     if (weightScore >= 80) {
       insights.push('Your weight progress is excellent! Keep maintaining your healthy habits.');
@@ -255,7 +277,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const errorId = crypto.randomUUID().slice(0, 8);
     logger.error(`[HEALTH_SCORE_GET] Error ${errorId}:`, {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       patientId: user.patientId,
     });
     return NextResponse.json(

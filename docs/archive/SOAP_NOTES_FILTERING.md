@@ -2,11 +2,13 @@
 
 ## What Changed
 
-The SOAP notes display now filters out duplicate test generations, showing only the most recent SOAP note per intake document.
+The SOAP notes display now filters out duplicate test generations, showing only the most recent SOAP
+note per intake document.
 
 ## Why It Was Needed
 
 During development and testing, multiple SOAP notes were generated for the same intake document:
+
 - Patricia had 6 SOAP notes total
 - 3 from intake document #6
 - 3 from intake document #13
@@ -30,7 +32,9 @@ Updated the `getPatientSOAPNotes` function in `src/services/ai/soapNoteService.t
 ## Result
 
 Patricia now sees only 2 SOAP notes instead of 6:
-- SOAP Note #14 (most recent from Intake #13) 
+
+- SOAP Note #14 (most recent from Intake #13)
 - SOAP Note #11 (most recent from Intake #6)
 
-This provides a cleaner, more professional view showing only the relevant SOAP notes generated from actual patient intake forms.
+This provides a cleaner, more professional view showing only the relevant SOAP notes generated from
+actual patient intake forms.

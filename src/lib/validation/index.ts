@@ -13,7 +13,7 @@ export * from './schemas';
 /**
  * Validation result type
  */
-export type ValidationResult<T> = 
+export type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: NextResponse };
 
@@ -27,7 +27,7 @@ export async function validateBody<T extends ZodSchema>(
   try {
     const body = await request.json();
     const result = schema.safeParse(body);
-    
+
     if (!result.success) {
       logger.debug('Validation failed', { errors: result.error.format() });
       return {
@@ -41,16 +41,13 @@ export async function validateBody<T extends ZodSchema>(
         ),
       };
     }
-    
+
     return { success: true, data: result.data };
   } catch (error) {
     logger.error('Failed to parse request body', error as Error);
     return {
       success: false,
-      error: NextResponse.json(
-        { error: 'Invalid JSON body' },
-        { status: 400 }
-      ),
+      error: NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }),
     };
   }
 }
@@ -65,7 +62,7 @@ export function validateQuery<T extends ZodSchema>(
   try {
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
     const result = schema.safeParse(searchParams);
-    
+
     if (!result.success) {
       logger.debug('Query validation failed', { errors: result.error.format() });
       return {
@@ -79,16 +76,13 @@ export function validateQuery<T extends ZodSchema>(
         ),
       };
     }
-    
+
     return { success: true, data: result.data };
   } catch (error) {
     logger.error('Failed to parse query parameters', error as Error);
     return {
       success: false,
-      error: NextResponse.json(
-        { error: 'Invalid query parameters' },
-        { status: 400 }
-      ),
+      error: NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 }),
     };
   }
 }
@@ -102,7 +96,7 @@ export function validateParams<T extends ZodSchema>(
 ): ValidationResult<z.infer<T>> {
   try {
     const result = schema.safeParse(params);
-    
+
     if (!result.success) {
       logger.debug('Params validation failed', { errors: result.error.format() });
       return {
@@ -116,16 +110,13 @@ export function validateParams<T extends ZodSchema>(
         ),
       };
     }
-    
+
     return { success: true, data: result.data };
   } catch (error) {
     logger.error('Failed to parse route parameters', error as Error);
     return {
       success: false,
-      error: NextResponse.json(
-        { error: 'Invalid route parameters' },
-        { status: 400 }
-      ),
+      error: NextResponse.json({ error: 'Invalid route parameters' }, { status: 400 }),
     };
   }
 }
@@ -135,7 +126,7 @@ export function validateParams<T extends ZodSchema>(
  */
 function formatZodErrors(error: ZodError): Record<string, string[]> {
   const formatted: Record<string, string[]> = {};
-  
+
   for (const issue of error.issues) {
     const path = issue.path.join('.') || '_root';
     if (!formatted[path]) {
@@ -143,7 +134,7 @@ function formatZodErrors(error: ZodError): Record<string, string[]> {
     }
     formatted[path].push(issue.message);
   }
-  
+
   return formatted;
 }
 
@@ -221,17 +212,20 @@ export function sanitizeHtml(html: string): string {
  */
 export const fileUploadSchema = z.object({
   filename: z.string().min(1).max(255),
-  mimeType: z.string().refine(
-    type => [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ].includes(type),
-    'Unsupported file type'
-  ),
+  mimeType: z
+    .string()
+    .refine(
+      (type) =>
+        [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ].includes(type),
+      'Unsupported file type'
+    ),
   size: z.number().max(10 * 1024 * 1024, 'File size must be less than 10MB'),
 });

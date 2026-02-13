@@ -70,7 +70,7 @@ describe('Lifefile Credentials', () => {
 
     it('should validate all required env vars', () => {
       const validateEnvCredentials = () => {
-        const missing = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+        const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
         return { valid: missing.length === 0, missing };
       };
 
@@ -80,12 +80,12 @@ describe('Lifefile Credentials', () => {
 
     it('should return credentials when all vars set', () => {
       // Set all required vars
-      REQUIRED_ENV_VARS.forEach(key => {
+      REQUIRED_ENV_VARS.forEach((key) => {
         process.env[key] = `test_${key.toLowerCase()}`;
       });
 
       const getEnvCredentials = () => {
-        const missing = REQUIRED_ENV_VARS.filter(key => !process.env[key]);
+        const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
         if (missing.length > 0) return null;
 
         return {
@@ -205,7 +205,11 @@ describe('Lifefile Client', () => {
     it('should cache clients by clinic', () => {
       const clientCache = new Map();
 
-      const getClient = (credentials: { baseUrl: string; vendorId: string; practiceId: string }) => {
+      const getClient = (credentials: {
+        baseUrl: string;
+        vendorId: string;
+        practiceId: string;
+      }) => {
         const cacheKey = `${credentials.baseUrl}-${credentials.vendorId}-${credentials.practiceId}`;
 
         if (clientCache.has(cacheKey)) {
@@ -359,16 +363,18 @@ describe('Lifefile Order Operations', () => {
       return {
         external_id: order.id.toString(),
         patient_name: `${order.patient.firstName} ${order.patient.lastName}`,
-        line_items: order.items.map(item => ({
+        line_items: order.items.map((item) => ({
           product_name: item.name,
           quantity: item.quantity,
         })),
-        shipping_address: order.shippingAddress ? {
-          line1: order.shippingAddress.address1,
-          city: order.shippingAddress.city,
-          state: order.shippingAddress.state,
-          postal_code: order.shippingAddress.zip,
-        } : null,
+        shipping_address: order.shippingAddress
+          ? {
+              line1: order.shippingAddress.address1,
+              city: order.shippingAddress.city,
+              state: order.shippingAddress.state,
+              postal_code: order.shippingAddress.zip,
+            }
+          : null,
       };
     };
 
@@ -648,7 +654,7 @@ describe('Lifefile API Validation', () => {
   describe('Required Field Validation', () => {
     const validatePatientData = (data: any) => {
       const required = ['first_name', 'last_name', 'date_of_birth'];
-      const missing = required.filter(field => !data[field]);
+      const missing = required.filter((field) => !data[field]);
       return { valid: missing.length === 0, missing };
     };
 

@@ -39,7 +39,7 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     // Send error to Sentry with additional context
-    Sentry.withScope((scope: any) => {
+    Sentry.withScope((scope) => {
       scope.setContext('errorBoundary', {
         componentStack: errorInfo.componentStack,
         props: JSON.stringify(this.props),
@@ -71,8 +71,8 @@ class ErrorBoundary extends Component<Props, State> {
 
       // Default error UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
             <div className="text-center">
               {/* Error Icon */}
               <svg
@@ -90,20 +90,16 @@ class ErrorBoundary extends Component<Props, State> {
               </svg>
 
               {/* Error Message */}
-              <h2 className="mt-4 text-xl font-semibold text-gray-900">
-                Something went wrong
-              </h2>
-              
+              <h2 className="mt-4 text-xl font-semibold text-gray-900">Something went wrong</h2>
+
               <p className="mt-2 text-sm text-gray-600">
                 We apologize for the inconvenience. The error has been reported to our team.
               </p>
 
               {/* Error ID for support */}
               {this.state.errorId && (
-                <div className="mt-4 p-2 bg-gray-100 rounded">
-                  <p className="text-xs text-gray-500">
-                    Error ID: {this.state.errorId}
-                  </p>
+                <div className="mt-4 rounded bg-gray-100 p-2">
+                  <p className="text-xs text-gray-500">Error ID: {this.state.errorId}</p>
                 </div>
               )}
 
@@ -113,7 +109,7 @@ class ErrorBoundary extends Component<Props, State> {
                   <summary className="cursor-pointer text-sm text-gray-700 hover:text-gray-900">
                     Error Details (Development Only)
                   </summary>
-                  <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                  <pre className="mt-2 overflow-auto rounded bg-gray-100 p-2 text-xs">
                     {this.state.error.message}
                     {'\n\n'}
                     {this.state.error.stack}
@@ -122,16 +118,16 @@ class ErrorBoundary extends Component<Props, State> {
               )}
 
               {/* Action Buttons */}
-              <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+              <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <button
                   onClick={this.handleReset}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  className="rounded-md bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700"
                 >
                   Try Again
                 </button>
                 <button
-                  onClick={() => window.location.href = '/'}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                  onClick={() => (window.location.href = '/')}
+                  className="rounded-md bg-gray-200 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-300"
                 >
                   Go Home
                 </button>
@@ -157,7 +153,7 @@ export function useErrorHandler() {
     }
 
     // Send to Sentry
-    Sentry.withScope((scope: any) => {
+    Sentry.withScope((scope) => {
       if (errorInfo?.componentStack) {
         scope.setContext('errorInfo', errorInfo);
       }

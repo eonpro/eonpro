@@ -2,24 +2,24 @@
  * API endpoint for managing Zoom meetings
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { isFeatureEnabled } from "@/lib/features";
+import { NextRequest, NextResponse } from 'next/server';
+import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
 import {
-  createZoomMeeting, 
+  createZoomMeeting,
   getZoomMeeting,
   cancelZoomMeeting,
-  getMeetingParticipants 
-} from "@/lib/integrations/zoom/meetingService";
-import { isZoomConfigured } from "@/lib/integrations/zoom/config";
+  getMeetingParticipants,
+} from '@/lib/integrations/zoom/meetingService';
+import { isZoomConfigured } from '@/lib/integrations/zoom/config';
 
 // Create a new meeting
 export async function POST(req: NextRequest) {
   try {
     // Check feature flag
-    if (!isFeatureEnabled("ZOOM_TELEHEALTH")) {
+    if (!isFeatureEnabled('ZOOM_TELEHEALTH')) {
       return NextResponse.json(
-        { error: "Zoom Telehealth feature is not enabled" },
+        { error: 'Zoom Telehealth feature is not enabled' },
         { status: 403 }
       );
     }
@@ -27,10 +27,7 @@ export async function POST(req: NextRequest) {
     const { topic, patientId, duration, scheduledAt, agenda, settings } = await req.json();
 
     if (!topic || !duration) {
-      return NextResponse.json(
-        { error: "Topic and duration are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Topic and duration are required' }, { status: 400 });
     }
 
     // Check if using mock mode
@@ -61,22 +58,22 @@ export async function POST(req: NextRequest) {
         mock: isMockMode,
       });
     } catch (error: any) {
-    // @ts-ignore
-   
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[ZOOM_API] Meeting creation failed:', error);
+      // @ts-ignore
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('[ZOOM_API] Meeting creation failed:', error);
       return NextResponse.json(
-        { error: "Failed to create meeting", details: errorMessage },
+        { error: 'Failed to create meeting', details: errorMessage },
         { status: 500 }
       );
     }
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[ZOOM_API] Error:', error);
     return NextResponse.json(
-      { error: "Failed to process request", details: errorMessage },
+      { error: 'Failed to process request', details: errorMessage },
       { status: 500 }
     );
   }
@@ -86,30 +83,24 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     // Check feature flag
-    if (!isFeatureEnabled("ZOOM_TELEHEALTH")) {
+    if (!isFeatureEnabled('ZOOM_TELEHEALTH')) {
       return NextResponse.json(
-        { error: "Zoom Telehealth feature is not enabled" },
+        { error: 'Zoom Telehealth feature is not enabled' },
         { status: 403 }
       );
     }
 
     const { searchParams } = new URL(req.url);
-    const meetingId = searchParams.get("meetingId");
+    const meetingId = searchParams.get('meetingId');
 
     if (!meetingId) {
-      return NextResponse.json(
-        { error: "Meeting ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Meeting ID is required' }, { status: 400 });
     }
 
     const meeting = await getZoomMeeting(meetingId);
 
     if (!meeting) {
-      return NextResponse.json(
-        { error: "Meeting not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Meeting not found' }, { status: 404 });
     }
 
     // Get participants if meeting is active
@@ -117,8 +108,8 @@ export async function GET(req: NextRequest) {
     try {
       participants = await getMeetingParticipants(meetingId);
     } catch (err: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.debug('[ZOOM_API] Could not get participants:', err);
     }
 
@@ -129,11 +120,11 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[ZOOM_API] Error:', error);
     return NextResponse.json(
-      { error: "Failed to get meeting", details: errorMessage },
+      { error: 'Failed to get meeting', details: errorMessage },
       { status: 500 }
     );
   }
@@ -143,43 +134,37 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     // Check feature flag
-    if (!isFeatureEnabled("ZOOM_TELEHEALTH")) {
+    if (!isFeatureEnabled('ZOOM_TELEHEALTH')) {
       return NextResponse.json(
-        { error: "Zoom Telehealth feature is not enabled" },
+        { error: 'Zoom Telehealth feature is not enabled' },
         { status: 403 }
       );
     }
 
     const { searchParams } = new URL(req.url);
-    const meetingId = searchParams.get("meetingId");
+    const meetingId = searchParams.get('meetingId');
 
     if (!meetingId) {
-      return NextResponse.json(
-        { error: "Meeting ID is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Meeting ID is required' }, { status: 400 });
     }
 
     const success = await cancelZoomMeeting(meetingId);
 
     if (!success) {
-      return NextResponse.json(
-        { error: "Failed to cancel meeting" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to cancel meeting' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      message: "Meeting cancelled successfully",
+      message: 'Meeting cancelled successfully',
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[ZOOM_API] Error:', error);
     return NextResponse.json(
-      { error: "Failed to cancel meeting", details: errorMessage },
+      { error: 'Failed to cancel meeting', details: errorMessage },
       { status: 500 }
     );
   }

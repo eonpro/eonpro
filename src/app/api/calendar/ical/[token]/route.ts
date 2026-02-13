@@ -1,9 +1,9 @@
 /**
  * iCal Subscription Feed Endpoint
- * 
+ *
  * Serves iCal (ICS) feeds for calendar subscriptions.
  * Supports Apple Calendar, Google Calendar, and other iCal-compatible apps.
- * 
+ *
  * Usage:
  * 1. Create a subscription via /api/calendar/subscriptions
  * 2. Subscribe to the feed URL in your calendar app
@@ -54,8 +54,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         'Content-Type': result.contentType,
         'Content-Disposition': `attachment; filename="appointments.ics"`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        Pragma: 'no-cache',
+        Expires: '0',
         // Allow calendar apps to fetch
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET',

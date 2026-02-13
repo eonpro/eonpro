@@ -1,9 +1,27 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from 'react';
 import { logger } from '../lib/logger';
 
-import { X, User, Mail, Phone, Calendar, Clock, Video, Send, Bell, Plus, Search, Check, Copy, Link2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import {
+  X,
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  Clock,
+  Video,
+  Send,
+  Bell,
+  Plus,
+  Search,
+  Check,
+  Copy,
+  Link2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 
 interface Patient {
   id: number;
@@ -25,10 +43,10 @@ interface AppointmentModalProps {
   clinicId?: number;
 }
 
-export default function AppointmentModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
+export default function AppointmentModal({
+  isOpen,
+  onClose,
+  onSave,
   selectedDate,
   appointment,
   preSelectedPatient,
@@ -46,7 +64,7 @@ export default function AppointmentModal({
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     date: selectedDate || new Date(),
     time: '10:00',
@@ -72,10 +90,12 @@ export default function AppointmentModal({
       setPatients([]);
       return;
     }
-    
+
     setPatientsLoading(true);
     try {
-      const response = await fetch(`/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`);
+      const response = await fetch(
+        `/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`
+      );
       if (response.ok) {
         const data = await response.json();
         // Map API response to Patient interface
@@ -118,7 +138,11 @@ export default function AppointmentModal({
       setFormData({
         ...formData,
         date: appointment.date,
-        time: appointment.date.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        time: appointment.date.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
         duration: appointment.duration?.toString() || '30',
         type: appointment.type || 'telehealth',
         patientFirstName: appointment.patientName?.split(' ')[0] || '',
@@ -138,10 +162,10 @@ export default function AppointmentModal({
         lastName: preSelectedPatient.lastName,
         email: preSelectedPatient.email,
         phone: preSelectedPatient.phone,
-        dob: preSelectedPatient.dob
+        dob: preSelectedPatient.dob,
       };
       setSelectedPatient(patient);
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         patientFirstName: patient.firstName,
         patientLastName: patient.lastName,
@@ -201,7 +225,7 @@ export default function AppointmentModal({
               zip: '00000',
             }),
           });
-          
+
           if (response.ok) {
             const newPatient = await response.json();
             patientId = newPatient.id;
@@ -226,9 +250,9 @@ export default function AppointmentModal({
 
       // Map appointment type to backend enum
       const typeMap: Record<string, string> = {
-        'telehealth': 'VIDEO',
+        telehealth: 'VIDEO',
         'in-person': 'IN_PERSON',
-        'phone': 'PHONE',
+        phone: 'PHONE',
       };
 
       // Create appointment via API - this will also create the Zoom meeting
@@ -261,7 +285,7 @@ export default function AppointmentModal({
 
       // Update form with the real Zoom link from the backend
       if (createdAppointment.zoomJoinUrl) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           zoomLink: createdAppointment.zoomJoinUrl,
         }));
@@ -296,7 +320,6 @@ export default function AppointmentModal({
         setShowConfirmation(false);
         onClose();
       }, 2000);
-
     } catch (err) {
       logger.error('Error saving appointment:', err);
       setError(err instanceof Error ? err.message : 'Failed to save appointment');
@@ -310,32 +333,29 @@ export default function AppointmentModal({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
-      
+      <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={onClose} />
+
       {/* Modal */}
       <div className="fixed inset-0 z-50 overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-4">
-          <div className="relative w-full max-w-lg bg-white rounded-lg shadow-xl">
+          <div className="relative w-full max-w-lg rounded-lg bg-white shadow-xl">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b">
+            <div className="flex items-center justify-between border-b px-5 py-4">
               <h2 className="text-lg font-semibold">
                 {appointment ? 'Edit Appointment' : 'New Appointment'}
               </h2>
-              <button
-                onClick={onClose}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-              >
-                <X className="w-4 h-4" />
+              <button onClick={onClose} className="rounded p-1 transition-colors hover:bg-gray-100">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Minimal Step Indicator */}
-            <div className="flex items-center gap-8 px-6 py-3 border-b">
+            <div className="flex items-center gap-8 border-b px-6 py-3">
               {['Details', 'Patient', 'Notifications'].map((label, index) => {
                 const stepId = label.toLowerCase();
                 const isActive = step === stepId;
                 const isPast = ['details', 'patient', 'notifications'].indexOf(step) > index;
-                
+
                 return (
                   <button
                     key={stepId}
@@ -344,10 +364,15 @@ export default function AppointmentModal({
                       isActive ? 'text-[#4fa77e]' : isPast ? 'text-gray-700' : 'text-gray-400'
                     }`}
                   >
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
-                      isActive ? 'border-[#4fa77e] bg-[#4fa77e] text-white' : 
-                      isPast ? 'border-[#4fa77e] bg-[#4fa77e] text-white' : 'border-gray-300'
-                    }`}>
+                    <div
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs ${
+                        isActive
+                          ? 'border-[#4fa77e] bg-[#4fa77e] text-white'
+                          : isPast
+                            ? 'border-[#4fa77e] bg-[#4fa77e] text-white'
+                            : 'border-gray-300'
+                      }`}
+                    >
                       {isPast ? '✓' : index + 1}
                     </div>
                     {label}
@@ -357,24 +382,24 @@ export default function AppointmentModal({
             </div>
 
             {/* Content */}
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto p-4">
               {showConfirmation ? (
                 <div className="flex flex-col items-center py-8">
-                  <CheckCircle2 className="w-12 h-12 text-[#4fa77e] mb-3" />
-                  <h3 className="text-base font-semibold mb-1">Appointment Scheduled</h3>
-                  <p className="text-sm text-gray-600 text-center mb-4">
+                  <CheckCircle2 className="mb-3 h-12 w-12 text-[#4fa77e]" />
+                  <h3 className="mb-1 text-base font-semibold">Appointment Scheduled</h3>
+                  <p className="mb-4 text-center text-sm text-gray-600">
                     {formData.patientFirstName} {formData.patientLastName} has been notified
                   </p>
-                  
+
                   {formData.type === 'telehealth' && formData.zoomLink && (
-                    <div className="bg-green-50 border border-green-200 rounded p-2 w-full max-w-sm">
+                    <div className="w-full max-w-sm rounded border border-green-200 bg-green-50 p-2">
                       <div className="flex items-center gap-2">
-                        <Video className="w-3.5 h-3.5 text-[#4fa77e]" />
+                        <Video className="h-3.5 w-3.5 text-[#4fa77e]" />
                         <input
                           type="text"
                           value={formData.zoomLink}
                           readOnly
-                          className="flex-1 px-2 py-1 bg-white border border-green-300 rounded text-xs font-mono"
+                          className="flex-1 rounded border border-green-300 bg-white px-2 py-1 font-mono text-xs"
                         />
                         <button
                           type="button"
@@ -383,7 +408,7 @@ export default function AppointmentModal({
                             setCopiedLink(true);
                             setTimeout(() => setCopiedLink(false), 2000);
                           }}
-                          className="px-2 py-1 bg-[#4fa77e] text-white text-xs rounded hover:bg-[#3f8660]"
+                          className="rounded bg-[#4fa77e] px-2 py-1 text-xs text-white hover:bg-[#3f8660]"
                         >
                           {copiedLink ? '✓' : 'Copy'}
                         </button>
@@ -398,38 +423,40 @@ export default function AppointmentModal({
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="mb-1 block text-xs font-medium text-gray-600">
                             Date
                           </label>
                           <input
                             type="date"
                             value={formData.date.toISOString().split('T')[0]}
-                            onChange={(e) => setFormData({...formData, date: new Date(e.target.value)})}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            onChange={(e) =>
+                              setFormData({ ...formData, date: new Date(e.target.value) })
+                            }
+                            className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="mb-1 block text-xs font-medium text-gray-600">
                             Time
                           </label>
                           <input
                             type="time"
                             value={formData.time}
-                            onChange={(e) => setFormData({...formData, time: e.target.value})}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                            className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="mb-1 block text-xs font-medium text-gray-600">
                             Duration
                           </label>
                           <select
                             value={formData.duration}
-                            onChange={(e) => setFormData({...formData, duration: e.target.value})}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                            className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           >
                             <option value="15">15 minutes</option>
                             <option value="30">30 minutes</option>
@@ -438,13 +465,13 @@ export default function AppointmentModal({
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="mb-1 block text-xs font-medium text-gray-600">
                             Type
                           </label>
                           <select
                             value={formData.type}
-                            onChange={(e) => setFormData({...formData, type: e.target.value})}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                            className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           >
                             <option value="telehealth">Telehealth</option>
                             <option value="in-person">In-Person</option>
@@ -453,44 +480,44 @@ export default function AppointmentModal({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
                           Reason for Visit
                         </label>
                         <input
                           type="text"
                           value={formData.reason}
-                          onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                           placeholder="e.g., Follow-up"
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                        <label className="mb-1 block text-xs font-medium text-gray-600">
                           Notes (optional)
                         </label>
                         <textarea
                           value={formData.notes}
-                          onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                           rows={2}
                           placeholder="Additional notes"
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded resize-none"
+                          className="w-full resize-none rounded border border-gray-300 px-2 py-1.5 text-sm"
                         />
                       </div>
 
                       {formData.type === 'telehealth' && (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
                           <p className="text-sm text-blue-800">
-                            <Video className="w-4 h-4 inline mr-2" />
-                            A Zoom meeting link will be automatically generated and sent to the patient
+                            <Video className="mr-2 inline h-4 w-4" />A Zoom meeting link will be
+                            automatically generated and sent to the patient
                           </p>
                         </div>
                       )}
 
                       {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="text-sm text-red-800 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4" />
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                          <p className="flex items-center gap-2 text-sm text-red-800">
+                            <AlertCircle className="h-4 w-4" />
                             {error}
                           </p>
                         </div>
@@ -505,9 +532,9 @@ export default function AppointmentModal({
                       <div className="flex gap-2">
                         <button
                           onClick={() => setPatientMode('existing')}
-                          className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
-                            patientMode === 'existing' 
-                              ? 'bg-[#4fa77e] text-white' 
+                          className={`flex-1 rounded px-3 py-1.5 text-sm transition-colors ${
+                            patientMode === 'existing'
+                              ? 'bg-[#4fa77e] text-white'
                               : 'bg-gray-100 text-gray-600'
                           }`}
                         >
@@ -515,9 +542,9 @@ export default function AppointmentModal({
                         </button>
                         <button
                           onClick={() => setPatientMode('new')}
-                          className={`flex-1 px-3 py-1.5 text-sm rounded transition-colors ${
-                            patientMode === 'new' 
-                              ? 'bg-[#4fa77e] text-white' 
+                          className={`flex-1 rounded px-3 py-1.5 text-sm transition-colors ${
+                            patientMode === 'new'
+                              ? 'bg-[#4fa77e] text-white'
                               : 'bg-gray-100 text-gray-600'
                           }`}
                         >
@@ -534,29 +561,31 @@ export default function AppointmentModal({
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
                               placeholder="Search patients (min 2 characters)..."
-                              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded pr-8"
+                              className="w-full rounded border border-gray-300 px-2 py-1.5 pr-8 text-sm"
                             />
                             {patientsLoading && (
-                              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                              <Loader2 className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
                             )}
                           </div>
 
                           {/* Patient List */}
-                          <div className="border rounded max-h-32 overflow-y-auto">
+                          <div className="max-h-32 overflow-y-auto rounded border">
                             {patientsLoading ? (
                               <div className="px-2 py-4 text-center text-sm text-gray-500">
                                 Searching patients...
                               </div>
                             ) : filteredPatients.length > 0 ? (
-                              filteredPatients.map(patient => (
+                              filteredPatients.map((patient) => (
                                 <button
                                   key={patient.id}
                                   onClick={() => handlePatientSelect(patient)}
-                                  className={`w-full text-left px-2 py-1.5 hover:bg-gray-50 transition-colors border-b last:border-b-0 ${
+                                  className={`w-full border-b px-2 py-1.5 text-left transition-colors last:border-b-0 hover:bg-gray-50 ${
                                     selectedPatient?.id === patient.id ? 'bg-green-50' : ''
                                   }`}
                                 >
-                                  <div className="text-sm font-medium">{patient.firstName} {patient.lastName}</div>
+                                  <div className="text-sm font-medium">
+                                    {patient.firstName} {patient.lastName}
+                                  </div>
                                   <div className="text-xs text-gray-600">{patient.email}</div>
                                 </button>
                               ))
@@ -572,7 +601,7 @@ export default function AppointmentModal({
                           </div>
 
                           {selectedPatient && (
-                            <div className="px-2 py-1.5 bg-green-50 border border-green-200 rounded text-xs">
+                            <div className="rounded border border-green-200 bg-green-50 px-2 py-1.5 text-xs">
                               <p className="text-sm text-green-800">
                                 Selected: {selectedPatient.firstName} {selectedPatient.lastName}
                               </p>
@@ -584,64 +613,74 @@ export default function AppointmentModal({
                           {/* New Patient Form */}
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                              <label className="mb-1 block text-sm font-medium text-gray-700">
                                 First Name *
                               </label>
                               <input
                                 type="text"
                                 value={formData.patientFirstName}
-                                onChange={(e) => setFormData({...formData, patientFirstName: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                onChange={(e) =>
+                                  setFormData({ ...formData, patientFirstName: e.target.value })
+                                }
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2"
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                              <label className="mb-1 block text-sm font-medium text-gray-700">
                                 Last Name *
                               </label>
                               <input
                                 type="text"
                                 value={formData.patientLastName}
-                                onChange={(e) => setFormData({...formData, patientLastName: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                onChange={(e) =>
+                                  setFormData({ ...formData, patientLastName: e.target.value })
+                                }
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2"
                               />
                             </div>
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              <Mail className="w-4 h-4 inline mr-1" />
+                            <label className="mb-1 block text-sm font-medium text-gray-700">
+                              <Mail className="mr-1 inline h-4 w-4" />
                               Email *
                             </label>
                             <input
                               type="email"
                               value={formData.patientEmail}
-                              onChange={(e) => setFormData({...formData, patientEmail: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              onChange={(e) =>
+                                setFormData({ ...formData, patientEmail: e.target.value })
+                              }
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2"
                             />
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                <Phone className="w-4 h-4 inline mr-1" />
+                              <label className="mb-1 block text-sm font-medium text-gray-700">
+                                <Phone className="mr-1 inline h-4 w-4" />
                                 Phone Number *
                               </label>
                               <input
                                 type="tel"
                                 value={formData.patientPhone}
-                                onChange={(e) => setFormData({...formData, patientPhone: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                onChange={(e) =>
+                                  setFormData({ ...formData, patientPhone: e.target.value })
+                                }
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2"
                               />
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                              <label className="mb-1 block text-sm font-medium text-gray-700">
                                 Date of Birth *
                               </label>
                               <input
                                 type="date"
                                 value={formData.patientDob}
-                                onChange={(e) => setFormData({...formData, patientDob: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                                onChange={(e) =>
+                                  setFormData({ ...formData, patientDob: e.target.value })
+                                }
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2"
                               />
                             </div>
                           </div>
@@ -655,14 +694,18 @@ export default function AppointmentModal({
                     <div className="space-y-4">
                       {/* Send Methods */}
                       <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-700">Send notifications via:</h3>
-                        
+                        <h3 className="text-sm font-medium text-gray-700">
+                          Send notifications via:
+                        </h3>
+
                         <label className="flex items-center gap-2">
                           <input
                             type="checkbox"
                             checked={formData.sendEmail}
-                            onChange={(e) => setFormData({...formData, sendEmail: e.target.checked})}
-                            className="w-3.5 h-3.5 text-[#4fa77e] accent-[#4fa77e] rounded"
+                            onChange={(e) =>
+                              setFormData({ ...formData, sendEmail: e.target.checked })
+                            }
+                            className="h-3.5 w-3.5 rounded text-[#4fa77e] accent-[#4fa77e]"
                           />
                           <span className="text-sm">Email ({formData.patientEmail})</span>
                         </label>
@@ -671,8 +714,10 @@ export default function AppointmentModal({
                           <input
                             type="checkbox"
                             checked={formData.sendSMS}
-                            onChange={(e) => setFormData({...formData, sendSMS: e.target.checked})}
-                            className="w-3.5 h-3.5 text-[#4fa77e] accent-[#4fa77e] rounded"
+                            onChange={(e) =>
+                              setFormData({ ...formData, sendSMS: e.target.checked })
+                            }
+                            className="h-3.5 w-3.5 rounded text-[#4fa77e] accent-[#4fa77e]"
                           />
                           <span className="text-sm">SMS ({formData.patientPhone})</span>
                         </label>
@@ -684,19 +729,27 @@ export default function AppointmentModal({
 
                         {formData.sendEmail && (
                           <div className="space-y-1">
-                            {['1 day before', '1 hour before'].map(time => (
+                            {['1 day before', '1 hour before'].map((time) => (
                               <label key={time} className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={formData.emailReminders.includes(time)}
                                   onChange={(e) => {
                                     if (e.target.checked) {
-                                      setFormData({...formData, emailReminders: [...formData.emailReminders, time]});
+                                      setFormData({
+                                        ...formData,
+                                        emailReminders: [...formData.emailReminders, time],
+                                      });
                                     } else {
-                                      setFormData({...formData, emailReminders: formData.emailReminders.filter(t => t !== time)});
+                                      setFormData({
+                                        ...formData,
+                                        emailReminders: formData.emailReminders.filter(
+                                          (t) => t !== time
+                                        ),
+                                      });
                                     }
                                   }}
-                                  className="w-3.5 h-3.5 text-[#4fa77e] accent-[#4fa77e] rounded"
+                                  className="h-3.5 w-3.5 rounded text-[#4fa77e] accent-[#4fa77e]"
                                 />
                                 <span className="text-xs">Email: {time}</span>
                               </label>
@@ -706,19 +759,27 @@ export default function AppointmentModal({
 
                         {formData.sendSMS && (
                           <div className="space-y-1">
-                            {['1 day before', '1 hour before'].map(time => (
+                            {['1 day before', '1 hour before'].map((time) => (
                               <label key={time} className="flex items-center gap-2">
                                 <input
                                   type="checkbox"
                                   checked={formData.smsReminders.includes(time)}
                                   onChange={(e) => {
                                     if (e.target.checked) {
-                                      setFormData({...formData, smsReminders: [...formData.smsReminders, time]});
+                                      setFormData({
+                                        ...formData,
+                                        smsReminders: [...formData.smsReminders, time],
+                                      });
                                     } else {
-                                      setFormData({...formData, smsReminders: formData.smsReminders.filter(t => t !== time)});
+                                      setFormData({
+                                        ...formData,
+                                        smsReminders: formData.smsReminders.filter(
+                                          (t) => t !== time
+                                        ),
+                                      });
                                     }
                                   }}
-                                  className="w-3.5 h-3.5 text-[#4fa77e] accent-[#4fa77e] rounded"
+                                  className="h-3.5 w-3.5 rounded text-[#4fa77e] accent-[#4fa77e]"
                                 />
                                 <span className="text-xs">SMS: {time}</span>
                               </label>
@@ -729,14 +790,14 @@ export default function AppointmentModal({
 
                       {/* Zoom Link Display */}
                       {formData.type === 'telehealth' && formData.zoomLink && (
-                        <div className="p-2 bg-green-50 border border-green-200 rounded">
+                        <div className="rounded border border-green-200 bg-green-50 p-2">
                           <div className="flex items-center gap-2">
-                            <Video className="w-3.5 h-3.5 text-green-600" />
+                            <Video className="h-3.5 w-3.5 text-green-600" />
                             <input
                               type="text"
                               value={formData.zoomLink}
                               readOnly
-                              className="flex-1 px-2 py-1 text-xs bg-white border border-green-300 rounded font-mono"
+                              className="flex-1 rounded border border-green-300 bg-white px-2 py-1 font-mono text-xs"
                             />
                             <button
                               type="button"
@@ -745,7 +806,7 @@ export default function AppointmentModal({
                                 setCopiedLink(true);
                                 setTimeout(() => setCopiedLink(false), 2000);
                               }}
-                              className="px-2 py-1 text-xs bg-[#4fa77e] text-white rounded hover:bg-[#3f8660]"
+                              className="rounded bg-[#4fa77e] px-2 py-1 text-xs text-white hover:bg-[#3f8660]"
                             >
                               {copiedLink ? 'Copied' : 'Copy'}
                             </button>
@@ -755,7 +816,7 @@ export default function AppointmentModal({
 
                       {/* Note about Zoom meeting creation */}
                       {formData.type === 'telehealth' && !formData.zoomLink && (
-                        <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                        <div className="rounded border border-blue-200 bg-blue-50 p-2">
                           <p className="text-xs text-blue-700">
                             A Zoom meeting will be created when you schedule this appointment.
                           </p>
@@ -763,14 +824,13 @@ export default function AppointmentModal({
                       )}
 
                       {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="text-sm text-red-800 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4" />
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                          <p className="flex items-center gap-2 text-sm text-red-800">
+                            <AlertCircle className="h-4 w-4" />
                             {error}
                           </p>
                         </div>
                       )}
-
                     </div>
                   )}
                 </>
@@ -779,7 +839,7 @@ export default function AppointmentModal({
 
             {/* Footer */}
             {!showConfirmation && (
-              <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="flex items-center justify-between border-t px-4 py-3">
                 <button
                   onClick={() => {
                     if (step === 'patient') setStep('details');
@@ -794,18 +854,18 @@ export default function AppointmentModal({
                 <div className="flex gap-2">
                   <button
                     onClick={onClose}
-                    className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50"
+                    className="rounded border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
                   >
                     Cancel
                   </button>
-                  
+
                   {step !== 'notifications' ? (
                     <button
                       onClick={() => {
                         if (step === 'details') setStep('patient');
                         else if (step === 'patient') setStep('notifications');
                       }}
-                      className="px-3 py-1.5 text-sm bg-[#4fa77e] text-white rounded hover:bg-[#3f8660]"
+                      className="rounded bg-[#4fa77e] px-3 py-1.5 text-sm text-white hover:bg-[#3f8660]"
                     >
                       Next
                     </button>
@@ -813,11 +873,11 @@ export default function AppointmentModal({
                     <button
                       onClick={handleSave}
                       disabled={isSaving}
-                      className="px-3 py-1.5 text-sm bg-[#4fa77e] text-white rounded hover:bg-[#3f8660] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="flex items-center gap-2 rounded bg-[#4fa77e] px-3 py-1.5 text-sm text-white hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isSaving ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           Scheduling...
                         </>
                       ) : (

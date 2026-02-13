@@ -13,6 +13,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import os from 'node:os';
 import { logger } from '@/lib/logger';
 
 // =============================================================================
@@ -66,12 +67,9 @@ interface ConnectionInfo {
 function calculateOptimalPoolSize(): { min: number; max: number } {
   let cpuCount = 4;
   try {
-    if (typeof process !== 'undefined' && process.versions?.node) {
-      const os = require('node:os');
-      cpuCount = os.cpus()?.length || 4;
-    }
+    cpuCount = os.cpus()?.length || 4;
   } catch {
-    // Edge runtime or build - node:os not available, use default
+    // Fallback if os.cpus() is unavailable
   }
 
   // For web applications with mixed read/write workload

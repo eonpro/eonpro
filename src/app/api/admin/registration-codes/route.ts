@@ -1,6 +1,6 @@
 /**
  * Admin API - Clinic Registration Codes Management
- * 
+ *
  * Allows clinic admins to create, view, update, and manage registration codes
  * for patient self-registration.
  */
@@ -11,6 +11,14 @@ import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
+import {
+  handleApiError,
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  InternalError,
+} from '@/domains/shared/errors';
 
 // Validation schemas
 const createCodeSchema = z.object({
@@ -50,23 +58,24 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     // Admin and super_admin can access
     if (!['admin', 'super_admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      throw new ForbiddenError('Unauthorized');
     }
 
     const clinicId = user.clinicId;
-    
+
     // Super admin can view all codes or filter by clinic
     const searchParams = req.nextUrl.searchParams;
     const filterClinicId = searchParams.get('clinicId');
-    
-    const whereClause = user.role === 'super_admin' && filterClinicId
-      ? { clinicId: parseInt(filterClinicId) }
-      : user.role === 'super_admin'
-      ? {}
-      : { clinicId };
+
+    const whereClause =
+      user.role === 'super_admin' && filterClinicId
+        ? { clinicId: parseInt(filterClinicId) }
+        : user.role === 'super_admin'
+          ? {}
+          : { clinicId };
 
     if (!clinicId && user.role !== 'super_admin') {
-      return NextResponse.json({ error: 'No clinic associated with user' }, { status: 400 });
+      throw new BadRequestError('No clinic associated with user');
     }
 
     const codes = await prisma.clinicInviteCode.findMany({
@@ -81,10 +90,11 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     // Get usage stats
-    const codesWithStats = codes.map((code: typeof codes[number]) => ({
+    const codesWithStats = codes.map((code: (typeof codes)[number]) => ({
       ...code,
       remainingUses: code.usageLimit ? code.usageLimit - code.usageCount : null,
       isExpired: code.expiresAt ? new Date() > code.expiresAt : false,
@@ -93,16 +103,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ codes: codesWithStats });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[REGISTRATION_CODES_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      userId: user.id,
-    });
-    return NextResponse.json(
-      { error: 'Failed to fetch registration codes', errorId, code: 'REG_CODES_FETCH_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'GET /api/admin/registration-codes' });
   }
 });
 
@@ -113,17 +114,14 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!['admin', 'super_admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      throw new ForbiddenError('Unauthorized');
     }
 
     const body = await req.json();
     const parsed = createCodeSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.issues },
-        { status: 400 }
-      );
+      throw parsed.error;
     }
 
     // Determine clinic ID
@@ -133,12 +131,12 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     if (!clinicId) {
-      return NextResponse.json({ error: 'No clinic specified' }, { status: 400 });
+      throw new BadRequestError('No clinic specified');
     }
 
     // Generate or use provided code
     let code = parsed.data.code?.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    
+
     if (!code) {
       // Generate unique code
       let attempts = 0;
@@ -150,18 +148,13 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       } while (attempts < 10);
 
       if (attempts >= 10) {
-        const errorId = crypto.randomUUID().slice(0, 8);
-        logger.error(`[REGISTRATION_CODES_POST] Error ${errorId}: Failed to generate unique code after 10 attempts`);
-        return NextResponse.json(
-          { error: 'Failed to generate unique code', errorId, code: 'CODE_GENERATION_ERROR' },
-          { status: 500 }
-        );
+        throw new InternalError('Failed to generate unique code after 10 attempts');
       }
     } else {
       // Check if code already exists
       const existing = await prisma.clinicInviteCode.findUnique({ where: { code } });
       if (existing) {
-        return NextResponse.json({ error: 'Code already exists' }, { status: 409 });
+        throw new ConflictError('Code already exists');
       }
     }
 
@@ -195,16 +188,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ code: newCode }, { status: 201 });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[REGISTRATION_CODES_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      userId: user.id,
-    });
-    return NextResponse.json(
-      { error: 'Failed to create registration code', errorId, code: 'REG_CODE_CREATE_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/admin/registration-codes' });
   }
 });
 
@@ -215,17 +199,14 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 export const PATCH = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!['admin', 'super_admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      throw new ForbiddenError('Unauthorized');
     }
 
     const body = await req.json();
     const parsed = updateCodeSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: parsed.error.issues },
-        { status: 400 }
-      );
+      throw parsed.error;
     }
 
     // Verify ownership
@@ -234,11 +215,11 @@ export const PATCH = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if (!existingCode) {
-      return NextResponse.json({ error: 'Code not found' }, { status: 404 });
+      throw new NotFoundError('Code not found');
     }
 
     if (user.role !== 'super_admin' && existingCode.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      throw new ForbiddenError('Unauthorized');
     }
 
     const updatedCode = await prisma.clinicInviteCode.update({
@@ -267,16 +248,7 @@ export const PATCH = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ code: updatedCode });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[REGISTRATION_CODES_PATCH] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      userId: user.id,
-    });
-    return NextResponse.json(
-      { error: 'Failed to update registration code', errorId, code: 'REG_CODE_UPDATE_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'PATCH /api/admin/registration-codes' });
   }
 });
 
@@ -287,14 +259,14 @@ export const PATCH = withAuth(async (req: NextRequest, user: AuthUser) => {
 export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     if (!['admin', 'super_admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      throw new ForbiddenError('Unauthorized');
     }
 
     const searchParams = req.nextUrl.searchParams;
     const codeId = searchParams.get('id');
 
     if (!codeId) {
-      return NextResponse.json({ error: 'Code ID is required' }, { status: 400 });
+      throw new BadRequestError('Code ID is required');
     }
 
     // Verify ownership
@@ -303,11 +275,11 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
     });
 
     if (!existingCode) {
-      return NextResponse.json({ error: 'Code not found' }, { status: 404 });
+      throw new NotFoundError('Code not found');
     }
 
     if (user.role !== 'super_admin' && existingCode.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      throw new ForbiddenError('Unauthorized');
     }
 
     await prisma.clinicInviteCode.delete({
@@ -321,15 +293,6 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[REGISTRATION_CODES_DELETE] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      userId: user.id,
-    });
-    return NextResponse.json(
-      { error: 'Failed to delete registration code', errorId, code: 'REG_CODE_DELETE_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'DELETE /api/admin/registration-codes' });
   }
 });

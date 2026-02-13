@@ -41,19 +41,19 @@ const CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
  */
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature');
-  
+
   if (!signature) {
     logger.warn('[STRIPE CONNECT WEBHOOK] Missing signature');
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
-  
+
   if (!CONNECT_WEBHOOK_SECRET) {
     logger.error('[STRIPE CONNECT WEBHOOK] Webhook secret not configured');
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
   }
-  
+
   let event: Stripe.Event;
-  
+
   try {
     const body = await request.text();
     const stripe = getStripe();
@@ -62,12 +62,12 @@ export async function POST(request: NextRequest) {
     logger.error('[STRIPE CONNECT WEBHOOK] Signature verification failed:', err.message);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
-  
+
   logger.info('[STRIPE CONNECT WEBHOOK] Received event', {
     type: event.type,
     id: event.id,
   });
-  
+
   try {
     switch (event.type) {
       case 'account.updated':
@@ -93,10 +93,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error: any) {
     logger.error('[STRIPE CONNECT WEBHOOK] Error processing event:', error);
-    return NextResponse.json(
-      { error: 'Webhook processing failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }
 
@@ -111,20 +108,20 @@ async function handleAccountUpdated(account: Stripe.Account) {
     payoutsEnabled: account.payouts_enabled,
     detailsSubmitted: account.details_submitted,
   });
-  
+
   // Find clinic with this account
   const clinic = await prisma.clinic.findFirst({
     where: { stripeAccountId: account.id },
     select: { id: true, name: true },
   });
-  
+
   if (!clinic) {
     logger.warn('[STRIPE CONNECT WEBHOOK] No clinic found for account', {
       accountId: account.id,
     });
     return;
   }
-  
+
   // Determine status
   const onboardingComplete = account.charges_enabled && account.details_submitted;
   let status = 'pending';
@@ -133,7 +130,7 @@ async function handleAccountUpdated(account: Stripe.Account) {
   } else if (account.requirements?.disabled_reason) {
     status = 'restricted';
   }
-  
+
   // Update clinic
   await prisma.clinic.update({
     where: { id: clinic.id },
@@ -145,7 +142,7 @@ async function handleAccountUpdated(account: Stripe.Account) {
       stripeAccountStatus: status,
     },
   });
-  
+
   logger.info('[STRIPE CONNECT WEBHOOK] Updated clinic Stripe status', {
     clinicId: clinic.id,
     clinicName: clinic.name,
@@ -175,7 +172,7 @@ async function handleAccountDeauthorized(accountId: string) {
     });
     return;
   }
-  
+
   // Clear Stripe connection
   await prisma.clinic.update({
     where: { id: clinic.id },
@@ -189,7 +186,7 @@ async function handleAccountDeauthorized(accountId: string) {
       stripeConnectedAt: null,
     },
   });
-  
+
   logger.info('[STRIPE CONNECT WEBHOOK] Cleared clinic Stripe connection', {
     clinicId: clinic.id,
     clinicName: clinic.name,
@@ -202,13 +199,13 @@ async function handleAccountDeauthorized(accountId: string) {
  */
 async function handleCapabilityUpdated(event: Stripe.Event) {
   const capability = event.data.object as Stripe.Capability;
-  
+
   logger.info('[STRIPE CONNECT WEBHOOK] Capability updated', {
     accountId: capability.account,
     capability: capability.id,
     status: capability.status,
   });
-  
+
   // Get the account to sync full status
   if (typeof capability.account === 'string') {
     try {

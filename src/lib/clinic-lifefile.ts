@@ -7,7 +7,9 @@ import { decrypt } from '@/lib/security/encryption';
  * Get Lifefile credentials for a specific clinic
  * Falls back to environment variables if clinic doesn't have credentials configured
  */
-export async function getClinicLifefileCredentials(clinicId: number): Promise<LifefileCredentials | null> {
+export async function getClinicLifefileCredentials(
+  clinicId: number
+): Promise<LifefileCredentials | null> {
   try {
     // Fetch clinic with Lifefile credentials
     const clinic = await prisma.clinic.findUnique({
@@ -58,14 +60,16 @@ export async function getClinicLifefileCredentials(clinicId: number): Promise<Li
             username = decryptedUsername;
             logger.debug(`[CLINIC-LIFEFILE] Decrypted username for clinic ${clinicId}`);
           } else {
-            logger.error(`[CLINIC-LIFEFILE] Username decryption returned null for clinic ${clinicId}`);
+            logger.error(
+              `[CLINIC-LIFEFILE] Username decryption returned null for clinic ${clinicId}`
+            );
           }
         }
       } catch (e) {
         logger.error(`[CLINIC-LIFEFILE] Failed to decrypt username for clinic ${clinicId}:`, {
           error: e instanceof Error ? e.message : String(e),
           usernameLength: clinic.lifefileUsername?.length,
-          hint: 'Check if ENCRYPTION_KEY env var matches the key used when saving credentials'
+          hint: 'Check if ENCRYPTION_KEY env var matches the key used when saving credentials',
         });
       }
 
@@ -76,13 +80,15 @@ export async function getClinicLifefileCredentials(clinicId: number): Promise<Li
             password = decryptedPassword;
             logger.debug(`[CLINIC-LIFEFILE] Decrypted password for clinic ${clinicId}`);
           } else {
-            logger.error(`[CLINIC-LIFEFILE] Password decryption returned null for clinic ${clinicId}`);
+            logger.error(
+              `[CLINIC-LIFEFILE] Password decryption returned null for clinic ${clinicId}`
+            );
           }
         }
       } catch (e) {
         logger.error(`[CLINIC-LIFEFILE] Failed to decrypt password for clinic ${clinicId}:`, {
           error: e instanceof Error ? e.message : String(e),
-          hint: 'Check if ENCRYPTION_KEY env var matches the key used when saving credentials'
+          hint: 'Check if ENCRYPTION_KEY env var matches the key used when saving credentials',
         });
       }
 
@@ -130,4 +136,3 @@ export async function isClinicLifefileConfigured(clinicId: number): Promise<bool
   const credentials = await getClinicLifefileCredentials(clinicId);
   return credentials !== null;
 }
-

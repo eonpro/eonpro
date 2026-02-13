@@ -1,20 +1,14 @@
 /**
  * AI Scribe - Telehealth Integration
- * 
+ *
  * Integrates AI Scribe with Zoom and other telehealth platforms
  * Handles automatic session management during video consultations
  */
 
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
-import {
-  createTranscriptionSession,
-  completeSession,
-} from './transcription.service';
-import {
-  generateSOAPFromTranscript,
-  saveScribeSOAPNote,
-} from './soap-from-transcript.service';
+import { createTranscriptionSession, completeSession } from './transcription.service';
+import { generateSOAPFromTranscript, saveScribeSOAPNote } from './soap-from-transcript.service';
 
 export interface TelehealthSession {
   appointmentId: number;
@@ -107,9 +101,7 @@ export async function initializeScribeForAppointment(
 /**
  * Start scribe recording when call begins
  */
-export async function startScribeRecording(
-  appointmentId: number
-): Promise<boolean> {
+export async function startScribeRecording(appointmentId: number): Promise<boolean> {
   const session = activeSessions.get(appointmentId);
 
   if (!session) {
@@ -203,9 +195,11 @@ export async function completeScribeSession(
           patientContext: {
             name: `${patient.firstName} ${patient.lastName}`,
             dob: patient.dob,
-            recentVitals: patient.weightLogs[0] ? {
-              weight: patient.weightLogs[0].weight,
-            } : undefined,
+            recentVitals: patient.weightLogs[0]
+              ? {
+                  weight: patient.weightLogs[0].weight,
+                }
+              : undefined,
           },
         });
 
@@ -250,18 +244,14 @@ export async function completeScribeSession(
 /**
  * Get active scribe session for an appointment
  */
-export function getActiveScribeSession(
-  appointmentId: number
-): TelehealthSession | null {
+export function getActiveScribeSession(appointmentId: number): TelehealthSession | null {
   return activeSessions.get(appointmentId) || null;
 }
 
 /**
  * Cancel scribe session (e.g., if call is cancelled)
  */
-export async function cancelScribeSession(
-  appointmentId: number
-): Promise<void> {
+export async function cancelScribeSession(appointmentId: number): Promise<void> {
   const session = activeSessions.get(appointmentId);
 
   if (session && session.scribeSessionId) {
@@ -280,10 +270,7 @@ export async function cancelScribeSession(
 /**
  * Handle Zoom webhook events for automatic scribe management
  */
-export async function handleZoomWebhook(
-  event: string,
-  payload: any
-): Promise<void> {
+export async function handleZoomWebhook(event: string, payload: any): Promise<void> {
   const meetingId = payload.object?.id;
 
   if (!meetingId) {
@@ -359,10 +346,13 @@ export async function getScribeStats(
   const conversations = await prisma.aIConversation.findMany({
     where: {
       userEmail: `provider-${providerId}`,
-      createdAt: startDate && endDate ? {
-        gte: startDate,
-        lte: endDate,
-      } : undefined,
+      createdAt:
+        startDate && endDate
+          ? {
+              gte: startDate,
+              lte: endDate,
+            }
+          : undefined,
     },
     include: {
       _count: {
@@ -373,16 +363,14 @@ export async function getScribeStats(
 
   const totalSessions = conversations.length;
   const soapNotesGenerated = soapNotes.length;
-  
+
   // Rough estimate: 10 seconds per message
   const totalDuration = conversations.reduce(
-    (sum: number, conv: { _count: { messages: number } }) => sum + (conv._count.messages * 10),
+    (sum: number, conv: { _count: { messages: number } }) => sum + conv._count.messages * 10,
     0
   );
-  
-  const averageSessionDuration = totalSessions > 0
-    ? totalDuration / totalSessions
-    : 0;
+
+  const averageSessionDuration = totalSessions > 0 ? totalDuration / totalSessions : 0;
 
   return {
     totalSessions,

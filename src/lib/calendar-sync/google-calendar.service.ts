@@ -1,6 +1,6 @@
 /**
  * Google Calendar Integration Service
- * 
+ *
  * Handles OAuth2 authentication and two-way sync with Google Calendar
  */
 
@@ -21,7 +21,8 @@ function getOAuth2Client(): OAuth2Client {
   return new OAuth2Client(
     clientId,
     clientSecret || undefined,
-    process.env.GOOGLE_REDIRECT_URI || `${process.env.NEXTAUTH_URL || ''}/api/calendar-sync/google/callback`
+    process.env.GOOGLE_REDIRECT_URI ||
+      `${process.env.NEXTAUTH_URL || ''}/api/calendar-sync/google/callback`
   );
 }
 
@@ -91,7 +92,7 @@ export async function exchangeCodeForTokens(
   try {
     const oauth2Client = getOAuth2Client();
     const { tokens } = await oauth2Client.getToken(code);
-    
+
     if (!tokens.access_token || !tokens.refresh_token) {
       throw new Error('Failed to obtain tokens');
     }
@@ -171,7 +172,10 @@ async function getCalendarClient(providerId: number): Promise<calendar_v3.Calend
   });
 
   // Cast oauth2Client to handle googleapis type version differences
-  return google.calendar({ version: 'v3', auth: oauth2Client as unknown as Parameters<typeof google.calendar>[0]['auth'] });
+  return google.calendar({
+    version: 'v3',
+    auth: oauth2Client as unknown as Parameters<typeof google.calendar>[0]['auth'],
+  });
 }
 
 /**
@@ -183,7 +187,7 @@ export async function createGoogleEvent(
 ): Promise<{ success: boolean; externalId?: string; error?: string }> {
   try {
     const calendar = await getCalendarClient(providerId);
-    
+
     if (!calendar) {
       return { success: false, error: 'Google Calendar not connected' };
     }
@@ -200,13 +204,13 @@ export async function createGoogleEvent(
         timeZone: 'America/New_York',
       },
       location: event.location,
-      attendees: event.attendees?.map(a => ({
+      attendees: event.attendees?.map((a) => ({
         email: a.email,
         displayName: a.name,
       })),
       reminders: {
         useDefault: false,
-        overrides: event.reminders?.map(r => ({
+        overrides: event.reminders?.map((r) => ({
           method: r.method,
           minutes: r.minutes,
         })) || [
@@ -253,7 +257,7 @@ export async function updateGoogleEvent(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const calendar = await getCalendarClient(providerId);
-    
+
     if (!calendar) {
       return { success: false, error: 'Google Calendar not connected' };
     }
@@ -305,7 +309,7 @@ export async function deleteGoogleEvent(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const calendar = await getCalendarClient(providerId);
-    
+
     if (!calendar) {
       return { success: false, error: 'Google Calendar not connected' };
     }
@@ -336,7 +340,7 @@ export async function fetchGoogleEvents(
 ): Promise<CalendarEvent[]> {
   try {
     const calendar = await getCalendarClient(providerId);
-    
+
     if (!calendar) {
       return [];
     }
@@ -350,14 +354,14 @@ export async function fetchGoogleEvents(
       maxResults: 250,
     });
 
-    const events: CalendarEvent[] = (response.data.items || []).map(item => ({
+    const events: CalendarEvent[] = (response.data.items || []).map((item) => ({
       externalId: item.id || undefined,
       title: item.summary || 'Untitled',
       description: item.description || undefined,
       startTime: new Date(item.start?.dateTime || item.start?.date || ''),
       endTime: new Date(item.end?.dateTime || item.end?.date || ''),
       location: item.location || undefined,
-      attendees: item.attendees?.map(a => ({
+      attendees: item.attendees?.map((a) => ({
         email: a.email || '',
         name: a.displayName || undefined,
       })),
@@ -430,12 +434,23 @@ export async function syncAppointmentsToGoogle(
           endTime: appt.endTime,
           location: appt.type === 'VIDEO' ? 'Video Call' : appt.location || undefined,
           conferenceLink: appt.zoomJoinUrl || undefined,
-          attendees: appt.patient.email ? [{ email: appt.patient.email, name: `${appt.patient.firstName} ${appt.patient.lastName}` }] : undefined,
+          attendees: appt.patient.email
+            ? [
+                {
+                  email: appt.patient.email,
+                  name: `${appt.patient.firstName} ${appt.patient.lastName}`,
+                },
+              ]
+            : undefined,
         };
 
         if (appt.googleCalendarEventId) {
           // Update existing event
-          const updateResult = await updateGoogleEvent(providerId, appt.googleCalendarEventId, event);
+          const updateResult = await updateGoogleEvent(
+            providerId,
+            appt.googleCalendarEventId,
+            event
+          );
           if (updateResult.success) {
             result.updated++;
           } else {
@@ -451,7 +466,9 @@ export async function syncAppointmentsToGoogle(
             });
             result.created++;
           } else {
-            result.errors.push(`Failed to create event for appointment ${appt.id}: ${createResult.error}`);
+            result.errors.push(
+              `Failed to create event for appointment ${appt.id}: ${createResult.error}`
+            );
           }
         }
       } catch (error) {
@@ -504,9 +521,7 @@ export async function syncAppointmentsToGoogle(
 /**
  * Disconnect Google Calendar
  */
-export async function disconnectGoogleCalendar(
-  providerId: number
-): Promise<{ success: boolean }> {
+export async function disconnectGoogleCalendar(providerId: number): Promise<{ success: boolean }> {
   try {
     await prisma.providerCalendarIntegration.updateMany({
       where: {
@@ -532,9 +547,7 @@ export async function disconnectGoogleCalendar(
 /**
  * Check if Google Calendar is connected
  */
-export async function isGoogleCalendarConnected(
-  providerId: number
-): Promise<boolean> {
+export async function isGoogleCalendarConnected(providerId: number): Promise<boolean> {
   const integration = await prisma.providerCalendarIntegration.findFirst({
     where: {
       providerId,

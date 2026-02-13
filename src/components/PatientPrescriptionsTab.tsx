@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import PrescriptionModal from "./PrescriptionModal";
-import PatientShippingHistory from "./PatientShippingHistory";
-import OrderManagementModal from "./OrderManagementModal";
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import PrescriptionModal from './PrescriptionModal';
+import PatientShippingHistory from './PatientShippingHistory';
+import OrderManagementModal from './OrderManagementModal';
 
 type Order = {
   id: number;
@@ -63,10 +63,10 @@ type PatientPrescriptionsTabProps = {
   shippingLabelMap: Map<string | number, string>;
 };
 
-export default function PatientPrescriptionsTab({ 
-  patient, 
+export default function PatientPrescriptionsTab({
+  patient,
   orders,
-  shippingLabelMap 
+  shippingLabelMap,
 }: PatientPrescriptionsTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -90,27 +90,20 @@ export default function PatientPrescriptionsTab({
   return (
     <div className="space-y-6">
       {/* Prescription History */}
-      <section className="border rounded-xl bg-white shadow p-6">
-        <div className="flex items-center justify-between mb-4">
+      <section className="rounded-xl border bg-white p-6 shadow">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Prescription History</h2>
-          <span className="text-sm text-gray-500">
-            Total prescriptions: {orders.length}
-          </span>
+          <span className="text-sm text-gray-500">Total prescriptions: {orders.length}</span>
         </div>
-        
+
         {orders.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No prescriptions yet.</p>
+          <div className="py-8 text-center">
+            <p className="mb-4 text-gray-500">No prescriptions yet.</p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors"
+              className="inline-flex items-center rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660]"
             >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -123,7 +116,7 @@ export default function PatientPrescriptionsTab({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm border">
+            <table className="min-w-full border text-sm">
               <thead className="bg-gray-100">
                 <tr>
                   <th className="border px-3 py-2 text-left">Date</th>
@@ -137,17 +130,17 @@ export default function PatientPrescriptionsTab({
               </thead>
               <tbody>
                 {orders.map((order: any) => (
-                  <tr key={order.id} className="hover:bg-gray-50 align-top">
+                  <tr key={order.id} className="align-top hover:bg-gray-50">
                     <td className="border px-3 py-2">
                       {new Date(order.createdAt).toLocaleString()}
                     </td>
                     <td className="border px-3 py-2">
                       {order.provider
                         ? `${order.provider.firstName} ${order.provider.lastName}`
-                        : "—"}
+                        : '—'}
                     </td>
                     <td className="border px-3 py-2">
-                      <ul className="list-disc list-inside space-y-1">
+                      <ul className="list-inside list-disc space-y-1">
                         {order.rxs.map((rx: any) => (
                           <li key={rx.id}>
                             {rx.medName || rx.medicationName || rx.medicationKey}
@@ -177,19 +170,23 @@ export default function PatientPrescriptionsTab({
                       )}
                     </td>
                     <td className="border px-3 py-2 capitalize">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        order.status === "success" 
-                          ? "bg-green-100 text-green-800"
-                          : order.status === "error"
-                          ? "bg-red-100 text-red-800"
-                          : order.status === "awaiting_webhook" || order.status === "processing"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        {order.status === "awaiting_webhook" ? "Processing" : order.status ?? "pending"}
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                          order.status === 'success'
+                            ? 'bg-green-100 text-green-800'
+                            : order.status === 'error'
+                              ? 'bg-red-100 text-red-800'
+                              : order.status === 'awaiting_webhook' || order.status === 'processing'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {order.status === 'awaiting_webhook'
+                          ? 'Processing'
+                          : (order.status ?? 'pending')}
                       </span>
                       {order.lastWebhookAt && (
-                        <span className="block text-xs text-gray-500 normal-case mt-1">
+                        <span className="mt-1 block text-xs normal-case text-gray-500">
                           Updated {new Date(order.lastWebhookAt).toLocaleString()}
                         </span>
                       )}
@@ -198,7 +195,7 @@ export default function PatientPrescriptionsTab({
                       {order.trackingNumber ? (
                         <div className="space-y-1">
                           <div>
-                            Tracking:{" "}
+                            Tracking:{' '}
                             {order.trackingUrl ? (
                               <a
                                 href={order.trackingUrl}
@@ -213,51 +210,45 @@ export default function PatientPrescriptionsTab({
                             )}
                           </div>
                           {order.events && order.events.length > 0 && (
-                            <ul className="text-xs text-gray-600 space-y-1">
+                            <ul className="space-y-1 text-xs text-gray-600">
                               {order.events.slice(0, 3).map((event: any) => (
                                 <li key={event.id}>
-                                  <span className="font-semibold">
-                                    {event.eventType}
-                                  </span>{" "}
+                                  <span className="font-semibold">{event.eventType}</span>{' '}
                                   <span className="text-gray-500">
                                     ({new Date(event.createdAt).toLocaleDateString()})
                                   </span>
-                                  {event.note ? ` – ${event.note}` : ""}
+                                  {event.note ? ` – ${event.note}` : ''}
                                 </li>
                               ))}
                             </ul>
                           )}
                         </div>
                       ) : order.events && order.events.length > 0 ? (
-                        <ul className="text-xs text-gray-600 space-y-1">
+                        <ul className="space-y-1 text-xs text-gray-600">
                           {order.events.slice(0, 2).map((event: any) => (
                             <li key={event.id}>
-                              <span className="font-semibold">
-                                {event.eventType}
-                              </span>{" "}
-                              {event.note ? `– ${event.note}` : ""}
+                              <span className="font-semibold">{event.eventType}</span>{' '}
+                              {event.note ? `– ${event.note}` : ''}
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <span className="text-xs text-gray-400">
-                          Awaiting tracking data
-                        </span>
+                        <span className="text-xs text-gray-400">Awaiting tracking data</span>
                       )}
                     </td>
                     <td className="border px-3 py-2">
                       <button
                         onClick={() => handleManageOrder(order)}
-                        className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                        className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                           order.cancelledAt
-                            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            ? 'cursor-not-allowed bg-gray-100 text-gray-500'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         disabled={!!order.cancelledAt}
-                        title={order.cancelledAt ? "Order has been cancelled" : "Manage order"}
+                        title={order.cancelledAt ? 'Order has been cancelled' : 'Manage order'}
                       >
                         <svg
-                          className="w-3.5 h-3.5 mr-1"
+                          className="mr-1 h-3.5 w-3.5"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -288,22 +279,17 @@ export default function PatientPrescriptionsTab({
 
       {/* New Prescription Button */}
       {orders.length > 0 && (
-        <section className="border rounded-xl bg-white shadow p-6">
+        <section className="rounded-xl border bg-white p-6 shadow">
           <div className="text-center">
-            <h3 className="text-lg font-medium mb-2">Need a New Prescription?</h3>
-            <p className="text-sm text-gray-600 mb-4">
+            <h3 className="mb-2 text-lg font-medium">Need a New Prescription?</h3>
+            <p className="mb-4 text-sm text-gray-600">
               Create a new prescription order for {patient.firstName} {patient.lastName}
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center px-6 py-3 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] transition-colors font-medium"
+              className="inline-flex items-center rounded-lg bg-[#4fa77e] px-6 py-3 font-medium text-white transition-colors hover:bg-[#3f8660]"
             >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

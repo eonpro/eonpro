@@ -3,7 +3,7 @@ import { logger } from '@/lib/logger';
 
 /**
  * Webhook Monitoring Service
- * 
+ *
  * Tracks webhook performance, detects issues, and can trigger alerts.
  */
 
@@ -27,14 +27,17 @@ export interface WebhookAlert {
 }
 
 // In-memory metrics store (reset on deploy, but good for real-time monitoring)
-const metricsStore = new Map<string, {
-  successCount: number;
-  errorCount: number;
-  lastSuccess: Date | null;
-  lastError: Date | null;
-  responseTimes: number[];
-  errors: { timestamp: Date; message: string }[];
-}>();
+const metricsStore = new Map<
+  string,
+  {
+    successCount: number;
+    errorCount: number;
+    lastSuccess: Date | null;
+    lastError: Date | null;
+    responseTimes: number[];
+    errors: { timestamp: Date; message: string }[];
+  }
+>();
 
 // Alert callbacks
 const alertCallbacks: ((alert: WebhookAlert) => Promise<void>)[] = [];
@@ -64,12 +67,12 @@ export function recordSuccess(webhookName: string, responseTimeMs: number) {
   metrics.successCount++;
   metrics.lastSuccess = new Date();
   metrics.responseTimes.push(responseTimeMs);
-  
+
   // Keep only last 100 response times
   if (metrics.responseTimes.length > 100) {
     metrics.responseTimes.shift();
   }
-  
+
   logger.debug(`[WEBHOOK MONITOR] Success recorded for ${webhookName}`, {
     responseTime: responseTimeMs,
     totalSuccess: metrics.successCount,
@@ -80,30 +83,30 @@ export function recordSuccess(webhookName: string, responseTimeMs: number) {
  * Record a webhook error
  */
 export async function recordError(
-  webhookName: string, 
-  error: string, 
+  webhookName: string,
+  error: string,
   metadata?: Record<string, unknown>
 ) {
   const metrics = initMetrics(webhookName);
   metrics.errorCount++;
   metrics.lastError = new Date();
   metrics.errors.push({ timestamp: new Date(), message: error });
-  
+
   // Keep only last 50 errors
   if (metrics.errors.length > 50) {
     metrics.errors.shift();
   }
-  
+
   logger.warn(`[WEBHOOK MONITOR] Error recorded for ${webhookName}`, {
     error,
     totalErrors: metrics.errorCount,
     metadata,
   });
-  
+
   // Check for error spike (more than 5 errors in last 10 minutes)
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-  const recentErrors = metrics.errors.filter(e => e.timestamp > tenMinutesAgo);
-  
+  const recentErrors = metrics.errors.filter((e) => e.timestamp > tenMinutesAgo);
+
   if (recentErrors.length >= 5) {
     await triggerAlert({
       type: 'error_spike',
@@ -112,12 +115,12 @@ export async function recordError(
       webhookName,
       timestamp: new Date(),
       metadata: {
-        recentErrors: recentErrors.map(e => e.message),
+        recentErrors: recentErrors.map((e) => e.message),
         ...metadata,
       },
     });
   }
-  
+
   // Log to database for persistence
   try {
     await prisma.auditLog.create({
@@ -144,15 +147,15 @@ export async function recordError(
  * Record an authentication failure
  */
 export async function recordAuthFailure(
-  webhookName: string, 
+  webhookName: string,
   ipAddress: string,
   providedHeader?: string
 ) {
-  await recordError(webhookName, 'Authentication failed', { 
-    ipAddress, 
-    headerProvided: !!providedHeader 
+  await recordError(webhookName, 'Authentication failed', {
+    ipAddress,
+    headerProvided: !!providedHeader,
   });
-  
+
   await triggerAlert({
     type: 'auth_failure',
     severity: 'warning',
@@ -169,12 +172,13 @@ export async function recordAuthFailure(
 export function getMetrics(webhookName: string): WebhookMetrics | null {
   const metrics = metricsStore.get(webhookName);
   if (!metrics) return null;
-  
+
   const total = metrics.successCount + metrics.errorCount;
-  const avgResponseTime = metrics.responseTimes.length > 0
-    ? metrics.responseTimes.reduce((a, b) => a + b, 0) / metrics.responseTimes.length
-    : null;
-  
+  const avgResponseTime =
+    metrics.responseTimes.length > 0
+      ? metrics.responseTimes.reduce((a, b) => a + b, 0) / metrics.responseTimes.length
+      : null;
+
   return {
     webhookName,
     successCount: metrics.successCount,
@@ -191,12 +195,12 @@ export function getMetrics(webhookName: string): WebhookMetrics | null {
  */
 export function getAllMetrics(): WebhookMetrics[] {
   const allMetrics: WebhookMetrics[] = [];
-  
+
   for (const [name] of metricsStore) {
     const metrics = getMetrics(name);
     if (metrics) allMetrics.push(metrics);
   }
-  
+
   return allMetrics;
 }
 
@@ -209,7 +213,7 @@ async function triggerAlert(alert: WebhookAlert) {
     webhookName: alert.webhookName,
     metadata: alert.metadata,
   });
-  
+
   // Log alert to database
   try {
     await prisma.auditLog.create({
@@ -225,7 +229,7 @@ async function triggerAlert(alert: WebhookAlert) {
   } catch (err) {
     logger.error('[WEBHOOK MONITOR] Failed to log alert:', err);
   }
-  
+
   // Call registered alert handlers
   for (const callback of alertCallbacks) {
     try {
@@ -249,7 +253,7 @@ export function onAlert(callback: (alert: WebhookAlert) => Promise<void>) {
 export async function checkStaleWebhooks(hoursThreshold = 24): Promise<WebhookAlert[]> {
   const alerts: WebhookAlert[] = [];
   const threshold = new Date(Date.now() - hoursThreshold * 60 * 60 * 1000);
-  
+
   // Check database for last webhook activity
   const lastIntake = await prisma.auditLog.findFirst({
     where: {
@@ -257,7 +261,7 @@ export async function checkStaleWebhooks(hoursThreshold = 24): Promise<WebhookAl
     },
     orderBy: { createdAt: 'desc' },
   });
-  
+
   if (!lastIntake || lastIntake.createdAt < threshold) {
     const alert: WebhookAlert = {
       type: 'no_activity',
@@ -273,7 +277,7 @@ export async function checkStaleWebhooks(hoursThreshold = 24): Promise<WebhookAl
     alerts.push(alert);
     await triggerAlert(alert);
   }
-  
+
   return alerts;
 }
 
@@ -283,7 +287,7 @@ export async function checkStaleWebhooks(hoursThreshold = 24): Promise<WebhookAl
 export async function getHealthSummary() {
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  
+
   const [successCount, errorCount, lastSuccess] = await Promise.all([
     prisma.auditLog.count({
       where: {
@@ -291,12 +295,14 @@ export async function getHealthSummary() {
         createdAt: { gte: last24h },
       },
     }),
-    prisma.auditLog.count({
-      where: {
-        action: 'WEBHOOK_ERROR',
-        createdAt: { gte: last24h },
-      },
-    }).catch(() => 0),
+    prisma.auditLog
+      .count({
+        where: {
+          action: 'WEBHOOK_ERROR',
+          createdAt: { gte: last24h },
+        },
+      })
+      .catch(() => 0),
     prisma.auditLog.findFirst({
       where: {
         action: { in: ['PATIENT_INTAKE_RECEIVED', 'PARTIAL_INTAKE_RECEIVED'] },
@@ -304,10 +310,10 @@ export async function getHealthSummary() {
       orderBy: { createdAt: 'desc' },
     }),
   ]);
-  
+
   const total = successCount + errorCount;
   const successRate = total > 0 ? (successCount / total) * 100 : 100;
-  
+
   return {
     status: successRate >= 95 ? 'healthy' : successRate >= 50 ? 'degraded' : 'down',
     last24h: {

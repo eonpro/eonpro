@@ -15,6 +15,8 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import crypto from 'crypto';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 
 // =============================================================================
 // Photo Type Constants (avoid Prisma enum import issues)
@@ -248,6 +250,28 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Generate fresh signed URLs for all photos
     const photosWithUrls = await refreshPhotoUrls(photos);
 
+    try {
+      await auditLog(req, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: clinicId ?? user.clinicId ?? undefined,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'PatientPhoto',
+        resourceId: String(patientId),
+        patientId,
+        action: 'portal_photos_list',
+        outcome: 'SUCCESS',
+        metadata: { count: photos.length },
+      });
+    } catch (auditErr: unknown) {
+      logger.warn('Failed to create HIPAA audit log for portal photos list', {
+        patientId,
+        userId: user.id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
     return NextResponse.json({
       photos: photosWithUrls,
       pagination: {
@@ -258,7 +282,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    // Check for Prisma-specific errors (table doesn't exist, etc.)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const isPrismaError =
       errorMessage.includes('does not exist') ||
@@ -266,17 +289,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       errorMessage.includes('relation') ||
       errorMessage.includes('table');
 
-    logger.error('[Photos API] GET error', {
-      userId: user.id,
-      patientId,
-      clinicId,
-      error: errorMessage,
-      isPrismaError,
-    });
-
     if (isPrismaError) {
-      // Table might not exist yet - return empty array gracefully
-      logger.warn('[Photos API] PatientPhoto table may not exist, returning empty result');
+      logger.warn('[Photos API] PatientPhoto table may not exist, returning empty result', {
+        userId: user.id,
+        patientId,
+      });
       return NextResponse.json({
         photos: [],
         pagination: {
@@ -288,7 +305,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       });
     }
 
-    return NextResponse.json({ error: 'Failed to fetch photos' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-portal/photos',
+      context: { userId: user.id, patientId },
+    });
   }
 }
 

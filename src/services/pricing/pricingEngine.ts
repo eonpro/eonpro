@@ -35,15 +35,17 @@ export interface AppliedDiscount {
 }
 
 export interface PricingResult {
-  subtotal: number;           // Original total before discounts
-  discountTotal: number;      // Total discount amount
-  taxAmount: number;          // Tax if applicable
-  total: number;              // Final amount
+  subtotal: number; // Original total before discounts
+  discountTotal: number; // Total discount amount
+  taxAmount: number; // Tax if applicable
+  total: number; // Final amount
   appliedDiscounts: AppliedDiscount[];
-  lineItems: Array<PricingLineItem & {
-    finalPrice: number;
-    discountedAmount: number;
-  }>;
+  lineItems: Array<
+    PricingLineItem & {
+      finalPrice: number;
+      discountedAmount: number;
+    }
+  >;
   warnings?: string[];
 }
 
@@ -57,15 +59,15 @@ export class PricingEngine {
   ): Promise<PricingResult> {
     const appliedDiscounts: AppliedDiscount[] = [];
     const warnings: string[] = [];
-    
+
     // Calculate subtotal
-    let subtotal = lineItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-    
+    let subtotal = lineItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+
     // Track discounts per item
     const itemDiscounts = new Map<number, number>();
-    
+
     // Initialize processed line items
-    const processedItems = lineItems.map(item => ({
+    const processedItems = lineItems.map((item) => ({
       ...item,
       finalPrice: item.unitPrice * item.quantity,
       discountedAmount: 0,
@@ -109,10 +111,10 @@ export class PricingEngine {
     // Calculate totals
     const discountTotal = appliedDiscounts.reduce((sum, d) => sum + d.amountSaved, 0);
     const afterDiscount = Math.max(0, subtotal - discountTotal);
-    
+
     // Calculate tax (if applicable - check clinic settings)
     const taxAmount = 0; // TODO: Implement tax calculation based on clinic settings
-    
+
     const total = afterDiscount + taxAmount;
 
     return {
@@ -131,26 +133,23 @@ export class PricingEngine {
    */
   private static async getActivePromotions(clinicId: number, lineItems: PricingLineItem[]) {
     const now = new Date();
-    const productIds = lineItems.filter(i => i.productId).map(i => i.productId!);
+    const productIds = lineItems.filter((i) => i.productId).map((i) => i.productId!);
 
     const promotions = await prisma.promotion.findMany({
       where: {
         clinicId,
         isActive: true,
         startsAt: { lte: now },
-        OR: [
-          { endsAt: null },
-          { endsAt: { gte: now } },
-        ],
+        OR: [{ endsAt: null }, { endsAt: { gte: now } }],
       },
     });
 
     // Filter to promotions applicable to our products
-    return promotions.filter((promo: typeof promotions[0]) => {
+    return promotions.filter((promo: (typeof promotions)[0]) => {
       if (promo.applyTo === 'ALL_PRODUCTS') return true;
       if (promo.applyTo === 'LIMITED_PRODUCTS' && promo.productIds) {
         const allowedIds = promo.productIds as number[];
-        return productIds.some(id => allowedIds.includes(id));
+        return productIds.some((id) => allowedIds.includes(id));
       }
       return true;
     });
@@ -166,16 +165,10 @@ export class PricingEngine {
       where: {
         clinicId: context.clinicId,
         isActive: true,
-        OR: [
-          { startsAt: null },
-          { startsAt: { lte: now } },
-        ],
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
         AND: [
           {
-            OR: [
-              { endsAt: null },
-              { endsAt: { gte: now } },
-            ],
+            OR: [{ endsAt: null }, { endsAt: { gte: now } }],
           },
         ],
       },
@@ -200,7 +193,7 @@ export class PricingEngine {
     const affectedItems: number[] = [];
 
     // Get applicable items
-    const applicableItems = items.filter(item => {
+    const applicableItems = items.filter((item) => {
       if (!item.productId) return false;
       if (promo.applyTo === 'ALL_PRODUCTS') return true;
       if (promo.applyTo === 'LIMITED_PRODUCTS' && promo.productIds) {
@@ -251,7 +244,7 @@ export class PricingEngine {
     context: PricingContext
   ): AppliedDiscount | null {
     const conditions = rule.conditions as any[];
-    
+
     // Check all conditions
     for (const condition of conditions) {
       if (!this.evaluateCondition(condition, items, context)) {
@@ -303,7 +296,7 @@ export class PricingEngine {
         return this.compareValues(totalQuantity, operator, value);
 
       case 'subtotal':
-        const subtotal = items.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0);
+        const subtotal = items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
         return this.compareValues(subtotal, operator, value);
 
       case 'patientTag':
@@ -326,13 +319,20 @@ export class PricingEngine {
    */
   private static compareValues(a: number, operator: string, b: number): boolean {
     switch (operator) {
-      case '>=': return a >= b;
-      case '<=': return a <= b;
-      case '>': return a > b;
-      case '<': return a < b;
-      case '==': return a === b;
-      case '!=': return a !== b;
-      default: return false;
+      case '>=':
+        return a >= b;
+      case '<=':
+        return a <= b;
+      case '>':
+        return a > b;
+      case '<':
+        return a < b;
+      case '==':
+        return a === b;
+      case '!=':
+        return a !== b;
+      default:
+        return false;
     }
   }
 
@@ -370,7 +370,7 @@ export class PricingEngine {
     let applicableItems = items;
     if (discountCode.applyTo === 'LIMITED_PRODUCTS' && discountCode.productIds) {
       const allowedIds = discountCode.productIds as number[];
-      applicableItems = items.filter(i => i.productId && allowedIds.includes(i.productId));
+      applicableItems = items.filter((i) => i.productId && allowedIds.includes(i.productId));
     }
 
     if (applicableItems.length === 0) return null;
@@ -429,7 +429,11 @@ export class PricingEngine {
       }),
     ]);
 
-    logger.info('[PricingEngine] Recorded discount usage', { discountCodeId, patientId, amountSaved });
+    logger.info('[PricingEngine] Recorded discount usage', {
+      discountCodeId,
+      patientId,
+      amountSaved,
+    });
   }
 
   /**
@@ -547,10 +551,7 @@ export class PricingEngine {
         clinicId,
         isActive: true,
         startsAt: { lte: now },
-        OR: [
-          { endsAt: null },
-          { endsAt: { gte: now } },
-        ],
+        OR: [{ endsAt: null }, { endsAt: { gte: now } }],
       },
       orderBy: { priority: 'desc' },
     });
@@ -586,16 +587,10 @@ export class PricingEngine {
       where: {
         clinicId,
         isActive: true,
-        OR: [
-          { startsAt: null },
-          { startsAt: { lte: now } },
-        ],
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
         AND: [
           {
-            OR: [
-              { endsAt: null },
-              { endsAt: { gte: now } },
-            ],
+            OR: [{ endsAt: null }, { endsAt: { gte: now } }],
           },
         ],
       },
@@ -726,11 +721,7 @@ export class PricingEngine {
 
       for (const condition of conditions || []) {
         if (condition.type === 'quantity' && params.quantity) {
-          conditionsMet = this.compareValues(
-            params.quantity,
-            condition.operator,
-            condition.value
-          );
+          conditionsMet = this.compareValues(params.quantity, condition.operator, condition.value);
         }
       }
 

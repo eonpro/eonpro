@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { ensureTenantResource } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
@@ -24,12 +25,9 @@ export const GET = withAuthParams(
       where: { id: patientId },
       select: { id: true, clinicId: true },
     });
-    if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
-    }
-    if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
+    const notFound = ensureTenantResource(patient, clinicId);
+    if (notFound) return notFound;
 
     try {
       await prisma.labReport.findFirst({

@@ -43,19 +43,13 @@ export const PATCH = withAuth(async (request, user, { params }: RouteParams) => 
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const body = await request.json();
 
     if (!body.status) {
-      return NextResponse.json(
-        { error: 'Status is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Status is required' }, { status: 400 });
     }
 
     if (!VALID_STATUSES.includes(body.status)) {

@@ -4,6 +4,7 @@
  */
 
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { withProviderAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -16,7 +17,7 @@ import { Patient, Provider, Order } from '@/types/models';
 export const GET = withProviderAuth(async (req, user) => {
   try {
     // User is guaranteed to be authenticated and have provider/admin role
-    logger.debug(`Authenticated request from user: ${user.email} (${user.role})`);
+    logger.debug('Authenticated request', { userId: user.id, role: user.role });
 
     // Get patients based on user role
     // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
@@ -44,16 +45,13 @@ export const GET = withProviderAuth(async (req, user) => {
         count: patients.length,
         requestedBy: user.email,
         role: user.role,
-      }
+      },
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Error fetching protected patients:', error);
-    return Response.json(
-      { error: 'Failed to fetch patients' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Failed to fetch patients' }, { status: 500 });
   }
 });
 
@@ -64,27 +62,25 @@ export const GET = withProviderAuth(async (req, user) => {
 export const POST = withProviderAuth(async (req, user) => {
   try {
     const body = await req.json();
-    
+
     // Validate required fields
     const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'dob'];
     for (const field of requiredFields) {
       if (!body[field]) {
-        return Response.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
+        return Response.json({ error: `Missing required field: ${field}` }, { status: 400 });
       }
     }
 
     // Create patient with audit trail
     // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
-    const patient = await prisma.$transaction(async (tx: any) => {
+    const patient = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Create patient
       const newPatient = await tx.patient.create({
         data: {
           ...body,
           createdById: user.id,
-          providerId: user.role === 'provider' && user.providerId ? user.providerId : body.providerId,
+          providerId:
+            user.role === 'provider' && user.providerId ? user.providerId : body.providerId,
         },
       });
 
@@ -108,20 +104,14 @@ export const POST = withProviderAuth(async (req, user) => {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Error creating patient:', error);
-    
+
     if (error.code === 'P2002') {
-      return Response.json(
-        { error: 'Patient with this email already exists' },
-        { status: 400 }
-      );
+      return Response.json({ error: 'Patient with this email already exists' }, { status: 400 });
     }
 
-    return Response.json(
-      { error: 'Failed to create patient' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Failed to create patient' }, { status: 500 });
   }
 });

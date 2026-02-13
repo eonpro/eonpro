@@ -99,13 +99,15 @@ export default function PayoutsPage() {
 
   const fetchData = async () => {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-    
+
     try {
       const [payoutsRes, methodsRes, taxRes, balanceRes] = await Promise.all([
-        fetch('/api/affiliate/payouts', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/affiliate/account/payout-method', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/affiliate/tax-documents', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/affiliate/summary', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/affiliate/payouts', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/affiliate/account/payout-method', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch('/api/affiliate/tax-documents', { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/affiliate/summary', { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const payoutsData = payoutsRes.ok ? await payoutsRes.json() : { payouts: [] };
@@ -180,7 +182,8 @@ export default function PayoutsPage() {
             <div>
               <p className="font-medium text-amber-800">Tax Documents Required</p>
               <p className="mt-1 text-sm text-amber-700">
-                You've earned over $600 this year. Please submit a W-9 form to continue receiving payouts.
+                You've earned over $600 this year. Please submit a W-9 form to continue receiving
+                payouts.
               </p>
               <button
                 onClick={() => setActiveTab('tax')}
@@ -225,7 +228,7 @@ export default function PayoutsPage() {
                 const status = statusConfig[payout.status] || statusConfig.PENDING;
                 const StatusIcon = status.icon;
                 const MethodIcon = methodIcons[payout.methodType] || DollarSign;
-                
+
                 return (
                   <div key={payout.id} className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-4">
@@ -246,7 +249,9 @@ export default function PayoutsPage() {
                         </p>
                       </div>
                     </div>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.color}`}>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.color}`}
+                    >
                       <StatusIcon className="h-3.5 w-3.5" />
                       {status.label}
                     </span>
@@ -269,9 +274,12 @@ export default function PayoutsPage() {
           {data?.methods && data.methods.length > 0 ? (
             data.methods.map((method) => {
               const MethodIcon = methodIcons[method.methodType] || DollarSign;
-              
+
               return (
-                <div key={method.id} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+                <div
+                  key={method.id}
+                  className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm"
+                >
                   <div className="flex items-center gap-4">
                     <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
                       <MethodIcon className="h-5 w-5" />
@@ -281,7 +289,9 @@ export default function PayoutsPage() {
                         {method.methodType.replace('_', ' ')}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {method.paypalEmail || (method.bankAccountLast4 && `****${method.bankAccountLast4}`) || 'Connected'}
+                        {method.paypalEmail ||
+                          (method.bankAccountLast4 && `****${method.bankAccountLast4}`) ||
+                          'Connected'}
                       </p>
                     </div>
                   </div>
@@ -291,9 +301,13 @@ export default function PayoutsPage() {
                         Default
                       </span>
                     )}
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${
-                      method.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${
+                        method.isVerified
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
                       {method.isVerified ? 'Verified' : 'Pending'}
                     </span>
                   </div>
@@ -315,14 +329,18 @@ export default function PayoutsPage() {
         <div className="space-y-4">
           <div className="rounded-xl bg-blue-50 p-4">
             <p className="text-sm text-blue-700">
-              <strong>Note:</strong> Tax documents (W-9 for US, W-8BEN for non-US) are required for 
-              affiliates earning more than $600 per year. Documents must be submitted before payouts can be processed.
+              <strong>Note:</strong> Tax documents (W-9 for US, W-8BEN for non-US) are required for
+              affiliates earning more than $600 per year. Documents must be submitted before payouts
+              can be processed.
             </p>
           </div>
 
           {data?.taxDocs && data.taxDocs.length > 0 ? (
             data.taxDocs.map((doc, i) => (
-              <div key={i} className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm"
+              >
                 <div className="flex items-center gap-4">
                   <div className="rounded-lg bg-gray-100 p-2 text-gray-600">
                     <FileText className="h-5 w-5" />
@@ -332,12 +350,17 @@ export default function PayoutsPage() {
                     <p className="text-sm text-gray-500">Tax Year {doc.taxYear}</p>
                   </div>
                 </div>
-                <span className={`rounded-full px-2 py-1 text-xs font-medium ${
-                  doc.status === 'VERIFIED' ? 'bg-green-100 text-green-700' :
-                  doc.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
-                  doc.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                  'bg-yellow-100 text-yellow-700'
-                }`}>
+                <span
+                  className={`rounded-full px-2 py-1 text-xs font-medium ${
+                    doc.status === 'VERIFIED'
+                      ? 'bg-green-100 text-green-700'
+                      : doc.status === 'SUBMITTED'
+                        ? 'bg-blue-100 text-blue-700'
+                        : doc.status === 'REJECTED'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                  }`}
+                >
                   {doc.status}
                 </span>
               </div>

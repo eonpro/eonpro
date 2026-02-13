@@ -54,9 +54,10 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
     }
 
     try {
-      const token = getLocalStorageItem('auth-token') ||
-                    getLocalStorageItem('admin-token') ||
-                    getLocalStorageItem('provider-token');
+      const token =
+        getLocalStorageItem('auth-token') ||
+        getLocalStorageItem('admin-token') ||
+        getLocalStorageItem('provider-token');
 
       if (!token) {
         setLoading(false);
@@ -65,7 +66,7 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
 
       const response = await fetch('/api/user/clinics', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -73,7 +74,7 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
         const data = await response.json();
         setClinics(data.clinics || []);
         setActiveClinicId(data.activeClinicId);
-        
+
         // Store active clinic in localStorage for other components
         if (data.activeClinicId) {
           setLocalStorageItem('activeClinicId', data.activeClinicId.toString());
@@ -91,15 +92,16 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
 
     setSwitching(true);
     try {
-      const token = getLocalStorageItem('auth-token') ||
-                    getLocalStorageItem('admin-token') ||
-                    getLocalStorageItem('provider-token');
+      const token =
+        getLocalStorageItem('auth-token') ||
+        getLocalStorageItem('admin-token') ||
+        getLocalStorageItem('provider-token');
 
       const response = await fetch('/api/user/clinics', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ clinicId }),
       });
@@ -109,7 +111,7 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
         setActiveClinicId(clinicId);
         setLocalStorageItem('activeClinicId', clinicId.toString());
         setIsOpen(false);
-        
+
         // Refresh the page to load new clinic data (with SSR guard)
         if (isBrowser) {
           window.location.reload();
@@ -139,48 +141,60 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
     // Show current clinic name without dropdown
     const activeClinic = clinics[0];
     if (!activeClinic) return null;
-    
+
     return (
       <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
         {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-        {(activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl) ? (
-          <img src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl} alt="" className="h-5 w-5 rounded object-contain" />
+        {activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl ? (
+          <img
+            src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
+            alt=""
+            className="h-5 w-5 rounded object-contain"
+          />
         ) : (
           <Building2 className="h-4 w-4 text-gray-500" />
         )}
-        <span className="text-sm font-medium text-gray-700 hidden sm:inline">
+        <span className="hidden text-sm font-medium text-gray-700 sm:inline">
           {activeClinic.name}
         </span>
       </div>
     );
   }
 
-  const activeClinic = clinics.find(c => c.id === activeClinicId);
+  const activeClinic = clinics.find((c) => c.id === activeClinicId);
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+        className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 transition-colors hover:bg-gray-100"
         disabled={switching}
       >
         {switching ? (
           <RefreshCw className="h-4 w-4 animate-spin text-teal-600" />
-        ) : (activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl) ? (
-          <img src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl} alt="" className="h-5 w-5 rounded object-contain" />
+        ) : activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl ? (
+          <img
+            src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
+            alt=""
+            className="h-5 w-5 rounded object-contain"
+          />
         ) : (
           <Building2 className="h-4 w-4 text-gray-500" />
         )}
-        <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate hidden sm:inline">
+        <span className="hidden max-w-[120px] truncate text-sm font-medium text-gray-700 sm:inline">
           {activeClinic?.name || 'Select Clinic'}
         </span>
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
-          <div className="p-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Switch Clinic</p>
+        <div className="absolute left-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg">
+          <div className="border-b border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Switch Clinic
+            </p>
           </div>
           <div className="max-h-64 overflow-y-auto">
             {clinics.map((clinic) => (
@@ -188,38 +202,40 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
                 key={clinic.id}
                 onClick={() => switchClinic(clinic.id)}
                 disabled={switching}
-                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left ${
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
                   clinic.id === activeClinicId ? 'bg-teal-50' : ''
                 }`}
               >
                 {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
-                  <img src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl} alt="" className="h-8 w-8 rounded-lg object-contain" />
+                {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+                  <img
+                    src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl}
+                    alt=""
+                    className="h-8 w-8 rounded-lg object-contain"
+                  />
                 ) : (
-                  <div 
-                    className="h-8 w-8 rounded-lg flex items-center justify-center"
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-lg"
                     style={{ backgroundColor: clinic.primaryColor || '#3B82F6' }}
                   >
                     <Building2 className="h-4 w-4 text-white" />
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{clinic.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">{clinic.name}</p>
+                  <p className="truncate text-xs text-gray-500">
                     {clinic.subdomain}.eonpro.io
-                    {clinic.isPrimary && (
-                      <span className="ml-2 text-teal-600">(Primary)</span>
-                    )}
+                    {clinic.isPrimary && <span className="ml-2 text-teal-600">(Primary)</span>}
                   </p>
                 </div>
                 {clinic.id === activeClinicId && (
-                  <Check className="h-5 w-5 text-teal-600 flex-shrink-0" />
+                  <Check className="h-5 w-5 flex-shrink-0 text-teal-600" />
                 )}
               </button>
             ))}
           </div>
-          <div className="p-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs text-gray-500 text-center">
+          <div className="border-t border-gray-100 bg-gray-50 p-3">
+            <p className="text-center text-xs text-gray-500">
               {clinics.length} clinic{clinics.length !== 1 ? 's' : ''} available
             </p>
           </div>
@@ -228,4 +244,3 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
     </div>
   );
 }
-

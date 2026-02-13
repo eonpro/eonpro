@@ -1,13 +1,13 @@
 /**
  * Observability Module
  * ====================
- * 
+ *
  * Centralized observability for the EONPRO platform including:
  * - Distributed tracing
  * - Metrics collection
  * - Error tracking
  * - Performance monitoring
- * 
+ *
  * @module observability
  */
 
@@ -48,10 +48,7 @@ export function recordMetric(
  * Record a counter increment
  * Note: Using gauge instead of increment due to API limitations
  */
-export function incrementCounter(
-  name: string,
-  _tags?: Record<string, string>
-): void {
+export function incrementCounter(name: string, _tags?: Record<string, string>): void {
   Sentry.metrics.gauge(`${name}_count`, 1, {});
 }
 
@@ -80,7 +77,7 @@ export function setUserContext(user: {
     id: String(user.id),
     email: user.email,
   });
-  
+
   Sentry.setTag('user.role', user.role || 'unknown');
   if (user.clinicId) {
     Sentry.setTag('clinic.id', String(user.clinicId));
@@ -130,10 +127,7 @@ export function captureMessage(
 /**
  * Capture an exception
  */
-export function captureException(
-  error: Error,
-  context?: Record<string, unknown>
-): void {
+export function captureException(error: Error, context?: Record<string, unknown>): void {
   Sentry.withScope((scope) => {
     if (context) {
       scope.setContext('error_context', context);

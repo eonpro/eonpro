@@ -2,18 +2,18 @@
  * PLATFORM FEE SERVICE
  * ====================
  * Manages per-clinic platform billing for EONPRO
- * 
+ *
  * Fee Types:
  * - PRESCRIPTION: Charged when EONPRO internal provider writes prescription
  * - TRANSMISSION: Charged when clinic's own provider uses platform to send to Lifefile
  * - ADMIN: Weekly platform usage fee (flat or percentage of sales)
- * 
+ *
  * Features:
  * - Fee configuration per clinic (set by super admin)
  * - Prescription cycle tracking (avoid double-charging within cycle period)
  * - Fee event recording and status management
  * - Fee aggregation for invoicing
- * 
+ *
  * @module services/billing/platformFeeService
  */
 
@@ -126,10 +126,7 @@ export const platformFeeService = {
    * Get or create fee configuration for a clinic
    * Creates with defaults if not exists
    */
-  async getOrCreateFeeConfig(
-    clinicId: number,
-    actorId?: number
-  ): Promise<ClinicPlatformFeeConfig> {
+  async getOrCreateFeeConfig(clinicId: number, actorId?: number): Promise<ClinicPlatformFeeConfig> {
     const existing = await this.getFeeConfig(clinicId);
     if (existing) return existing;
 
@@ -161,12 +158,16 @@ export const platformFeeService = {
     // Validate percentage values if using percentage calculation
     if (input.prescriptionFeeType === 'PERCENTAGE' && input.prescriptionFeeAmount !== undefined) {
       if (input.prescriptionFeeAmount < 0 || input.prescriptionFeeAmount > 10000) {
-        throw new Error('Prescription fee percentage must be between 0 and 100% (0-10000 basis points)');
+        throw new Error(
+          'Prescription fee percentage must be between 0 and 100% (0-10000 basis points)'
+        );
       }
     }
     if (input.transmissionFeeType === 'PERCENTAGE' && input.transmissionFeeAmount !== undefined) {
       if (input.transmissionFeeAmount < 0 || input.transmissionFeeAmount > 10000) {
-        throw new Error('Transmission fee percentage must be between 0 and 100% (0-10000 basis points)');
+        throw new Error(
+          'Transmission fee percentage must be between 0 and 100% (0-10000 basis points)'
+        );
       }
     }
     if (input.adminFeeType === 'PERCENTAGE_WEEKLY' && input.adminFeeAmount !== undefined) {
@@ -201,7 +202,9 @@ export const platformFeeService = {
   /**
    * Get all fee configurations (for super admin)
    */
-  async getAllFeeConfigs(): Promise<(ClinicPlatformFeeConfig & { clinic: { id: number; name: string } })[]> {
+  async getAllFeeConfigs(): Promise<
+    (ClinicPlatformFeeConfig & { clinic: { id: number; name: string } })[]
+  > {
     return prisma.clinicPlatformFeeConfig.findMany({
       include: {
         clinic: {
@@ -312,7 +315,7 @@ export const platformFeeService = {
     const parts = [medName];
     if (strength) parts.push(strength);
     if (form) parts.push(form);
-    
+
     return parts
       .join('-')
       .toLowerCase()
@@ -351,7 +354,7 @@ export const platformFeeService = {
         },
       },
     });
-    
+
     // Get invoice separately (Invoice -> Order, not Order -> Invoice)
     const invoice = await prisma.invoice.findFirst({
       where: { orderId },
@@ -459,10 +462,12 @@ export const platformFeeService = {
       orderTotalCents: orderTotalCents ?? undefined,
       medicationKey,
       isWithinCycle: false,
-      cycleInfo: cycleInfo ? {
-        lastChargedAt: cycleInfo.lastChargedAt,
-        nextEligibleAt: cycleInfo.nextEligibleAt,
-      } : undefined,
+      cycleInfo: cycleInfo
+        ? {
+            lastChargedAt: cycleInfo.lastChargedAt,
+            nextEligibleAt: cycleInfo.nextEligibleAt,
+          }
+        : undefined,
     };
 
     // Create fee event
@@ -601,11 +606,7 @@ export const platformFeeService = {
   /**
    * Calculate weekly sales for a clinic (for percentage-based admin fees)
    */
-  async calculateWeeklySales(
-    clinicId: number,
-    weekStart: Date,
-    weekEnd: Date
-  ): Promise<number> {
+  async calculateWeeklySales(clinicId: number, weekStart: Date, weekEnd: Date): Promise<number> {
     const result = await prisma.payment.aggregate({
       where: {
         clinicId,
@@ -642,7 +643,9 @@ export const platformFeeService = {
 
     // Fallback to flat rate if no order total for percentage
     if (calculationType === 'PERCENTAGE' && !orderTotalCents) {
-      logger.warn('[PlatformFeeService] No order total for percentage calculation, using rate as flat');
+      logger.warn(
+        '[PlatformFeeService] No order total for percentage calculation, using rate as flat'
+      );
       return rate;
     }
 
@@ -722,11 +725,7 @@ export const platformFeeService = {
   /**
    * Waive a fee event (manual admin action)
    */
-  async waiveFee(
-    feeEventId: number,
-    reason: string,
-    actorId: number
-  ): Promise<PlatformFeeEvent> {
+  async waiveFee(feeEventId: number, reason: string, actorId: number): Promise<PlatformFeeEvent> {
     const event = await prisma.platformFeeEvent.findUnique({
       where: { id: feeEventId },
     });
@@ -843,10 +842,7 @@ export const platformFeeService = {
   /**
    * Get pending fees for a clinic (ready for invoicing)
    */
-  async getPendingFees(
-    clinicId: number,
-    dateRange?: DateRange
-  ): Promise<PlatformFeeEvent[]> {
+  async getPendingFees(clinicId: number, dateRange?: DateRange): Promise<PlatformFeeEvent[]> {
     const where: Record<string, unknown> = {
       clinicId,
       status: 'PENDING',
@@ -868,10 +864,7 @@ export const platformFeeService = {
   /**
    * Get fee summary for a clinic
    */
-  async getFeeSummary(
-    clinicId: number,
-    dateRange?: DateRange
-  ): Promise<FeeSummary> {
+  async getFeeSummary(clinicId: number, dateRange?: DateRange): Promise<FeeSummary> {
     const where: Record<string, unknown> = {
       clinicId,
     };
@@ -1002,7 +995,7 @@ export const platformFeeService = {
    */
   getWeekStart(date: Date = new Date(), offset: number = 0): Date {
     const d = new Date(date);
-    d.setDate(d.getDate() - d.getDay() + (offset * 7));
+    d.setDate(d.getDate() - d.getDay() + offset * 7);
     d.setHours(0, 0, 0, 0);
     return d;
   },
@@ -1012,7 +1005,7 @@ export const platformFeeService = {
    */
   getWeekEnd(date: Date = new Date(), offset: number = 0): Date {
     const d = new Date(date);
-    d.setDate(d.getDate() - d.getDay() + 6 + (offset * 7));
+    d.setDate(d.getDate() - d.getDay() + 6 + offset * 7);
     d.setHours(23, 59, 59, 999);
     return d;
   },

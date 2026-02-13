@@ -46,10 +46,7 @@ async function cancelSubscriptionHandler(
     }
 
     if (subscription.status === SubscriptionStatus.CANCELED) {
-      return NextResponse.json(
-        { error: 'Subscription is already canceled' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Subscription is already canceled' }, { status: 400 });
     }
 
     // ENTERPRISE: Cancel in Stripe FIRST if subscription has Stripe ID
@@ -71,13 +68,17 @@ async function cancelSubscriptionHandler(
             stripeSubscriptionId: subscription.stripeSubscriptionId,
           });
         } else {
-          logger.warn('[SUBSCRIPTIONS] No Stripe client available, proceeding with DB-only cancellation', {
-            subscriptionId,
-            clinicId: subscription.clinicId,
-          });
+          logger.warn(
+            '[SUBSCRIPTIONS] No Stripe client available, proceeding with DB-only cancellation',
+            {
+              subscriptionId,
+              clinicId: subscription.clinicId,
+            }
+          );
         }
       } catch (stripeError: unknown) {
-        const errorMessage = stripeError instanceof Error ? stripeError.message : 'Unknown Stripe error';
+        const errorMessage =
+          stripeError instanceof Error ? stripeError.message : 'Unknown Stripe error';
         logger.error('[SUBSCRIPTIONS] Failed to cancel Stripe subscription', {
           subscriptionId,
           stripeSubscriptionId: subscription.stripeSubscriptionId,
@@ -85,10 +86,16 @@ async function cancelSubscriptionHandler(
         });
 
         // Check if it's a "subscription already canceled" error
-        if (errorMessage.includes('already canceled') || errorMessage.includes('No such subscription')) {
-          logger.info('[SUBSCRIPTIONS] Stripe subscription already canceled, proceeding with DB update', {
-            subscriptionId,
-          });
+        if (
+          errorMessage.includes('already canceled') ||
+          errorMessage.includes('No such subscription')
+        ) {
+          logger.info(
+            '[SUBSCRIPTIONS] Stripe subscription already canceled, proceeding with DB update',
+            {
+              subscriptionId,
+            }
+          );
         } else {
           // Return error for other Stripe failures
           return NextResponse.json(
@@ -154,7 +161,7 @@ async function cancelSubscriptionHandler(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SUBSCRIPTIONS] Error canceling subscription:', {
       error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
     });
     return NextResponse.json(
       { error: 'Failed to cancel subscription', detail: errorMessage },

@@ -89,7 +89,10 @@ interface Assessment {
   actions: Array<{ label: string; url: string; icon: typeof Phone }>;
 }
 
-const URGENCY_CONFIG: Record<UrgencyLevel, { color: string; bgColor: string; icon: typeof CheckCircle }> = {
+const URGENCY_CONFIG: Record<
+  UrgencyLevel,
+  { color: string; bgColor: string; icon: typeof CheckCircle }
+> = {
   'self-care': { color: 'text-green-600', bgColor: 'bg-green-50', icon: CheckCircle },
   'schedule-visit': { color: 'text-blue-600', bgColor: 'bg-blue-50', icon: Calendar },
   'contact-team': { color: 'text-yellow-600', bgColor: 'bg-yellow-50', icon: MessageCircle },
@@ -140,9 +143,7 @@ export default function SymptomCheckerPage() {
           'Call 911 or have someone take you to the ER',
           'Bring your medication list',
         ],
-        actions: [
-          { label: 'Call 911', url: 'tel:911', icon: Phone },
-        ],
+        actions: [{ label: 'Call 911', url: 'tel:911', icon: Phone }],
       });
       setStep('result');
       return;
@@ -263,21 +264,21 @@ export default function SymptomCheckerPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto pb-24">
+    <div className="mx-auto max-w-2xl p-4 pb-24 md:p-6">
       {/* Header */}
       <div className="mb-6">
         {step !== 'select' && (
           <button
             onClick={() => setStep(step === 'result' ? 'details' : 'select')}
-            className="flex items-center gap-1 text-gray-600 hover:text-gray-900 mb-4"
+            className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Back
           </button>
         )}
         <h1 className="text-2xl font-bold text-gray-900">Symptom Checker</h1>
-        <p className="text-gray-600 mt-1">
-          {step === 'select' && 'Select any symptoms you\'re experiencing'}
+        <p className="mt-1 text-gray-600">
+          {step === 'select' && "Select any symptoms you're experiencing"}
           {step === 'details' && 'Tell us more about your symptoms'}
           {step === 'result' && 'Based on your symptoms'}
         </p>
@@ -285,14 +286,14 @@ export default function SymptomCheckerPage() {
 
       {/* Disclaimer */}
       {step === 'select' && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
             <div className="text-sm text-amber-800">
               <p className="font-medium">Important</p>
               <p>
-                This is not a diagnostic tool. If you&apos;re experiencing a medical emergency, call 911
-                immediately. For serious concerns, contact your care team.
+                This is not a diagnostic tool. If you&apos;re experiencing a medical emergency, call
+                911 immediately. For serious concerns, contact your care team.
               </p>
             </div>
           </div>
@@ -305,19 +306,19 @@ export default function SymptomCheckerPage() {
           {SYMPTOM_CATEGORIES.map((category) => {
             const CategoryIcon = category.icon;
             return (
-              <div key={category.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-100">
+              <div key={category.id} className="overflow-hidden rounded-xl bg-white shadow-sm">
+                <div className="border-b border-gray-100 p-4">
                   <div className="flex items-center gap-2">
-                    <CategoryIcon className="w-5 h-5" style={{ color: primaryColor }} />
+                    <CategoryIcon className="h-5 w-5" style={{ color: primaryColor }} />
                     <h3 className="font-semibold text-gray-900">{category.name}</h3>
                   </div>
                 </div>
-                <div className="p-4 grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 p-4">
                   {category.symptoms.map((symptom) => (
                     <button
                       key={symptom.id}
                       onClick={() => toggleSymptom(symptom.id)}
-                      className={`p-3 rounded-xl text-left text-sm font-medium transition-colors border-2 ${
+                      className={`rounded-xl border-2 p-3 text-left text-sm font-medium transition-colors ${
                         selectedSymptoms.includes(symptom.id)
                           ? 'border-opacity-100 bg-opacity-10'
                           : 'border-gray-100 hover:border-gray-200'
@@ -346,7 +347,7 @@ export default function SymptomCheckerPage() {
           <button
             onClick={() => setStep('details')}
             disabled={selectedSymptoms.length === 0}
-            className="w-full py-4 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-xl py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: primaryColor }}
           >
             Continue ({selectedSymptoms.length} selected)
@@ -358,13 +359,13 @@ export default function SymptomCheckerPage() {
       {step === 'details' && (
         <div className="space-y-6">
           {/* Selected Symptoms Summary */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Selected Symptoms</h3>
+          <div className="rounded-xl bg-gray-50 p-4">
+            <h3 className="mb-2 font-medium text-gray-900">Selected Symptoms</h3>
             <div className="flex flex-wrap gap-2">
               {getSelectedSymptomDetails().map((symptom) => (
                 <span
                   key={symptom.id}
-                  className="px-3 py-1 rounded-full text-sm font-medium"
+                  className="rounded-full px-3 py-1 text-sm font-medium"
                   style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
                 >
                   {symptom.name}
@@ -374,8 +375,10 @@ export default function SymptomCheckerPage() {
           </div>
 
           {/* Duration */}
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">How long have you had these symptoms?</h3>
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h3 className="mb-3 font-semibold text-gray-900">
+              How long have you had these symptoms?
+            </h3>
             <div className="space-y-2">
               {[
                 { value: 'today', label: 'Started today' },
@@ -386,7 +389,7 @@ export default function SymptomCheckerPage() {
                 <button
                   key={option.value}
                   onClick={() => setSymptomDuration(option.value)}
-                  className={`w-full p-3 rounded-xl text-left font-medium transition-colors border-2 ${
+                  className={`w-full rounded-xl border-2 p-3 text-left font-medium transition-colors ${
                     symptomDuration === option.value
                       ? 'border-opacity-100'
                       : 'border-gray-100 hover:border-gray-200'
@@ -404,8 +407,8 @@ export default function SymptomCheckerPage() {
           </div>
 
           {/* Severity */}
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">How severe are your symptoms?</h3>
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h3 className="mb-3 font-semibold text-gray-900">How severe are your symptoms?</h3>
             <div className="space-y-2">
               {[
                 { value: 'mild', label: 'Mild - Noticeable but manageable' },
@@ -415,7 +418,7 @@ export default function SymptomCheckerPage() {
                 <button
                   key={option.value}
                   onClick={() => setSymptomSeverity(option.value)}
-                  className={`w-full p-3 rounded-xl text-left font-medium transition-colors border-2 ${
+                  className={`w-full rounded-xl border-2 p-3 text-left font-medium transition-colors ${
                     symptomSeverity === option.value
                       ? 'border-opacity-100'
                       : 'border-gray-100 hover:border-gray-200'
@@ -435,7 +438,7 @@ export default function SymptomCheckerPage() {
           <button
             onClick={assessSymptoms}
             disabled={!symptomDuration || !symptomSeverity}
-            className="w-full py-4 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-xl py-4 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: primaryColor }}
           >
             Get Assessment
@@ -447,26 +450,22 @@ export default function SymptomCheckerPage() {
       {step === 'result' && assessment && (
         <div className="space-y-6">
           {/* Urgency Card */}
-          <div
-            className={`rounded-2xl p-6 ${URGENCY_CONFIG[assessment.urgency].bgColor}`}
-          >
-            <div className="flex items-center gap-3 mb-4">
+          <div className={`rounded-2xl p-6 ${URGENCY_CONFIG[assessment.urgency].bgColor}`}>
+            <div className="mb-4 flex items-center gap-3">
               {(() => {
                 const UrgencyIcon = URGENCY_CONFIG[assessment.urgency].icon;
                 return (
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center ${URGENCY_CONFIG[assessment.urgency].bgColor}`}
+                    className={`flex h-12 w-12 items-center justify-center rounded-full ${URGENCY_CONFIG[assessment.urgency].bgColor}`}
                   >
                     <UrgencyIcon
-                      className={`w-6 h-6 ${URGENCY_CONFIG[assessment.urgency].color}`}
+                      className={`h-6 w-6 ${URGENCY_CONFIG[assessment.urgency].color}`}
                     />
                   </div>
                 );
               })()}
               <div>
-                <h2
-                  className={`text-xl font-bold ${URGENCY_CONFIG[assessment.urgency].color}`}
-                >
+                <h2 className={`text-xl font-bold ${URGENCY_CONFIG[assessment.urgency].color}`}>
                   {assessment.title}
                 </h2>
               </div>
@@ -482,28 +481,28 @@ export default function SymptomCheckerPage() {
                 <Link
                   key={index}
                   href={action.url}
-                  className={`flex items-center justify-between p-4 rounded-xl font-medium transition-colors ${
+                  className={`flex items-center justify-between rounded-xl p-4 font-medium transition-colors ${
                     index === 0 ? 'text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                   }`}
                   style={index === 0 ? { backgroundColor: primaryColor } : {}}
                 >
                   <span className="flex items-center gap-2">
-                    <ActionIcon className="w-5 h-5" />
+                    <ActionIcon className="h-5 w-5" />
                     {action.label}
                   </span>
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="h-5 w-5" />
                 </Link>
               );
             })}
           </div>
 
           {/* Recommendations */}
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <h3 className="font-semibold text-gray-900 mb-3">Recommendations</h3>
+          <div className="rounded-xl bg-white p-4 shadow-sm">
+            <h3 className="mb-3 font-semibold text-gray-900">Recommendations</h3>
             <ul className="space-y-2">
               {assessment.recommendations.map((rec, index) => (
                 <li key={index} className="flex items-start gap-2 text-gray-700">
-                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <CheckCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-500" />
                   {rec}
                 </li>
               ))}
@@ -513,7 +512,7 @@ export default function SymptomCheckerPage() {
           {/* Start Over */}
           <button
             onClick={resetChecker}
-            className="w-full py-3 rounded-xl font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+            className="w-full rounded-xl bg-gray-100 py-3 font-medium text-gray-600 transition-colors hover:bg-gray-200"
           >
             Check Different Symptoms
           </button>

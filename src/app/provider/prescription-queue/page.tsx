@@ -869,16 +869,19 @@ export default function PrescriptionQueuePage() {
         const errorData = await response.json();
         // Build a more helpful error message
         let errorMessage = errorData.error || 'Failed to submit prescription';
-        if (errorData.details) {
-          const detailMessages = Object.entries(errorData.details)
-            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
-            .join('; ');
-          if (detailMessages) {
-            errorMessage += ` (${detailMessages})`;
+        // 503 = service busy / pool exhausted - show user-friendly message only, no technical detail
+        if (response.status !== 503) {
+          if (errorData.details) {
+            const detailMessages = Object.entries(errorData.details)
+              .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
+              .join('; ');
+            if (detailMessages) {
+              errorMessage += ` (${detailMessages})`;
+            }
           }
-        }
-        if (errorData.detail) {
-          errorMessage += `: ${errorData.detail}`;
+          if (errorData.detail) {
+            errorMessage += `: ${errorData.detail}`;
+          }
         }
         console.error('[Prescription Queue] Submission error:', errorData);
         setError(errorMessage);

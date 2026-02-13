@@ -17,13 +17,9 @@ const refundSchema = z.object({
   paymentId: z.number().optional(),
   stripeInvoiceId: z.string().optional(), // For invoice-based refunds
   amount: z.number().min(1).optional(), // Amount in cents, optional for full refund
-  reason: z.enum([
-    'requested_by_customer',
-    'duplicate',
-    'fraudulent',
-    'service_not_rendered',
-    'other'
-  ]).optional(),
+  reason: z
+    .enum(['requested_by_customer', 'duplicate', 'fraudulent', 'service_not_rendered', 'other'])
+    .optional(),
 });
 
 async function createRefundHandler(request: NextRequest, user: AuthUser) {
@@ -56,17 +52,11 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       });
 
       if (!payment) {
-        return NextResponse.json(
-          { error: 'Payment not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
       }
 
       if (payment.status !== 'SUCCEEDED') {
-        return NextResponse.json(
-          { error: 'Can only refund successful payments' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Can only refund successful payments' }, { status: 400 });
       }
 
       refundAmount = validated.amount || payment.amount;
@@ -84,30 +74,21 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       });
 
       if (!invoice) {
-        return NextResponse.json(
-          { error: 'Invoice not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
 
       // Use the first successful payment for refund
       payment = invoice.payments[0];
       refundAmount = validated.amount || invoice.amountPaid;
     } else {
-      return NextResponse.json(
-        { error: 'No valid payment reference found' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No valid payment reference found' }, { status: 400 });
     }
 
     if (!refundAmount || refundAmount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid refund amount' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid refund amount' }, { status: 400 });
     }
 
-    const maxRefundable = payment ? payment.amount : (invoice?.amountPaid || 0);
+    const maxRefundable = payment ? payment.amount : invoice?.amountPaid || 0;
     if (refundAmount > maxRefundable) {
       return NextResponse.json(
         { error: 'Refund amount cannot exceed payment amount' },
@@ -136,7 +117,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               refundedAmount: refundAmount,
               refundedAt: new Date(),
               metadata: {
-                ...(payment.metadata as object || {}),
+                ...((payment.metadata as object) || {}),
                 refundReason: validated.reason,
                 refundedBy: 'demo_mode',
               },
@@ -200,8 +181,11 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         refund = await stripe.refunds.create({
           payment_intent: payment.stripePaymentIntentId,
           amount: refundAmount,
-          reason: validated.reason === 'fraudulent' ? 'fraudulent'
-                : validated.reason === 'duplicate' ? 'duplicate'
+          reason:
+            validated.reason === 'fraudulent'
+              ? 'fraudulent'
+              : validated.reason === 'duplicate'
+                ? 'duplicate'
                 : 'requested_by_customer',
           metadata: {
             paymentId: payment.id.toString(),
@@ -211,9 +195,9 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         });
       } else if (validated.stripeInvoiceId) {
         // Try invoice-based refund via charge or payment_intent lookup
-        const stripeInvoice = await stripe.invoices.retrieve(validated.stripeInvoiceId, {
+        const stripeInvoice = (await stripe.invoices.retrieve(validated.stripeInvoiceId, {
           expand: ['payment_intent', 'charge'],
-        }) as Stripe.Invoice & {
+        })) as Stripe.Invoice & {
           charge?: string | Stripe.Charge | null;
           payment_intent?: string | Stripe.PaymentIntent | null;
         };
@@ -232,15 +216,19 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
 
         if (stripeInvoice.charge) {
           // Invoice has a direct charge
-          const chargeId = typeof stripeInvoice.charge === 'string'
-            ? stripeInvoice.charge
-            : stripeInvoice.charge.id;
+          const chargeId =
+            typeof stripeInvoice.charge === 'string'
+              ? stripeInvoice.charge
+              : stripeInvoice.charge.id;
 
           refund = await stripe.refunds.create({
             charge: chargeId,
             amount: refundAmount,
-            reason: validated.reason === 'fraudulent' ? 'fraudulent'
-                  : validated.reason === 'duplicate' ? 'duplicate'
+            reason:
+              validated.reason === 'fraudulent'
+                ? 'fraudulent'
+                : validated.reason === 'duplicate'
+                  ? 'duplicate'
                   : 'requested_by_customer',
             metadata: {
               invoiceId: validated.stripeInvoiceId,
@@ -249,15 +237,19 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
           });
         } else if (stripeInvoice.payment_intent) {
           // Invoice was paid via PaymentIntent (newer method)
-          const paymentIntentId = typeof stripeInvoice.payment_intent === 'string'
-            ? stripeInvoice.payment_intent
-            : stripeInvoice.payment_intent.id;
+          const paymentIntentId =
+            typeof stripeInvoice.payment_intent === 'string'
+              ? stripeInvoice.payment_intent
+              : stripeInvoice.payment_intent.id;
 
           refund = await stripe.refunds.create({
             payment_intent: paymentIntentId,
             amount: refundAmount,
-            reason: validated.reason === 'fraudulent' ? 'fraudulent'
-                  : validated.reason === 'duplicate' ? 'duplicate'
+            reason:
+              validated.reason === 'fraudulent'
+                ? 'fraudulent'
+                : validated.reason === 'duplicate'
+                  ? 'duplicate'
                   : 'requested_by_customer',
             metadata: {
               invoiceId: validated.stripeInvoiceId,
@@ -275,9 +267,10 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
 
           // Try to find payment via Stripe API - search for charges with this invoice
           try {
-            const customerId = typeof stripeInvoice.customer === 'string'
-              ? stripeInvoice.customer
-              : stripeInvoice.customer?.id;
+            const customerId =
+              typeof stripeInvoice.customer === 'string'
+                ? stripeInvoice.customer
+                : stripeInvoice.customer?.id;
 
             if (customerId) {
               // List recent charges for this customer
@@ -287,10 +280,11 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               });
 
               // Find a charge that matches the invoice amount
-              const matchingCharge = charges.data.find(charge =>
-                charge.amount === stripeInvoice.amount_paid &&
-                charge.status === 'succeeded' &&
-                !charge.refunded
+              const matchingCharge = charges.data.find(
+                (charge) =>
+                  charge.amount === stripeInvoice.amount_paid &&
+                  charge.status === 'succeeded' &&
+                  !charge.refunded
               );
 
               if (matchingCharge) {
@@ -302,8 +296,11 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                 refund = await stripe.refunds.create({
                   charge: matchingCharge.id,
                   amount: refundAmount,
-                  reason: validated.reason === 'fraudulent' ? 'fraudulent'
-                        : validated.reason === 'duplicate' ? 'duplicate'
+                  reason:
+                    validated.reason === 'fraudulent'
+                      ? 'fraudulent'
+                      : validated.reason === 'duplicate'
+                        ? 'duplicate'
                         : 'requested_by_customer',
                   metadata: {
                     invoiceId: validated.stripeInvoiceId,
@@ -317,9 +314,8 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                   limit: 20,
                 });
 
-                const matchingPI = paymentIntents.data.find(pi =>
-                  pi.amount === stripeInvoice.amount_paid &&
-                  pi.status === 'succeeded'
+                const matchingPI = paymentIntents.data.find(
+                  (pi) => pi.amount === stripeInvoice.amount_paid && pi.status === 'succeeded'
                 );
 
                 if (matchingPI) {
@@ -331,8 +327,11 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                   refund = await stripe.refunds.create({
                     payment_intent: matchingPI.id,
                     amount: refundAmount,
-                    reason: validated.reason === 'fraudulent' ? 'fraudulent'
-                          : validated.reason === 'duplicate' ? 'duplicate'
+                    reason:
+                      validated.reason === 'fraudulent'
+                        ? 'fraudulent'
+                        : validated.reason === 'duplicate'
+                          ? 'duplicate'
                           : 'requested_by_customer',
                     metadata: {
                       invoiceId: validated.stripeInvoiceId,
@@ -356,7 +355,8 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
 
             return NextResponse.json(
               {
-                error: 'No charge found for this invoice. Please refund directly from Stripe dashboard.',
+                error:
+                  'No charge found for this invoice. Please refund directly from Stripe dashboard.',
                 invoiceStatus: stripeInvoice.status,
                 amountPaid: stripeInvoice.amount_paid,
               },
@@ -388,7 +388,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                 refundedAt: new Date(),
                 stripeRefundId: refund.id,
                 metadata: {
-                  ...(payment.metadata as object || {}),
+                  ...((payment.metadata as object) || {}),
                   refundReason: validated.reason,
                   stripeRefundId: refund.id,
                 },
@@ -454,7 +454,6 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         },
         dbUpdateSuccess, // Let frontend know if DB update failed
       });
-
     } catch (stripeError: any) {
       logger.error('[Refunds] Stripe error:', stripeError);
 
@@ -466,7 +465,6 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         { status: 500 }
       );
     }
-
   } catch (error: any) {
     logger.error('[Refunds] Error processing refund:', error);
 
@@ -497,10 +495,7 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
     const paymentId = searchParams.get('paymentId');
 
     const where: any = {
-      OR: [
-        { status: 'REFUNDED' },
-        { status: 'PARTIALLY_REFUNDED' },
-      ],
+      OR: [{ status: 'REFUNDED' }, { status: 'PARTIALLY_REFUNDED' }],
     };
 
     if (patientId) {
@@ -522,21 +517,31 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
         },
       },
       orderBy: { refundedAt: 'desc' },
+      take: 100,
     });
 
     return NextResponse.json({
       success: true,
-      refunds: refundedPayments.map((p: { stripeRefundId: string | null; id: number; refundedAmount: number | null; status: string; refundedAt: Date | null; patient: unknown; invoice: unknown }) => ({
-        id: p.stripeRefundId || `db_${p.id}`,
-        paymentId: p.id,
-        amount: p.refundedAmount,
-        status: p.status,
-        refundedAt: p.refundedAt,
-        patient: p.patient,
-        invoice: p.invoice,
-      })),
+      refunds: refundedPayments.map(
+        (p: {
+          stripeRefundId: string | null;
+          id: number;
+          refundedAmount: number | null;
+          status: string;
+          refundedAt: Date | null;
+          patient: unknown;
+          invoice: unknown;
+        }) => ({
+          id: p.stripeRefundId || `db_${p.id}`,
+          paymentId: p.id,
+          amount: p.refundedAmount,
+          status: p.status,
+          refundedAt: p.refundedAt,
+          patient: p.patient,
+          invoice: p.invoice,
+        })
+      ),
     });
-
   } catch (error: any) {
     logger.error('[Refunds] Error fetching refunds:', error);
 

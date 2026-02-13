@@ -216,9 +216,7 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
           : sesConfig.replyToEmail
             ? [sesConfig.replyToEmail]
             : undefined,
-        ...(sesConfig.configurationSet
-          ? { ConfigurationSetName: sesConfig.configurationSet }
-          : {}),
+        ...(sesConfig.configurationSet ? { ConfigurationSetName: sesConfig.configurationSet } : {}),
       });
 
       // SOC 2 Compliance: Wrapped with circuit breaker for availability

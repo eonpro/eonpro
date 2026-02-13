@@ -92,26 +92,31 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
 
     // Extract intake data - either from IntakeFormSubmission or invoice metadata
     let intakeData: Record<string, unknown> = {};
-    let intakeSections: Array<{ section: string; questions: Array<{ question: string; answer: string }> }> = [];
+    let intakeSections: Array<{
+      section: string;
+      questions: Array<{ question: string; answer: string }>;
+    }> = [];
 
     // Check for internal intake form submissions
     if (invoice.patient.intakeSubmissions && invoice.patient.intakeSubmissions.length > 0) {
       const submission = invoice.patient.intakeSubmissions[0];
       const sectionMap: Record<string, Array<{ question: string; answer: string }>> = {};
 
-      submission.responses.forEach((response: {
-        answer: string | null;
-        question: { questionText: string; section: string | null };
-      }) => {
-        const section = response.question.section || 'General';
-        if (!sectionMap[section]) {
-          sectionMap[section] = [];
+      submission.responses.forEach(
+        (response: {
+          answer: string | null;
+          question: { questionText: string; section: string | null };
+        }) => {
+          const section = response.question.section || 'General';
+          if (!sectionMap[section]) {
+            sectionMap[section] = [];
+          }
+          sectionMap[section].push({
+            question: response.question.questionText,
+            answer: response.answer || '',
+          });
         }
-        sectionMap[section].push({
-          question: response.question.questionText,
-          answer: response.answer || '',
-        });
-      });
+      );
 
       intakeSections = Object.entries(sectionMap).map(([section, questions]) => ({
         section,
@@ -135,7 +140,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
 
       // Parse Heyflow metadata into sections
       const heyflowSections: Record<string, Array<{ question: string; answer: string }>> = {
-        'Treatment': [],
+        Treatment: [],
         'Medical History': [],
         'Personal Information': [],
       };
@@ -178,7 +183,10 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         // Check if it looks encrypted (3 base64 parts with colons)
         // Min length of 2 to handle short encrypted values like state codes
         const parts = value.split(':');
-        if (parts.length === 3 && parts.every(p => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+        if (
+          parts.length === 3 &&
+          parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)
+        ) {
           return decryptPHI(value);
         }
         return value; // Not encrypted, return as-is
@@ -257,23 +265,25 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         sections: intakeSections,
       },
       // CRITICAL: SOAP note for clinical documentation
-      soapNote: fullSoapNote ? {
-        id: fullSoapNote.id,
-        status: fullSoapNote.status,
-        createdAt: fullSoapNote.createdAt,
-        approvedAt: fullSoapNote.approvedAt,
-        isApproved: fullSoapNote.status === 'APPROVED' || fullSoapNote.status === 'LOCKED',
-        sourceType: fullSoapNote.sourceType,
-        generatedByAI: fullSoapNote.generatedByAI,
-        approvedByProvider: fullSoapNote.approvedByProvider,
-        content: {
-          subjective: fullSoapNote.subjective,
-          objective: fullSoapNote.objective,
-          assessment: fullSoapNote.assessment,
-          plan: fullSoapNote.plan,
-          medicalNecessity: fullSoapNote.medicalNecessity,
-        },
-      } : null,
+      soapNote: fullSoapNote
+        ? {
+            id: fullSoapNote.id,
+            status: fullSoapNote.status,
+            createdAt: fullSoapNote.createdAt,
+            approvedAt: fullSoapNote.approvedAt,
+            isApproved: fullSoapNote.status === 'APPROVED' || fullSoapNote.status === 'LOCKED',
+            sourceType: fullSoapNote.sourceType,
+            generatedByAI: fullSoapNote.generatedByAI,
+            approvedByProvider: fullSoapNote.approvedByProvider,
+            content: {
+              subjective: fullSoapNote.subjective,
+              objective: fullSoapNote.objective,
+              assessment: fullSoapNote.assessment,
+              plan: fullSoapNote.plan,
+              medicalNecessity: fullSoapNote.medicalNecessity,
+            },
+          }
+        : null,
       hasSoapNote: fullSoapNote !== null,
       soapNoteStatus: fullSoapNote?.status || 'MISSING',
     };
@@ -285,10 +295,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch queue item details' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch queue item details' }, { status: 500 });
   }
 }
 

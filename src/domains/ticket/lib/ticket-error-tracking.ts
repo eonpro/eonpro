@@ -9,6 +9,7 @@
  */
 
 import { captureException } from '@/lib/observability';
+import { logger } from '@/lib/logger';
 
 export interface TicketErrorContext {
   /** API route e.g. 'GET /api/tickets', 'POST /api/tickets/[id]/comments' */
@@ -43,8 +44,6 @@ export function reportTicketError(error: unknown, context: TicketErrorContext): 
     });
   } catch (reportError) {
     // Never throw from error reporting
-    if (typeof console !== 'undefined' && console.error) {
-      console.error('[TicketErrorTracking] Failed to report error', reportError);
-    }
+    logger.error('[TicketErrorTracking] Failed to report error', { error: reportError instanceof Error ? reportError.message : String(reportError) });
   }
 }

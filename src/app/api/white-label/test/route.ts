@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       results.tests.clinicList = {
         status: 'PASS',
         message: `Found ${clinics.length} clinics`,
-        clinics: clinics.map((c: typeof clinics[0]) => ({
+        clinics: clinics.map((c: (typeof clinics)[0]) => ({
           id: c.id,
           name: c.name,
           subdomain: c.subdomain,

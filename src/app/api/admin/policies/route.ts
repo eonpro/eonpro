@@ -1,9 +1,9 @@
 /**
  * Policy Management API
- * 
+ *
  * GET  /api/admin/policies - List all policies with approval status
  * POST /api/admin/policies/approve - Approve a policy (digital signature)
- * 
+ *
  * SOC 2 Requirement: Digital signatures for policy approvals
  */
 
@@ -15,6 +15,7 @@ import {
   generateComplianceReport,
   exportApprovalCertificate,
 } from '@/lib/policies/policy-service';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/admin/policies
@@ -42,26 +43,29 @@ async function handleGet(req: NextRequest) {
     const policies = await getAllPoliciesWithStatus();
     return NextResponse.json({ policies });
   } catch (error: unknown) {
-    console.error('Error fetching policies:', error);
-    
+    logger.error('Error fetching policies', { error: error instanceof Error ? error.message : String(error) });
+
     // Check if it's a database table not found error
     const prismaError = error as { code?: string; meta?: { table?: string } };
-    if (prismaError.code === 'P2021' || (error instanceof Error && error.message.includes('does not exist'))) {
+    if (
+      prismaError.code === 'P2021' ||
+      (error instanceof Error && error.message.includes('does not exist'))
+    ) {
       return NextResponse.json(
-        { 
+        {
           error: 'Policy tables not initialized. Please run database migrations.',
           setup_required: true,
-          instructions: 'Run: npx prisma db push && npx tsx scripts/seed-policies.ts'
+          instructions: 'Run: npx prisma db push && npx tsx scripts/seed-policies.ts',
         },
         { status: 503 }
       );
     }
-    
+
     // Return error details for debugging
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch policies',
         message: errorMessage,
       },
@@ -79,10 +83,7 @@ async function handlePost(req: NextRequest, user: any) {
   const { policyId, approvalType } = body;
 
   if (!policyId || !approvalType) {
-    return NextResponse.json(
-      { error: 'policyId and approvalType are required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'policyId and approvalType are required' }, { status: 400 });
   }
 
   // Validate approval type
@@ -96,10 +97,7 @@ async function handlePost(req: NextRequest, user: any) {
 
   // Only super_admin can approve policies
   if (user.role !== 'super_admin') {
-    return NextResponse.json(
-      { error: 'Only super admins can approve policies' },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: 'Only super admins can approve policies' }, { status: 403 });
   }
 
   // Get client IP

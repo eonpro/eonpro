@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Leaderboard Page
- * 
+ *
  * Shows global rankings, active competitions, and the user's position.
  * Supports multiple metrics and time periods.
  */
@@ -105,27 +105,27 @@ const formatCurrency = (cents: number) => {
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
-      <div className="w-10 h-10 bg-gradient-to-br from-amber-300 to-amber-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200">
-        <Crown className="w-5 h-5 text-white" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 shadow-lg shadow-amber-200">
+        <Crown className="h-5 w-5 text-white" />
       </div>
     );
   }
   if (rank === 2) {
     return (
-      <div className="w-10 h-10 bg-gradient-to-br from-gray-300 to-gray-400 rounded-xl flex items-center justify-center">
-        <Medal className="w-5 h-5 text-white" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gray-300 to-gray-400">
+        <Medal className="h-5 w-5 text-white" />
       </div>
     );
   }
   if (rank === 3) {
     return (
-      <div className="w-10 h-10 bg-gradient-to-br from-orange-300 to-orange-500 rounded-xl flex items-center justify-center">
-        <Medal className="w-5 h-5 text-white" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-300 to-orange-500">
+        <Medal className="h-5 w-5 text-white" />
       </div>
     );
   }
   return (
-    <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
       <span className="font-bold text-gray-600">{rank}</span>
     </div>
   );
@@ -135,7 +135,10 @@ export default function LeaderboardPage() {
   // State
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [competitions, setCompetitions] = useState<{ active: Competition[]; upcoming: Competition[] }>({
+  const [competitions, setCompetitions] = useState<{
+    active: Competition[];
+    upcoming: Competition[];
+  }>({
     active: [],
     upcoming: [],
   });
@@ -180,14 +183,14 @@ export default function LeaderboardPage() {
     fetchData();
   }, [selectedMetric, selectedPeriod]);
 
-  const selectedMetricObj = METRICS.find(m => m.value === selectedMetric) || METRICS[1];
-  const selectedPeriodObj = PERIODS.find(p => p.value === selectedPeriod) || PERIODS[1];
+  const selectedMetricObj = METRICS.find((m) => m.value === selectedMetric) || METRICS[1];
+  const selectedPeriodObj = PERIODS.find((p) => p.value === selectedPeriod) || PERIODS[1];
   const MetricIcon = selectedMetricObj.icon;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
       </div>
     );
   }
@@ -195,11 +198,11 @@ export default function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white px-6 py-6 border-b border-gray-100">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-              <Trophy className="w-5 h-5 text-amber-500" />
+      <header className="border-b border-gray-100 bg-white px-6 py-6">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-2 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+              <Trophy className="h-5 w-5 text-amber-500" />
             </div>
             <h1 className="text-2xl font-semibold text-gray-900">Leaderboard</h1>
           </div>
@@ -207,40 +210,40 @@ export default function LeaderboardPage() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
         {/* Your Position Card */}
         {currentUser && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl p-6"
+            className="rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 p-6 text-white"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm mb-1">Your Position</p>
+                <p className="mb-1 text-sm text-gray-400">Your Position</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-bold">#{currentUser.rank}</span>
                   <span className="text-gray-400">of {currentUser.totalParticipants}</span>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-gray-400 text-sm mb-1">{selectedMetricObj.label}</p>
+                <p className="mb-1 text-sm text-gray-400">{selectedMetricObj.label}</p>
                 <p className="text-2xl font-semibold">
-                  {selectedMetric === 'REVENUE' 
-                    ? formatCurrency(currentUser.value) 
+                  {selectedMetric === 'REVENUE'
+                    ? formatCurrency(currentUser.value)
                     : currentUser.value.toLocaleString()}
                 </p>
               </div>
             </div>
 
             {!currentUser.isOptedIn && (
-              <div className="mt-4 pt-4 border-t border-gray-700">
+              <div className="mt-4 border-t border-gray-700 pt-4">
                 <p className="text-sm text-gray-400">
                   You're shown as "Partner #{currentUser.rank}" on the public leaderboard.
                 </p>
                 <Link
                   href="/affiliate/account"
-                  className="inline-block mt-2 text-sm text-amber-400 hover:text-amber-300"
+                  className="mt-2 inline-block text-sm text-amber-400 hover:text-amber-300"
                 >
                   Opt in to show your name →
                 </Link>
@@ -256,26 +259,28 @@ export default function LeaderboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Flame className="w-5 h-5 text-orange-500" />
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Flame className="h-5 w-5 text-orange-500" />
               Active Competitions
             </h2>
             <div className="space-y-3">
               {competitions.active.map((comp) => (
-                <div key={comp.id} className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <div className="flex items-start justify-between mb-4">
+                <div key={comp.id} className="rounded-2xl border border-gray-100 bg-white p-5">
+                  <div className="mb-4 flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold text-gray-900">{comp.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{comp.description}</p>
+                      <p className="mt-1 text-sm text-gray-500">{comp.description}</p>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center gap-1 text-orange-500 text-sm font-medium">
-                        <Clock className="w-4 h-4" />
-                        {comp.timeRemainingMs ? formatTimeRemaining(comp.timeRemainingMs) : 'Ending soon'}
+                      <div className="flex items-center gap-1 text-sm font-medium text-orange-500">
+                        <Clock className="h-4 w-4" />
+                        {comp.timeRemainingMs
+                          ? formatTimeRemaining(comp.timeRemainingMs)
+                          : 'Ending soon'}
                       </div>
                       {comp.prizeDescription && (
-                        <p className="text-xs text-amber-600 mt-1 flex items-center gap-1 justify-end">
-                          <Trophy className="w-3 h-3" />
+                        <p className="mt-1 flex items-center justify-end gap-1 text-xs text-amber-600">
+                          <Trophy className="h-3 w-3" />
                           {comp.prizeDescription}
                         </p>
                       )}
@@ -284,7 +289,7 @@ export default function LeaderboardPage() {
 
                   {/* My standing */}
                   {comp.isParticipating && (
-                    <div className="bg-green-50 rounded-xl p-3 mb-4">
+                    <div className="mb-4 rounded-xl bg-green-50 p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-green-700">Your Rank</span>
                         <span className="font-bold text-green-900">
@@ -299,13 +304,15 @@ export default function LeaderboardPage() {
                     {comp.topParticipants.map((entry) => (
                       <div
                         key={entry.rank}
-                        className={`flex items-center justify-between p-2 rounded-lg ${
+                        className={`flex items-center justify-between rounded-lg p-2 ${
                           entry.isCurrentUser ? 'bg-amber-50' : 'bg-gray-50'
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <RankBadge rank={entry.rank} />
-                          <span className={`font-medium ${entry.isCurrentUser ? 'text-amber-900' : 'text-gray-900'}`}>
+                          <span
+                            className={`font-medium ${entry.isCurrentUser ? 'text-amber-900' : 'text-gray-900'}`}
+                          >
                             {entry.displayName}
                             {entry.isCurrentUser && ' (You)'}
                           </span>
@@ -327,26 +334,30 @@ export default function LeaderboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Target className="w-5 h-5 text-blue-500" />
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Target className="h-5 w-5 text-blue-500" />
               Upcoming Competitions
             </h2>
             <div className="space-y-3">
               {competitions.upcoming.map((comp) => (
-                <div key={comp.id} className="bg-white rounded-2xl p-5 border border-gray-100 opacity-75">
+                <div
+                  key={comp.id}
+                  className="rounded-2xl border border-gray-100 bg-white p-5 opacity-75"
+                >
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold text-gray-900">{comp.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{comp.description}</p>
+                      <p className="mt-1 text-sm text-gray-500">{comp.description}</p>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center gap-1 text-blue-500 text-sm font-medium">
-                        <Clock className="w-4 h-4" />
-                        Starts in {comp.timeToStartMs ? formatTimeRemaining(comp.timeToStartMs) : 'soon'}
+                      <div className="flex items-center gap-1 text-sm font-medium text-blue-500">
+                        <Clock className="h-4 w-4" />
+                        Starts in{' '}
+                        {comp.timeToStartMs ? formatTimeRemaining(comp.timeToStartMs) : 'soon'}
                       </div>
                       {comp.prizeDescription && (
-                        <p className="text-xs text-amber-600 mt-1 flex items-center gap-1 justify-end">
-                          <Trophy className="w-3 h-3" />
+                        <p className="mt-1 flex items-center justify-end gap-1 text-xs text-amber-600">
+                          <Trophy className="h-3 w-3" />
                           {comp.prizeDescription}
                         </p>
                       )}
@@ -363,10 +374,10 @@ export default function LeaderboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl"
+          className="rounded-2xl bg-white"
         >
           {/* Filters */}
-          <div className="p-4 border-b border-gray-100">
+          <div className="border-b border-gray-100 p-4">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Global Rankings</h2>
               <div className="flex gap-2">
@@ -377,14 +388,14 @@ export default function LeaderboardPage() {
                       setShowMetricDropdown(!showMetricDropdown);
                       setShowPeriodDropdown(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
+                    className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
                   >
-                    <MetricIcon className="w-4 h-4" />
+                    <MetricIcon className="h-4 w-4" />
                     {selectedMetricObj.label}
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </button>
                   {showMetricDropdown && (
-                    <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
+                    <div className="absolute right-0 z-10 mt-1 w-40 rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
                       {METRICS.map((metric) => {
                         const Icon = metric.icon;
                         return (
@@ -394,11 +405,13 @@ export default function LeaderboardPage() {
                               setSelectedMetric(metric.value);
                               setShowMetricDropdown(false);
                             }}
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${
-                              selectedMetric === metric.value ? 'text-gray-900 font-medium' : 'text-gray-600'
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${
+                              selectedMetric === metric.value
+                                ? 'font-medium text-gray-900'
+                                : 'text-gray-600'
                             }`}
                           >
-                            <Icon className="w-4 h-4" />
+                            <Icon className="h-4 w-4" />
                             {metric.label}
                           </button>
                         );
@@ -414,13 +427,13 @@ export default function LeaderboardPage() {
                       setShowPeriodDropdown(!showPeriodDropdown);
                       setShowMetricDropdown(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
+                    className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
                   >
                     {selectedPeriodObj.label}
-                    <ChevronDown className="w-4 h-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </button>
                   {showPeriodDropdown && (
-                    <div className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
+                    <div className="absolute right-0 z-10 mt-1 w-36 rounded-lg border border-gray-100 bg-white py-1 shadow-lg">
                       {PERIODS.map((period) => (
                         <button
                           key={period.value}
@@ -428,8 +441,10 @@ export default function LeaderboardPage() {
                             setSelectedPeriod(period.value);
                             setShowPeriodDropdown(false);
                           }}
-                          className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 ${
-                            selectedPeriod === period.value ? 'text-gray-900 font-medium' : 'text-gray-600'
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                            selectedPeriod === period.value
+                              ? 'font-medium text-gray-900'
+                              : 'text-gray-600'
                           }`}
                         >
                           {period.label}
@@ -446,7 +461,7 @@ export default function LeaderboardPage() {
           <div className="divide-y divide-gray-100">
             {leaderboard.length === 0 ? (
               <div className="p-8 text-center">
-                <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <Users className="mx-auto mb-2 h-10 w-10 text-gray-300" />
                 <p className="text-gray-500">No rankings yet for this period</p>
               </div>
             ) : (
@@ -463,10 +478,12 @@ export default function LeaderboardPage() {
                   <div className="flex items-center gap-3">
                     <RankBadge rank={entry.rank} />
                     <div>
-                      <p className={`font-medium ${entry.isCurrentUser ? 'text-amber-900' : 'text-gray-900'}`}>
+                      <p
+                        className={`font-medium ${entry.isCurrentUser ? 'text-amber-900' : 'text-gray-900'}`}
+                      >
                         {entry.displayName}
                         {entry.isCurrentUser && (
-                          <span className="ml-2 text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+                          <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs text-amber-800">
                             You
                           </span>
                         )}

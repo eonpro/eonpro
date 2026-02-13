@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth';
-import { ticketService } from '@/domains/ticket';
+import { ticketService, reportTicketError } from '@/domains/ticket';
 import { handleApiError } from '@/domains/shared/errors';
 
 interface RouteParams {
@@ -26,10 +26,7 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -57,6 +54,14 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
       },
     });
   } catch (error) {
-    return handleApiError(error, { route: `GET /api/tickets/${(await params).id}/activity` });
+    const { id } = await params;
+    reportTicketError(error, {
+      route: `GET /api/tickets/${id}/activity`,
+      ticketId: parseInt(id, 10),
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'get_activity',
+    });
+    return handleApiError(error, { route: `GET /api/tickets/${id}/activity` });
   }
 });

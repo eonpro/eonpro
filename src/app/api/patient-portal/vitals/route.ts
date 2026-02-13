@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 
 /**
  * GET /api/patient-portal/vitals
- * 
+ *
  * Returns the patient's initial intake vitals (height, weight, BMI)
  * from their intake form submission.
- * 
+ *
  * These vitals are read-only and represent the initial measurements
  * recorded during the intake process.
  */
@@ -66,7 +68,12 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         }
       }
       // Handle serialized buffer format { type: 'Buffer', data: [...] }
-      if (doc.data && typeof doc.data === 'object' && doc.data.type === 'Buffer' && Array.isArray(doc.data.data)) {
+      if (
+        doc.data &&
+        typeof doc.data === 'object' &&
+        doc.data.type === 'Buffer' &&
+        Array.isArray(doc.data.data)
+      ) {
         try {
           const jsonStr = Buffer.from(doc.data.data).toString('utf-8');
           return { ...doc, data: JSON.parse(jsonStr) };
@@ -82,17 +89,36 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     logger.info('Patient portal vitals fetched', { patientId });
 
+    try {
+      await auditLog(request, {
+        userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: patient.clinicId ?? undefined,
+        eventType: AuditEventType.PHI_VIEW,
+        resourceType: 'Patient',
+        resourceId: String(patientId),
+        patientId,
+        action: 'portal_vitals',
+        outcome: 'SUCCESS',
+      });
+    } catch (auditErr: unknown) {
+      logger.warn('Failed to create HIPAA audit log for portal vitals', {
+        patientId,
+        userId: user.id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: vitals,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to fetch patient vitals', { error: errorMessage });
-    return NextResponse.json(
-      { error: 'Failed to fetch vitals' },
-      { status: 500 }
-    );
+    return handleApiError(error, {
+      route: 'GET /api/patient-portal/vitals',
+      context: { patientId: user?.patientId },
+    });
   }
 });
 
@@ -100,10 +126,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
  * Extract vitals from intake documents and submissions
  * Based on the same logic used in the provider patient profile page
  */
-function extractVitals(
-  documentsWithParsedData: any[],
-  intakeSubmissions: any[]
-): Vitals {
+function extractVitals(documentsWithParsedData: any[], intakeSubmissions: any[]): Vitals {
   const result: Vitals = {
     height: null,
     weight: null,
@@ -130,11 +153,7 @@ function extractVitals(
             for (const entry of section.entries) {
               const entryLabel = (entry.label || '').toLowerCase();
               for (const label of labels) {
-                if (
-                  entryLabel.includes(label.toLowerCase()) &&
-                  entry.value &&
-                  entry.value !== ''
-                ) {
+                if (entryLabel.includes(label.toLowerCase()) && entry.value && entry.value !== '') {
                   return String(entry.value);
                 }
               }
@@ -148,11 +167,7 @@ function extractVitals(
         for (const answer of intakeDoc.data.answers) {
           const answerLabel = (answer.label || '').toLowerCase();
           for (const label of labels) {
-            if (
-              answerLabel.includes(label.toLowerCase()) &&
-              answer.value &&
-              answer.value !== ''
-            ) {
+            if (answerLabel.includes(label.toLowerCase()) && answer.value && answer.value !== '') {
               return String(answer.value);
             }
           }
@@ -215,7 +230,7 @@ function extractVitals(
 
   // Extract BMI - or calculate it if we have height and weight
   let bmiValue = findValue('bmi');
-  
+
   if (!bmiValue && result.height && result.weight) {
     // Try to calculate BMI from height and weight
     const calculatedBmi = calculateBMI(result.height, result.weight);
@@ -223,7 +238,7 @@ function extractVitals(
       bmiValue = calculatedBmi.toFixed(2);
     }
   }
-  
+
   result.bmi = bmiValue;
 
   return result;
@@ -240,7 +255,7 @@ function calculateBMI(heightStr: string, weightStr: string): number | null {
 
     // Parse height (could be "5'8"", "5'8", "68 inches", "68", etc.)
     let heightInches: number;
-    
+
     // Check for feet/inches format (e.g., "5'8"" or "5'8")
     const feetInchMatch = heightStr.match(/(\d+)'(\d+)/);
     if (feetInchMatch) {
@@ -256,10 +271,10 @@ function calculateBMI(heightStr: string, weightStr: string): number | null {
 
     // BMI formula for lbs and inches: (weight / height²) × 703
     const bmi = (weight / (heightInches * heightInches)) * 703;
-    
+
     // Sanity check - BMI should be between 10 and 100
     if (bmi < 10 || bmi > 100) return null;
-    
+
     return bmi;
   } catch {
     return null;

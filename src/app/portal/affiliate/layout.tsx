@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 
 // Default logo
-const DEFAULT_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const DEFAULT_LOGO =
+  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 
 interface ClinicBranding {
   clinicId: number;
@@ -62,7 +63,7 @@ const mobileNavItems = [
 export default function AffiliatePortalLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
@@ -74,7 +75,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     const checkAuthAndLoadBranding = async () => {
       const user = localStorage.getItem('user');
       const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-      
+
       if (!user || !token) {
         router.push('/login?redirect=/portal/affiliate&reason=no_session');
         return;
@@ -82,26 +83,26 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
 
       try {
         const data = JSON.parse(user);
-        
+
         // Verify user has affiliate role
         if (data.role?.toLowerCase() !== 'affiliate') {
           router.push('/login?redirect=/portal/affiliate&reason=invalid_role');
           return;
         }
-        
+
         setUserData(data);
 
         // Fetch branding
         const response = await fetch('/api/affiliate/branding', {
           headers: {
-            'Authorization': `Bearer ${token}`,
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         if (response.ok) {
           const brandingData = await response.json();
           setBranding(brandingData);
-          
+
           // Apply branding to document
           if (brandingData.customCss) {
             let styleEl = document.getElementById('affiliate-custom-css');
@@ -128,7 +129,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
         router.push('/login?redirect=/portal/affiliate&reason=invalid_session');
         return;
       }
-      
+
       setIsLoading(false);
     };
 
@@ -143,7 +144,11 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(() => {});
+    if (token)
+      fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('affiliate-token');
@@ -157,7 +162,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     const refCode = userData?.refCode || 'affiliate';
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${refCode}`;
-    
+
     try {
       await navigator.clipboard.writeText(link);
       setCopiedLink(true);
@@ -259,9 +264,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
 
         <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
           {sidebarExpanded && branding && (
-            <div className="truncate px-3 py-2 text-xs text-gray-500">
-              {branding.affiliateName}
-            </div>
+            <div className="truncate px-3 py-2 text-xs text-gray-500">{branding.affiliateName}</div>
           )}
           <button
             type="button"
@@ -281,10 +284,10 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
       <header className="fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden">
         <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4">
           <Link href="/portal/affiliate" className="flex items-center gap-3">
-            <img 
-              src={branding?.logoUrl || DEFAULT_LOGO} 
-              alt={branding?.clinicName || 'Affiliate Portal'} 
-              className="h-8 w-auto max-w-[120px] object-contain" 
+            <img
+              src={branding?.logoUrl || DEFAULT_LOGO}
+              alt={branding?.clinicName || 'Affiliate Portal'}
+              className="h-8 w-auto max-w-[120px] object-contain"
             />
           </Link>
           <div className="flex items-center gap-1">
@@ -360,9 +363,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
       <main
         className={`flex-1 transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        <div className="min-h-screen pb-24 pt-[56px] lg:pb-8 lg:pt-0">
-          {children}
-        </div>
+        <div className="min-h-screen pb-24 pt-[56px] lg:pb-8 lg:pt-0">{children}</div>
       </main>
 
       {/* Mobile Bottom Navigation */}

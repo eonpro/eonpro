@@ -6,25 +6,25 @@ The following shipping services are now available in the Lifefile integration:
 
 ### Complete List of Shipping Services
 
-| Service ID | Service Name                    | Description                           |
-|------------|--------------------------------|---------------------------------------|
-| 9          | PATIENT PICKUP                 | Patient picks up from pharmacy       |
-| 8065       | PROVIDER PICK UP               | Provider picks up from pharmacy      |
-| 8086       | PROVIDER DELIVERY              | Delivered to provider location        |
-| 8113       | UPS SATURDAY DELIVERY          | UPS Saturday delivery service         |
-| 8115       | UPS - OVERNIGHT                | UPS standard overnight delivery       |
-| 8116       | UPS - OVERNIGHT EARLY AM       | UPS early morning overnight delivery  |
-| 8117       | UPS - OVERNIGHT SAVER          | UPS overnight saver service           |
-| **8200**   | **UPS - SECOND DAY AIR** ✨    | **UPS 2-day air delivery (NEW)**     |
-| **8097**   | **UPS - NEXT DAY - FLORIDA** ✨ | **UPS next day Florida service (NEW)**|
+| Service ID | Service Name                    | Description                            |
+| ---------- | ------------------------------- | -------------------------------------- |
+| 9          | PATIENT PICKUP                  | Patient picks up from pharmacy         |
+| 8065       | PROVIDER PICK UP                | Provider picks up from pharmacy        |
+| 8086       | PROVIDER DELIVERY               | Delivered to provider location         |
+| 8113       | UPS SATURDAY DELIVERY           | UPS Saturday delivery service          |
+| 8115       | UPS - OVERNIGHT                 | UPS standard overnight delivery        |
+| 8116       | UPS - OVERNIGHT EARLY AM        | UPS early morning overnight delivery   |
+| 8117       | UPS - OVERNIGHT SAVER           | UPS overnight saver service            |
+| **8200**   | **UPS - SECOND DAY AIR** ✨     | **UPS 2-day air delivery (NEW)**       |
+| **8097**   | **UPS - NEXT DAY - FLORIDA** ✨ | **UPS next day Florida service (NEW)** |
 
 ## Location Configuration
 
 The Lifefile integration uses the following location:
 
-| Header         | Value   | Location Name    |
-|----------------|---------|------------------|
-| X-Location-ID  | 110396  | logospharmacy    |
+| Header        | Value  | Location Name |
+| ------------- | ------ | ------------- |
+| X-Location-ID | 110396 | logospharmacy |
 
 ## Environment Variables
 
@@ -81,7 +81,7 @@ To test the new shipping methods:
 
 1. Create a new prescription
 2. Select one of the new shipping options:
-   - "UPS - SECOND DAY AIR" 
+   - "UPS - SECOND DAY AIR"
    - "UPS - NEXT DAY - FLORIDA"
 3. Submit the prescription
 4. Verify the order is created successfully with the correct shipping method

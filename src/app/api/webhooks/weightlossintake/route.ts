@@ -1,12 +1,13 @@
-import { NextRequest } from "next/server";
-import { PatientDocumentCategory, Clinic, Patient, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { normalizeMedLinkPayload } from "@/lib/medlink/intakeNormalizer";
-import { generateIntakePdf } from "@/services/intakePdfService";
-import { storeIntakePdf } from "@/services/storage/intakeStorage";
-import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
-import { trackReferral } from "@/services/influencerService";
+import { NextRequest } from 'next/server';
+import { PatientDocumentCategory, Clinic, Patient, Prisma } from '@prisma/client';
+import { prisma } from '@/lib/db';
+import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
+import { generateIntakePdf } from '@/services/intakePdfService';
+import { storeIntakePdf } from '@/services/storage/intakeStorage';
+import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
+import { trackReferral } from '@/services/influencerService';
 import { logger } from '@/lib/logger';
+import { createHash } from 'crypto';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
@@ -36,14 +37,10 @@ import { generatePatientId } from '@/lib/patients';
  */
 
 // EONMEDS clinic identifier - DO NOT CHANGE
-const EONMEDS_CLINIC_SUBDOMAIN = "eonmeds";
+const EONMEDS_CLINIC_SUBDOMAIN = 'eonmeds';
 
 // Retry helper for database operations
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  retries = 3,
-  delay = 500
-): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 500): Promise<T> {
   let lastError: Error | null = null;
   for (let i = 0; i <= retries; i++) {
     try {
@@ -51,7 +48,7 @@ async function withRetry<T>(
     } catch (error) {
       lastError = error as Error;
       if (i < retries) {
-        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+        await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
       }
     }
   }
@@ -82,22 +79,23 @@ export async function POST(req: NextRequest) {
   if (!configuredSecret) {
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: No webhook secret configured!`);
     return Response.json(
-      { error: "Server configuration error", code: "NO_SECRET_CONFIGURED", requestId },
+      { error: 'Server configuration error', code: 'NO_SECRET_CONFIGURED', requestId },
       { status: 500 }
     );
   }
 
   const providedSecret =
-    req.headers.get("x-webhook-secret") ||
-    req.headers.get("x-api-key") ||
-    req.headers.get("authorization")?.replace("Bearer ", "");
+    req.headers.get('x-webhook-secret') ||
+    req.headers.get('x-api-key') ||
+    req.headers.get('authorization')?.replace('Bearer ', '');
 
   if (providedSecret !== configuredSecret) {
     logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Authentication FAILED`);
-    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    recordAuthFailure("weightlossintake", ipAddress, providedSecret || undefined);
+    const ipAddress =
+      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    recordAuthFailure('weightlossintake', ipAddress, providedSecret || undefined);
     return Response.json(
-      { error: "Unauthorized", code: "INVALID_SECRET", requestId },
+      { error: 'Unauthorized', code: 'INVALID_SECRET', requestId },
       { status: 401 }
     );
   }
@@ -110,25 +108,31 @@ export async function POST(req: NextRequest) {
   let clinicId: number;
   try {
     // Select only needed fields for backwards compatibility with schema changes
-    const eonmedsClinic = await withRetry<{ id: number; name: string; subdomain: string | null } | null>(() => prisma.clinic.findFirst({
-      where: {
-        OR: [
-          { subdomain: EONMEDS_CLINIC_SUBDOMAIN },
-          { name: { contains: "EONMEDS", mode: "insensitive" } },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        subdomain: true,
-      },
-    }));
+    const eonmedsClinic = await withRetry<{
+      id: number;
+      name: string;
+      subdomain: string | null;
+    } | null>(() =>
+      prisma.clinic.findFirst({
+        where: {
+          OR: [
+            { subdomain: EONMEDS_CLINIC_SUBDOMAIN },
+            { name: { contains: 'EONMEDS', mode: 'insensitive' } },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+        },
+      })
+    );
 
     if (!eonmedsClinic) {
       logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: EONMEDS clinic not found!`);
-      recordError("weightlossintake", "EONMEDS clinic not found in database", { requestId });
+      recordError('weightlossintake', 'EONMEDS clinic not found in database', { requestId });
       return Response.json(
-        { error: "Clinic not found", code: "CLINIC_NOT_FOUND", requestId },
+        { error: 'Clinic not found', code: 'CLINIC_NOT_FOUND', requestId },
         { status: 500 }
       );
     }
@@ -136,9 +140,15 @@ export async function POST(req: NextRequest) {
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Clinic ID: ${clinicId}`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Database error finding clinic:`, { error: errMsg });
-    recordError("weightlossintake", `Database error: ${err instanceof Error ? err.message : 'Unknown'}`, { requestId });
-    
+    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Database error finding clinic:`, {
+      error: errMsg,
+    });
+    recordError(
+      'weightlossintake',
+      `Database error: ${err instanceof Error ? err.message : 'Unknown'}`,
+      { requestId }
+    );
+
     // Queue to DLQ for retry - get raw body for requeueing
     if (isDLQConfigured()) {
       try {
@@ -153,13 +163,39 @@ export async function POST(req: NextRequest) {
         logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Queued to DLQ for retry`);
       } catch (dlqErr) {
         const dlqErrMsg = dlqErr instanceof Error ? dlqErr.message : 'Unknown error';
-        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, { error: dlqErrMsg });
+        logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, {
+          error: dlqErrMsg,
+        });
       }
     }
-    
+
     return Response.json(
-      { error: "Database error", code: "DB_ERROR", requestId, queued: isDLQConfigured() },
+      { error: 'Database error', code: 'DB_ERROR', requestId, queued: isDLQConfigured() },
       { status: 500 }
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 2.5: IDEMPOTENCY CHECK
+  // ═══════════════════════════════════════════════════════════════════
+  const rawBody = await req.text();
+  const idempotencyKey = `weightlossintake_${createHash('sha256').update(rawBody).digest('hex')}`;
+
+  const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
+    where: { key: idempotencyKey },
+  }).catch((err) => {
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Idempotency lookup failed, proceeding`, { error: err instanceof Error ? err.message : String(err) });
+    return null;
+  });
+
+  if (existingIdempotencyRecord) {
+    logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Duplicate webhook detected, returning cached response`, {
+      idempotencyKey,
+      originalCreatedAt: existingIdempotencyRecord.createdAt,
+    });
+    return Response.json(
+      { received: true, status: 'duplicate', requestId, originalResponse: existingIdempotencyRecord.responseBody },
+      { status: existingIdempotencyRecord.responseStatus }
     );
   }
 
@@ -168,20 +204,21 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   let payload: Record<string, unknown> = {};
   try {
-    const text = await req.text();
+    const text = rawBody;
     payload = safeParseJSON(text) || {};
 
     // Log payload structure
     logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Payload:`, {
       keys: Object.keys(payload).slice(0, 15),
-      submissionId: payload.submissionId || payload.submission_id || payload.responseId || payload.id,
+      submissionId:
+        payload.submissionId || payload.submission_id || payload.responseId || payload.id,
       hasData: !!payload.data,
       hasAnswers: !!payload.answers,
       submissionType: payload.submissionType,
     });
   } catch (err) {
     logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Failed to parse payload, using empty object`);
-    errors.push("Failed to parse JSON payload");
+    errors.push('Failed to parse JSON payload');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -193,23 +230,25 @@ export async function POST(req: NextRequest) {
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Payload normalized successfully`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, { error: errMsg });
-    errors.push("Normalization failed, using fallback data");
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Normalization failed, using fallback:`, {
+      error: errMsg,
+    });
+    errors.push('Normalization failed, using fallback data');
     normalized = {
       submissionId: `fallback-${requestId}`,
       submittedAt: new Date(),
       patient: {
-        firstName: "Unknown",
-        lastName: "Lead",
+        firstName: 'Unknown',
+        lastName: 'Lead',
         email: `unknown-${Date.now()}@intake.local`,
-        phone: "",
-        dob: "",
-        gender: "",
-        address1: "",
-        address2: "",
-        city: "",
-        state: "",
-        zip: "",
+        phone: '',
+        dob: '',
+        gender: '',
+        address1: '',
+        address2: '',
+        city: '',
+        state: '',
+        zip: '',
       },
       sections: [],
       answers: [],
@@ -219,12 +258,22 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   // STEP 5: EXTRACT SUBMISSION TYPE
   // ═══════════════════════════════════════════════════════════════════
-  const submissionType = String(payload.submissionType || (payload.data as any)?.submissionType || "complete").toLowerCase();
-  const isPartialSubmission = submissionType === "partial";
-  const qualifiedStatus = String(payload.qualified || (payload.data as any)?.qualified || (isPartialSubmission ? "Pending" : "Yes"));
-  const intakeNotes = String(payload.intakeNotes || (payload.data as any)?.intakeNotes || (payload.data as any)?.notes || "");
+  const submissionType = String(
+    payload.submissionType || (payload.data as any)?.submissionType || 'complete'
+  ).toLowerCase();
+  const isPartialSubmission = submissionType === 'partial';
+  const qualifiedStatus = String(
+    payload.qualified ||
+      (payload.data as any)?.qualified ||
+      (isPartialSubmission ? 'Pending' : 'Yes')
+  );
+  const intakeNotes = String(
+    payload.intakeNotes || (payload.data as any)?.intakeNotes || (payload.data as any)?.notes || ''
+  );
 
-  logger.info(`[WEIGHTLOSSINTAKE ${requestId}] Type: ${submissionType}, Qualified: ${qualifiedStatus}`);
+  logger.info(
+    `[WEIGHTLOSSINTAKE ${requestId}] Type: ${submissionType}, Qualified: ${qualifiedStatus}`
+  );
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 6: UPSERT PATIENT (with retry and fallbacks)
@@ -235,10 +284,10 @@ export async function POST(req: NextRequest) {
   const patientData = normalizePatientData(normalized.patient);
 
   // Build tags
-  const baseTags = ["weightlossintake", "eonmeds", "glp1"];
+  const baseTags = ['weightlossintake', 'eonmeds', 'glp1'];
   const submissionTags = isPartialSubmission
-    ? [...baseTags, "partial-lead", "needs-followup"]
-    : [...baseTags, "complete-intake"];
+    ? [...baseTags, 'partial-lead', 'needs-followup']
+    : [...baseTags, 'complete-intake'];
 
   // Build notes
   const buildNotes = (existing: string | null | undefined) => {
@@ -246,81 +295,101 @@ export async function POST(req: NextRequest) {
     if (existing && !existing.includes(normalized.submissionId)) {
       parts.push(existing);
     }
-    parts.push(`[${new Date().toISOString()}] ${isPartialSubmission ? "PARTIAL" : "COMPLETE"}: ${normalized.submissionId}`);
+    parts.push(
+      `[${new Date().toISOString()}] ${isPartialSubmission ? 'PARTIAL' : 'COMPLETE'}: ${normalized.submissionId}`
+    );
     if (intakeNotes) parts.push(`Notes: ${intakeNotes}`);
-    if (qualifiedStatus !== "Yes") parts.push(`Qualified: ${qualifiedStatus}`);
-    return parts.join("\n");
+    if (qualifiedStatus !== 'Yes') parts.push(`Qualified: ${qualifiedStatus}`);
+    return parts.join('\n');
   };
 
   try {
     // Find existing patient (with retry)
-    const existingPatient = await withRetry<Patient | null>(() => prisma.patient.findFirst({
-      where: {
-        clinicId: clinicId,
-        OR: [
-          patientData.email !== "unknown@example.com" ? { email: patientData.email } : null,
-          patientData.phone && patientData.phone !== "0000000000" ? { phone: patientData.phone } : null,
-          patientData.firstName !== "Unknown" && patientData.lastName !== "Unknown" ? {
-            firstName: patientData.firstName,
-            lastName: patientData.lastName,
-            dob: patientData.dob,
-          } : null,
-        ].filter(Boolean) as Prisma.PatientWhereInput[],
-      },
-    }));
+    const existingPatient = await withRetry<Patient | null>(() =>
+      prisma.patient.findFirst({
+        where: {
+          clinicId: clinicId,
+          OR: [
+            patientData.email !== 'unknown@example.com' ? { email: patientData.email } : null,
+            patientData.phone && patientData.phone !== '0000000000'
+              ? { phone: patientData.phone }
+              : null,
+            patientData.firstName !== 'Unknown' && patientData.lastName !== 'Unknown'
+              ? {
+                  firstName: patientData.firstName,
+                  lastName: patientData.lastName,
+                  dob: patientData.dob,
+                }
+              : null,
+          ].filter(Boolean) as Prisma.PatientWhereInput[],
+        },
+      })
+    );
 
     if (existingPatient) {
       // Update existing
-      const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
-      const wasPartial = existingTags.includes("partial-lead");
+      const existingTags = Array.isArray(existingPatient.tags)
+        ? (existingPatient.tags as string[])
+        : [];
+      const wasPartial = existingTags.includes('partial-lead');
       const upgradedFromPartial = wasPartial && !isPartialSubmission;
 
       let updatedTags = mergeTags(existingPatient.tags, submissionTags);
       if (upgradedFromPartial) {
-        updatedTags = updatedTags.filter((t: string) => t !== "partial-lead" && t !== "needs-followup");
+        updatedTags = updatedTags.filter(
+          (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
+        );
         logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
       }
 
-      patient = await withRetry(() => prisma.patient.update({
-        where: { id: existingPatient.id },
-        data: {
-          ...patientData,
-          tags: updatedTags,
-          notes: buildNotes(existingPatient.notes),
-        },
-      }));
+      patient = await withRetry(() =>
+        prisma.patient.update({
+          where: { id: existingPatient.id },
+          data: {
+            ...patientData,
+            tags: updatedTags,
+            notes: buildNotes(existingPatient.notes),
+          },
+        })
+      );
       logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated patient: ${patient.id}`);
     } else {
       // Create new - use clinic-specific counter
       const patientNumber = await getNextPatientId(clinicId);
-      patient = await withRetry(() => prisma.patient.create({
-        data: {
-          ...patientData,
-          patientId: patientNumber,
-          clinicId: clinicId,
-          tags: submissionTags,
-          notes: buildNotes(null),
-          source: "webhook",
-          sourceMetadata: {
-            type: "weightlossintake",
-            submissionId: normalized.submissionId,
-            submissionType,
-            qualified: qualifiedStatus,
-            intakeNotes,
-            timestamp: new Date().toISOString(),
-            clinicId,
-            clinicName: "EONMEDS",
+      patient = await withRetry(() =>
+        prisma.patient.create({
+          data: {
+            ...patientData,
+            patientId: patientNumber,
+            clinicId: clinicId,
+            tags: submissionTags,
+            notes: buildNotes(null),
+            source: 'webhook',
+            sourceMetadata: {
+              type: 'weightlossintake',
+              submissionId: normalized.submissionId,
+              submissionType,
+              qualified: qualifiedStatus,
+              intakeNotes,
+              timestamp: new Date().toISOString(),
+              clinicId,
+              clinicName: 'EONMEDS',
+            },
           },
-        },
-      }));
+        })
+      );
       isNewPatient = true;
-      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`);
+      logger.info(
+        `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
+      );
     }
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "Unknown error";
-    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, { error: errorMsg });
-    recordError("weightlossintake", `Patient creation failed: ${errorMsg}`, { requestId });
-    
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {
+      error: errorMsg,
+    });
+    recordError('weightlossintake', `Patient creation failed: ${errorMsg}`, { requestId });
+
     // Queue to DLQ for retry
     if (isDLQConfigured()) {
       try {
@@ -338,15 +407,18 @@ export async function POST(req: NextRequest) {
         logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Failed to queue to DLQ:`, dlqErr);
       }
     }
-    
-    return Response.json({
-      error: "Failed to create patient",
-      code: "PATIENT_ERROR",
-      requestId,
-      message: errorMsg,
-      partialSuccess: false,
-      queued: isDLQConfigured(),
-    }, { status: 500 });
+
+    return Response.json(
+      {
+        error: 'Failed to create patient',
+        code: 'PATIENT_ERROR',
+        requestId,
+        message: errorMsg,
+        partialSuccess: false,
+        queued: isDLQConfigured(),
+      },
+      { status: 500 }
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -358,8 +430,10 @@ export async function POST(req: NextRequest) {
     logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF: ${pdfContent.byteLength} bytes`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF generation failed (continuing):`, { error: errMsg });
-    errors.push("PDF generation failed");
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF generation failed (continuing):`, {
+      error: errMsg,
+    });
+    errors.push('PDF generation failed');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -373,11 +447,15 @@ export async function POST(req: NextRequest) {
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
       });
-      logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`);
+      logger.debug(
+        `[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`
+      );
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, { error: errMsg });
-      errors.push("PDF preparation failed");
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] PDF preparation failed (continuing):`, {
+        error: errMsg,
+      });
+      errors.push('PDF preparation failed');
     }
   }
 
@@ -403,12 +481,16 @@ export async function POST(req: NextRequest) {
         pdfExternalUrl = s3Result.url;
         logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] ✓ PDF uploaded to S3: ${s3Result.key}`);
       } else {
-        logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] S3 not configured, PDF stored in database only`);
+        logger.debug(
+          `[WEIGHTLOSSINTAKE ${requestId}] S3 not configured, PDF stored in database only`
+        );
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, { error: errMsg });
-      errors.push("S3 PDF upload failed");
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] S3 upload failed (continuing):`, {
+        error: errMsg,
+      });
+      errors.push('S3 PDF upload failed');
     }
   }
 
@@ -425,51 +507,109 @@ export async function POST(req: NextRequest) {
     });
 
     // Capture consent and metadata from request headers
-    const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const userAgent = req.headers.get("user-agent") || "unknown";
+    const ipAddress =
+      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
     const consentTimestamp = new Date().toISOString();
 
     // Extract e-signature data from payload (sent by WeightLossIntake platform)
-    const payloadData = payload.data as Record<string, unknown> || payload;
+    const payloadData = (payload.data as Record<string, unknown>) || payload;
 
     // Geolocation data from the intake platform
     const geoLocation = {
       ip: payloadData.consentIP || payloadData.Consent_IP || payloadData['Consent IP'] || ipAddress,
-      city: payloadData.consentCity || payloadData.Consent_City || payloadData['Consent City'] || null,
-      region: payloadData.consentRegion || payloadData.Consent_Region || payloadData['Consent Region'] || null,
-      regionCode: payloadData.consentRegionCode || payloadData.Consent_Region_Code || payloadData['Consent Region Code'] || null,
-      country: payloadData.consentCountry || payloadData.Consent_Country || payloadData['Consent Country'] || null,
-      countryCode: payloadData.consentCountryCode || payloadData.Consent_Country_Code || payloadData['Consent Country Code'] || null,
-      timezone: payloadData.consentTimezone || payloadData.Consent_Timezone || payloadData['Consent Timezone'] || null,
+      city:
+        payloadData.consentCity || payloadData.Consent_City || payloadData['Consent City'] || null,
+      region:
+        payloadData.consentRegion ||
+        payloadData.Consent_Region ||
+        payloadData['Consent Region'] ||
+        null,
+      regionCode:
+        payloadData.consentRegionCode ||
+        payloadData.Consent_Region_Code ||
+        payloadData['Consent Region Code'] ||
+        null,
+      country:
+        payloadData.consentCountry ||
+        payloadData.Consent_Country ||
+        payloadData['Consent Country'] ||
+        null,
+      countryCode:
+        payloadData.consentCountryCode ||
+        payloadData.Consent_Country_Code ||
+        payloadData['Consent Country Code'] ||
+        null,
+      timezone:
+        payloadData.consentTimezone ||
+        payloadData.Consent_Timezone ||
+        payloadData['Consent Timezone'] ||
+        null,
       isp: payloadData.consentISP || payloadData.Consent_ISP || payloadData['Consent ISP'] || null,
     };
 
     // Consent signatures log from the intake platform
-    const consentSignatures = payloadData.consentSignatures || payloadData.Consent_Signatures || payloadData['Consent Signatures'] || null;
+    const consentSignatures =
+      payloadData.consentSignatures ||
+      payloadData.Consent_Signatures ||
+      payloadData['Consent Signatures'] ||
+      null;
 
     // Extract all consent flags from payload
     const consentData = {
       // Privacy & Terms
-      privacyPolicyConsent: payloadData['Privacy Policy Accepted'] || payloadData.privacyPolicyConsent || payloadData.privacy_consent || true,
-      termsConsent: payloadData['Terms of Use Accepted'] || payloadData.termsConsent || payloadData.terms_consent || true,
+      privacyPolicyConsent:
+        payloadData['Privacy Policy Accepted'] ||
+        payloadData.privacyPolicyConsent ||
+        payloadData.privacy_consent ||
+        true,
+      termsConsent:
+        payloadData['Terms of Use Accepted'] ||
+        payloadData.termsConsent ||
+        payloadData.terms_consent ||
+        true,
 
       // Telehealth & Communication
-      telehealthConsent: payloadData['Telehealth Consent Accepted'] || payloadData.telehealthConsent || payloadData.telehealth_consent || true,
-      smsConsent: payloadData['SMS Consent Accepted'] || payloadData.smsConsent || payloadData.sms_consent || true,
-      emailConsent: payloadData['Email Consent Accepted'] || payloadData.emailConsent || payloadData.email_consent || true,
+      telehealthConsent:
+        payloadData['Telehealth Consent Accepted'] ||
+        payloadData.telehealthConsent ||
+        payloadData.telehealth_consent ||
+        true,
+      smsConsent:
+        payloadData['SMS Consent Accepted'] ||
+        payloadData.smsConsent ||
+        payloadData.sms_consent ||
+        true,
+      emailConsent:
+        payloadData['Email Consent Accepted'] ||
+        payloadData.emailConsent ||
+        payloadData.email_consent ||
+        true,
 
       // Policy & Medical
-      cancellationPolicyConsent: payloadData['Cancellation Policy Accepted'] || payloadData.cancellationPolicyConsent || true,
-      medicalWeightConsent: payloadData['Weight Loss Treatment Consent Accepted'] || payloadData.medicalWeightConsent || payloadData.weightLossConsent || true,
+      cancellationPolicyConsent:
+        payloadData['Cancellation Policy Accepted'] ||
+        payloadData.cancellationPolicyConsent ||
+        true,
+      medicalWeightConsent:
+        payloadData['Weight Loss Treatment Consent Accepted'] ||
+        payloadData.medicalWeightConsent ||
+        payloadData.weightLossConsent ||
+        true,
 
       // HIPAA & Legal
       hipaaConsent: payloadData['HIPAA Authorization Accepted'] || payloadData.hipaaConsent || true,
-      floridaBillOfRights: payloadData['Florida Bill of Rights Accepted'] || payloadData.floridaBillOfRights || true,
+      floridaBillOfRights:
+        payloadData['Florida Bill of Rights Accepted'] || payloadData.floridaBillOfRights || true,
 
       // Metadata
       timestamp: payloadData.timestamp || consentTimestamp,
       ipAddress: geoLocation.ip,
-      userAgent: payloadData.consentUserAgent || payloadData.Consent_User_Agent || payloadData['Consent User Agent'] || userAgent,
+      userAgent:
+        payloadData.consentUserAgent ||
+        payloadData.Consent_User_Agent ||
+        payloadData['Consent User Agent'] ||
+        userAgent,
 
       // Geolocation
       geoLocation: geoLocation,
@@ -483,7 +623,7 @@ export async function POST(req: NextRequest) {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
       answers: normalized.answers,
-      source: "weightlossintake",
+      source: 'weightlossintake',
       clinicId: clinicId,
       receivedAt: consentTimestamp,
       pdfGenerated: !!pdfContent,
@@ -495,7 +635,7 @@ export async function POST(req: NextRequest) {
       consentData: consentData,
       geoLocation: geoLocation,
     };
-    
+
     if (existingDoc) {
       patientDocument = await prisma.patientDocument.update({
         where: { id: existingDoc.id },
@@ -514,13 +654,13 @@ export async function POST(req: NextRequest) {
           patientId: patient.id,
           clinicId: clinicId,
           filename: stored?.filename || `intake-${normalized.submissionId}.json`,
-          mimeType: "application/json", // Data field is now always JSON
+          mimeType: 'application/json', // Data field is now always JSON
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           // Store intake JSON data - this is what the Intake tab displays
           data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
           // Store S3 URL for PDF download
           externalUrl: pdfExternalUrl,
-          source: "weightlossintake",
+          source: 'weightlossintake',
           sourceSubmissionId: normalized.submissionId,
         },
       });
@@ -529,7 +669,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] Document record failed:`, { error: errMsg });
-    errors.push("Document record creation failed");
+    errors.push('Document record creation failed');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -547,7 +687,9 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       // SOAP generation can fail (OpenAI rate limits, etc.) - don't block the webhook
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, { error: errMsg });
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] SOAP generation failed (non-fatal):`, {
+        error: errMsg,
+      });
       errors.push(`SOAP generation failed: ${errMsg}`);
     }
   } else if (isPartialSubmission) {
@@ -559,18 +701,18 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   const promoCodeEntry = normalized.answers?.find(
     (entry: any) =>
-      entry.label?.toLowerCase().includes("promo") ||
-      entry.label?.toLowerCase().includes("referral") ||
-      entry.label?.toLowerCase().includes("discount") ||
-      entry.id === "promo_code" ||
-      entry.id === "promoCode" ||
-      entry.id === "referralCode"
+      entry.label?.toLowerCase().includes('promo') ||
+      entry.label?.toLowerCase().includes('referral') ||
+      entry.label?.toLowerCase().includes('discount') ||
+      entry.id === 'promo_code' ||
+      entry.id === 'promoCode' ||
+      entry.id === 'referralCode'
   );
 
   if (promoCodeEntry?.value) {
     const promoCode = String(promoCodeEntry.value).trim().toUpperCase();
     try {
-      await trackReferral(patient.id, promoCode, "weightlossintake", {
+      await trackReferral(patient.id, promoCode, 'weightlossintake', {
         submissionId: normalized.submissionId,
         intakeDate: normalized.submittedAt,
         patientEmail: patient.email,
@@ -590,12 +732,12 @@ export async function POST(req: NextRequest) {
   try {
     await prisma.auditLog.create({
       data: {
-        action: isPartialSubmission ? "PARTIAL_INTAKE_RECEIVED" : "PATIENT_INTAKE_RECEIVED",
-        resource: "Patient",
+        action: isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
+        resource: 'Patient',
         resourceId: patient.id,
         userId: 0,
         details: {
-          source: "weightlossintake",
+          source: 'weightlossintake',
           submissionId: normalized.submissionId,
           submissionType,
           qualified: qualifiedStatus,
@@ -606,7 +748,7 @@ export async function POST(req: NextRequest) {
           soapNoteId: soapNoteId,
           errors: errors.length > 0 ? errors : undefined,
         },
-        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "webhook",
+        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'webhook',
       },
     });
   } catch (err) {
@@ -620,14 +762,32 @@ export async function POST(req: NextRequest) {
   const duration = Date.now() - startTime;
 
   // Record success for monitoring
-  recordSuccess("weightlossintake", duration);
+  recordSuccess('weightlossintake', duration);
 
-  logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`);
+  logger.info(
+    `[WEIGHTLOSSINTAKE ${requestId}] ✓ SUCCESS in ${duration}ms (${errors.length} warnings)`
+  );
+
+  // Record idempotency key for duplicate detection
+  await prisma.idempotencyRecord.create({
+    data: {
+      key: idempotencyKey,
+      resource: 'weightlossintake',
+      responseStatus: 200,
+      responseBody: { success: true, requestId, patientId: patient.id, submissionId: normalized.submissionId },
+    },
+  }).catch((err) => {
+    logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? err.message : String(err) });
+  });
 
   // Extract Airtable record ID if provided (for bidirectional sync)
   const payloadForAirtable = (payload.data as Record<string, unknown>) || payload;
-  const airtableRecordId = payloadForAirtable.airtableRecordId || payloadForAirtable.airtable_record_id || 
-                           payloadForAirtable.recordId || payloadForAirtable.record_id || null;
+  const airtableRecordId =
+    payloadForAirtable.airtableRecordId ||
+    payloadForAirtable.airtable_record_id ||
+    payloadForAirtable.recordId ||
+    payloadForAirtable.record_id ||
+    null;
 
   // Response format matching WeightLossIntake EMR Integration expectations
   // WeightLossIntake should capture these fields and store them in Airtable
@@ -638,11 +798,11 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════
     // BIDIRECTIONAL SYNC FIELDS - Store these in Airtable!
     // ═══════════════════════════════════════════════════════════════════
-    eonproPatientId: patient.patientId,  // Formatted ID like "000059" - STORE IN AIRTABLE
-    eonproDatabaseId: patient.id,        // Database ID like 62
+    eonproPatientId: patient.patientId, // Formatted ID like "000059" - STORE IN AIRTABLE
+    eonproDatabaseId: patient.id, // Database ID like 62
     submissionId: normalized.submissionId, // Link back to original submission
-    airtableRecordId: airtableRecordId,  // Echo back for easy record update
-    
+    airtableRecordId: airtableRecordId, // Echo back for easy record update
+
     // Detailed patient info
     patient: {
       id: patient.id,
@@ -658,24 +818,28 @@ export async function POST(req: NextRequest) {
       isPartial: isPartialSubmission,
     },
     // Document info
-    document: patientDocument ? {
-      id: patientDocument.id,
-      filename: stored?.filename,
-    } : null,
+    document: patientDocument
+      ? {
+          id: patientDocument.id,
+          filename: stored?.filename,
+        }
+      : null,
     // SOAP note (if generated)
-    soapNote: soapNoteId ? {
-      id: soapNoteId,
-      status: "DRAFT",
-    } : null,
+    soapNote: soapNoteId
+      ? {
+          id: soapNoteId,
+          status: 'DRAFT',
+        }
+      : null,
     // Clinic info
     clinic: {
       id: clinicId,
-      name: "EONMEDS",
+      name: 'EONMEDS',
     },
     // Metadata
     processingTimeMs: duration,
     processingTime: `${duration}ms`,
-    message: isNewPatient ? "Patient created successfully" : "Patient updated successfully",
+    message: isNewPatient ? 'Patient created successfully' : 'Patient updated successfully',
     warnings: errors.length > 0 ? errors : undefined,
 
     // Legacy field names (for backwards compatibility)
@@ -689,17 +853,19 @@ export async function POST(req: NextRequest) {
 
 function normalizePatientData(patient: any) {
   return {
-    firstName: capitalize(patient.firstName) || "Unknown",
-    lastName: capitalize(patient.lastName) || "Unknown",
-    email: patient.email?.toLowerCase()?.trim() || "unknown@example.com",
+    firstName: capitalize(patient.firstName) || 'Unknown',
+    lastName: capitalize(patient.lastName) || 'Unknown',
+    email: patient.email?.toLowerCase()?.trim() || 'unknown@example.com',
     phone: sanitizePhone(patient.phone),
     dob: normalizeDate(patient.dob),
     gender: normalizeGender(patient.gender),
-    address1: String(patient.address1 || "").trim(),
-    address2: String(patient.address2 || "").trim(),
-    city: String(patient.city || "").trim(),
-    state: String(patient.state || "").toUpperCase().trim(),
-    zip: String(patient.zip || "").trim(),
+    address1: String(patient.address1 || '').trim(),
+    address2: String(patient.address2 || '').trim(),
+    city: String(patient.city || '').trim(),
+    state: String(patient.state || '')
+      .toUpperCase()
+      .trim(),
+    zip: String(patient.zip || '').trim(),
   };
 }
 
@@ -710,28 +876,28 @@ async function getNextPatientId(clinicId: number = 1): Promise<string> {
 }
 
 function sanitizePhone(value?: string) {
-  if (!value) return "0000000000";
-  const digits = String(value).replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) {
+  if (!value) return '0000000000';
+  const digits = String(value).replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
     return digits.slice(1);
   }
-  return digits || "0000000000";
+  return digits || '0000000000';
 }
 
 function normalizeGender(value?: string) {
-  if (!value) return "m";
+  if (!value) return 'm';
   const lower = String(value).toLowerCase().trim();
   // Check for female/woman variations
-  if (lower === 'f' || lower === 'female' || lower === 'woman') return "f";
+  if (lower === 'f' || lower === 'female' || lower === 'woman') return 'f';
   // Check for male/man variations
-  if (lower === 'm' || lower === 'male' || lower === 'man') return "m";
+  if (lower === 'm' || lower === 'male' || lower === 'man') return 'm';
   // Fallback: if starts with 'f' or 'w' (woman), treat as female
-  if (lower.startsWith("f") || lower.startsWith("w")) return "f";
-  return "m";
+  if (lower.startsWith('f') || lower.startsWith('w')) return 'f';
+  return 'm';
 }
 
 function normalizeDate(value?: string) {
-  if (!value) return "1900-01-01";
+  if (!value) return '1900-01-01';
   const str = String(value).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 
@@ -739,27 +905,27 @@ function normalizeDate(value?: string) {
   const slashParts = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (slashParts) {
     const [, mm, dd, yyyy] = slashParts;
-    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
   }
 
   // Try MMDDYYYY format
-  const parts = str.replace(/[^0-9]/g, "").match(/(\d{2})(\d{2})(\d{4})/);
+  const parts = str.replace(/[^0-9]/g, '').match(/(\d{2})(\d{2})(\d{4})/);
   if (parts) {
     const [, mm, dd, yyyy] = parts;
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  return "1900-01-01";
+  return '1900-01-01';
 }
 
 function capitalize(value?: string) {
-  if (!value) return "";
+  if (!value) return '';
   return String(value)
     .toLowerCase()
     .trim()
     .split(/\s+/)
     .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
-    .join(" ");
+    .join(' ');
 }
 
 function mergeTags(existing: any, incoming: string[]) {

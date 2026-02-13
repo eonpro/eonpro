@@ -22,16 +22,19 @@ export class PerformanceMonitor {
 
   // Start a performance transaction
   startTransaction(name: string, op: string = 'http.server') {
-    const transaction = Sentry.startSpan({
-      name,
-      op,
-    }, (span: any) => {
-      // Store span for later use
-      return span;
-    });
-    
+    const transaction = Sentry.startSpan(
+      {
+        name,
+        op,
+      },
+      (span: any) => {
+        // Store span for later use
+        return span;
+      }
+    );
+
     this.transactions.set(name, transaction);
-    
+
     return transaction;
   }
 
@@ -46,10 +49,7 @@ export class PerformanceMonitor {
   }
 
   // Track API call performance
-  async trackAPICall<T>(
-    endpoint: string,
-    operation: () => Promise<T>
-  ): Promise<T> {
+  async trackAPICall<T>(endpoint: string, operation: () => Promise<T>): Promise<T> {
     return await Sentry.startSpan(
       {
         op: 'http.client',
@@ -71,8 +71,8 @@ export class PerformanceMonitor {
           }
           return result;
         } catch (error: any) {
-    // @ts-ignore
-   
+          // @ts-ignore
+
           if (span) {
             span.setStatus({ code: 2 }); // ERROR status
           }
@@ -83,10 +83,7 @@ export class PerformanceMonitor {
   }
 
   // Track database query performance
-  async trackDatabaseQuery<T>(
-    query: string,
-    operation: () => Promise<T>
-  ): Promise<T> {
+  async trackDatabaseQuery<T>(query: string, operation: () => Promise<T>): Promise<T> {
     return await Sentry.startSpan(
       {
         op: 'db.query',
@@ -113,8 +110,8 @@ export class PerformanceMonitor {
           }
           return result;
         } catch (error: any) {
-    // @ts-ignore
-   
+          // @ts-ignore
+
           if (span) {
             span.setStatus({ code: 2 }); // ERROR status
           }
@@ -136,7 +133,7 @@ export class ErrorTracker {
     Sentry.withScope((scope: any) => {
       scope.setTag('error.category', category);
       scope.setLevel('error');
-      
+
       if (context) {
         scope.setContext('error_details', context);
       }
@@ -154,11 +151,7 @@ export class ErrorTracker {
   }
 
   // Track validation errors (lower severity)
-  static trackValidationError(
-    field: string,
-    value: any,
-    message: string
-  ) {
+  static trackValidationError(field: string, value: any, message: string) {
     Sentry.withScope((scope: any) => {
       scope.setTag('error.category', 'validation');
       scope.setLevel('warning');
@@ -173,11 +166,7 @@ export class ErrorTracker {
   }
 
   // Track business logic errors
-  static trackBusinessError(
-    operation: string,
-    reason: string,
-    context?: Record<string, unknown>
-  ) {
+  static trackBusinessError(operation: string, reason: string, context?: Record<string, unknown>) {
     Sentry.withScope((scope: any) => {
       scope.setTag('error.category', 'business');
       scope.setLevel('warning');
@@ -195,11 +184,7 @@ export class ErrorTracker {
 // User activity tracking
 export class UserActivityTracker {
   // Track user actions
-  static trackAction(
-    action: string,
-    category: string,
-    metadata?: Record<string, unknown>
-  ) {
+  static trackAction(action: string, category: string, metadata?: Record<string, unknown>) {
     Sentry.addBreadcrumb({
       category: 'user',
       message: action,
@@ -217,8 +202,7 @@ export class UserActivityTracker {
         metrics.increment('user.action', 1);
       }
     } catch (e: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
       // Metrics API may not be available
     }
   }
@@ -231,18 +215,13 @@ export class UserActivityTracker {
         metrics.increment('feature.usage', 1);
       }
     } catch (e: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
       // Metrics API may not be available
     }
   }
 
   // Track conversion events
-  static trackConversion(
-    event: string,
-    value?: number,
-    metadata?: Record<string, unknown>
-  ) {
+  static trackConversion(event: string, value?: number, metadata?: Record<string, unknown>) {
     Sentry.addBreadcrumb({
       category: 'conversion',
       message: event,
@@ -297,13 +276,13 @@ export class HealthMonitor {
     } catch {
       checks.redis = false;
       // Redis is optional, so just degrade
-      if ((overallStatus as any) === "healthy") {
+      if ((overallStatus as any) === 'healthy') {
         overallStatus = 'degraded';
       }
     }
 
     // Send health metrics
-    Sentry.metrics.gauge('system.health', (overallStatus as any) === "healthy" ? 1 : 0);
+    Sentry.metrics.gauge('system.health', (overallStatus as any) === 'healthy' ? 1 : 0);
 
     return {
       status: overallStatus,
@@ -316,15 +295,15 @@ export class HealthMonitor {
     if (typeof window === 'undefined') {
       // Server-side monitoring
       const usage = process.memoryUsage();
-      
+
       Sentry.metrics.gauge('server.memory.heap', usage.heapUsed, {
         unit: 'byte',
       });
-      
+
       Sentry.metrics.gauge('server.memory.external', usage.external, {
         unit: 'byte',
       });
-      
+
       Sentry.metrics.gauge('server.uptime', process.uptime(), {
         unit: 'second',
       });
@@ -332,11 +311,11 @@ export class HealthMonitor {
       // Client-side monitoring
       if ('memory' in performance) {
         const memory = (performance as any).memory;
-        
+
         Sentry.metrics.gauge('client.memory.used', memory.usedJSHeapSize, {
           unit: 'byte',
         });
-        
+
         Sentry.metrics.gauge('client.memory.limit', memory.jsHeapSizeLimit, {
           unit: 'byte',
         });
@@ -355,20 +334,17 @@ export function useMonitoring() {
     UserActivityTracker.trackAction(action, category, metadata);
   };
 
-  const trackPerformance = async <T>(
-    name: string,
-    operation: () => Promise<T>
-  ): Promise<T> => {
+  const trackPerformance = async <T>(name: string, operation: () => Promise<T>): Promise<T> => {
     const monitor = PerformanceMonitor.getInstance();
     const transaction = monitor.startTransaction(name);
-    
+
     try {
       const result = await operation();
       monitor.endTransaction(name, 'ok');
       return result;
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       monitor.endTransaction(name, 'error');
       throw error;
     }
@@ -400,7 +376,7 @@ export function initializeMonitoring() {
       Sentry.metrics.gauge('web.vitals.cls', 0);
       Sentry.metrics.gauge('web.vitals.fid', 0);
       Sentry.metrics.gauge('web.vitals.lcp', 0);
-      
+
       logger.debug('[MONITORING] Initialized successfully');
     }, 0);
   }

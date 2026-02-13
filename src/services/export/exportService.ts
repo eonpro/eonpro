@@ -1,6 +1,6 @@
 /**
  * Export Service
- * 
+ *
  * Handles export generation for CSV, Excel, and PDF formats.
  */
 
@@ -47,10 +47,7 @@ export class ExportService {
   /**
    * Generate an export based on configuration
    */
-  static async generateExport(
-    clinicId: number,
-    config: ExportConfig
-  ): Promise<ExportResult> {
+  static async generateExport(clinicId: number, config: ExportConfig): Promise<ExportResult> {
     const { format } = config;
 
     switch (format) {
@@ -68,12 +65,9 @@ export class ExportService {
   /**
    * Generate CSV export
    */
-  static async generateCSV(
-    clinicId: number,
-    config: ExportConfig
-  ): Promise<ExportResult> {
+  static async generateCSV(clinicId: number, config: ExportConfig): Promise<ExportResult> {
     const data = await this.fetchReportData(clinicId, config);
-    
+
     if (data.length === 0) {
       return {
         buffer: Buffer.from('No data available for the selected criteria'),
@@ -84,19 +78,21 @@ export class ExportService {
 
     // Get headers from first row
     const headers = Object.keys(data[0]);
-    
+
     // Build CSV content
     const csvRows = [
       headers.join(','),
-      ...data.map((row: Record<string, unknown>) => 
-        headers.map((header: string) => {
-          const value = row[header];
-          // Escape values containing commas or quotes
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value ?? '';
-        }).join(',')
+      ...data.map((row: Record<string, unknown>) =>
+        headers
+          .map((header: string) => {
+            const value = row[header];
+            // Escape values containing commas or quotes
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value ?? '';
+          })
+          .join(',')
       ),
     ];
 
@@ -110,12 +106,9 @@ export class ExportService {
   /**
    * Generate Excel export
    */
-  static async generateExcel(
-    clinicId: number,
-    config: ExportConfig
-  ): Promise<ExportResult> {
+  static async generateExcel(clinicId: number, config: ExportConfig): Promise<ExportResult> {
     const data = await this.fetchReportData(clinicId, config);
-    
+
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'EONPro Finance';
     workbook.created = new Date();
@@ -125,7 +118,7 @@ export class ExportService {
     if (data.length > 0) {
       // Add headers
       const headers = Object.keys(data[0]);
-      worksheet.columns = headers.map(header => ({
+      worksheet.columns = headers.map((header) => ({
         header: this.formatHeader(header),
         key: header,
         width: 15,
@@ -144,7 +137,7 @@ export class ExportService {
       // Add data rows
       data.forEach((row: Record<string, unknown>, index: number) => {
         const dataRow = worksheet.addRow(row);
-        
+
         // Format currency columns
         headers.forEach((header: string, colIndex: number) => {
           const cell = dataRow.getCell(colIndex + 1);
@@ -183,7 +176,10 @@ export class ExportService {
     // Add summary sheet
     const summarySheet = workbook.addWorksheet('Summary');
     summarySheet.addRow(['Report Type', config.reportType]);
-    summarySheet.addRow(['Date Range', `${format(config.dateRange.start, 'yyyy-MM-dd')} to ${format(config.dateRange.end, 'yyyy-MM-dd')}`]);
+    summarySheet.addRow([
+      'Date Range',
+      `${format(config.dateRange.start, 'yyyy-MM-dd')} to ${format(config.dateRange.end, 'yyyy-MM-dd')}`,
+    ]);
     summarySheet.addRow(['Generated At', format(new Date(), 'yyyy-MM-dd HH:mm:ss')]);
     summarySheet.addRow(['Total Records', data.length]);
 
@@ -200,14 +196,11 @@ export class ExportService {
    * Generate PDF export
    * Note: Uses a simplified approach. For production, consider @react-pdf/renderer
    */
-  static async generatePDF(
-    clinicId: number,
-    config: ExportConfig
-  ): Promise<ExportResult> {
+  static async generatePDF(clinicId: number, config: ExportConfig): Promise<ExportResult> {
     // For now, generate a simple text-based PDF
     // In production, use @react-pdf/renderer with proper templates
     const data = await this.fetchReportData(clinicId, config);
-    
+
     // Create simple PDF content
     // This is a placeholder - real implementation would use react-pdf
     const pdfContent = `
@@ -321,9 +314,11 @@ startxref
       orderBy: { createdAt: 'desc' },
     });
 
-    return payments.map((p: typeof payments[number]) => ({
+    return payments.map((p: (typeof payments)[number]) => ({
       date: format(p.createdAt, 'yyyy-MM-dd'),
-      patientName: p.patient ? `${safeDecryptField(p.patient.firstName)} ${safeDecryptField(p.patient.lastName)}`.trim() : 'Unknown',
+      patientName: p.patient
+        ? `${safeDecryptField(p.patient.firstName)} ${safeDecryptField(p.patient.lastName)}`.trim()
+        : 'Unknown',
       patientEmail: safeDecryptField(p.patient?.email),
       amount: p.amount / 100,
       fee: 0, // Fee not tracked at payment level
@@ -361,14 +356,15 @@ startxref
       },
     });
 
-    return patients.map((p: typeof patients[number]) => ({
+    return patients.map((p: (typeof patients)[number]) => ({
       id: p.id,
       firstName: safeDecryptField(p.firstName),
       lastName: safeDecryptField(p.lastName),
       email: safeDecryptField(p.email),
       createdAt: format(p.createdAt, 'yyyy-MM-dd'),
       totalPayments: p.payments.length,
-      totalRevenue: p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0) / 100,
+      totalRevenue:
+        p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0) / 100,
       subscriptionStatus: p.subscriptions[0]?.status || 'None',
     }));
   }
@@ -400,8 +396,8 @@ startxref
 
     // Group by day
     const dailyPayouts = new Map<string, { gross: number; fees: number; net: number }>();
-    
-    payments.forEach((p: typeof payments[number]) => {
+
+    payments.forEach((p: (typeof payments)[number]) => {
       const day = format(p.createdAt, 'yyyy-MM-dd');
       const existing = dailyPayouts.get(day) || { gross: 0, fees: 0, net: 0 };
       existing.gross += p.amount;
@@ -410,12 +406,14 @@ startxref
       dailyPayouts.set(day, existing);
     });
 
-    return Array.from(dailyPayouts.entries()).map(([date, data]: [string, { gross: number; fees: number; net: number }]) => ({
-      date,
-      grossAmount: data.gross / 100,
-      fees: data.fees / 100,
-      netAmount: data.net / 100,
-    }));
+    return Array.from(dailyPayouts.entries()).map(
+      ([date, data]: [string, { gross: number; fees: number; net: number }]) => ({
+        date,
+        grossAmount: data.gross / 100,
+        fees: data.fees / 100,
+        netAmount: data.net / 100,
+      })
+    );
   }
 
   /**
@@ -445,9 +443,11 @@ startxref
       orderBy: { createdAt: 'desc' },
     });
 
-    return subscriptions.map((s: typeof subscriptions[number]) => ({
+    return subscriptions.map((s: (typeof subscriptions)[number]) => ({
       id: s.id,
-      patientName: s.patient ? `${safeDecryptField(s.patient.firstName)} ${safeDecryptField(s.patient.lastName)}`.trim() : 'Unknown',
+      patientName: s.patient
+        ? `${safeDecryptField(s.patient.firstName)} ${safeDecryptField(s.patient.lastName)}`.trim()
+        : 'Unknown',
       patientEmail: safeDecryptField(s.patient?.email),
       planName: s.planName || 'Unknown',
       amount: s.amount / 100,
@@ -485,9 +485,11 @@ startxref
       orderBy: { createdAt: 'desc' },
     });
 
-    return invoices.map((inv: typeof invoices[number]) => ({
+    return invoices.map((inv: (typeof invoices)[number]) => ({
       invoiceNumber: inv.stripeInvoiceNumber || `INV-${inv.id}`,
-      patientName: inv.patient ? `${safeDecryptField(inv.patient.firstName)} ${safeDecryptField(inv.patient.lastName)}`.trim() : 'Unknown',
+      patientName: inv.patient
+        ? `${safeDecryptField(inv.patient.firstName)} ${safeDecryptField(inv.patient.lastName)}`.trim()
+        : 'Unknown',
       patientEmail: safeDecryptField(inv.patient?.email),
       amount: (inv.amount || 0) / 100,
       status: inv.status,
@@ -503,7 +505,7 @@ startxref
   private static formatHeader(header: string): string {
     return header
       .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, str => str.toUpperCase())
+      .replace(/^./, (str) => str.toUpperCase())
       .trim();
   }
 
@@ -512,7 +514,7 @@ startxref
    */
   private static isCurrencyField(field: string): boolean {
     const currencyFields = ['amount', 'fee', 'netAmount', 'grossAmount', 'totalRevenue', 'revenue'];
-    return currencyFields.some(f => field.toLowerCase().includes(f.toLowerCase()));
+    return currencyFields.some((f) => field.toLowerCase().includes(f.toLowerCase()));
   }
 
   /**
@@ -520,7 +522,7 @@ startxref
    */
   private static isPercentageField(field: string): boolean {
     const percentageFields = ['rate', 'percentage', 'percent'];
-    return percentageFields.some(f => field.toLowerCase().includes(f.toLowerCase()));
+    return percentageFields.some((f) => field.toLowerCase().includes(f.toLowerCase()));
   }
 
   /**

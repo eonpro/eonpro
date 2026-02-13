@@ -52,8 +52,7 @@ async function getAnalyticsHandler(req: NextRequest, user: AuthUser): Promise<Re
     const { days, clinicId, template } = parsed.data;
 
     // Non-super-admin can only see their own clinic
-    const effectiveClinicId =
-      user.role === 'super_admin' ? clinicId : user.clinicId || undefined;
+    const effectiveClinicId = user.role === 'super_admin' ? clinicId : user.clinicId || undefined;
 
     // Calculate date range
     const startDate = new Date();
@@ -127,16 +126,15 @@ async function getAnalyticsHandler(req: NextRequest, user: AuthUser): Promise<Re
 async function getSuppressedHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     // Non-super-admin can only see their own clinic
-    const effectiveClinicId =
-      user.role === 'super_admin' ? undefined : user.clinicId || undefined;
+    const effectiveClinicId = user.role === 'super_admin' ? undefined : user.clinicId || undefined;
 
     const suppressed = await emailLogService.getSuppressedEmails(effectiveClinicId);
 
     return NextResponse.json({
       success: true,
       count: suppressed.length,
-      emails: suppressed.map((email) =>
-        email.replace(/(.{2})(.*)(@.*)/, '$1***$3') // Mask for privacy
+      emails: suppressed.map(
+        (email) => email.replace(/(.{2})(.*)(@.*)/, '$1***$3') // Mask for privacy
       ),
     });
   } catch (error) {

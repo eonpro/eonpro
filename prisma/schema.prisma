@@ -282,6 +282,8 @@ model PatientDocument {
   externalUrl        String?
   sourceSubmissionId String?                 @unique
   category           PatientDocumentCategory @default(OTHER)
+  /// SHA-256 of file content for idempotent bloodwork uploads (dedupe same PDF).
+  contentHash        String?
   patient            Patient                 @relation(fields: [patientId], references: [id])
   soapNotes          SOAPNote[]
   labReport          LabReport?
@@ -303,6 +305,8 @@ model LabReport {
   patient      Patient   @relation(fields: [patientId], references: [id])
   clinic       Clinic    @relation(fields: [clinicId], references: [id])
   labName      String    @default("Quest Diagnostics")
+  /// Parser/interpretation version for re-process and audit (e.g. quest-2025-02).
+  parserVersion String?
   specimenId   String?
   collectedAt  DateTime?
   reportedAt   DateTime?
@@ -806,6 +810,7 @@ enum PatientDocumentCategory {
   CONSENT_FORMS
   PRESCRIPTIONS
   IMAGING
+  ID_PHOTO
   OTHER
 }
 
@@ -891,6 +896,18 @@ model WebhookLog {
   @@index([createdAt(sort: Desc)])
   @@index([source, eventId])
   @@index([source, status])
+}
+
+// Idempotency keys for critical mutations (B6); short TTL to limit storage
+model IdempotencyRecord {
+  id             Int      @id @default(autoincrement())
+  key            String   @unique // Client-provided idempotency key (e.g. UUID)
+  resource       String   // e.g. "refill_approve", "order_create"
+  responseStatus Int      // HTTP status returned
+  responseBody   Json     // Response body to return on replay
+  createdAt      DateTime @default(now())
+
+  @@index([resource, createdAt])
 }
 
 // Unified User Management System
@@ -1105,19 +1122,42 @@ model ProviderClinic {
 }
 
 model UserSession {
-  id           Int      @id @default(autoincrement())
-  userId       Int
-  user         User     @relation(fields: [userId], references: [id])
-  token        String   @unique
-  refreshToken String   @unique
-  ipAddress    String?
-  userAgent    String?
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-  lastActivity DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id])
+  token             String   @unique
+  refreshToken      String   @unique  // Legacy: truncated; prefer refreshTokenHash for rotation
+  refreshTokenHash  String?  @unique  // SHA-256 hash for rotation + reuse detection
+  ipAddress         String?
+  userAgent         String?
+  deviceFingerprint String?
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  lastActivity      DateTime @default(now())
 
   @@index([token])
   @@index([userId, expiresAt])
+  @@index([refreshTokenHash])
+}
+
+// Enterprise: Login audit (PII-safe: no password, no token)
+model LoginAudit {
+  id                Int      @id @default(autoincrement())
+  email             String   // Redacted: first 3 chars + *** (e.g. gsi***)
+  outcome           String   // SUCCESS, FAILURE, PASSWORD_RESET, LOCKOUT
+  failureReason     String?  // Invalid credentials, rate limit, etc.
+  ipAddress         String?
+  userAgent         String?
+  clinicId          Int?     // Tenant context
+  deviceFingerprint String?
+  requestId         String?  // x-request-id for correlation
+  userId            Int?     // Set on success; null on failure
+  createdAt         DateTime @default(now())
+
+  @@index([email, createdAt(sort: Desc)])
+  @@index([outcome, createdAt(sort: Desc)])
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([requestId])
 }
 
 model UserAuditLog {

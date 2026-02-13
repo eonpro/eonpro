@@ -1,6 +1,6 @@
 /**
  * Super Admin Affiliates API
- * 
+ *
  * GET - List all affiliates across all clinics
  * POST - Create a new affiliate for a specific clinic
  */
@@ -9,13 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { logger } from '@/lib/logger';
 
 /**
  * Middleware to check for Super Admin role
  */
-function withSuperAdminAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-) {
+function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
 }
 
@@ -24,7 +23,6 @@ function withSuperAdminAuth(
  */
 export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-
     // Get all affiliates with their clinic, user, ref codes, and stats
     const affiliates = await basePrisma.affiliate.findMany({
       include: {
@@ -106,8 +104,8 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     // Transform data
     const transformedAffiliates = affiliates.map((affiliate) => {
       const events = affiliate.commissionEvents || [];
-      const paidEvents = events.filter(e => e.status === 'PAID' || e.status === 'APPROVED');
-      
+      const paidEvents = events.filter((e) => e.status === 'PAID' || e.status === 'APPROVED');
+
       return {
         id: affiliate.id,
         displayName: affiliate.displayName,
@@ -121,7 +119,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         stats: {
           totalConversions: events.length,
           totalRevenueCents: events.reduce((sum, e) => sum + (e.eventAmountCents || 0), 0),
-          totalCommissionCents: paidEvents.reduce((sum, e) => sum + (e.commissionAmountCents || 0), 0),
+          totalCommissionCents: paidEvents.reduce(
+            (sum, e) => sum + (e.commissionAmountCents || 0),
+            0
+          ),
         },
       };
     });
@@ -131,22 +132,27 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       plans,
     });
   } catch (error) {
-    console.error('Failed to fetch affiliates:', error);
+    logger.error('Failed to fetch affiliates', { error: error instanceof Error ? error.message : String(error) });
 
     // Check if this is a Prisma error indicating missing tables
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const isPrismaTableError = errorMessage.includes('does not exist') ||
-                               errorMessage.includes('relation') ||
-                               errorMessage.includes('P2021') ||
-                               errorMessage.includes('P2025');
+    const isPrismaTableError =
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('relation') ||
+      errorMessage.includes('P2021') ||
+      errorMessage.includes('P2025');
 
     if (isPrismaTableError) {
-      return NextResponse.json({
-        error: 'Database tables not found. Please run migrations.',
-        details: 'The affiliate system tables have not been created yet. Run: npx prisma migrate deploy',
-        affiliates: [],
-        plans: [],
-      }, { status: 200 }); // Return 200 with empty data so UI doesn't break
+      return NextResponse.json(
+        {
+          error: 'Database tables not found. Please run migrations.',
+          details:
+            'The affiliate system tables have not been created yet. Run: npx prisma migrate deploy',
+          affiliates: [],
+          plans: [],
+        },
+        { status: 200 }
+      ); // Return 200 with empty data so UI doesn't break
     }
 
     return NextResponse.json(
@@ -196,10 +202,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: 'A user with this email already exists' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'A user with this email already exists' }, { status: 400 });
     }
 
     // Create user and affiliate in a transaction
@@ -245,7 +248,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
           .replace(/[^A-Z0-9]/g, '')
           .substring(0, 8);
         const refCode = `${baseCode}${Math.floor(Math.random() * 1000)}`;
-        
+
         await tx.affiliateRefCode.create({
           data: {
             clinicId,
@@ -277,27 +280,34 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       userId: result.user.id,
     });
   } catch (error) {
-    console.error('Failed to create affiliate:', error);
+    logger.error('Failed to create affiliate', { error: error instanceof Error ? error.message : String(error) });
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const isPrismaTableError = errorMessage.includes('does not exist') ||
-                               errorMessage.includes('relation') ||
-                               errorMessage.includes('P2021') ||
-                               errorMessage.includes('P2025') ||
-                               errorMessage.includes('P2003');
+    const isPrismaTableError =
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('relation') ||
+      errorMessage.includes('P2021') ||
+      errorMessage.includes('P2025') ||
+      errorMessage.includes('P2003');
 
     if (isPrismaTableError) {
-      return NextResponse.json({
-        error: 'Database tables not found. Please run migrations first.',
-        details: 'Run: npx prisma migrate deploy',
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: 'Database tables not found. Please run migrations first.',
+          details: 'Run: npx prisma migrate deploy',
+        },
+        { status: 500 }
+      );
     }
 
     // Check for unique constraint violations
     if (errorMessage.includes('P2002') || errorMessage.includes('Unique constraint')) {
-      return NextResponse.json({
-        error: 'An affiliate with this email or ref code already exists',
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'An affiliate with this email or ref code already exists',
+        },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json(

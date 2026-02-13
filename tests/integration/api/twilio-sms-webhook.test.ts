@@ -33,7 +33,7 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/lib/integrations/twilio/smsService', () => ({
   validatePhoneNumber: vi.fn(() => true),
-  formatPhoneNumber: vi.fn((phone) => phone.startsWith('+') ? phone : `+1${phone}`),
+  formatPhoneNumber: vi.fn((phone) => (phone.startsWith('+') ? phone : `+1${phone}`)),
 }));
 
 describe('Twilio Incoming SMS Webhook', () => {

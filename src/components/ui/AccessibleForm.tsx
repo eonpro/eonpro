@@ -73,27 +73,21 @@ export function FormField({
   // Clone child with accessibility attributes
   const child = React.cloneElement(children, {
     id,
-    'aria-describedby': cn(
-      error && errorId,
-      helperText && helperId
-    ) || undefined,
+    'aria-describedby': cn(error && errorId, helperText && helperId) || undefined,
     'aria-invalid': error ? 'true' : undefined,
     'aria-required': required ? 'true' : undefined,
   });
 
   return (
     <div className={cn('space-y-2', className)}>
-      <label
-        htmlFor={id}
-        className="block text-sm font-medium text-gray-700"
-      >
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label}
         {required && (
-          <span className="text-red-500 ml-1" aria-hidden="true">*</span>
+          <span className="ml-1 text-red-500" aria-hidden="true">
+            *
+          </span>
         )}
-        {required && (
-          <span className="sr-only">(required)</span>
-        )}
+        {required && <span className="sr-only">(required)</span>}
       </label>
       {child}
       {helperText && !error && (
@@ -102,12 +96,7 @@ export function FormField({
         </p>
       )}
       {error && (
-        <p
-          id={errorId}
-          className="text-sm text-red-600"
-          role="alert"
-          aria-live="polite"
-        >
+        <p id={errorId} className="text-sm text-red-600" role="alert" aria-live="polite">
           {error}
         </p>
       )}
@@ -130,23 +119,19 @@ export const AccessibleTextInput = forwardRef<HTMLInputElement, TextInputProps>(
 
     return (
       <div className="space-y-2">
-        <label
-          htmlFor={id}
-          className="block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor={id} className="block text-sm font-medium text-gray-700">
           {label}
           {required && (
-            <span className="text-red-500 ml-1" aria-hidden="true">*</span>
+            <span className="ml-1 text-red-500" aria-hidden="true">
+              *
+            </span>
           )}
         </label>
         <input
           ref={ref}
           id={id}
           type={type}
-          aria-describedby={cn(
-            error && errorId,
-            helperText && helperId
-          ) || undefined}
+          aria-describedby={cn(error && errorId, helperText && helperId) || undefined}
           aria-invalid={error ? 'true' : undefined}
           aria-required={required ? 'true' : undefined}
           className={cn(
@@ -156,9 +141,9 @@ export const AccessibleTextInput = forwardRef<HTMLInputElement, TextInputProps>(
             // Touch target: minimum 44x44px (WCAG 2.5.5)
             'min-h-[44px]',
             error
-              ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500',
-            'disabled:bg-gray-100 disabled:cursor-not-allowed',
+              ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+              : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500',
+            'disabled:cursor-not-allowed disabled:bg-gray-100',
             className
           )}
           {...props}
@@ -169,12 +154,7 @@ export const AccessibleTextInput = forwardRef<HTMLInputElement, TextInputProps>(
           </p>
         )}
         {error && (
-          <p
-            id={errorId}
-            className="text-sm text-red-600"
-            role="alert"
-            aria-live="polite"
-          >
+          <p id={errorId} className="text-sm text-red-600" role="alert" aria-live="polite">
             {error}
           </p>
         )}
@@ -198,33 +178,27 @@ export const AccessibleTextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>
 
     return (
       <div className="space-y-2">
-        <label
-          htmlFor={id}
-          className="block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor={id} className="block text-sm font-medium text-gray-700">
           {label}
           {required && (
-            <span className="text-red-500 ml-1" aria-hidden="true">*</span>
+            <span className="ml-1 text-red-500" aria-hidden="true">
+              *
+            </span>
           )}
         </label>
         <textarea
           ref={ref}
           id={id}
           rows={rows}
-          aria-describedby={cn(
-            error && errorId,
-            helperText && helperId
-          ) || undefined}
+          aria-describedby={cn(error && errorId, helperText && helperId) || undefined}
           aria-invalid={error ? 'true' : undefined}
           aria-required={required ? 'true' : undefined}
           className={cn(
             'block w-full rounded-lg border px-4 py-3 text-base',
             'focus:outline-none focus:ring-2 focus:ring-offset-2',
-            'transition-colors duration-200 resize-y',
-            error
-              ? 'border-red-500 focus:ring-red-500'
-              : 'border-gray-300 focus:ring-blue-500',
-            'disabled:bg-gray-100 disabled:cursor-not-allowed',
+            'resize-y transition-colors duration-200',
+            error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500',
+            'disabled:cursor-not-allowed disabled:bg-gray-100',
             className
           )}
           {...props}
@@ -235,12 +209,7 @@ export const AccessibleTextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>
           </p>
         )}
         {error && (
-          <p
-            id={errorId}
-            className="text-sm text-red-600"
-            role="alert"
-            aria-live="polite"
-          >
+          <p id={errorId} className="text-sm text-red-600" role="alert" aria-live="polite">
             {error}
           </p>
         )}
@@ -264,22 +233,18 @@ export const AccessibleSelect = forwardRef<HTMLSelectElement, SelectProps>(
 
     return (
       <div className="space-y-2">
-        <label
-          htmlFor={id}
-          className="block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor={id} className="block text-sm font-medium text-gray-700">
           {label}
           {required && (
-            <span className="text-red-500 ml-1" aria-hidden="true">*</span>
+            <span className="ml-1 text-red-500" aria-hidden="true">
+              *
+            </span>
           )}
         </label>
         <select
           ref={ref}
           id={id}
-          aria-describedby={cn(
-            error && errorId,
-            helperText && helperId
-          ) || undefined}
+          aria-describedby={cn(error && errorId, helperText && helperId) || undefined}
           aria-invalid={error ? 'true' : undefined}
           aria-required={required ? 'true' : undefined}
           className={cn(
@@ -288,13 +253,11 @@ export const AccessibleSelect = forwardRef<HTMLSelectElement, SelectProps>(
             'transition-colors duration-200',
             // Touch target: minimum 44x44px
             'min-h-[44px]',
-            error
-              ? 'border-red-500 focus:ring-red-500'
-              : 'border-gray-300 focus:ring-blue-500',
-            'disabled:bg-gray-100 disabled:cursor-not-allowed',
+            error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500',
+            'disabled:cursor-not-allowed disabled:bg-gray-100',
             'appearance-none bg-white',
             // Custom arrow
-            'bg-no-repeat bg-right pr-10',
+            'bg-right bg-no-repeat pr-10',
             className
           )}
           style={{
@@ -310,11 +273,7 @@ export const AccessibleSelect = forwardRef<HTMLSelectElement, SelectProps>(
             </option>
           )}
           {options.map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-              disabled={option.disabled}
-            >
+            <option key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}
             </option>
           ))}
@@ -325,12 +284,7 @@ export const AccessibleSelect = forwardRef<HTMLSelectElement, SelectProps>(
           </p>
         )}
         {error && (
-          <p
-            id={errorId}
-            className="text-sm text-red-600"
-            role="alert"
-            aria-live="polite"
-          >
+          <p id={errorId} className="text-sm text-red-600" role="alert" aria-live="polite">
             {error}
           </p>
         )}
@@ -344,10 +298,7 @@ export const AccessibleSelect = forwardRef<HTMLSelectElement, SelectProps>(
 // =============================================================================
 
 export const AccessibleCheckbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  function AccessibleCheckbox(
-    { label, description, error, className, ...props },
-    ref
-  ) {
+  function AccessibleCheckbox({ label, description, error, className, ...props }, ref) {
     const id = useId();
     const descriptionId = `${id}-description`;
     const errorId = `${id}-error`;
@@ -355,19 +306,16 @@ export const AccessibleCheckbox = forwardRef<HTMLInputElement, CheckboxProps>(
     return (
       <div className="space-y-1">
         <div className="flex items-start">
-          <div className="flex items-center h-6">
+          <div className="flex h-6 items-center">
             <input
               ref={ref}
               id={id}
               type="checkbox"
-              aria-describedby={cn(
-                description && descriptionId,
-                error && errorId
-              ) || undefined}
+              aria-describedby={cn(description && descriptionId, error && errorId) || undefined}
               aria-invalid={error ? 'true' : undefined}
               className={cn(
                 'h-5 w-5 rounded border-gray-300',
-                'text-blue-600 focus:ring-blue-500 focus:ring-2',
+                'text-blue-600 focus:ring-2 focus:ring-blue-500',
                 'transition-colors duration-200',
                 // Touch target: ensure wrapper is at least 44x44px
                 'cursor-pointer',
@@ -378,10 +326,7 @@ export const AccessibleCheckbox = forwardRef<HTMLInputElement, CheckboxProps>(
             />
           </div>
           <div className="ml-3">
-            <label
-              htmlFor={id}
-              className="text-sm font-medium text-gray-700 cursor-pointer"
-            >
+            <label htmlFor={id} className="cursor-pointer text-sm font-medium text-gray-700">
               {label}
             </label>
             {description && (
@@ -392,12 +337,7 @@ export const AccessibleCheckbox = forwardRef<HTMLInputElement, CheckboxProps>(
           </div>
         </div>
         {error && (
-          <p
-            id={errorId}
-            className="text-sm text-red-600 ml-8"
-            role="alert"
-            aria-live="polite"
-          >
+          <p id={errorId} className="ml-8 text-sm text-red-600" role="alert" aria-live="polite">
             {error}
           </p>
         )}
@@ -431,32 +371,27 @@ export function AccessibleRadioGroup({
   );
 
   return (
-    <fieldset
-      className="space-y-3"
-      aria-describedby={error ? errorId : undefined}
-    >
+    <fieldset className="space-y-3" aria-describedby={error ? errorId : undefined}>
       <legend className="text-sm font-medium text-gray-700">
         {label}
         {required && (
-          <span className="text-red-500 ml-1" aria-hidden="true">*</span>
+          <span className="ml-1 text-red-500" aria-hidden="true">
+            *
+          </span>
         )}
       </legend>
       <div
-        className={cn(
-          orientation === 'horizontal' ? 'flex flex-wrap gap-6' : 'space-y-3'
-        )}
+        className={cn(orientation === 'horizontal' ? 'flex flex-wrap gap-6' : 'space-y-3')}
         role="radiogroup"
         aria-required={required}
       >
         {options.map((option) => {
           const optionId = `${groupId}-${option.value}`;
-          const descriptionId = option.description
-            ? `${optionId}-description`
-            : undefined;
+          const descriptionId = option.description ? `${optionId}-description` : undefined;
 
           return (
             <div key={option.value} className="flex items-start">
-              <div className="flex items-center h-6">
+              <div className="flex h-6 items-center">
                 <input
                   id={optionId}
                   name={name}
@@ -468,7 +403,7 @@ export function AccessibleRadioGroup({
                   aria-describedby={descriptionId}
                   className={cn(
                     'h-5 w-5 border-gray-300',
-                    'text-blue-600 focus:ring-blue-500 focus:ring-2',
+                    'text-blue-600 focus:ring-2 focus:ring-blue-500',
                     'transition-colors duration-200',
                     'cursor-pointer',
                     'disabled:cursor-not-allowed disabled:opacity-50'
@@ -479,17 +414,14 @@ export function AccessibleRadioGroup({
                 <label
                   htmlFor={optionId}
                   className={cn(
-                    'text-sm font-medium cursor-pointer',
+                    'cursor-pointer text-sm font-medium',
                     option.disabled ? 'text-gray-400' : 'text-gray-700'
                   )}
                 >
                   {option.label}
                 </label>
                 {option.description && (
-                  <p
-                    id={descriptionId}
-                    className="text-sm text-gray-500"
-                  >
+                  <p id={descriptionId} className="text-sm text-gray-500">
                     {option.description}
                   </p>
                 )}
@@ -499,12 +431,7 @@ export function AccessibleRadioGroup({
         })}
       </div>
       {error && (
-        <p
-          id={errorId}
-          className="text-sm text-red-600"
-          role="alert"
-          aria-live="polite"
-        >
+        <p id={errorId} className="text-sm text-red-600" role="alert" aria-live="polite">
           {error}
         </p>
       )}
@@ -552,22 +479,38 @@ export function AccessibleAlert({
   const icons = {
     success: (
       <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
     error: (
       <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
     warning: (
       <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
     info: (
       <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
   };
@@ -576,23 +519,13 @@ export function AccessibleAlert({
     <div
       role={type === 'error' ? 'alert' : 'status'}
       aria-live={type === 'error' ? 'assertive' : 'polite'}
-      className={cn(
-        'rounded-lg border-l-4 p-4',
-        styles[type],
-        className
-      )}
+      className={cn('rounded-lg border-l-4 p-4', styles[type], className)}
     >
       <div className="flex">
-        <div className="flex-shrink-0">
-          {icons[type]}
-        </div>
+        <div className="flex-shrink-0">{icons[type]}</div>
         <div className="ml-3 flex-1">
-          {title && (
-            <h3 className="text-sm font-medium">{title}</h3>
-          )}
-          <div className={cn('text-sm', title && 'mt-1')}>
-            {children}
-          </div>
+          {title && <h3 className="text-sm font-medium">{title}</h3>}
+          <div className={cn('text-sm', title && 'mt-1')}>{children}</div>
         </div>
         {dismissible && (
           <div className="ml-4 flex-shrink-0">
@@ -601,14 +534,18 @@ export function AccessibleAlert({
               onClick={handleDismiss}
               className={cn(
                 'inline-flex rounded-md p-1.5',
-                'hover:bg-opacity-20 hover:bg-gray-500',
+                'hover:bg-gray-500 hover:bg-opacity-20',
                 'focus:outline-none focus:ring-2 focus:ring-offset-2',
-                'min-h-[44px] min-w-[44px] flex items-center justify-center'
+                'flex min-h-[44px] min-w-[44px] items-center justify-center'
               )}
               aria-label="Dismiss"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
             </button>
           </div>
@@ -622,14 +559,20 @@ export function AccessibleAlert({
 // SKIP LINK - For keyboard navigation
 // =============================================================================
 
-export function SkipLink({ href = '#main-content', children = 'Skip to main content' }: { href?: string; children?: React.ReactNode }) {
+export function SkipLink({
+  href = '#main-content',
+  children = 'Skip to main content',
+}: {
+  href?: string;
+  children?: React.ReactNode;
+}) {
   return (
     <a
       href={href}
       className={cn(
         'sr-only focus:not-sr-only',
-        'focus:absolute focus:top-4 focus:left-4 focus:z-50',
-        'focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white',
+        'focus:absolute focus:left-4 focus:top-4 focus:z-50',
+        'focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-white',
         'focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-white'
       )}
     >
@@ -643,11 +586,7 @@ export function SkipLink({ href = '#main-content', children = 'Skip to main cont
 // =============================================================================
 
 export function VisuallyHidden({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="sr-only">
-      {children}
-    </span>
-  );
+  return <span className="sr-only">{children}</span>;
 }
 
 // =============================================================================
@@ -661,12 +600,7 @@ interface LiveRegionProps {
 
 export function LiveRegion({ message, politeness = 'polite' }: LiveRegionProps) {
   return (
-    <div
-      role="status"
-      aria-live={politeness}
-      aria-atomic="true"
-      className="sr-only"
-    >
+    <div role="status" aria-live={politeness} aria-atomic="true" className="sr-only">
       {message}
     </div>
   );

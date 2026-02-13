@@ -21,9 +21,15 @@ export function getPortalResponseError(response: Response): string | null {
   return null;
 }
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 /**
  * Fetch from the API with patient-portal auth (Bearer token + credentials).
+ * Uses a default 30s timeout and supports AbortSignal for cancellation (e.g. in useEffect cleanup).
  * Use instead of raw fetch() in patient-portal pages and components.
+ *
+ * Cache: Defaults to `no-store` so refetches after mutations (e.g. progress widgets) return fresh
+ * data. Callers can override via init.cache if needed.
  */
 export async function portalFetch(
   path: string,
@@ -36,11 +42,30 @@ export async function portalFetch(
       if (v) headers.set(k, String(v));
     }
   }
-  return fetch(path, {
-    ...init,
-    headers,
-    credentials: 'include',
-    // Ensure refetches (e.g. after logging weight/water) get fresh data on the portal
-    cache: init?.cache ?? 'no-store',
-  });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  const userSignal = init?.signal;
+  let removeUserAbort: (() => void) | undefined;
+  if (userSignal) {
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    userSignal.addEventListener('abort', onAbort);
+    removeUserAbort = () => userSignal.removeEventListener('abort', onAbort);
+  }
+
+  try {
+    return await fetch(path, {
+      ...init,
+      headers,
+      signal: controller.signal,
+      credentials: 'include',
+      cache: init?.cache ?? 'no-store',
+    });
+  } finally {
+    clearTimeout(timeoutId);
+    removeUserAbort?.();
+  }
 }

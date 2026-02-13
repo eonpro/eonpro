@@ -1,6 +1,6 @@
 /**
  * Zoom Telehealth Configuration
- * 
+ *
  * Handles Zoom SDK/API setup for virtual consultations
  */
 
@@ -30,11 +30,7 @@ export const zoomConfig: ZoomConfig = {
 
 // Validate Zoom configuration
 export function isZoomConfigured(): boolean {
-  return !!(
-    zoomConfig.clientId && 
-    zoomConfig.clientSecret &&
-    zoomConfig.accountId
-  );
+  return !!(zoomConfig.clientId && zoomConfig.clientSecret && zoomConfig.accountId);
 }
 
 // Check if Zoom is enabled and configured

@@ -309,12 +309,12 @@ export default function SuperAdminCommissionPlansPage() {
 
       {/* Error Banner */}
       {error && (
-        <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
           <div>
             <p className="font-medium text-red-800">{error}</p>
             <p className="mt-1 text-sm text-red-600">
-              Run <code className="bg-red-100 px-1 rounded">npx prisma migrate deploy</code> to
+              Run <code className="rounded bg-red-100 px-1">npx prisma migrate deploy</code> to
               create the required tables.
             </p>
           </div>
@@ -397,7 +397,7 @@ export default function SuperAdminCommissionPlansPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         </div>
       </div>
 
@@ -406,38 +406,34 @@ export default function SuperAdminCommissionPlansPage() {
         {filteredPlans.map((plan) => (
           <div
             key={plan.id}
-            className={`rounded-xl bg-white p-5 shadow-sm border-2 transition-colors ${
+            className={`rounded-xl border-2 bg-white p-5 shadow-sm transition-colors ${
               plan.isActive ? 'border-transparent' : 'border-gray-200 opacity-60'
             }`}
           >
             {/* Header */}
-            <div className="flex items-start justify-between mb-3">
+            <div className="mb-3 flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-gray-900">{plan.name}</h3>
                   {!plan.isActive && (
-                    <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                       Inactive
                     </span>
                   )}
                 </div>
-                {plan.clinic && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {plan.clinic.name}
-                  </p>
-                )}
+                {plan.clinic && <p className="mt-0.5 text-xs text-gray-500">{plan.clinic.name}</p>}
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => openEditModal(plan)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                   title="Edit"
                 >
                   <Edit2 className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(plan.id)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -446,7 +442,7 @@ export default function SuperAdminCommissionPlansPage() {
             </div>
 
             {/* Commission Rate */}
-            <div className="bg-gradient-to-r from-[#4fa77e]/5 to-[#4fa77e]/5 rounded-lg p-4 mb-3">
+            <div className="mb-3 rounded-lg bg-gradient-to-r from-[#4fa77e]/5 to-[#4fa77e]/5 p-4">
               <div className="flex items-center gap-2">
                 {plan.planType === 'PERCENT' ? (
                   <>
@@ -463,7 +459,7 @@ export default function SuperAdminCommissionPlansPage() {
                     </span>
                   </>
                 )}
-                <span className="text-sm text-gray-500 ml-1">
+                <span className="ml-1 text-sm text-gray-500">
                   {plan.planType === 'PERCENT' ? 'of sale' : 'per conversion'}
                 </span>
               </div>
@@ -478,7 +474,7 @@ export default function SuperAdminCommissionPlansPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-gray-500">
                   <Clock className="h-3.5 w-3.5" /> Hold period
                 </span>
                 <span className="font-medium text-gray-700">
@@ -486,7 +482,7 @@ export default function SuperAdminCommissionPlansPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-gray-500">
                   <RotateCcw className="h-3.5 w-3.5" /> Clawback
                 </span>
                 <span
@@ -496,8 +492,8 @@ export default function SuperAdminCommissionPlansPage() {
                 </span>
               </div>
               {plan.assignmentCount !== undefined && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <span className="text-gray-500 flex items-center gap-1">
+                <div className="flex items-center justify-between border-t border-gray-100 pt-2">
+                  <span className="flex items-center gap-1 text-gray-500">
                     <Users className="h-3.5 w-3.5" /> Affiliates
                   </span>
                   <span className="font-medium text-gray-700">{plan.assignmentCount}</span>
@@ -506,10 +502,10 @@ export default function SuperAdminCommissionPlansPage() {
             </div>
 
             {/* Toggle Active Status */}
-            <div className="mt-4 pt-3 border-t border-gray-100">
+            <div className="mt-4 border-t border-gray-100 pt-3">
               <button
                 onClick={() => togglePlanStatus(plan)}
-                className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-full rounded-lg py-2 text-sm font-medium transition-colors ${
                   plan.isActive
                     ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     : 'bg-green-50 text-green-700 hover:bg-green-100'
@@ -528,7 +524,7 @@ export default function SuperAdminCommissionPlansPage() {
             <p className="mt-2 text-gray-500">No commission plans found</p>
             <button
               onClick={openCreateModal}
-              className="mt-4 text-[#4fa77e] hover:text-[#3d8a66] font-medium"
+              className="mt-4 font-medium text-[#4fa77e] hover:text-[#3d8a66]"
             >
               Create your first plan
             </button>
@@ -539,14 +535,14 @@ export default function SuperAdminCommissionPlansPage() {
       {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">
                 {editingPlan ? 'Edit Commission Plan' : 'Create Commission Plan'}
               </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-1 rounded-lg hover:bg-gray-100"
+                className="rounded-lg p-1 hover:bg-gray-100"
               >
                 <X className="h-5 w-5 text-gray-400" />
               </button>
@@ -599,26 +595,26 @@ export default function SuperAdminCommissionPlansPage() {
 
               {/* Plan Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700">
                   Commission Type *
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setFormData((f) => ({ ...f, planType: 'PERCENT' }))}
-                    className={`relative p-3 rounded-lg border-2 transition-colors ${
+                    className={`relative rounded-lg border-2 p-3 transition-colors ${
                       formData.planType === 'PERCENT'
                         ? 'border-[#4fa77e] bg-[#4fa77e]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     {formData.planType === 'PERCENT' && (
-                      <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[#4fa77e] flex items-center justify-center">
+                      <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#4fa77e]">
                         <CheckCircle className="h-5 w-5 text-white" />
                       </div>
                     )}
                     <Percent
-                      className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'PERCENT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
+                      className={`mx-auto mb-1 h-5 w-5 ${formData.planType === 'PERCENT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
                     />
                     <p
                       className={`text-sm font-medium ${formData.planType === 'PERCENT' ? 'text-[#3d8a66]' : 'text-gray-600'}`}
@@ -630,19 +626,19 @@ export default function SuperAdminCommissionPlansPage() {
                   <button
                     type="button"
                     onClick={() => setFormData((f) => ({ ...f, planType: 'FLAT' }))}
-                    className={`relative p-3 rounded-lg border-2 transition-colors ${
+                    className={`relative rounded-lg border-2 p-3 transition-colors ${
                       formData.planType === 'FLAT'
                         ? 'border-[#4fa77e] bg-[#4fa77e]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     {formData.planType === 'FLAT' && (
-                      <div className="absolute top-2 right-2 h-5 w-5 rounded-full bg-[#4fa77e] flex items-center justify-center">
+                      <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#4fa77e]">
                         <CheckCircle className="h-5 w-5 text-white" />
                       </div>
                     )}
                     <DollarSign
-                      className={`h-5 w-5 mx-auto mb-1 ${formData.planType === 'FLAT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
+                      className={`mx-auto mb-1 h-5 w-5 ${formData.planType === 'FLAT' ? 'text-[#4fa77e]' : 'text-gray-400'}`}
                     />
                     <p
                       className={`text-sm font-medium ${formData.planType === 'FLAT' ? 'text-[#3d8a66]' : 'text-gray-600'}`}
@@ -672,7 +668,9 @@ export default function SuperAdminCommissionPlansPage() {
                       placeholder="10"
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      %
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
                     Enter the percentage (e.g., 10 for 10%)
@@ -684,7 +682,9 @@ export default function SuperAdminCommissionPlansPage() {
                     Commission Amount *
                   </label>
                   <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      $
+                    </span>
                     <input
                       type="number"
                       required
@@ -718,7 +718,9 @@ export default function SuperAdminCommissionPlansPage() {
 
               {/* Hold Days */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Hold Period (Days)</label>
+                <label className="block text-sm font-medium text-gray-700">
+                  Hold Period (Days)
+                </label>
                 <input
                   type="number"
                   min="0"

@@ -21,6 +21,8 @@ import {
   getNextInjectionSite,
   type InjectionSite,
 } from '@/lib/calculators';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { ringColorStyle } from '@/lib/utils/css-ring-color';
 
 interface InjectionLog {
   id: string;
@@ -48,12 +50,11 @@ export default function InjectionTrackerPage() {
   const [showTips, setShowTips] = useState(false);
   const [notes, setNotes] = useState('');
 
-  // Load history from localStorage
+  // Load history from localStorage (safe parse to avoid crash on malformed data)
   useEffect(() => {
     const saved = localStorage.getItem('injection-history');
-    if (saved) {
-      setHistory(JSON.parse(saved));
-    }
+    const parsed = safeParseJsonString<InjectionLog[]>(saved);
+    if (parsed && Array.isArray(parsed)) setHistory(parsed);
   }, []);
 
   // Save history to localStorage
@@ -318,7 +319,7 @@ export default function InjectionTrackerPage() {
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Add notes (optional)..."
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                  style={{ '--tw-ring-color': primaryColor } as any}
+                  style={ringColorStyle(primaryColor)}
                   rows={2}
                 />
               </div>

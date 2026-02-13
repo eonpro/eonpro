@@ -190,7 +190,10 @@ export async function showLocalNotification(payload: NotificationPayload): Promi
   try {
     const registration = await navigator.serviceWorker.ready;
 
-    const options: NotificationOptions & { vibrate?: number[]; actions?: Array<{ action: string; title: string }> } = {
+    const options: NotificationOptions & {
+      vibrate?: number[];
+      actions?: Array<{ action: string; title: string }>;
+    } = {
       body: payload.body,
       icon: payload.icon || '/icons/icon-192x192.png',
       badge: payload.badge || '/icons/badge-72x72.png',
@@ -245,7 +248,7 @@ export function createNotificationPayload(
     case NotificationTypes.SHIPMENT_UPDATE:
       return {
         title: 'Shipment Update',
-        body: data.message as string || 'Your shipment status has changed',
+        body: (data.message as string) || 'Your shipment status has changed',
         icon: '/icons/notification-shipment.png',
         tag: `shipment-${data.shipmentId}`,
         data: { url: '/patient-portal/shipments', type },
@@ -268,8 +271,8 @@ export function createNotificationPayload(
 
     case NotificationTypes.MESSAGE_RECEIVED:
       return {
-        title: data.senderName as string || 'New Message',
-        body: data.preview as string || 'You have a new message from your care team',
+        title: (data.senderName as string) || 'New Message',
+        body: (data.preview as string) || 'You have a new message from your care team',
         icon: '/icons/notification-message.png',
         tag: 'message',
         data: { url: '/patient-portal/chat', type },
@@ -279,7 +282,7 @@ export function createNotificationPayload(
     case NotificationTypes.PROGRESS_SUMMARY:
       return {
         title: 'Weekly Progress Summary',
-        body: data.summary as string || 'See how you did this week!',
+        body: (data.summary as string) || 'See how you did this week!',
         icon: '/icons/notification-progress.png',
         tag: 'progress-summary',
         data: { url: '/patient-portal/progress', type },
@@ -289,7 +292,7 @@ export function createNotificationPayload(
     case NotificationTypes.ACHIEVEMENT_UNLOCKED:
       return {
         title: '🎉 Achievement Unlocked!',
-        body: data.achievementName as string || 'You earned a new achievement!',
+        body: (data.achievementName as string) || 'You earned a new achievement!',
         icon: '/icons/notification-achievement.png',
         tag: `achievement-${data.achievementId}`,
         data: { url: '/patient-portal/achievements', type },
@@ -299,7 +302,7 @@ export function createNotificationPayload(
     case NotificationTypes.GOAL_REACHED:
       return {
         title: '🎯 Goal Reached!',
-        body: data.goalName as string || 'Congratulations on reaching your goal!',
+        body: (data.goalName as string) || 'Congratulations on reaching your goal!',
         icon: '/icons/notification-goal.png',
         tag: `goal-${data.goalId}`,
         data: { url: '/patient-portal/progress', type },

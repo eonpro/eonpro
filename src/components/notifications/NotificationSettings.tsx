@@ -32,21 +32,56 @@ import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 // Category Config
 // ============================================================================
 
-const categoryConfig: Record<NotificationCategory, { icon: typeof Bell; color: string; bgColor: string; label: string }> = {
-  PRESCRIPTION: { icon: Pill, color: 'text-purple-600', bgColor: 'bg-purple-100', label: 'Prescriptions' },
+const categoryConfig: Record<
+  NotificationCategory,
+  { icon: typeof Bell; color: string; bgColor: string; label: string }
+> = {
+  PRESCRIPTION: {
+    icon: Pill,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
+    label: 'Prescriptions',
+  },
   PATIENT: { icon: User, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Patients' },
   ORDER: { icon: Package, color: 'text-green-600', bgColor: 'bg-green-100', label: 'Orders' },
-  SYSTEM: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-100', label: 'System' },
-  APPOINTMENT: { icon: Calendar, color: 'text-cyan-600', bgColor: 'bg-cyan-100', label: 'Appointments' },
-  MESSAGE: { icon: MessageSquare, color: 'text-indigo-600', bgColor: 'bg-indigo-100', label: 'Messages' },
-  PAYMENT: { icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-100', label: 'Payments' },
+  SYSTEM: {
+    icon: AlertCircle,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
+    label: 'System',
+  },
+  APPOINTMENT: {
+    icon: Calendar,
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-100',
+    label: 'Appointments',
+  },
+  MESSAGE: {
+    icon: MessageSquare,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-100',
+    label: 'Messages',
+  },
+  PAYMENT: {
+    icon: CreditCard,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-100',
+    label: 'Payments',
+  },
   REFILL: { icon: RefreshCw, color: 'text-pink-600', bgColor: 'bg-pink-100', label: 'Refills' },
   SHIPMENT: { icon: Package, color: 'text-amber-600', bgColor: 'bg-amber-100', label: 'Shipments' },
 };
 
 const categories: NotificationCategory[] = [
-  'PRESCRIPTION', 'PATIENT', 'ORDER', 'SYSTEM', 
-  'APPOINTMENT', 'MESSAGE', 'PAYMENT', 'REFILL', 'SHIPMENT'
+  'PRESCRIPTION',
+  'PATIENT',
+  'ORDER',
+  'SYSTEM',
+  'APPOINTMENT',
+  'MESSAGE',
+  'PAYMENT',
+  'REFILL',
+  'SHIPMENT',
 ];
 
 const daysOfWeek = [
@@ -77,12 +112,8 @@ interface ToggleSwitchProps {
 }
 
 function ToggleSwitch({ enabled, onChange, size = 'md' }: ToggleSwitchProps) {
-  const sizeClasses = size === 'sm' 
-    ? 'w-9 h-5' 
-    : 'w-11 h-6';
-  const knobClasses = size === 'sm'
-    ? 'w-3.5 h-3.5 top-0.5 left-0.5'
-    : 'w-4 h-4 top-1 left-1';
+  const sizeClasses = size === 'sm' ? 'w-9 h-5' : 'w-11 h-6';
+  const knobClasses = size === 'sm' ? 'w-3.5 h-3.5 top-0.5 left-0.5' : 'w-4 h-4 top-1 left-1';
   const translateClass = size === 'sm' ? 'translate-x-4' : 'translate-x-5';
 
   return (
@@ -93,9 +124,11 @@ function ToggleSwitch({ enabled, onChange, size = 'md' }: ToggleSwitchProps) {
         enabled ? 'bg-blue-500' : 'bg-gray-300'
       }`}
     >
-      <span className={`absolute ${knobClasses} bg-white rounded-full transition-transform ${
-        enabled ? translateClass : ''
-      }`} />
+      <span
+        className={`absolute ${knobClasses} rounded-full bg-white transition-transform ${
+          enabled ? translateClass : ''
+        }`}
+      />
     </button>
   );
 }
@@ -113,21 +146,17 @@ interface SettingSectionProps {
 
 function SettingSection({ title, description, icon: Icon, children }: SettingSectionProps) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
           <Icon className="h-5 w-5 text-gray-600" />
         </div>
         <div>
           <h3 className="font-semibold text-gray-900">{title}</h3>
-          {description && (
-            <p className="text-sm text-gray-500">{description}</p>
-          )}
+          {description && <p className="text-sm text-gray-500">{description}</p>}
         </div>
       </div>
-      <div className="p-6 space-y-4">
-        {children}
-      </div>
+      <div className="space-y-4 p-6">{children}</div>
     </div>
   );
 }
@@ -139,14 +168,9 @@ function SettingSection({ title, description, icon: Icon, children }: SettingSec
 export default function NotificationSettings() {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
-  
-  const {
-    preferences,
-    updatePreferences,
-    requestBrowserPermission,
-    muteCategory,
-    unmuteCategory,
-  } = useNotificationContext();
+
+  const { preferences, updatePreferences, requestBrowserPermission, muteCategory, unmuteCategory } =
+    useNotificationContext();
 
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -165,9 +189,9 @@ export default function NotificationSettings() {
   const handleDayToggle = (day: number) => {
     const currentDays = preferences.dndSchedule.days;
     const newDays = currentDays.includes(day)
-      ? currentDays.filter(d => d !== day)
+      ? currentDays.filter((d) => d !== day)
       : [...currentDays, day].sort();
-    
+
     handleChange({
       dndSchedule: {
         ...preferences.dndSchedule,
@@ -179,9 +203,9 @@ export default function NotificationSettings() {
   const handlePriorityToggle = (priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT') => {
     const current = preferences.soundForPriorities;
     const newPriorities = current.includes(priority)
-      ? current.filter(p => p !== priority)
+      ? current.filter((p) => p !== priority)
       : [...current, priority];
-    
+
     handleChange({ soundForPriorities: newPriorities });
   };
 
@@ -216,13 +240,13 @@ export default function NotificationSettings() {
                   max="100"
                   value={preferences.soundVolume}
                   onChange={(e) => handleChange({ soundVolume: Number(e.target.value) })}
-                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200"
                   style={{
                     background: `linear-gradient(to right, ${primaryColor} 0%, ${primaryColor} ${preferences.soundVolume}%, #e5e7eb ${preferences.soundVolume}%, #e5e7eb 100%)`,
                   }}
                 />
                 <Volume2 className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-600 w-10">{preferences.soundVolume}%</span>
+                <span className="w-10 text-sm text-gray-600">{preferences.soundVolume}%</span>
               </div>
             </div>
 
@@ -233,10 +257,10 @@ export default function NotificationSettings() {
                   <button
                     key={priority}
                     onClick={() => handlePriorityToggle(priority)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                       preferences.soundForPriorities.includes(priority)
-                        ? 'bg-blue-100 text-blue-700 border-2 border-blue-200'
-                        : 'bg-gray-100 text-gray-600 border-2 border-transparent hover:bg-gray-200'
+                        ? 'border-2 border-blue-200 bg-blue-100 text-blue-700'
+                        : 'border-2 border-transparent bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
                     {priority}
@@ -277,9 +301,9 @@ export default function NotificationSettings() {
                   step="1000"
                   value={preferences.toastDuration}
                   onChange={(e) => handleChange({ toastDuration: Number(e.target.value) })}
-                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-gray-200"
                 />
-                <span className="text-sm text-gray-600 w-16">
+                <span className="w-16 text-sm text-gray-600">
                   {preferences.toastDuration / 1000}s
                 </span>
               </div>
@@ -292,10 +316,10 @@ export default function NotificationSettings() {
                   <button
                     key={pos.id}
                     onClick={() => handleChange({ toastPosition: pos.id })}
-                    className={`p-3 rounded-xl text-sm font-medium transition-colors border-2 ${
+                    className={`rounded-xl border-2 p-3 text-sm font-medium transition-colors ${
                       preferences.toastPosition === pos.id
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
                     }`}
                   >
                     {pos.label}
@@ -316,7 +340,9 @@ export default function NotificationSettings() {
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">Enable browser notifications</p>
-            <p className="text-sm text-gray-500">Show notifications even when tab is in background</p>
+            <p className="text-sm text-gray-500">
+              Show notifications even when tab is in background
+            </p>
           </div>
           {preferences.browserNotificationsEnabled ? (
             <ToggleSwitch
@@ -326,7 +352,7 @@ export default function NotificationSettings() {
           ) : (
             <button
               onClick={handleBrowserPermission}
-              className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-xl hover:bg-blue-600 transition-colors"
+              className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600"
             >
               Enable
             </button>
@@ -352,31 +378,35 @@ export default function NotificationSettings() {
         </div>
 
         <div className="border-t border-gray-100 pt-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="font-medium text-gray-900">Scheduled DND</p>
               <p className="text-sm text-gray-500">Automatically enable during specific times</p>
             </div>
             <ToggleSwitch
               enabled={preferences.dndSchedule.enabled}
-              onChange={(enabled) => handleChange({
-                dndSchedule: { ...preferences.dndSchedule, enabled },
-              })}
+              onChange={(enabled) =>
+                handleChange({
+                  dndSchedule: { ...preferences.dndSchedule, enabled },
+                })
+              }
             />
           </div>
 
           {preferences.dndSchedule.enabled && (
-            <div className="space-y-4 mt-4 p-4 bg-gray-50 rounded-xl">
+            <div className="mt-4 space-y-4 rounded-xl bg-gray-50 p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Start time</label>
                   <input
                     type="time"
                     value={preferences.dndSchedule.startTime}
-                    onChange={(e) => handleChange({
-                      dndSchedule: { ...preferences.dndSchedule, startTime: e.target.value },
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange({
+                        dndSchedule: { ...preferences.dndSchedule, startTime: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -384,10 +414,12 @@ export default function NotificationSettings() {
                   <input
                     type="time"
                     value={preferences.dndSchedule.endTime}
-                    onChange={(e) => handleChange({
-                      dndSchedule: { ...preferences.dndSchedule, endTime: e.target.value },
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) =>
+                      handleChange({
+                        dndSchedule: { ...preferences.dndSchedule, endTime: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -399,10 +431,10 @@ export default function NotificationSettings() {
                     <button
                       key={day.id}
                       onClick={() => handleDayToggle(day.id)}
-                      className={`w-10 h-10 rounded-xl text-sm font-medium transition-colors ${
+                      className={`h-10 w-10 rounded-xl text-sm font-medium transition-colors ${
                         preferences.dndSchedule.days.includes(day.id)
                           ? 'bg-blue-500 text-white'
-                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                          : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                       }`}
                     >
                       {day.label}
@@ -426,24 +458,24 @@ export default function NotificationSettings() {
             const config = categoryConfig[cat];
             const Icon = config.icon;
             const isMuted = preferences.mutedCategories.includes(cat);
-            
+
             return (
               <div
                 key={cat}
-                className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
+                className="flex items-center justify-between rounded-xl bg-gray-50 p-3 transition-colors hover:bg-gray-100"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-lg ${config.bgColor} flex items-center justify-center`}>
+                  <div
+                    className={`h-9 w-9 rounded-lg ${config.bgColor} flex items-center justify-center`}
+                  >
                     <Icon className={`h-4 w-4 ${config.color}`} />
                   </div>
                   <span className="font-medium text-gray-900">{config.label}</span>
                 </div>
                 <button
-                  onClick={() => isMuted ? unmuteCategory(cat) : muteCategory(cat)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    isMuted
-                      ? 'bg-orange-100 text-orange-700'
-                      : 'bg-green-100 text-green-700'
+                  onClick={() => (isMuted ? unmuteCategory(cat) : muteCategory(cat))}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    isMuted ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
                   }`}
                 >
                   {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -464,7 +496,9 @@ export default function NotificationSettings() {
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium text-gray-900">Group by date</p>
-            <p className="text-sm text-gray-500">Group notifications by Today, Yesterday, Earlier</p>
+            <p className="text-sm text-gray-500">
+              Group notifications by Today, Yesterday, Earlier
+            </p>
           </div>
           <ToggleSwitch
             enabled={preferences.groupSimilar}

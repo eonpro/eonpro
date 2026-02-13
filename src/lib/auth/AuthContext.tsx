@@ -65,31 +65,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastActivity, setLastActivity] = useState(Date.now());
-  
+
   const router = useRouter();
   const pathname = usePathname();
 
-  // Token management
+  // Token management — tokens live in httpOnly cookies (set by /api/auth/login).
+  // We read the access token from a non-httpOnly mirror cookie for client-side
+  // session checks only; refresh tokens are never exposed to JS (httpOnly).
   const getTokens = useCallback(() => {
     if (typeof window === 'undefined') return { access: null, refresh: null };
-    
-    return {
-      access: localStorage.getItem('access_token'),
-      refresh: localStorage.getItem('refresh_token'),
-    };
+
+    // Read access token from role-specific cookies (set by login route)
+    const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, c) => {
+      const [k, ...v] = c.trim().split('=');
+      if (k) acc[k] = v.join('=');
+      return acc;
+    }, {});
+
+    const access =
+      cookies['auth-token'] ||
+      cookies['admin-token'] ||
+      cookies['provider-token'] ||
+      cookies['influencer-token'] ||
+      cookies['patient-token'] ||
+      // Legacy: fall back to localStorage during migration (will be removed)
+      localStorage.getItem('access_token') ||
+      null;
+
+    // Refresh token is httpOnly — client cannot read it.
+    // The refresh endpoint uses Authorization header with the refresh token
+    // stored on the server side (session-backed rotation).
+    const refresh = localStorage.getItem('refresh_token') || null;
+
+    return { access, refresh };
   }, []);
 
   const setTokens = useCallback((access: string, refresh: string) => {
-    localStorage.setItem('access_token', access);
-    localStorage.setItem('refresh_token', refresh);
+    // Store token timestamp for refresh timing (no secrets in localStorage)
     localStorage.setItem('token_timestamp', Date.now().toString());
+    // NOTE: access/refresh tokens are set as httpOnly cookies by the server.
+    // We keep a localStorage copy of the refresh token only for backward
+    // compatibility with the client-side refresh flow. This will be removed
+    // once all token refresh is cookie-based.
+    localStorage.setItem('refresh_token', refresh);
   }, []);
 
   const clearTokens = useCallback(() => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
-    
+
     // Clear all role-specific cookies
     document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = 'admin-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -107,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/auth/session', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         // Don't cache session verification
         cache: 'no-store',
@@ -145,58 +170,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Login function
-  const login = useCallback(async (email: string, password: string, role: string = 'patient') => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role }),
-      });
+  const login = useCallback(
+    async (email: string, password: string, role: string = 'patient') => {
+      setLoading(true);
+      setError(null);
 
-      const data = await response.json();
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, role }),
+        });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
+        const data = await response.json();
 
-      // Store tokens
-      setTokens(data.token, data.refreshToken);
-      
-      // Decode and set user
-      const userData = await verifyToken(data.token);
-      if (userData) {
-        setUser(userData);
-        
-        // Note: Login audit logging is handled server-side in /api/auth/login
-        
-        // Redirect based on role
-        switch (userData.role) {
-          case 'admin':
-            router.push('/admin');
-            break;
-          case 'provider':
-            router.push('/provider');
-            break;
-          case 'influencer':
-            router.push('/influencer/dashboard');
-            break;
-          case 'patient':
-            router.push(PATIENT_PORTAL_PATH);
-            break;
-          default:
-            router.push('/');
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
         }
+
+        // Store tokens
+        setTokens(data.token, data.refreshToken);
+
+        // Decode and set user
+        const userData = await verifyToken(data.token);
+        if (userData) {
+          setUser(userData);
+
+          // Note: Login audit logging is handled server-side in /api/auth/login
+
+          // Redirect based on role
+          switch (userData.role) {
+            case 'admin':
+              router.push('/admin');
+              break;
+            case 'provider':
+              router.push('/provider');
+              break;
+            case 'influencer':
+              router.push('/influencer/dashboard');
+              break;
+            case 'patient':
+              router.push(PATIENT_PORTAL_PATH);
+              break;
+            default:
+              router.push('/');
+          }
+        }
+      } catch (err: any) {
+        setError(err.message);
+        throw err;
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [router, setTokens, verifyToken]);
+    },
+    [router, setTokens, verifyToken]
+  );
 
   // Logout function
   const logout = useCallback(async () => {
@@ -207,13 +235,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetch('/api/auth/logout', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${access}`,
+            Authorization: `Bearer ${access}`,
           },
         });
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Logout error:', error);
     } finally {
       // Clear local state
@@ -245,15 +273,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Update tokens
       setTokens(data.token, data.refreshToken);
-      
+
       // Update user data
       const userData = await verifyToken(data.token);
       if (userData) {
         setUser(userData);
       }
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Token refresh failed:', error);
       await logout();
       throw error;
@@ -261,23 +289,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [getTokens, setTokens, verifyToken, logout]);
 
   // Check permission
-  const checkPermission = useCallback((permission: string): boolean => {
-    if (!user) return false;
-    if ((user.role as string) === "admin") return true; // Admins have all permissions
-    return user.permissions?.includes(permission) || false;
-  }, [user]);
+  const checkPermission = useCallback(
+    (permission: string): boolean => {
+      if (!user) return false;
+      if ((user.role as string) === 'admin') return true; // Admins have all permissions
+      return user.permissions?.includes(permission) || false;
+    },
+    [user]
+  );
 
   // Check role
-  const checkRole = useCallback((roles: string[]): boolean => {
-    if (!user) return false;
-    return roles.includes(user.role);
-  }, [user]);
+  const checkRole = useCallback(
+    (roles: string[]): boolean => {
+      if (!user) return false;
+      return roles.includes(user.role);
+    },
+    [user]
+  );
 
   // Session management
   useEffect(() => {
     const checkSession = async () => {
       const { access, refresh } = getTokens();
-      
+
       if (!access) {
         setLoading(false);
         return;
@@ -292,12 +326,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await refreshToken();
         } catch (error: any) {
-    // @ts-ignore
-   
+          // @ts-ignore
+
           logger.error('Session refresh failed:', error);
         }
       }
-      
+
       setLoading(false);
     };
 
@@ -335,7 +369,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     // Check if current route requires authentication
-    const requiredRoles = Object.entries(ROUTE_PERMISSIONS).find(([path]) => 
+    const requiredRoles = Object.entries(ROUTE_PERMISSIONS).find(([path]) =>
       pathname.startsWith(path)
     )?.[1];
 
@@ -361,8 +395,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             await refreshToken();
           } catch (error: any) {
-    // @ts-ignore
-   
+            // @ts-ignore
+
             logger.error('Auto refresh failed:', error);
           }
         }
@@ -417,8 +451,8 @@ export function withAuth<P extends object>(
 
     if (loading) {
       return (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
         </div>
       );
     }

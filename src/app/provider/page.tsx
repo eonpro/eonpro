@@ -11,9 +11,9 @@ import {
   TestTube,
   Pill,
   MessageSquare,
-  Loader2,
   AlertCircle,
 } from 'lucide-react';
+import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashboardSkeleton';
 
 interface DashboardStats {
   totalIntakes: number;
@@ -112,22 +112,17 @@ export default function ProviderDashboard() {
           }));
         }
       } catch {
-        // Appointments endpoint may not be fully implemented yet
-        console.log('Appointments fetch skipped - endpoint not available');
+        // Appointments endpoint may not be available
       }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+    } catch {
+      // Handled by SessionExpirationHandler for auth errors
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-      </div>
-    );
+    return <ProviderDashboardSkeleton />;
   }
 
   return (

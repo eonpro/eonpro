@@ -46,10 +46,10 @@ export default function RefCodesPage() {
 
   const fetchRefCodes = async () => {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-    
+
     try {
       const response = await fetch('/api/affiliate/ref-codes', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -66,7 +66,7 @@ export default function RefCodesPage() {
   const handleCopyLink = async (code: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${code}`;
-    
+
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
@@ -87,7 +87,7 @@ export default function RefCodesPage() {
       const response = await fetch('/api/affiliate/ref-codes', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(newCode),
@@ -145,18 +145,12 @@ export default function RefCodesPage() {
         {refCodes.map((ref) => (
           <div
             key={ref.id}
-            className={`rounded-2xl bg-white p-6 shadow-sm ${
-              !ref.isActive ? 'opacity-60' : ''
-            }`}
+            className={`rounded-2xl bg-white p-6 shadow-sm ${!ref.isActive ? 'opacity-60' : ''}`}
           >
             <div className="mb-4 flex items-start justify-between">
               <div>
-                <p className="font-mono text-lg font-bold text-gray-900">
-                  {ref.refCode}
-                </p>
-                {ref.description && (
-                  <p className="mt-1 text-sm text-gray-500">{ref.description}</p>
-                )}
+                <p className="font-mono text-lg font-bold text-gray-900">{ref.refCode}</p>
+                {ref.description && <p className="mt-1 text-sm text-gray-500">{ref.description}</p>}
               </div>
               {!ref.isActive && (
                 <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
@@ -169,15 +163,11 @@ export default function RefCodesPage() {
             <div className="mb-4 flex gap-4 text-sm">
               <div>
                 <span className="text-gray-500">Clicks</span>
-                <span className="ml-2 font-semibold text-gray-900">
-                  {ref.clicks || 0}
-                </span>
+                <span className="ml-2 font-semibold text-gray-900">{ref.clicks || 0}</span>
               </div>
               <div>
                 <span className="text-gray-500">Conversions</span>
-                <span className="ml-2 font-semibold text-gray-900">
-                  {ref.conversions || 0}
-                </span>
+                <span className="ml-2 font-semibold text-gray-900">{ref.conversions || 0}</span>
               </div>
             </div>
 
@@ -243,20 +233,20 @@ export default function RefCodesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
             <h2 className="mb-4 text-xl font-bold text-gray-900">Create Ref Code</h2>
-            
+
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Ref Code *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Ref Code *</label>
                 <input
                   type="text"
                   required
                   value={newCode.refCode}
-                  onChange={(e) => setNewCode(c => ({ 
-                    ...c, 
-                    refCode: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '')
-                  }))}
+                  onChange={(e) =>
+                    setNewCode((c) => ({
+                      ...c,
+                      refCode: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+                    }))
+                  }
                   placeholder="e.g., SUMMER2026"
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
@@ -266,22 +256,18 @@ export default function RefCodesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Description
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Description</label>
                 <input
                   type="text"
                   value={newCode.description}
-                  onChange={(e) => setNewCode(c => ({ ...c, description: e.target.value }))}
+                  onChange={(e) => setNewCode((c) => ({ ...c, description: e.target.value }))}
                   placeholder="e.g., Summer campaign 2026"
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
 
               {error && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                  {error}
-                </div>
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -314,7 +300,7 @@ export default function RefCodesPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center">
             <h2 className="mb-4 text-xl font-bold text-gray-900">QR Code</h2>
             <p className="mb-4 font-mono text-sm text-gray-500">{showQrModal}</p>
-            
+
             <div className="mb-4 flex justify-center">
               <img
                 src={generateQrCode(showQrModal)}
@@ -323,9 +309,7 @@ export default function RefCodesPage() {
               />
             </div>
 
-            <p className="mb-4 text-xs text-gray-500">
-              Scan to visit your referral link
-            </p>
+            <p className="mb-4 text-xs text-gray-500">Scan to visit your referral link</p>
 
             <div className="flex gap-3">
               <button

@@ -59,7 +59,7 @@ const ESCALATION_KEYWORDS = [
   'urgent',
   'severe pain',
   'chest pain',
-  'can\'t breathe',
+  "can't breathe",
   'breathing difficulty',
   'allergic reaction',
   'swelling',
@@ -180,18 +180,24 @@ async function getPatientContext(patientId: number): Promise<string> {
 
     if (patient.weightLogs.length > 0) {
       const latest = patient.weightLogs[0];
-      context.push(`Latest weight: ${latest.weight} lbs (${new Date(latest.recordedAt).toLocaleDateString()})`);
+      context.push(
+        `Latest weight: ${latest.weight} lbs (${new Date(latest.recordedAt).toLocaleDateString()})`
+      );
 
       if (patient.weightLogs.length >= 2) {
         const first = patient.weightLogs[patient.weightLogs.length - 1];
         const change = first.weight - latest.weight;
-        context.push(`Recent weight change: ${change > 0 ? '-' : '+'}${Math.abs(change).toFixed(1)} lbs`);
+        context.push(
+          `Recent weight change: ${change > 0 ? '-' : '+'}${Math.abs(change).toFixed(1)} lbs`
+        );
       }
     }
 
     if (patient.appointments.length > 0) {
       const apt = patient.appointments[0];
-      context.push(`Next appointment: ${new Date(apt.startTime).toLocaleDateString()} (${apt.type})`);
+      context.push(
+        `Next appointment: ${new Date(apt.startTime).toLocaleDateString()} (${apt.type})`
+      );
     }
 
     if (patient.medicationReminders.length > 0) {
@@ -265,7 +271,9 @@ export async function processPatientChat(
       max_tokens: 500,
     });
 
-    const assistantMessage = completion.choices[0]?.message?.content || 'I apologize, but I couldn\'t process your request. Please try again or contact your care team.';
+    const assistantMessage =
+      completion.choices[0]?.message?.content ||
+      "I apologize, but I couldn't process your request. Please try again or contact your care team.";
 
     // Generate follow-up suggestions based on the conversation
     const suggestions = generateSuggestions(message, assistantMessage);
@@ -281,7 +289,8 @@ export async function processPatientChat(
   } catch (error) {
     logger.error('Failed to process patient chat:', error);
     return {
-      message: 'I\'m having trouble connecting right now. Please try again in a moment, or reach out to your care team directly if you need immediate assistance.',
+      message:
+        "I'm having trouble connecting right now. Please try again in a moment, or reach out to your care team directly if you need immediate assistance.",
       relatedActions: [
         { label: 'Message Care Team', action: 'message', url: '/patient-portal/chat' },
       ],
@@ -329,7 +338,9 @@ function generateSuggestions(userMessage: string, _assistantResponse: string): s
 /**
  * Generate related actions based on message content
  */
-function generateRelatedActions(message: string): Array<{ label: string; action: string; url?: string }> {
+function generateRelatedActions(
+  message: string
+): Array<{ label: string; action: string; url?: string }> {
   const actions: Array<{ label: string; action: string; url?: string }> = [];
   const lowercaseMessage = message.toLowerCase();
 
@@ -338,14 +349,26 @@ function generateRelatedActions(message: string): Array<{ label: string; action:
   }
 
   if (lowercaseMessage.includes('appointment') || lowercaseMessage.includes('schedule')) {
-    actions.push({ label: 'Book Appointment', action: 'book', url: '/patient-portal/appointments' });
+    actions.push({
+      label: 'Book Appointment',
+      action: 'book',
+      url: '/patient-portal/appointments',
+    });
   }
 
-  if (lowercaseMessage.includes('shipment') || lowercaseMessage.includes('order') || lowercaseMessage.includes('track')) {
+  if (
+    lowercaseMessage.includes('shipment') ||
+    lowercaseMessage.includes('order') ||
+    lowercaseMessage.includes('track')
+  ) {
     actions.push({ label: 'Track Shipment', action: 'track', url: '/patient-portal/shipments' });
   }
 
-  if (lowercaseMessage.includes('medication') || lowercaseMessage.includes('dose') || lowercaseMessage.includes('medicine')) {
+  if (
+    lowercaseMessage.includes('medication') ||
+    lowercaseMessage.includes('dose') ||
+    lowercaseMessage.includes('medicine')
+  ) {
     actions.push({ label: 'View Medications', action: 'view', url: '/patient-portal/medications' });
   }
 
@@ -416,8 +439,9 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
           insights.push({
             id: 'weight_check_in',
             type: 'tip',
-            title: 'Let\'s Check In',
-            message: 'Your weight has fluctuated a bit this week. That\'s normal! Consider logging your meals to identify patterns.',
+            title: "Let's Check In",
+            message:
+              "Your weight has fluctuated a bit this week. That's normal! Consider logging your meals to identify patterns.",
             icon: 'info',
             priority: 'low',
           });
@@ -445,14 +469,18 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
         id: 'hydration_reminder',
         type: 'tip',
         title: 'Hydration Tip',
-        message: 'Drinking enough water helps with medication effectiveness and reduces side effects. Aim for 64oz daily!',
+        message:
+          'Drinking enough water helps with medication effectiveness and reduces side effects. Aim for 64oz daily!',
         icon: 'droplet',
         priority: 'medium',
       });
     }
 
     // Exercise encouragement
-    const totalExercise = patient.exerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
+    const totalExercise = patient.exerciseLogs.reduce(
+      (sum: number, log: any) => sum + log.duration,
+      0
+    );
     if (totalExercise >= 150) {
       insights.push({
         id: 'exercise_achievement',
@@ -474,7 +502,9 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
     }
 
     // Streak insights
-    const weightStreak = patient.streaks.find((s: { streakType: string }) => s.streakType === 'WEIGHT_LOG');
+    const weightStreak = patient.streaks.find(
+      (s: { streakType: string }) => s.streakType === 'WEIGHT_LOG'
+    );
     if (weightStreak && weightStreak.currentStreak >= 7) {
       insights.push({
         id: 'streak_celebration',
@@ -498,7 +528,8 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
           id: 'new_patient_tip',
           type: 'tip',
           title: 'First Week Tips',
-          message: 'It\'s normal to experience mild nausea in the first week. Eating smaller meals and staying hydrated can help!',
+          message:
+            "It's normal to experience mild nausea in the first week. Eating smaller meals and staying hydrated can help!",
           icon: 'info',
           priority: 'high',
         });
@@ -506,8 +537,9 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
         insights.push({
           id: 'first_month_tip',
           type: 'tip',
-          title: 'You\'re Doing Great!',
-          message: 'The first month is about adjusting. Focus on building healthy habits rather than the scale.',
+          title: "You're Doing Great!",
+          message:
+            'The first month is about adjusting. Focus on building healthy habits rather than the scale.',
           icon: 'heart',
           priority: 'medium',
         });
@@ -566,28 +598,40 @@ export async function generateWeeklySummary(patientId: number): Promise<string> 
       const firstWeight = patient.weightLogs[0].weight;
       const lastWeight = patient.weightLogs[patient.weightLogs.length - 1].weight;
       const change = firstWeight - lastWeight;
-      summary.push(`📊 Weight: ${change > 0 ? '-' : '+'}${Math.abs(change).toFixed(1)} lbs this week`);
+      summary.push(
+        `📊 Weight: ${change > 0 ? '-' : '+'}${Math.abs(change).toFixed(1)} lbs this week`
+      );
     } else {
       summary.push('📊 Weight: Log more to see your trend!');
     }
 
     // Water
-    const totalWaterSummary = patient.waterLogs.reduce((sum: number, log: any) => sum + log.amount, 0);
+    const totalWaterSummary = patient.waterLogs.reduce(
+      (sum: number, log: any) => sum + log.amount,
+      0
+    );
     const avgWater = Math.round(totalWaterSummary / 7);
     summary.push(`💧 Hydration: ${avgWater}oz average daily`);
 
     // Exercise
-    const totalExerciseSummary = patient.exerciseLogs.reduce((sum: number, log: any) => sum + log.duration, 0);
+    const totalExerciseSummary = patient.exerciseLogs.reduce(
+      (sum: number, log: any) => sum + log.duration,
+      0
+    );
     summary.push(`🏃 Exercise: ${totalExerciseSummary} minutes total`);
 
     // Best streak
     const bestStreak = patient.streaks.reduce(
-      (best: { streakType: string; currentStreak: number } | null, streak: { streakType: string; currentStreak: number }) =>
-        !best || streak.currentStreak > best.currentStreak ? streak : best,
+      (
+        best: { streakType: string; currentStreak: number } | null,
+        streak: { streakType: string; currentStreak: number }
+      ) => (!best || streak.currentStreak > best.currentStreak ? streak : best),
       null
     );
     if (bestStreak) {
-      summary.push(`🔥 Best streak: ${bestStreak.currentStreak} days (${bestStreak.streakType.replace('_', ' ').toLowerCase()})`);
+      summary.push(
+        `🔥 Best streak: ${bestStreak.currentStreak} days (${bestStreak.streakType.replace('_', ' ').toLowerCase()})`
+      );
     }
 
     summary.push('');

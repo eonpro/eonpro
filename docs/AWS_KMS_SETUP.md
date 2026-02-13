@@ -2,7 +2,8 @@
 
 ## Overview
 
-This guide explains how to set up AWS Key Management Service (KMS) for HIPAA-compliant encryption key management in EONPRO.
+This guide explains how to set up AWS Key Management Service (KMS) for HIPAA-compliant encryption
+key management in EONPRO.
 
 ## Why Use AWS KMS?
 
@@ -107,10 +108,7 @@ Create an IAM policy for the EONPRO application:
     "Statement": [
       {
         "Effect": "Allow",
-        "Action": [
-          "kms:Decrypt",
-          "kms:GenerateDataKey"
-        ],
+        "Action": ["kms:Decrypt", "kms:GenerateDataKey"],
         "Resource": "arn:aws:kms:us-east-1:YOUR_ACCOUNT:key/YOUR_KEY_ID"
       }
     ]
@@ -134,6 +132,7 @@ npx tsx scripts/generate-phi-key.ts
 ```
 
 The script will output:
+
 - `ENCRYPTED_PHI_KEY`: The encrypted data key (safe to store in environment)
 
 ---
@@ -160,7 +159,8 @@ vercel env add ENCRYPTED_PHI_KEY production
 
 ### For AWS (ECS/EKS)
 
-Use AWS Secrets Manager or Parameter Store to store these values, then reference them in your task definition.
+Use AWS Secrets Manager or Parameter Store to store these values, then reference them in your task
+definition.
 
 ---
 
@@ -256,6 +256,7 @@ aws cloudtrail create-trail \
 ### "AccessDeniedException"
 
 Check:
+
 1. IAM policy attached to user/role
 2. KMS key policy allows the IAM principal
 3. Correct AWS region configured
@@ -263,6 +264,7 @@ Check:
 ### "KMS key not found"
 
 Check:
+
 1. `AWS_KMS_KEY_ID` format (should be ARN or alias)
 2. Key exists in the specified region
 3. Key is not disabled or pending deletion
@@ -270,6 +272,7 @@ Check:
 ### "Encryption key not initialized"
 
 Check:
+
 1. `ENCRYPTED_PHI_KEY` is set in environment
 2. AWS credentials are available
 3. Network connectivity to AWS KMS
@@ -310,4 +313,4 @@ Estimated monthly cost: ~$5-10 for typical usage
 
 ---
 
-*Last Updated: December 2025*
+_Last Updated: December 2025_

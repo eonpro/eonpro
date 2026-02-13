@@ -3,9 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StaffLayout from '@/components/layouts/StaffLayout';
-import { 
-  ClipboardList, Calendar, Package, FileText, 
-  UserPlus, Clock, AlertCircle, CheckCircle 
+import {
+  ClipboardList,
+  Calendar,
+  Package,
+  FileText,
+  UserPlus,
+  Clock,
+  AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 
 export default function StaffDashboard() {
@@ -14,27 +20,30 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check authentication
     const user = localStorage.getItem('user');
     if (!user) {
       router.push('/login');
       return;
     }
-    
-    const data = JSON.parse(user);
-    if (data.role?.toLowerCase() !== 'staff') {
+    try {
+      const data = JSON.parse(user);
+      if (data.role?.toLowerCase() !== 'staff') {
+        router.push('/login');
+        return;
+      }
+      setUserData(data);
+    } catch {
+      localStorage.removeItem('user');
       router.push('/login');
       return;
     }
-    
-    setUserData(data);
     setLoading(false);
   }, [router]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-cyan-600"></div>
       </div>
     );
   }
@@ -43,14 +52,22 @@ export default function StaffDashboard() {
     <StaffLayout userData={userData}>
       <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-xl p-6 text-white">
-          <h1 className="text-2xl font-bold mb-2">Welcome, {userData?.firstName}!</h1>
-          <p className="text-cyan-100">Administrative Dashboard - {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <div className="rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 p-6 text-white">
+          <h1 className="mb-2 text-2xl font-bold">Welcome, {userData?.firstName}!</h1>
+          <p className="text-cyan-100">
+            Administrative Dashboard -{' '}
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
+          </p>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Pending Intakes</p>
@@ -60,7 +77,7 @@ export default function StaffDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Today's Appointments</p>
@@ -70,7 +87,7 @@ export default function StaffDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Open Orders</p>
@@ -80,7 +97,7 @@ export default function StaffDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Documents to File</p>
@@ -92,9 +109,9 @@ export default function StaffDashboard() {
         </div>
 
         {/* Task Lists */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Pending Intakes</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Pending Intakes</h2>
             <div className="space-y-3">
               {[
                 { patient: 'New Patient - John Doe', status: 'Waiting', time: '10 min ago' },
@@ -102,19 +119,26 @@ export default function StaffDashboard() {
                 { patient: 'New Patient - Robert Lee', status: 'Waiting', time: '45 min ago' },
                 { patient: 'Transfer - Maria Garcia', status: 'Review', time: '1 hour ago' },
               ].map((intake, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                >
                   <div className="flex items-center">
-                    <UserPlus className="h-4 w-4 text-gray-400 mr-3" />
+                    <UserPlus className="mr-3 h-4 w-4 text-gray-400" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">{intake.patient}</p>
                       <p className="text-xs text-gray-500">{intake.time}</p>
                     </div>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    intake.status === 'Waiting' ? 'bg-yellow-100 text-yellow-700' :
-                    intake.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                    'bg-purple-100 text-purple-700'
-                  }`}>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-medium ${
+                      intake.status === 'Waiting'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : intake.status === 'In Progress'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-purple-100 text-purple-700'
+                    }`}
+                  >
                     {intake.status}
                   </span>
                 </div>
@@ -122,8 +146,8 @@ export default function StaffDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Appointments</h2>
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Upcoming Appointments</h2>
             <div className="space-y-3">
               {[
                 { time: '10:00 AM', patient: 'Alice Johnson', provider: 'Dr. Smith' },
@@ -131,9 +155,12 @@ export default function StaffDashboard() {
                 { time: '11:00 AM', patient: 'Carol Davis', provider: 'Dr. Smith' },
                 { time: '2:00 PM', patient: 'David Miller', provider: 'Dr. Brown' },
               ].map((apt, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div
+                  key={idx}
+                  className="flex items-center justify-between rounded-lg bg-gray-50 p-3"
+                >
                   <div className="flex items-center">
-                    <Clock className="h-4 w-4 text-gray-400 mr-3" />
+                    <Clock className="mr-3 h-4 w-4 text-gray-400" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">{apt.patient}</p>
                       <p className="text-xs text-gray-500">{apt.provider}</p>
@@ -147,22 +174,48 @@ export default function StaffDashboard() {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h2>
           <div className="space-y-3">
             {[
-              { action: 'Patient intake completed', user: 'John Doe', time: '5 minutes ago', icon: CheckCircle, color: 'text-green-600' },
-              { action: 'Appointment scheduled', user: 'Jane Smith', time: '15 minutes ago', icon: Calendar, color: 'text-blue-600' },
-              { action: 'Order processed', user: 'Order #12345', time: '30 minutes ago', icon: Package, color: 'text-orange-600' },
-              { action: 'Document uploaded', user: 'Lab Results', time: '1 hour ago', icon: FileText, color: 'text-purple-600' },
+              {
+                action: 'Patient intake completed',
+                user: 'John Doe',
+                time: '5 minutes ago',
+                icon: CheckCircle,
+                color: 'text-green-600',
+              },
+              {
+                action: 'Appointment scheduled',
+                user: 'Jane Smith',
+                time: '15 minutes ago',
+                icon: Calendar,
+                color: 'text-blue-600',
+              },
+              {
+                action: 'Order processed',
+                user: 'Order #12345',
+                time: '30 minutes ago',
+                icon: Package,
+                color: 'text-orange-600',
+              },
+              {
+                action: 'Document uploaded',
+                user: 'Lab Results',
+                time: '1 hour ago',
+                icon: FileText,
+                color: 'text-purple-600',
+              },
             ].map((activity, idx) => {
               const Icon = activity.icon;
               return (
-                <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                <div key={idx} className="flex items-center rounded-lg bg-gray-50 p-3">
                   <Icon className={`h-5 w-5 ${activity.color} mr-3`} />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                    <p className="text-xs text-gray-500">{activity.user} • {activity.time}</p>
+                    <p className="text-xs text-gray-500">
+                      {activity.user} • {activity.time}
+                    </p>
                   </div>
                 </div>
               );
@@ -171,23 +224,23 @@ export default function StaffDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button className="p-4 bg-cyan-50 text-cyan-700 rounded-lg hover:bg-cyan-100 transition-colors flex flex-col items-center">
-              <UserPlus className="h-6 w-6 mb-2" />
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Quick Actions</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <button className="flex flex-col items-center rounded-lg bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100">
+              <UserPlus className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">New Intake</span>
             </button>
-            <button className="p-4 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex flex-col items-center">
-              <Calendar className="h-6 w-6 mb-2" />
+            <button className="flex flex-col items-center rounded-lg bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100">
+              <Calendar className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Schedule</span>
             </button>
-            <button className="p-4 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors flex flex-col items-center">
-              <Package className="h-6 w-6 mb-2" />
+            <button className="flex flex-col items-center rounded-lg bg-orange-50 p-4 text-orange-700 transition-colors hover:bg-orange-100">
+              <Package className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Process Order</span>
             </button>
-            <button className="p-4 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors flex flex-col items-center">
-              <FileText className="h-6 w-6 mb-2" />
+            <button className="flex flex-col items-center rounded-lg bg-purple-50 p-4 text-purple-700 transition-colors hover:bg-purple-100">
+              <FileText className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Upload Docs</span>
             </button>
           </div>

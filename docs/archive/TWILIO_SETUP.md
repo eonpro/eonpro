@@ -1,9 +1,12 @@
 # Twilio Integration Setup Guide
 
 ## Overview
-The platform includes Twilio integration for real-time SMS messaging with patients directly from their profile.
+
+The platform includes Twilio integration for real-time SMS messaging with patients directly from
+their profile.
 
 ## Features
+
 - **Patient Chat Tab**: Real-time messaging interface in each patient's profile
 - **SMS Integration**: Send and receive messages via Twilio SMS
 - **Message History**: View all previous conversations with patients
@@ -13,17 +16,21 @@ The platform includes Twilio integration for real-time SMS messaging with patien
 ## Setup Requirements
 
 ### 1. Twilio Account
+
 1. Sign up for a Twilio account at https://www.twilio.com
 2. Verify your phone number for testing
 3. Upgrade to a paid account for production use
 
 ### 2. Get Your Credentials
+
 From the Twilio Console (https://console.twilio.com), obtain:
+
 - **Account SID**: Found on the dashboard
 - **Auth Token**: Found on the dashboard
 - **Phone Number**: Purchase a phone number with SMS capabilities
 
 ### 3. Optional: For Advanced Features
+
 - **API Key & Secret**: For generating access tokens (Settings > API Keys)
 - **Chat Service SID**: For real-time chat (if using Twilio Conversations)
 
@@ -46,13 +53,17 @@ TWILIO_CHAT_SERVICE_SID=your_chat_service_sid_here
 ## Testing the Integration
 
 ### 1. Demo Mode (No Twilio Account Needed)
+
 If Twilio environment variables are not configured, the system operates in demo mode:
+
 - Chat interface shows demo messages
 - Send functionality returns success without actually sending SMS
 - Perfect for development and testing
 
 ### 2. Live Testing
+
 With Twilio configured:
+
 1. Navigate to any patient's profile
 2. Click on the "Chat" tab
 3. Send a test message
@@ -61,6 +72,7 @@ With Twilio configured:
 ## Usage Guide
 
 ### Sending Intake Forms via SMS
+
 1. Go to patient profile
 2. Click "Intake" tab
 3. Click "Send New Intake Form"
@@ -69,6 +81,7 @@ With Twilio configured:
 6. Click "Send Form"
 
 ### Patient Chat
+
 1. Go to patient profile
 2. Click "Chat" tab
 3. Type message and press Enter or click Send
@@ -76,6 +89,7 @@ With Twilio configured:
 5. Patient receives SMS and can reply directly
 
 ## Message Status Indicators
+
 - ✓ Single check: Message sent
 - ✓✓ Double check: Message delivered
 - ⚠️ Warning icon: Message failed
@@ -124,11 +138,13 @@ With Twilio configured:
 ## Support
 
 For Twilio-specific issues:
+
 - Documentation: https://www.twilio.com/docs
 - Support: https://support.twilio.com
 - Status: https://status.twilio.com
 
 For platform integration issues:
+
 - Check application logs for error messages
 - Verify environment variables are set correctly
 - Test in demo mode first before using live credentials

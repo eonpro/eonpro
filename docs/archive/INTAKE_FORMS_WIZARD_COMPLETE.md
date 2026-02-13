@@ -2,11 +2,14 @@
 
 ## What's Been Implemented
 
-I've created a **wizard-style intake form builder** inspired by HeyFlow, where users navigate **one screen at a time** through the form creation process. This provides a much cleaner, more focused experience.
+I've created a **wizard-style intake form builder** inspired by HeyFlow, where users navigate **one
+screen at a time** through the form creation process. This provides a much cleaner, more focused
+experience.
 
 ### Features Added:
 
 #### 1. **Wizard-Style Form Builder** (`/intake-forms/wizard`)
+
 - **Step-by-step navigation** - One question/section at a time
 - **Progress bar** - Visual indicator of completion
 - **Back/Continue buttons** - Easy navigation
@@ -18,6 +21,7 @@ I've created a **wizard-style intake form builder** inspired by HeyFlow, where u
   5. **Review** - Review and create the form
 
 #### 2. **Two Creation Modes**
+
 - **Wizard Mode** (New) - Step-by-step guided process
 - **Quick Mode** (Original) - All on one page for power users
 
@@ -36,7 +40,9 @@ I've created a **wizard-style intake form builder** inspired by HeyFlow, where u
 
 ### Patient Form Experience (Already Wizard-Style):
 
-The patient-facing form (`/intake/[linkId]`) already follows a single-page approach where patients see:
+The patient-facing form (`/intake/[linkId]`) already follows a single-page approach where patients
+see:
+
 - Clean, focused interface
 - One form at a time
 - Mobile-responsive design
@@ -45,6 +51,7 @@ The patient-facing form (`/intake/[linkId]`) already follows a single-page appro
 ### Architecture Inspired by HeyFlow:
 
 Based on the HeyFlow examples in your desktop folder, the implementation includes:
+
 - **Individual routes** for each step (in wizard)
 - **Session storage** for temporary data
 - **Clean navigation** with back/continue buttons
@@ -78,4 +85,5 @@ Based on the HeyFlow examples in your desktop folder, the implementation include
 3. Follow the step-by-step process
 4. Your form will be created and ready to send!
 
-The wizard interface provides a much cleaner, more intuitive way to create forms - just like HeyFlow! 🚀
+The wizard interface provides a much cleaner, more intuitive way to create forms - just like
+HeyFlow! 🚀

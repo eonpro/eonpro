@@ -2,7 +2,7 @@
  * Address Module
  * ==============
  * Centralized address parsing, normalization, and validation.
- * 
+ *
  * @example
  * ```typescript
  * import {
@@ -10,22 +10,20 @@
  *   extractAddressFromPayload,
  *   smartParseAddress,
  *   validateAddress,
- *   validateAndStandardizeAddress,
  *   normalizeState,
  *   normalizeZip,
  * } from '@/lib/address';
- * 
+ *
  * // Parse a combined address string
  * const address = parseAddressString('289 Marcus St, Hamilton, Montana, 59840');
  * // => { address1: '289 Marcus St', city: 'Hamilton', state: 'MT', zip: '59840' }
- * 
+ *
  * // Extract from a payload with various field names
  * const address = extractAddressFromPayload({
  *   shipping_address: '123 Main St, Apt 4B, New York, NY, 10001',
  * });
- * 
- * // Validate with SmartyStreets (if configured)
- * const validated = await validateAndStandardizeAddress(address);
+ *
+ * // SmartyStreets validation: import from '@/lib/address/smartystreets'
  * ```
  */
 
@@ -83,12 +81,8 @@ export {
   isPOBox,
 } from './validator';
 
-// SmartyStreets
-export {
-  isSmartyStreetsConfigured,
-  validateWithSmartyStreets,
-  validateAndStandardizeAddress,
-} from './smartystreets';
+// SmartyStreets: server-only (uses analytics → Prisma). Import from '@/lib/address/smartystreets' where needed.
+// Not re-exported here to keep this barrel client-safe.
 
 // Constants (for advanced use cases)
 export {
@@ -105,13 +99,5 @@ export {
   MILITARY_CITIES,
 } from './constants';
 
-// Analytics
-export {
-  logAddressValidationEvent,
-  logParseSuccess,
-  logParseFailed,
-  logSmartyStreetsResult,
-  getAddressValidationMetrics,
-  resetAddressValidationMetrics,
-} from './analytics';
-export type { AddressValidationEvent, AddressValidationEventType } from './analytics';
+// Analytics: server-only (uses Prisma). Import from '@/lib/address/analytics' where needed.
+// Not re-exported here to keep this barrel client-safe (avoids pulling in node:async_hooks).

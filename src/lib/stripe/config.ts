@@ -1,6 +1,6 @@
 /**
  * Enterprise Stripe Configuration Service
- * 
+ *
  * This module provides centralized Stripe configuration management with:
  * - Environment validation
  * - Configuration caching
@@ -134,12 +134,12 @@ export const OT_STRIPE_CONFIG = {
  */
 export function getStripeClient(): Stripe | null {
   const secretKey = getStripeSecretKey();
-  
+
   if (!secretKey) {
     logger.warn('[STRIPE] No secret key configured');
     return null;
   }
-  
+
   if (!cachedStripeClient) {
     cachedStripeClient = new Stripe(secretKey, {
       apiVersion: '2026-01-28.clover',
@@ -147,13 +147,13 @@ export function getStripeClient(): Stripe | null {
       maxNetworkRetries: 3,
       timeout: 30000, // 30 seconds
     });
-    
+
     logger.info('[STRIPE] Client initialized', {
       isTestMode: secretKey.includes('_test_'),
       keyPrefix: secretKey.substring(0, 7) + '...',
     });
   }
-  
+
   return cachedStripeClient;
 }
 
@@ -163,14 +163,14 @@ export function getStripeClient(): Stripe | null {
  */
 export function requireStripeClient(): Stripe {
   const client = getStripeClient();
-  
+
   if (!client) {
     throw new StripeConfigError(
       'Stripe is not configured. Please set EONMEDS_STRIPE_SECRET_KEY environment variable.',
       'STRIPE_NOT_CONFIGURED'
     );
   }
-  
+
   return client;
 }
 
@@ -183,16 +183,16 @@ export function requireStripeClient(): Stripe {
  */
 export async function validateStripeConfig(forceRefresh = false): Promise<StripeConfig> {
   const now = Date.now();
-  
+
   // Return cached config if still valid
-  if (!forceRefresh && cachedConfig && (now - lastCacheTime) < CACHE_DURATION_MS) {
+  if (!forceRefresh && cachedConfig && now - lastCacheTime < CACHE_DURATION_MS) {
     return cachedConfig;
   }
-  
+
   const secretKey = getStripeSecretKey();
   const publishableKey = getStripePublishableKey();
   const webhookSecret = getStripeWebhookSecret();
-  
+
   const config: StripeConfig = {
     isConfigured: false,
     isTestMode: secretKey?.includes('_test_') ?? true,
@@ -201,7 +201,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
     hasWebhookSecret: !!webhookSecret,
     lastValidated: new Date(),
   };
-  
+
   // No secret key = not configured
   if (!secretKey) {
     config.error = 'EONMEDS_STRIPE_SECRET_KEY not found in environment';
@@ -209,7 +209,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
     lastCacheTime = now;
     return config;
   }
-  
+
   // Validate key format
   if (!secretKey.startsWith('sk_')) {
     config.error = 'Invalid EONMEDS_STRIPE_SECRET_KEY format (should start with sk_)';
@@ -217,23 +217,22 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
     lastCacheTime = now;
     return config;
   }
-  
+
   // Test the connection
   try {
     const stripe = getStripeClient()!;
-    
+
     // Try to retrieve account info
     const account = await stripe.accounts.retrieve();
-    
+
     config.isConfigured = true;
     config.accountId = account.id;
     config.accountName = account.business_profile?.name || account.email || undefined;
-    
+
     logger.info('[STRIPE] Configuration validated successfully', {
       accountId: account.id,
       isTestMode: config.isTestMode,
     });
-    
   } catch (error: any) {
     // Check for specific error types
     if (error.type === 'StripeAuthenticationError') {
@@ -245,13 +244,13 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
     } else {
       config.error = error.message || 'Failed to connect to Stripe';
     }
-    
+
     logger.error('[STRIPE] Configuration validation failed', {
       error: config.error,
       type: error.type,
     });
   }
-  
+
   cachedConfig = config;
   lastCacheTime = now;
   return config;
@@ -282,51 +281,51 @@ export function isStripeTestMode(): boolean {
  */
 const STRIPE_PRICE_MAP: Record<string, string> = {
   // Semaglutide
-  'sema_monthly_default': process.env.STRIPE_PRICE_SEMA_MONTHLY_DEFAULT || '',
-  'sema_single_default': process.env.STRIPE_PRICE_SEMA_SINGLE_DEFAULT || '',
-  'sema_3month_default': process.env.STRIPE_PRICE_SEMA_3MONTH_DEFAULT || '',
-  'sema_6month_default': process.env.STRIPE_PRICE_SEMA_6MONTH_DEFAULT || '',
-  'sema_monthly_3ml': process.env.STRIPE_PRICE_SEMA_MONTHLY_3ML || '',
-  'sema_single_3ml': process.env.STRIPE_PRICE_SEMA_SINGLE_3ML || '',
-  'sema_3month_3ml': process.env.STRIPE_PRICE_SEMA_3MONTH_3ML || '',
-  'sema_6month_3ml': process.env.STRIPE_PRICE_SEMA_6MONTH_3ML || '',
-  'sema_monthly_4ml': process.env.STRIPE_PRICE_SEMA_MONTHLY_4ML || '',
-  'sema_single_4ml': process.env.STRIPE_PRICE_SEMA_SINGLE_4ML || '',
-  'sema_3month_4ml': process.env.STRIPE_PRICE_SEMA_3MONTH_4ML || '',
-  'sema_6month_4ml': process.env.STRIPE_PRICE_SEMA_6MONTH_4ML || '',
-  
+  sema_monthly_default: process.env.STRIPE_PRICE_SEMA_MONTHLY_DEFAULT || '',
+  sema_single_default: process.env.STRIPE_PRICE_SEMA_SINGLE_DEFAULT || '',
+  sema_3month_default: process.env.STRIPE_PRICE_SEMA_3MONTH_DEFAULT || '',
+  sema_6month_default: process.env.STRIPE_PRICE_SEMA_6MONTH_DEFAULT || '',
+  sema_monthly_3ml: process.env.STRIPE_PRICE_SEMA_MONTHLY_3ML || '',
+  sema_single_3ml: process.env.STRIPE_PRICE_SEMA_SINGLE_3ML || '',
+  sema_3month_3ml: process.env.STRIPE_PRICE_SEMA_3MONTH_3ML || '',
+  sema_6month_3ml: process.env.STRIPE_PRICE_SEMA_6MONTH_3ML || '',
+  sema_monthly_4ml: process.env.STRIPE_PRICE_SEMA_MONTHLY_4ML || '',
+  sema_single_4ml: process.env.STRIPE_PRICE_SEMA_SINGLE_4ML || '',
+  sema_3month_4ml: process.env.STRIPE_PRICE_SEMA_3MONTH_4ML || '',
+  sema_6month_4ml: process.env.STRIPE_PRICE_SEMA_6MONTH_4ML || '',
+
   // Tirzepatide
-  'tirz_monthly_default': process.env.STRIPE_PRICE_TIRZ_MONTHLY_DEFAULT || '',
-  'tirz_single_default': process.env.STRIPE_PRICE_TIRZ_SINGLE_DEFAULT || '',
-  'tirz_3month_default': process.env.STRIPE_PRICE_TIRZ_3MONTH_DEFAULT || '',
-  'tirz_6month_default': process.env.STRIPE_PRICE_TIRZ_6MONTH_DEFAULT || '',
-  'tirz_monthly_3ml': process.env.STRIPE_PRICE_TIRZ_MONTHLY_3ML || '',
-  'tirz_single_3ml': process.env.STRIPE_PRICE_TIRZ_SINGLE_3ML || '',
-  'tirz_3month_3ml': process.env.STRIPE_PRICE_TIRZ_3MONTH_3ML || '',
-  'tirz_6month_3ml': process.env.STRIPE_PRICE_TIRZ_6MONTH_3ML || '',
-  'tirz_monthly_4ml': process.env.STRIPE_PRICE_TIRZ_MONTHLY_4ML || '',
-  'tirz_single_4ml': process.env.STRIPE_PRICE_TIRZ_SINGLE_4ML || '',
-  'tirz_3month_4ml': process.env.STRIPE_PRICE_TIRZ_3MONTH_4ML || '',
-  'tirz_6month_4ml': process.env.STRIPE_PRICE_TIRZ_6MONTH_4ML || '',
-  'tirz_monthly_high': process.env.STRIPE_PRICE_TIRZ_MONTHLY_HIGH || '',
-  'tirz_single_high': process.env.STRIPE_PRICE_TIRZ_SINGLE_HIGH || '',
-  'tirz_3month_high': process.env.STRIPE_PRICE_TIRZ_3MONTH_HIGH || '',
-  'tirz_6month_high': process.env.STRIPE_PRICE_TIRZ_6MONTH_HIGH || '',
-  
+  tirz_monthly_default: process.env.STRIPE_PRICE_TIRZ_MONTHLY_DEFAULT || '',
+  tirz_single_default: process.env.STRIPE_PRICE_TIRZ_SINGLE_DEFAULT || '',
+  tirz_3month_default: process.env.STRIPE_PRICE_TIRZ_3MONTH_DEFAULT || '',
+  tirz_6month_default: process.env.STRIPE_PRICE_TIRZ_6MONTH_DEFAULT || '',
+  tirz_monthly_3ml: process.env.STRIPE_PRICE_TIRZ_MONTHLY_3ML || '',
+  tirz_single_3ml: process.env.STRIPE_PRICE_TIRZ_SINGLE_3ML || '',
+  tirz_3month_3ml: process.env.STRIPE_PRICE_TIRZ_3MONTH_3ML || '',
+  tirz_6month_3ml: process.env.STRIPE_PRICE_TIRZ_6MONTH_3ML || '',
+  tirz_monthly_4ml: process.env.STRIPE_PRICE_TIRZ_MONTHLY_4ML || '',
+  tirz_single_4ml: process.env.STRIPE_PRICE_TIRZ_SINGLE_4ML || '',
+  tirz_3month_4ml: process.env.STRIPE_PRICE_TIRZ_3MONTH_4ML || '',
+  tirz_6month_4ml: process.env.STRIPE_PRICE_TIRZ_6MONTH_4ML || '',
+  tirz_monthly_high: process.env.STRIPE_PRICE_TIRZ_MONTHLY_HIGH || '',
+  tirz_single_high: process.env.STRIPE_PRICE_TIRZ_SINGLE_HIGH || '',
+  tirz_3month_high: process.env.STRIPE_PRICE_TIRZ_3MONTH_HIGH || '',
+  tirz_6month_high: process.env.STRIPE_PRICE_TIRZ_6MONTH_HIGH || '',
+
   // Upsales
-  'upsale_ondansetron': process.env.STRIPE_PRICE_ONDANSETRON || '',
-  'upsale_fat_burner': process.env.STRIPE_PRICE_FAT_BURNER || '',
-  
+  upsale_ondansetron: process.env.STRIPE_PRICE_ONDANSETRON || '',
+  upsale_fat_burner: process.env.STRIPE_PRICE_FAT_BURNER || '',
+
   // Bloodwork
-  'bloodwork_partial': process.env.STRIPE_PRICE_BLOODWORK_PARTIAL || '',
-  'bloodwork_full': process.env.STRIPE_PRICE_BLOODWORK_FULL || '',
-  
+  bloodwork_partial: process.env.STRIPE_PRICE_BLOODWORK_PARTIAL || '',
+  bloodwork_full: process.env.STRIPE_PRICE_BLOODWORK_FULL || '',
+
   // Additional treatments
-  'treatment_nad': process.env.STRIPE_PRICE_NAD || '',
-  'treatment_sermorelin': process.env.STRIPE_PRICE_SERMORELIN || '',
-  
+  treatment_nad: process.env.STRIPE_PRICE_NAD || '',
+  treatment_sermorelin: process.env.STRIPE_PRICE_SERMORELIN || '',
+
   // Shipping
-  'shipping_expedited': process.env.STRIPE_PRICE_SHIPPING_EXPEDITED || '',
+  shipping_expedited: process.env.STRIPE_PRICE_SHIPPING_EXPEDITED || '',
 };
 
 /**
@@ -349,7 +348,7 @@ export function hasPriceMapping(planId: string): boolean {
 
 export class StripeConfigError extends Error {
   code: string;
-  
+
   constructor(message: string, code: string) {
     super(message);
     this.name = 'StripeConfigError';
@@ -386,14 +385,14 @@ export async function getStripeDiagnostics(): Promise<{
 }> {
   const config = await validateStripeConfig(true);
   const secretKey = getStripeSecretKey();
-  
+
   // Check connectivity
   let connectivity = {
     canConnect: false,
     latencyMs: undefined as number | undefined,
     error: undefined as string | undefined,
   };
-  
+
   if (secretKey) {
     const start = Date.now();
     try {
@@ -406,17 +405,17 @@ export async function getStripeDiagnostics(): Promise<{
       connectivity.latencyMs = Date.now() - start;
     }
   }
-  
+
   // Check price mappings
   const mappings: Record<string, boolean> = {};
   let configuredCount = 0;
-  
+
   for (const [planId, priceId] of Object.entries(STRIPE_PRICE_MAP)) {
     const hasMapping = !!priceId;
     mappings[planId] = hasMapping;
     if (hasMapping) configuredCount++;
   }
-  
+
   return {
     config,
     environment: {

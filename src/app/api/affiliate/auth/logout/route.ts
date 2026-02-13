@@ -1,6 +1,6 @@
 /**
  * Affiliate Logout
- * 
+ *
  * Clears the session cookie.
  */
 
@@ -11,7 +11,7 @@ const COOKIE_NAME = 'affiliate_session';
 
 export async function POST() {
   const cookieStore = await cookies();
-  
+
   cookieStore.delete(COOKIE_NAME);
 
   return NextResponse.json({ success: true });

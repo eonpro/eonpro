@@ -1,13 +1,13 @@
 /**
  * Affiliate Tracking Client
- * 
+ *
  * Client-side tracking for affiliate attribution.
  * Combines fingerprinting, cookies, and UTM tracking.
  * HIPAA-safe: Only stores anonymous tracking data.
- * 
+ *
  * Usage:
  *   import { AffiliateTracker } from '@/lib/affiliate/tracking-client';
- *   
+ *
  *   // Initialize on page load
  *   const tracker = new AffiliateTracker();
  *   await tracker.track();
@@ -99,10 +99,12 @@ export class AffiliateTracker {
   /**
    * Track a click/visit with affiliate attribution
    */
-  async track(options: {
-    touchType?: 'CLICK' | 'IMPRESSION' | 'POSTBACK';
-    refCode?: string;
-  } = {}): Promise<TrackingResult> {
+  async track(
+    options: {
+      touchType?: 'CLICK' | 'IMPRESSION' | 'POSTBACK';
+      refCode?: string;
+    } = {}
+  ): Promise<TrackingResult> {
     try {
       await this.initialize();
 
@@ -179,7 +181,7 @@ export class AffiliateTracker {
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Tracking failed');
       this.config.onError(err);
-      
+
       return {
         success: false,
         isFirstTouch: false,

@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger';
  *
  * NOTE: This endpoint is now DEPRECATED because Patient.clinicId is a required field
  * in the schema (NOT NULL constraint). All patients must belong to a clinic at creation time.
- * 
+ *
  * The database constraint prevents orphaned patients from being created, so this
  * migration script is no longer needed. It's kept for backwards compatibility but
  * will always return 0 orphaned patients.

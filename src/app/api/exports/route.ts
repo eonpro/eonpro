@@ -1,6 +1,6 @@
 /**
  * Exports API
- * 
+ *
  * POST /api/exports - Create export job
  * GET /api/exports - List recent exports
  */
@@ -27,14 +27,13 @@ export async function POST(request: NextRequest) {
     const { reportType, format, dateRange, metrics, filters } = body;
 
     if (!reportType || !format) {
-      return NextResponse.json(
-        { error: 'reportType and format are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'reportType and format are required' }, { status: 400 });
     }
 
     // Parse date range
-    const start = dateRange?.start ? new Date(dateRange.start) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const start = dateRange?.start
+      ? new Date(dateRange.start)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = dateRange?.end ? new Date(dateRange.end) : new Date();
 
     // Generate export
@@ -56,10 +55,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Failed to generate export', { error });
-    return NextResponse.json(
-      { error: 'Failed to generate export' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate export' }, { status: 500 });
   }
 }
 
@@ -95,9 +91,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ exports });
   } catch (error) {
     logger.error('Failed to fetch exports', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch exports' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch exports' }, { status: 500 });
   }
 }

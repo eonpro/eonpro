@@ -8,6 +8,8 @@
  * 4. Automatically refreshes tokens before expiry
  */
 
+import { logger } from '@/lib/logger';
+
 // Custom event for session expiration
 export const SESSION_EXPIRED_EVENT = 'eonpro:session:expired';
 
@@ -118,10 +120,10 @@ async function refreshAuthToken(): Promise<boolean> {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
 
-      console.debug('[Auth] Token refreshed successfully');
+      logger.info('[Auth] Token refreshed successfully');
       return true;
     } catch (error) {
-      console.error('[Auth] Token refresh failed:', error);
+      logger.error('[Auth] Token refresh failed', { error: error instanceof Error ? error.message : String(error) });
       return false;
     } finally {
       isRefreshing = false;
@@ -141,7 +143,7 @@ async function ensureValidToken(): Promise<string | null> {
 
   // Check if token is expiring soon
   if (isTokenExpiringSoon(token)) {
-    console.debug('[Auth] Token expiring soon, attempting refresh');
+    logger.info('[Auth] Token expiring soon, attempting refresh');
     const refreshed = await refreshAuthToken();
     if (refreshed) {
       return getAuthToken();
@@ -336,7 +338,7 @@ export async function apiFetch(
 
     // If we get a 401 and haven't retried yet, try refreshing the token
     if (response.status === 401 && retryCount === 0) {
-      console.debug('[Auth] Got 401, attempting token refresh');
+      logger.info('[Auth] Got 401, attempting token refresh');
       const refreshed = await refreshAuthToken();
       if (refreshed) {
         // Retry the request with the new token
@@ -354,7 +356,7 @@ export async function apiFetch(
 
     // Handle network errors
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      console.error('Network error:', error);
+      logger.error('Network error', { error: error instanceof Error ? error.message : String(error) });
     }
 
     throw error;

@@ -1,32 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 
 /**
  * GET /api/admin/lifefile-status
  * Check LifeFile webhook status for WellMedR
- * 
+ *
  * Query params:
  *   ?clinic=wellmedr (default)
  *   ?days=7 (default, how many days to look back)
- * 
- * Auth: x-setup-secret header or x-admin-secret header
+ *
+ * Auth: JWT via withAdminAuth (admin or super_admin)
  */
-export async function GET(req: NextRequest) {
+async function handleGet(req: NextRequest, user: AuthUser) {
   try {
-    // Verify admin secret
-    const secret = req.headers.get('x-setup-secret') || 
-                   req.headers.get('x-admin-secret') ||
-                   req.headers.get('authorization')?.replace('Bearer ', '');
-    
-    const configuredSecret = process.env.ADMIN_SETUP_SECRET || 
-                             process.env.WELLMEDR_INTAKE_WEBHOOK_SECRET ||
-                             process.env.LIFEFILE_WEBHOOK_PASSWORD;
-
-    if (!configuredSecret || secret !== configuredSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     // Parse query params
     const { searchParams } = new URL(req.url);
     const clinicSubdomain = searchParams.get('clinic') || 'wellmedr';
@@ -41,9 +29,9 @@ export async function GET(req: NextRequest) {
           { name: { contains: clinicSubdomain, mode: 'insensitive' } },
         ],
       },
-      select: { 
-        id: true, 
-        name: true, 
+      select: {
+        id: true,
+        name: true,
         subdomain: true,
         lifefileEnabled: true,
         lifefilePracticeId: true,
@@ -51,19 +39,19 @@ export async function GET(req: NextRequest) {
     });
 
     if (!clinic) {
-      return NextResponse.json({ 
-        error: `Clinic '${clinicSubdomain}' not found` 
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: `Clinic '${clinicSubdomain}' not found`,
+        },
+        { status: 404 }
+      );
     }
 
     // Get webhook logs for LifeFile endpoints
     const webhookLogs = await prisma.webhookLog.findMany({
       where: {
         createdAt: { gte: lookbackDate },
-        OR: [
-          { endpoint: { contains: 'lifefile' } },
-          { endpoint: { contains: 'wellmedr' } },
-        ],
+        OR: [{ endpoint: { contains: 'lifefile' } }, { endpoint: { contains: 'wellmedr' } }],
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -81,13 +69,16 @@ export async function GET(req: NextRequest) {
     });
 
     // Group webhook logs by endpoint
-    const webhooksByEndpoint: Record<string, {
-      total: number;
-      success: number;
-      failed: number;
-      lastReceived: Date | null;
-      lastStatus: string | null;
-    }> = {};
+    const webhooksByEndpoint: Record<
+      string,
+      {
+        total: number;
+        success: number;
+        failed: number;
+        lastReceived: Date | null;
+        lastStatus: string | null;
+      }
+    > = {};
 
     for (const log of webhookLogs) {
       const endpoint = log.endpoint || 'unknown';
@@ -100,16 +91,16 @@ export async function GET(req: NextRequest) {
           lastStatus: null,
         };
       }
-      
+
       const entry = webhooksByEndpoint[endpoint];
       entry.total++;
-      
+
       if (log.status === 'SUCCESS') {
         entry.success++;
       } else {
         entry.failed++;
       }
-      
+
       if (!entry.lastReceived || log.createdAt > entry.lastReceived) {
         entry.lastReceived = log.createdAt;
         entry.lastStatus = log.status;
@@ -168,21 +159,19 @@ export async function GET(req: NextRequest) {
     // Calculate summary stats
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const webhooksToday = webhookLogs.filter(l => l.createdAt >= today).length;
-    const shippingUpdatesToday = shippingUpdates.filter(s => s.createdAt >= today).length;
-    
+
+    const webhooksToday = webhookLogs.filter((l) => l.createdAt >= today).length;
+    const shippingUpdatesToday = shippingUpdates.filter((s) => s.createdAt >= today).length;
+
     // Filter out test data
-    const realWebhooks = webhookLogs.filter(l => {
+    const realWebhooks = webhookLogs.filter((l) => {
       const payload = l as any;
       const payloadStr = JSON.stringify(payload.payload || '');
-      return !payloadStr.includes('VERIFY-TEST') && 
-             !payloadStr.includes('test-verify');
+      return !payloadStr.includes('VERIFY-TEST') && !payloadStr.includes('test-verify');
     });
 
-    const hasRealDataFromLifeFile = shippingUpdates.some(s => 
-      s.source === 'lifefile' && 
-      !s.trackingNumber?.includes('TEST')
+    const hasRealDataFromLifeFile = shippingUpdates.some(
+      (s) => s.source === 'lifefile' && !s.trackingNumber?.includes('TEST')
     );
 
     logger.info('[LIFEFILE STATUS] Admin checked status', {
@@ -199,7 +188,7 @@ export async function GET(req: NextRequest) {
         lifefileEnabled: clinic.lifefileEnabled,
         lifefilePracticeId: clinic.lifefilePracticeId,
       },
-      
+
       summary: {
         lookbackDays: days,
         webhooksToday,
@@ -221,7 +210,7 @@ export async function GET(req: NextRequest) {
         activity: webhooksByEndpoint,
       },
 
-      recentWebhookLogs: webhookLogs.slice(0, 10).map(log => ({
+      recentWebhookLogs: webhookLogs.slice(0, 10).map((log) => ({
         id: log.id,
         endpoint: log.endpoint,
         status: log.status,
@@ -233,7 +222,7 @@ export async function GET(req: NextRequest) {
         errorMessage: log.errorMessage,
       })),
 
-      recentShippingUpdates: shippingUpdates.slice(0, 10).map(update => ({
+      recentShippingUpdates: shippingUpdates.slice(0, 10).map((update) => ({
         id: update.id,
         patient: `${update.patient.firstName} ${update.patient.lastName}`,
         patientId: update.patient.patientId,
@@ -246,7 +235,7 @@ export async function GET(req: NextRequest) {
         createdAgo: getTimeAgo(update.createdAt),
       })),
 
-      recentOrdersWithTracking: ordersWithTracking.slice(0, 10).map(order => ({
+      recentOrdersWithTracking: ordersWithTracking.slice(0, 10).map((order) => ({
         id: order.id,
         patient: `${order.patient.firstName} ${order.patient.lastName}`,
         patientId: order.patient.patientId,
@@ -260,15 +249,14 @@ export async function GET(req: NextRequest) {
       })),
 
       diagnosis: getDiagnosis(
-        webhooksByEndpoint, 
-        shippingUpdates.length, 
+        webhooksByEndpoint,
+        shippingUpdates.length,
         hasRealDataFromLifeFile,
         webhooksToday
       ),
 
       checkedAt: new Date().toISOString(),
     });
-    
   } catch (error: unknown) {
     logger.error('[LIFEFILE STATUS] Error:', error);
     return NextResponse.json(
@@ -298,11 +286,11 @@ function getDiagnosis(
   recommendations: string[];
 } {
   const recommendations: string[] = [];
-  
+
   // Check if webhooks are configured
   const hasShippingWebhook = webhooksByEndpoint['/api/webhooks/wellmedr-shipping'];
   const hasDataPushWebhook = webhooksByEndpoint['/api/webhooks/lifefile-data-push'];
-  
+
   if (!hasShippingWebhook && !hasDataPushWebhook) {
     return {
       status: 'error',
@@ -310,7 +298,7 @@ function getDiagnosis(
       recommendations: [
         'Contact LifeFile (support@lifefile.net) to verify Data Push is configured',
         'Confirm they are sending to: https://app.eonpro.io/api/webhooks/wellmedr-shipping',
-        'Verify credentials: wellmedr_shipping / G7vb2Xq!9Lm',
+        'Verify credentials are set via LIFEFILE_WEBHOOK_USERNAME and LIFEFILE_WEBHOOK_PASSWORD env vars',
       ],
     };
   }
@@ -327,10 +315,10 @@ function getDiagnosis(
 
   // Check for errors
   const totalErrors = Object.values(webhooksByEndpoint).reduce(
-    (sum: number, e: any) => sum + (e.failed || 0), 
+    (sum: number, e: any) => sum + (e.failed || 0),
     0
   );
-  
+
   if (totalErrors > 0) {
     recommendations.push(`${totalErrors} webhook errors detected - check logs for details`);
   }
@@ -347,9 +335,10 @@ function getDiagnosis(
     return {
       status: 'warning',
       message: 'Webhook endpoints are receiving data, but may need attention',
-      recommendations: recommendations.length > 0 
-        ? recommendations 
-        : ['Monitor for incoming real data from LifeFile'],
+      recommendations:
+        recommendations.length > 0
+          ? recommendations
+          : ['Monitor for incoming real data from LifeFile'],
     };
   }
 
@@ -359,7 +348,9 @@ function getDiagnosis(
     recommendations: [
       'Contact LifeFile to configure Data Push service',
       'Endpoint: https://app.eonpro.io/api/webhooks/wellmedr-shipping',
-      'Auth: Basic Auth with wellmedr_shipping credentials',
+      'Auth: Basic Auth with credentials from LIFEFILE_WEBHOOK_USERNAME/LIFEFILE_WEBHOOK_PASSWORD env vars',
     ],
   };
 }
+
+export const GET = withAdminAuth(handleGet);

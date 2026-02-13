@@ -4,10 +4,22 @@ import { useState, useEffect } from 'react';
 import { logger } from '../../../lib/logger';
 
 import { useRouter } from 'next/navigation';
-import { 
-  Building2, Plus, Settings, Users, BarChart3, DollarSign, 
-  Calendar, Activity, TrendingUp, AlertCircle, CheckCircle,
-  Edit, Trash2, Eye, ChevronRight
+import {
+  Building2,
+  Plus,
+  Settings,
+  Users,
+  BarChart3,
+  DollarSign,
+  Calendar,
+  Activity,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  Edit,
+  Trash2,
+  Eye,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -42,7 +54,7 @@ export default function ClinicsAdminPage() {
   const [selectedClinic, setSelectedClinic] = useState<ClinicData | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  
+
   useEffect(() => {
     // Check if user is super_admin - only super_admin can access this page
     const user = localStorage.getItem('user');
@@ -66,7 +78,7 @@ export default function ClinicsAdminPage() {
       router.replace('/login');
     }
   }, [router]);
-  
+
   const fetchClinics = async () => {
     try {
       const response = await fetch('/api/admin/clinics');
@@ -81,17 +93,17 @@ export default function ClinicsAdminPage() {
       setLoading(false);
     }
   };
-  
+
   const handleDeleteClinic = async (clinicId: number) => {
     if (!confirm('Are you sure you want to delete this clinic? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       const response = await fetch(`/api/admin/clinics/${clinicId}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
         fetchClinics();
         setShowDeleteModal(false);
@@ -101,7 +113,7 @@ export default function ClinicsAdminPage() {
       logger.error('Error deleting clinic:', error);
     }
   };
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE':
@@ -116,7 +128,7 @@ export default function ClinicsAdminPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
   const getPlanBadge = (plan: string) => {
     switch (plan) {
       case 'enterprise':
@@ -129,150 +141,145 @@ export default function ClinicsAdminPage() {
         return 'bg-gray-600 text-white';
     }
   };
-  
+
   // Calculate totals
-  const totals = clinics.reduce((acc, clinic) => ({
-    patients: acc.patients + clinic._count.patients,
-    providers: acc.providers + clinic._count.providers,
-    users: acc.users + clinic._count.users,
-    orders: acc.orders + clinic._count.orders,
-    revenue: acc.revenue + (clinic._count.invoices * 100), // Placeholder calculation
-  }), { patients: 0, providers: 0, users: 0, orders: 0, revenue: 0 });
-  
+  const totals = clinics.reduce(
+    (acc, clinic) => ({
+      patients: acc.patients + clinic._count.patients,
+      providers: acc.providers + clinic._count.providers,
+      users: acc.users + clinic._count.users,
+      orders: acc.orders + clinic._count.orders,
+      revenue: acc.revenue + clinic._count.invoices * 100, // Placeholder calculation
+    }),
+    { patients: 0, providers: 0, users: 0, orders: 0, revenue: 0 }
+  );
+
   if (loading) {
     return (
       <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+          <div className="mb-6 h-8 w-1/4 rounded bg-gray-200"></div>
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 rounded bg-gray-200"></div>
             ))}
           </div>
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="mx-auto max-w-7xl p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Clinic Management</h1>
-          <p className="text-gray-600 mt-1">Manage all clinics in your platform</p>
+          <p className="mt-1 text-gray-600">Manage all clinics in your platform</p>
         </div>
         <Link
           href="/admin/clinics/new"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="h-5 w-5" />
           Add New Clinic
         </Link>
       </div>
-      
+
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-5">
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Clinics</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{clinics.length}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{clinics.length}</p>
             </div>
-            <Building2 className="w-8 h-8 text-blue-500 opacity-50" />
+            <Building2 className="h-8 w-8 text-blue-500 opacity-50" />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            {clinics.filter(c => c.status === 'ACTIVE').length} active
+          <p className="mt-2 text-xs text-gray-500">
+            {clinics.filter((c) => c.status === 'ACTIVE').length} active
           </p>
         </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Patients</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{totals.patients}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{totals.patients}</p>
             </div>
-            <Users className="w-8 h-8 text-green-500 opacity-50" />
+            <Users className="h-8 w-8 text-green-500 opacity-50" />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Across all clinics
-          </p>
+          <p className="mt-2 text-xs text-gray-500">Across all clinics</p>
         </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Providers</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{totals.providers}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{totals.providers}</p>
             </div>
-            <Activity className="w-8 h-8 text-purple-500 opacity-50" />
+            <Activity className="h-8 w-8 text-purple-500 opacity-50" />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Active providers
-          </p>
+          <p className="mt-2 text-xs text-gray-500">Active providers</p>
         </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Orders</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{totals.orders}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{totals.orders}</p>
             </div>
-            <TrendingUp className="w-8 h-8 text-orange-500 opacity-50" />
+            <TrendingUp className="h-8 w-8 text-orange-500 opacity-50" />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            This month
-          </p>
+          <p className="mt-2 text-xs text-gray-500">This month</p>
         </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border p-4">
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Revenue</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="mt-1 text-2xl font-bold text-gray-900">
                 ${(totals.revenue / 100).toLocaleString()}
               </p>
             </div>
-            <DollarSign className="w-8 h-8 text-green-600 opacity-50" />
+            <DollarSign className="h-8 w-8 text-green-600 opacity-50" />
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Monthly recurring
-          </p>
+          <p className="mt-2 text-xs text-gray-500">Monthly recurring</p>
         </div>
       </div>
-      
+
       {/* Clinics Table */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="px-6 py-4 border-b">
+      <div className="rounded-xl border bg-white shadow-sm">
+        <div className="border-b px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">All Clinics</h2>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="border-b bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Clinic
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Plan
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Patients
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Providers
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Usage
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Created
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                   Actions
                 </th>
               </tr>
@@ -280,18 +287,18 @@ export default function ClinicsAdminPage() {
             <tbody className="divide-y divide-gray-200">
               {clinics.map((clinic) => (
                 <tr key={clinic.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex items-center">
                       {/* Show favicon/icon instead of full logo for compact display */}
                       {clinic.faviconUrl ? (
                         <img
                           src={clinic.faviconUrl}
                           alt={clinic.name}
-                          className="w-10 h-10 rounded-lg object-contain bg-gray-50 p-1"
+                          className="h-10 w-10 rounded-lg bg-gray-50 object-contain p-1"
                         />
                       ) : (
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
+                        <div
+                          className="flex h-10 w-10 items-center justify-center rounded-lg font-bold text-white"
                           style={{ backgroundColor: clinic.primaryColor }}
                         >
                           {clinic.name.charAt(0).toUpperCase()}
@@ -300,66 +307,75 @@ export default function ClinicsAdminPage() {
                       <div className="ml-3">
                         <p className="text-sm font-semibold text-gray-900">{clinic.name}</p>
                         <p className="text-xs text-gray-500">
-                          {clinic.subdomain}.{process.env.NEXT_PUBLIC_BASE_DOMAIN || 'localhost:3001'}
+                          {clinic.subdomain}.
+                          {process.env.NEXT_PUBLIC_BASE_DOMAIN || 'localhost:3001'}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(clinic.status)}`}>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(clinic.status)}`}
+                    >
                       {clinic.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${getPlanBadge(clinic.billingPlan)}`}>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-medium ${getPlanBadge(clinic.billingPlan)}`}
+                    >
                       {clinic.billingPlan}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {clinic._count.patients}
                       <span className="text-gray-500">/{clinic.patientLimit}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                      <div 
-                        className="bg-blue-600 h-1.5 rounded-full" 
-                        style={{ width: `${Math.min(100, (clinic._count.patients / clinic.patientLimit) * 100)}%` }}
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200">
+                      <div
+                        className="h-1.5 rounded-full bg-blue-600"
+                        style={{
+                          width: `${Math.min(100, (clinic._count.patients / clinic.patientLimit) * 100)}%`,
+                        }}
                       ></div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {clinic._count.providers}
                       <span className="text-gray-500">/{clinic.providerLimit}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                      <div 
-                        className="bg-green-600 h-1.5 rounded-full" 
-                        style={{ width: `${Math.min(100, (clinic._count.providers / clinic.providerLimit) * 100)}%` }}
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-gray-200">
+                      <div
+                        className="h-1.5 rounded-full bg-green-600"
+                        style={{
+                          width: `${Math.min(100, (clinic._count.providers / clinic.providerLimit) * 100)}%`,
+                        }}
                       ></div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm text-gray-900">
                       {Math.round((clinic._count.patients / clinic.patientLimit) * 100)}%
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                     {new Date(clinic.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={`/admin/clinics/${clinic.id}`}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="h-4 w-4" />
                       </Link>
                       <Link
                         href={`/admin/clinics/${clinic.id}/settings`}
                         className="text-gray-600 hover:text-gray-900"
                       >
-                        <Settings className="w-4 h-4" />
+                        <Settings className="h-4 w-4" />
                       </Link>
                       <button
                         onClick={() => {
@@ -368,7 +384,7 @@ export default function ClinicsAdminPage() {
                         }}
                         className="text-red-600 hover:text-red-900"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -377,16 +393,16 @@ export default function ClinicsAdminPage() {
             </tbody>
           </table>
         </div>
-        
+
         {clinics.length === 0 && (
-          <div className="text-center py-12">
-            <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <div className="py-12 text-center">
+            <Building2 className="mx-auto mb-4 h-12 w-12 text-gray-400" />
             <p className="text-gray-500">No clinics found</p>
             <Link
               href="/admin/clinics/new"
               className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               Add your first clinic
             </Link>
           </div>

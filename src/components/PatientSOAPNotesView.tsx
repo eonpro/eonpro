@@ -36,9 +36,9 @@ interface PatientSOAPNotesViewProps {
   currentProviderId?: number;
 }
 
-export default function PatientSOAPNotesView({ 
-  patientId, 
-  currentProviderId 
+export default function PatientSOAPNotesView({
+  patientId,
+  currentProviderId,
 }: PatientSOAPNotesViewProps) {
   const [soapNotes, setSOAPNotes] = useState<SOAPNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,11 +61,12 @@ export default function PatientSOAPNotesView({
 
   // Helper to get auth headers for API calls
   const getAuthHeaders = (): HeadersInit => {
-    const token = localStorage.getItem('auth-token') ||
-                  localStorage.getItem('super_admin-token') ||
-                  localStorage.getItem('admin-token') ||
-                  localStorage.getItem('provider-token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    const token =
+      localStorage.getItem('auth-token') ||
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('admin-token') ||
+      localStorage.getItem('provider-token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
   // Fetch SOAP notes
@@ -77,12 +78,15 @@ export default function PatientSOAPNotesView({
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      const response = await fetch(`/api/soap-notes?patientId=${patientId}&includeRevisions=false`, {
-        credentials: 'include',
-        headers,
-      });
+      const response = await fetch(
+        `/api/soap-notes?patientId=${patientId}&includeRevisions=false`,
+        {
+          credentials: 'include',
+          headers,
+        }
+      );
       const data = await response.json();
-      
+
       if (data.ok) {
         setSOAPNotes(data.data);
       } else {
@@ -100,7 +104,7 @@ export default function PatientSOAPNotesView({
   const handleGenerateFromIntake = async () => {
     setIsGenerating(true);
     setError(null);
-    
+
     try {
       const headers = getAuthHeaders();
       // Use the new /api/soap-notes/generate endpoint which has better logic
@@ -113,17 +117,20 @@ export default function PatientSOAPNotesView({
           patientId,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         await fetchSOAPNotes();
         // Find the newly created note to display
         if (data.soapNote?.id) {
-          const notesResponse = await fetch(`/api/soap-notes?patientId=${patientId}&includeRevisions=false`, {
-            credentials: 'include',
-            headers,
-          });
+          const notesResponse = await fetch(
+            `/api/soap-notes?patientId=${patientId}&includeRevisions=false`,
+            {
+              credentials: 'include',
+              headers,
+            }
+          );
           const notesData = await notesResponse.json();
           if (notesData.ok && notesData.data?.length > 0) {
             const newNote = notesData.data.find((n: SOAPNote) => n.id === data.soapNote.id);
@@ -136,7 +143,7 @@ export default function PatientSOAPNotesView({
         // Show the actual error from the API
         console.error('[SOAP Generation Error]', data);
         const errorMessage = data.error || data.message || 'Failed to generate SOAP note';
-        
+
         // Provide helpful context based on action
         if (data.action === 'no_data') {
           setError(`No intake data available. ${errorMessage}`);
@@ -157,11 +164,10 @@ export default function PatientSOAPNotesView({
     }
   };
 
-
   // Approve SOAP note
   const handleApprove = async () => {
     if (!selectedNote) return;
-    
+
     try {
       const headers = getAuthHeaders();
       // Use the dedicated approve endpoint that properly resolves provider from auth
@@ -173,21 +179,23 @@ export default function PatientSOAPNotesView({
           password: approvalPassword,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         await fetchSOAPNotes();
         setShowApprovalModal(false);
         setApprovalPassword('');
         // Update selected note with approval info
         if (data.soapNote) {
-          setSelectedNote(prev => prev ? { ...prev, ...data.soapNote } : null);
+          setSelectedNote((prev) => (prev ? { ...prev, ...data.soapNote } : null));
         }
       } else {
         // Handle specific error codes
         if (data.code === 'PROVIDER_NOT_FOUND') {
-          setError('Your user account is not linked to a provider profile. Please contact your administrator.');
+          setError(
+            'Your user account is not linked to a provider profile. Please contact your administrator.'
+          );
         } else {
           setError(data.error || 'Failed to approve SOAP note');
         }
@@ -201,7 +209,7 @@ export default function PatientSOAPNotesView({
   // Edit approved SOAP note
   const handleEdit = async () => {
     if (!selectedNote) return;
-    
+
     try {
       const headers = getAuthHeaders();
       const response = await fetch(`/api/soap-notes/${selectedNote.id}`, {
@@ -216,9 +224,9 @@ export default function PatientSOAPNotesView({
           editorEmail: 'doctor@clinic.com', // Get from session
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.ok) {
         await fetchSOAPNotes();
         setShowEditModal(false);
@@ -228,8 +236,8 @@ export default function PatientSOAPNotesView({
         setError(data.error);
       }
     } catch (err: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       setError('Failed to edit SOAP note');
       logger.error('Error editing SOAP note:', err);
     }
@@ -244,7 +252,7 @@ export default function PatientSOAPNotesView({
         headers,
       });
       const text = await response.text();
-      
+
       // Create download
       const blob = new Blob([text], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
@@ -256,8 +264,8 @@ export default function PatientSOAPNotesView({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Error exporting SOAP note:', err);
     }
   };
@@ -270,11 +278,13 @@ export default function PatientSOAPNotesView({
       LOCKED: { color: 'bg-red-100 text-red-700', label: 'Locked' },
       ARCHIVED: { color: 'bg-gray-100 text-gray-500', label: 'Archived' },
     };
-    
+
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.DRAFT;
-    
+
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
+      <span
+        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.color}`}
+      >
         {config.label}
       </span>
     );
@@ -282,11 +292,8 @@ export default function PatientSOAPNotesView({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <BeccaAILoader 
-          text="Loading SOAP notes..."
-          size="medium"
-        />
+      <div className="flex h-64 items-center justify-center">
+        <BeccaAILoader text="Loading SOAP notes..." size="medium" />
       </div>
     );
   }
@@ -294,27 +301,48 @@ export default function PatientSOAPNotesView({
   return (
     <div className="space-y-6">
       {/* Header Actions */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">SOAP Notes</h2>
         <div className="flex items-center space-x-4">
           {/* Generate Button */}
           <button
             onClick={handleGenerateFromIntake}
             disabled={isGenerating}
-            className="inline-flex items-center px-4 py-2 bg-[#4fa77e] text-white text-sm font-medium rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isGenerating ? (
               <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Generating...
               </>
             ) : (
               <>
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
                 </svg>
                 Generate SOAP Note
               </>
@@ -335,7 +363,7 @@ export default function PatientSOAPNotesView({
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-600">
           {error}
         </div>
       )}
@@ -353,18 +381,28 @@ export default function PatientSOAPNotesView({
       {/* SOAP Notes List */}
       <div className="space-y-4">
         {(() => {
-          const filteredNotes = showOnlyApproved 
+          const filteredNotes = showOnlyApproved
             ? soapNotes.filter((note: any) => note.approvedBy)
             : soapNotes;
-          
+
           if (filteredNotes.length === 0) {
             return (
-              <div className="text-center py-12 text-gray-500">
-                <svg className="mx-auto h-12 w-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <div className="py-12 text-center text-gray-500">
+                <svg
+                  className="mx-auto mb-4 h-12 w-12 text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 <p className="mb-4">
-                  {showOnlyApproved 
+                  {showOnlyApproved
                     ? 'No approved SOAP notes available. Provider approval is required.'
                     : 'No SOAP notes available for this patient.'}
                 </p>
@@ -372,20 +410,46 @@ export default function PatientSOAPNotesView({
                   <button
                     onClick={handleGenerateFromIntake}
                     disabled={isGenerating}
-                    className="inline-flex items-center px-4 py-2 bg-[#4fa77e] text-white text-sm font-medium rounded-lg hover:bg-[#3f8660] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isGenerating ? (
                       <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        <svg
+                          className="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
                         </svg>
                         Generating...
                       </>
                     ) : (
                       <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        <svg
+                          className="mr-2 h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 10V3L4 14h7v7l9-11h-7z"
+                          />
                         </svg>
                         Generate SOAP Note
                       </>
@@ -395,32 +459,31 @@ export default function PatientSOAPNotesView({
               </div>
             );
           }
-          
+
           return filteredNotes.map((note: any) => (
             <div
               key={note.id}
-              className="bg-white border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer"
+              className="cursor-pointer rounded-lg border bg-white p-6 transition-shadow hover:shadow-lg"
               onClick={() => setSelectedNote(note)}
             >
-              <div className="flex justify-between items-start mb-4">
+              <div className="mb-4 flex items-start justify-between">
                 <div>
                   <div className="flex items-center space-x-3">
-                    <h3 className="font-semibold">
-                      SOAP Note #{note.id}
-                    </h3>
+                    <h3 className="font-semibold">SOAP Note #{note.id}</h3>
                     {getStatusBadge(note.status)}
                     {note.generatedByAI && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-[#4fa77e] border border-[#4fa77e]/20">
+                      <span className="inline-flex items-center rounded-full border border-[#4fa77e]/20 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-[#4fa77e]">
                         Generated by Becca AI™
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="mt-1 text-sm text-gray-500">
                     Created: {format(new Date(note.createdAt), 'MMM d, yyyy h:mm a')}
                   </p>
                   {note.approvedByProvider && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      Approved by: Dr. {note.approvedByProvider.firstName} {note.approvedByProvider.lastName}
+                    <p className="mt-1 text-sm text-gray-600">
+                      Approved by: Dr. {note.approvedByProvider.firstName}{' '}
+                      {note.approvedByProvider.lastName}
                       {note.approvedAt && ` on ${format(new Date(note.approvedAt), 'MMM d, yyyy')}`}
                     </p>
                   )}
@@ -433,7 +496,7 @@ export default function PatientSOAPNotesView({
                         setSelectedNote(note);
                         setShowApprovalModal(true);
                       }}
-                      className="px-3 py-1 bg-[#4fa77e] text-white text-sm rounded hover:bg-[#3f8660]"
+                      className="rounded bg-[#4fa77e] px-3 py-1 text-sm text-white hover:bg-[#3f8660]"
                     >
                       Approve
                     </button>
@@ -452,7 +515,7 @@ export default function PatientSOAPNotesView({
                         });
                         setShowEditModal(true);
                       }}
-                      className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+                      className="rounded bg-yellow-600 px-3 py-1 text-sm text-white hover:bg-yellow-700"
                     >
                       Edit
                     </button>
@@ -462,7 +525,7 @@ export default function PatientSOAPNotesView({
                       e.stopPropagation();
                       handleExport(note.id);
                     }}
-                    className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+                    className="rounded bg-gray-500 px-3 py-1 text-sm text-white hover:bg-gray-600"
                   >
                     Export
                   </button>
@@ -473,11 +536,11 @@ export default function PatientSOAPNotesView({
               <div className="space-y-3 text-sm">
                 <div>
                   <span className="font-semibold">Subjective:</span>
-                  <p className="text-gray-700 line-clamp-2">{note.subjective}</p>
+                  <p className="line-clamp-2 text-gray-700">{note.subjective}</p>
                 </div>
                 <div>
                   <span className="font-semibold">Objective:</span>
-                  <p className="text-gray-700 line-clamp-2">{note.objective}</p>
+                  <p className="line-clamp-2 text-gray-700">{note.objective}</p>
                 </div>
               </div>
             </div>
@@ -487,45 +550,54 @@ export default function PatientSOAPNotesView({
 
       {/* Detail Modal */}
       {selectedNote && !showApprovalModal && !showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-start mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6">
+            <div className="mb-6 flex items-start justify-between">
               <h2 className="text-2xl font-bold">SOAP Note #{selectedNote.id}</h2>
               <button
                 onClick={() => setSelectedNote(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
 
             <div className="space-y-6">
               <div>
-                <h3 className="font-semibold text-lg mb-2">Subjective</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedNote.subjective}</p>
+                <h3 className="mb-2 text-lg font-semibold">Subjective</h3>
+                <p className="whitespace-pre-wrap text-gray-700">{selectedNote.subjective}</p>
               </div>
-              
+
               <div>
-                <h3 className="font-semibold text-lg mb-2">Objective</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedNote.objective}</p>
+                <h3 className="mb-2 text-lg font-semibold">Objective</h3>
+                <p className="whitespace-pre-wrap text-gray-700">{selectedNote.objective}</p>
               </div>
-              
+
               <div>
-                <h3 className="font-semibold text-lg mb-2">Assessment</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedNote.assessment}</p>
+                <h3 className="mb-2 text-lg font-semibold">Assessment</h3>
+                <p className="whitespace-pre-wrap text-gray-700">{selectedNote.assessment}</p>
               </div>
-              
+
               <div>
-                <h3 className="font-semibold text-lg mb-2">Plan</h3>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedNote.plan}</p>
+                <h3 className="mb-2 text-lg font-semibold">Plan</h3>
+                <p className="whitespace-pre-wrap text-gray-700">{selectedNote.plan}</p>
               </div>
-              
+
               {selectedNote.medicalNecessity && (
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Medical Necessity for Compounded GLP-1</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{selectedNote.medicalNecessity}</p>
+                  <h3 className="mb-2 text-lg font-semibold">
+                    Medical Necessity for Compounded GLP-1
+                  </h3>
+                  <p className="whitespace-pre-wrap text-gray-700">
+                    {selectedNote.medicalNecessity}
+                  </p>
                 </div>
               )}
             </div>
@@ -533,44 +605,43 @@ export default function PatientSOAPNotesView({
         </div>
       )}
 
-
       {/* Approval Modal */}
       {showApprovalModal && selectedNote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Approve SOAP Note</h2>
-            <p className="text-gray-600 mb-4">
-              By approving this SOAP note, you are confirming its accuracy and locking it for future edits.
-              Please set a password that will be required for any future modifications.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6">
+            <h2 className="mb-4 text-xl font-bold">Approve SOAP Note</h2>
+            <p className="mb-4 text-gray-600">
+              By approving this SOAP note, you are confirming its accuracy and locking it for future
+              edits. Please set a password that will be required for any future modifications.
             </p>
-            
+
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
                 Set Edit Password (min 8 characters)
               </label>
               <input
                 type="password"
                 value={approvalPassword}
                 onChange={(e: any) => setApprovalPassword(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
                 placeholder="Enter password"
               />
             </div>
-            
+
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => {
                   setShowApprovalModal(false);
                   setApprovalPassword('');
                 }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                className="rounded-lg border px-4 py-2 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleApprove}
                 disabled={approvalPassword.length < 12}
-                className="px-4 py-2 bg-[#4fa77e] text-white rounded-lg hover:bg-[#3f8660] disabled:opacity-50"
+                className="rounded-lg bg-[#4fa77e] px-4 py-2 text-white hover:bg-[#3f8660] disabled:opacity-50"
               >
                 Approve & Lock
               </button>
@@ -581,104 +652,109 @@ export default function PatientSOAPNotesView({
 
       {/* Edit Modal */}
       {showEditModal && selectedNote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-xl font-bold mb-4">Edit Approved SOAP Note</h2>
-            <p className="text-yellow-600 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6">
+            <h2 className="mb-4 text-xl font-bold">Edit Approved SOAP Note</h2>
+            <p className="mb-4 flex items-center gap-2 text-yellow-600">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
               This SOAP note has been approved. Password verification is required to make edits.
             </p>
-            
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Edit Password
                 </label>
                 <input
                   type="password"
                   value={editPassword}
                   onChange={(e: any) => setEditPassword(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
                   placeholder="Enter the password set during approval"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Reason for Edit
                 </label>
                 <input
                   type="text"
                   value={editReason}
                   onChange={(e: any) => setEditReason(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
                   placeholder="Describe why this edit is necessary"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subjective
-                </label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Subjective</label>
                 <textarea
                   value={editContent.subjective}
-                  onChange={(e: any) => setEditContent({...editContent, subjective: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
-                  rows={4}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Objective
-                </label>
-                <textarea
-                  value={editContent.objective}
-                  onChange={(e: any) => setEditContent({...editContent, objective: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
-                  rows={4}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assessment
-                </label>
-                <textarea
-                  value={editContent.assessment}
-                  onChange={(e: any) => setEditContent({...editContent, assessment: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
-                  rows={4}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Plan
-                </label>
-                <textarea
-                  value={editContent.plan}
-                  onChange={(e: any) => setEditContent({...editContent, plan: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  onChange={(e: any) =>
+                    setEditContent({ ...editContent, subjective: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
                   rows={4}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Objective</label>
+                <textarea
+                  value={editContent.objective}
+                  onChange={(e: any) =>
+                    setEditContent({ ...editContent, objective: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Assessment</label>
+                <textarea
+                  value={editContent.assessment}
+                  onChange={(e: any) =>
+                    setEditContent({ ...editContent, assessment: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Plan</label>
+                <textarea
+                  value={editContent.plan}
+                  onChange={(e: any) => setEditContent({ ...editContent, plan: e.target.value })}
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Medical Necessity for Compounded GLP-1
                 </label>
                 <textarea
                   value={editContent.medicalNecessity}
-                  onChange={(e: any) => setEditContent({...editContent, medicalNecessity: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+                  onChange={(e: any) =>
+                    setEditContent({ ...editContent, medicalNecessity: e.target.value })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
                   rows={4}
                   placeholder="Explain why compounded GLP-1 with glycine is medically necessary..."
                 />
               </div>
-              
+
               <div className="flex justify-end space-x-2 pt-4">
                 <button
                   onClick={() => {
@@ -686,14 +762,14 @@ export default function PatientSOAPNotesView({
                     setEditPassword('');
                     setEditReason('');
                   }}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  className="rounded-lg border px-4 py-2 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEdit}
                   disabled={!editPassword || !editReason}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50"
+                  className="rounded-lg bg-yellow-600 px-4 py-2 text-white hover:bg-yellow-700 disabled:opacity-50"
                 >
                   Save Changes
                 </button>

@@ -1,6 +1,6 @@
 /**
  * Affiliate Leaderboard Service
- * 
+ *
  * Handles leaderboard calculations, competition scoring, and rankings.
  * Used by both the API routes and the cron job for updating scores.
  */
@@ -218,9 +218,12 @@ export async function getGlobalLeaderboard(
       value: r.value,
       formattedValue: formatMetricValue(metric, r.value),
     }));
-
   } catch (error) {
-    logger.error('[LeaderboardService] Error getting global leaderboard', { error, metric, period });
+    logger.error('[LeaderboardService] Error getting global leaderboard', {
+      error,
+      metric,
+      period,
+    });
     throw error;
   }
 }
@@ -235,9 +238,9 @@ export async function getAffiliateRank(
   period: LeaderboardPeriod
 ): Promise<{ rank: number; value: number; totalParticipants: number }> {
   const leaderboard = await getGlobalLeaderboard(clinicId, metric, period, 1000);
-  
-  const entry = leaderboard.find(e => e.affiliateId === affiliateId);
-  
+
+  const entry = leaderboard.find((e) => e.affiliateId === affiliateId);
+
   return {
     rank: entry?.rank || leaderboard.length + 1,
     value: entry?.value || 0,
@@ -262,8 +265,8 @@ export async function calculateCompetitionScore(
           where: {
             affiliateId,
             clinicId,
-            createdAt: { gte: startDate, lte: endDate }
-          }
+            createdAt: { gte: startDate, lte: endDate },
+          },
         });
         return count;
       }
@@ -274,8 +277,8 @@ export async function calculateCompetitionScore(
             affiliateId,
             clinicId,
             occurredAt: { gte: startDate, lte: endDate },
-            status: { not: 'REVERSED' }
-          }
+            status: { not: 'REVERSED' },
+          },
         });
         return count;
       }
@@ -286,9 +289,9 @@ export async function calculateCompetitionScore(
             affiliateId,
             clinicId,
             occurredAt: { gte: startDate, lte: endDate },
-            status: { not: 'REVERSED' }
+            status: { not: 'REVERSED' },
           },
-          _sum: { eventAmountCents: true }
+          _sum: { eventAmountCents: true },
         });
         return result._sum.eventAmountCents || 0;
       }
@@ -299,17 +302,17 @@ export async function calculateCompetitionScore(
             where: {
               affiliateId,
               clinicId,
-              createdAt: { gte: startDate, lte: endDate }
-            }
+              createdAt: { gte: startDate, lte: endDate },
+            },
           }),
           prisma.affiliateCommissionEvent.count({
             where: {
               affiliateId,
               clinicId,
               occurredAt: { gte: startDate, lte: endDate },
-              status: { not: 'REVERSED' }
-            }
-          })
+              status: { not: 'REVERSED' },
+            },
+          }),
         ]);
         // Return as basis points (100 = 1%)
         return clicks > 0 ? Math.round((conversions / clicks) * 10000) : 0;
@@ -322,8 +325,8 @@ export async function calculateCompetitionScore(
             clinicId,
             occurredAt: { gte: startDate, lte: endDate },
             status: { not: 'REVERSED' },
-            isRecurring: false
-          }
+            isRecurring: false,
+          },
         });
         return count;
       }
@@ -338,7 +341,82 @@ export async function calculateCompetitionScore(
 }
 
 /**
- * Update all competition scores (called by cron job)
+ * Update competition scores for a single clinic (per-tenant cron).
+ */
+export async function updateActiveCompetitionScoresForClinic(clinicId: number): Promise<{
+  updated: number;
+  errors: number;
+}> {
+  let updated = 0;
+  let errors = 0;
+  const now = new Date();
+
+  const activeCompetitions = await prisma.affiliateCompetition.findMany({
+    where: { clinicId, status: 'ACTIVE' },
+    include: {
+      entries: {
+        include: {
+          affiliate: { select: { clinicId: true } },
+        },
+      },
+    },
+  });
+
+  for (const competition of activeCompetitions) {
+    try {
+      for (const entry of competition.entries) {
+        const score = await calculateCompetitionScore(
+          entry.affiliateId,
+          entry.affiliate.clinicId,
+          competition.metric as LeaderboardMetric,
+          competition.startDate,
+          competition.endDate
+        );
+        await prisma.affiliateCompetitionEntry.update({
+          where: { id: entry.id },
+          data: { currentValue: score },
+        });
+      }
+      type EntryType = (typeof competition.entries)[number];
+      const sortedEntries = [...competition.entries].sort(
+        (a: EntryType, b: EntryType) => b.currentValue - a.currentValue
+      );
+      for (let i = 0; i < sortedEntries.length; i++) {
+        await prisma.affiliateCompetitionEntry.update({
+          where: { id: sortedEntries[i].id },
+          data: { rank: i + 1 },
+        });
+      }
+      updated++;
+    } catch (error) {
+      logger.error('[LeaderboardService] Error updating competition scores', {
+        competitionId: competition.id,
+        clinicId,
+        error,
+      });
+      errors++;
+    }
+  }
+
+  await prisma.affiliateCompetition.updateMany({
+    where: {
+      clinicId,
+      status: 'SCHEDULED',
+      startDate: { lte: now },
+      endDate: { gt: now },
+    },
+    data: { status: 'ACTIVE' },
+  });
+  await prisma.affiliateCompetition.updateMany({
+    where: { clinicId, status: 'ACTIVE', endDate: { lte: now } },
+    data: { status: 'COMPLETED' },
+  });
+
+  return { updated, errors };
+}
+
+/**
+ * Update all competition scores (called by cron job; use per-tenant cron instead)
  */
 export async function updateAllActiveCompetitionScores(): Promise<{
   updated: number;
@@ -348,23 +426,19 @@ export async function updateAllActiveCompetitionScores(): Promise<{
   let errors = 0;
 
   try {
-    // Get all active competitions
     const activeCompetitions = await prisma.affiliateCompetition.findMany({
       where: { status: 'ACTIVE' },
       include: {
         entries: {
           include: {
-            affiliate: {
-              select: { clinicId: true }
-            }
-          }
-        }
-      }
+            affiliate: { select: { clinicId: true } },
+          },
+        },
+      },
     });
 
     for (const competition of activeCompetitions) {
       try {
-        // Update scores for each entry
         for (const entry of competition.entries) {
           const score = await calculateCompetitionScore(
             entry.affiliateId,
@@ -373,55 +447,43 @@ export async function updateAllActiveCompetitionScores(): Promise<{
             competition.startDate,
             competition.endDate
           );
-
           await prisma.affiliateCompetitionEntry.update({
             where: { id: entry.id },
-            data: { currentValue: score }
+            data: { currentValue: score },
           });
         }
-
-        // Recalculate ranks
-        type EntryType = typeof competition.entries[number];
-        const sortedEntries = [...competition.entries]
-          .sort((a: EntryType, b: EntryType) => b.currentValue - a.currentValue);
-
+        type EntryType = (typeof competition.entries)[number];
+        const sortedEntries = [...competition.entries].sort(
+          (a: EntryType, b: EntryType) => b.currentValue - a.currentValue
+        );
         for (let i = 0; i < sortedEntries.length; i++) {
           await prisma.affiliateCompetitionEntry.update({
             where: { id: sortedEntries[i].id },
-            data: { rank: i + 1 }
+            data: { rank: i + 1 },
           });
         }
-
         updated++;
       } catch (error) {
         logger.error('[LeaderboardService] Error updating competition scores', {
           competitionId: competition.id,
-          error
+          error,
         });
         errors++;
       }
     }
 
-    // Also check for competitions that should be activated or completed
     const now = new Date();
-
-    // Activate scheduled competitions
     await prisma.affiliateCompetition.updateMany({
       where: {
         status: 'SCHEDULED',
         startDate: { lte: now },
-        endDate: { gt: now }
+        endDate: { gt: now },
       },
-      data: { status: 'ACTIVE' }
+      data: { status: 'ACTIVE' },
     });
-
-    // Complete expired competitions
     await prisma.affiliateCompetition.updateMany({
-      where: {
-        status: 'ACTIVE',
-        endDate: { lte: now }
-      },
-      data: { status: 'COMPLETED' }
+      where: { status: 'ACTIVE', endDate: { lte: now } },
+      data: { status: 'COMPLETED' },
     });
 
     return { updated, errors };
@@ -444,18 +506,18 @@ export async function getCompetitionStandings(
         orderBy: [{ rank: 'asc' }, { currentValue: 'desc' }],
         include: {
           affiliate: {
-            select: { displayName: true }
-          }
-        }
-      }
-    }
+            select: { displayName: true },
+          },
+        },
+      },
+    },
   });
 
   if (!competition) {
     throw new Error('Competition not found');
   }
 
-  return competition.entries.map((entry: typeof competition.entries[number], index: number) => ({
+  return competition.entries.map((entry: (typeof competition.entries)[number], index: number) => ({
     rank: entry.rank || index + 1,
     affiliateId: entry.affiliateId,
     displayName: entry.affiliate.displayName,

@@ -11,11 +11,7 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ticketRepository } from '../repositories/ticket.repository';
-import {
-  NotFoundError,
-  ForbiddenError,
-  ValidationError,
-} from '@/domains/shared/errors';
+import { NotFoundError, ForbiddenError, ValidationError } from '@/domains/shared/errors';
 import type { UserContext } from '@/domains/shared/types';
 import type {
   Ticket,
@@ -44,8 +40,23 @@ import type { TicketStatus, TicketDisposition } from '@prisma/client';
 
 const VALID_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   NEW: ['OPEN', 'IN_PROGRESS', 'PENDING_CUSTOMER', 'PENDING_INTERNAL', 'CANCELLED'],
-  OPEN: ['IN_PROGRESS', 'PENDING_CUSTOMER', 'PENDING_INTERNAL', 'ON_HOLD', 'ESCALATED', 'RESOLVED', 'CANCELLED'],
-  IN_PROGRESS: ['PENDING_CUSTOMER', 'PENDING_INTERNAL', 'ON_HOLD', 'ESCALATED', 'RESOLVED', 'CANCELLED'],
+  OPEN: [
+    'IN_PROGRESS',
+    'PENDING_CUSTOMER',
+    'PENDING_INTERNAL',
+    'ON_HOLD',
+    'ESCALATED',
+    'RESOLVED',
+    'CANCELLED',
+  ],
+  IN_PROGRESS: [
+    'PENDING_CUSTOMER',
+    'PENDING_INTERNAL',
+    'ON_HOLD',
+    'ESCALATED',
+    'RESOLVED',
+    'CANCELLED',
+  ],
   PENDING: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CANCELLED'], // Legacy
   PENDING_CUSTOMER: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CANCELLED'],
   PENDING_INTERNAL: ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CANCELLED'],
@@ -54,7 +65,14 @@ const VALID_STATUS_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
   RESOLVED: ['CLOSED', 'REOPENED'],
   CLOSED: ['REOPENED'],
   CANCELLED: [],
-  REOPENED: ['IN_PROGRESS', 'PENDING_CUSTOMER', 'PENDING_INTERNAL', 'ON_HOLD', 'RESOLVED', 'CANCELLED'],
+  REOPENED: [
+    'IN_PROGRESS',
+    'PENDING_CUSTOMER',
+    'PENDING_INTERNAL',
+    'ON_HOLD',
+    'RESOLVED',
+    'CANCELLED',
+  ],
 };
 
 function canTransitionStatus(from: TicketStatus, to: TicketStatus): boolean {
@@ -73,10 +91,7 @@ export const ticketService = {
   /**
    * Create a new ticket
    */
-  async create(
-    data: CreateTicketInput,
-    userContext: UserContext
-  ): Promise<TicketWithRelations> {
+  async create(data: CreateTicketInput, userContext: UserContext): Promise<TicketWithRelations> {
     // Validate clinic access
     if (userContext.role !== 'super_admin') {
       if (data.clinicId !== userContext.clinicId) {
@@ -176,10 +191,7 @@ export const ticketService = {
   /**
    * Get ticket by ID
    */
-  async getById(
-    id: number,
-    userContext: UserContext
-  ): Promise<TicketWithRelations> {
+  async getById(id: number, userContext: UserContext): Promise<TicketWithRelations> {
     const ticket = await ticketRepository.findById(id, userContext);
 
     if (!ticket) {
@@ -196,10 +208,7 @@ export const ticketService = {
     ticketNumber: string,
     userContext: UserContext
   ): Promise<TicketWithRelations> {
-    const ticket = await ticketRepository.findByTicketNumber(
-      ticketNumber,
-      userContext
-    );
+    const ticket = await ticketRepository.findByTicketNumber(ticketNumber, userContext);
 
     if (!ticket) {
       throw new NotFoundError('Ticket', ticketNumber);
@@ -266,12 +275,18 @@ export const ticketService = {
 
       // Log activities for each change
       for (const change of changes) {
-        const activityType = 
-          change.field === 'status' ? 'STATUS_CHANGED' :
-          change.field === 'priority' ? 'PRIORITY_CHANGED' :
-          change.field === 'category' ? 'CATEGORY_CHANGED' :
-          change.field === 'assignedToId' ? (change.old ? 'REASSIGNED' : 'ASSIGNED') :
-          'UPDATED';
+        const activityType =
+          change.field === 'status'
+            ? 'STATUS_CHANGED'
+            : change.field === 'priority'
+              ? 'PRIORITY_CHANGED'
+              : change.field === 'category'
+                ? 'CATEGORY_CHANGED'
+                : change.field === 'assignedToId'
+                  ? change.old
+                    ? 'REASSIGNED'
+                    : 'ASSIGNED'
+                  : 'UPDATED';
 
         await ticketRepository.logActivity(
           {
@@ -388,22 +403,24 @@ export const ticketService = {
         tx
       );
 
-      // Log assignment
-      await tx.ticketAssignment.create({
-        data: {
-          ticketId: id,
-          assignedById: userContext.id,
-          assignedToId: data.assignedToId || 0, // Handle unassignment
-          notes: data.reason,
-        },
-      });
+      // Log assignment only when assigning to a user (TicketAssignment.assignedToId is required FK to User)
+      if (data.assignedToId != null) {
+        await tx.ticketAssignment.create({
+          data: {
+            ticketId: id,
+            assignedById: userContext.id,
+            assignedToId: data.assignedToId,
+            notes: data.reason,
+          },
+        });
+      }
 
       // Log activity
       const activityType = data.isEscalation
         ? 'ESCALATED'
         : previousAssigneeId
-        ? 'REASSIGNED'
-        : 'ASSIGNED';
+          ? 'REASSIGNED'
+          : 'ASSIGNED';
 
       await ticketRepository.logActivity(
         {
@@ -463,9 +480,7 @@ export const ticketService = {
 
     // Validate can resolve
     if (!canTransitionStatus(existing.status, 'RESOLVED')) {
-      throw new ValidationError(
-        `Cannot resolve ticket in ${existing.status} status`
-      );
+      throw new ValidationError(`Cannot resolve ticket in ${existing.status} status`);
     }
 
     if (!data.resolutionNotes?.trim()) {
@@ -526,11 +541,7 @@ export const ticketService = {
   /**
    * Reopen a ticket
    */
-  async reopen(
-    id: number,
-    reason: string,
-    userContext: UserContext
-  ): Promise<TicketWithRelations> {
+  async reopen(id: number, reason: string, userContext: UserContext): Promise<TicketWithRelations> {
     const existing = await this.getById(id, userContext);
 
     // Check authorization
@@ -538,9 +549,7 @@ export const ticketService = {
 
     // Validate can reopen
     if (!['RESOLVED', 'CLOSED'].includes(existing.status)) {
-      throw new ValidationError(
-        `Cannot reopen ticket in ${existing.status} status`
-      );
+      throw new ValidationError(`Cannot reopen ticket in ${existing.status} status`);
     }
 
     if (!reason?.trim()) {
@@ -692,11 +701,7 @@ export const ticketService = {
   /**
    * Add a watcher to a ticket
    */
-  async addWatcher(
-    ticketId: number,
-    data: AddWatcherInput,
-    userContext: UserContext
-  ) {
+  async addWatcher(ticketId: number, data: AddWatcherInput, userContext: UserContext) {
     // Verify access
     await this.getById(ticketId, userContext);
 
@@ -735,11 +740,7 @@ export const ticketService = {
   /**
    * Remove a watcher from a ticket
    */
-  async removeWatcher(
-    ticketId: number,
-    userId: number,
-    userContext: UserContext
-  ) {
+  async removeWatcher(ticketId: number, userId: number, userContext: UserContext) {
     // Verify access
     await this.getById(ticketId, userContext);
 
@@ -771,10 +772,7 @@ export const ticketService = {
   /**
    * Merge tickets
    */
-  async merge(
-    data: MergeTicketsInput,
-    userContext: UserContext
-  ): Promise<TicketWithRelations> {
+  async merge(data: MergeTicketsInput, userContext: UserContext): Promise<TicketWithRelations> {
     const sourceTicket = await this.getById(data.sourceTicketId, userContext);
     const targetTicket = await this.getById(data.targetTicketId, userContext);
 
@@ -890,9 +888,7 @@ export const ticketService = {
     const tickets = await prisma.ticket.findMany({
       where: {
         id: { in: data.ticketIds },
-        ...(userContext.role !== 'super_admin'
-          ? { clinicId: userContext.clinicId }
-          : {}),
+        ...(userContext.role !== 'super_admin' ? { clinicId: userContext.clinicId } : {}),
       },
       select: { id: true },
     });
@@ -907,11 +903,7 @@ export const ticketService = {
       });
     }
 
-    const result = await ticketRepository.bulkUpdate(
-      accessibleIds,
-      data.updates,
-      userContext
-    );
+    const result = await ticketRepository.bulkUpdate(accessibleIds, data.updates, userContext);
 
     logger.info('[TicketService] Bulk update completed', {
       updatedCount: result.count,
@@ -929,10 +921,7 @@ export const ticketService = {
   /**
    * Get ticket statistics
    */
-  async getStats(
-    clinicId: number,
-    userContext: UserContext
-  ): Promise<TicketStats> {
+  async getStats(clinicId: number, userContext: UserContext): Promise<TicketStats> {
     // Validate clinic access
     if (userContext.role !== 'super_admin') {
       if (clinicId !== userContext.clinicId) {
@@ -980,10 +969,7 @@ export const ticketService = {
       if (action !== 'view') {
         throw new ForbiddenError('Patients can only view tickets');
       }
-      if (
-        ticket.createdById !== userContext.id &&
-        ticket.patientId !== userContext.patientId
-      ) {
+      if (ticket.createdById !== userContext.id && ticket.patientId !== userContext.patientId) {
         throw new ForbiddenError('You do not have access to this ticket');
       }
     }

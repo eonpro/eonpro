@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlusIcon } from '@/components/icons/SettingsIcons';
 import { toast } from 'sonner';
+import { getStoredUser } from '@/lib/auth/stored-role';
 
 interface User {
   id: number;
@@ -26,23 +27,56 @@ interface Clinic {
 }
 
 const US_STATES = [
-  { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' }, { code: 'AZ', name: 'Arizona' },
-  { code: 'AR', name: 'Arkansas' }, { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
-  { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' }, { code: 'FL', name: 'Florida' },
-  { code: 'GA', name: 'Georgia' }, { code: 'HI', name: 'Hawaii' }, { code: 'ID', name: 'Idaho' },
-  { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' }, { code: 'IA', name: 'Iowa' },
-  { code: 'KS', name: 'Kansas' }, { code: 'KY', name: 'Kentucky' }, { code: 'LA', name: 'Louisiana' },
-  { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' }, { code: 'MA', name: 'Massachusetts' },
-  { code: 'MI', name: 'Michigan' }, { code: 'MN', name: 'Minnesota' }, { code: 'MS', name: 'Mississippi' },
-  { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' }, { code: 'NE', name: 'Nebraska' },
-  { code: 'NV', name: 'Nevada' }, { code: 'NH', name: 'New Hampshire' }, { code: 'NJ', name: 'New Jersey' },
-  { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' }, { code: 'NC', name: 'North Carolina' },
-  { code: 'ND', name: 'North Dakota' }, { code: 'OH', name: 'Ohio' }, { code: 'OK', name: 'Oklahoma' },
-  { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' }, { code: 'RI', name: 'Rhode Island' },
-  { code: 'SC', name: 'South Carolina' }, { code: 'SD', name: 'South Dakota' }, { code: 'TN', name: 'Tennessee' },
-  { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' }, { code: 'VT', name: 'Vermont' },
-  { code: 'VA', name: 'Virginia' }, { code: 'WA', name: 'Washington' }, { code: 'WV', name: 'West Virginia' },
-  { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' }
+  { code: 'AL', name: 'Alabama' },
+  { code: 'AK', name: 'Alaska' },
+  { code: 'AZ', name: 'Arizona' },
+  { code: 'AR', name: 'Arkansas' },
+  { code: 'CA', name: 'California' },
+  { code: 'CO', name: 'Colorado' },
+  { code: 'CT', name: 'Connecticut' },
+  { code: 'DE', name: 'Delaware' },
+  { code: 'FL', name: 'Florida' },
+  { code: 'GA', name: 'Georgia' },
+  { code: 'HI', name: 'Hawaii' },
+  { code: 'ID', name: 'Idaho' },
+  { code: 'IL', name: 'Illinois' },
+  { code: 'IN', name: 'Indiana' },
+  { code: 'IA', name: 'Iowa' },
+  { code: 'KS', name: 'Kansas' },
+  { code: 'KY', name: 'Kentucky' },
+  { code: 'LA', name: 'Louisiana' },
+  { code: 'ME', name: 'Maine' },
+  { code: 'MD', name: 'Maryland' },
+  { code: 'MA', name: 'Massachusetts' },
+  { code: 'MI', name: 'Michigan' },
+  { code: 'MN', name: 'Minnesota' },
+  { code: 'MS', name: 'Mississippi' },
+  { code: 'MO', name: 'Missouri' },
+  { code: 'MT', name: 'Montana' },
+  { code: 'NE', name: 'Nebraska' },
+  { code: 'NV', name: 'Nevada' },
+  { code: 'NH', name: 'New Hampshire' },
+  { code: 'NJ', name: 'New Jersey' },
+  { code: 'NM', name: 'New Mexico' },
+  { code: 'NY', name: 'New York' },
+  { code: 'NC', name: 'North Carolina' },
+  { code: 'ND', name: 'North Dakota' },
+  { code: 'OH', name: 'Ohio' },
+  { code: 'OK', name: 'Oklahoma' },
+  { code: 'OR', name: 'Oregon' },
+  { code: 'PA', name: 'Pennsylvania' },
+  { code: 'RI', name: 'Rhode Island' },
+  { code: 'SC', name: 'South Carolina' },
+  { code: 'SD', name: 'South Dakota' },
+  { code: 'TN', name: 'Tennessee' },
+  { code: 'TX', name: 'Texas' },
+  { code: 'UT', name: 'Utah' },
+  { code: 'VT', name: 'Vermont' },
+  { code: 'VA', name: 'Virginia' },
+  { code: 'WA', name: 'Washington' },
+  { code: 'WV', name: 'West Virginia' },
+  { code: 'WI', name: 'Wisconsin' },
+  { code: 'WY', name: 'Wyoming' },
 ];
 
 export default function UserManagementPage() {
@@ -77,28 +111,22 @@ export default function UserManagementPage() {
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // Check if user is super admin
+  // Check if user is super admin (display only; server enforces on API)
   useEffect(() => {
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setIsSuperAdmin(payload.role === 'super_admin' || payload.role === 'SUPER_ADMIN');
-      } catch (e) {
-        console.error('Error parsing token:', e);
-      }
-    }
+    const user = getStoredUser();
+    const role = (user?.role || '').toLowerCase();
+    setIsSuperAdmin(role === 'super_admin');
   }, []);
 
   // Fetch clinics for dropdown
   const fetchClinics = useCallback(async () => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
-      
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
       // Try super admin endpoint first, then public
       const endpoints = ['/api/super-admin/clinics', '/api/clinics'];
-      
+
       for (const endpoint of endpoints) {
         try {
           const res = await fetch(endpoint, { headers });
@@ -124,14 +152,14 @@ export default function UserManagementPage() {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      
+
       if (!token) {
         setError('Not authenticated');
         return;
       }
 
       const res = await fetch('/api/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
@@ -159,7 +187,7 @@ export default function UserManagementPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      
+
       if (!token) {
         toast.error('Not authenticated');
         return;
@@ -192,7 +220,7 @@ export default function UserManagementPage() {
       const res = await fetch('/api/users/create', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -222,7 +250,7 @@ export default function UserManagementPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      
+
       if (!token) {
         toast.error('Not authenticated');
         return;
@@ -247,7 +275,7 @@ export default function UserManagementPage() {
       const res = await fetch(`/api/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -272,17 +300,21 @@ export default function UserManagementPage() {
   };
 
   const handleSuspendUser = async (user: User) => {
-    if (!confirm(`Are you sure you want to ${user.status === 'SUSPENDED' ? 'activate' : 'suspend'} ${user.email}?`)) {
+    if (
+      !confirm(
+        `Are you sure you want to ${user.status === 'SUSPENDED' ? 'activate' : 'suspend'} ${user.email}?`
+      )
+    ) {
       return;
     }
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      
+
       const res = await fetch(`/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -295,7 +327,9 @@ export default function UserManagementPage() {
         throw new Error(data.error || 'Failed to update user status');
       }
 
-      toast.success(`User ${user.status === 'SUSPENDED' ? 'activated' : 'suspended'} successfully!`);
+      toast.success(
+        `User ${user.status === 'SUSPENDED' ? 'activated' : 'suspended'} successfully!`
+      );
       fetchUsers();
     } catch (err: any) {
       toast.error(err.message || 'Failed to update user status');
@@ -317,32 +351,45 @@ export default function UserManagementPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ACTIVE': return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-600/20';
-      case 'INACTIVE': return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
-      case 'SUSPENDED': return 'bg-red-100 text-red-800 ring-1 ring-red-600/20';
-      case 'PENDING_VERIFICATION': return 'bg-amber-100 text-amber-800 ring-1 ring-amber-600/20';
-      default: return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
+      case 'ACTIVE':
+        return 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-600/20';
+      case 'INACTIVE':
+        return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
+      case 'SUSPENDED':
+        return 'bg-red-100 text-red-800 ring-1 ring-red-600/20';
+      case 'PENDING_VERIFICATION':
+        return 'bg-amber-100 text-amber-800 ring-1 ring-amber-600/20';
+      default:
+        return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
     }
   };
 
   const getRoleColor = (role: string) => {
     const r = role?.toUpperCase();
     switch (r) {
-      case 'SUPER_ADMIN': return 'bg-purple-100 text-purple-800 ring-1 ring-purple-600/20';
-      case 'ADMIN': return 'bg-blue-100 text-blue-800 ring-1 ring-blue-600/20';
-      case 'PROVIDER': return 'bg-teal-100 text-teal-800 ring-1 ring-teal-600/20';
-      case 'INFLUENCER': return 'bg-pink-100 text-pink-800 ring-1 ring-pink-600/20';
-      case 'PATIENT': return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
-      case 'STAFF': return 'bg-amber-100 text-amber-800 ring-1 ring-amber-600/20';
-      case 'SUPPORT': return 'bg-orange-100 text-orange-800 ring-1 ring-orange-600/20';
-      default: return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
+      case 'SUPER_ADMIN':
+        return 'bg-purple-100 text-purple-800 ring-1 ring-purple-600/20';
+      case 'ADMIN':
+        return 'bg-blue-100 text-blue-800 ring-1 ring-blue-600/20';
+      case 'PROVIDER':
+        return 'bg-teal-100 text-teal-800 ring-1 ring-teal-600/20';
+      case 'INFLUENCER':
+        return 'bg-pink-100 text-pink-800 ring-1 ring-pink-600/20';
+      case 'PATIENT':
+        return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
+      case 'STAFF':
+        return 'bg-amber-100 text-amber-800 ring-1 ring-amber-600/20';
+      case 'SUPPORT':
+        return 'bg-orange-100 text-orange-800 ring-1 ring-orange-600/20';
+      default:
+        return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-teal-600"></div>
       </div>
     );
   }
@@ -350,67 +397,68 @@ export default function UserManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+          <h1 className="bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-3xl font-bold text-transparent">
             User Management
           </h1>
-          <p className="text-slate-600 mt-2">Manage platform users and permissions</p>
+          <p className="mt-2 text-slate-600">Manage platform users and permissions</p>
         </div>
         <button
           onClick={() => {
             setFormData(initialFormState);
             setShowCreateModal(true);
           }}
-          className="bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-3 rounded-xl hover:from-teal-600 hover:to-emerald-600 transition-all shadow-lg hover:shadow-xl flex items-center font-semibold"
+          className="flex items-center rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:from-teal-600 hover:to-emerald-600 hover:shadow-xl"
         >
-          <PlusIcon className="w-5 h-5 mr-2" />
+          <PlusIcon className="mr-2 h-5 w-5" />
           Create User
         </button>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
           {error}
         </div>
       )}
 
       {/* Users Table */}
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200/50">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/50 bg-white shadow-xl">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
             <tr>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 User
               </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 Role
               </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 Clinic
               </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 Status
               </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 Last Login
               </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 Created
               </th>
-              <th className="px-6 py-4 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-600">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 bg-white">
             {users.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
+              <tr key={user.id} className="transition-colors hover:bg-slate-50/50">
+                <td className="whitespace-nowrap px-6 py-4">
                   <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
-                      {user.firstName?.[0]}{user.lastName?.[0]}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 text-sm font-bold text-white">
+                      {user.firstName?.[0]}
+                      {user.lastName?.[0]}
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-semibold text-slate-900">
@@ -420,31 +468,35 @@ export default function UserManagementPage() {
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold leading-5 ${getRoleColor(user.role)}`}
+                  >
                     {user.role}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="whitespace-nowrap px-6 py-4">
                   <span className="text-sm text-slate-600">
                     {user.clinic?.name || (user.clinicId ? `Clinic #${user.clinicId}` : '—')}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.status)}`}>
+                <td className="whitespace-nowrap px-6 py-4">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold leading-5 ${getStatusColor(user.status)}`}
+                  >
                     {user.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                   {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-500">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                <td className="space-x-2 whitespace-nowrap px-6 py-4 text-sm font-medium">
                   <button
                     onClick={() => openEditModal(user)}
-                    className="text-teal-600 hover:text-teal-900 hover:bg-teal-50 px-3 py-1 rounded-lg transition-colors"
+                    className="rounded-lg px-3 py-1 text-teal-600 transition-colors hover:bg-teal-50 hover:text-teal-900"
                   >
                     Edit
                   </button>
@@ -452,9 +504,9 @@ export default function UserManagementPage() {
                     onClick={() => handleSuspendUser(user)}
                     className={`${
                       user.status === 'SUSPENDED'
-                        ? 'text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50'
-                        : 'text-red-600 hover:text-red-900 hover:bg-red-50'
-                    } px-3 py-1 rounded-lg transition-colors`}
+                        ? 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-900'
+                        : 'text-red-600 hover:bg-red-50 hover:text-red-900'
+                    } rounded-lg px-3 py-1 transition-colors`}
                   >
                     {user.status === 'SUSPENDED' ? 'Activate' : 'Suspend'}
                   </button>
@@ -463,9 +515,9 @@ export default function UserManagementPage() {
             ))}
           </tbody>
         </table>
-        
+
         {users.length === 0 && (
-          <div className="text-center py-12">
+          <div className="py-12 text-center">
             <p className="text-slate-500">No users found</p>
           </div>
         )}
@@ -473,101 +525,101 @@ export default function UserManagementPage() {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-start justify-center pt-10">
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 border border-slate-200">
-            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white rounded-t-2xl">
+        <div className="fixed inset-0 z-50 flex h-full w-full items-start justify-center overflow-y-auto bg-black/50 pt-10 backdrop-blur-sm">
+          <div className="relative mx-4 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="rounded-t-2xl border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white p-6">
               <h3 className="text-xl font-bold text-slate-800">Create New User</h3>
-              <p className="text-sm text-slate-500 mt-1">Add a new user to the platform</p>
+              <p className="mt-1 text-sm text-slate-500">Add a new user to the platform</p>
             </div>
-            
-            <form onSubmit={handleCreateUser} className="p-6 max-h-[70vh] overflow-y-auto">
+
+            <form onSubmit={handleCreateUser} className="max-h-[70vh] overflow-y-auto p-6">
               {/* Clinic Selection (Super Admin Only) */}
               {isSuperAdmin && clinics.length > 0 && (
-                <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
-                  <label className="block text-sm font-semibold text-amber-800 mb-2">
+                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <label className="mb-2 block text-sm font-semibold text-amber-800">
                     Assign to Clinic *
                   </label>
                   <select
                     required
-                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition-all outline-none"
+                    className="w-full rounded-xl border-2 border-amber-200 bg-white px-4 py-3 outline-none transition-all focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10"
                     value={formData.clinicId}
-                    onChange={(e) => setFormData({...formData, clinicId: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, clinicId: e.target.value })}
                   >
                     <option value="">Select a clinic...</option>
-                    {clinics.filter(c => c.status === 'ACTIVE').map((clinic) => (
-                      <option key={clinic.id} value={clinic.id}>
-                        {clinic.name}
-                      </option>
-                    ))}
+                    {clinics
+                      .filter((c) => c.status === 'ACTIVE')
+                      .map((clinic) => (
+                        <option key={clinic.id} value={clinic.id}>
+                          {clinic.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
 
               {/* Basic Information */}
-              <div className="space-y-4 mb-6">
+              <div className="mb-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       First Name *
                     </label>
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.firstName}
-                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Last Name *
                     </label>
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.lastName}
-                      onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     />
                   </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Email *
-                  </label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Email *</label>
                   <input
                     type="email"
                     required
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                     value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Password *
                     </label>
                     <input
                       type="password"
                       required
                       minLength={8}
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Min 8 characters"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Role *
                     </label>
                     <select
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.role}
-                      onChange={(e) => setFormData({...formData, role: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     >
                       {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
                       <option value="ADMIN">Admin</option>
@@ -581,61 +633,79 @@ export default function UserManagementPage() {
 
               {/* Provider-Specific Fields */}
               {(formData.role === 'PROVIDER' || formData.role === 'provider') && (
-                <div className="p-4 bg-teal-50 rounded-xl border border-teal-200 mb-6">
-                  <h4 className="text-sm font-bold text-teal-800 mb-4">Provider Information</h4>
+                <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50 p-4">
+                  <h4 className="mb-4 text-sm font-bold text-teal-800">Provider Information</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-teal-700 mb-2">NPI *</label>
+                      <label className="mb-2 block text-sm font-semibold text-teal-700">
+                        NPI *
+                      </label>
                       <input
                         type="text"
                         required
                         pattern="[0-9]{10}"
                         maxLength={10}
-                        className="w-full px-4 py-3 border-2 border-teal-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none bg-white"
+                        className="w-full rounded-xl border-2 border-teal-200 bg-white px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                         value={formData.npi}
-                        onChange={(e) => setFormData({...formData, npi: e.target.value.replace(/\D/g, '')})}
+                        onChange={(e) =>
+                          setFormData({ ...formData, npi: e.target.value.replace(/\D/g, '') })
+                        }
                         placeholder="10 digits"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-teal-700 mb-2">License # *</label>
+                      <label className="mb-2 block text-sm font-semibold text-teal-700">
+                        License # *
+                      </label>
                       <input
                         type="text"
                         required
-                        className="w-full px-4 py-3 border-2 border-teal-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none bg-white"
+                        className="w-full rounded-xl border-2 border-teal-200 bg-white px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                         value={formData.licenseNumber}
-                        onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})}
+                        onChange={(e) =>
+                          setFormData({ ...formData, licenseNumber: e.target.value })
+                        }
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-teal-700 mb-2">License State *</label>
+                      <label className="mb-2 block text-sm font-semibold text-teal-700">
+                        License State *
+                      </label>
                       <select
                         required
-                        className="w-full px-4 py-3 border-2 border-teal-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none bg-white"
+                        className="w-full rounded-xl border-2 border-teal-200 bg-white px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                         value={formData.licenseState}
-                        onChange={(e) => setFormData({...formData, licenseState: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, licenseState: e.target.value })}
                       >
                         <option value="">Select State</option>
-                        {US_STATES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
+                        {US_STATES.map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-teal-700 mb-2">DEA Number</label>
+                      <label className="mb-2 block text-sm font-semibold text-teal-700">
+                        DEA Number
+                      </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 border-2 border-teal-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none bg-white"
+                        className="w-full rounded-xl border-2 border-teal-200 bg-white px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                         value={formData.deaNumber}
-                        onChange={(e) => setFormData({...formData, deaNumber: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, deaNumber: e.target.value })}
                         placeholder="Optional"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-teal-700 mb-2">Specialty *</label>
+                      <label className="mb-2 block text-sm font-semibold text-teal-700">
+                        Specialty *
+                      </label>
                       <select
                         required
-                        className="w-full px-4 py-3 border-2 border-teal-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none bg-white"
+                        className="w-full rounded-xl border-2 border-teal-200 bg-white px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                         value={formData.specialty}
-                        onChange={(e) => setFormData({...formData, specialty: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
                       >
                         <option value="">Select Specialty</option>
                         <option value="PRIMARY_CARE">Primary Care</option>
@@ -648,13 +718,15 @@ export default function UserManagementPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-teal-700 mb-2">Phone *</label>
+                      <label className="mb-2 block text-sm font-semibold text-teal-700">
+                        Phone *
+                      </label>
                       <input
                         type="tel"
                         required
-                        className="w-full px-4 py-3 border-2 border-teal-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none bg-white"
+                        className="w-full rounded-xl border-2 border-teal-200 bg-white px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                         value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         placeholder="(555) 123-4567"
                       />
                     </div>
@@ -663,18 +735,18 @@ export default function UserManagementPage() {
               )}
 
               {/* Actions */}
-              <div className="flex items-center justify-end space-x-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-end space-x-4 border-t border-slate-200 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-3 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition-colors"
+                  className="rounded-xl px-6 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-3 rounded-xl hover:from-teal-600 hover:to-emerald-600 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 font-semibold text-white transition-all hover:from-teal-600 hover:to-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? 'Creating...' : 'Create User'}
                 </button>
@@ -686,98 +758,100 @@ export default function UserManagementPage() {
 
       {/* Edit User Modal */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-start justify-center pt-10">
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 border border-slate-200">
-            <div className="p-6 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white rounded-t-2xl">
+        <div className="fixed inset-0 z-50 flex h-full w-full items-start justify-center overflow-y-auto bg-black/50 pt-10 backdrop-blur-sm">
+          <div className="relative mx-4 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="rounded-t-2xl border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white p-6">
               <h3 className="text-xl font-bold text-slate-800">Edit User</h3>
-              <p className="text-sm text-slate-500 mt-1">Update user information</p>
+              <p className="mt-1 text-sm text-slate-500">Update user information</p>
             </div>
-            
-            <form onSubmit={handleEditUser} className="p-6 max-h-[70vh] overflow-y-auto">
+
+            <form onSubmit={handleEditUser} className="max-h-[70vh] overflow-y-auto p-6">
               {/* Clinic Selection (Super Admin Only) */}
               {isSuperAdmin && clinics.length > 0 && (
-                <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
-                  <label className="block text-sm font-semibold text-amber-800 mb-2">
+                <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <label className="mb-2 block text-sm font-semibold text-amber-800">
                     Assign to Clinic
                   </label>
                   <select
-                    className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl bg-white focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition-all outline-none"
+                    className="w-full rounded-xl border-2 border-amber-200 bg-white px-4 py-3 outline-none transition-all focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10"
                     value={formData.clinicId}
-                    onChange={(e) => setFormData({...formData, clinicId: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, clinicId: e.target.value })}
                   >
                     <option value="">No clinic assigned</option>
-                    {clinics.filter(c => c.status === 'ACTIVE').map((clinic) => (
-                      <option key={clinic.id} value={clinic.id}>
-                        {clinic.name}
-                      </option>
-                    ))}
+                    {clinics
+                      .filter((c) => c.status === 'ACTIVE')
+                      .map((clinic) => (
+                        <option key={clinic.id} value={clinic.id}>
+                          {clinic.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
 
               {/* Basic Information */}
-              <div className="space-y-4 mb-6">
+              <div className="mb-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       First Name *
                     </label>
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.firstName}
-                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Last Name *
                     </label>
                     <input
                       type="text"
                       required
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.lastName}
-                      onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     />
                   </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
                     Email (cannot be changed)
                   </label>
                   <input
                     type="email"
                     disabled
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl bg-slate-50 text-slate-500 outline-none"
+                    className="w-full rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none"
                     value={formData.email}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       New Password
                     </label>
                     <input
                       type="password"
                       minLength={8}
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Leave blank to keep current"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Role *
                     </label>
                     <select
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10 transition-all outline-none"
+                      className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 outline-none transition-all focus:border-teal-400 focus:ring-4 focus:ring-teal-400/10"
                       value={formData.role}
-                      onChange={(e) => setFormData({...formData, role: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     >
                       {isSuperAdmin && <option value="SUPER_ADMIN">Super Admin</option>}
                       <option value="ADMIN">Admin</option>
@@ -790,21 +864,21 @@ export default function UserManagementPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-end space-x-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-end space-x-4 border-t border-slate-200 pt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingUser(null);
                   }}
-                  className="px-6 py-3 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition-colors"
+                  className="rounded-xl px-6 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-gradient-to-r from-teal-500 to-emerald-500 text-white px-6 py-3 rounded-xl hover:from-teal-600 hover:to-emerald-600 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 px-6 py-3 font-semibold text-white transition-all hover:from-teal-600 hover:to-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? 'Saving...' : 'Save Changes'}
                 </button>

@@ -34,11 +34,7 @@ export type {
 // Repository - Data access layer
 // ============================================================================
 
-export {
-  patientRepository,
-  createPatientRepository,
-  type PatientRepository,
-} from './repositories';
+export { patientRepository, createPatientRepository, type PatientRepository } from './repositories';
 
 // ============================================================================
 // Service - Business logic layer

@@ -1,20 +1,20 @@
 /**
  * Shipment Schedule Module
- * 
+ *
  * Handles multi-shipment scheduling for packages that exceed medication Beyond Use Date (BUD).
- * 
+ *
  * @example
  * ```typescript
- * import { 
+ * import {
  *   createShipmentScheduleForSubscription,
  *   calculateShipmentsNeeded,
  *   getUpcomingShipments,
  * } from '@/lib/shipment-schedule';
- * 
+ *
  * // Create schedule for a 6-month package
  * const { shipments, totalShipments } = await createShipmentScheduleForSubscription(subscriptionId);
  * // Result: 2 shipments (initial + 90 days)
- * 
+ *
  * // Get shipments due in the next 7 days
  * const upcoming = await getUpcomingShipments(clinicId, 7);
  * ```
@@ -24,6 +24,7 @@ export {
   // Core functions
   createShipmentScheduleForSubscription,
   createShipmentSchedule,
+  scheduleFutureRefillsFromInvoice,
   calculateShipmentsNeeded,
   calculateShipmentDates,
   requiresMultiShipment,
@@ -50,5 +51,6 @@ export {
   // Types
   type ShipmentScheduleInput,
   type ShipmentScheduleResult,
+  type ScheduleRefillsFromInvoiceInput,
   type UpcomingShipment,
 } from './shipmentScheduleService';

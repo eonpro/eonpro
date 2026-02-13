@@ -72,19 +72,19 @@ export default function CommissionsPage() {
     const fetchData = async () => {
       setLoading(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-      
+
       try {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: '20',
         });
-        
+
         if (statusFilter !== 'all') {
           params.set('status', statusFilter);
         }
 
         const response = await fetch(`/api/affiliate/commissions?${params}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (response.ok) {
@@ -106,7 +106,7 @@ export default function CommissionsPage() {
     if (!data?.events) return;
 
     const headers = ['Date', 'Order Amount', 'Commission', 'Status', 'Ref Code', 'Plan'];
-    const rows = data.events.map(e => [
+    const rows = data.events.map((e) => [
       formatDate(e.occurredAt),
       formatCurrency(e.eventAmountCents),
       formatCurrency(e.commissionAmountCents),
@@ -115,7 +115,7 @@ export default function CommissionsPage() {
       e.planName,
     ]);
 
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -252,7 +252,7 @@ export default function CommissionsPage() {
               {data?.events.map((event) => {
                 const status = statusConfig[event.status] || statusConfig.PENDING;
                 const StatusIcon = status.icon;
-                
+
                 return (
                   <tr key={event.id} className="hover:bg-gray-50">
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
@@ -281,12 +281,12 @@ export default function CommissionsPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <span className="font-mono text-sm text-gray-600">
-                        {event.refCode}
-                      </span>
+                      <span className="font-mono text-sm text-gray-600">{event.refCode}</span>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.color}`}>
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.color}`}
+                      >
                         <StatusIcon className="h-3.5 w-3.5" />
                         {status.label}
                       </span>
@@ -309,20 +309,20 @@ export default function CommissionsPage() {
         {data?.pagination && data.pagination.totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-3">
             <div className="text-sm text-gray-500">
-              Showing {((data.pagination.page - 1) * data.pagination.limit) + 1} to{' '}
+              Showing {(data.pagination.page - 1) * data.pagination.limit + 1} to{' '}
               {Math.min(data.pagination.page * data.pagination.limit, data.pagination.total)} of{' '}
               {data.pagination.total}
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
                 className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setPage(p => Math.min(data.pagination.totalPages, p + 1))}
+                onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
                 disabled={page === data.pagination.totalPages}
                 className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
               >

@@ -1,6 +1,6 @@
 /**
  * Provider Routing - Available Prescriptions API
- * 
+ *
  * GET - Get prescriptions available for the current provider to claim
  *       (for provider self-select routing mode)
  */
@@ -17,7 +17,7 @@ import { providerRoutingService } from '@/services/provider';
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const clinicId = user.clinicId;
-    
+
     if (!clinicId) {
       return NextResponse.json(
         { error: 'Provider must be associated with a clinic' },
@@ -27,7 +27,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Check if routing is enabled for this clinic
     const config = await providerRoutingService.getRoutingConfig(clinicId);
-    
+
     if (!config?.routingEnabled) {
       return NextResponse.json({
         enabled: false,

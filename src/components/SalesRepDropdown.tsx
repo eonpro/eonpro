@@ -53,7 +53,7 @@ export default function SalesRepDropdown({
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       const response = await fetch('/api/admin/sales-reps', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -81,13 +81,13 @@ export default function SalesRepDropdown({
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      
+
       if (rep) {
         // Assign new sales rep
         const response = await fetch(`/api/admin/patients/${patientId}/sales-rep`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ salesRepId: rep.id }),
@@ -102,7 +102,7 @@ export default function SalesRepDropdown({
         const response = await fetch(`/api/admin/patients/${patientId}/sales-rep`, {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -124,8 +124,8 @@ export default function SalesRepDropdown({
   // If user can't edit, just show the current rep (or "Unassigned")
   if (!canEdit) {
     return (
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Sales Rep</p>
+      <div className="mt-4 border-t border-gray-200 pt-4">
+        <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">Sales Rep</p>
         <p className="text-sm text-gray-900">
           {selectedRep ? `${selectedRep.firstName} ${selectedRep.lastName}` : 'Unassigned'}
         </p>
@@ -134,17 +134,17 @@ export default function SalesRepDropdown({
   }
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-200">
-      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Sales Rep</p>
-      
+    <div className="mt-4 border-t border-gray-200 pt-4">
+      <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">Sales Rep</p>
+
       <div className="relative">
         <button
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled || saving}
-          className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg border transition-colors ${
+          className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors ${
             disabled || saving
-              ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-              : 'bg-white hover:bg-gray-50 cursor-pointer'
+              ? 'cursor-not-allowed bg-gray-100 text-gray-500'
+              : 'cursor-pointer bg-white hover:bg-gray-50'
           } ${isOpen ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-gray-300'}`}
         >
           <span className="flex items-center gap-2">
@@ -154,45 +154,44 @@ export default function SalesRepDropdown({
               <UserCheck className="h-4 w-4 text-gray-400" />
             )}
             <span className={selectedRep ? 'text-gray-900' : 'text-gray-500'}>
-              {selectedRep ? `${selectedRep.firstName} ${selectedRep.lastName}` : 'Assign sales rep...'}
+              {selectedRep
+                ? `${selectedRep.firstName} ${selectedRep.lastName}`
+                : 'Assign sales rep...'}
             </span>
           </span>
-          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
         </button>
 
         {/* Dropdown */}
         {isOpen && (
           <>
             {/* Backdrop */}
-            <div 
-              className="fixed inset-0 z-10" 
-              onClick={() => setIsOpen(false)}
-            />
-            
+            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+
             {/* Dropdown menu */}
-            <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
               {loading ? (
                 <div className="px-3 py-4 text-center text-sm text-gray-500">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                  <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin" />
                   Loading...
                 </div>
               ) : error ? (
-                <div className="px-3 py-4 text-center text-sm text-red-600">
-                  {error}
-                </div>
+                <div className="px-3 py-4 text-center text-sm text-red-600">{error}</div>
               ) : (
                 <>
                   {/* Unassign option */}
                   {selectedRep && (
                     <button
                       onClick={() => handleSelect(null)}
-                      className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-b border-gray-100"
+                      className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     >
                       <X className="h-4 w-4" />
                       Remove assignment
                     </button>
                   )}
-                  
+
                   {/* Sales rep options */}
                   {salesReps.length === 0 ? (
                     <div className="px-3 py-4 text-center text-sm text-gray-500">
@@ -203,16 +202,16 @@ export default function SalesRepDropdown({
                       <button
                         key={rep.id}
                         onClick={() => handleSelect(rep)}
-                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between ${
-                          selectedRep?.id === rep.id ? 'bg-emerald-50 text-emerald-700' : 'text-gray-900'
+                        className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                          selectedRep?.id === rep.id
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'text-gray-900'
                         }`}
                       >
                         <span>
                           {rep.firstName} {rep.lastName}
                         </span>
-                        {selectedRep?.id === rep.id && (
-                          <span className="text-emerald-600">✓</span>
-                        )}
+                        {selectedRep?.id === rep.id && <span className="text-emerald-600">✓</span>}
                       </button>
                     ))
                   )}
@@ -222,10 +221,8 @@ export default function SalesRepDropdown({
           </>
         )}
       </div>
-      
-      {error && !isOpen && (
-        <p className="mt-1 text-xs text-red-600">{error}</p>
-      )}
+
+      {error && !isOpen && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

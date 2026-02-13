@@ -1,4 +1,4 @@
-const NPI_REGISTRY_URL = "https://npiregistry.cms.hhs.gov/api/";
+const NPI_REGISTRY_URL = 'https://npiregistry.cms.hhs.gov/api/';
 
 export type NpiLookupResult = {
   number: string;
@@ -23,11 +23,11 @@ export type NpiLookupResult = {
 export async function lookupNpi(npi: string): Promise<NpiLookupResult> {
   const searchParams = new URLSearchParams({
     number: npi,
-    version: "2.1",
+    version: '2.1',
   });
 
   const res = await fetch(`${NPI_REGISTRY_URL}?${searchParams.toString()}`, {
-    cache: "no-store",
+    cache: 'no-store',
   });
 
   if (!res.ok) {
@@ -41,13 +41,12 @@ export async function lookupNpi(npi: string): Promise<NpiLookupResult> {
   };
 
   if (data?.Errors?.length) {
-    throw new Error(data.Errors.map((e: any) => e.description).join(", "));
+    throw new Error(data.Errors.map((e: any) => e.description).join(', '));
   }
 
   if (!data?.result_count || !data.results?.length) {
-    throw new Error("No provider found for that NPI");
+    throw new Error('No provider found for that NPI');
   }
 
   return data.results[0];
 }
-

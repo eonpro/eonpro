@@ -14,11 +14,11 @@ import { sendEmail } from '@/lib/email';
 export const POST = withProviderAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
-    const { 
-      templateId, 
-      patientId, 
+    const {
+      templateId,
+      patientId,
       sendVia, // "email", "sms", or "both"
-      customMessage 
+      customMessage,
     } = body;
 
     if (!templateId || !patientId || !sendVia) {
@@ -32,40 +32,28 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     const [template, patient] = await Promise.all([
       prisma.intakeFormTemplate.findUnique({
         where: { id: templateId },
-        include: { questions: true }
+        include: { questions: true },
       }),
       prisma.patient.findUnique({
-        where: { id: patientId }
-      })
+        where: { id: patientId },
+      }),
     ]);
 
     if (!template) {
-      return NextResponse.json(
-        { error: 'Template not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 });
     }
 
     if (!patient) {
-      return NextResponse.json(
-        { error: 'Patient not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     // Check if form can be sent
     if ((sendVia === 'email' || sendVia === 'both') && !patient.email) {
-      return NextResponse.json(
-        { error: 'Patient has no email address' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Patient has no email address' }, { status: 400 });
     }
 
     if ((sendVia === 'sms' || sendVia === 'both') && !patient.phone) {
-      return NextResponse.json(
-        { error: 'Patient has no phone number' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Patient has no phone number' }, { status: 400 });
     }
 
     // Generate form link
@@ -81,9 +69,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
           patientId,
           patientName: `${patient.firstName} as any ${patient.lastName}`,
           sentBy: user.email,
-          sentByRole: user.role
-        }
-      }
+          sentByRole: user.role,
+        },
+      },
     });
 
     // Create initial submission record
@@ -92,16 +80,18 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         templateId,
         patientId,
         formLinkId: formLink.id,
-        status: "PENDING"
-      }
+        status: 'PENDING',
+      },
     });
 
     // Build the form URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3001}`;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3001}`;
     const formUrl = `${baseUrl}/intake/${formLink.id}`;
 
     // Default message
-    const defaultMessage = customMessage || 
+    const defaultMessage =
+      customMessage ||
       `Hello ${patient.firstName}, please complete your ${template.name} form by clicking the link below. This link will expire in 7 days.`;
 
     let emailSent = false;
@@ -131,12 +121,12 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
                 This link will expire in 7 days. If you need assistance, please contact our office.
               </p>
             </div>
-          `
+          `,
         });
         emailSent = true;
       } catch (error: any) {
-    // @ts-ignore
-   
+        // @ts-ignore
+
         logger.error('Error sending email:', error);
         errors.push('Failed to send email');
       }
@@ -168,7 +158,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     if (emailSent || smsSent) {
       await prisma.intakeFormLink.update({
         where: { id: formLink.id },
-        data: { sentAt: new Date() }
+        data: { sentAt: new Date() },
       });
     }
 
@@ -177,25 +167,22 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       formLink: {
         id: formLink.id,
         url: formUrl,
-        expiresAt: formLink.expiresAt
+        expiresAt: formLink.expiresAt,
       },
       submission: {
         id: submission.id,
-        status: submission.status
+        status: submission.status,
       },
       delivery: {
         emailSent,
         smsSent,
-        errors: errors.length > 0 ? errors : undefined
-      }
+        errors: errors.length > 0 ? errors : undefined,
+      },
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Error sending intake form:', error);
-    return NextResponse.json(
-      { error: 'Failed to send intake form' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to send intake form' }, { status: 500 });
   }
 });

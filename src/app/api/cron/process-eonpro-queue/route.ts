@@ -1,14 +1,18 @@
 /**
  * Cron job to process the Dead Letter Queue
- * 
+ *
  * Runs every 5 minutes via Vercel Cron or external trigger.
- * Processes failed submissions and retries them.
- * 
+ * Processes failed submissions and retries them by re-POSTing to webhooks.
+ *
+ * ALLOWLISTED: DLQ is global (submissions may not be clinic-scoped); no runCronPerTenant.
+ * Uses shared verifyCronAuth for consistency with other cron routes.
+ *
  * Configure in vercel.json with schedule: "every 5 minutes"
  */
 
 import { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import {
   isDLQConfigured,
   getReadySubmissions,
@@ -17,25 +21,11 @@ import {
   type QueuedSubmission,
 } from '@/lib/queue/deadLetterQueue';
 
-// Verify cron secret to prevent unauthorized access
-const CRON_SECRET = process.env.CRON_SECRET;
-
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
   const requestId = `cron-${Date.now()}`;
 
-  // Verify authorization
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = req.nextUrl.searchParams.get('secret');
-  
-  // Allow Vercel Cron (no auth needed) or manual trigger with secret
-  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
-  const hasValidSecret = CRON_SECRET && (
-    authHeader === `Bearer ${CRON_SECRET}` ||
-    cronSecret === CRON_SECRET
-  );
-
-  if (!isVercelCron && !hasValidSecret && CRON_SECRET) {
+  if (!verifyCronAuth(req)) {
     logger.warn(`[CRON ${requestId}] Unauthorized access attempt`);
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -55,7 +45,7 @@ export async function GET(req: NextRequest) {
   try {
     // Get submissions ready for retry
     const ready = await getReadySubmissions();
-    
+
     if (ready.length === 0) {
       const stats = await getQueueStats();
       logger.info(`[CRON ${requestId}] No submissions ready for retry`, { stats });
@@ -80,24 +70,20 @@ export async function GET(req: NextRequest) {
       try {
         const result = await processSubmission(submission);
         results.push({ id: submission.id, success: result.success, error: result.error });
-        
-        await updateSubmissionAttempt(
-          submission.id,
-          result.success,
-          result.error
-        );
+
+        await updateSubmissionAttempt(submission.id, result.success, result.error);
       } catch (err) {
         const error = err instanceof Error ? err.message : 'Unknown error';
         results.push({ id: submission.id, success: false, error });
-        
+
         await updateSubmissionAttempt(submission.id, false, error);
       }
     }
 
     const stats = await getQueueStats();
     const duration = Date.now() - startTime;
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
 
     logger.info(`[CRON ${requestId}] Completed in ${duration}ms`, {
       processed: results.length,
@@ -119,12 +105,15 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[CRON ${requestId}] Failed:`, err);
-    
-    return Response.json({
-      success: false,
-      error,
-      requestId,
-    }, { status: 500 });
+
+    return Response.json(
+      {
+        success: false,
+        error,
+        requestId,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -136,7 +125,7 @@ async function processSubmission(submission: QueuedSubmission): Promise<{
   error?: string;
 }> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
-  
+
   if (!baseUrl) {
     return { success: false, error: 'No base URL configured' };
   }
@@ -170,11 +159,11 @@ async function processSubmission(submission: QueuedSubmission): Promise<{
     }
 
     const result = await response.json();
-    
+
     if (result.success) {
       return { success: true };
     }
-    
+
     return {
       success: false,
       error: result.error || result.message || 'Unknown webhook error',

@@ -13,7 +13,12 @@
  */
 
 // Re-export shared types
-export type { IntakeEntry, IntakeSection, NormalizedIntake, NormalizedPatient } from '../wellmedr/types';
+export type {
+  IntakeEntry,
+  IntakeSection,
+  NormalizedIntake,
+  NormalizedPatient,
+} from '../wellmedr/types';
 
 /**
  * Treatment types available at Overtime Men's Clinic
@@ -32,59 +37,59 @@ export type OvertimeTreatmentType =
 export interface OvertimeCommonFields {
   // Submission Metadata
   'submission-id'?: string;
-  'submissionId'?: string;
-  'submission_id'?: string;
+  submissionId?: string;
+  submission_id?: string;
   'submission-date'?: string;
-  'submittedAt'?: string;
-  'createdAt'?: string;
+  submittedAt?: string;
+  createdAt?: string;
 
   // Patient Identity
   'first-name'?: string;
-  'firstName'?: string;
-  'first_name'?: string;
+  firstName?: string;
+  first_name?: string;
   'last-name'?: string;
-  'lastName'?: string;
-  'last_name'?: string;
-  'email'?: string;
-  'phone'?: string;
-  'state'?: string;
-  'dob'?: string;
-  'dateOfBirth'?: string;
-  'date_of_birth'?: string;
-  'sex'?: string;
-  'gender'?: string;
+  lastName?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  state?: string;
+  dob?: string;
+  dateOfBirth?: string;
+  date_of_birth?: string;
+  sex?: string;
+  gender?: string;
 
   // Address Fields
-  'shipping_address'?: string;
-  'billing_address'?: string;
-  'address'?: string;
-  'address1'?: string;
-  'street_address'?: string;
-  'address2'?: string;
-  'city'?: string;
-  'zip'?: string;
-  'zipCode'?: string;
-  'zip_code'?: string;
-  'country'?: string;
+  shipping_address?: string;
+  billing_address?: string;
+  address?: string;
+  address1?: string;
+  street_address?: string;
+  address2?: string;
+  city?: string;
+  zip?: string;
+  zipCode?: string;
+  zip_code?: string;
+  country?: string;
 
   // Body Metrics (common)
-  'feet'?: string;
-  'inches'?: string;
-  'height'?: string;
-  'weight'?: string;
+  feet?: string;
+  inches?: string;
+  height?: string;
+  weight?: string;
   'current-weight'?: string;
-  'bmi'?: string;
+  bmi?: string;
 
   // Promo/Affiliate Code - CRITICAL for affiliate tracking
   'promo-code'?: string;
-  'promoCode'?: string;
-  'promo_code'?: string;
+  promoCode?: string;
+  promo_code?: string;
   'influencer-code'?: string;
-  'influencerCode'?: string;
-  'influencer_code'?: string;
+  influencerCode?: string;
+  influencer_code?: string;
   'referral-code'?: string;
-  'referralCode'?: string;
-  'referral_code'?: string;
+  referralCode?: string;
+  referral_code?: string;
   'PROMO CODE'?: string;
   'INFLUENCER CODE'?: string;
 
@@ -92,24 +97,24 @@ export interface OvertimeCommonFields {
   'health-conditions'?: string;
   'medical-conditions'?: string;
   'current-medications'?: string;
-  'allergies'?: string;
+  allergies?: string;
 
   // Consent
   'hipaa-agreement'?: string;
   'terms-agreement'?: string;
-  'consent'?: string;
+  consent?: string;
 
   // Checkout Status
   'Checkout Completed'?: boolean | string;
   'checkout-completed'?: boolean | string;
-  'paid'?: boolean | string;
+  paid?: boolean | string;
 
   // Treatment Type Identifier (should be set by Airtable automation)
-  'treatmentType'?: OvertimeTreatmentType;
+  treatmentType?: OvertimeTreatmentType;
   'treatment-type'?: OvertimeTreatmentType;
-  'treatment_type'?: OvertimeTreatmentType;
+  treatment_type?: OvertimeTreatmentType;
   'form-type'?: string;
-  'formType'?: string;
+  formType?: string;
 }
 
 /**
@@ -173,15 +178,15 @@ export interface WeightLossFields extends OvertimeCommonFields {
   // Contraindications (legacy)
   'men2-history'?: string;
   'thyroid-cancer'?: string;
-  'pancreatitis'?: string;
-  'gastroparesis'?: string;
+  pancreatitis?: string;
+  gastroparesis?: string;
   'bariatric-surgery'?: string;
 
   // Contraindications (Airtable exact names)
   'Thyroid Cancer'?: string;
   'Neoplasia type 2 (MEN 2)'?: string;
-  'Pancreatitis'?: string;
-  'Gastroparesis'?: string;
+  Pancreatitis?: string;
+  Gastroparesis?: string;
   'Pregnant or Breastfeeding'?: string;
   'Type 2 Diabetes'?: string;
 
@@ -272,12 +277,12 @@ export interface BetterSexFields extends OvertimeCommonFields {
   'ed-onset'?: string;
 
   // Symptoms & Duration (Airtable exact names)
-  'Symptoms'?: string;
+  Symptoms?: string;
   'How long have you notice'?: string;
   'How often do these sexual issues occur?'?: string;
 
   // Treatment Goals (Airtable exact names)
-  'goals'?: string;
+  goals?: string;
 
   // Current Situation (legacy)
   'libido-level'?: string;
@@ -301,7 +306,7 @@ export interface BetterSexFields extends OvertimeCommonFields {
   'cardiovascular-health'?: string;
   'blood-pressure'?: string;
   'nitrate-use'?: string;
-  'diabetes'?: string;
+  diabetes?: string;
 
   // Cardiovascular - Critical for ED meds (Airtable exact names)
   'Heart condition'?: string;
@@ -312,14 +317,14 @@ export interface BetterSexFields extends OvertimeCommonFields {
   'Chronic Disease'?: string;
   'Chronic Illnesses'?: string;
   'Specific Conditions'?: string;
-  'Cancer'?: string;
+  Cancer?: string;
 
   // Medications (Airtable exact names)
-  'Medications'?: string;
+  Medications?: string;
   'List of Medications'?: string;
 
   // Lab Work (Airtable exact names)
-  'Labwork'?: string;
+  Labwork?: string;
 
   // Allergies (Airtable exact names)
   'Which allergies'?: string;
@@ -353,7 +358,7 @@ export interface TestosteroneFields extends OvertimeCommonFields {
   'total-testosterone'?: string;
   'estradiol-level'?: string;
   'psa-level'?: string;
-  'hematocrit'?: string;
+  hematocrit?: string;
 
   // Preferences
   'preferred-administration'?: string;
@@ -380,7 +385,7 @@ export interface BaselineBloodworkFields extends OvertimeCommonFields {
 
   // Current Health
   'reason-for-labs'?: string;
-  'symptoms'?: string;
+  symptoms?: string;
   'treatment-interest'?: string;
 
   // Previous Labs
@@ -404,7 +409,8 @@ export type OvertimePayload = (
   | BetterSexFields
   | TestosteroneFields
   | BaselineBloodworkFields
-) & Record<string, unknown>;
+) &
+  Record<string, unknown>;
 
 /**
  * Webhook payload wrapper that includes treatment type

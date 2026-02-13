@@ -100,9 +100,11 @@ const payload = {
     "gastroparesis": getCellValue("Gastroparesis"),
     "bariatric-surgery": getCellValue("Bariatric Surgery") || getCellValue("Previous Bariatric"),
     
-    // PROMO CODE - Critical for affiliate tracking!
-    "PROMO CODE": getCellValue("PROMO CODE") || getCellValue("Promo Code") || getCellValue("Influencer Code"),
-    "influencer-code": getCellValue("Influencer Code") || getCellValue("INFLUENCER CODE"),
+    // PROMO CODE - Prefer "Who recommended OT Mens Health to you?" (Airtable column), then Influencer/Promo Code
+    "Who reccomended OT Mens Health to you?": getCellValue("Who reccomended OT Mens Health to you?"),
+    "Who recommended OT Mens Health to you?": getCellValue("Who recommended OT Mens Health to you?"),
+    "PROMO CODE": getCellValue("Who reccomended OT Mens Health to you?") || getCellValue("Who recommended OT Mens Health to you?") || getCellValue("PROMO CODE") || getCellValue("Promo Code") || getCellValue("Influencer Code"),
+    "influencer-code": getCellValue("Who reccomended OT Mens Health to you?") || getCellValue("Who recommended OT Mens Health to you?") || getCellValue("Influencer Code") || getCellValue("INFLUENCER CODE"),
     
     // Checkout status
     "Checkout Completed": getCellValue("Checkout Completed") === "true" || 

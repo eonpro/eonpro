@@ -170,7 +170,9 @@ describe('Branding API Integration', () => {
     it('should return 400 for invalid clinicId', async () => {
       const { GET } = await import('@/app/api/patient-portal/branding/route');
 
-      const request = new NextRequest('http://localhost/api/patient-portal/branding?clinicId=invalid');
+      const request = new NextRequest(
+        'http://localhost/api/patient-portal/branding?clinicId=invalid'
+      );
       const response = await GET(request);
 
       expect(response.status).toBe(400);
@@ -220,7 +222,7 @@ describe('Branding API Integration', () => {
         'showCareTeam',
       ];
 
-      expectedFeatures.forEach(feature => {
+      expectedFeatures.forEach((feature) => {
         expect(data.features).toHaveProperty(feature);
       });
     });
@@ -287,7 +289,9 @@ describe('Portal Settings API Integration', () => {
 
       const { GET } = await import('@/app/api/admin/clinic/portal-settings/route');
 
-      const request = new NextRequest('http://localhost/api/admin/clinic/portal-settings?clinicId=1');
+      const request = new NextRequest(
+        'http://localhost/api/admin/clinic/portal-settings?clinicId=1'
+      );
       const response = await GET(request);
       const data = await response.json();
 
@@ -303,7 +307,9 @@ describe('Portal Settings API Integration', () => {
 
       const { GET } = await import('@/app/api/admin/clinic/portal-settings/route');
 
-      const request = new NextRequest('http://localhost/api/admin/clinic/portal-settings?clinicId=999');
+      const request = new NextRequest(
+        'http://localhost/api/admin/clinic/portal-settings?clinicId=999'
+      );
       const response = await GET(request);
 
       expect(response.status).toBe(404);

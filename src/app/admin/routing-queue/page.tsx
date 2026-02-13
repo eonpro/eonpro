@@ -2,7 +2,7 @@
 
 /**
  * Admin Routing Queue Page
- * 
+ *
  * View and manage prescription routing queue for manual assignment.
  */
 
@@ -135,7 +135,7 @@ export default function AdminRoutingQueuePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="flex items-center gap-3 text-gray-600">
           <RefreshCw className="h-6 w-6 animate-spin" />
           <span>Loading routing queue...</span>
@@ -147,28 +147,24 @@ export default function AdminRoutingQueuePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <Users className="h-6 w-6 text-teal-600" />
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Prescription Routing Queue
-                </h1>
+                <h1 className="text-2xl font-bold text-gray-900">Prescription Routing Queue</h1>
               </div>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="mt-1 text-sm text-gray-500">
                 Manage prescription assignments to providers
               </p>
             </div>
             <button
               onClick={() => fetchQueue()}
               disabled={loading}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-50"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-              />
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
           </div>
@@ -176,104 +172,93 @@ export default function AdminRoutingQueuePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Alerts */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <span className="text-red-700">{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <span className="text-green-700">{success}</span>
           </div>
         )}
 
         {!enabled ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-3" />
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-center">
+            <AlertTriangle className="mx-auto mb-3 h-12 w-12 text-yellow-500" />
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">
               Provider Routing Not Enabled
             </h2>
             <p className="text-gray-600">
-              Provider routing is not enabled for this clinic. Contact your
-              super admin to enable this feature.
+              Provider routing is not enabled for this clinic. Contact your super admin to enable
+              this feature.
             </p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white rounded-xl p-5 border border-gray-200">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-orange-100 rounded-lg">
+                  <div className="rounded-lg bg-orange-100 p-3">
                     <Clock className="h-5 w-5 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {unassigned.length}
-                    </p>
-                    <p className="text-gray-500 text-sm">Unassigned</p>
+                    <p className="text-2xl font-bold text-gray-900">{unassigned.length}</p>
+                    <p className="text-sm text-gray-500">Unassigned</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-5 border border-gray-200">
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green-100 rounded-lg">
+                  <div className="rounded-lg bg-green-100 p-3">
                     <UserCheck className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-gray-900">
                       {assigned.reduce((sum, a) => sum + a.count, 0)}
                     </p>
-                    <p className="text-gray-500 text-sm">Assigned</p>
+                    <p className="text-sm text-gray-500">Assigned</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-5 border border-gray-200">
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-100 rounded-lg">
+                  <div className="rounded-lg bg-blue-100 p-3">
                     <Users className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {providers.length}
-                    </p>
-                    <p className="text-gray-500 text-sm">Available Providers</p>
+                    <p className="text-2xl font-bold text-gray-900">{providers.length}</p>
+                    <p className="text-sm text-gray-500">Available Providers</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               {/* Unassigned Queue */}
-              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Unassigned Prescriptions
-                  </h2>
+              <div className="rounded-xl border border-gray-200 bg-white lg:col-span-2">
+                <div className="border-b border-gray-200 p-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Unassigned Prescriptions</h2>
                 </div>
                 {unassigned.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">
-                    <CheckCircle2 className="h-12 w-12 mx-auto text-green-300 mb-3" />
+                    <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-green-300" />
                     <p>All prescriptions have been assigned!</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {unassigned.map((item) => (
-                      <div
-                        key={item.orderId}
-                        className="p-4 hover:bg-gray-50"
-                      >
+                      <div key={item.orderId} className="p-4 hover:bg-gray-50">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-gray-900">
-                              {item.patientName}
-                            </p>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
+                            <p className="font-medium text-gray-900">{item.patientName}</p>
+                            <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-3 w-3" />
                                 {item.patientState}
@@ -289,12 +274,10 @@ export default function AdminRoutingQueuePage() {
                               value={selectedProvider || ''}
                               onChange={(e) =>
                                 setSelectedProvider(
-                                  e.target.value
-                                    ? parseInt(e.target.value)
-                                    : null
+                                  e.target.value ? parseInt(e.target.value) : null
                                 )
                               }
-                              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:ring-2 focus:ring-teal-500"
                             >
                               <option value="">Select Provider</option>
                               {providers.map((p) => (
@@ -306,15 +289,10 @@ export default function AdminRoutingQueuePage() {
                             </select>
                             <button
                               onClick={() => handleAssign(item.orderId)}
-                              disabled={
-                                !selectedProvider ||
-                                assigning === item.orderId
-                              }
-                              className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              disabled={!selectedProvider || assigning === item.orderId}
+                              className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {assigning === item.orderId
-                                ? 'Assigning...'
-                                : 'Assign'}
+                              {assigning === item.orderId ? 'Assigning...' : 'Assign'}
                             </button>
                           </div>
                         </div>
@@ -325,36 +303,28 @@ export default function AdminRoutingQueuePage() {
               </div>
 
               {/* Provider Workload */}
-              <div className="bg-white rounded-xl border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Provider Workload
-                  </h2>
+              <div className="rounded-xl border border-gray-200 bg-white">
+                <div className="border-b border-gray-200 p-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Provider Workload</h2>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {providers.map((provider) => {
                     const assignedCount =
-                      assigned.find((a) => a.providerId === provider.id)
-                        ?.count || 0;
+                      assigned.find((a) => a.providerId === provider.id)?.count || 0;
                     return (
-                      <div
-                        key={provider.id}
-                        className="p-4 hover:bg-gray-50"
-                      >
+                      <div key={provider.id} className="p-4 hover:bg-gray-50">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-gray-900">
                               {provider.firstName} {provider.lastName}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {provider.licenseState || 'No state'} •{' '}
-                              {provider.completedToday || 0} completed today
+                              {provider.licenseState || 'No state'} • {provider.completedToday || 0}{' '}
+                              completed today
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-semibold text-gray-900">
-                              {assignedCount}
-                            </p>
+                            <p className="text-lg font-semibold text-gray-900">{assignedCount}</p>
                             <p className="text-xs text-gray-500">pending</p>
                           </div>
                         </div>

@@ -63,7 +63,8 @@ export const GLP1_MEDICATIONS = {
   semaglutide: {
     brandNames: ['Ozempic', 'Wegovy', 'Rybelsus'],
     class: 'GLP-1 Receptor Agonist',
-    mechanism: 'Mimics glucagon-like peptide-1 (GLP-1) to stimulate insulin secretion, suppress glucagon, slow gastric emptying, and promote satiety.',
+    mechanism:
+      'Mimics glucagon-like peptide-1 (GLP-1) to stimulate insulin secretion, suppress glucagon, slow gastric emptying, and promote satiety.',
     indications: [
       'Type 2 diabetes mellitus',
       'Chronic weight management (BMI ≥30 or ≥27 with comorbidities)',
@@ -121,9 +122,21 @@ export const GLP1_MEDICATIONS = {
       ],
     },
     drugInteractions: [
-      { drug: 'Insulin', severity: 'Moderate', effect: 'Increased hypoglycemia risk - consider reducing insulin dose by 20%' },
-      { drug: 'Sulfonylureas', severity: 'Moderate', effect: 'Increased hypoglycemia risk - may need dose reduction' },
-      { drug: 'Oral medications', severity: 'Mild', effect: 'Delayed gastric emptying may affect absorption' },
+      {
+        drug: 'Insulin',
+        severity: 'Moderate',
+        effect: 'Increased hypoglycemia risk - consider reducing insulin dose by 20%',
+      },
+      {
+        drug: 'Sulfonylureas',
+        severity: 'Moderate',
+        effect: 'Increased hypoglycemia risk - may need dose reduction',
+      },
+      {
+        drug: 'Oral medications',
+        severity: 'Mild',
+        effect: 'Delayed gastric emptying may affect absorption',
+      },
       { drug: 'Warfarin', severity: 'Moderate', effect: 'Monitor INR more frequently' },
     ],
     monitoring: [
@@ -139,7 +152,8 @@ export const GLP1_MEDICATIONS = {
   tirzepatide: {
     brandNames: ['Mounjaro', 'Zepbound'],
     class: 'Dual GIP/GLP-1 Receptor Agonist',
-    mechanism: 'Activates both GIP and GLP-1 receptors, providing enhanced glycemic control and greater weight loss than GLP-1 alone.',
+    mechanism:
+      'Activates both GIP and GLP-1 receptors, providing enhanced glycemic control and greater weight loss than GLP-1 alone.',
     indications: [
       'Type 2 diabetes mellitus',
       'Chronic weight management (BMI ≥30 or ≥27 with comorbidities)',
@@ -192,9 +206,17 @@ export const GLP1_MEDICATIONS = {
       ],
     },
     drugInteractions: [
-      { drug: 'Insulin', severity: 'Moderate', effect: 'Reduce insulin dose by 20-50% when starting' },
+      {
+        drug: 'Insulin',
+        severity: 'Moderate',
+        effect: 'Reduce insulin dose by 20-50% when starting',
+      },
       { drug: 'Sulfonylureas', severity: 'Moderate', effect: 'Consider 50% dose reduction' },
-      { drug: 'Oral contraceptives', severity: 'Mild', effect: 'May reduce absorption - use non-oral backup for 4 weeks after dose increases' },
+      {
+        drug: 'Oral contraceptives',
+        severity: 'Mild',
+        effect: 'May reduce absorption - use non-oral backup for 4 weeks after dose increases',
+      },
     ],
     monitoring: [
       'HbA1c every 3 months',
@@ -309,10 +331,13 @@ export const SIG_TEMPLATES = {
   },
 
   generalGuidelines: {
-    injectionSites: 'Rotate between abdomen, thigh, and upper arm. Avoid injecting into same site within 1 inch of previous injection.',
+    injectionSites:
+      'Rotate between abdomen, thigh, and upper arm. Avoid injecting into same site within 1 inch of previous injection.',
     storage: 'Keep refrigerated (36-46°F/2-8°C). Do not freeze. Protect from light.',
-    missedDose: 'If missed by <5 days, inject as soon as possible. If >5 days, skip and resume regular schedule.',
-    administration: 'Can be given any time of day, with or without meals. Same day each week is recommended.',
+    missedDose:
+      'If missed by <5 days, inject as soon as possible. If >5 days, skip and resume regular schedule.',
+    administration:
+      'Can be given any time of day, with or without meals. Same day each week is recommended.',
   },
 };
 
@@ -371,7 +396,8 @@ export const CLINICAL_GUIDELINES = {
   ],
 
   dosingAdjustments: {
-    renalImpairment: 'No adjustment needed for mild-moderate. Use caution in severe (eGFR <30) - start low, go slow.',
+    renalImpairment:
+      'No adjustment needed for mild-moderate. Use caution in severe (eGFR <30) - start low, go slow.',
     hepaticImpairment: 'No adjustment needed. Limited data in severe hepatic impairment.',
     elderly: 'No specific adjustment. Start at lowest dose and titrate slowly.',
   },
@@ -528,38 +554,46 @@ export const FAQ = {
   clinical: [
     {
       question: 'How long until patients see weight loss results?',
-      answer: 'Most patients begin seeing results within 4-8 weeks. Average weight loss is 1-2 lbs per week. Significant results (10-15% body weight) typically occur over 6-12 months.',
+      answer:
+        'Most patients begin seeing results within 4-8 weeks. Average weight loss is 1-2 lbs per week. Significant results (10-15% body weight) typically occur over 6-12 months.',
     },
     {
       question: 'What if a patient has severe nausea?',
-      answer: 'Recommend: 1) Slow titration (stay at current dose longer), 2) Smaller, more frequent meals, 3) Avoid high-fat foods, 4) Stay hydrated, 5) Consider anti-nausea medication if severe. If symptoms persist >2 weeks, consider dose reduction.',
+      answer:
+        'Recommend: 1) Slow titration (stay at current dose longer), 2) Smaller, more frequent meals, 3) Avoid high-fat foods, 4) Stay hydrated, 5) Consider anti-nausea medication if severe. If symptoms persist >2 weeks, consider dose reduction.',
     },
     {
       question: 'Can patients take GLP-1 with metformin?',
-      answer: 'Yes, GLP-1 agonists can be safely combined with metformin. This combination is often more effective than either alone. No dose adjustment of metformin is typically needed.',
+      answer:
+        'Yes, GLP-1 agonists can be safely combined with metformin. This combination is often more effective than either alone. No dose adjustment of metformin is typically needed.',
     },
     {
       question: 'What labs should be ordered before starting GLP-1?',
-      answer: 'Recommended: HbA1c, fasting glucose, comprehensive metabolic panel, lipid panel, thyroid panel (TSH at minimum). Consider: vitamin B12, kidney function if concerns.',
+      answer:
+        'Recommended: HbA1c, fasting glucose, comprehensive metabolic panel, lipid panel, thyroid panel (TSH at minimum). Consider: vitamin B12, kidney function if concerns.',
     },
     {
       question: 'How do I handle a patient who plateaus?',
-      answer: 'Options: 1) Dose escalation if not at max, 2) Review dietary compliance, 3) Add/increase exercise, 4) Consider adding metabolic support (B12), 5) Rule out thyroid dysfunction, 6) Switch to tirzepatide if on semaglutide.',
+      answer:
+        'Options: 1) Dose escalation if not at max, 2) Review dietary compliance, 3) Add/increase exercise, 4) Consider adding metabolic support (B12), 5) Rule out thyroid dysfunction, 6) Switch to tirzepatide if on semaglutide.',
     },
   ],
 
   operational: [
     {
       question: 'How do I generate a SOAP note?',
-      answer: 'SOAP notes can be auto-generated from intake forms or created manually. Go to Patient Profile → SOAP Notes tab → Click "Generate from Intake" or create manually. All notes require provider approval with password.',
+      answer:
+        'SOAP notes can be auto-generated from intake forms or created manually. Go to Patient Profile → SOAP Notes tab → Click "Generate from Intake" or create manually. All notes require provider approval with password.',
     },
     {
       question: 'How do prescriptions get sent to the pharmacy?',
-      answer: 'After SOAP note approval, create a prescription in the patient\'s Orders section. Select the medication, dose, quantity, and pharmacy. The order is transmitted to the pharmacy via API integration.',
+      answer:
+        "After SOAP note approval, create a prescription in the patient's Orders section. Select the medication, dose, quantity, and pharmacy. The order is transmitted to the pharmacy via API integration.",
     },
     {
       question: 'Can I see patients from multiple clinics?',
-      answer: 'Yes, providers can be assigned to multiple clinics. Switch between clinics using the clinic selector. Each clinic has separate patient data, branding, and billing.',
+      answer:
+        'Yes, providers can be assigned to multiple clinics. Switch between clinics using the clinic selector. Each clinic has separate patient data, branding, and billing.',
     },
   ],
 };
@@ -573,64 +607,58 @@ export function detectQueryCategory(query: string): QueryCategory {
 
   // Patient data queries
   if (
-    q.match(/patient|dob|date of birth|birthday|tracking|prescription.*(for|history)|order.*(for|history)|how many patient|find.*patient/)
+    q.match(
+      /patient|dob|date of birth|birthday|tracking|prescription.*(for|history)|order.*(for|history)|how many patient|find.*patient/
+    )
   ) {
     return 'patient_data';
   }
 
   // Medication information
   if (
-    q.match(/what is (semaglutide|tirzepatide|ozempic|wegovy|mounjaro|zepbound)|how does.*work|mechanism|moa/)
+    q.match(
+      /what is (semaglutide|tirzepatide|ozempic|wegovy|mounjaro|zepbound)|how does.*work|mechanism|moa/
+    )
   ) {
     return 'medication_info';
   }
 
   // Dosing and titration
-  if (
-    q.match(/dose|dosing|titrat|escalat|how much|starting dose|maintenance dose|max.*dose/)
-  ) {
+  if (q.match(/dose|dosing|titrat|escalat|how much|starting dose|maintenance dose|max.*dose/)) {
     return 'dosing_protocol';
   }
 
   // Side effects
-  if (
-    q.match(/side effect|adverse|nausea|vomit|diarrhea|constipat|reaction|tolerat/)
-  ) {
+  if (q.match(/side effect|adverse|nausea|vomit|diarrhea|constipat|reaction|tolerat/)) {
     return 'side_effects';
   }
 
   // Drug interactions
-  if (
-    q.match(/interact|combin|with metformin|with insulin|take.*together|safe.*with/)
-  ) {
+  if (q.match(/interact|combin|with metformin|with insulin|take.*together|safe.*with/)) {
     return 'drug_interactions';
   }
 
   // SIG help
-  if (
-    q.match(/sig|direction|instruction|write.*prescription|how.*prescribe|inject.*how/)
-  ) {
+  if (q.match(/sig|direction|instruction|write.*prescription|how.*prescribe|inject.*how/)) {
     return 'sig_help';
   }
 
   // SOAP note help
-  if (
-    q.match(/soap|subjective|objective|assessment|plan|document|note.*help|icd.*code|diagnos/)
-  ) {
+  if (q.match(/soap|subjective|objective|assessment|plan|document|note.*help|icd.*code|diagnos/)) {
     return 'soap_note_help';
   }
 
   // Clinical decisions
   if (
-    q.match(/eligible|candidate|contraindic|when.*start|when.*stop|hold|discontinue|bmi|weight.*management/)
+    q.match(
+      /eligible|candidate|contraindic|when.*start|when.*stop|hold|discontinue|bmi|weight.*management/
+    )
   ) {
     return 'clinical_decision';
   }
 
   // Platform operations
-  if (
-    q.match(/platform|system|how.*do.*i|workflow|pharmacy|refill|portal|setting/)
-  ) {
+  if (q.match(/platform|system|how.*do.*i|workflow|pharmacy|refill|portal|setting/)) {
     return 'platform_operations';
   }
 

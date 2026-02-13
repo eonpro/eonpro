@@ -1,13 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import bcrypt from "bcryptjs";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth/middleware';
 
-export async function POST(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     // CRITICAL: Verify admin authentication - this endpoint resets passwords!
     const auth = await verifyAuth(req);
@@ -30,7 +27,7 @@ export async function POST(
 
     if (!password || password.length < 12) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters long" },
+        { error: 'Password must be at least 6 characters long' },
         { status: 400 }
       );
     }
@@ -41,10 +38,7 @@ export async function POST(
     });
 
     if (!influencer) {
-      return NextResponse.json(
-        { error: "Influencer not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Influencer not found' }, { status: 404 });
     }
 
     // Hash the new password
@@ -66,13 +60,10 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: "Password reset successfully",
+      message: 'Password reset successfully',
     });
   } catch (error: any) {
-    logger.error("[Admin Reset Password] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to reset password" },
-      { status: 500 }
-    );
+    logger.error('[Admin Reset Password] Error:', error);
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }

@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
+import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { logger } from '@/lib/logger';
 import {
   Send,
   ArrowLeft,
@@ -45,7 +48,7 @@ export default function PatientChatPage() {
   const [sending, setSending] = useState(false);
   const [patientId, setPatientId] = useState<number | null>(null);
   const [error, setError] = useState('');
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -54,12 +57,36 @@ export default function PatientChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  // Resolve patientId like Progress/Documents: localStorage first, then /api/auth/me if patient and missing (never use user.id as patientId)
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (user) {
-      const userData = JSON.parse(user);
-      setPatientId(userData.patientId || userData.id);
-    }
+    let cancelled = false;
+    const run = async () => {
+      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+      if (!userJson) return;
+      try {
+        const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
+        if (!userData) return;
+        let pid: number | null = userData.patientId ?? null;
+        if (pid == null && userData.role?.toLowerCase() === 'patient') {
+          const meRes = await portalFetch('/api/auth/me', { cache: 'no-store' });
+          if (meRes.ok && !cancelled) {
+            const meData = await safeParseJson(meRes);
+            const fromMe = (meData as { user?: { patientId?: number } } | null)?.user?.patientId;
+            if (typeof fromMe === 'number' && fromMe > 0) {
+              pid = fromMe;
+              setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: fromMe }));
+            }
+          }
+        }
+        if (!cancelled && pid != null) setPatientId(pid);
+      } catch {
+        if (!cancelled) setPatientId(null);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -86,16 +113,17 @@ export default function PatientChatPage() {
 
   const fetchMessages = async () => {
     if (!patientId) return;
-    
+
     try {
-      const response = await fetch(`/api/patient-chat?patientId=${patientId}&limit=100`, {
-        headers: getAuthHeaders(),
-        credentials: 'include',
-      });
+      const response = await portalFetch(`/api/patient-chat?patientId=${patientId}&limit=100`);
       if (response.ok) {
-        const result = await response.json();
-        setMessages(result.data || []);
-        setError(''); // Clear any previous errors on success
+        const result = await safeParseJson(response);
+        const list =
+          result !== null && typeof result === 'object' && 'data' in result
+            ? (result as { data?: ChatMessage[] }).data
+            : undefined;
+        setMessages(Array.isArray(list) ? list : []);
+        setError('');
       } else if (response.status === 401) {
         // Session expired - redirect to login
         setError('Session expired. Please log in again.');
@@ -106,7 +134,9 @@ export default function PatientChatPage() {
         setError('Access denied. Please contact support.');
       }
     } catch (err) {
-      console.error('Failed to fetch messages:', err);
+      logger.error('Failed to fetch messages', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
       // Only show error if we haven't loaded messages yet
       if (messages.length === 0) {
         setError('Unable to load messages. Please check your connection.');
@@ -136,13 +166,12 @@ export default function PatientChatPage() {
       status: 'PENDING',
       readAt: null,
     };
-    setMessages(prev => [...prev, tempMessage]);
+    setMessages((prev) => [...prev, tempMessage]);
 
     try {
-      const response = await fetch('/api/patient-chat', {
+      const response = await portalFetch('/api/patient-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           message: messageText,
@@ -154,18 +183,18 @@ export default function PatientChatPage() {
         throw new Error('Failed to send message');
       }
 
-      const sentMessage = await response.json();
-      
-      // Replace temp message with real one
-      setMessages(prev => prev.map(m => 
-        m.id === tempMessage.id ? sentMessage : m
-      ));
+      const parsed = await safeParseJson(response);
+      const sentMessage = parsed !== null && typeof parsed === 'object' ? (parsed as ChatMessage) : null;
+
+      if (sentMessage) {
+        setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? sentMessage : m)));
+      }
     } catch (err) {
       setError('Failed to send message. Please try again.');
       // Mark temp message as failed
-      setMessages(prev => prev.map(m => 
-        m.id === tempMessage.id ? { ...m, status: 'FAILED' as const } : m
-      ));
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempMessage.id ? { ...m, status: 'FAILED' as const } : m))
+      );
     } finally {
       setSending(false);
     }
@@ -180,10 +209,10 @@ export default function PatientChatPage() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     });
   };
 
@@ -198,23 +227,26 @@ export default function PatientChatPage() {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString('en-US', {
         weekday: 'long',
-        month: 'short', 
-        day: 'numeric' 
+        month: 'short',
+        day: 'numeric',
       });
     }
   };
 
   // Group messages by date
-  const groupedMessages = messages.reduce((groups, message) => {
-    const date = formatDate(message.createdAt);
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(message);
-    return groups;
-  }, {} as Record<string, ChatMessage[]>);
+  const groupedMessages = messages.reduce(
+    (groups, message) => {
+      const date = formatDate(message.createdAt);
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+      return groups;
+    },
+    {} as Record<string, ChatMessage[]>
+  );
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -301,7 +333,7 @@ export default function PatientChatPage() {
                 <div className="space-y-3">
                   {dateMessages.map((message) => {
                     const isOutgoing = message.direction === 'INBOUND'; // Patient's messages are INBOUND to the system
-                    
+
                     return (
                       <div
                         key={message.id}
@@ -324,10 +356,14 @@ export default function PatientChatPage() {
                                   : 'border-gray-300 bg-gray-50'
                               }`}
                             >
-                              <p className={`font-medium ${isOutgoing ? 'text-white/80' : 'text-gray-600'}`}>
+                              <p
+                                className={`font-medium ${isOutgoing ? 'text-white/80' : 'text-gray-600'}`}
+                              >
                                 {message.replyTo.senderName}
                               </p>
-                              <p className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}>
+                              <p
+                                className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}
+                              >
                                 {message.replyTo.message}
                               </p>
                             </div>
@@ -359,9 +395,7 @@ export default function PatientChatPage() {
                               {formatTime(message.createdAt)}
                             </span>
                             {isOutgoing && (
-                              <span className="text-white/60">
-                                {getStatusIcon(message.status)}
-                              </span>
+                              <span className="text-white/60">{getStatusIcon(message.status)}</span>
                             )}
                           </div>
                         </div>
@@ -378,13 +412,11 @@ export default function PatientChatPage() {
 
       {/* Error Message */}
       {error && (
-        <div className="mx-4 mb-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
-          {error}
-        </div>
+        <div className="mx-4 mb-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{error}</div>
       )}
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 bg-white p-4 pb-safe">
+      <div className="pb-safe border-t border-gray-200 bg-white p-4">
         <div className="flex items-end gap-3">
           {/* Attachment Button */}
           <button

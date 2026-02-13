@@ -40,91 +40,103 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         description: true,
         createdAt: true,
       },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     // Get stats for each ref code
     const refCodeStats = await Promise.all(
-      refCodes.map(async (code: { id: number; refCode: string; description: string | null; createdAt: Date }) => {
-        // Get clicks (touches) in date range
-        const clicksResult = await prisma.affiliateTouch.aggregate({
-          where: {
+      refCodes.map(
+        async (code: {
+          id: number;
+          refCode: string;
+          description: string | null;
+          createdAt: Date;
+        }) => {
+          // Get clicks (touches) in date range
+          const clicksResult = await prisma.affiliateTouch.aggregate({
+            where: {
+              refCode: code.refCode,
+              affiliateId,
+              createdAt: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+            },
+            _count: true,
+          });
+
+          // Get conversions (touches that converted) in date range
+          const conversionsResult = await prisma.affiliateTouch.aggregate({
+            where: {
+              refCode: code.refCode,
+              affiliateId,
+              convertedAt: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+            },
+            _count: true,
+          });
+
+          // Get revenue and commission from commission events
+          const commissionResult = await prisma.affiliateCommissionEvent.aggregate({
+            where: {
+              affiliateId,
+              createdAt: {
+                gte: dateFrom,
+                lte: dateTo,
+              },
+              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+            },
+            _sum: {
+              eventAmountCents: true,
+              commissionAmountCents: true,
+            },
+          });
+
+          // Get daily trend for this code (last 7 days)
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+          // Calculate trend (comparing last 7 days to previous 7 days)
+          const prevPeriodClicks = await prisma.affiliateTouch.count({
+            where: {
+              refCode: code.refCode,
+              affiliateId,
+              createdAt: {
+                gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+                lt: sevenDaysAgo,
+              },
+            },
+          });
+
+          const recentClicks = clicksResult._count;
+          const trend =
+            prevPeriodClicks > 0
+              ? ((recentClicks - prevPeriodClicks) / prevPeriodClicks) * 100
+              : recentClicks > 0
+                ? 100
+                : 0;
+
+          const clicks = clicksResult._count;
+          const conversions = conversionsResult._count;
+          const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+
+          return {
             refCode: code.refCode,
-            affiliateId,
-            createdAt: {
-              gte: dateFrom,
-              lte: dateTo,
-            },
-          },
-          _count: true,
-        });
-
-        // Get conversions (touches that converted) in date range
-        const conversionsResult = await prisma.affiliateTouch.aggregate({
-          where: {
-            refCode: code.refCode,
-            affiliateId,
-            convertedAt: {
-              gte: dateFrom,
-              lte: dateTo,
-            },
-          },
-          _count: true,
-        });
-
-        // Get revenue and commission from commission events
-        const commissionResult = await prisma.affiliateCommissionEvent.aggregate({
-          where: {
-            affiliateId,
-            createdAt: {
-              gte: dateFrom,
-              lte: dateTo,
-            },
-            status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-          },
-          _sum: {
-            eventAmountCents: true,
-            commissionAmountCents: true,
-          },
-        });
-
-        // Get daily trend for this code (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-        // Calculate trend (comparing last 7 days to previous 7 days)
-        const prevPeriodClicks = await prisma.affiliateTouch.count({
-          where: {
-            refCode: code.refCode,
-            affiliateId,
-            createdAt: {
-              gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-              lt: sevenDaysAgo,
-            },
-          },
-        });
-
-        const recentClicks = clicksResult._count;
-        const trend = prevPeriodClicks > 0
-          ? ((recentClicks - prevPeriodClicks) / prevPeriodClicks) * 100
-          : recentClicks > 0 ? 100 : 0;
-
-        const clicks = clicksResult._count;
-        const conversions = conversionsResult._count;
-        const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-
-        return {
-          refCode: code.refCode,
-          description: code.description,
-          createdAt: code.createdAt.toISOString(),
-          clicks,
-          conversions,
-          conversionRate,
-          revenueCents: commissionResult._sum.eventAmountCents || 0,
-          commissionCents: commissionResult._sum.commissionAmountCents || 0,
-          trend,
-          isNew: new Date(code.createdAt) > sevenDaysAgo,
-        };
-      })
+            description: code.description,
+            createdAt: code.createdAt.toISOString(),
+            clicks,
+            conversions,
+            conversionRate,
+            revenueCents: commissionResult._sum.eventAmountCents || 0,
+            commissionCents: commissionResult._sum.commissionAmountCents || 0,
+            trend,
+            isNew: new Date(code.createdAt) > sevenDaysAgo,
+          };
+        }
+      )
     );
 
     // Sort by conversions (highest first)
@@ -137,9 +149,10 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       totalConversions: refCodeStats.reduce((sum, c) => sum + c.conversions, 0),
       totalRevenueCents: refCodeStats.reduce((sum, c) => sum + c.revenueCents, 0),
       totalCommissionCents: refCodeStats.reduce((sum, c) => sum + c.commissionCents, 0),
-      avgConversionRate: refCodeStats.length > 0
-        ? refCodeStats.reduce((sum, c) => sum + c.conversionRate, 0) / refCodeStats.length
-        : 0,
+      avgConversionRate:
+        refCodeStats.length > 0
+          ? refCodeStats.reduce((sum, c) => sum + c.conversionRate, 0) / refCodeStats.length
+          : 0,
     };
 
     return NextResponse.json({
@@ -156,10 +169,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to fetch ref code stats' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch ref code stats' }, { status: 500 });
   }
 }
 

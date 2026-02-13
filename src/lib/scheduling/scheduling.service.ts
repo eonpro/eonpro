@@ -1,6 +1,6 @@
 /**
  * Scheduling Service
- * 
+ *
  * Comprehensive appointment and scheduling management
  * Handles availability, booking, rescheduling, and cancellations
  */
@@ -8,8 +8,15 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AppointmentStatus, AppointmentModeType } from '@prisma/client';
-import { createAppointmentReminders, cancelAppointmentReminders, sendAppointmentConfirmation } from './appointment-reminder.service';
-import { ensureZoomMeetingForAppointment, cancelZoomMeetingForAppointment } from '@/lib/integrations/zoom/telehealthService';
+import {
+  createAppointmentReminders,
+  cancelAppointmentReminders,
+  sendAppointmentConfirmation,
+} from './appointment-reminder.service';
+import {
+  ensureZoomMeetingForAppointment,
+  cancelZoomMeetingForAppointment,
+} from '@/lib/integrations/zoom/telehealthService';
 import { isZoomEnabled } from '@/lib/integrations/zoom/config';
 
 // Types
@@ -72,7 +79,7 @@ export async function getAvailableSlots(
 ): Promise<TimeSlot[]> {
   const dayOfWeek = date.getDay();
   const dateStr = date.toISOString().split('T')[0];
-  
+
   // Get provider's availability for this day of week
   const availability = await prisma.providerAvailability.findMany({
     where: {
@@ -331,8 +338,10 @@ export async function updateAppointment(
 
     // If time is changing, validate new slot
     if (input.startTime) {
-      const endTime = input.endTime || new Date(input.startTime.getTime() + (input.duration || existing.duration) * 60 * 1000);
-      
+      const endTime =
+        input.endTime ||
+        new Date(input.startTime.getTime() + (input.duration || existing.duration) * 60 * 1000);
+
       const conflictingAppointment = await prisma.appointment.findFirst({
         where: {
           id: { not: appointmentId },
@@ -388,7 +397,10 @@ export async function updateAppointment(
     });
 
     // If status changed to CONFIRMED, send confirmation
-    if (input.status === AppointmentStatus.CONFIRMED && existing.status !== AppointmentStatus.CONFIRMED) {
+    if (
+      input.status === AppointmentStatus.CONFIRMED &&
+      existing.status !== AppointmentStatus.CONFIRMED
+    ) {
       await prisma.appointment.update({
         where: { id: appointmentId },
         data: { confirmedAt: new Date() },
@@ -427,7 +439,7 @@ export async function cancelAppointment(
     // Get appointment to check type
     const existingAppointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
-      select: { type: true, zoomMeetingId: true }
+      select: { type: true, zoomMeetingId: true },
     });
 
     const appointment = await prisma.appointment.update({
@@ -671,9 +683,7 @@ export async function markNoShow(appointmentId: number): Promise<{
 /**
  * Set provider availability
  */
-export async function setProviderAvailability(
-  input: AvailabilityInput
-): Promise<{
+export async function setProviderAvailability(input: AvailabilityInput): Promise<{
   success: boolean;
   availability?: any;
   error?: string;
@@ -768,16 +778,14 @@ export async function addProviderTimeOff(
 /**
  * Get appointments for a date range
  */
-export async function getAppointments(
-  options: {
-    clinicId?: number;
-    providerId?: number;
-    patientId?: number;
-    startDate: Date;
-    endDate: Date;
-    status?: AppointmentStatus[];
-  }
-): Promise<any[]> {
+export async function getAppointments(options: {
+  clinicId?: number;
+  providerId?: number;
+  patientId?: number;
+  startDate: Date;
+  endDate: Date;
+  status?: AppointmentStatus[];
+}): Promise<any[]> {
   const where: any = {
     startTime: {
       gte: options.startDate,
@@ -853,15 +861,21 @@ export async function getAppointmentStats(
     }),
   ]);
 
-  const statusCounts = byStatus.reduce((acc: Record<string, number>, item: { status: string; _count: number }) => {
-    acc[item.status] = item._count;
-    return acc;
-  }, {} as Record<string, number>);
+  const statusCounts = byStatus.reduce(
+    (acc: Record<string, number>, item: { status: string; _count: number }) => {
+      acc[item.status] = item._count;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
-  const typeCounts = byType.reduce((acc: Record<string, number>, item: { type: string; _count: number }) => {
-    acc[item.type] = item._count;
-    return acc;
-  }, {} as Record<string, number>);
+  const typeCounts = byType.reduce(
+    (acc: Record<string, number>, item: { type: string; _count: number }) => {
+      acc[item.type] = item._count;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
   const noShowCount = statusCounts[AppointmentStatus.NO_SHOW] || 0;
   const cancelledCount = statusCounts[AppointmentStatus.CANCELLED] || 0;

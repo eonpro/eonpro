@@ -181,11 +181,7 @@ class EmailLogService {
   /**
    * Mark an email as failed
    */
-  async markAsFailed(
-    emailLogId: number,
-    errorMessage: string,
-    errorCode?: string
-  ): Promise<void> {
+  async markAsFailed(emailLogId: number, errorMessage: string, errorCode?: string): Promise<void> {
     await prisma.emailLog.update({
       where: { id: emailLogId },
       data: {
@@ -221,8 +217,12 @@ class EmailLogService {
       totalComplained,
       totalFailed,
     ] = await Promise.all([
-      prisma.emailLog.count({ where: { ...where, status: { in: ['SENT', 'DELIVERED', 'OPENED', 'CLICKED'] } } }),
-      prisma.emailLog.count({ where: { ...where, status: { in: ['DELIVERED', 'OPENED', 'CLICKED'] } } }),
+      prisma.emailLog.count({
+        where: { ...where, status: { in: ['SENT', 'DELIVERED', 'OPENED', 'CLICKED'] } },
+      }),
+      prisma.emailLog.count({
+        where: { ...where, status: { in: ['DELIVERED', 'OPENED', 'CLICKED'] } },
+      }),
       prisma.emailLog.count({ where: { ...where, status: { in: ['OPENED', 'CLICKED'] } } }),
       prisma.emailLog.count({ where: { ...where, status: 'CLICKED' } }),
       prisma.emailLog.count({ where: { ...where, status: 'BOUNCED' } }),
@@ -307,10 +307,7 @@ class EmailLogService {
   /**
    * Get email statistics by day for charts
    */
-  async getStatsByDay(
-    days: number = 30,
-    clinicId?: number
-  ): Promise<EmailStatsByDay[]> {
+  async getStatsByDay(days: number = 30, clinicId?: number): Promise<EmailStatsByDay[]> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     startDate.setHours(0, 0, 0, 0);
@@ -383,16 +380,18 @@ class EmailLogService {
   async getRecentBounces(
     limit: number = 50,
     clinicId?: number
-  ): Promise<Array<{
-    id: number;
-    recipientEmail: string;
-    status: EmailLogStatus;
-    bounceType: string | null;
-    bounceSubType: string | null;
-    complaintType: string | null;
-    errorMessage: string | null;
-    createdAt: Date;
-  }>> {
+  ): Promise<
+    Array<{
+      id: number;
+      recipientEmail: string;
+      status: EmailLogStatus;
+      bounceType: string | null;
+      bounceSubType: string | null;
+      complaintType: string | null;
+      errorMessage: string | null;
+      createdAt: Date;
+    }>
+  > {
     const where: Prisma.EmailLogWhereInput = {
       status: { in: ['BOUNCED', 'COMPLAINED'] },
     };

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -35,7 +36,10 @@ async function resolvePatientTreatmentType(patientId: number): Promise<PortalTre
       rxs: order.rxs,
     });
   } catch (err) {
-    logger.warn('Failed to resolve patient treatment from orders', { patientId, error: (err as Error).message });
+    logger.warn('Failed to resolve patient treatment from orders', {
+      patientId,
+      error: (err as Error).message,
+    });
     return null;
   }
 }
@@ -43,13 +47,17 @@ async function resolvePatientTreatmentType(patientId: number): Promise<PortalTre
 /**
  * GET /api/patient-portal/branding
  *
- * Fetches clinic branding for the patient portal.
- * Public (no auth required) for login page; when Authorization is present and user
- * is a patient, primaryTreatment is overridden from the patient's prescription so
- * portal tabs/tools match their treatment (e.g. weight loss vs hormone therapy).
- * Query params: clinicId (required)
+ * PUBLIC (no auth required) by design: used by the login/landing page to render
+ * clinic branding before the user signs in. Auth is optional; when present and
+ * user is a patient, primaryTreatment is resolved from their prescription.
  *
- * Rate limited: 300 requests per minute (relaxed, for page loads)
+ * RESPONSE ALLOWLIST (no PHI): Only public branding and feature flags are returned.
+ * - Clinic: id, name, logoUrl, iconUrl, faviconUrl, colors, customCss
+ * - Settings: patientPortal (features, messages, resourceVideos, dietaryPlans, support*)
+ * - Contact: supportEmail, supportPhone, supportHours, emergencyContact (public-facing)
+ * - No patient data, no internal IDs beyond clinicId, no PII.
+ *
+ * Query params: clinicId (required). Rate limited: 300/min.
  */
 const getBrandingHandler = async (request: NextRequest) => {
   try {
@@ -105,14 +113,16 @@ const getBrandingHandler = async (request: NextRequest) => {
       return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
-    // Parse settings JSON for features and resources
-    const settings = (clinic.settings as any) || {};
-    const patientPortalSettings = settings.patientPortal || {};
-    const treatmentSettings = settings.treatment || {};
+    // Parse settings JSON for features and resources (allowlist: no PHI)
+    const settings = (clinic.settings as Record<string, unknown> | null) ?? {};
+    const patientPortalSettings = (settings.patientPortal as Record<string, unknown>) ?? {};
+    const treatmentSettings = (settings.treatment as Record<string, unknown>) ?? {};
 
     // Use patient's treatment from prescription when available; else clinic default
     const primaryTreatment: PortalTreatmentType =
-      patientTreatment ?? (treatmentSettings.primaryTreatment as PortalTreatmentType) ?? 'weight_loss';
+      patientTreatment ??
+      (treatmentSettings.primaryTreatment as PortalTreatmentType) ??
+      'weight_loss';
 
     // buttonTextColor defaults to 'auto' until migration is deployed
     const branding = {
@@ -124,15 +134,16 @@ const getBrandingHandler = async (request: NextRequest) => {
       primaryColor: clinic.primaryColor || '#4fa77e',
       secondaryColor: clinic.secondaryColor || '#3B82F6',
       accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',
-      buttonTextColor: (clinic as any).buttonTextColor || 'auto',
+      buttonTextColor:
+        (clinic as { buttonTextColor?: string }).buttonTextColor ?? 'auto',
       customCss: clinic.customCss,
-      
+
       // Treatment configuration (primaryTreatment per-patient when auth present)
       treatmentTypes: treatmentSettings.treatmentTypes || ['weight_loss'],
       primaryTreatment,
       treatmentProtocols: treatmentSettings.protocols || [],
       medicationCategories: treatmentSettings.medicationCategories || ['glp1'],
-      
+
       // Feature flags - core features
       features: {
         showBMICalculator: patientPortalSettings.showBMICalculator ?? true,
@@ -160,11 +171,11 @@ const getBrandingHandler = async (request: NextRequest) => {
         showCarePlan: patientPortalSettings.showCarePlan ?? true,
         showCareTeam: patientPortalSettings.showCareTeam ?? true,
       },
-      
+
       // Content customization
       welcomeMessage: patientPortalSettings.welcomeMessage || null,
       dashboardMessage: patientPortalSettings.dashboardMessage || null,
-      
+
       // Resource videos configurable per clinic
       resourceVideos: patientPortalSettings.resourceVideos || [
         {
@@ -184,10 +195,10 @@ const getBrandingHandler = async (request: NextRequest) => {
           category: 'nutrition',
         },
       ],
-      
+
       // Dietary plans configurable per clinic
       dietaryPlans: patientPortalSettings.dietaryPlans || [],
-      
+
       // Contact info
       supportEmail: clinic.adminEmail,
       supportPhone: clinic.phone,
@@ -200,8 +211,11 @@ const getBrandingHandler = async (request: NextRequest) => {
     };
 
     return NextResponse.json(branding);
-  } catch (error: any) {
-    logger.error('Error fetching clinic branding:', { error: error.message });
+  } catch (error) {
+    logger.error(
+      'Error fetching clinic branding',
+      error instanceof Error ? error : undefined
+    );
     return NextResponse.json({ error: 'Failed to fetch clinic branding' }, { status: 500 });
   }
 };
@@ -215,29 +229,44 @@ const updateBrandingSchema = z.object({
   logoUrl: z.string().url().nullable().optional(),
   iconUrl: z.string().url().nullable().optional(),
   faviconUrl: z.string().url().nullable().optional(),
-  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  secondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
-  accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  primaryColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+  secondaryColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
   buttonTextColor: z.enum(['auto', 'light', 'dark']).optional(),
   customCss: z.string().max(10000).optional(),
-  features: z.object({
-    showBMICalculator: z.boolean().optional(),
-    showCalorieCalculator: z.boolean().optional(),
-    showDoseCalculator: z.boolean().optional(),
-    showShipmentTracking: z.boolean().optional(),
-    showMedicationReminders: z.boolean().optional(),
-    showWeightTracking: z.boolean().optional(),
-    showResources: z.boolean().optional(),
-    showBilling: z.boolean().optional(),
-  }).optional(),
-  resourceVideos: z.array(z.object({
-    id: z.string(),
-    title: z.string(),
-    description: z.string().optional(),
-    url: z.string().url(),
-    thumbnail: z.string().optional(),
-    category: z.string().optional(),
-  })).optional(),
+  features: z
+    .object({
+      showBMICalculator: z.boolean().optional(),
+      showCalorieCalculator: z.boolean().optional(),
+      showDoseCalculator: z.boolean().optional(),
+      showShipmentTracking: z.boolean().optional(),
+      showMedicationReminders: z.boolean().optional(),
+      showWeightTracking: z.boolean().optional(),
+      showResources: z.boolean().optional(),
+      showBilling: z.boolean().optional(),
+    })
+    .optional(),
+  resourceVideos: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        description: z.string().optional(),
+        url: z.string().url(),
+        thumbnail: z.string().optional(),
+        category: z.string().optional(),
+      })
+    )
+    .optional(),
   autoInviteOnFirstPayment: z.boolean().optional(),
   autoInviteOnFirstOrder: z.boolean().optional(),
 });
@@ -281,7 +310,10 @@ export async function PUT(request: NextRequest) {
 
     // Non-super-admin can only update their own clinic
     if (user.role !== 'super_admin' && user.clinicId !== clinicId) {
-      return NextResponse.json({ error: 'Forbidden - can only update own clinic' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - can only update own clinic' },
+        { status: 403 }
+      );
     }
 
     // Verify the clinic exists (use select for backwards compatibility)
@@ -295,7 +327,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Build update object
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (brandingData.logoUrl !== undefined) {
       updateData.logoUrl = brandingData.logoUrl;
@@ -330,7 +362,7 @@ export async function PUT(request: NextRequest) {
       brandingData.autoInviteOnFirstPayment !== undefined ||
       brandingData.autoInviteOnFirstOrder !== undefined
     ) {
-      const currentSettings = (existingClinic.settings as any) || {};
+      const currentSettings = (existingClinic.settings as Record<string, unknown>) ?? {};
       updateData.settings = {
         ...currentSettings,
         patientPortal: {
@@ -350,10 +382,10 @@ export async function PUT(request: NextRequest) {
 
     const updatedClinic = await prisma.clinic.update({
       where: { id: clinicId },
-      data: updateData,
+      data: updateData as Prisma.ClinicUpdateInput,
     });
 
-    logger.info('Clinic branding updated', { clinicId, updatedBy: user.email });
+    logger.info('Clinic branding updated', { clinicId, userId: user.id });
 
     return NextResponse.json({
       success: true,
@@ -364,8 +396,11 @@ export async function PUT(request: NextRequest) {
         primaryColor: updatedClinic.primaryColor,
       },
     });
-  } catch (error: any) {
-    logger.error('Error updating clinic branding:', { error: error.message });
+  } catch (error) {
+    logger.error(
+      'Error updating clinic branding',
+      error instanceof Error ? error : undefined
+    );
     return NextResponse.json({ error: 'Failed to update clinic branding' }, { status: 500 });
   }
 }

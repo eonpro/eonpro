@@ -19,6 +19,11 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import Link from 'next/link';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { safeParseJson } from '@/lib/utils/safe-json';
+import { logger } from '@/lib/logger';
 
 interface Achievement {
   id: number;
@@ -86,7 +91,9 @@ export default function AchievementsPage() {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const [activeTab, setActiveTab] = useState<'achievements' | 'streaks' | 'challenges'>('achievements');
+  const [activeTab, setActiveTab] = useState<'achievements' | 'streaks' | 'challenges'>(
+    'achievements'
+  );
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [streaks, setStreaks] = useState<StreakInfo[]>([]);
   const [points, setPoints] = useState<PointsInfo | null>(null);
@@ -103,33 +110,61 @@ export default function AchievementsPage() {
     try {
       setError(null);
       const [achievementsRes, streaksRes, pointsRes, challengesRes] = await Promise.all([
-        fetch('/api/patient-portal/gamification/achievements'),
-        fetch('/api/patient-portal/gamification/streaks'),
-        fetch('/api/patient-portal/gamification/points'),
-        fetch('/api/patient-portal/gamification/challenges'),
+        portalFetch('/api/patient-portal/gamification/achievements'),
+        portalFetch('/api/patient-portal/gamification/streaks'),
+        portalFetch('/api/patient-portal/gamification/points'),
+        portalFetch('/api/patient-portal/gamification/challenges'),
       ]);
+      const sessionErr =
+        getPortalResponseError(achievementsRes) ??
+        getPortalResponseError(streaksRes) ??
+        getPortalResponseError(pointsRes) ??
+        getPortalResponseError(challengesRes);
+      if (sessionErr) {
+        setError(sessionErr);
+        setLoading(false);
+        return;
+      }
 
       if (achievementsRes.ok) {
-        const data = await achievementsRes.json();
-        setAchievements(data.achievements || []);
+        const data = await safeParseJson(achievementsRes);
+        setAchievements(
+          data !== null && typeof data === 'object' && 'achievements' in data
+            ? (data as { achievements?: unknown[] }).achievements ?? []
+            : []
+        );
       }
 
       if (streaksRes.ok) {
-        const data = await streaksRes.json();
-        setStreaks(data.streaks || []);
+        const data = await safeParseJson(streaksRes);
+        setStreaks(
+          data !== null && typeof data === 'object' && 'streaks' in data
+            ? (data as { streaks?: unknown[] }).streaks ?? []
+            : []
+        );
       }
 
       if (pointsRes.ok) {
-        const data = await pointsRes.json();
-        setPoints(data);
+        const data = await safeParseJson(pointsRes);
+        setPoints(
+          data !== null && typeof data === 'object' && 'points' in data
+            ? (data as { points?: number }).points ?? 0
+            : 0
+        );
       }
 
       if (challengesRes.ok) {
-        const data = await challengesRes.json();
-        setChallenges(data.challenges || []);
+        const data = await safeParseJson(challengesRes);
+        setChallenges(
+          data !== null && typeof data === 'object' && 'challenges' in data
+            ? (data as { challenges?: unknown[] }).challenges ?? []
+            : []
+        );
       }
     } catch (error) {
-      console.error('Failed to fetch gamification data:', error);
+      logger.error('Failed to fetch gamification data', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
       setError('Failed to load achievements. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -138,7 +173,7 @@ export default function AchievementsPage() {
 
   const joinChallenge = async (challengeId: number) => {
     try {
-      const res = await fetch('/api/patient-portal/gamification/challenges', {
+      const res = await portalFetch('/api/patient-portal/gamification/challenges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'join', challengeId }),
@@ -147,12 +182,16 @@ export default function AchievementsPage() {
       if (res.ok) {
         setChallenges((prev) =>
           prev.map((c) =>
-            c.id === challengeId ? { ...c, isJoined: true, participantCount: c.participantCount + 1 } : c
+            c.id === challengeId
+              ? { ...c, isJoined: true, participantCount: c.participantCount + 1 }
+              : c
           )
         );
       }
     } catch (error) {
-      console.error('Failed to join challenge:', error);
+      logger.error('Failed to join challenge', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 
@@ -162,58 +201,78 @@ export default function AchievementsPage() {
     : achievements;
 
   const unlockedCount = achievements.filter((a) => a.isUnlocked).length;
-  const totalPoints = achievements.filter((a) => a.isUnlocked).reduce((sum, a) => sum + a.points, 0);
+  const totalPoints = achievements
+    .filter((a) => a.isUnlocked)
+    .reduce((sum, a) => sum + a.points, 0);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   if (error) {
+    const isSessionExpired = error === SESSION_EXPIRED_MESSAGE;
     return (
-      <div className="flex items-center justify-center min-h-[60vh] p-4">
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 max-w-md text-center">
-          <Trophy className="w-12 h-12 mx-auto mb-3 text-red-300" />
-          <p className="font-medium mb-2">Error Loading Achievements</p>
+      <div className="flex min-h-[60vh] items-center justify-center p-4">
+        <div
+          className={`max-w-md rounded-lg border p-4 text-center ${
+            isSessionExpired ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          <Trophy className={`mx-auto mb-3 h-12 w-12 ${isSessionExpired ? 'text-amber-300' : 'text-red-300'}`} />
+          <p className="mb-2 font-medium">
+            {isSessionExpired ? 'Session Expired' : 'Error Loading Achievements'}
+          </p>
           <p className="text-sm">{error}</p>
-          <button
-            onClick={() => {
-              setLoading(true);
-              fetchData();
-            }}
-            className="mt-4 px-4 py-2 bg-red-100 hover:bg-red-200 rounded-lg text-sm font-medium transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {isSessionExpired ? (
+              <Link
+                href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/achievements`)}&reason=session_expired`}
+                className="rounded-lg bg-amber-200 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-300"
+              >
+                Log in
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  fetchData();
+                }}
+                className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-red-200"
+              >
+                Try Again
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto pb-24">
+    <div className="mx-auto max-w-4xl p-4 pb-24 md:p-6">
       {/* Header with Points */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Achievements</h1>
+        <h1 className="mb-1 text-2xl font-bold text-gray-900">Achievements</h1>
         <p className="text-gray-600">Track your progress and earn rewards</p>
       </div>
 
       {/* Points Card */}
       {points && (
         <div
-          className="rounded-2xl p-6 mb-6 text-white"
+          className="mb-6 rounded-2xl p-6 text-white"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="text-white/80 text-sm">Total Points</p>
+              <p className="text-sm text-white/80">Total Points</p>
               <p className="text-3xl font-bold">{points.totalPoints.toLocaleString()}</p>
             </div>
             <div className="text-right">
-              <p className="text-white/80 text-sm">Level {points.currentLevel}</p>
+              <p className="text-sm text-white/80">Level {points.currentLevel}</p>
               <p className="text-xl font-semibold">{points.levelName}</p>
             </div>
           </div>
@@ -221,13 +280,13 @@ export default function AchievementsPage() {
           {/* Level Progress */}
           {points.pointsToNextLevel > 0 && (
             <div>
-              <div className="flex justify-between text-sm text-white/80 mb-1">
+              <div className="mb-1 flex justify-between text-sm text-white/80">
                 <span>Progress to next level</span>
                 <span>{points.pointsToNextLevel} pts to go</span>
               </div>
-              <div className="h-2 bg-white/30 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-white/30">
                 <div
-                  className="h-full bg-white rounded-full transition-all"
+                  className="h-full rounded-full bg-white transition-all"
                   style={{ width: `${points.levelProgress}%` }}
                 />
               </div>
@@ -237,7 +296,7 @@ export default function AchievementsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
         {[
           { id: 'achievements', label: 'Achievements', icon: Trophy },
           { id: 'streaks', label: 'Streaks', icon: Flame },
@@ -246,14 +305,12 @@ export default function AchievementsPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.id
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2 font-medium transition-colors ${
+              activeTab === tab.id ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
             style={activeTab === tab.id ? { backgroundColor: primaryColor } : {}}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="h-4 w-4" />
             {tab.label}
           </button>
         ))}
@@ -263,30 +320,30 @@ export default function AchievementsPage() {
       {activeTab === 'achievements' && (
         <div>
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Trophy className="w-5 h-5 text-yellow-500" />
-                <span className="text-gray-600 text-sm">Unlocked</span>
+          <div className="mb-6 grid grid-cols-2 gap-4">
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                <span className="text-sm text-gray-600">Unlocked</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
                 {unlockedCount} / {achievements.length}
               </p>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Star className="w-5 h-5 text-purple-500" />
-                <span className="text-gray-600 text-sm">Points Earned</span>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <Star className="h-5 w-5 text-purple-500" />
+                <span className="text-sm text-gray-600">Points Earned</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">{totalPoints}</p>
             </div>
           </div>
 
           {/* Category Filter */}
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${
+              className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${
                 !selectedCategory ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
               }`}
             >
@@ -296,7 +353,7 @@ export default function AchievementsPage() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ${
                   selectedCategory === cat ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'
                 }`}
               >
@@ -306,14 +363,14 @@ export default function AchievementsPage() {
           </div>
 
           {/* Achievement Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {filteredAchievements.map((achievement) => {
               const tierColor = TIER_COLORS[achievement.tier] || TIER_COLORS.BRONZE;
 
               return (
                 <div
                   key={achievement.id}
-                  className={`bg-white rounded-xl p-4 shadow-sm border-2 transition-all ${
+                  className={`rounded-xl border-2 bg-white p-4 shadow-sm transition-all ${
                     achievement.isUnlocked
                       ? `${tierColor.border} ${tierColor.bg}`
                       : 'border-gray-100 opacity-60'
@@ -321,30 +378,32 @@ export default function AchievementsPage() {
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      className={`flex h-12 w-12 items-center justify-center rounded-xl ${
                         achievement.isUnlocked ? tierColor.bg : 'bg-gray-100'
                       }`}
                     >
                       {achievement.isUnlocked ? (
-                        <Trophy className={`w-6 h-6 ${tierColor.text}`} />
+                        <Trophy className={`h-6 w-6 ${tierColor.text}`} />
                       ) : (
-                        <Lock className="w-6 h-6 text-gray-400" />
+                        <Lock className="h-6 w-6 text-gray-400" />
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900 truncate">{achievement.name}</h3>
+                        <h3 className="truncate font-semibold text-gray-900">{achievement.name}</h3>
                         {achievement.isUnlocked && (
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 line-clamp-2">{achievement.description}</p>
+                      <p className="line-clamp-2 text-sm text-gray-600">
+                        {achievement.description}
+                      </p>
 
                       {/* Progress bar for locked achievements */}
                       {!achievement.isUnlocked && achievement.progress > 0 && (
                         <div className="mt-2">
-                          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
                             <div
                               className="h-full rounded-full transition-all"
                               style={{
@@ -353,13 +412,15 @@ export default function AchievementsPage() {
                               }}
                             />
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">{achievement.progress}% complete</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {achievement.progress}% complete
+                          </p>
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="mt-2 flex items-center gap-2">
                         <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${tierColor.bg} ${tierColor.text}`}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${tierColor.bg} ${tierColor.text}`}
                         >
                           {achievement.tier}
                         </span>
@@ -378,10 +439,12 @@ export default function AchievementsPage() {
       {activeTab === 'streaks' && (
         <div className="space-y-4">
           {streaks.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl">
-              <Flame className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-1">No streaks yet</h3>
-              <p className="text-gray-600 text-sm">Start logging your activities to build streaks!</p>
+            <div className="rounded-2xl bg-white py-12 text-center">
+              <Flame className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <h3 className="mb-1 font-semibold text-gray-900">No streaks yet</h3>
+              <p className="text-sm text-gray-600">
+                Start logging your activities to build streaks!
+              </p>
             </div>
           ) : (
             streaks.map((streak) => {
@@ -393,31 +456,33 @@ export default function AchievementsPage() {
               const Icon = info.icon;
 
               return (
-                <div key={streak.streakType} className="bg-white rounded-xl p-4 shadow-sm">
+                <div key={streak.streakType} className="rounded-xl bg-white p-4 shadow-sm">
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+                      className={`flex h-14 w-14 items-center justify-center rounded-xl ${
                         streak.isActive ? 'bg-orange-100' : 'bg-gray-100'
                       }`}
                     >
-                      <Icon className={`w-7 h-7 ${streak.isActive ? info.color : 'text-gray-400'}`} />
+                      <Icon
+                        className={`h-7 w-7 ${streak.isActive ? info.color : 'text-gray-400'}`}
+                      />
                     </div>
 
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-gray-900">{info.name}</h3>
                         {streak.isActive && (
-                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                             Active
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 mt-1">
+                      <div className="mt-1 flex items-center gap-4">
                         <div>
                           <span className="text-2xl font-bold" style={{ color: primaryColor }}>
                             {streak.currentStreak}
                           </span>
-                          <span className="text-gray-600 text-sm ml-1">day streak</span>
+                          <span className="ml-1 text-sm text-gray-600">day streak</span>
                         </div>
                         <div className="text-sm text-gray-500">
                           Best: {streak.longestStreak} days
@@ -428,8 +493,10 @@ export default function AchievementsPage() {
                     {/* Freeze indicator */}
                     {streak.freezesRemaining > 0 && (
                       <div className="text-center">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-blue-600 font-bold text-sm">{streak.freezesRemaining}</span>
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                          <span className="text-sm font-bold text-blue-600">
+                            {streak.freezesRemaining}
+                          </span>
                         </div>
                         <span className="text-xs text-gray-500">Freeze</span>
                       </div>
@@ -441,19 +508,19 @@ export default function AchievementsPage() {
           )}
 
           {/* Streak Tips */}
-          <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl p-4">
-            <h4 className="font-semibold text-gray-900 mb-2">Streak Tips</h4>
+          <div className="rounded-xl bg-gradient-to-r from-orange-50 to-amber-50 p-4">
+            <h4 className="mb-2 font-semibold text-gray-900">Streak Tips</h4>
             <ul className="space-y-2 text-sm text-gray-700">
               <li className="flex items-start gap-2">
-                <Flame className="w-4 h-4 text-orange-500 mt-0.5" />
+                <Flame className="mt-0.5 h-4 w-4 text-orange-500" />
                 Log daily to build your streak
               </li>
               <li className="flex items-start gap-2">
-                <Zap className="w-4 h-4 text-yellow-500 mt-0.5" />
+                <Zap className="mt-0.5 h-4 w-4 text-yellow-500" />
                 Use a streak freeze to save your progress if you miss a day
               </li>
               <li className="flex items-start gap-2">
-                <Star className="w-4 h-4 text-purple-500 mt-0.5" />
+                <Star className="mt-0.5 h-4 w-4 text-purple-500" />
                 Reach 7, 30, and 100 day milestones for bonus points!
               </li>
             </ul>
@@ -465,43 +532,44 @@ export default function AchievementsPage() {
       {activeTab === 'challenges' && (
         <div className="space-y-4">
           {challenges.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl">
-              <Target className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-1">No active challenges</h3>
-              <p className="text-gray-600 text-sm">Check back soon for new challenges!</p>
+            <div className="rounded-2xl bg-white py-12 text-center">
+              <Target className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <h3 className="mb-1 font-semibold text-gray-900">No active challenges</h3>
+              <p className="text-sm text-gray-600">Check back soon for new challenges!</p>
             </div>
           ) : (
             challenges.map((challenge) => (
-              <div key={challenge.id} className="bg-white rounded-xl p-4 shadow-sm">
+              <div key={challenge.id} className="rounded-xl bg-white p-4 shadow-sm">
                 <div className="flex items-start gap-4">
                   <div
-                    className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+                    className={`flex h-14 w-14 items-center justify-center rounded-xl ${
                       challenge.isCompleted ? 'bg-green-100' : 'bg-blue-100'
                     }`}
                   >
                     {challenge.isCompleted ? (
-                      <CheckCircle className="w-7 h-7 text-green-600" />
+                      <CheckCircle className="h-7 w-7 text-green-600" />
                     ) : (
-                      <Target className="w-7 h-7 text-blue-600" />
+                      <Target className="h-7 w-7 text-blue-600" />
                     )}
                   </div>
 
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">{challenge.name}</h3>
-                    <p className="text-sm text-gray-600 mt-0.5">{challenge.description}</p>
+                    <p className="mt-0.5 text-sm text-gray-600">{challenge.description}</p>
 
                     {/* Progress */}
                     {challenge.isJoined && (
                       <div className="mt-3">
-                        <div className="flex justify-between text-sm mb-1">
+                        <div className="mb-1 flex justify-between text-sm">
                           <span className="text-gray-600">
-                            {challenge.currentProgress} / {challenge.targetValue} {challenge.targetUnit}
+                            {challenge.currentProgress} / {challenge.targetValue}{' '}
+                            {challenge.targetUnit}
                           </span>
                           <span className="font-medium" style={{ color: primaryColor }}>
                             {Math.round((challenge.currentProgress / challenge.targetValue) * 100)}%
                           </span>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
@@ -513,17 +581,23 @@ export default function AchievementsPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-4 mt-3">
-                      <span className="text-sm text-gray-500">{challenge.daysRemaining} days left</span>
-                      <span className="text-sm text-gray-500">{challenge.participantCount} participants</span>
-                      <span className="text-sm font-medium text-purple-600">+{challenge.points} pts</span>
+                    <div className="mt-3 flex items-center gap-4">
+                      <span className="text-sm text-gray-500">
+                        {challenge.daysRemaining} days left
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {challenge.participantCount} participants
+                      </span>
+                      <span className="text-sm font-medium text-purple-600">
+                        +{challenge.points} pts
+                      </span>
                     </div>
                   </div>
 
                   {!challenge.isJoined && (
                     <button
                       onClick={() => joinChallenge(challenge.id)}
-                      className="px-4 py-2 rounded-xl font-medium text-white"
+                      className="rounded-xl px-4 py-2 font-medium text-white"
                       style={{ backgroundColor: primaryColor }}
                     >
                       Join
@@ -531,7 +605,7 @@ export default function AchievementsPage() {
                   )}
 
                   {challenge.isJoined && !challenge.isCompleted && (
-                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
                   )}
                 </div>
               </div>

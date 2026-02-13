@@ -3,18 +3,23 @@
 ## ✅ **What We've Built**
 
 ### 1. **Unified User Model**
+
 - Single `User` table for all user types
 - Supports multiple roles: SUPER_ADMIN, ADMIN, PROVIDER, INFLUENCER, PATIENT, STAFF, SUPPORT
 - Links to existing Provider, Influencer, and Patient models for backward compatibility
 
 ### 2. **Role-Based Access Control (RBAC)**
+
 Complete permission matrix with:
+
 - **40+ granular permissions** (user:create, patient:view_phi, billing:refund, etc.)
 - **20+ feature flags** (telemedicine, ai_assistant, stripe_billing, etc.)
 - **Role hierarchy enforcement** - users can only create/modify roles below their level
 
 ### 3. **Feature Access Control**
+
 Customizable feature access per role:
+
 - **SUPER_ADMIN**: All features (100% access)
 - **ADMIN**: 15 core features (administrative, clinical, integrations)
 - **PROVIDER**: 7 clinical features (telemedicine, e-prescribing, AI SOAP)
@@ -26,6 +31,7 @@ Customizable feature access per role:
 ### 4. **User Management APIs**
 
 #### **POST /api/users/create**
+
 - Create users with automatic role-based permissions
 - Support for custom permissions/features override
 - Role hierarchy validation
@@ -33,23 +39,28 @@ Customizable feature access per role:
 - Audit logging
 
 #### **GET /api/users**
+
 - List users with pagination
 - Filter by role, status, search term
 - Include related Provider/Influencer/Patient data
 
 #### **PUT /api/users**
+
 - Update user details, status, permissions
 - Password reset capability
 - Role change with hierarchy check
 - Audit trail for all changes
 
 #### **DELETE /api/users**
+
 - Soft delete (suspend) or hard delete
 - Session invalidation on suspension
 - Complete audit logging
 
 ### 5. **Comprehensive Audit System**
+
 Every action is logged:
+
 - User creations
 - Login attempts (successful/failed)
 - Permission changes
@@ -58,6 +69,7 @@ Every action is logged:
 - IP addresses and user agents
 
 ### 6. **Security Features Implemented**
+
 - **Password Requirements**: Uppercase, lowercase, number, special char, min 8 chars
 - **Session Management**: Token expiry, refresh tokens, session invalidation
 - **Failed Login Tracking**: Lockout after multiple attempts
@@ -80,6 +92,7 @@ Every action is logged:
 ## 🔧 **How to Use**
 
 ### Create a New User (Admin Only)
+
 ```bash
 curl -X POST http://localhost:3001/api/users/create \
   -H "Authorization: Bearer <admin-token>" \
@@ -96,12 +109,14 @@ curl -X POST http://localhost:3001/api/users/create \
 ```
 
 ### List Users
+
 ```bash
 curl http://localhost:3001/api/users?page=1&limit=20&role=PROVIDER \
   -H "Authorization: Bearer <token>"
 ```
 
 ### Update User
+
 ```bash
 curl -X PUT http://localhost:3001/api/users \
   -H "Authorization: Bearer <admin-token>" \
@@ -115,15 +130,15 @@ curl -X PUT http://localhost:3001/api/users \
 
 ## 🔐 **Permission Matrix**
 
-| Role | User Mgmt | Patient Data | Billing | System | Reports |
-|------|-----------|--------------|---------|---------|---------|
-| SUPER_ADMIN | ✅ Full | ✅ Full + PHI | ✅ Full | ✅ Full | ✅ Full |
-| ADMIN | ✅ Create/Edit | ✅ Full + PHI | ✅ Full | ⚠️ Limited | ✅ Full |
-| PROVIDER | ❌ | ✅ Own Only | 👁️ View | ❌ | ✅ Own |
-| STAFF | ❌ | ✅ Create/Edit | ✅ Create | ❌ | ✅ Basic |
-| INFLUENCER | ❌ | 👁️ Referrals | 👁️ Own | ❌ | ✅ Own |
-| PATIENT | ❌ | 👁️ Own | 👁️ Own | ❌ | ❌ |
-| SUPPORT | ❌ | 👁️ View | 👁️ View | 👁️ Logs | ❌ |
+| Role        | User Mgmt      | Patient Data   | Billing   | System     | Reports  |
+| ----------- | -------------- | -------------- | --------- | ---------- | -------- |
+| SUPER_ADMIN | ✅ Full        | ✅ Full + PHI  | ✅ Full   | ✅ Full    | ✅ Full  |
+| ADMIN       | ✅ Create/Edit | ✅ Full + PHI  | ✅ Full   | ⚠️ Limited | ✅ Full  |
+| PROVIDER    | ❌             | ✅ Own Only    | 👁️ View   | ❌         | ✅ Own   |
+| STAFF       | ❌             | ✅ Create/Edit | ✅ Create | ❌         | ✅ Basic |
+| INFLUENCER  | ❌             | 👁️ Referrals   | 👁️ Own    | ❌         | ✅ Own   |
+| PATIENT     | ❌             | 👁️ Own         | 👁️ Own    | ❌         | ❌       |
+| SUPPORT     | ❌             | 👁️ View        | 👁️ View   | 👁️ Logs    | ❌       |
 
 ## 🎯 **Next Steps**
 
@@ -137,7 +152,8 @@ curl -X PUT http://localhost:3001/api/users \
 
 ## 🏆 **Achievement Unlocked**
 
-Your platform now has an **enterprise-grade user management system** that rivals major healthcare platforms like Epic, Cerner, and Athenahealth!
+Your platform now has an **enterprise-grade user management system** that rivals major healthcare
+platforms like Epic, Cerner, and Athenahealth!
 
 - ✅ **HIPAA-Ready**: Audit logs, access controls, PHI protection
 - ✅ **SOC2-Ready**: Role-based access, activity tracking

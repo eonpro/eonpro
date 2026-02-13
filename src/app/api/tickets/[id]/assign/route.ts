@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth';
-import { ticketService } from '@/domains/ticket';
+import { ticketService, reportTicketError } from '@/domains/ticket';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import type { AssignTicketInput } from '@/domains/ticket';
@@ -28,10 +28,7 @@ export const POST = withAuth(async (request, user, { params }: RouteParams) => {
     const ticketId = parseInt(id, 10);
 
     if (isNaN(ticketId)) {
-      return NextResponse.json(
-        { error: 'Invalid ticket ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -61,11 +58,19 @@ export const POST = withAuth(async (request, user, { params }: RouteParams) => {
 
     return NextResponse.json({
       ticket,
-      message: input.assignedToId 
+      message: input.assignedToId
         ? 'Ticket assigned successfully'
         : 'Ticket unassigned successfully',
     });
   } catch (error) {
-    return handleApiError(error, { route: `POST /api/tickets/${(await params).id}/assign` });
+    const { id } = await params;
+    reportTicketError(error, {
+      route: `POST /api/tickets/${id}/assign`,
+      ticketId: parseInt(id, 10),
+      clinicId: user.clinicId ?? undefined,
+      userId: user.id,
+      operation: 'assign',
+    });
+    return handleApiError(error, { route: `POST /api/tickets/${id}/assign` });
   }
 });

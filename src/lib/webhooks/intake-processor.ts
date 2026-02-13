@@ -9,15 +9,15 @@
  *   const result = await processor.process(normalizedIntake, options);
  */
 
-import { PatientDocumentCategory, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db";
-import { logger } from "@/lib/logger";
-import { generateIntakePdf } from "@/services/intakePdfService";
-import { generateSOAPFromIntake } from "@/services/ai/soapNoteService";
-import { trackReferral } from "@/services/influencerService";
-import { attributeFromIntake } from "@/services/affiliate/attributionService";
-import { generatePatientId } from "@/lib/patients";
-import type { NormalizedIntake, NormalizedPatient } from "@/lib/heyflow/types";
+import { PatientDocumentCategory, Prisma } from '@prisma/client';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { generateIntakePdf } from '@/services/intakePdfService';
+import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
+import { trackReferral } from '@/services/influencerService';
+import { attributeFromIntake } from '@/services/affiliate/attributionService';
+import { generatePatientId } from '@/lib/patients';
+import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
 
@@ -79,7 +79,9 @@ export class IntakeProcessor {
     this.startTime = Date.now();
     this.errors = [];
 
-    logger.info(`[INTAKE ${this.requestId}] Processing ${this.source} intake for ${normalized.patient.email}`);
+    logger.info(
+      `[INTAKE ${this.requestId}] Processing ${this.source} intake for ${normalized.patient.email}`
+    );
 
     // Step 1: Resolve clinic
     const clinicId = await this.resolveClinic(options);
@@ -131,7 +133,9 @@ export class IntakeProcessor {
     await this.createAuditLog(patient, document, soapNote, weightLog, options);
 
     const processingTimeMs = Date.now() - this.startTime;
-    logger.info(`[INTAKE ${this.requestId}] Completed in ${processingTimeMs}ms with ${this.errors.length} errors`);
+    logger.info(
+      `[INTAKE ${this.requestId}] Completed in ${processingTimeMs}ms with ${this.errors.length} errors`
+    );
 
     return {
       success: true,
@@ -142,20 +146,26 @@ export class IntakeProcessor {
         email: patient.email,
         isNew,
       },
-      document: document ? {
-        id: document.id,
-        filename: document.filename,
-        pdfSizeBytes: document.pdfSizeBytes,
-      } : null,
-      soapNote: soapNote ? {
-        id: soapNote.id,
-        status: 'DRAFT',
-      } : null,
-      weightLog: weightLog ? {
-        id: weightLog.id,
-        weight: weightLog.weight,
-        source: weightLog.source,
-      } : null,
+      document: document
+        ? {
+            id: document.id,
+            filename: document.filename,
+            pdfSizeBytes: document.pdfSizeBytes,
+          }
+        : null,
+      soapNote: soapNote
+        ? {
+            id: soapNote.id,
+            status: 'DRAFT',
+          }
+        : null,
+      weightLog: weightLog
+        ? {
+            id: weightLog.id,
+            weight: weightLog.weight,
+            source: weightLog.source,
+          }
+        : null,
       errors: this.errors,
       processingTimeMs,
     };
@@ -208,7 +218,11 @@ export class IntakeProcessor {
     if (patientData.phone && patientData.phone !== '0000000000') {
       matchFilters.push({ phone: patientData.phone });
     }
-    if (patientData.firstName !== 'Unknown' && patientData.lastName !== 'Unknown' && patientData.dob) {
+    if (
+      patientData.firstName !== 'Unknown' &&
+      patientData.lastName !== 'Unknown' &&
+      patientData.dob
+    ) {
       matchFilters.push({
         firstName: patientData.firstName,
         lastName: patientData.lastName,
@@ -236,7 +250,9 @@ export class IntakeProcessor {
 
     if (existingPatient) {
       // Update existing patient
-      const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
+      const existingTags = Array.isArray(existingPatient.tags)
+        ? (existingPatient.tags as string[])
+        : [];
       const mergedTags = [...new Set([...existingTags, ...allTags])];
 
       const patient = await prisma.patient.update({
@@ -270,7 +286,9 @@ export class IntakeProcessor {
         },
       });
 
-      logger.info(`[INTAKE ${this.requestId}] Created patient: ${patient.id} (${patient.patientId})`);
+      logger.info(
+        `[INTAKE ${this.requestId}] Created patient: ${patient.id} (${patient.patientId})`
+      );
       return { patient, isNew: true };
     }
   }
@@ -362,15 +380,10 @@ export class IntakeProcessor {
 
     // Track in legacy influencer system (for backward compatibility)
     try {
-      await trackReferral(
-        patientId,
-        normalizedCode,
-        referralSource || this.source,
-        {
-          source: this.source,
-          timestamp: new Date().toISOString(),
-        }
-      );
+      await trackReferral(patientId, normalizedCode, referralSource || this.source, {
+        source: this.source,
+        timestamp: new Date().toISOString(),
+      });
       logger.info(`[INTAKE ${this.requestId}] Legacy referral tracked: ${normalizedCode}`);
     } catch (error) {
       logger.warn(`[INTAKE ${this.requestId}] Legacy referral tracking failed:`, {
@@ -395,7 +408,9 @@ export class IntakeProcessor {
             touchId: attribution.touchId,
           });
         } else {
-          logger.debug(`[INTAKE ${this.requestId}] No modern affiliate found for code: ${normalizedCode}`);
+          logger.debug(
+            `[INTAKE ${this.requestId}] No modern affiliate found for code: ${normalizedCode}`
+          );
         }
       } catch (error) {
         logger.warn(`[INTAKE ${this.requestId}] Modern affiliate attribution failed:`, {
@@ -418,7 +433,9 @@ export class IntakeProcessor {
     try {
       await prisma.auditLog.create({
         data: {
-          action: options.isPartialSubmission ? 'PARTIAL_INTAKE_RECEIVED' : 'PATIENT_INTAKE_RECEIVED',
+          action: options.isPartialSubmission
+            ? 'PARTIAL_INTAKE_RECEIVED'
+            : 'PATIENT_INTAKE_RECEIVED',
           resource: 'Patient',
           resourceId: patient.id,
           userId: 0,
@@ -493,7 +510,9 @@ export class IntakeProcessor {
       },
     });
 
-    logger.info(`[INTAKE ${this.requestId}] Created initial weight log: ${weightLog.id} (${weight} lbs)`);
+    logger.info(
+      `[INTAKE ${this.requestId}] Created initial weight log: ${weightLog.id} (${weight} lbs)`
+    );
     return { id: weightLog.id, weight: weightLog.weight, source: weightLog.source };
   }
 
@@ -514,7 +533,7 @@ export class IntakeProcessor {
     // Helper to check if label matches weight-related fields
     const isWeightLabel = (label: string): boolean => {
       const normalizedLabel = label.toLowerCase().trim();
-      return weightLabels.some(wl => normalizedLabel.includes(wl));
+      return weightLabels.some((wl) => normalizedLabel.includes(wl));
     };
 
     // Helper to parse weight value
@@ -522,15 +541,15 @@ export class IntakeProcessor {
       if (!value) return null;
       const strValue = String(value).trim();
       if (!strValue) return null;
-      
+
       // Extract numeric value (handles "150 lbs", "150", etc.)
       const numericValue = parseFloat(strValue.replace(/[^0-9.]/g, ''));
-      
+
       // Validate reasonable weight range (10-1000 lbs)
       if (isNaN(numericValue) || numericValue < 10 || numericValue > 1000) {
         return null;
       }
-      
+
       return numericValue;
     };
 
@@ -540,7 +559,9 @@ export class IntakeProcessor {
         if (isWeightLabel(entry.label)) {
           const weight = parseWeight(entry.value);
           if (weight) {
-            logger.debug(`[INTAKE ${this.requestId}] Found weight in section "${section.title}": ${weight}`);
+            logger.debug(
+              `[INTAKE ${this.requestId}] Found weight in section "${section.title}": ${weight}`
+            );
             return weight;
           }
         }
@@ -573,7 +594,9 @@ export class IntakeProcessor {
       address1: String(patient.address1 || '').trim(),
       address2: String(patient.address2 || '').trim(),
       city: String(patient.city || '').trim(),
-      state: String(patient.state || '').toUpperCase().trim(),
+      state: String(patient.state || '')
+        .toUpperCase()
+        .trim(),
       zip: String(patient.zip || '').trim(),
     };
   }

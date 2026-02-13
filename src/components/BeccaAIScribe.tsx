@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Mic, MicOff, StopCircle, FileText, AlertTriangle, Loader2, Volume2, Clock } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  StopCircle,
+  FileText,
+  AlertTriangle,
+  Loader2,
+  Volume2,
+  Clock,
+} from 'lucide-react';
 
 interface TranscriptionSegment {
   id: string;
@@ -60,7 +69,7 @@ export default function BeccaAIScribe({
   useEffect(() => {
     if (isRecording && !isPaused) {
       timerRef.current = setInterval(() => {
-        setDuration(d => d + 1);
+        setDuration((d) => d + 1);
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -88,7 +97,7 @@ export default function BeccaAIScribe({
           if (mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
           }
-          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
         } catch (e) {
           // Ignore errors during cleanup
         }
@@ -128,12 +137,12 @@ export default function BeccaAIScribe({
       setSessionId(sessionData.session.id);
 
       // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 16000,
-        }
+        },
       });
 
       // Create MediaRecorder
@@ -168,7 +177,6 @@ export default function BeccaAIScribe({
           mediaRecorderRef.current.start();
         }
       }, 10000); // Every 10 seconds
-
     } catch (err: any) {
       setError(err.message || 'Failed to start recording');
       console.error('Recording error:', err);
@@ -204,7 +212,7 @@ export default function BeccaAIScribe({
       const data = await response.json();
 
       if (data.segments && data.segments.length > 0) {
-        setSegments(prev => [...prev, ...data.segments]);
+        setSegments((prev) => [...prev, ...data.segments]);
       }
     } catch (err: any) {
       console.error('Chunk processing error:', err);
@@ -224,7 +232,7 @@ export default function BeccaAIScribe({
 
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
     }
 
     setIsRecording(false);
@@ -286,24 +294,26 @@ export default function BeccaAIScribe({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-xl overflow-hidden max-w-4xl w-full">
+    <div className="w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-              <Mic className="w-5 h-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+              <Mic className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-semibold text-lg">Becca AI Scribe</h2>
+              <h2 className="text-lg font-semibold">Becca AI Scribe</h2>
               <p className="text-sm text-white/80">Recording session with {patientName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {isRecording && (
-              <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
-                <div className={`w-2 h-2 rounded-full ${isPaused ? 'bg-yellow-400' : 'bg-red-500 animate-pulse'}`} />
-                <Clock className="w-4 h-4" />
+              <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-1">
+                <div
+                  className={`h-2 w-2 rounded-full ${isPaused ? 'bg-yellow-400' : 'animate-pulse bg-red-500'}`}
+                />
+                <Clock className="h-4 w-4" />
                 <span className="font-mono">{formatDuration(duration)}</span>
               </div>
             )}
@@ -313,9 +323,9 @@ export default function BeccaAIScribe({
 
       {/* Error Alert */}
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 m-4 rounded">
+        <div className="m-4 rounded border-l-4 border-red-500 bg-red-50 p-4">
           <div className="flex items-center gap-2 text-red-700">
-            <AlertTriangle className="w-5 h-5" />
+            <AlertTriangle className="h-5 w-5" />
             <span>{error}</span>
           </div>
         </div>
@@ -323,19 +333,23 @@ export default function BeccaAIScribe({
 
       {/* Red Flags Alert */}
       {redFlags?.hasRedFlags && (
-        <div className="bg-amber-50 border-l-4 border-amber-500 p-4 m-4 rounded">
+        <div className="m-4 rounded border-l-4 border-amber-500 bg-amber-50 p-4">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
             <div>
               <h4 className="font-semibold text-amber-800">Red Flags Detected</h4>
               <ul className="mt-2 space-y-1">
                 {redFlags.flags.map((flag: any, idx: number) => (
                   <li key={idx} className="text-sm text-amber-700">
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs mr-2 ${
-                      flag.severity === 'high' ? 'bg-red-100 text-red-700' :
-                      flag.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
+                    <span
+                      className={`mr-2 inline-block rounded px-2 py-0.5 text-xs ${
+                        flag.severity === 'high'
+                          ? 'bg-red-100 text-red-700'
+                          : flag.severity === 'medium'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
                       {flag.severity}
                     </span>
                     {flag.description}
@@ -356,19 +370,19 @@ export default function BeccaAIScribe({
       <div className="p-4">
         {/* Transcript Area */}
         <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <Volume2 className="w-4 h-4" />
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <Volume2 className="h-4 w-4" />
             Live Transcript
-            {isProcessing && <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />}
+            {isProcessing && <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />}
           </h3>
           <div
             ref={transcriptContainerRef}
-            className="h-64 overflow-y-auto border rounded-lg p-4 bg-gray-50"
+            className="h-64 overflow-y-auto rounded-lg border bg-gray-50 p-4"
           >
             {segments.length === 0 ? (
-              <p className="text-gray-400 text-center py-8">
-                {isRecording 
-                  ? 'Listening... Speech will appear here as it\'s transcribed.'
+              <p className="py-8 text-center text-gray-400">
+                {isRecording
+                  ? "Listening... Speech will appear here as it's transcribed."
                   : 'Click "Start Recording" to begin transcribing the consultation.'}
               </p>
             ) : (
@@ -381,13 +395,13 @@ export default function BeccaAIScribe({
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] p-3 rounded-lg ${
+                      className={`max-w-[80%] rounded-lg p-3 ${
                         segment.speaker === 'provider'
                           ? 'bg-emerald-100 text-emerald-900'
                           : 'bg-blue-100 text-blue-900'
                       }`}
                     >
-                      <p className="text-xs font-medium mb-1 opacity-70">
+                      <p className="mb-1 text-xs font-medium opacity-70">
                         {segment.speaker === 'provider' ? '👨‍⚕️ Provider' : '👤 Patient'}
                       </p>
                       <p className="text-sm">{segment.text}</p>
@@ -401,9 +415,9 @@ export default function BeccaAIScribe({
 
         {/* SOAP Note Preview */}
         {soapNote && (
-          <div className="mb-4 border rounded-lg p-4 bg-emerald-50">
-            <h3 className="font-medium text-emerald-800 mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4" />
+          <div className="mb-4 rounded-lg border bg-emerald-50 p-4">
+            <h3 className="mb-3 flex items-center gap-2 font-medium text-emerald-800">
+              <FileText className="h-4 w-4" />
               Generated SOAP Note
             </h3>
             <div className="space-y-3 text-sm">
@@ -445,16 +459,16 @@ export default function BeccaAIScribe({
             {!isRecording ? (
               <button
                 onClick={startRecording}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700"
               >
-                <Mic className="w-4 h-4" />
+                <Mic className="h-4 w-4" />
                 Start Recording
               </button>
             ) : (
               <>
                 <button
                   onClick={togglePause}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2 transition-colors ${
                     isPaused
                       ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                       : 'bg-yellow-500 text-white hover:bg-yellow-600'
@@ -462,21 +476,21 @@ export default function BeccaAIScribe({
                 >
                   {isPaused ? (
                     <>
-                      <Mic className="w-4 h-4" />
+                      <Mic className="h-4 w-4" />
                       Resume
                     </>
                   ) : (
                     <>
-                      <MicOff className="w-4 h-4" />
+                      <MicOff className="h-4 w-4" />
                       Pause
                     </>
                   )}
                 </button>
                 <button
                   onClick={stopRecording}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
                 >
-                  <StopCircle className="w-4 h-4" />
+                  <StopCircle className="h-4 w-4" />
                   Stop
                 </button>
               </>
@@ -488,16 +502,16 @@ export default function BeccaAIScribe({
               <button
                 onClick={generateSOAP}
                 disabled={isGeneratingSOAP}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isGeneratingSOAP ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <FileText className="w-4 h-4" />
+                    <FileText className="h-4 w-4" />
                     Generate SOAP Note
                   </>
                 )}
@@ -506,7 +520,7 @@ export default function BeccaAIScribe({
             {onClose && (
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-gray-600 transition-colors hover:text-gray-800"
               >
                 Close
               </button>
@@ -516,10 +530,15 @@ export default function BeccaAIScribe({
       </div>
 
       {/* Footer */}
-      <div className="bg-gray-50 px-4 py-3 border-t text-xs text-gray-500">
+      <div className="border-t bg-gray-50 px-4 py-3 text-xs text-gray-500">
         <p className="flex items-center gap-1">
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
           </svg>
           Audio is processed securely and not stored. Only transcripts are saved for documentation.
         </p>

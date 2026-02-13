@@ -140,7 +140,9 @@ export const CLINIC_WITH_COUNTS_SELECT = {
 export type ClinicBasic = Prisma.ClinicGetPayload<{ select: typeof CLINIC_BASIC_SELECT }>;
 export type ClinicBranding = Prisma.ClinicGetPayload<{ select: typeof CLINIC_BRANDING_SELECT }>;
 export type ClinicFull = Prisma.ClinicGetPayload<{ select: typeof CLINIC_FULL_SELECT }>;
-export type ClinicWithCounts = Prisma.ClinicGetPayload<{ select: typeof CLINIC_WITH_COUNTS_SELECT }>;
+export type ClinicWithCounts = Prisma.ClinicGetPayload<{
+  select: typeof CLINIC_WITH_COUNTS_SELECT;
+}>;
 
 // ============================================================================
 // Repository Interface
@@ -164,7 +166,7 @@ export interface IClinicRepository {
 
 /**
  * Clinic Repository Implementation
- * 
+ *
  * Uses basePrisma (without clinic filtering) since this is for
  * super-admin and system-level operations.
  */
@@ -273,7 +275,10 @@ class ClinicRepositoryImpl implements IClinicRepository {
       });
       return !!clinic;
     } catch (error) {
-      logger.error('[ClinicRepository] Error checking clinic existence by subdomain', { subdomain, error });
+      logger.error('[ClinicRepository] Error checking clinic existence by subdomain', {
+        subdomain,
+        error,
+      });
       throw error;
     }
   }
@@ -316,10 +321,7 @@ class ClinicRepositoryImpl implements IClinicRepository {
     try {
       return await this.prisma.clinic.findFirst({
         where: {
-          OR: [
-            { subdomain: 'eonmeds' },
-            { name: { contains: 'EONMEDS', mode: 'insensitive' } },
-          ],
+          OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
         },
         select: CLINIC_BASIC_SELECT,
       });

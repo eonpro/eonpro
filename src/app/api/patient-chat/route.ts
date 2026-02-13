@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, basePrisma, runWithClinicContext, setClinicContext } from '@/lib/db';
+import { prisma, runWithClinicContext, setClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
@@ -121,7 +121,7 @@ async function canAccessPatientMessages(
       return { allowed: false, reason: 'Patients can only access their own messages' };
     }
     // Fetch patient to get clinic context
-    const patient = await basePrisma.patient.findUnique({
+    const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true },
     });
@@ -136,7 +136,7 @@ async function canAccessPatientMessages(
 
   // Super admins can access any clinic
   if (user.role === 'super_admin') {
-    const patient = await basePrisma.patient.findUnique({
+    const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true },
     });
@@ -144,7 +144,7 @@ async function canAccessPatientMessages(
   }
 
   // For regular staff, validate clinic membership
-  const patient = await basePrisma.patient.findUnique({
+  const patient = await prisma.patient.findUnique({
     where: { id: patientId },
     select: { id: true, firstName: true, lastName: true, phone: true, clinicId: true },
   });
@@ -185,7 +185,7 @@ async function auditChatAccess(
   details?: Record<string, any>
 ) {
   try {
-    await basePrisma.auditLog.create({
+    await prisma.auditLog.create({
       data: {
         action: `CHAT_${action}`,
         resource: 'PatientChatMessage',
@@ -253,7 +253,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     // Validate replyToId if provided
     if (replyToId) {
-      const replyMessage = await basePrisma.patientChatMessage.findUnique({
+      const replyMessage = await prisma.patientChatMessage.findUnique({
         where: { id: replyToId },
         select: { id: true, patientId: true },
       });
@@ -271,7 +271,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const finalThreadId = threadId || generateThreadId(clinicId);
 
     // Use transaction for atomic message creation + SMS delivery status
-    const result = await basePrisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Create the message
       const chatMessage = await tx.patientChatMessage.create({
         data: {
@@ -307,7 +307,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         });
 
         if (smsResult.success) {
-          await basePrisma.patientChatMessage.update({
+          await prisma.patientChatMessage.update({
             where: { id: result.id },
             data: {
               status: 'DELIVERED',
@@ -317,7 +317,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
           });
           smsStatus = 'delivered';
         } else {
-          await basePrisma.patientChatMessage.update({
+          await prisma.patientChatMessage.update({
             where: { id: result.id },
             data: {
               status: 'FAILED',
@@ -336,7 +336,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
         const errMsg = smsError instanceof Error ? smsError.message : 'Unknown SMS error';
         logger.error('SMS delivery exception', { error: errMsg, patientId });
 
-        await basePrisma.patientChatMessage.update({
+        await prisma.patientChatMessage.update({
           where: { id: result.id },
           data: {
             status: 'FAILED',
@@ -348,7 +348,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     }
 
     // Fetch the created message with relations
-    const fullMessage = await basePrisma.patientChatMessage.findUnique({
+    const fullMessage = await prisma.patientChatMessage.findUnique({
       where: { id: result.id },
       include: {
         replyTo: {
@@ -383,7 +383,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     logger.error('Failed to send chat message', {
       error: errorMsg,
-      stack: errorStack,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
       userId: user.id,
       durationMs: Date.now() - startTime,
     });
@@ -464,7 +464,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     }
 
     // Fetch messages
-    const messages = await basePrisma.patientChatMessage.findMany({
+    const messages = await prisma.patientChatMessage.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -478,7 +478,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     // Get unread count for staff viewing patient messages
     let unreadCount = 0;
     if (user.role !== 'patient') {
-      unreadCount = await basePrisma.patientChatMessage.count({
+      unreadCount = await prisma.patientChatMessage.count({
         where: {
           patientId,
           direction: 'INBOUND',
@@ -495,7 +495,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         .map((m) => m.id);
 
       if (unreadMessageIds.length > 0) {
-        await basePrisma.patientChatMessage.updateMany({
+        await prisma.patientChatMessage.updateMany({
           where: {
             id: { in: unreadMessageIds },
             patientId,
@@ -586,7 +586,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
     const patient = accessCheck.patient!;
 
     // Mark messages as read with clinic isolation
-    const result = await basePrisma.patientChatMessage.updateMany({
+    const result = await prisma.patientChatMessage.updateMany({
       where: {
         id: { in: messageIds },
         patientId,

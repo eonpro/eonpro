@@ -36,20 +36,14 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
     // Validate input
     const validation = changePasswordSchema.safeParse(body);
     if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error.errors[0].message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: validation.error.errors[0].message }, { status: 400 });
     }
 
     const { currentPassword, newPassword, confirmPassword } = validation.data;
 
     // Check if passwords match
     if (newPassword !== confirmPassword) {
-      return NextResponse.json(
-        { error: 'New passwords do not match' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'New passwords do not match' }, { status: 400 });
     }
 
     // Get user from database to verify current password
@@ -83,10 +77,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
         metadata: { reason: 'Invalid current password' },
       });
 
-      return NextResponse.json(
-        { error: 'Current password is incorrect' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
     }
 
     // Don't allow using the same password

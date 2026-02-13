@@ -1,11 +1,6 @@
-export { 
-  notificationService, 
-  default 
-} from './notificationService';
+export { notificationService, default } from './notificationService';
 
-export {
-  notificationEvents,
-} from './notificationEvents';
+export { notificationEvents } from './notificationEvents';
 
 export type {
   CreateNotificationInput,

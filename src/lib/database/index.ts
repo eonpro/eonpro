@@ -1,14 +1,14 @@
 /**
  * DATABASE UTILITIES INDEX
  * ========================
- * 
+ *
  * Enterprise-grade database utilities including:
  * - Schema validation
  * - Safe query wrappers with retry logic
  * - Query optimization and caching
  * - Connection pool management
  * - Data preloading and batching
- * 
+ *
  * @module Database
  */
 
@@ -89,11 +89,10 @@ export function getDatabaseMetrics() {
 export function getDatabaseHealth() {
   const poolHealth = connectionPool.getHealthStatus();
   const queryMetrics = queryOptimizer.getMetrics();
-  
-  const cacheHitRate = queryMetrics.totalQueries > 0
-    ? (queryMetrics.cacheHits / queryMetrics.totalQueries) * 100
-    : 0;
-  
+
+  const cacheHitRate =
+    queryMetrics.totalQueries > 0 ? (queryMetrics.cacheHits / queryMetrics.totalQueries) * 100 : 0;
+
   return {
     status: poolHealth.status,
     cacheHitRate: `${cacheHitRate.toFixed(1)}%`,
@@ -114,9 +113,6 @@ export async function clearAllCaches(): Promise<void> {
 /**
  * Invalidate caches for a specific entity
  */
-export async function invalidateEntity(
-  entityType: string,
-  id?: number | string
-): Promise<void> {
+export async function invalidateEntity(entityType: string, id?: number | string): Promise<void> {
   await queryOptimizer.invalidate(entityType, id);
 }

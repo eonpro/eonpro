@@ -1,13 +1,16 @@
 # MedLink Webhook Setup Guide
 
 ## 🚨 Current Issue
-The MedLink webhook is not displaying information in the platform because MedLink cannot reach your local development server directly.
+
+The MedLink webhook is not displaying information in the platform because MedLink cannot reach your
+local development server directly.
 
 ## 🔧 Solution for Local Development
 
 ### Option 1: Using ngrok (Recommended)
 
 1. **Install ngrok**:
+
    ```bash
    brew install ngrok  # On macOS
    # OR
@@ -15,11 +18,13 @@ The MedLink webhook is not displaying information in the platform because MedLin
    ```
 
 2. **Start your local server**:
+
    ```bash
    npm run dev -- --port 3005
    ```
 
 3. **Create a tunnel to your local server**:
+
    ```bash
    ngrok http 3005
    ```
@@ -36,16 +41,19 @@ The MedLink webhook is not displaying information in the platform because MedLin
 ### Option 2: Using localtunnel
 
 1. **Install localtunnel**:
+
    ```bash
    npm install -g localtunnel
    ```
 
 2. **Start your local server**:
+
    ```bash
    npm run dev -- --port 3005
    ```
 
 3. **Create a tunnel**:
+
    ```bash
    lt --port 3005 --subdomain lifefile-dev
    ```
@@ -55,6 +63,7 @@ The MedLink webhook is not displaying information in the platform because MedLin
 ## 📝 Testing the Webhook
 
 ### Test with curl:
+
 ```bash
 curl -X POST http://localhost:3005/api/webhooks/medlink-intake \
   -H "Content-Type: application/json" \
@@ -76,10 +85,12 @@ curl -X POST http://localhost:3005/api/webhooks/medlink-intake \
 ## 🔍 Debugging
 
 ### Check if webhooks are being received:
+
 1. Look at the server logs in the terminal running `npm run dev`
 2. You should see `[HEYFLOW WEBHOOK]` logs when a webhook is received
 
 ### Check database for intakes:
+
 ```bash
 # Navigate to the intakes page
 http://localhost:3005/intakes
@@ -96,6 +107,7 @@ For production deployment:
 1. **Deploy your application** to a hosting service (Vercel, Heroku, etc.)
 
 2. **Set environment variable**:
+
    ```env
    MEDLINK_WEBHOOK_SECRET=your-secure-secret-here
    ```
@@ -106,7 +118,7 @@ For production deployment:
 
 ## 📋 Webhook Data Flow
 
-1. **MedLink** sends form submission → 
+1. **MedLink** sends form submission →
 2. **Webhook endpoint** (`/api/webhooks/medlink-intake`) receives data →
 3. **Data normalized** and patient created/updated →
 4. **PDF generated** from intake data →
@@ -117,16 +129,19 @@ For production deployment:
 ## ⚠️ Common Issues
 
 ### Webhook not receiving data:
+
 - ✅ Ensure ngrok/localtunnel is running
 - ✅ Verify webhook URL in MedLink is correct
 - ✅ Check webhook secret matches
 
 ### Data received but not saved:
+
 - ✅ Check server logs for errors
 - ✅ Verify database is running (`npx prisma studio`)
 - ✅ Check patient data format matches expected schema
 
 ### Intakes page shows 0 submissions:
+
 - ✅ Refresh the page (it's server-rendered)
 - ✅ Check PatientDocument table in database
 - ✅ Verify category is `MEDICAL_INTAKE_FORM`
@@ -134,6 +149,7 @@ For production deployment:
 ## 🔑 Environment Variables
 
 Make sure these are set in your `.env` file:
+
 ```env
 MEDLINK_WEBHOOK_SECRET=medlink-dev-secret
 DATABASE_URL=file:./prisma/dev.db

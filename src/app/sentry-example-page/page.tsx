@@ -14,7 +14,9 @@ export default function SentryExamplePage() {
 
   const triggerClientError = () => {
     setTriggered(true);
-    throw new Error('Sentry test error (client) – if you see this in Sentry, client SDK is working.');
+    throw new Error(
+      'Sentry test error (client) – if you see this in Sentry, client SDK is working.'
+    );
   };
 
   const triggerClientCapture = () => {
@@ -24,7 +26,14 @@ export default function SentryExamplePage() {
   };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'system-ui, sans-serif', maxWidth: '600px', margin: '0 auto' }}>
+    <div
+      style={{
+        padding: '2rem',
+        fontFamily: 'system-ui, sans-serif',
+        maxWidth: '600px',
+        margin: '0 auto',
+      }}
+    >
       <h1>Sentry verification</h1>
       <p>
         Use this page to confirm Sentry is receiving events. After clicking a button, check{' '}

@@ -25,10 +25,7 @@ export const GET = withAuth(
       const approvedOnly = searchParams.get('approvedOnly') === 'true';
 
       if (!patientId) {
-        return NextResponse.json(
-          { error: 'Patient ID is required' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });
       }
 
       const patientIdNum = parseInt(patientId, 10);
@@ -46,10 +43,7 @@ export const GET = withAuth(
           return { error: 'Patient not found or access denied', status: 404 };
         }
 
-        let soapNotes = await getPatientSOAPNotes(
-          patientIdNum,
-          includeRevisions
-        );
+        let soapNotes = await getPatientSOAPNotes(patientIdNum, includeRevisions);
 
         // Additional filter for approved only
         if (approvedOnly) {
@@ -60,10 +54,7 @@ export const GET = withAuth(
       });
 
       if ('error' in result) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: result.status }
-        );
+        return NextResponse.json({ error: result.error }, { status: result.status });
       }
 
       // HIPAA Audit: Log PHI access
@@ -90,7 +81,7 @@ export const GET = withAuth(
         meta: {
           accessedBy: user.email,
           role: user.role,
-        }
+        },
       });
     } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -135,21 +126,21 @@ export const POST = withAuth(
           // Generate SOAP note from intake using AI
           logger.debug('[API] Generating SOAP note from intake', {
             intakeId: parsedData.intakeDocumentId,
-            requestedBy: user.email
+            requestedBy: user.email,
           });
 
           // Check if patient has intake documents before attempting generation
           const hasIntakeDocuments = await prisma.patientDocument.findFirst({
             where: {
               patientId: parsedData.patientId,
-              category: 'MEDICAL_INTAKE_FORM'
-            }
+              category: 'MEDICAL_INTAKE_FORM',
+            },
           });
 
           if (!hasIntakeDocuments) {
             return {
               error: 'No intake form found for this patient. Please complete an intake form first.',
-              status: 400
+              status: 400,
             };
           }
 
@@ -161,28 +152,22 @@ export const POST = withAuth(
           // Create manual SOAP note
           logger.debug('[API] Creating manual SOAP note', {
             patientId: parsedData.patientId,
-            createdBy: user.email
+            createdBy: user.email,
           });
 
-          soapNote = await createManualSOAPNote(
-            parsedData.patientId,
-            {
-              subjective: parsedData.manualContent?.subjective || '',
-              objective: parsedData.manualContent?.objective || '',
-              assessment: parsedData.manualContent?.assessment || '',
-              plan: parsedData.manualContent?.plan || ''
-            }
-          );
+          soapNote = await createManualSOAPNote(parsedData.patientId, {
+            subjective: parsedData.manualContent?.subjective || '',
+            objective: parsedData.manualContent?.objective || '',
+            assessment: parsedData.manualContent?.assessment || '',
+            plan: parsedData.manualContent?.plan || '',
+          });
         }
 
         return { soapNote, parsedData };
       });
 
       if ('error' in result) {
-        return NextResponse.json(
-          { error: result.error },
-          { status: result.status }
-        );
+        return NextResponse.json({ error: result.error }, { status: result.status });
       }
 
       // HIPAA Audit: Log PHI creation
@@ -226,11 +211,13 @@ export const POST = withAuth(
       }
 
       // Handle OpenAI rate limit errors (429)
-      if (error.status === 429 ||
-          errorMessage.toLowerCase().includes('rate limit') ||
-          errorMessage.toLowerCase().includes('ratelimit') ||
-          errorMessage.toLowerCase().includes('too many requests') ||
-          errorMessage.includes('429')) {
+      if (
+        error.status === 429 ||
+        errorMessage.toLowerCase().includes('rate limit') ||
+        errorMessage.toLowerCase().includes('ratelimit') ||
+        errorMessage.toLowerCase().includes('too many requests') ||
+        errorMessage.includes('429')
+      ) {
         return NextResponse.json(
           {
             error: 'OpenAI API is busy. Please wait 30 seconds and try again.',
@@ -242,7 +229,11 @@ export const POST = withAuth(
       }
 
       // Handle OpenAI API busy/overloaded errors
-      if (error.status === 503 || errorMessage.includes('overloaded') || errorMessage.includes('busy')) {
+      if (
+        error.status === 503 ||
+        errorMessage.includes('overloaded') ||
+        errorMessage.includes('busy')
+      ) {
         return NextResponse.json(
           {
             error: 'AI service is temporarily unavailable. Please try again in a moment.',

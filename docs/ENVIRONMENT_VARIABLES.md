@@ -1,70 +1,87 @@
-# 🔐 EONPRO Environment Variables
+ EONPRO Environment Variables
 
 Complete documentation of all environment variables required for EONPRO platform.
 
 ## Required Variables (Must Have)
 
 ### Database
-| Variable | Description | Example |
-|----------|-------------|---------|
+
+| Variable       | Description                  | Example                                               |
+| -------------- | ---------------------------- | ----------------------------------------------------- |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db?sslmode=require` |
 
 ### Security
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `JWT_SECRET` | JWT signing key (32+ chars) | Generate: `openssl rand -base64 32` |
-| `NEXTAUTH_SECRET` | NextAuth secret | Generate: `openssl rand -base64 32` |
-| `ENCRYPTION_KEY` | PHI encryption (64 hex chars) | Generate: `openssl rand -hex 32` |
+
+| Variable          | Description                   | Example                             |
+| ----------------- | ----------------------------- | ----------------------------------- |
+| `JWT_SECRET`      | JWT signing key (32+ chars)   | Generate: `openssl rand -base64 32` |
+| `NEXTAUTH_SECRET` | NextAuth secret               | Generate: `openssl rand -base64 32` |
+| `ENCRYPTION_KEY`  | PHI encryption (64 hex chars) | Generate: `openssl rand -hex 32`    |
 
 ### Application
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_APP_URL` | Public URL | `https://app.eonpro.io` |
-| `NEXTAUTH_URL` | Auth callback URL | `https://app.eonpro.io` |
+
+| Variable              | Description       | Example                 |
+| --------------------- | ----------------- | ----------------------- |
+| `NEXT_PUBLIC_APP_URL` | Public URL        | `https://app.eonpro.io` |
+| `NEXTAUTH_URL`        | Auth callback URL | `https://app.eonpro.io` |
 
 ---
 
 ## Integration Variables
 
 ### Stripe (Payments)
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `STRIPE_SECRET_KEY` | API secret key | ✅ |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Public key | ✅ |
-| `STRIPE_WEBHOOK_SECRET` | Webhook signature | ✅ |
+
+| Variable                             | Description       | Required |
+| ------------------------------------ | ----------------- | -------- |
+| `STRIPE_SECRET_KEY`                  | API secret key    | ✅       |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Public key        | ✅       |
+| `STRIPE_WEBHOOK_SECRET`              | Webhook signature | ✅       |
 
 ### Twilio (SMS/Chat)
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `TWILIO_ACCOUNT_SID` | Account SID | ✅ |
-| `TWILIO_AUTH_TOKEN` | Auth token | ✅ |
-| `TWILIO_PHONE_NUMBER` | SMS sender | ✅ |
+
+| Variable              | Description | Required |
+| --------------------- | ----------- | -------- |
+| `TWILIO_ACCOUNT_SID`  | Account SID | ✅       |
+| `TWILIO_AUTH_TOKEN`   | Auth token  | ✅       |
+| `TWILIO_PHONE_NUMBER` | SMS sender  | ✅       |
 
 ### AWS
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `AWS_ACCESS_KEY_ID` | IAM key ID | For S3/SES |
-| `AWS_SECRET_ACCESS_KEY` | IAM secret | For S3/SES |
-| `AWS_REGION` | Region | `us-east-1` |
-| `AWS_S3_BUCKET` | S3 bucket name | For uploads |
+
+| Variable                | Description    | Required    |
+| ----------------------- | -------------- | ----------- |
+| `AWS_ACCESS_KEY_ID`     | IAM key ID     | For S3/SES  |
+| `AWS_SECRET_ACCESS_KEY` | IAM secret     | For S3/SES  |
+| `AWS_REGION`            | Region         | `us-east-1` |
+| `AWS_S3_BUCKET`         | S3 bucket name | For uploads |
 
 ### Redis (Rate Limiting)
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `UPSTASH_REDIS_REST_URL` | Upstash URL | Recommended |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash token | Recommended |
-| `REDIS_URL` | Standard Redis | Alternative |
+
+| Variable                   | Description    | Required    |
+| -------------------------- | -------------- | ----------- |
+| `UPSTASH_REDIS_REST_URL`   | Upstash URL    | Recommended |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash token  | Recommended |
+| `REDIS_URL`                | Standard Redis | Alternative |
 
 ### AI
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `OPENAI_API_KEY` | OpenAI key | For AI features |
+
+| Variable         | Description | Required        |
+| ---------------- | ----------- | --------------- |
+| `OPENAI_API_KEY` | OpenAI key  | For AI features |
 
 ### Monitoring
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SENTRY_DSN` | Sentry DSN | Recommended |
+
+| Variable                 | Description   | Required    |
+| ------------------------ | ------------- | ----------- |
+| `SENTRY_DSN`             | Sentry DSN    | Recommended |
 | `NEXT_PUBLIC_SENTRY_DSN` | Client Sentry | Recommended |
+
+### Debug (Temporary)
+
+| Variable        | Description                                                | Required |
+| --------------- | ---------------------------------------------------------- | -------- |
+| `PROVIDER_DEBUG` | When `true`, logs trace-level provider resolution in `/api/provider/self` | No       |
+
+Client-side: `localStorage.setItem('PROVIDER_DEBUG','true')` for PrescriptionForm trace logging.
 
 ---
 

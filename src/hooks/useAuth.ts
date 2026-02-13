@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { clientLogger } from '@/lib/clientLogger';
 import { isBrowser, getLocalStorageItem, removeLocalStorageItem } from '@/lib/utils/ssr-safe';
 import { redirectToLogin as redirectToLoginFromFetch } from '@/lib/api/fetch';
 
@@ -87,7 +88,7 @@ export function useAuth(requiredRole?: string | string[]) {
         error: null,
       });
     } catch (error) {
-      console.error('Auth check failed:', error);
+      clientLogger.error('Auth check failed:', error);
       clearAuth();
       redirectToLogin('error');
     }
@@ -121,7 +122,7 @@ export function useAuth(requiredRole?: string | string[]) {
       }
     } catch (error) {
       // Log but don't fail on logout errors - we're clearing auth anyway
-      console.warn(
+      clientLogger.warn(
         '[useAuth] Logout API call failed:',
         error instanceof Error ? error.message : 'Unknown error'
       );

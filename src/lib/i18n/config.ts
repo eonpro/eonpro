@@ -1,6 +1,6 @@
 /**
  * Internationalization Configuration
- * 
+ *
  * Multi-language support for the Lifefile platform
  */
 
@@ -25,7 +25,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'tr', name: 'Turkish', flag: '🇹🇷', nativeName: 'Türkçe' },
 ] as const;
 
-export type LanguageCode = typeof SUPPORTED_LANGUAGES[number]['code'];
+export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]['code'];
 
 // Default language
 export const DEFAULT_LANGUAGE: LanguageCode = 'en';
@@ -46,10 +46,10 @@ export function getEnabledLanguages() {
 // Language detection priority
 export const LANGUAGE_DETECTION_ORDER = [
   'querystring', // ?lang=es
-  'cookie',      // lang cookie
+  'cookie', // lang cookie
   'localStorage', // browser storage
-  'navigator',   // browser language
-  'htmlTag',     // <html lang="">
+  'navigator', // browser language
+  'htmlTag', // <html lang="">
 ];
 
 // Cookie configuration
@@ -80,13 +80,16 @@ export const TRANSLATION_NAMESPACES = {
 } as const;
 
 // Date and number formatting locales
-export const LOCALE_FORMATS: Record<LanguageCode, {
-  dateFormat: string;
-  timeFormat: string;
-  currency: string;
-  numberFormat: string;
-  firstDayOfWeek: 0 | 1 | 6; // Sunday, Monday, Saturday
-}> = {
+export const LOCALE_FORMATS: Record<
+  LanguageCode,
+  {
+    dateFormat: string;
+    timeFormat: string;
+    currency: string;
+    numberFormat: string;
+    firstDayOfWeek: 0 | 1 | 6; // Sunday, Monday, Saturday
+  }
+> = {
   en: {
     dateFormat: 'MM/DD/YYYY',
     timeFormat: '12h',

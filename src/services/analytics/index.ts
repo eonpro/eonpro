@@ -1,10 +1,10 @@
 /**
  * Analytics Services
- * 
+ *
  * Central export point for all financial analytics services.
  */
 
-export { 
+export {
   RevenueAnalyticsService,
   type DateRange,
   type Granularity,
@@ -17,7 +17,7 @@ export {
   type PeriodComparison,
 } from './revenueAnalytics';
 
-export { 
+export {
   PatientAnalyticsService,
   type PatientLTV,
   type CohortData,
@@ -28,7 +28,7 @@ export {
   type PatientFinancialProfile,
 } from './patientAnalytics';
 
-export { 
+export {
   SubscriptionAnalyticsService,
   type SubscriptionMetrics,
   type ChurnAnalysis,

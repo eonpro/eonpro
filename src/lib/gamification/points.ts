@@ -85,9 +85,10 @@ export async function awardPoints(
         ...(reason.startsWith('streak') && {
           streakPoints: { increment: points },
         }),
-        ...(!reason.startsWith('streak') && reason !== PointReason.ACHIEVEMENT_UNLOCKED && {
-          activityPoints: { increment: points },
-        }),
+        ...(!reason.startsWith('streak') &&
+          reason !== PointReason.ACHIEVEMENT_UNLOCKED && {
+            activityPoints: { increment: points },
+          }),
       },
     });
 
@@ -146,12 +147,14 @@ export async function getPatientPoints(patientId: number): Promise<PatientPoints
 export async function getPointsHistory(
   patientId: number,
   limit: number = 50
-): Promise<Array<{
-  points: number;
-  reason: string;
-  description: string | null;
-  createdAt: Date;
-}>> {
+): Promise<
+  Array<{
+    points: number;
+    reason: string;
+    description: string | null;
+    createdAt: Date;
+  }>
+> {
   const history = await prisma.pointsHistory.findMany({
     where: { patientId },
     orderBy: { createdAt: 'desc' },
@@ -173,14 +176,16 @@ export async function getPointsHistory(
 export async function getLeaderboard(
   clinicId?: number,
   limit: number = 10
-): Promise<Array<{
-  rank: number;
-  patientId: number;
-  displayName: string;
-  totalPoints: number;
-  level: number;
-  levelName: string;
-}>> {
+): Promise<
+  Array<{
+    rank: number;
+    patientId: number;
+    displayName: string;
+    totalPoints: number;
+    level: number;
+    levelName: string;
+  }>
+> {
   // In a real implementation, you'd want to filter by patients who have opted in to leaderboards
   const topPatients = await prisma.patientPoints.findMany({
     orderBy: { totalPoints: 'desc' },
@@ -201,14 +206,25 @@ export async function getLeaderboard(
     }),
   });
 
-  return topPatients.map((p: { patientId: number; patient: { id: number; firstName: string; clinicId: number }; totalPoints: number; currentLevel: number; levelName: string }, index: number) => ({
-    rank: index + 1,
-    patientId: p.patientId,
-    displayName: `${p.patient.firstName.charAt(0)}***`, // Privacy: only show first initial
-    totalPoints: p.totalPoints,
-    level: p.currentLevel,
-    levelName: p.levelName,
-  }));
+  return topPatients.map(
+    (
+      p: {
+        patientId: number;
+        patient: { id: number; firstName: string; clinicId: number };
+        totalPoints: number;
+        currentLevel: number;
+        levelName: string;
+      },
+      index: number
+    ) => ({
+      rank: index + 1,
+      patientId: p.patientId,
+      displayName: `${p.patient.firstName.charAt(0)}***`, // Privacy: only show first initial
+      totalPoints: p.totalPoints,
+      level: p.currentLevel,
+      levelName: p.levelName,
+    })
+  );
 }
 
 /**

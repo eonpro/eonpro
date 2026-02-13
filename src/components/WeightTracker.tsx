@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { logger } from '../lib/logger';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
+import { portalFetch } from '@/lib/api/patient-portal-client';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { getPatientPortalTranslation } from '@/lib/i18n/patient-portal';
 import { Line } from 'react-chartjs-2';
@@ -38,6 +40,13 @@ interface WeightEntry {
   id?: string;
 }
 
+/** Log shape from API / parent (progress page) — single source of truth when provided */
+export interface WeightLogFromParent {
+  id: number;
+  recordedAt: string;
+  weight: number;
+}
+
 interface WeightTrackerProps {
   patientId?: number;
   embedded?: boolean;
@@ -48,6 +57,14 @@ interface WeightTrackerProps {
   onWeightSaved?: () => void;
   /** When true, use patient portal i18n (usePatientPortalLanguage) for all labels */
   usePortalI18n?: boolean;
+  /** When true, use portalFetch for GET/POST so auth matches rest of patient portal (fixes save/display in portal) */
+  usePortalFetch?: boolean;
+  /**
+   * Enterprise: when provided, this is the SINGLE source of truth for display.
+   * No internal GET — parent (e.g. progress page) owns the data and refetches after save.
+   * Eliminates duplicate fetches and refresh/navigate display bugs.
+   */
+  weightLogsFromParent?: WeightLogFromParent[] | null;
 }
 
 const calculateBMI = (weightLbs: number, heightInches: number): number => {
@@ -77,6 +94,8 @@ export default function WeightTracker({
   heightInches = 70,
   onWeightSaved,
   usePortalI18n = false,
+  usePortalFetch = false,
+  weightLogsFromParent,
 }: WeightTrackerProps) {
   const { t: tPortal } = usePatientPortalLanguage();
   const t = usePortalI18n ? tPortal : (key: string) => getPatientPortalTranslation('en', key);
@@ -87,59 +106,63 @@ export default function WeightTracker({
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
+  // Enterprise: when parent provides weight logs, use them as the ONLY source of truth — no internal GET
+  const controlledData = useMemo(() => {
+    if (weightLogsFromParent == null) return null;
+    const arr = Array.isArray(weightLogsFromParent) ? weightLogsFromParent : [];
+    return arr.map((log) => ({
+      dateInput: log.recordedAt,
+      currentWeightInput: log.weight,
+      id: String(log.id),
+    }));
+  }, [weightLogsFromParent]);
+
+  const displayData = controlledData !== null ? controlledData : weightData;
+
+  // Only fetch when NOT controlled by parent (e.g. admin/standalone use)
   useEffect(() => {
+    if (controlledData !== null) return;
     const loadWeightData = async () => {
       if (patientId) {
         try {
-          const response = await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
-            headers: getAuthHeaders(),
-            credentials: 'include',
-          });
+          const response = usePortalFetch
+            ? await portalFetch(`/api/patient-progress/weight?patientId=${patientId}`, {
+                cache: 'no-store',
+              })
+            : await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
+                headers: getAuthHeaders(),
+                credentials: 'include',
+                cache: 'no-store',
+              });
           if (response.ok) {
-            const result = await response.json();
-            // Handle both array format and { data: [...] } format
-            const logs = Array.isArray(result) ? result : (result.data || []);
-            const formattedData = logs.map((log: any) => ({
-              dateInput: log.recordedAt,
-              currentWeightInput: log.weight,
-              id: log.id.toString(),
+            const result = await safeParseJson(response);
+            const rawLogs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) ?? [];
+            const formattedData = rawLogs.map((log: { recordedAt?: string; weight?: number; id?: number }) => ({
+              dateInput: log.recordedAt ?? '',
+              currentWeightInput: Number(log.weight) || 0,
+              id: log.id != null ? String(log.id) : '',
             }));
             setWeightData(formattedData);
-            // Cache to localStorage as backup
             localStorage.setItem(`weightData_${patientId}`, JSON.stringify(formattedData));
-          } else if (response.status === 401 || response.status === 403) {
-            // Auth issue - try loading from localStorage cache
-            logger.warn('Auth issue loading weight data, using cache');
+          } else if ((response.status === 401 || response.status === 403) && !usePortalFetch) {
             const stored = localStorage.getItem(`weightData_${patientId}`);
-            if (stored) {
-              setWeightData(JSON.parse(stored));
-            }
+            const parsed = safeParseJsonString<WeightEntry[]>(stored);
+            if (parsed && Array.isArray(parsed)) setWeightData(parsed);
           }
         } catch (error) {
           logger.error('Failed to fetch weight data:', error);
-          // Fallback to localStorage cache on network error
           const stored = localStorage.getItem(`weightData_${patientId}`);
-          if (stored) {
-            try {
-              setWeightData(JSON.parse(stored));
-            } catch (e) {
-              logger.error('Error parsing weight data:', e);
-            }
-          }
+          const parsed = safeParseJsonString<WeightEntry[]>(stored);
+          if (parsed && Array.isArray(parsed)) setWeightData(parsed);
         }
       } else {
         const stored = localStorage.getItem(`weightData_default`);
-        if (stored) {
-          try {
-            setWeightData(JSON.parse(stored));
-          } catch (e) {
-            logger.error('Error parsing weight data:', e);
-          }
-        }
+        const parsed = safeParseJsonString<WeightEntry[]>(stored);
+        if (parsed && Array.isArray(parsed)) setWeightData(parsed);
       }
     };
     loadWeightData();
-  }, [patientId]);
+  }, [patientId, usePortalFetch, controlledData]);
 
   const handleWeightSubmit = async () => {
     if (!currentWeight || isNaN(Number(currentWeight))) return;
@@ -154,25 +177,34 @@ export default function WeightTracker({
     setSaveError(null);
     try {
       if (patientId) {
-        const response = await fetch('/api/patient-progress/weight', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          credentials: 'include',
-          body: JSON.stringify({
-            patientId,
-            weight: parseFloat(currentWeight),
-            unit: 'lbs',
-            recordedAt: new Date().toISOString(),
-          }),
-        });
+        const body = {
+          patientId,
+          weight: parseFloat(currentWeight),
+          unit: 'lbs',
+          recordedAt: new Date().toISOString(),
+        };
+        const response = usePortalFetch
+          ? await portalFetch('/api/patient-progress/weight', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+          : await fetch('/api/patient-progress/weight', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+              credentials: 'include',
+              body: JSON.stringify(body),
+            });
 
         if (response.ok) {
-          const savedLog = await response.json();
-          newEntry.id = savedLog.id.toString();
-          setWeightData((prev) => [...prev, newEntry]);
+          const savedLog = await safeParseJson(response);
+          const id = savedLog && typeof savedLog === 'object' && 'id' in savedLog ? (savedLog as { id: number }).id : null;
+          if (id != null) newEntry.id = String(id);
+          if (weightLogsFromParent == null) setWeightData((prev) => [...prev, newEntry]);
         } else {
-          const errBody = await response.json().catch(() => ({}));
-          throw new Error(errBody?.error || 'Failed to save weight');
+          const errBody = await safeParseJson(response);
+          const msg = errBody && typeof errBody === 'object' && 'error' in errBody && typeof (errBody as { error: unknown }).error === 'string' ? (errBody as { error: string }).error : 'Failed to save weight';
+          throw new Error(msg);
         }
       } else {
         const updatedData = [...weightData, newEntry];
@@ -195,10 +227,10 @@ export default function WeightTracker({
 
   const sortedData = useMemo(
     () =>
-      [...weightData].sort(
+      [...displayData].sort(
         (a, b) => new Date(a.dateInput).getTime() - new Date(b.dateInput).getTime()
       ),
-    [weightData]
+    [displayData]
   );
 
   const chartData = sortedData.slice(-7);
@@ -339,7 +371,9 @@ export default function WeightTracker({
               <span className="text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl md:text-7xl">
                 {latestWeight || '---'}
               </span>
-              <span className="mb-1 text-lg font-medium text-gray-700/70 sm:mb-2 sm:text-2xl">{t('weightTrackerLbs')}</span>
+              <span className="mb-1 text-lg font-medium text-gray-700/70 sm:mb-2 sm:text-2xl">
+                {t('weightTrackerLbs')}
+              </span>
             </div>
 
             {weightChange !== 0 && (
@@ -366,7 +400,9 @@ export default function WeightTracker({
           {showBMI && currentBMI && bmiCategory && (
             <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 md:mt-6 md:gap-3">
               <div className="rounded-lg bg-black/10 px-3 py-1.5 backdrop-blur-sm sm:rounded-xl sm:px-4 sm:py-2">
-                <span className="text-xs font-semibold text-gray-800 sm:text-sm">BMI {currentBMI.toFixed(1)}</span>
+                <span className="text-xs font-semibold text-gray-800 sm:text-sm">
+                  BMI {currentBMI.toFixed(1)}
+                </span>
               </div>
               <div
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2"
@@ -376,7 +412,10 @@ export default function WeightTracker({
                   className="h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2"
                   style={{ backgroundColor: bmiCategory.color }}
                 />
-                <span className="text-xs font-semibold sm:text-sm" style={{ color: bmiCategory.color }}>
+                <span
+                  className="text-xs font-semibold sm:text-sm"
+                  style={{ color: bmiCategory.color }}
+                >
                   {usePortalI18n ? t(getBMICategoryKey(currentBMI)) : bmiCategory.label}
                 </span>
               </div>
@@ -389,7 +428,9 @@ export default function WeightTracker({
       <div className="border-b border-gray-100 p-4 sm:p-5 md:p-8">
         <div className="mb-3 flex items-center gap-2 sm:mb-4">
           <Sparkles className="h-3.5 w-3.5 text-gray-400 sm:h-4 sm:w-4" />
-          <span className="text-xs font-semibold text-gray-500 sm:text-sm">{t('weightTrackerLogToday')}</span>
+          <span className="text-xs font-semibold text-gray-500 sm:text-sm">
+            {t('weightTrackerLogToday')}
+          </span>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
@@ -406,7 +447,7 @@ export default function WeightTracker({
               onBlur={() => setIsFocused(false)}
               onKeyDown={(e) => e.key === 'Enter' && handleWeightSubmit()}
               placeholder={t('weightTrackerEnterWeight')}
-              className={`w-full min-h-[48px] rounded-xl border-2 bg-gray-50 px-4 py-3 text-lg font-semibold text-gray-900 outline-none transition-all placeholder:font-normal placeholder:text-gray-400 sm:min-h-0 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-xl md:px-6 md:py-5 ${
+              className={`min-h-[48px] w-full rounded-xl border-2 bg-gray-50 px-4 py-3 text-lg font-semibold text-gray-900 outline-none transition-all placeholder:font-normal placeholder:text-gray-400 sm:min-h-0 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-xl md:px-6 md:py-5 ${
                 isFocused ? 'border-gray-900 bg-white shadow-lg' : 'border-transparent'
               }`}
               style={{ fontSize: '16px' }} /* Prevent iOS zoom on focus */
@@ -438,7 +479,9 @@ export default function WeightTracker({
             )}
           </button>
           {saveError && (
-            <p className="mt-2 text-sm text-red-600" role="alert">{saveError}</p>
+            <p className="mt-2 text-sm text-red-600" role="alert">
+              {saveError}
+            </p>
           )}
         </div>
       </div>
@@ -447,8 +490,12 @@ export default function WeightTracker({
       <div className="w-full min-w-0 p-4 sm:p-6 md:p-8">
         <div className="mb-3 flex items-center justify-between gap-2 sm:mb-6">
           <div>
-            <h3 className="text-base font-semibold text-gray-900 sm:text-xl">{t('weightTrackerYourProgress')}</h3>
-            <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">{t('weightTrackerLast7')}</p>
+            <h3 className="text-base font-semibold text-gray-900 sm:text-xl">
+              {t('weightTrackerYourProgress')}
+            </h3>
+            <p className="mt-0.5 text-xs text-gray-500 sm:mt-1 sm:text-sm">
+              {t('weightTrackerLast7')}
+            </p>
           </div>
           {percentChange > 0 && weightChange !== 0 && (
             <div className="text-right">
@@ -463,7 +510,7 @@ export default function WeightTracker({
           )}
         </div>
 
-        <div className="relative h-48 w-full min-h-[120px] sm:h-56 md:h-64 lg:h-72">
+        <div className="relative h-48 min-h-[120px] w-full sm:h-56 md:h-64 lg:h-72">
           {chartData.length > 0 ? (
             <div className="absolute inset-0 w-full">
               <Line data={data} options={chartOptions} />
@@ -471,8 +518,12 @@ export default function WeightTracker({
           ) : (
             <div className="flex h-full min-h-[120px] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-100/80 px-4 py-6 sm:rounded-2xl">
               <Scale className="mb-2 h-10 w-10 shrink-0 text-gray-500 sm:mb-3 sm:h-12 sm:w-12" />
-              <p className="text-center text-sm font-semibold text-gray-600 sm:text-base">{t('weightTrackerNoDataYet')}</p>
-              <p className="mt-1 text-center text-xs text-gray-500 sm:mt-1.5 sm:text-sm">{t('weightTrackerLogFirstWeight')}</p>
+              <p className="text-center text-sm font-semibold text-gray-600 sm:text-base">
+                {t('weightTrackerNoDataYet')}
+              </p>
+              <p className="mt-1 text-center text-xs text-gray-500 sm:mt-1.5 sm:text-sm">
+                {t('weightTrackerLogFirstWeight')}
+              </p>
             </div>
           )}
         </div>
@@ -480,10 +531,20 @@ export default function WeightTracker({
 
       {/* Stats Footer - 2x2 grid on mobile to avoid tiny text */}
       {sortedData.length > 1 && (
-        <div className="grid grid-cols-2 gap-px border-t border-gray-100 bg-gray-100 sm:grid-cols-4 sm:divide-x sm:divide-gray-100 sm:gap-0">
+        <div className="grid grid-cols-2 gap-px border-t border-gray-100 bg-gray-100 sm:grid-cols-4 sm:gap-0 sm:divide-x sm:divide-gray-100">
           {[
-            { labelKey: 'weightTrackerStatStarting', value: `${startingWeight}`, unitKey: 'weightTrackerLbs', color: 'text-gray-600' },
-            { labelKey: 'weightTrackerStatCurrent', value: `${latestWeight}`, unitKey: 'weightTrackerLbs', color: 'text-gray-900' },
+            {
+              labelKey: 'weightTrackerStatStarting',
+              value: `${startingWeight}`,
+              unitKey: 'weightTrackerLbs',
+              color: 'text-gray-600',
+            },
+            {
+              labelKey: 'weightTrackerStatCurrent',
+              value: `${latestWeight}`,
+              unitKey: 'weightTrackerLbs',
+              color: 'text-gray-900',
+            },
             {
               labelKey: 'weightTrackerStatChange',
               value: `${weightChange > 0 ? '+' : ''}${weightChange.toFixed(1)}`,
@@ -492,7 +553,7 @@ export default function WeightTracker({
             },
             {
               labelKey: 'weightTrackerStatCheckins',
-              value: `${weightData.length}`,
+              value: `${displayData.length}`,
               unitKey: 'weightTrackerStatTotal',
               color: 'text-gray-900',
             },

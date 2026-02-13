@@ -189,9 +189,7 @@ export function BottomSheet({
           className
         )}
         style={{
-          transform: isOpen
-            ? `translateY(${dragOffset}px)`
-            : 'translateY(100%)',
+          transform: isOpen ? `translateY(${dragOffset}px)` : 'translateY(100%)',
         }}
         onTouchStart={handleDragStart}
         onTouchMove={handleDragMove}
@@ -203,28 +201,22 @@ export function BottomSheet({
       >
         {/* Handle */}
         {showHandle && (
-          <div className="flex justify-center pt-3 pb-2">
+          <div className="flex justify-center pb-2 pt-3">
             <div className="h-1.5 w-12 rounded-full bg-gray-300" />
           </div>
         )}
 
         {/* Header */}
         {(title || showClose) && (
-          <div className="flex items-start justify-between px-4 py-3 border-b border-gray-100">
+          <div className="flex items-start justify-between border-b border-gray-100 px-4 py-3">
             <div className="flex-1">
               {title && (
-                <h2
-                  id="bottom-sheet-title"
-                  className="text-lg font-semibold text-gray-900"
-                >
+                <h2 id="bottom-sheet-title" className="text-lg font-semibold text-gray-900">
                   {title}
                 </h2>
               )}
               {description && (
-                <p
-                  id="bottom-sheet-description"
-                  className="mt-1 text-sm text-gray-500"
-                >
+                <p id="bottom-sheet-description" className="mt-1 text-sm text-gray-500">
                   {description}
                 </p>
               )}
@@ -242,9 +234,7 @@ export function BottomSheet({
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4">{children}</div>
       </div>
     </div>,
     document.body
@@ -267,10 +257,7 @@ interface BottomSheetActionsProps extends Omit<BottomSheetProps, 'children'> {
   }>;
 }
 
-export function BottomSheetActions({
-  actions,
-  ...props
-}: BottomSheetActionsProps) {
+export function BottomSheetActions({ actions, ...props }: BottomSheetActionsProps) {
   return (
     <BottomSheet {...props} height="auto" showHandle={true}>
       <div className="space-y-1">
@@ -290,9 +277,7 @@ export function BottomSheetActions({
               action.disabled && 'cursor-not-allowed opacity-50'
             )}
           >
-            {action.icon && (
-              <span className="flex-shrink-0">{action.icon}</span>
-            )}
+            {action.icon && <span className="flex-shrink-0">{action.icon}</span>}
             <span className="font-medium">{action.label}</span>
           </button>
         ))}
@@ -346,9 +331,7 @@ export function BottomSheetConfirm({
             disabled={loading}
             className={cn(
               'flex-1 rounded-xl py-3 font-medium text-white transition-colors disabled:opacity-50',
-              destructive
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-violet-600 hover:bg-violet-700'
+              destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-violet-600 hover:bg-violet-700'
             )}
           >
             {loading ? (

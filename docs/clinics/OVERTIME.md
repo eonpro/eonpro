@@ -1,17 +1,19 @@
 # Overtime Men's Clinic Integration
 
-This document describes the integration between Overtime Men's Clinic's Heyflow/Airtable intake system and EONPRO.
+This document describes the integration between Overtime Men's Clinic's Heyflow/Airtable intake
+system and EONPRO.
 
 ## Overview
 
-Overtime Men's Clinic uses Heyflow forms to collect patient intake information. This data flows to 6 separate Airtable tables (one per treatment type), and then to EONPRO.
+Overtime Men's Clinic uses Heyflow forms to collect patient intake information. This data flows to 6
+separate Airtable tables (one per treatment type), and then to EONPRO.
 
 ## Integration Methods
 
-| Method | Description | Pros | Cons |
-|--------|-------------|------|------|
-| **API Sync** ⭐ | EONPRO pulls from Airtable API | Single config, no Airtable scripting | Polling delay (1-15 min) |
-| **Webhook Push** | Airtable pushes to EONPRO | Real-time | Requires 6 automation scripts |
+| Method           | Description                    | Pros                                 | Cons                          |
+| ---------------- | ------------------------------ | ------------------------------------ | ----------------------------- |
+| **API Sync** ⭐  | EONPRO pulls from Airtable API | Single config, no Airtable scripting | Polling delay (1-15 min)      |
+| **Webhook Push** | Airtable pushes to EONPRO      | Real-time                            | Requires 6 automation scripts |
 
 ---
 
@@ -61,24 +63,26 @@ Authorization: Bearer <OVERTIME_SYNC_API_KEY>
 
 ### Table IDs
 
-| Treatment | Table ID | Table Name |
-|-----------|----------|------------|
-| Weight Loss | `tblnznnhTgy5Li66k` | OT Mens - Weight Loss |
-| Peptides | `tbl5wJs4jGsPegseO` | OT Mens - Peptide Therapy |
-| NAD+ | `tbl8WmRKhlcb5bQ9e` | OT Mens - NAD |
-| Better Sex | `tblwZg0EuVlmz0I01` | OT Mens - Better Sex |
-| TRT | `tblYfQCW70CR86Cnt` | OT Mens - TRT |
-| Baseline | `tbl3LS20Y4nMVbqv1` | OT Mens - Baseline |
+| Treatment   | Table ID            | Table Name                |
+| ----------- | ------------------- | ------------------------- |
+| Weight Loss | `tblnznnhTgy5Li66k` | OT Mens - Weight Loss     |
+| Peptides    | `tbl5wJs4jGsPegseO` | OT Mens - Peptide Therapy |
+| NAD+        | `tbl8WmRKhlcb5bQ9e` | OT Mens - NAD             |
+| Better Sex  | `tblwZg0EuVlmz0I01` | OT Mens - Better Sex      |
+| TRT         | `tblYfQCW70CR86Cnt` | OT Mens - TRT             |
+| Baseline    | `tbl3LS20Y4nMVbqv1` | OT Mens - Baseline        |
 
 ### Setting Up Cron (Vercel)
 
 ```json
 // vercel.json
 {
-  "crons": [{
-    "path": "/api/integrations/overtime/sync",
-    "schedule": "*/15 * * * *"
-  }]
+  "crons": [
+    {
+      "path": "/api/integrations/overtime/sync",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }
 ```
 
@@ -115,30 +119,33 @@ Airtable automation scripts push data to EONPRO in real-time.
 
 ### Treatment Types
 
-| Treatment Type | Airtable Table | Description |
-|----------------|----------------|-------------|
-| Weight Loss | `weight_loss` | GLP-1 weight loss program |
-| Peptides | `peptides` | Peptide therapy for performance and wellness |
-| NAD+ | `nad_plus` | NAD+ therapy for energy and cellular health |
-| Better Sex | `better_sex` | Sexual health and ED treatment |
-| Testosterone | `testosterone` | Testosterone replacement therapy (TRT) |
-| Baseline/Bloodwork | `baseline_bloodwork` | Lab work and baseline health assessment |
+| Treatment Type     | Airtable Table       | Description                                  |
+| ------------------ | -------------------- | -------------------------------------------- |
+| Weight Loss        | `weight_loss`        | GLP-1 weight loss program                    |
+| Peptides           | `peptides`           | Peptide therapy for performance and wellness |
+| NAD+               | `nad_plus`           | NAD+ therapy for energy and cellular health  |
+| Better Sex         | `better_sex`         | Sexual health and ED treatment               |
+| Testosterone       | `testosterone`       | Testosterone replacement therapy (TRT)       |
+| Baseline/Bloodwork | `baseline_bloodwork` | Lab work and baseline health assessment      |
 
 ---
 
 ## Webhook Endpoint
 
 ### Production
+
 ```
 POST https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake
 ```
 
 ### Local Development
+
 ```
 POST http://localhost:3001/api/webhooks/overtime-intake
 ```
 
 ### Health Check
+
 ```
 GET https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake
 ```
@@ -150,16 +157,19 @@ GET https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake
 The webhook requires authentication via one of these headers:
 
 ### Option 1: X-Webhook-Secret Header (Recommended)
+
 ```
 X-Webhook-Secret: <your-secret>
 ```
 
 ### Option 2: Authorization Bearer Token
+
 ```
 Authorization: Bearer <your-secret>
 ```
 
 ### Option 3: X-API-Key Header
+
 ```
 X-API-Key: <your-secret>
 ```
@@ -179,6 +189,7 @@ OVERTIME_CLINIC_ID=<clinic-id-from-database>
 ```
 
 Generate a new secret:
+
 ```bash
 openssl rand -hex 32
 ```
@@ -213,28 +224,28 @@ Include the `treatmentType` field to explicitly specify which treatment the inta
 
 If `treatmentType` is not provided, the system will auto-detect based on field presence:
 
-| Treatment | Detection Fields |
-|-----------|-----------------|
-| Weight Loss | `glp1-last-30`, `goal-weight`, `weight-loss-motivation` |
-| Peptides | `peptide-experience`, `peptide-goals`, `preferred-peptide` |
-| NAD+ | `nad-experience`, `cognitive-goals`, `iv-experience` |
-| Better Sex | `ed-history`, `ed-severity`, `libido-level` |
-| Testosterone | `trt-symptoms`, `previous-trt`, `testosterone-level` |
-| Baseline | `lab-location`, `fasting-available`, `reason-for-labs` |
+| Treatment    | Detection Fields                                           |
+| ------------ | ---------------------------------------------------------- |
+| Weight Loss  | `glp1-last-30`, `goal-weight`, `weight-loss-motivation`    |
+| Peptides     | `peptide-experience`, `peptide-goals`, `preferred-peptide` |
+| NAD+         | `nad-experience`, `cognitive-goals`, `iv-experience`       |
+| Better Sex   | `ed-history`, `ed-severity`, `libido-level`                |
+| Testosterone | `trt-symptoms`, `previous-trt`, `testosterone-level`       |
+| Baseline     | `lab-location`, `fasting-available`, `reason-for-labs`     |
 
 ---
 
 ## Required Patient Fields
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `first-name` or `firstName` | Yes | Patient's first name |
-| `last-name` or `lastName` | Yes | Patient's last name |
-| `email` | Yes | Patient's email (used for matching) |
-| `phone` | Recommended | Phone number |
-| `dob` or `dateOfBirth` | Recommended | Format: YYYY-MM-DD or MM/DD/YYYY |
-| `sex` or `gender` | Optional | M/F/Male/Female |
-| `state` | Recommended | State code (FL) or full name (Florida) |
+| Field                       | Required    | Description                            |
+| --------------------------- | ----------- | -------------------------------------- |
+| `first-name` or `firstName` | Yes         | Patient's first name                   |
+| `last-name` or `lastName`   | Yes         | Patient's last name                    |
+| `email`                     | Yes         | Patient's email (used for matching)    |
+| `phone`                     | Recommended | Phone number                           |
+| `dob` or `dateOfBirth`      | Recommended | Format: YYYY-MM-DD or MM/DD/YYYY       |
+| `sex` or `gender`           | Optional    | M/F/Male/Female                        |
+| `state`                     | Recommended | State code (FL) or full name (Florida) |
 
 ---
 
@@ -277,6 +288,7 @@ The webhook checks these fields for affiliate/promo codes:
 ```
 
 Response includes affiliate tracking status:
+
 ```json
 {
   "success": true,
@@ -439,6 +451,7 @@ Response includes affiliate tracking status:
 ### Error Responses
 
 **401 Unauthorized**
+
 ```json
 {
   "error": "Unauthorized",
@@ -448,6 +461,7 @@ Response includes affiliate tracking status:
 ```
 
 **500 Server Error**
+
 ```json
 {
   "error": "Failed to create patient: ...",
@@ -481,8 +495,8 @@ Select "Run a script" and paste the appropriate automation script.
 // Overtime Men's Clinic - Weight Loss Intake Webhook
 // Sends new records to EONPRO for patient creation
 
-const WEBHOOK_URL = "https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake";
-const WEBHOOK_SECRET = "YOUR_SECRET_HERE"; // Get from EONPRO admin
+const WEBHOOK_URL = 'https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake';
+const WEBHOOK_SECRET = 'YOUR_SECRET_HERE'; // Get from EONPRO admin
 
 // Get the record that triggered this automation
 let inputConfig = input.config();
@@ -490,66 +504,67 @@ let record = inputConfig.record;
 
 // Build the payload
 const payload = {
-    // Treatment type for proper routing
-    "treatmentType": "weight_loss",
-    
-    // Submission metadata
-    "submission-id": record.id,
-    "submission-date": new Date().toISOString(),
-    
-    // Patient info (map your Airtable field names here)
-    "first-name": record.getCellValue("First Name") || "",
-    "last-name": record.getCellValue("Last Name") || "",
-    "email": record.getCellValue("Email") || "",
-    "phone": record.getCellValue("Phone") || "",
-    "dob": record.getCellValue("Date of Birth") || "",
-    "sex": record.getCellValue("Sex") || "",
-    "state": record.getCellValue("State") || "",
-    
-    // Weight Loss specific fields
-    "weight": record.getCellValue("Current Weight") || "",
-    "goal-weight": record.getCellValue("Goal Weight") || "",
-    "glp1-last-30": record.getCellValue("GLP-1 Last 30 Days") || "",
-    "preferred-meds": record.getCellValue("Preferred Medication") || "",
-    
-    // Promo/Affiliate code - IMPORTANT!
-    "PROMO CODE": record.getCellValue("PROMO CODE") || record.getCellValue("Influencer Code") || "",
-    
-    // Checkout status
-    "Checkout Completed": record.getCellValue("Checkout Completed") || false,
+  // Treatment type for proper routing
+  treatmentType: 'weight_loss',
+
+  // Submission metadata
+  'submission-id': record.id,
+  'submission-date': new Date().toISOString(),
+
+  // Patient info (map your Airtable field names here)
+  'first-name': record.getCellValue('First Name') || '',
+  'last-name': record.getCellValue('Last Name') || '',
+  email: record.getCellValue('Email') || '',
+  phone: record.getCellValue('Phone') || '',
+  dob: record.getCellValue('Date of Birth') || '',
+  sex: record.getCellValue('Sex') || '',
+  state: record.getCellValue('State') || '',
+
+  // Weight Loss specific fields
+  weight: record.getCellValue('Current Weight') || '',
+  'goal-weight': record.getCellValue('Goal Weight') || '',
+  'glp1-last-30': record.getCellValue('GLP-1 Last 30 Days') || '',
+  'preferred-meds': record.getCellValue('Preferred Medication') || '',
+
+  // Promo/Affiliate code - IMPORTANT!
+  'PROMO CODE': record.getCellValue('PROMO CODE') || record.getCellValue('Influencer Code') || '',
+
+  // Checkout status
+  'Checkout Completed': record.getCellValue('Checkout Completed') || false,
 };
 
 // Send to EONPRO
 let response = await fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-        "Content-Type": "application/json",
-        "X-Webhook-Secret": WEBHOOK_SECRET,
-    },
-    body: JSON.stringify(payload),
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Webhook-Secret': WEBHOOK_SECRET,
+  },
+  body: JSON.stringify(payload),
 });
 
 let result = await response.json();
 
 // Log result
 if (result.success) {
-    console.log(`✓ Patient created/updated: ${result.eonproPatientId}`);
-    console.log(`  Treatment: ${result.treatment.label}`);
-    if (result.affiliate?.tracked) {
-        console.log(`  Affiliate tracked: ${result.affiliate.code}`);
-    }
+  console.log(`✓ Patient created/updated: ${result.eonproPatientId}`);
+  console.log(`  Treatment: ${result.treatment.label}`);
+  if (result.affiliate?.tracked) {
+    console.log(`  Affiliate tracked: ${result.affiliate.code}`);
+  }
 } else {
-    console.error(`✗ Error: ${result.error}`);
+  console.error(`✗ Error: ${result.error}`);
 }
 
 // Optionally update the Airtable record with EONPRO ID
-output.set("eonproPatientId", result.eonproPatientId || "");
-output.set("eonproDatabaseId", result.eonproDatabaseId || "");
+output.set('eonproPatientId', result.eonproPatientId || '');
+output.set('eonproDatabaseId', result.eonproDatabaseId || '');
 ```
 
 ### Step 4: Map Input Variables
 
 In the automation, click "Input variables" and map:
+
 - `record` → The record that triggered the automation
 
 ### Step 5: Test
@@ -608,20 +623,24 @@ curl https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake
 ## Troubleshooting
 
 ### 401 Unauthorized
+
 - Check webhook secret is correctly configured in both Airtable and EONPRO
 - Ensure header name matches (X-Webhook-Secret, Authorization, or X-API-Key)
 
 ### Patient Not Created
+
 - Verify required fields are present (firstName, lastName, email)
 - Check server logs for normalization errors
 - Ensure the email is valid format
 
 ### Promo Code Not Tracked
+
 - Verify the promo code exists in EONPRO's Influencer or DiscountCode table
 - Check the field name matches one of the supported variations
 - Look for tracking errors in the response warnings
 
 ### Wrong Treatment Type Detected
+
 - Explicitly include `treatmentType` field in payload
 - Ensure field names match the detection patterns
 
@@ -640,6 +659,7 @@ curl https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake
 ## Support
 
 For issues with this integration:
+
 1. Check server logs for detailed error messages
 2. Test with the health check endpoint first
 3. Include `requestId` from response when reporting issues

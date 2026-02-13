@@ -974,6 +974,18 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
   } catch (err: any) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error('[PRESCRIPTIONS/POST] Unexpected error:', err);
+    // P2024 / connection pool exhaustion: return 503 so client can retry (matches login, messages)
+    const isPoolExhausted =
+      err?.code === 'P2024' ||
+      (typeof errorMessage === 'string' &&
+        (errorMessage.toLowerCase().includes('connection pool') ||
+          errorMessage.includes('pool timeout')));
+    if (isPoolExhausted) {
+      return NextResponse.json(
+        { error: 'Service temporarily busy. Please try again in a moment.', detail: errorMessage },
+        { status: 503, headers: { 'Retry-After': '15' } }
+      );
+    }
     return NextResponse.json(
       { error: 'Unexpected server error', detail: errorMessage ?? 'Unknown error' },
       { status: 500 }

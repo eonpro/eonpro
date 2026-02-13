@@ -1,9 +1,9 @@
 /**
  * Policy Acknowledgment API
- * 
+ *
  * GET  /api/admin/policies/acknowledge - Get pending policies for current user
  * POST /api/admin/policies/acknowledge - Acknowledge a policy
- * 
+ *
  * SOC 2 Requirement: Employee policy acknowledgments
  */
 
@@ -39,10 +39,7 @@ async function handlePost(req: NextRequest, user: any) {
   const { policyId } = body;
 
   if (!policyId) {
-    return NextResponse.json(
-      { error: 'policyId is required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'policyId is required' }, { status: 400 });
   }
 
   // Get client IP

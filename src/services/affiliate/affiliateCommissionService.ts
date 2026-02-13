@@ -1,7 +1,7 @@
 /**
  * Affiliate Commission Service
  * HIPAA-COMPLIANT: Never stores or processes patient-identifiable information
- * 
+ *
  * This service handles:
  * - Commission event creation from Stripe payments
  * - Commission calculations (flat/percent)
@@ -13,6 +13,7 @@
  * - Refund/chargeback reversals
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { CommissionEventStatus, CommissionPlanType } from '@prisma/client';
@@ -89,13 +90,13 @@ export function calculateCommission(
   if (planType === 'FLAT') {
     return flatAmountCents || 0;
   }
-  
+
   if (planType === 'PERCENT' && percentBps) {
     // percentBps / 10000 gives the decimal percentage
     // e.g., 1000 bps = 10% = 0.10
-    return Math.round(eventAmountCents * percentBps / 10000);
+    return Math.round((eventAmountCents * percentBps) / 10000);
   }
-  
+
   return 0;
 }
 
@@ -137,7 +138,7 @@ async function getAffiliateTier(
   for (const tier of tiers) {
     const meetsConversions = affiliate.lifetimeConversions >= tier.minConversions;
     const meetsRevenue = affiliate.lifetimeRevenueCents >= tier.minRevenueCents;
-    
+
     if (meetsConversions && meetsRevenue) {
       return {
         tierId: tier.id,
@@ -185,8 +186,11 @@ async function getProductRate(
     }
 
     // Check category match
-    if (rule.productCategory && productCategory && 
-        rule.productCategory.toLowerCase() === productCategory.toLowerCase()) {
+    if (
+      rule.productCategory &&
+      productCategory &&
+      rule.productCategory.toLowerCase() === productCategory.toLowerCase()
+    ) {
       return {
         percentBps: rule.percentBps,
         flatAmountCents: rule.flatAmountCents,
@@ -200,7 +204,7 @@ async function getProductRate(
         return {
           percentBps: rule.percentBps,
           flatAmountCents: rule.flatAmountCents,
-          ruleName: `Price range: $${rule.minPriceCents/100}-$${rule.maxPriceCents/100}`,
+          ruleName: `Price range: $${rule.minPriceCents / 100}-$${rule.maxPriceCents / 100}`,
         };
       }
     }
@@ -217,12 +221,14 @@ async function getActivePromotions(
   affiliateId: number,
   refCode?: string,
   orderAmountCents?: number
-): Promise<Array<{
-  id: number;
-  name: string;
-  bonusPercentBps: number | null;
-  bonusFlatCents: number | null;
-}>> {
+): Promise<
+  Array<{
+    id: number;
+    name: string;
+    bonusPercentBps: number | null;
+    bonusFlatCents: number | null;
+  }>
+> {
   const now = new Date();
 
   const promotions = await prisma.affiliatePromotion.findMany({
@@ -365,7 +371,7 @@ export async function calculateEnhancedCommission(
     const tier = await getAffiliateTier(affiliateId, plan.id);
     if (tier) {
       tierName = tier.tierName;
-      
+
       // Tier can override the rate
       if (tier.percentBps !== null) {
         effectivePercentBps = tier.percentBps;
@@ -373,7 +379,7 @@ export async function calculateEnhancedCommission(
       if (tier.flatAmountCents !== null) {
         effectiveFlatCents = tier.flatAmountCents;
       }
-      
+
       // Add tier bonus (one-time, tracked separately)
       if (tier.bonusCents) {
         tierBonusCents = tier.bonusCents;
@@ -388,10 +394,10 @@ export async function calculateEnhancedCommission(
     options.productCategory,
     eventAmountCents
   );
-  
+
   if (productRate) {
     appliedProductRule = productRate.ruleName;
-    
+
     // Calculate what the base commission would be
     const baseWithPlanRate = calculateCommission(
       eventAmountCents,
@@ -399,7 +405,7 @@ export async function calculateEnhancedCommission(
       effectiveFlatCents,
       effectivePercentBps
     );
-    
+
     // Calculate with product rate
     const productCommission = calculateCommission(
       eventAmountCents,
@@ -407,10 +413,10 @@ export async function calculateEnhancedCommission(
       productRate.flatAmountCents,
       productRate.percentBps
     );
-    
+
     // Product adjustment is the difference
     productAdjustmentCents = productCommission - baseWithPlanRate;
-    
+
     // Use product rate for base
     if (productRate.percentBps !== null) {
       effectivePercentBps = productRate.percentBps;
@@ -438,14 +444,14 @@ export async function calculateEnhancedCommission(
 
   for (const promo of promotions) {
     promotionName = promo.name;
-    
+
     if (promo.bonusPercentBps) {
-      promotionBonusCents += Math.round(eventAmountCents * promo.bonusPercentBps / 10000);
+      promotionBonusCents += Math.round((eventAmountCents * promo.bonusPercentBps) / 10000);
     }
     if (promo.bonusFlatCents) {
       promotionBonusCents += promo.bonusFlatCents;
     }
-    
+
     // Increment promotion usage
     await prisma.affiliatePromotion.update({
       where: { id: promo.id },
@@ -512,19 +518,16 @@ export async function getEffectiveCommissionPlan(
       affiliateId,
       clinicId,
       effectiveFrom: { lte: atDate },
-      OR: [
-        { effectiveTo: null },
-        { effectiveTo: { gte: atDate } }
-      ]
+      OR: [{ effectiveTo: null }, { effectiveTo: { gte: atDate } }],
     },
     include: {
-      commissionPlan: true
+      commissionPlan: true,
     },
     orderBy: {
-      effectiveFrom: 'desc'
-    }
+      effectiveFrom: 'desc',
+    },
   });
-  
+
   return assignment?.commissionPlan || null;
 }
 
@@ -535,7 +538,7 @@ export async function getEffectiveCommissionPlan(
 /**
  * Process a payment event and create commission event if applicable
  * HIPAA-COMPLIANT: Only stores payment amounts and affiliate IDs, never patient data
- * 
+ *
  * Enhanced with:
  * - Tiered commission rates
  * - Product-specific rates
@@ -545,13 +548,13 @@ export async function getEffectiveCommissionPlan(
 export async function processPaymentForCommission(
   data: PaymentEventData
 ): Promise<CommissionResult> {
-  const { 
-    clinicId, 
-    patientId, 
-    stripeEventId, 
-    stripeObjectId, 
+  const {
+    clinicId,
+    patientId,
+    stripeEventId,
+    stripeObjectId,
     stripeEventType,
-    amountCents, 
+    amountCents,
     occurredAt,
     isFirstPayment,
     isRecurring,
@@ -566,21 +569,21 @@ export async function processPaymentForCommission(
       where: {
         clinicId_stripeEventId: {
           clinicId,
-          stripeEventId
-        }
-      }
+          stripeEventId,
+        },
+      },
     });
 
     if (existingEvent) {
       logger.debug('[AffiliateCommission] Event already processed', {
         stripeEventId,
-        existingEventId: existingEvent.id
+        existingEventId: existingEvent.id,
       });
       return {
         success: true,
         skipped: true,
         skipReason: 'Event already processed',
-        commissionEventId: existingEvent.id
+        commissionEventId: existingEvent.id,
       };
     }
 
@@ -591,19 +594,19 @@ export async function processPaymentForCommission(
         id: true,
         attributionAffiliateId: true,
         attributionRefCode: true,
-        attributionFirstTouchAt: true
-      }
+        attributionFirstTouchAt: true,
+      },
     });
 
     if (!patient?.attributionAffiliateId) {
       logger.debug('[AffiliateCommission] No affiliate attribution for patient', {
         patientId,
-        clinicId
+        clinicId,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'No affiliate attribution'
+        skipReason: 'No affiliate attribution',
       };
     }
 
@@ -615,19 +618,19 @@ export async function processPaymentForCommission(
       where: {
         id: affiliateId,
         clinicId,
-        status: 'ACTIVE'
-      }
+        status: 'ACTIVE',
+      },
     });
 
     if (!affiliate) {
       logger.debug('[AffiliateCommission] Affiliate not active or not in clinic', {
         affiliateId,
-        clinicId
+        clinicId,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'Affiliate not active'
+        skipReason: 'Affiliate not active',
       };
     }
 
@@ -637,12 +640,12 @@ export async function processPaymentForCommission(
     if (!commissionPlan || !commissionPlan.isActive) {
       logger.debug('[AffiliateCommission] No active commission plan', {
         affiliateId,
-        clinicId
+        clinicId,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'No active commission plan'
+        skipReason: 'No active commission plan',
       };
     }
 
@@ -650,12 +653,12 @@ export async function processPaymentForCommission(
     if (commissionPlan.appliesTo === 'FIRST_PAYMENT_ONLY' && !isFirstPayment && !isRecurring) {
       logger.debug('[AffiliateCommission] Plan only applies to first payment', {
         affiliateId,
-        isFirstPayment
+        isFirstPayment,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'Plan only applies to first payment'
+        skipReason: 'Plan only applies to first payment',
       };
     }
 
@@ -663,12 +666,12 @@ export async function processPaymentForCommission(
     if (isRecurring && !commissionPlan.recurringEnabled) {
       logger.debug('[AffiliateCommission] Recurring commissions not enabled', {
         affiliateId,
-        planId: commissionPlan.id
+        planId: commissionPlan.id,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'Recurring commissions not enabled'
+        skipReason: 'Recurring commissions not enabled',
       };
     }
 
@@ -707,19 +710,20 @@ export async function processPaymentForCommission(
       logger.debug('[AffiliateCommission] Zero commission calculated', {
         affiliateId,
         amountCents,
-        breakdown
+        breakdown,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'Zero commission'
+        skipReason: 'Zero commission',
       };
     }
 
     // Calculate hold until date
-    const holdUntil = commissionPlan.holdDays > 0
-      ? new Date(occurredAt.getTime() + commissionPlan.holdDays * 24 * 60 * 60 * 1000)
-      : null;
+    const holdUntil =
+      commissionPlan.holdDays > 0
+        ? new Date(occurredAt.getTime() + commissionPlan.holdDays * 24 * 60 * 60 * 1000)
+        : null;
 
     // Create commission event (IMMUTABLE LEDGER)
     const commissionEvent = await prisma.affiliateCommissionEvent.create({
@@ -751,8 +755,8 @@ export async function processPaymentForCommission(
           appliedProductRule: breakdown.appliedProductRule,
           recurringMultiplier: breakdown.recurringMultiplier,
           // HIPAA: Do NOT store patient name, email, or any identifiers
-        }
-      }
+        },
+      },
     });
 
     // Update affiliate's lifetime stats
@@ -769,25 +773,24 @@ export async function processPaymentForCommission(
         promotion: breakdown.promotionBonusCents,
         product: breakdown.productAdjustmentCents,
       },
-      stripeEventId
+      stripeEventId,
     });
 
     return {
       success: true,
       commissionEventId: commissionEvent.id,
-      commissionAmountCents: breakdown.totalCommissionCents
+      commissionAmountCents: breakdown.totalCommissionCents,
     };
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[AffiliateCommission] Error processing payment', {
       error: errorMessage,
       stripeEventId,
-      clinicId
+      clinicId,
     });
     return {
       success: false,
-      error: errorMessage
+      error: errorMessage,
     };
   }
 }
@@ -800,9 +803,7 @@ export async function processPaymentForCommission(
  * Reverse commission event due to refund or chargeback
  * Only reverses if the commission plan has clawback enabled
  */
-export async function reverseCommissionForRefund(
-  data: RefundEventData
-): Promise<CommissionResult> {
+export async function reverseCommissionForRefund(data: RefundEventData): Promise<CommissionResult> {
   const { clinicId, stripeObjectId, stripeEventType, reason } = data;
 
   try {
@@ -811,34 +812,34 @@ export async function reverseCommissionForRefund(
       where: {
         clinicId,
         stripeObjectId,
-        status: { in: ['PENDING', 'APPROVED'] } // Can't reverse already paid or reversed
+        status: { in: ['PENDING', 'APPROVED'] }, // Can't reverse already paid or reversed
       },
       include: {
         affiliate: {
           include: {
             planAssignments: {
               include: {
-                commissionPlan: true
+                commissionPlan: true,
               },
               orderBy: {
-                effectiveFrom: 'desc'
+                effectiveFrom: 'desc',
               },
-              take: 1
-            }
-          }
-        }
-      }
+              take: 1,
+            },
+          },
+        },
+      },
     });
 
     if (!commissionEvent) {
       logger.debug('[AffiliateCommission] No commission event found to reverse', {
         stripeObjectId,
-        clinicId
+        clinicId,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'No commission event found'
+        skipReason: 'No commission event found',
       };
     }
 
@@ -847,12 +848,12 @@ export async function reverseCommissionForRefund(
     if (!currentPlan?.clawbackEnabled) {
       logger.debug('[AffiliateCommission] Clawback not enabled for plan', {
         commissionEventId: commissionEvent.id,
-        planId: currentPlan?.id
+        planId: currentPlan?.id,
       });
       return {
         success: true,
         skipped: true,
-        skipReason: 'Clawback not enabled'
+        skipReason: 'Clawback not enabled',
       };
     }
 
@@ -862,31 +863,30 @@ export async function reverseCommissionForRefund(
       data: {
         status: 'REVERSED',
         reversedAt: new Date(),
-        reversalReason: reason || stripeEventType
-      }
+        reversalReason: reason || stripeEventType,
+      },
     });
 
     logger.info('[AffiliateCommission] Commission reversed', {
       commissionEventId: commissionEvent.id,
       affiliateId: commissionEvent.affiliateId,
-      reason
+      reason,
     });
 
     return {
       success: true,
-      commissionEventId: commissionEvent.id
+      commissionEventId: commissionEvent.id,
     };
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[AffiliateCommission] Error reversing commission', {
       error: errorMessage,
       stripeObjectId,
-      clinicId
+      clinicId,
     });
     return {
       success: false,
-      error: errorMessage
+      error: errorMessage,
     };
   }
 }
@@ -904,36 +904,32 @@ export async function approvePendingCommissions(): Promise<{
   errors: number;
 }> {
   const now = new Date();
-  
+
   try {
     const result = await prisma.affiliateCommissionEvent.updateMany({
       where: {
         status: 'PENDING',
-        OR: [
-          { holdUntil: null },
-          { holdUntil: { lte: now } }
-        ]
+        OR: [{ holdUntil: null }, { holdUntil: { lte: now } }],
       },
       data: {
         status: 'APPROVED',
-        approvedAt: now
-      }
+        approvedAt: now,
+      },
     });
 
     logger.info('[AffiliateCommission] Approved pending commissions', {
-      count: result.count
+      count: result.count,
     });
 
     return {
       approved: result.count,
-      errors: 0
+      errors: 0,
     };
-
   } catch (error) {
     logger.error('[AffiliateCommission] Error approving commissions', error);
     return {
       approved: 0,
-      errors: 1
+      errors: 1,
     };
   }
 }
@@ -953,12 +949,10 @@ export async function checkIfFirstPayment(
     where: {
       patientId,
       status: 'SUCCEEDED',
-      stripePaymentIntentId: currentPaymentId 
-        ? { not: currentPaymentId }
-        : undefined
-    }
+      stripePaymentIntentId: currentPaymentId ? { not: currentPaymentId } : undefined,
+    },
   });
-  
+
   return priorPayments === 0;
 }
 
@@ -978,115 +972,124 @@ export async function getAffiliateCommissionStats(
 ) {
   const dateFilter = {
     ...(fromDate && { gte: fromDate }),
-    ...(toDate && { lte: toDate })
+    ...(toDate && { lte: toDate }),
   };
 
-  const [
-    pendingStats,
-    approvedStats,
-    paidStats,
-    reversedStats,
-    dailyTrends
-  ] = await Promise.all([
+  const [pendingStats, approvedStats, paidStats, reversedStats, dailyTrends] = await Promise.all([
     // Pending commissions
     prisma.affiliateCommissionEvent.aggregate({
       where: {
         affiliateId,
         clinicId,
         status: 'PENDING',
-        ...(fromDate || toDate ? { occurredAt: dateFilter } : {})
+        ...(fromDate || toDate ? { occurredAt: dateFilter } : {}),
       },
       _sum: { commissionAmountCents: true },
-      _count: true
+      _count: true,
     }),
-    
+
     // Approved commissions (ready for payout)
     prisma.affiliateCommissionEvent.aggregate({
       where: {
         affiliateId,
         clinicId,
         status: 'APPROVED',
-        ...(fromDate || toDate ? { occurredAt: dateFilter } : {})
+        ...(fromDate || toDate ? { occurredAt: dateFilter } : {}),
       },
       _sum: { commissionAmountCents: true },
-      _count: true
+      _count: true,
     }),
-    
+
     // Paid commissions
     prisma.affiliateCommissionEvent.aggregate({
       where: {
         affiliateId,
         clinicId,
         status: 'PAID',
-        ...(fromDate || toDate ? { occurredAt: dateFilter } : {})
+        ...(fromDate || toDate ? { occurredAt: dateFilter } : {}),
       },
       _sum: { commissionAmountCents: true },
-      _count: true
+      _count: true,
     }),
-    
+
     // Reversed commissions
     prisma.affiliateCommissionEvent.aggregate({
       where: {
         affiliateId,
         clinicId,
         status: 'REVERSED',
-        ...(fromDate || toDate ? { occurredAt: dateFilter } : {})
+        ...(fromDate || toDate ? { occurredAt: dateFilter } : {}),
       },
       _sum: { commissionAmountCents: true },
-      _count: true
+      _count: true,
     }),
-    
+
     // Daily breakdown (aggregated - no individual records)
-    prisma.$queryRaw`
-      SELECT 
-        DATE_TRUNC('day', "occurredAt") as date,
-        COUNT(*) as conversions,
-        SUM("eventAmountCents") as revenue_cents,
-        SUM("commissionAmountCents") as commission_cents
-      FROM "AffiliateCommissionEvent"
-      WHERE "affiliateId" = ${affiliateId}
-        AND "clinicId" = ${clinicId}
-        AND "status" != 'REVERSED'
-        ${fromDate ? prisma.$queryRaw`AND "occurredAt" >= ${fromDate}` : prisma.$queryRaw``}
-        ${toDate ? prisma.$queryRaw`AND "occurredAt" <= ${toDate}` : prisma.$queryRaw``}
-      GROUP BY DATE_TRUNC('day', "occurredAt")
-      ORDER BY date DESC
-      LIMIT 90
-    `
+    // Enterprise audit P0: use Prisma.sql + Prisma.join for dynamic WHERE to avoid SQL injection
+    (() => {
+      const conditions: Prisma.Sql[] = [
+        Prisma.sql`"affiliateId" = ${affiliateId}`,
+        Prisma.sql`"clinicId" = ${clinicId}`,
+        Prisma.sql`"status" != 'REVERSED'`,
+      ];
+      if (fromDate) conditions.push(Prisma.sql`"occurredAt" >= ${fromDate}`);
+      if (toDate) conditions.push(Prisma.sql`"occurredAt" <= ${toDate}`);
+      const whereClause = Prisma.join(conditions, ' AND ');
+      return prisma.$queryRaw<
+        Array<{
+          date: Date;
+          conversions: number;
+          revenue_cents: number | null;
+          commission_cents: number | null;
+        }>
+      >(Prisma.sql`
+        SELECT 
+          DATE_TRUNC('day', "occurredAt") as date,
+          COUNT(*)::int as conversions,
+          SUM("eventAmountCents")::bigint as revenue_cents,
+          SUM("commissionAmountCents")::bigint as commission_cents
+        FROM "AffiliateCommissionEvent"
+        WHERE ${whereClause}
+        GROUP BY DATE_TRUNC('day', "occurredAt")
+        ORDER BY date DESC
+        LIMIT 90
+      `);
+    })(),
   ]);
 
   // Apply small-number suppression for HIPAA compliance
   // If daily count < 5, suppress the specific day data
-  const suppressedTrends = (dailyTrends as any[]).map(day => ({
+  const suppressedTrends = (dailyTrends as any[]).map((day) => ({
     date: day.date,
     conversions: Number(day.conversions) < 5 ? '<5' : Number(day.conversions),
     revenueCents: Number(day.conversions) < 5 ? null : Number(day.revenue_cents),
-    commissionCents: Number(day.conversions) < 5 ? null : Number(day.commission_cents)
+    commissionCents: Number(day.conversions) < 5 ? null : Number(day.commission_cents),
   }));
 
   return {
     pending: {
       count: pendingStats._count,
-      amountCents: pendingStats._sum.commissionAmountCents || 0
+      amountCents: pendingStats._sum.commissionAmountCents || 0,
     },
     approved: {
       count: approvedStats._count,
-      amountCents: approvedStats._sum.commissionAmountCents || 0
+      amountCents: approvedStats._sum.commissionAmountCents || 0,
     },
     paid: {
       count: paidStats._count,
-      amountCents: paidStats._sum.commissionAmountCents || 0
+      amountCents: paidStats._sum.commissionAmountCents || 0,
     },
     reversed: {
       count: reversedStats._count,
-      amountCents: reversedStats._sum.commissionAmountCents || 0
+      amountCents: reversedStats._sum.commissionAmountCents || 0,
     },
     totals: {
       conversions: pendingStats._count + approvedStats._count + paidStats._count,
-      revenueCents: (pendingStats._sum.commissionAmountCents || 0) +
-                    (approvedStats._sum.commissionAmountCents || 0) +
-                    (paidStats._sum.commissionAmountCents || 0)
+      revenueCents:
+        (pendingStats._sum.commissionAmountCents || 0) +
+        (approvedStats._sum.commissionAmountCents || 0) +
+        (paidStats._sum.commissionAmountCents || 0),
     },
-    dailyTrends: suppressedTrends
+    dailyTrends: suppressedTrends,
   };
 }

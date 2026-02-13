@@ -2,11 +2,14 @@
 
 ## 🎯 Overview
 
-The Zoom Telehealth integration provides secure, HIPAA-compliant video consultations between healthcare providers and patients. This integration leverages Zoom's healthcare-specific features for virtual medical appointments.
+The Zoom Telehealth integration provides secure, HIPAA-compliant video consultations between
+healthcare providers and patients. This integration leverages Zoom's healthcare-specific features
+for virtual medical appointments.
 
 ## ✨ Features
 
 ### Core Functionality
+
 - **HD Video Consultations**: High-quality video calls with stable connections
 - **Waiting Room**: Patients wait in virtual lobby until provider admits them
 - **Screen Sharing**: Share medical images, test results, or educational materials
@@ -16,6 +19,7 @@ The Zoom Telehealth integration provides secure, HIPAA-compliant video consultat
 - **Multi-participant**: Support for interpreters or family members
 
 ### Healthcare-Specific Features
+
 - **HIPAA Compliance**: End-to-end encryption for PHI protection
 - **Virtual Backgrounds**: Professional backgrounds for providers
 - **Breakout Rooms**: Private discussions during group sessions
@@ -29,6 +33,7 @@ The Zoom Telehealth integration provides secure, HIPAA-compliant video consultat
 ### 1. Zoom Account Setup
 
 1. **Create Zoom Healthcare Account**
+
    ```
    1. Go to https://zoom.us/healthcare
    2. Sign up for a Healthcare plan (required for HIPAA compliance)
@@ -36,6 +41,7 @@ The Zoom Telehealth integration provides secure, HIPAA-compliant video consultat
    ```
 
 2. **Enable HIPAA Settings**
+
    ```
    Admin Dashboard > Advanced > HIPAA Compliance
    - Enable all HIPAA requirements
@@ -115,7 +121,7 @@ model TelehealthSession {
   metadata     Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  
+
   patient      Patient  @relation(fields: [patientId], references: [id])
   provider     Provider @relation(fields: [providerId], references: [id])
 }
@@ -166,7 +172,7 @@ model TelehealthSession {
 import { createZoomMeeting } from '@/lib/integrations/zoom/meetingService';
 
 const meeting = await createZoomMeeting({
-  topic: "Follow-up Consultation",
+  topic: 'Follow-up Consultation',
   duration: 30, // minutes
   patientId: 123,
   providerId: 456,
@@ -174,7 +180,7 @@ const meeting = await createZoomMeeting({
   settings: {
     waitingRoom: true,
     autoRecording: 'cloud',
-  }
+  },
 });
 
 console.log('Meeting URL:', meeting.joinUrl);
@@ -191,7 +197,7 @@ import MeetingRoom from '@/components/zoom/MeetingRoom';
   userName="Dr. Smith"
   role="host"
   onMeetingEnd={() => console.log('Meeting ended')}
-/>
+/>;
 ```
 
 ## 🧪 Testing
@@ -207,6 +213,7 @@ ZOOM_USE_MOCK=true
 ### Test Scenarios
 
 1. **Schedule Meeting**
+
    ```bash
    curl -X POST http://localhost:3000/api/v2/zoom/meetings \
      -H "Content-Type: application/json" \
@@ -238,7 +245,7 @@ for (let i = 0; i < 10; i++) {
   await joinMeeting({
     meetingId: '123456789',
     userName: `Patient ${i}`,
-    role: 'participant'
+    role: 'participant',
   });
 }
 ```
@@ -246,31 +253,36 @@ for (let i = 0; i < 10; i++) {
 ## 🔒 Security & HIPAA Compliance
 
 ### Encryption
+
 - **End-to-End Encryption**: Available for maximum security
 - **AES 256-bit GCM Encryption**: For all meetings
 - **Encrypted Cloud Recording**: Recordings encrypted at rest
 
 ### Access Control
+
 - **Meeting Passwords**: Auto-generated unique passwords
 - **Waiting Room**: Screen patients before admission
 - **Locked Meetings**: Prevent unauthorized joins
 - **Host Controls**: Mute/remove participants
 
 ### Compliance Features
+
 ```typescript
 // Ensure HIPAA compliance
 const meetingSettings = {
-  waitingRoom: true,           // Required
-  requirePassword: true,        // Required
-  muteUponEntry: true,         // Recommended
-  autoRecording: 'cloud',      // With consent
+  waitingRoom: true, // Required
+  requirePassword: true, // Required
+  muteUponEntry: true, // Recommended
+  autoRecording: 'cloud', // With consent
   authenticationRequired: true, // For known patients
-  encryptionType: 'enhanced',  // E2EE available
+  encryptionType: 'enhanced', // E2EE available
 };
 ```
 
 ### Audit Trail
+
 All actions are logged:
+
 - Meeting creation/deletion
 - Participant join/leave times
 - Recording start/stop
@@ -279,6 +291,7 @@ All actions are logged:
 ## 📊 Monitoring & Analytics
 
 ### Key Metrics
+
 - Average consultation duration
 - No-show rate
 - Technical issues rate
@@ -286,9 +299,10 @@ All actions are logged:
 - Provider utilization
 
 ### Dashboard Metrics
+
 ```sql
 -- Daily consultation stats
-SELECT 
+SELECT
   DATE(scheduledAt) as date,
   COUNT(*) as total_meetings,
   AVG(duration) as avg_duration,
@@ -298,6 +312,7 @@ GROUP BY DATE(scheduledAt);
 ```
 
 ### Quality Monitoring
+
 - Video quality metrics
 - Audio quality scores
 - Connection stability
@@ -308,6 +323,7 @@ GROUP BY DATE(scheduledAt);
 ### Common Issues
 
 1. **"Cannot connect to meeting"**
+
    ```
    - Check internet connection (minimum 1.5 Mbps)
    - Verify browser compatibility
@@ -316,6 +332,7 @@ GROUP BY DATE(scheduledAt);
    ```
 
 2. **"Waiting room not working"**
+
    ```
    - Ensure waiting room is enabled in settings
    - Check host has joined meeting
@@ -323,6 +340,7 @@ GROUP BY DATE(scheduledAt);
    ```
 
 3. **"Recording not available"**
+
    ```
    - Confirm cloud recording is enabled
    - Check storage quota
@@ -340,6 +358,7 @@ GROUP BY DATE(scheduledAt);
 ## 🎯 Best Practices
 
 ### For Providers
+
 1. Join meetings 5 minutes early
 2. Test equipment before first patient
 3. Have backup communication method
@@ -347,6 +366,7 @@ GROUP BY DATE(scheduledAt);
 5. Record with explicit consent only
 
 ### For System Admins
+
 1. Regular testing of integration
 2. Monitor Zoom API limits
 3. Backup recording storage
@@ -354,6 +374,7 @@ GROUP BY DATE(scheduledAt);
 5. Review security settings monthly
 
 ### For Developers
+
 1. Implement retry logic for API calls
 2. Handle meeting capacity limits
 3. Cache meeting details appropriately
@@ -363,6 +384,7 @@ GROUP BY DATE(scheduledAt);
 ## 📈 Roadmap
 
 ### Phase 1 (Current)
+
 - ✅ Basic video consultations
 - ✅ Waiting room
 - ✅ Screen sharing
@@ -370,6 +392,7 @@ GROUP BY DATE(scheduledAt);
 - ✅ Meeting scheduling
 
 ### Phase 2 (Next)
+
 - [ ] Calendar sync (Google, Outlook)
 - [ ] Automated transcription
 - [ ] AI meeting summaries
@@ -377,6 +400,7 @@ GROUP BY DATE(scheduledAt);
 - [ ] Multi-language support
 
 ### Phase 3 (Future)
+
 - [ ] VR consultations
 - [ ] IoT device integration
 - [ ] Real-time vitals monitoring
@@ -386,12 +410,14 @@ GROUP BY DATE(scheduledAt);
 ## 🆘 Support
 
 ### Resources
+
 - **Zoom Healthcare**: https://zoom.us/healthcare
 - **API Documentation**: https://marketplace.zoom.us/docs/api-reference
 - **SDK Documentation**: https://marketplace.zoom.us/docs/sdk/native-sdks/web
 - **Status Page**: https://status.zoom.us/
 
 ### Getting Help
+
 1. Check this documentation
 2. Review Zoom's healthcare guides
 3. Contact Zoom support (for account issues)

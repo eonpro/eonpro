@@ -1,6 +1,6 @@
 /**
  * AWS S3 Signed URL API Endpoint
- * 
+ *
  * Generates signed URLs for secure file access
  */
 
@@ -15,10 +15,7 @@ export async function POST(request: NextRequest) {
     const { key, operation = 'GET', expiresIn = 3600 } = await request.json();
 
     if (!key) {
-      return NextResponse.json(
-        { error: 'File key is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'File key is required' }, { status: 400 });
     }
 
     // Check if feature is enabled
@@ -34,10 +31,7 @@ export async function POST(request: NextRequest) {
 
     // Check if S3 is configured
     if (!isS3Enabled()) {
-      return NextResponse.json(
-        { error: S3_ERRORS.NOT_CONFIGURED },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: S3_ERRORS.NOT_CONFIGURED }, { status: 503 });
     }
 
     // Generate signed URL
@@ -50,10 +44,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Signed URL] Error:', error);
-    
+
     return NextResponse.json(
       { error: errorMessage || 'Failed to generate signed URL' },
       { status: 500 }

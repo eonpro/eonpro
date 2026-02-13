@@ -521,6 +521,7 @@ enum PatientDocumentCategory {
   CONSENT_FORMS
   PRESCRIPTIONS
   IMAGING
+  ID_PHOTO
   OTHER
 }
 

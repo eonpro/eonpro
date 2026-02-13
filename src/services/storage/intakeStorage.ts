@@ -1,4 +1,4 @@
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
 export type StoredPdf = {
   filename: string;
@@ -27,7 +27,9 @@ export async function storeIntakePdf(options: StoreIntakePdfOptions): Promise<St
   const cleanSubmissionId = submissionId.replace(/[^a-zA-Z0-9-_]/g, '').slice(0, 30);
   const filename = `patient_${patientId}_${cleanSubmissionId}-${timestamp}.pdf`;
 
-  logger.info(`[INTAKE STORAGE] Prepared PDF for database storage: ${filename}, size: ${pdfBuffer.length} bytes`);
+  logger.info(
+    `[INTAKE STORAGE] Prepared PDF for database storage: ${filename}, size: ${pdfBuffer.length} bytes`
+  );
 
   // Return the buffer to be stored in the database
   // The webhook handler will store this in PatientDocument.data

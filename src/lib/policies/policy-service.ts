@@ -1,8 +1,8 @@
 /**
  * Policy Management Service
- * 
+ *
  * Handles digital signatures for policy approvals (SOC 2 compliant)
- * 
+ *
  * Features:
  * - Executive policy approvals with digital signatures
  * - Employee policy acknowledgments
@@ -166,14 +166,12 @@ export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]
     where: { status: 'ACTIVE' },
   });
 
-  return policies.map((policy: typeof policies[number]) => {
+  return policies.map((policy: (typeof policies)[number]) => {
     const requiredApprovals = ['executive_approval', 'ciso_approval'];
     const existingApprovalTypes = policy.PolicyApproval.map(
       (a: { approvalType: string }) => a.approvalType
     );
-    const isFullyApproved = requiredApprovals.every((type) =>
-      existingApprovalTypes.includes(type)
-    );
+    const isFullyApproved = requiredApprovals.every((type) => existingApprovalTypes.includes(type));
 
     return {
       id: policy.id,
@@ -182,11 +180,13 @@ export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]
       version: policy.version,
       status: policy.status,
       requiredApprovals,
-      approvals: policy.PolicyApproval.map((a: { approvalType: string; userName: string; approvedAt: Date }) => ({
-        type: a.approvalType,
-        approvedBy: a.userName,
-        approvedAt: a.approvedAt,
-      })),
+      approvals: policy.PolicyApproval.map(
+        (a: { approvalType: string; userName: string; approvedAt: Date }) => ({
+          type: a.approvalType,
+          approvedBy: a.userName,
+          approvedAt: a.approvedAt,
+        })
+      ),
       isFullyApproved,
       acknowledgmentStats: {
         total: totalUsers,
@@ -203,7 +203,7 @@ export async function getAllPoliciesWithStatus(): Promise<PolicyApprovalStatus[]
 
 /**
  * Record an executive approval (digital signature)
- * 
+ *
  * This creates a legally binding digital signature with:
  * - Authenticated user identity
  * - Timestamp
@@ -255,9 +255,7 @@ export async function approvePolicy(
 
     const requiredApprovals = ['executive_approval', 'ciso_approval'];
     const existingTypes = approvals.map((a: { approvalType: string }) => a.approvalType);
-    const isFullyApproved = requiredApprovals.every((type) =>
-      existingTypes.includes(type)
-    );
+    const isFullyApproved = requiredApprovals.every((type) => existingTypes.includes(type));
 
     if (isFullyApproved) {
       await prisma.policy.update({
@@ -432,7 +430,7 @@ export async function generateComplianceReport(): Promise<{
 }> {
   const policies = await getAllPoliciesWithStatus();
 
-  // Get acknowledgments by clinic
+  // Cross-tenant aggregation by clinic (super-admin only). Callers must enforce super_admin or filter to single clinic.
   const clinicStats = await prisma.$queryRaw<ClinicStatRow[]>`
     SELECT 
       c.id as "clinicId",
@@ -450,7 +448,8 @@ export async function generateComplianceReport(): Promise<{
     clinicName: c.clinicName,
     acknowledged: Number(c.acknowledged),
     total: Number(c.total),
-    percentage: Number(c.total) > 0 ? Math.round((Number(c.acknowledged) / Number(c.total)) * 100) : 0,
+    percentage:
+      Number(c.total) > 0 ? Math.round((Number(c.acknowledged) / Number(c.total)) * 100) : 0,
   }));
 
   const fullyApproved = policies.filter((p) => p.isFullyApproved).length;
@@ -458,10 +457,7 @@ export async function generateComplianceReport(): Promise<{
     (sum, p) => sum + (p.acknowledgmentStats?.acknowledged || 0),
     0
   );
-  const totalRequired = policies.reduce(
-    (sum, p) => sum + (p.acknowledgmentStats?.total || 0),
-    0
-  );
+  const totalRequired = policies.reduce((sum, p) => sum + (p.acknowledgmentStats?.total || 0), 0);
 
   return {
     generatedAt: new Date(),
@@ -523,25 +519,27 @@ export async function exportApprovalCertificate(policyId: string): Promise<{
       effectiveDate: policy.effectiveDate,
       contentHash: policy.contentHash,
     },
-    approvals: policy.PolicyApproval.map((a: {
-      approvalType: string;
-      userName: string;
-      userEmail: string;
-      userRole: string;
-      approvedAt: Date;
-      ipAddress: string;
-      signatureStatement: string;
-      contentHashAtApproval: string;
-    }) => ({
-      approvalType: a.approvalType,
-      approvedBy: a.userName,
-      email: a.userEmail,
-      role: a.userRole,
-      approvedAt: a.approvedAt,
-      ipAddress: a.ipAddress,
-      signatureStatement: a.signatureStatement,
-      contentHashAtApproval: a.contentHashAtApproval,
-    })),
+    approvals: policy.PolicyApproval.map(
+      (a: {
+        approvalType: string;
+        userName: string;
+        userEmail: string;
+        userRole: string;
+        approvedAt: Date;
+        ipAddress: string;
+        signatureStatement: string;
+        contentHashAtApproval: string;
+      }) => ({
+        approvalType: a.approvalType,
+        approvedBy: a.userName,
+        email: a.userEmail,
+        role: a.userRole,
+        approvedAt: a.approvedAt,
+        ipAddress: a.ipAddress,
+        signatureStatement: a.signatureStatement,
+        contentHashAtApproval: a.contentHashAtApproval,
+      })
+    ),
     integrityVerified,
   };
 }

@@ -15,7 +15,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth';
 import { logger } from '@/lib/logger';
-import { reportTicketError } from '@/domains/ticket';
+import { handleApiError } from '@/domains/shared/errors';
+import { ticketService, reportTicketError } from '@/domains/ticket';
+import type { TicketListFilters, TicketListOptions } from '@/domains/ticket';
 
 /**
  * Check if the error indicates a missing table or schema issue
@@ -69,36 +71,99 @@ export const OPTIONS = async () => {
  */
 export const GET = withAuth(async (request, user) => {
   try {
+    // Non–super_admin without clinicId: return empty list (no leak) so the UI still loads
+    const effectiveClinicId =
+      user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
+    const hasClinicContext = user.role === 'super_admin' || (user.clinicId != null && user.clinicId !== undefined);
+
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10)), 100);
-    const skip = (page - 1) * limit;
-
-    // Optional filters
-    const status = searchParams.get('status');
-    const priority = searchParams.get('priority');
-    const assignedToId = searchParams.get('assignedToId');
-    const search = searchParams.get('search');
+    const search = searchParams.get('search') || undefined;
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
 
-    // Build where clause - filter by clinic if not super admin
-    const whereClause: Record<string, unknown> = {};
+    // Multi-value and quick filters (from UI)
+    const statusList = searchParams.getAll('status').filter(Boolean);
+    const priorityList = searchParams.getAll('priority').filter(Boolean);
+    const myTickets = searchParams.get('myTickets') === 'true';
+    const isUnassigned = searchParams.get('isUnassigned') === 'true';
+    const hasSlaBreach = searchParams.get('hasSlaBreach') === 'true';
+    const assignedToIdParam = searchParams.get('assignedToId');
+    const assignedToId = assignedToIdParam ? parseInt(assignedToIdParam, 10) : undefined;
 
-    if (user.role !== 'super_admin' && user.clinicId) {
-      whereClause.clinicId = user.clinicId;
+    if (!hasClinicContext) {
+      return NextResponse.json({
+        tickets: [],
+        pagination: {
+          page: 1,
+          limit,
+          total: 0,
+          totalPages: 0,
+          hasMore: false,
+        },
+        warning: 'Select a clinic to view tickets.',
+      });
     }
 
-    // Apply optional filters
-    if (status) {
-      whereClause.status = status;
+    const userContext = {
+      id: user.id,
+      email: user.email ?? '',
+      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
+      clinicId: user.clinicId ?? null,
+    };
+
+    const filters: TicketListFilters = {
+      clinicId: effectiveClinicId,
+      status: statusList.length ? (statusList as import('@prisma/client').TicketStatus[]) : undefined,
+      priority: priorityList.length ? (priorityList as import('@prisma/client').TicketPriority[]) : undefined,
+      assignedToId,
+      myTickets,
+      isUnassigned,
+      hasSlaBreach,
+      search,
+    };
+
+    const options: TicketListOptions = {
+      page,
+      limit,
+      sortBy: ['createdAt', 'updatedAt', 'lastActivityAt', 'priority', 'status', 'ticketNumber', 'dueDate'].includes(sortBy)
+        ? sortBy as TicketListOptions['sortBy']
+        : 'createdAt',
+      sortOrder,
+    };
+
+    try {
+      const result = await ticketService.list(filters, options, userContext);
+      return NextResponse.json({
+        tickets: result.tickets,
+        pagination: result.pagination,
+      });
+    } catch (listError) {
+      // If schema/domain fails (e.g. migration not run), fall back to inline query with same filters
+      if (!isSchemaMismatchError(listError)) {
+        throw listError;
+      }
+      logger.warn('[API] Tickets GET - list service failed, using fallback', {
+        error: listError instanceof Error ? listError.message : String(listError),
+      });
     }
-    if (priority) {
-      whereClause.priority = priority;
-    }
-    if (assignedToId) {
-      whereClause.assignedToId = parseInt(assignedToId, 10);
-    }
+
+    // Fallback: inline Prisma query with full filter support and lastActivityAt + sla
+    const skip = (page - 1) * limit;
+    const validSortFields = ['createdAt', 'updatedAt', 'lastActivityAt', 'priority', 'status', 'ticketNumber'];
+    const orderByField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const orderBy = { [orderByField]: sortOrder };
+
+    const whereClause: Prisma.TicketWhereInput = {
+      clinicId: user.clinicId ?? undefined,
+    };
+    if (statusList.length) whereClause.status = { in: statusList as import('@prisma/client').TicketStatus[] };
+    if (priorityList.length) whereClause.priority = { in: priorityList as import('@prisma/client').TicketPriority[] };
+    if (myTickets) whereClause.assignedToId = user.id;
+    else if (isUnassigned) whereClause.assignedToId = null;
+    else if (assignedToId != null) whereClause.assignedToId = assignedToId;
+    if (hasSlaBreach) whereClause.sla = { breached: true };
     if (search) {
       whereClause.OR = [
         { title: { contains: search, mode: 'insensitive' } },
@@ -107,17 +172,10 @@ export const GET = withAuth(async (request, user) => {
       ];
     }
 
-    // Build orderBy - only use supported fields
-    const validSortFields = ['createdAt', 'updatedAt', 'priority', 'status', 'ticketNumber'];
-    const orderByField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    const orderBy = { [orderByField]: sortOrder };
-
-    // Try enterprise query first, fall back to basic if schema mismatch
     let tickets: unknown[];
     let total: number;
 
     try {
-      // Full enterprise query with all relations
       [tickets, total] = await Promise.all([
         prisma.ticket.findMany({
           where: whereClause,
@@ -134,6 +192,8 @@ export const GET = withAuth(async (request, user) => {
             category: true,
             createdAt: true,
             updatedAt: true,
+            lastActivityAt: true,
+            dueDate: true,
             assignedTo: {
               select: {
                 id: true,
@@ -157,30 +217,31 @@ export const GET = withAuth(async (request, user) => {
                 patientId: true,
               },
             },
+            sla: {
+              select: {
+                firstResponseDue: true,
+                resolutionDue: true,
+                breached: true,
+              },
+            },
             _count: {
               select: {
                 comments: true,
+                attachmentFiles: true,
+                watchers: true,
               },
             },
           },
         }),
         prisma.ticket.count({ where: whereClause }),
       ]);
-    } catch (enterpriseError) {
-      // Log the actual error for debugging
-      logger.error('[API] Tickets GET - enterprise query failed', {
-        error: enterpriseError instanceof Error ? enterpriseError.message : String(enterpriseError),
-        stack: enterpriseError instanceof Error ? enterpriseError.stack : undefined,
-      });
-
-      // If enterprise features aren't available, try basic query
-      if (isSchemaMismatchError(enterpriseError)) {
-        logger.warn('[API] Tickets GET - using fallback basic query');
-
+    } catch (fallbackError) {
+      if (isSchemaMismatchError(fallbackError)) {
+        logger.warn('[API] Tickets GET - fallback also failed (lastActivityAt/sla may be missing)');
         [tickets, total] = await Promise.all([
           prisma.ticket.findMany({
             where: whereClause,
-            orderBy,
+            orderBy: { createdAt: sortOrder },
             skip,
             take: limit,
             select: {
@@ -216,18 +277,17 @@ export const GET = withAuth(async (request, user) => {
                   patientId: true,
                 },
               },
+              _count: { select: { comments: true } },
             },
           }),
           prisma.ticket.count({ where: whereClause }),
         ]);
       } else {
-        // Re-throw if it's not a schema issue
-        throw enterpriseError;
+        throw fallbackError;
       }
     }
 
     const totalPages = Math.ceil(total / limit);
-
     return NextResponse.json({
       tickets,
       pagination: {
@@ -283,10 +343,11 @@ export const GET = withAuth(async (request, user) => {
       });
     }
 
-    return NextResponse.json(
-      { error: 'Failed to fetch tickets', message: errorMessage },
-      { status: 500 }
-    );
+    // Domain/validation/not-found/forbidden and other errors get consistent handling
+    return handleApiError(error, {
+      route: 'GET /api/tickets',
+      context: { userId: user.id, clinicId: user.clinicId },
+    });
   }
 });
 
@@ -299,10 +360,7 @@ export const GET = withAuth(async (request, user) => {
 export const POST = withAuth(async (request, user) => {
   try {
     if (!user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -311,156 +369,46 @@ export const POST = withAuth(async (request, user) => {
     const clinicId = body.clinicId || user.clinicId;
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     // Validate required fields
     if (!body.title?.trim()) {
-      return NextResponse.json(
-        { error: 'Title is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
     if (!body.description?.trim()) {
-      return NextResponse.json(
-        { error: 'Description is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Description is required' }, { status: 400 });
     }
 
-    // Generate ticket number atomically to prevent duplicates
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: { subdomain: true },
-    });
-    const prefix = clinic?.subdomain?.toUpperCase().slice(0, 3) || 'TKT';
+    const userContext = {
+      id: user.id,
+      email: user.email ?? '',
+      role: user.role.toLowerCase() as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
+      clinicId: user.clinicId ?? null,
+    };
 
-    // Use transaction for atomic ticket number generation
-    const ticket = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const ticketCount = await tx.ticket.count({ where: { clinicId } });
-      const ticketNumber = `${prefix}-${String(ticketCount + 1).padStart(6, '0')}`;
+    const createData = {
+      clinicId,
+      title: body.title.trim(),
+      description: body.description.trim(),
+      category: body.category || 'GENERAL',
+      priority: body.priority || 'P3_MEDIUM',
+      source: body.source || 'INTERNAL',
+      assignedToId: body.assignedToId ?? undefined,
+      teamId: body.teamId ?? undefined,
+      patientId: body.patientId ?? undefined,
+      orderId: body.orderId ?? undefined,
+      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+      tags: Array.isArray(body.tags) ? body.tags : undefined,
+      customFields: body.customFields,
+      reporterEmail: body.reporterEmail,
+      reporterName: body.reporterName,
+      reporterPhone: body.reporterPhone,
+      parentTicketId: body.parentTicketId ?? undefined,
+    };
 
-      // Build create data - only include enterprise fields if they exist in schema
-      const createData: Record<string, unknown> = {
-        clinicId,
-        ticketNumber,
-        title: body.title.trim(),
-        description: body.description.trim(),
-        category: body.category || 'GENERAL',
-        priority: body.priority || 'P3_MEDIUM',
-        status: 'NEW',
-        createdById: user.id,
-        assignedToId: body.assignedToId || null,
-        patientId: body.patientId || null,
-        orderId: body.orderId || null,
-      };
-
-      // Add enterprise fields if provided (these may fail if migration not run)
-      if (body.source) createData.source = body.source;
-      if (body.teamId) createData.teamId = body.teamId;
-      if (body.dueDate) createData.dueDate = new Date(body.dueDate);
-      if (body.tags) createData.tags = body.tags;
-      if (body.customFields) createData.customFields = body.customFields;
-      if (body.reporterEmail) createData.reporterEmail = body.reporterEmail;
-      if (body.reporterName) createData.reporterName = body.reporterName;
-      if (body.reporterPhone) createData.reporterPhone = body.reporterPhone;
-      if (body.parentTicketId) createData.parentTicketId = body.parentTicketId;
-      if (body.assignedToId) createData.assignedAt = new Date();
-
-      try {
-        // Try full enterprise create
-        return await tx.ticket.create({
-          data: createData as never,
-          include: {
-            createdBy: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            assignedTo: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                patientId: true,
-              },
-            },
-          },
-        });
-      } catch (createError) {
-        // If enterprise fields fail, try basic create
-        if (isSchemaMismatchError(createError)) {
-          logger.warn('[API] Tickets POST - using basic create (enterprise migration pending)', {
-            error: createError instanceof Error ? createError.message : String(createError),
-          });
-
-          // Basic create without enterprise fields
-          return await tx.ticket.create({
-            data: {
-              clinicId,
-              ticketNumber,
-              title: body.title.trim(),
-              description: body.description.trim(),
-              category: body.category || 'GENERAL',
-              priority: body.priority || 'MEDIUM', // Use basic enum value
-              status: 'OPEN', // Use basic enum value
-              createdById: user.id,
-              assignedToId: body.assignedToId || null,
-              patientId: body.patientId || null,
-              orderId: body.orderId || null,
-            },
-            include: {
-              createdBy: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-              assignedTo: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-              clinic: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-          });
-        }
-        throw createError;
-      }
-    }, {
-      timeout: 10000, // 10 second timeout
-    });
+    const ticket = await ticketService.create(createData, userContext);
 
     logger.info('[API] Tickets POST - ticket created', {
       ticketId: ticket.id,
@@ -489,6 +437,10 @@ export const POST = withAuth(async (request, user) => {
       userId: user.id,
       clinicId: user.clinicId,
     });
+
+    // Domain errors (validation, forbidden, etc.) get correct status via handleApiError
+    const response = handleApiError(error, { route: 'POST /api/tickets' });
+    if (response.status !== 500) return response;
 
     // Database connection errors
     if (isDatabaseConnectionError(error)) {

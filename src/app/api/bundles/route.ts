@@ -16,11 +16,18 @@ const bundleSchema = z.object({
   shortDescription: z.string().optional(),
   bundlePrice: z.number().min(0), // Price in cents
   billingType: z.enum(['ONE_TIME', 'RECURRING']).default('ONE_TIME'),
-  billingInterval: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM']).optional().nullable(),
-  items: z.array(z.object({
-    productId: z.number(),
-    quantity: z.number().min(1).default(1),
-  })).min(1),
+  billingInterval: z
+    .enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'CUSTOM'])
+    .optional()
+    .nullable(),
+  items: z
+    .array(
+      z.object({
+        productId: z.number(),
+        quantity: z.number().min(1).default(1),
+      })
+    )
+    .min(1),
   isActive: z.boolean().default(true),
   isVisible: z.boolean().default(true),
   displayOrder: z.number().default(0),
@@ -64,10 +71,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
       },
-      orderBy: [
-        { displayOrder: 'asc' },
-        { name: 'asc' },
-      ],
+      orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
+      take: 100,
     });
 
     return NextResponse.json({ bundles });
@@ -93,17 +98,20 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     }
 
     // Fetch products to calculate regular price
-    const productIds = validated.items.map(i => i.productId);
+    const productIds = validated.items.map((i) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds }, clinicId },
     });
 
     if (products.length !== productIds.length) {
-      return NextResponse.json({ error: 'Some products not found or not in your clinic' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Some products not found or not in your clinic' },
+        { status: 400 }
+      );
     }
 
     // Define product type from Prisma query result
-    type ProductRecord = typeof products[number];
+    type ProductRecord = (typeof products)[number];
 
     // Calculate regular price (sum of individual products)
     let regularPrice = 0;
@@ -138,15 +146,20 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
         if (validated.billingType === 'RECURRING' && validated.billingInterval) {
           const intervalMap: Record<string, Stripe.PriceCreateParams.Recurring.Interval> = {
-            'WEEKLY': 'week',
-            'MONTHLY': 'month',
-            'QUARTERLY': 'month',
-            'SEMI_ANNUAL': 'month',
-            'ANNUAL': 'year',
-            'CUSTOM': 'month',
+            WEEKLY: 'week',
+            MONTHLY: 'month',
+            QUARTERLY: 'month',
+            SEMI_ANNUAL: 'month',
+            ANNUAL: 'year',
+            CUSTOM: 'month',
           };
           const countMap: Record<string, number> = {
-            'WEEKLY': 1, 'MONTHLY': 1, 'QUARTERLY': 3, 'SEMI_ANNUAL': 6, 'ANNUAL': 1, 'CUSTOM': 1,
+            WEEKLY: 1,
+            MONTHLY: 1,
+            QUARTERLY: 3,
+            SEMI_ANNUAL: 6,
+            ANNUAL: 1,
+            CUSTOM: 1,
           };
           priceData.recurring = {
             interval: intervalMap[validated.billingInterval],
@@ -183,7 +196,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         stripeProductId,
         stripePriceId,
         items: {
-          create: validated.items.map(item => ({
+          create: validated.items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
           })),
@@ -203,7 +216,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     return NextResponse.json({ bundle });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validation error', details: error.errors }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Validation error', details: error.errors },
+        { status: 400 }
+      );
     }
     logger.error('[Bundles API] Error:', error);
     return NextResponse.json({ error: 'Failed to create bundle' }, { status: 500 });

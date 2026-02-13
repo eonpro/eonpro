@@ -1,6 +1,6 @@
 /**
  * Affiliate Earnings API
- * 
+ *
  * Returns detailed earnings data:
  * - Balance summary
  * - Commission history
@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
+import { logger } from '@/lib/logger';
 
 /**
  * Handle earnings for legacy Influencer model users
@@ -29,22 +30,26 @@ async function handleInfluencerEarnings(influencerId: number) {
 
   // Get legacy commissions
   const [commissions, totalEarningsAgg] = await Promise.all([
-    prisma.commission.findMany({
-      where: { influencerId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      select: {
-        id: true,
-        createdAt: true,
-        commissionAmount: true,
-        status: true,
-        orderAmount: true,
-      },
-    }).catch(() => []),
-    prisma.commission.aggregate({
-      where: { influencerId },
-      _sum: { commissionAmount: true },
-    }).catch(() => ({ _sum: { commissionAmount: null } })),
+    prisma.commission
+      .findMany({
+        where: { influencerId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          createdAt: true,
+          commissionAmount: true,
+          status: true,
+          orderAmount: true,
+        },
+      })
+      .catch(() => []),
+    prisma.commission
+      .aggregate({
+        where: { influencerId },
+        _sum: { commissionAmount: true },
+      })
+      .catch(() => ({ _sum: { commissionAmount: null } })),
   ]);
 
   // Convert to expected format
@@ -76,12 +81,12 @@ async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
     const influencerId = user.influencerId;
-    
+
     // Handle legacy Influencer users
     if (!affiliateId && influencerId) {
       return handleInfluencerEarnings(influencerId);
     }
-    
+
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
@@ -118,7 +123,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { commissionAmountCents: true },
       }),
-      
+
       // Pending balance (still in hold period)
       prisma.affiliateCommissionEvent.aggregate({
         where: {
@@ -127,7 +132,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { commissionAmountCents: true },
       }),
-      
+
       // Processing payouts
       prisma.affiliatePayout.aggregate({
         where: {
@@ -136,21 +141,21 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { netAmountCents: true },
       }),
-      
+
       // Commission events (last 100)
       prisma.affiliateCommissionEvent.findMany({
         where: { affiliateId },
         orderBy: { createdAt: 'desc' },
         take: 100,
       }),
-      
+
       // Payouts
       prisma.affiliatePayout.findMany({
         where: { affiliateId },
         orderBy: { createdAt: 'desc' },
         take: 50,
       }),
-      
+
       // Total paid out
       prisma.affiliatePayout.aggregate({
         where: {
@@ -159,7 +164,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
         _sum: { netAmountCents: true },
       }),
-      
+
       // Lifetime commissions (all approved/paid)
       prisma.affiliateCommissionEvent.aggregate({
         where: {
@@ -171,7 +176,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     ]);
 
     // Format commissions
-    const formattedCommissions = commissionEvents.map((c: typeof commissionEvents[number]) => ({
+    const formattedCommissions = commissionEvents.map((c: (typeof commissionEvents)[number]) => ({
       id: String(c.id),
       createdAt: c.createdAt.toISOString(),
       amount: c.commissionAmountCents,
@@ -182,7 +187,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     }));
 
     // Format payouts
-    const formattedPayouts = payouts.map((p: typeof payouts[number]) => ({
+    const formattedPayouts = payouts.map((p: (typeof payouts)[number]) => ({
       id: String(p.id),
       createdAt: p.createdAt.toISOString(),
       amount: p.amountCents,
@@ -195,10 +200,11 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     // Calculate next payout (estimated)
     const availableBalance = availableCommissions._sum.commissionAmountCents || 0;
     const pendingBalance = pendingCommissions._sum.commissionAmountCents || 0;
-    
+
     // Estimate next payout if there's available balance
     let nextPayout: { date: string; estimatedAmount: number } | undefined;
-    if (availableBalance >= 5000) { // $50 minimum
+    if (availableBalance >= 5000) {
+      // $50 minimum
       // Next weekly payout (Friday)
       const now = new Date();
       const dayOfWeek = now.getDay();
@@ -206,7 +212,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       const nextFriday = new Date(now);
       nextFriday.setDate(now.getDate() + daysUntilFriday);
       nextFriday.setHours(12, 0, 0, 0);
-      
+
       nextPayout = {
         date: nextFriday.toISOString(),
         estimatedAmount: availableBalance,
@@ -226,11 +232,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       nextPayout,
     });
   } catch (error) {
-    console.error('[Affiliate Earnings] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to load earnings' },
-      { status: 500 }
-    );
+    logger.error('[Affiliate Earnings] Error', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: 'Failed to load earnings' }, { status: 500 });
   }
 }
 

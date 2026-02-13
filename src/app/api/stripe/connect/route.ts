@@ -36,10 +36,7 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
     const action = searchParams.get('action'); // 'status', 'onboarding', 'dashboard'
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'clinicId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
     }
 
     const clinicIdNum = parseInt(clinicId);
@@ -62,10 +59,7 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
     });
 
     if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
     // Handle different actions
@@ -110,7 +104,6 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
         connectedAt: clinic.stripeConnectedAt,
       },
     });
-
   } catch (error: any) {
     logger.error('[STRIPE CONNECT] GET Error:', error);
     return NextResponse.json(
@@ -145,24 +138,15 @@ async function createConnectHandler(request: NextRequest, user: AuthUser) {
         );
       }
     } else {
-      return NextResponse.json(
-        { error: 'Unauthorized - admin access required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'clinicId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
     }
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'email is required for Stripe Connect' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'email is required for Stripe Connect' }, { status: 400 });
     }
 
     const result = await createConnectedAccount(clinicId, {
@@ -182,15 +166,11 @@ async function createConnectHandler(request: NextRequest, user: AuthUser) {
       onboardingUrl: result.onboardingUrl,
       message: 'Connected account created. Redirect user to onboardingUrl to complete setup.',
     });
-
   } catch (error: any) {
     logger.error('[STRIPE CONNECT] POST Error:', error);
 
     if (error.message?.includes('already has a connected account')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
 
     return NextResponse.json(
@@ -214,10 +194,7 @@ async function deleteConnectHandler(request: NextRequest, user: AuthUser) {
     const clinicId = searchParams.get('clinicId');
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'clinicId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'clinicId is required' }, { status: 400 });
     }
 
     const clinicIdNum = parseInt(clinicId);
@@ -234,10 +211,7 @@ async function deleteConnectHandler(request: NextRequest, user: AuthUser) {
         );
       }
     } else {
-      return NextResponse.json(
-        { error: 'Unauthorized - admin access required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
     await deleteConnectedAccount(clinicIdNum);
@@ -248,7 +222,6 @@ async function deleteConnectHandler(request: NextRequest, user: AuthUser) {
       success: true,
       message: 'Connected account removed',
     });
-
   } catch (error: any) {
     logger.error('[STRIPE CONNECT] DELETE Error:', error);
     return NextResponse.json(

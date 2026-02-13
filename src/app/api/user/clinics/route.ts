@@ -29,7 +29,19 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     // Build clinics array from user's clinic
-    const clinics: Array<{ id: number; name: string; subdomain: string | null; customDomain: string | null; logoUrl: string | null; iconUrl: string | null; faviconUrl: string | null; primaryColor: string | null; status: string | null; role: string; isPrimary: boolean }> = [];
+    const clinics: Array<{
+      id: number;
+      name: string;
+      subdomain: string | null;
+      customDomain: string | null;
+      logoUrl: string | null;
+      iconUrl: string | null;
+      faviconUrl: string | null;
+      primaryColor: string | null;
+      status: string | null;
+      role: string;
+      isPrimary: boolean;
+    }> = [];
     if (userData?.clinic) {
       clinics.push({
         ...userData.clinic,
@@ -60,15 +72,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             },
           },
         },
-        orderBy: [
-          { isPrimary: 'desc' },
-          { createdAt: 'asc' },
-        ],
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        take: 100,
       });
 
       // Add any additional clinics not already included
       for (const uc of userClinics) {
-        if (!clinics.find(c => c.id === uc.clinic.id)) {
+        if (!clinics.find((c) => c.id === uc.clinic.id)) {
           clinics.push({
             ...uc.clinic,
             role: uc.role,
@@ -89,10 +99,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
   } catch (error: any) {
     logger.error('Error fetching user clinics', { error: error.message, userId: user.id });
-    return NextResponse.json(
-      { error: 'Failed to fetch clinics' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
 }
 
@@ -103,10 +110,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     const { clinicId } = body;
 
     if (!clinicId) {
-      return NextResponse.json(
-        { error: 'Clinic ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
     // Verify user has access to this clinic
@@ -125,10 +129,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     });
 
     if (!hasAccess && userData?.clinicId !== clinicId) {
-      return NextResponse.json(
-        { error: 'You do not have access to this clinic' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'You do not have access to this clinic' }, { status: 403 });
     }
 
     // Update user's active clinic
@@ -156,15 +157,11 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       activeClinic: clinic,
       message: `Switched to ${clinic?.name}`,
     });
-  } catch (error: any) {
-    console.error('Error switching clinic:', error);
-    return NextResponse.json(
-      { error: 'Failed to switch clinic' },
-      { status: 500 }
-    );
+  } catch (error) {
+    logger.error('Error switching clinic', error instanceof Error ? error : undefined);
+    return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });
   }
 }
 
 export const GET = withAuth(handleGet);
 export const PUT = withAuth(handlePut);
-

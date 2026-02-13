@@ -83,10 +83,7 @@ async function getOTReportsHandler(request: NextRequest, user: AuthUser) {
   try {
     // Only admins can view financial reports
     if (!['admin', 'super_admin'].includes(user.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - admin access required' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
     // Get OT clinic
@@ -96,10 +93,7 @@ async function getOTReportsHandler(request: NextRequest, user: AuthUser) {
     });
 
     if (!otClinic) {
-      return NextResponse.json(
-        { error: 'OT clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'OT clinic not found' }, { status: 404 });
     }
 
     // Verify user has access to OT clinic (or is super_admin)
@@ -129,10 +123,7 @@ async function getOTReportsHandler(request: NextRequest, user: AuthUser) {
     // Get OT's Stripe context
     const stripeContext = await getStripeForClinic(otClinic.id);
     if (!stripeContext.isDedicatedAccount) {
-      return NextResponse.json(
-        { error: 'Invalid Stripe configuration for OT' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Invalid Stripe configuration for OT' }, { status: 500 });
     }
 
     const { stripe } = stripeContext;
@@ -269,39 +260,33 @@ async function generateExecutiveReport(
   const endTimestamp = Math.floor(filters.endDate.getTime() / 1000);
 
   // Fetch all necessary data in parallel
-  const [
-    charges,
-    refunds,
-    disputes,
-    balance,
-    newPatientsCount,
-    previousPeriodCharges,
-  ] = await Promise.all([
-    fetchAllCharges(stripe, { created: { gte: startTimestamp, lte: endTimestamp } }),
-    fetchAllRefunds(stripe, { created: { gte: startTimestamp, lte: endTimestamp } }),
-    stripe.disputes.list({
-      created: { gte: startTimestamp, lte: endTimestamp },
-      limit: 100,
-    }),
-    stripe.balance.retrieve(),
-    // Count new patients in our database for this period
-    prisma.patient.count({
-      where: {
-        clinicId,
-        createdAt: {
-          gte: filters.startDate,
-          lte: filters.endDate,
+  const [charges, refunds, disputes, balance, newPatientsCount, previousPeriodCharges] =
+    await Promise.all([
+      fetchAllCharges(stripe, { created: { gte: startTimestamp, lte: endTimestamp } }),
+      fetchAllRefunds(stripe, { created: { gte: startTimestamp, lte: endTimestamp } }),
+      stripe.disputes.list({
+        created: { gte: startTimestamp, lte: endTimestamp },
+        limit: 100,
+      }),
+      stripe.balance.retrieve(),
+      // Count new patients in our database for this period
+      prisma.patient.count({
+        where: {
+          clinicId,
+          createdAt: {
+            gte: filters.startDate,
+            lte: filters.endDate,
+          },
         },
-      },
-    }),
-    // Previous period for comparison
-    fetchAllCharges(stripe, {
-      created: {
-        gte: startTimestamp - (endTimestamp - startTimestamp),
-        lte: startTimestamp - 1,
-      },
-    }),
-  ]);
+      }),
+      // Previous period for comparison
+      fetchAllCharges(stripe, {
+        created: {
+          gte: startTimestamp - (endTimestamp - startTimestamp),
+          lte: startTimestamp - 1,
+        },
+      }),
+    ]);
 
   const successfulCharges = charges.filter((c) => c.status === 'succeeded');
   const totalRevenue = successfulCharges.reduce((sum, c) => sum + c.amount, 0);
@@ -553,10 +538,7 @@ async function generateAffiliateReport(stripe: Stripe, clinicId: number, filters
       totalCommissionsFormatted: formatCurrency(totalCommissions),
       averageConversionRate:
         attributedPatients.length > 0
-          ? (
-              (conversions.length / attributedPatients.length) *
-              100
-            ).toFixed(1) + '%'
+          ? ((conversions.length / attributedPatients.length) * 100).toFixed(1) + '%'
           : '0%',
     },
     byAffiliate: affiliates,
@@ -592,8 +574,8 @@ async function generatePatientReport(stripe: Stripe, clinicId: number, filters: 
     },
     include: {
       attributionAffiliate: {
-        select: { 
-          displayName: true, 
+        select: {
+          displayName: true,
           refCodes: {
             select: { refCode: true },
             take: 1,
@@ -647,12 +629,15 @@ async function generatePatientReport(stripe: Stripe, clinicId: number, filters: 
   const payingPatients = Object.keys(patientSpending).length;
 
   // Acquisition channels
-  type PatientRecord = typeof newPatients[number];
+  type PatientRecord = (typeof newPatients)[number];
   const channelBreakdown = {
     affiliate: newPatients.filter((p: PatientRecord) => p.attributionAffiliateId).length,
-    direct: newPatients.filter((p: PatientRecord) => !p.attributionAffiliateId && !p.attributionRefCode).length,
-    referralCode: newPatients.filter((p: PatientRecord) => p.attributionRefCode && !p.attributionAffiliateId)
-      .length,
+    direct: newPatients.filter(
+      (p: PatientRecord) => !p.attributionAffiliateId && !p.attributionRefCode
+    ).length,
+    referralCode: newPatients.filter(
+      (p: PatientRecord) => p.attributionRefCode && !p.attributionAffiliateId
+    ).length,
   };
 
   // Calculate LTV buckets
@@ -1265,7 +1250,8 @@ function calculateRevenueTrends(periods: Array<{ period: string; revenue: number
           : 'N/A',
     },
     trend: {
-      direction: secondHalfAvg > firstHalfAvg ? 'up' : secondHalfAvg < firstHalfAvg ? 'down' : 'flat',
+      direction:
+        secondHalfAvg > firstHalfAvg ? 'up' : secondHalfAvg < firstHalfAvg ? 'down' : 'flat',
       averageFirstHalf: firstHalfAvg,
       averageSecondHalf: secondHalfAvg,
       averageFirstHalfFormatted: formatCurrency(firstHalfAvg),
@@ -1305,7 +1291,7 @@ function convertToCSV(data: unknown, reportType: string): string {
             tx.paymentMethod,
             tx.feesFormatted,
             tx.netFormatted,
-            `"${(tx.description as string || '').replace(/"/g, '""')}"`,
+            `"${((tx.description as string) || '').replace(/"/g, '""')}"`,
           ].join(',')
         );
       }

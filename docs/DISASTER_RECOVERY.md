@@ -2,21 +2,22 @@
 
 **Document Version:** 1.0  
 **Last Updated:** January 21, 2026  
-**Classification:** INTERNAL - Operations Team  
+**Classification:** INTERNAL - Operations Team
 
 ---
 
 ## 1. Overview
 
-This document outlines the disaster recovery (DR) procedures for the EONPRO Telehealth Platform. It covers backup strategies, recovery procedures, and business continuity plans.
+This document outlines the disaster recovery (DR) procedures for the EONPRO Telehealth Platform. It
+covers backup strategies, recovery procedures, and business continuity plans.
 
 ### Recovery Objectives
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| **RTO** (Recovery Time Objective) | 4 hours | Maximum acceptable downtime |
-| **RPO** (Recovery Point Objective) | 1 hour | Maximum acceptable data loss |
-| **MTTR** (Mean Time To Recovery) | 2 hours | Expected average recovery time |
+| Metric                             | Target  | Notes                          |
+| ---------------------------------- | ------- | ------------------------------ |
+| **RTO** (Recovery Time Objective)  | 4 hours | Maximum acceptable downtime    |
+| **RPO** (Recovery Point Objective) | 1 hour  | Maximum acceptable data loss   |
+| **MTTR** (Mean Time To Recovery)   | 2 hours | Expected average recovery time |
 
 ---
 
@@ -25,15 +26,17 @@ This document outlines the disaster recovery (DR) procedures for the EONPRO Tele
 ### 2.1 PostgreSQL Database
 
 **Backup Strategy:**
+
 - **Provider:** [AWS RDS / Vercel Postgres / Supabase - specify in deployment]
 - **Frequency:** Continuous WAL archiving + Daily full snapshots
-- **Retention:** 
+- **Retention:**
   - Daily snapshots: 7 days
   - Weekly snapshots: 4 weeks
   - Monthly snapshots: 12 months
 - **Point-in-time Recovery:** Up to 7 days
 
 **Backup Verification:**
+
 ```
 Last verified restore: [DATE - update quarterly]
 Next scheduled test: [DATE]
@@ -42,16 +45,17 @@ Verification result: [PASS/FAIL]
 
 ### 2.2 Automated Backup Schedule
 
-| Time (UTC) | Type | Retention |
-|------------|------|-----------|
-| Continuous | WAL Archive | 7 days |
-| 02:00 | Full Snapshot | 7 days |
-| Sunday 03:00 | Weekly Archive | 4 weeks |
+| Time (UTC)   | Type            | Retention |
+| ------------ | --------------- | --------- |
+| Continuous   | WAL Archive     | 7 days    |
+| 02:00        | Full Snapshot   | 7 days    |
+| Sunday 03:00 | Weekly Archive  | 4 weeks   |
 | 1st of Month | Monthly Archive | 12 months |
 
 ### 2.3 Database Restore Procedure
 
 **Prerequisites:**
+
 - AWS/Cloud console access
 - Database administrator credentials
 - Application deployment access
@@ -59,19 +63,21 @@ Verification result: [PASS/FAIL]
 **Steps:**
 
 1. **Assess the Situation**
+
    ```bash
    # Check current database status
    psql $DATABASE_URL -c "SELECT 1;"
-   
+
    # Review recent errors
    # Check cloud provider console for database health
    ```
 
 2. **Initiate Recovery**
+
    ```bash
    # Option A: Point-in-time recovery (data corruption)
    # Use cloud provider console to restore to specific timestamp
-   
+
    # Option B: Snapshot restore (complete failure)
    # Create new instance from snapshot
    ```
@@ -84,23 +90,25 @@ Verification result: [PASS/FAIL]
    - Estimated time: 15-60 minutes depending on size
 
 4. **Update Application Configuration**
+
    ```bash
    # Update DATABASE_URL in environment/secrets
    # For Kubernetes:
    kubectl edit secret eonpro-secrets -n eonpro
-   
+
    # For Vercel:
    vercel env rm DATABASE_URL production
    vercel env add DATABASE_URL production
    ```
 
 5. **Verify Data Integrity**
+
    ```sql
    -- Check record counts
    SELECT 'patients' as table_name, COUNT(*) FROM "Patient"
    UNION ALL SELECT 'users', COUNT(*) FROM "User"
    UNION ALL SELECT 'orders', COUNT(*) FROM "Order";
-   
+
    -- Check latest records (ensure recent data present)
    SELECT MAX("createdAt") as latest FROM "Patient";
    SELECT MAX("createdAt") as latest FROM "Order";
@@ -118,12 +126,14 @@ Verification result: [PASS/FAIL]
 ### 3.1 Cache Strategy
 
 Redis is used for:
+
 - Session storage
 - Rate limiting
 - Query caching
 - Job queues
 
 **Important:** Redis data is ephemeral by design. Loss results in:
+
 - Cold cache (temporary performance impact)
 - Session invalidation (users must re-login)
 - Rate limit reset
@@ -133,6 +143,7 @@ Redis is used for:
 **No action required for data recovery.** Cache rebuilds automatically.
 
 **If Redis instance fails:**
+
 1. The application gracefully degrades to LRU in-memory cache
 2. Provision new Redis instance
 3. Update `REDIS_URL` environment variable
@@ -147,13 +158,14 @@ Redis is used for:
 
 - **Versioning:** Enabled (allows recovery of deleted/overwritten files)
 - **Cross-Region Replication:** [Yes/No - specify in deployment]
-- **Lifecycle Policy:** 
+- **Lifecycle Policy:**
   - Current: Indefinite retention
   - Archive to Glacier: After 90 days (optional)
 
 ### 4.2 File Recovery Procedure
 
 **Recover Deleted File:**
+
 ```bash
 # List deleted objects
 aws s3api list-object-versions \
@@ -169,6 +181,7 @@ aws s3api delete-object \
 ```
 
 **Recover Previous Version:**
+
 ```bash
 # List versions
 aws s3api list-object-versions \
@@ -188,23 +201,25 @@ aws s3api copy-object \
 
 ### 5.1 Critical Secrets
 
-| Secret | Storage | Backup Location |
-|--------|---------|-----------------|
-| `JWT_SECRET` | K8s Secret / Vercel | Password Manager |
-| `ENCRYPTION_KEY` | K8s Secret / Vercel | Password Manager |
-| `DATABASE_URL` | K8s Secret / Vercel | Password Manager |
+| Secret              | Storage             | Backup Location  |
+| ------------------- | ------------------- | ---------------- |
+| `JWT_SECRET`        | K8s Secret / Vercel | Password Manager |
+| `ENCRYPTION_KEY`    | K8s Secret / Vercel | Password Manager |
+| `DATABASE_URL`      | K8s Secret / Vercel | Password Manager |
 | `STRIPE_SECRET_KEY` | K8s Secret / Vercel | Stripe Dashboard |
-| `TWILIO_AUTH_TOKEN` | K8s Secret / Vercel | Twilio Console |
+| `TWILIO_AUTH_TOKEN` | K8s Secret / Vercel | Twilio Console   |
 
 ### 5.2 Secret Recovery
 
 **If secrets are lost:**
+
 1. Access secure password manager (1Password/Vault)
 2. Retrieve backed-up values
 3. Re-apply to environment
 
-**If ENCRYPTION_KEY is lost:**
-⚠️ **CRITICAL:** Loss of encryption key means PHI data cannot be decrypted.
+**If ENCRYPTION_KEY is lost:** ⚠️ **CRITICAL:** Loss of encryption key means PHI data cannot be
+decrypted.
+
 - Always maintain backup of ENCRYPTION_KEY
 - Consider AWS KMS for key management with built-in durability
 
@@ -215,6 +230,7 @@ aws s3api copy-object \
 ### 6.1 Kubernetes Deployment
 
 **Full Application Restore:**
+
 ```bash
 # Apply all manifests
 kubectl apply -f infrastructure/kubernetes/
@@ -228,6 +244,7 @@ kubectl logs -n eonpro -l app=eonpro --tail=100
 ```
 
 **Rollback to Previous Version:**
+
 ```bash
 # List rollout history
 kubectl rollout history deployment/eonpro-app -n eonpro
@@ -242,6 +259,7 @@ kubectl rollout undo deployment/eonpro-app -n eonpro --to-revision=3
 ### 6.2 Vercel Deployment
 
 **Rollback:**
+
 1. Access Vercel Dashboard
 2. Navigate to Deployments
 3. Find last known good deployment
@@ -253,12 +271,12 @@ kubectl rollout undo deployment/eonpro-app -n eonpro --to-revision=3
 
 ### 7.1 Severity Levels
 
-| Level | Definition | Response Time | Examples |
-|-------|------------|---------------|----------|
-| P1 | Production down | 15 minutes | Database unavailable, App crash |
-| P2 | Feature degraded | 1 hour | Payment failures, Slow queries |
-| P3 | Minor issue | 4 hours | UI bugs, Non-critical errors |
-| P4 | Improvement | Next sprint | Performance optimization |
+| Level | Definition       | Response Time | Examples                        |
+| ----- | ---------------- | ------------- | ------------------------------- |
+| P1    | Production down  | 15 minutes    | Database unavailable, App crash |
+| P2    | Feature degraded | 1 hour        | Payment failures, Slow queries  |
+| P3    | Minor issue      | 4 hours       | UI bugs, Non-critical errors    |
+| P4    | Improvement      | Next sprint   | Performance optimization        |
 
 ### 7.2 Escalation Path
 
@@ -284,23 +302,23 @@ Updates: [Link to status page]
 
 ## 8. Testing Schedule
 
-| Test Type | Frequency | Last Test | Next Test |
-|-----------|-----------|-----------|-----------|
-| Database Restore | Quarterly | [DATE] | [DATE] |
-| Redis Failover | Quarterly | [DATE] | [DATE] |
-| Full DR Drill | Annually | [DATE] | [DATE] |
-| Backup Verification | Monthly | [DATE] | [DATE] |
+| Test Type           | Frequency | Last Test | Next Test |
+| ------------------- | --------- | --------- | --------- |
+| Database Restore    | Quarterly | [DATE]    | [DATE]    |
+| Redis Failover      | Quarterly | [DATE]    | [DATE]    |
+| Full DR Drill       | Annually  | [DATE]    | [DATE]    |
+| Backup Verification | Monthly   | [DATE]    | [DATE]    |
 
 ---
 
 ## 9. Contact Information
 
-| Role | Name | Phone | Email |
-|------|------|-------|-------|
+| Role            | Name   | Phone   | Email   |
+| --------------- | ------ | ------- | ------- |
 | Primary On-Call | [Name] | [Phone] | [Email] |
-| Database Admin | [Name] | [Phone] | [Email] |
-| Infrastructure | [Name] | [Phone] | [Email] |
-| Security Lead | [Name] | [Phone] | [Email] |
+| Database Admin  | [Name] | [Phone] | [Email] |
+| Infrastructure  | [Name] | [Phone] | [Email] |
+| Security Lead   | [Name] | [Phone] | [Email] |
 
 ---
 
@@ -321,10 +339,11 @@ Template: See `docs/templates/POST_INCIDENT_REVIEW.md`
 
 ## Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-01-21 | Architecture Team | Initial document |
+| Version | Date       | Author            | Changes          |
+| ------- | ---------- | ----------------- | ---------------- |
+| 1.0     | 2026-01-21 | Architecture Team | Initial document |
 
 ---
 
-*This document should be reviewed and updated quarterly, or after any significant infrastructure change.*
+_This document should be reviewed and updated quarterly, or after any significant infrastructure
+change._

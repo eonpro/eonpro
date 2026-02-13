@@ -2,7 +2,7 @@
 
 /**
  * Affiliate Activity Page
- * 
+ *
  * Full activity history and transaction log.
  */
 
@@ -68,8 +68,8 @@ export default function AffiliateActivityPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
       </div>
     );
   }
@@ -77,39 +77,37 @@ export default function AffiliateActivityPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white px-6 py-4 border-b border-gray-100">
-        <div className="max-w-3xl mx-auto">
-          <Link 
-            href="/affiliate" 
-            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-4"
+      <header className="border-b border-gray-100 bg-white px-6 py-4">
+        <div className="mx-auto max-w-3xl">
+          <Link
+            href="/affiliate"
+            className="mb-4 inline-flex items-center gap-2 text-gray-500 hover:text-gray-700"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
           <h1 className="text-2xl font-semibold text-gray-900">Activity</h1>
-          <p className="text-gray-500 mt-1">Your recent conversions and payouts</p>
+          <p className="mt-1 text-gray-500">Your recent conversions and payouts</p>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-6 py-8">
+      <div className="mx-auto max-w-3xl px-6 py-8">
         {activities.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-8 text-center"
+            className="rounded-2xl bg-white p-8 text-center"
           >
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-8 h-8 text-gray-400" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+              <Clock className="h-8 w-8 text-gray-400" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              No Activity Yet
-            </h2>
-            <p className="text-gray-500 max-w-sm mx-auto">
+            <h2 className="mb-2 text-xl font-semibold text-gray-900">No Activity Yet</h2>
+            <p className="mx-auto max-w-sm text-gray-500">
               Once you start generating clicks and conversions, your activity will appear here.
             </p>
             <Link
               href="/affiliate/links"
-              className="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
             >
               Get Your Links
             </Link>
@@ -118,7 +116,7 @@ export default function AffiliateActivityPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl overflow-hidden"
+            className="overflow-hidden rounded-2xl bg-white"
           >
             <div className="divide-y divide-gray-100">
               {activities.map((activity, index) => (
@@ -130,28 +128,36 @@ export default function AffiliateActivityPage() {
                   className="flex items-center justify-between p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center
-                      ${activity.type === 'conversion' ? 'bg-green-50' : 
-                        activity.type === 'payout' ? 'bg-[#fdf6e3]' : 'bg-gray-50'}`}>
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                        activity.type === 'conversion'
+                          ? 'bg-green-50'
+                          : activity.type === 'payout'
+                            ? 'bg-[#fdf6e3]'
+                            : 'bg-gray-50'
+                      }`}
+                    >
                       {activity.type === 'conversion' && (
-                        <TrendingUp className="w-5 h-5 text-green-600" />
+                        <TrendingUp className="h-5 w-5 text-green-600" />
                       )}
                       {activity.type === 'payout' && (
-                        <ArrowUpRight className="w-5 h-5 text-[#cab172]" />
+                        <ArrowUpRight className="h-5 w-5 text-[#cab172]" />
                       )}
-                      {activity.type === 'click' && (
-                        <Clock className="w-5 h-5 text-gray-600" />
-                      )}
+                      {activity.type === 'click' && <Clock className="h-5 w-5 text-gray-600" />}
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{activity.description}</p>
-                      <p className="text-sm text-gray-500">{formatRelativeTime(activity.createdAt)}</p>
+                      <p className="text-sm text-gray-500">
+                        {formatRelativeTime(activity.createdAt)}
+                      </p>
                     </div>
                   </div>
                   {activity.amount && (
-                    <span className={`font-semibold ${
-                      activity.type === 'payout' ? 'text-gray-900' : 'text-green-600'
-                    }`}>
+                    <span
+                      className={`font-semibold ${
+                        activity.type === 'payout' ? 'text-gray-900' : 'text-green-600'
+                      }`}
+                    >
                       {activity.type === 'payout' ? '-' : '+'}
                       {formatCurrency(activity.amount)}
                     </span>

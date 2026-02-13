@@ -1,8 +1,8 @@
 /**
  * Admin Affiliate Application Detail API
- * 
+ *
  * GET /api/admin/affiliates/applications/[id] - Get application details
- * 
+ *
  * @security Super Admin or Admin only
  */
 

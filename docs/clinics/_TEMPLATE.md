@@ -15,11 +15,11 @@
 
 ## Intake Platform
 
-| Field | Value |
-|-------|-------|
-| **URL** | `https://{intake-url}` |
-| **Vercel Project** | `{vercel-project}` |
-| **GitHub Repo** | `{github-repo}` |
+| Field              | Value                  |
+| ------------------ | ---------------------- |
+| **URL**            | `https://{intake-url}` |
+| **Vercel Project** | `{vercel-project}`     |
+| **GitHub Repo**    | `{github-repo}`        |
 
 ---
 
@@ -27,18 +27,18 @@
 
 ### EONPRO Side (app.eonpro.io)
 
-| Environment Variable | Value |
-|---------------------|-------|
+| Environment Variable      | Value      |
+| ------------------------- | ---------- |
 | `{CLINIC}_WEBHOOK_SECRET` | `{secret}` |
 
 **Webhook Endpoint**: `https://app.eonpro.io/api/webhooks/{endpoint}`
 
 ### Intake Platform Side
 
-| Environment Variable | Value |
-|---------------------|-------|
-| `EONPRO_WEBHOOK_URL` | `https://app.eonpro.io/api/webhooks/{endpoint}` |
-| `EONPRO_WEBHOOK_SECRET` | `{secret}` |
+| Environment Variable    | Value                                           |
+| ----------------------- | ----------------------------------------------- |
+| `EONPRO_WEBHOOK_URL`    | `https://app.eonpro.io/api/webhooks/{endpoint}` |
+| `EONPRO_WEBHOOK_SECRET` | `{secret}`                                      |
 
 ---
 
@@ -61,20 +61,21 @@ Patient → {intake-url} → {submission-path}
 
 ## Features Enabled
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Patient Intake | ⬜ | |
-| PDF Generation | ⬜ | |
-| SOAP Notes | ⬜ | |
-| Referral Tracking | ⬜ | |
-| Stripe Integration | ⬜ | |
-| Lifefile Pharmacy | ⬜ | |
+| Feature            | Status | Notes |
+| ------------------ | ------ | ----- |
+| Patient Intake     | ⬜     |       |
+| PDF Generation     | ⬜     |       |
+| SOAP Notes         | ⬜     |       |
+| Referral Tracking  | ⬜     |       |
+| Stripe Integration | ⬜     |       |
+| Lifefile Pharmacy  | ⬜     |       |
 
 ---
 
 ## Verification
 
 ### Check webhook health:
+
 ```bash
 curl -s "https://app.eonpro.io/api/webhooks/health" \
   -H "X-Webhook-Secret: {secret}" | jq '.'
@@ -84,18 +85,18 @@ curl -s "https://app.eonpro.io/api/webhooks/health" \
 
 ## Contacts
 
-| Role | Contact |
-|------|---------|
-| Technical Support | |
-| Clinic Admin | |
+| Role              | Contact |
+| ----------------- | ------- |
+| Technical Support |         |
+| Clinic Admin      |         |
 
 ---
 
 ## History
 
-| Date | Change | Verified By |
-|------|--------|-------------|
-| {DATE} | Initial setup | |
+| Date   | Change        | Verified By |
+| ------ | ------------- | ----------- |
+| {DATE} | Initial setup |             |
 
 ---
 

@@ -2,7 +2,7 @@
 
 /**
  * Admin Affiliate Code Performance Page
- * 
+ *
  * Displays performance metrics for all affiliate ref codes:
  * - Sortable table with Code, Affiliate, Clicks, Conversions, Revenue, Rate
  * - Date range filter
@@ -32,13 +32,13 @@ interface CodePerformance {
   affiliateId: number;
   affiliateName: string;
   affiliateStatus: string;
-  uses: number;       // Code uses (someone wrote the code in intake)
-  clicks: number;     // Alias for uses (backward compatibility)
+  uses: number; // Code uses (someone wrote the code in intake)
+  clicks: number; // Alias for uses (backward compatibility)
   conversions: number; // Paying customers
   revenue: number;
   conversionRate: number;
   lastUseAt: string | null;
-  lastClickAt: string | null;  // Alias for lastUseAt
+  lastClickAt: string | null; // Alias for lastUseAt
   lastConversionAt: string | null;
   createdAt: string;
 }
@@ -46,13 +46,20 @@ interface CodePerformance {
 interface Totals {
   totalCodes: number;
   totalUses: number;
-  totalClicks: number;  // Alias for totalUses
+  totalClicks: number; // Alias for totalUses
   totalConversions: number;
   totalRevenue: number;
   avgConversionRate: number;
 }
 
-type SortField = 'code' | 'affiliateName' | 'uses' | 'clicks' | 'conversions' | 'revenue' | 'conversionRate';
+type SortField =
+  | 'code'
+  | 'affiliateName'
+  | 'uses'
+  | 'clicks'
+  | 'conversions'
+  | 'revenue'
+  | 'conversionRate';
 type SortOrder = 'asc' | 'desc';
 
 function formatCurrency(cents: number): string {
@@ -82,22 +89,22 @@ export default function CodePerformancePage() {
   const [totals, setTotals] = useState<Totals | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filters
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState<string>('30d');
   const [sortBy, setSortBy] = useState<SortField>('conversions');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  
+
   // Copy state
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    
+
     try {
       const params = new URLSearchParams({
         period,
@@ -106,15 +113,15 @@ export default function CodePerformancePage() {
         limit: '100',
         ...(search ? { search } : {}),
       });
-      
+
       const response = await fetch(`/api/admin/affiliates/code-performance?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch data');
       }
-      
+
       const data = await response.json();
       setCodes(data.codes);
       setTotals(data.totals);
@@ -145,8 +152,18 @@ export default function CodePerformancePage() {
   };
 
   const handleExport = () => {
-    const headers = ['Code', 'Affiliate', 'Status', 'Uses', 'Conversions', 'Revenue', 'Conversion Rate', 'Last Use', 'Last Conversion'];
-    const rows = codes.map(c => [
+    const headers = [
+      'Code',
+      'Affiliate',
+      'Status',
+      'Uses',
+      'Conversions',
+      'Revenue',
+      'Conversion Rate',
+      'Last Use',
+      'Last Conversion',
+    ];
+    const rows = codes.map((c) => [
       c.code,
       c.affiliateName,
       c.affiliateStatus,
@@ -157,8 +174,8 @@ export default function CodePerformancePage() {
       c.lastUseAt ?? c.lastClickAt ?? '',
       c.lastConversionAt || '',
     ]);
-    
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+
+    const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -172,10 +189,13 @@ export default function CodePerformancePage() {
     // Handle "uses" and "clicks" as the same sort field
     const effectiveSortBy = sortBy === 'clicks' ? 'uses' : sortBy;
     const effectiveField = field === 'clicks' ? 'uses' : field;
-    if (effectiveSortBy !== effectiveField) return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
-    return sortOrder === 'asc' 
-      ? <ArrowUp className="h-4 w-4 text-violet-600" />
-      : <ArrowDown className="h-4 w-4 text-violet-600" />;
+    if (effectiveSortBy !== effectiveField)
+      return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
+    return sortOrder === 'asc' ? (
+      <ArrowUp className="h-4 w-4 text-violet-600" />
+    ) : (
+      <ArrowDown className="h-4 w-4 text-violet-600" />
+    );
   };
 
   return (
@@ -225,7 +245,9 @@ export default function CodePerformancePage() {
                 <MousePointer className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{(totals.totalUses ?? totals.totalClicks).toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {(totals.totalUses ?? totals.totalClicks).toLocaleString()}
+                </p>
                 <p className="text-sm text-gray-500">Total Uses</p>
               </div>
             </div>
@@ -236,7 +258,9 @@ export default function CodePerformancePage() {
                 <TrendingUp className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{totals.totalConversions.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {totals.totalConversions.toLocaleString()}
+                </p>
                 <p className="text-sm text-gray-500">Conversions</p>
               </div>
             </div>
@@ -247,7 +271,9 @@ export default function CodePerformancePage() {
                 <DollarSign className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(totals.totalRevenue)}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(totals.totalRevenue)}
+                </p>
                 <p className="text-sm text-gray-500">Total Revenue</p>
               </div>
             </div>
@@ -268,7 +294,7 @@ export default function CodePerformancePage() {
             className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
           />
         </div>
-        
+
         {/* Period Filter */}
         <div className="flex rounded-lg border border-gray-200 bg-white p-1">
           {(['7d', '30d', '90d', 'ytd', 'all'] as const).map((p) => (
@@ -276,9 +302,7 @@ export default function CodePerformancePage() {
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
-                period === p
-                  ? 'bg-violet-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
+                period === p ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               {p === 'ytd' ? 'YTD' : p === 'all' ? 'All' : p}
@@ -296,10 +320,7 @@ export default function CodePerformancePage() {
         ) : error ? (
           <div className="flex h-96 flex-col items-center justify-center text-center">
             <p className="text-red-600">{error}</p>
-            <button
-              onClick={fetchData}
-              className="mt-4 text-violet-600 hover:text-violet-700"
-            >
+            <button onClick={fetchData} className="mt-4 text-violet-600 hover:text-violet-700">
               Try again
             </button>
           </div>
@@ -396,13 +417,15 @@ export default function CodePerformancePage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <p className="font-medium text-gray-900">{code.affiliateName}</p>
-                          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            code.affiliateStatus === 'ACTIVE'
-                              ? 'bg-green-100 text-green-700'
-                              : code.affiliateStatus === 'PAUSED'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}>
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                              code.affiliateStatus === 'ACTIVE'
+                                ? 'bg-green-100 text-green-700'
+                                : code.affiliateStatus === 'PAUSED'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
                             {code.affiliateStatus}
                           </span>
                         </div>
@@ -419,9 +442,11 @@ export default function CodePerformancePage() {
                       {(code.uses ?? code.clicks).toLocaleString()}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <span className={`font-medium ${
-                        code.conversions > 0 ? 'text-green-600' : 'text-gray-500'
-                      }`}>
+                      <span
+                        className={`font-medium ${
+                          code.conversions > 0 ? 'text-green-600' : 'text-gray-500'
+                        }`}
+                      >
                         {code.conversions.toLocaleString()}
                       </span>
                     </td>
@@ -429,10 +454,15 @@ export default function CodePerformancePage() {
                       {formatCurrency(code.revenue)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
-                      <span className={`font-medium ${
-                        code.conversionRate >= 5 ? 'text-green-600' :
-                        code.conversionRate >= 2 ? 'text-yellow-600' : 'text-gray-500'
-                      }`}>
+                      <span
+                        className={`font-medium ${
+                          code.conversionRate >= 5
+                            ? 'text-green-600'
+                            : code.conversionRate >= 2
+                              ? 'text-yellow-600'
+                              : 'text-gray-500'
+                        }`}
+                      >
                         {formatPercent(code.conversionRate)}
                       </span>
                     </td>

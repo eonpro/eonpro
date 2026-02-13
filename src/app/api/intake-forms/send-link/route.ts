@@ -45,7 +45,7 @@ async function sendEmailWithLink(
   customMessage?: string
 ): Promise<void> {
   const transporter = createTransporter();
-  
+
   const emailContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
@@ -92,8 +92,8 @@ async function sendEmailWithLink(
       });
       logger.info(`Email sent to ${to} with form link`);
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       logger.error('Failed to send email:', error);
       throw new Error('Failed to send email');
     }
@@ -102,17 +102,13 @@ async function sendEmailWithLink(
     logger.info('[EMAIL] Would be sent:', {
       to,
       subject: `Please complete your ${formName} form`,
-      link
+      link,
     });
   }
 }
 
 // Send SMS with form link (using Twilio if configured)
-async function sendSMSWithLink(
-  phone: string,
-  formName: string,
-  link: string
-): Promise<void> {
+async function sendSMSWithLink(phone: string, formName: string, link: string): Promise<void> {
   const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
   const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
   const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
@@ -121,25 +117,25 @@ async function sendSMSWithLink(
     logger.warn('Twilio not configured - SMS not sent');
     logger.info('[SMS] Would be sent:', {
       to: phone,
-      message: `Please complete your ${formName} intake form: ${link}`
+      message: `Please complete your ${formName} intake form: ${link}`,
     });
     return;
   }
 
   try {
-    const twilio = require('twilio');
+    const { default: twilio } = await import('twilio');
     const client = twilio(twilioAccountSid, twilioAuthToken);
-    
+
     await client.messages.create({
       body: `Please complete your ${formName} intake form: ${link}`,
       from: twilioPhoneNumber,
       to: phone,
     });
-    
+
     logger.info(`SMS sent to ${phone} with form link`);
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to send SMS:', error);
     // Don't throw - SMS is optional
   }
@@ -152,7 +148,7 @@ async function sendSMSWithLink(
 export const POST = withProviderAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
-    
+
     // Validate request
     const parsed = sendLinkSchema.safeParse(body);
     if (!parsed.success) {
@@ -177,7 +173,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     });
 
     // Build the full URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}`;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}`;
     const fullLink = `${baseUrl}/intake/${link.id}`;
 
     // Template should be included based on the service
@@ -185,20 +183,11 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
 
     // Send based on method
     if (sendMethod === 'email' || sendMethod === 'both') {
-      await sendEmailWithLink(
-        patientEmail,
-        templateName,
-        fullLink,
-        customMessage
-      );
+      await sendEmailWithLink(patientEmail, templateName, fullLink, customMessage);
     }
 
     if ((sendMethod === 'sms' || sendMethod === 'both') && patientPhone) {
-      await sendSMSWithLink(
-        patientPhone,
-        templateName,
-        fullLink
-      );
+      await sendSMSWithLink(patientPhone, templateName, fullLink);
     }
 
     return NextResponse.json({
@@ -206,11 +195,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       link: fullLink,
       linkId: link.id,
       expiresAt: link.expiresAt,
-      message: sendMethod === 'none' 
-        ? 'Link created (not sent)' 
-        : `Form link sent via ${sendMethod}`,
+      message:
+        sendMethod === 'none' ? 'Link created (not sent)' : `Form link sent via ${sendMethod}`,
     });
-
   } catch (error: any) {
     logger.error('Failed to send form link', error);
     return NextResponse.json(

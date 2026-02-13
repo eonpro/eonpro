@@ -1,18 +1,18 @@
 /**
  * INTELLIGENT DATA PRELOADER
  * ==========================
- * 
+ *
  * Predictive data loading based on common access patterns:
  * - Preloads related data to prevent N+1 queries
  * - Smart prefetching based on user navigation patterns
  * - Request-scoped data batching
  * - Automatic cache warming
- * 
+ *
  * @module DataPreloader
  */
 
 import { PrismaClient } from '@prisma/client';
-import { basePrisma } from '@/lib/db';
+import { basePrisma, prisma, runWithClinicContext } from '@/lib/db';
 import { queryOptimizer, createDataLoader, type CacheConfig } from './query-optimizer';
 import { logger } from '@/lib/logger';
 
@@ -31,12 +31,7 @@ interface PreloadConfig {
   cache?: Partial<CacheConfig>;
 }
 
-type EntityType = 
-  | 'patient'
-  | 'provider'
-  | 'invoice'
-  | 'order'
-  | 'appointment';
+type EntityType = 'patient' | 'provider' | 'invoice' | 'order' | 'appointment';
 
 interface PatientPreloadData {
   id: number;
@@ -78,7 +73,7 @@ const createEntityLoaders = (prisma: PrismaClient) => ({
           clinicId: true,
         },
       });
-      return new Map(patients.map(p => [p.id, p as PatientPreloadData]));
+      return new Map(patients.map((p) => [p.id, p as PatientPreloadData]));
     },
     { maxBatchSize: 50, batchDelayMs: 5 }
   ),
@@ -97,7 +92,7 @@ const createEntityLoaders = (prisma: PrismaClient) => ({
           titleLine: true,
         },
       });
-      return new Map(providers.map(p => [p.id, p]));
+      return new Map(providers.map((p) => [p.id, p]));
     },
     { maxBatchSize: 50 }
   ),
@@ -111,7 +106,7 @@ const createEntityLoaders = (prisma: PrismaClient) => ({
           payments: { select: { id: true, amount: true, status: true } },
         },
       });
-      return new Map(invoices.map(i => [i.id, i]));
+      return new Map(invoices.map((i) => [i.id, i]));
     },
     { maxBatchSize: 30 }
   ),
@@ -124,7 +119,7 @@ const createEntityLoaders = (prisma: PrismaClient) => ({
           patient: { select: { id: true, firstName: true, lastName: true } },
         },
       });
-      return new Map(orders.map(o => [o.id, o]));
+      return new Map(orders.map((o) => [o.id, o]));
     },
     { maxBatchSize: 30 }
   ),
@@ -144,7 +139,7 @@ const createEntityLoaders = (prisma: PrismaClient) => ({
           provider: { select: { id: true, firstName: true, lastName: true } },
         },
       });
-      return new Map(appointments.map(a => [a.id, a]));
+      return new Map(appointments.map((a) => [a.id, a]));
     },
     { maxBatchSize: 50 }
   ),
@@ -204,10 +199,7 @@ class DataPreloader {
   /**
    * Preload a single entity type
    */
-  async preloadEntity(
-    entity: EntityType,
-    ids: number[]
-  ): Promise<PreloadResult> {
+  async preloadEntity(entity: EntityType, ids: number[]): Promise<PreloadResult> {
     const startTime = Date.now();
     const loaders = this.getLoaders();
     const loader = loaders[entity as keyof typeof loaders];
@@ -223,7 +215,7 @@ class DataPreloader {
     try {
       const results = await loader.loadMany(ids);
       const loaded = results.filter((r: unknown) => !(r instanceof Error)).length;
-      
+
       return {
         loaded,
         cached: ids.length - loaded, // Assume rest were cached
@@ -240,12 +232,18 @@ class DataPreloader {
    */
   async preloadPatientDashboard(patientId: number): Promise<PatientPreloadData | null> {
     const cacheKey = `patient:dashboard:${patientId}`;
-    
+
     return queryOptimizer.query(
       async () => {
-        const patient = await basePrisma.patient.findUnique({
+        const stub = await basePrisma.patient.findUnique({
           where: { id: patientId },
-          include: {
+          select: { clinicId: true },
+        });
+        if (!stub) return null;
+        const patient = await runWithClinicContext(stub.clinicId, () =>
+          prisma.patient.findUnique({
+            where: { id: patientId },
+            include: {
             orders: {
               select: { id: true, status: true, createdAt: true },
               orderBy: { createdAt: 'desc' },
@@ -263,7 +261,8 @@ class DataPreloader {
               take: 5,
             },
           },
-        });
+          })
+        );
 
         return patient as PatientPreloadData | null;
       },
@@ -296,23 +295,25 @@ class DataPreloader {
 
     return queryOptimizer.query(
       async () => {
-        const [patientCount, todayAppointments, pendingOrders, outstandingInvoices] = 
-          await Promise.all([
-            basePrisma.patient.count({ where: { clinicId } }),
-            basePrisma.appointment.count({
-              where: {
-                clinicId,
-                startTime: { gte: today, lt: tomorrow },
-              },
-            }),
-            basePrisma.order.count({
-              where: { clinicId, status: 'PENDING' },
-            }),
-            basePrisma.invoice.aggregate({
-              where: { clinicId, status: 'OPEN' },
-              _sum: { amountDue: true },
-            }),
-          ]);
+        const [patientCount, todayAppointments, pendingOrders, outstandingInvoices] =
+          await runWithClinicContext(clinicId, () =>
+            Promise.all([
+              prisma.patient.count({ where: { clinicId } }),
+              prisma.appointment.count({
+                where: {
+                  clinicId,
+                  startTime: { gte: today, lt: tomorrow },
+                },
+              }),
+              prisma.order.count({
+                where: { clinicId, status: 'PENDING' },
+              }),
+              prisma.invoice.aggregate({
+                where: { clinicId, status: 'OPEN' },
+                _sum: { amountDue: true },
+              }),
+            ])
+          );
 
         return {
           patientCount,
@@ -339,24 +340,27 @@ class DataPreloader {
   async preloadProviderSchedule(
     providerId: number,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    clinicId: number
   ): Promise<unknown[]> {
     const cacheKey = `provider:schedule:${providerId}:${startDate.toISOString().split('T')[0]}`;
 
     return queryOptimizer.query(
       async () => {
-        const appointments = await basePrisma.appointment.findMany({
-          where: {
-            providerId,
-            startTime: { gte: startDate, lte: endDate },
-          },
-          include: {
-            patient: {
-              select: { id: true, firstName: true, lastName: true, phone: true },
+        const appointments = await runWithClinicContext(clinicId, () =>
+          prisma.appointment.findMany({
+            where: {
+              providerId,
+              startTime: { gte: startDate, lte: endDate },
             },
-          },
-          orderBy: { startTime: 'asc' },
-        });
+            include: {
+              patient: {
+                select: { id: true, firstName: true, lastName: true, phone: true },
+              },
+            },
+            orderBy: { startTime: 'asc' },
+          })
+        );
 
         return appointments;
       },
@@ -423,7 +427,7 @@ class DataPreloader {
    */
   clearLoaders(): void {
     if (this.loaders) {
-      Object.values(this.loaders).forEach(loader => loader.clearAll());
+      Object.values(this.loaders).forEach((loader) => loader.clearAll());
     }
   }
 }

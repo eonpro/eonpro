@@ -9,16 +9,19 @@ const REFERRAL_DURATION_DAYS = 90;
 /**
  * Find or create an influencer by promo code
  */
-export async function findOrCreateInfluencer(promoCode: string, influencerData?: {
-  name?: string;
-  email?: string;
-}): Promise<Influencer | null> {
+export async function findOrCreateInfluencer(
+  promoCode: string,
+  influencerData?: {
+    name?: string;
+    email?: string;
+  }
+): Promise<Influencer | null> {
   if (!promoCode) return null;
 
   try {
     // First try to find existing influencer
     let influencer = await prisma.influencer.findUnique({
-      where: { promoCode: promoCode.toUpperCase() }
+      where: { promoCode: promoCode.toUpperCase() },
     });
 
     // If not found and we have data, create a placeholder influencer
@@ -29,14 +32,17 @@ export async function findOrCreateInfluencer(promoCode: string, influencerData?:
           name: influencerData.name || promoCode.toUpperCase(),
           email: influencerData.email,
           status: 'PENDING_APPROVAL',
-          commissionRate: 0.10, // 10% default
-        }
+          commissionRate: 0.1, // 10% default
+        },
       });
     }
 
     return influencer;
   } catch (error: unknown) {
-    logger.error('[Influencer Service] Error finding/creating influencer:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '[Influencer Service] Error finding/creating influencer:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return null;
   }
 }
@@ -60,7 +66,7 @@ export async function trackReferral(
 
     // Check if referral already exists for this patient
     const existingReferral = await prisma.referralTracking.findUnique({
-      where: { patientId }
+      where: { patientId },
     });
 
     if (existingReferral) {
@@ -76,38 +82,43 @@ export async function trackReferral(
         promoCode: promoCode.toUpperCase(),
         referralSource,
         referralExpiresAt: addDays(new Date(), REFERRAL_DURATION_DAYS),
-        metadata
+        metadata,
       },
       include: {
         influencer: true,
-        patient: true
-      }
+        patient: true,
+      },
     });
 
-    logger.debug(`[Influencer Service] Created referral tracking for patient ${patientId} with influencer ${influencer.name}`);
-    
+    logger.debug(
+      `[Influencer Service] Created referral tracking for patient ${patientId} with influencer ${influencer.name}`
+    );
+
     // Add a tag to the patient for easy identification and update source if not set
     await prisma.patient.update({
       where: { id: patientId },
       data: {
         tags: {
-          push: `influencer:${promoCode.toUpperCase()}`
+          push: `influencer:${promoCode.toUpperCase()}`,
         },
         // Update source if it was manual (default) to referral
-        source: "referral",
+        source: 'referral',
         sourceMetadata: {
           influencerId: influencer.id,
           influencerName: influencer.name,
           promoCode: promoCode.toUpperCase(),
           referralTrackingId: referral.id,
-          timestamp: new Date().toISOString()
-        }
-      }
+          timestamp: new Date().toISOString(),
+        },
+      },
     });
 
     return referral;
   } catch (error: unknown) {
-    logger.error('[Influencer Service] Error tracking referral:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '[Influencer Service] Error tracking referral:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return null;
   }
 }
@@ -120,7 +131,7 @@ export async function processCommission(invoiceId: number): Promise<Commission |
     // Get invoice with patient
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
-      include: { patient: true }
+      include: { patient: true },
     });
 
     if (!invoice || invoice.status !== 'PAID' || invoice.commissionGenerated) {
@@ -132,13 +143,15 @@ export async function processCommission(invoiceId: number): Promise<Commission |
       where: {
         patientId: invoice.patientId,
         referralExpiresAt: { gte: new Date() },
-        isConverted: false
+        isConverted: false,
       },
-      include: { influencer: true }
+      include: { influencer: true },
     });
 
     if (!referral) {
-      logger.debug(`[Influencer Service] No active referral found for patient ${invoice.patientId}`);
+      logger.debug(
+        `[Influencer Service] No active referral found for patient ${invoice.patientId}`
+      );
       return null;
     }
 
@@ -157,9 +170,9 @@ export async function processCommission(invoiceId: number): Promise<Commission |
         status: 'PENDING',
         metadata: {
           patientName: `${invoice.patient.firstName} as any ${invoice.patient.lastName}`,
-          invoiceNumber: invoice.stripeInvoiceNumber
-        }
-      }
+          invoiceNumber: invoice.stripeInvoiceNumber,
+        },
+      },
     });
 
     // Update referral as converted
@@ -168,20 +181,25 @@ export async function processCommission(invoiceId: number): Promise<Commission |
       data: {
         isConverted: true,
         convertedAt: new Date(),
-        conversionInvoiceId: invoice.id
-      }
+        conversionInvoiceId: invoice.id,
+      },
     });
 
     // Mark invoice as commission generated
     await prisma.invoice.update({
       where: { id: invoice.id },
-      data: { commissionGenerated: true }
+      data: { commissionGenerated: true },
     });
 
-    logger.debug(`[Influencer Service] Commission created: $${commissionAmount / 100} for influencer ${referral.influencer.name}`);
+    logger.debug(
+      `[Influencer Service] Commission created: $${commissionAmount / 100} for influencer ${referral.influencer.name}`
+    );
     return commission;
   } catch (error: unknown) {
-    logger.error('[Influencer Service] Error processing commission:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '[Influencer Service] Error processing commission:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return null;
   }
 }
@@ -191,42 +209,37 @@ export async function processCommission(invoiceId: number): Promise<Commission |
  */
 export async function getInfluencerStats(influencerId: number) {
   try {
-    const [
-      totalReferrals,
-      convertedReferrals,
-      pendingCommissions,
-      paidCommissions,
-      totalEarnings
-    ] = await Promise.all([
-      // Total referrals
-      prisma.referralTracking.count({
-        where: { influencerId }
-      }),
-      // Converted referrals
-      prisma.referralTracking.count({
-        where: { influencerId, isConverted: true }
-      }),
-      // Pending commissions
-      prisma.commission.aggregate({
-        where: { influencerId, status: 'PENDING' },
-        _sum: { commissionAmount: true },
-        _count: true
-      }),
-      // Paid commissions
-      prisma.commission.aggregate({
-        where: { influencerId, status: 'PAID' },
-        _sum: { commissionAmount: true },
-        _count: true
-      }),
-      // Total earnings (all approved/paid)
-      prisma.commission.aggregate({
-        where: { 
-          influencerId, 
-          status: { in: ['APPROVED', 'PAID'] }
-        },
-        _sum: { commissionAmount: true }
-      })
-    ]);
+    const [totalReferrals, convertedReferrals, pendingCommissions, paidCommissions, totalEarnings] =
+      await Promise.all([
+        // Total referrals
+        prisma.referralTracking.count({
+          where: { influencerId },
+        }),
+        // Converted referrals
+        prisma.referralTracking.count({
+          where: { influencerId, isConverted: true },
+        }),
+        // Pending commissions
+        prisma.commission.aggregate({
+          where: { influencerId, status: 'PENDING' },
+          _sum: { commissionAmount: true },
+          _count: true,
+        }),
+        // Paid commissions
+        prisma.commission.aggregate({
+          where: { influencerId, status: 'PAID' },
+          _sum: { commissionAmount: true },
+          _count: true,
+        }),
+        // Total earnings (all approved/paid)
+        prisma.commission.aggregate({
+          where: {
+            influencerId,
+            status: { in: ['APPROVED', 'PAID'] },
+          },
+          _sum: { commissionAmount: true },
+        }),
+      ]);
 
     // Recent referrals
     const recentReferrals = await prisma.referralTracking.findMany({
@@ -236,12 +249,12 @@ export async function getInfluencerStats(influencerId: number) {
           select: {
             firstName: true,
             lastName: true,
-            createdAt: true
-          }
-        }
+            createdAt: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
-      take: 10
+      take: 10,
     });
 
     // Recent commissions
@@ -253,14 +266,14 @@ export async function getInfluencerStats(influencerId: number) {
             patient: {
               select: {
                 firstName: true,
-                lastName: true
-              }
-            }
-          }
-        }
+                lastName: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
-      take: 10
+      take: 10,
     });
 
     return {
@@ -269,18 +282,21 @@ export async function getInfluencerStats(influencerId: number) {
       conversionRate: totalReferrals > 0 ? (convertedReferrals / totalReferrals) * 100 : 0,
       pendingCommissions: {
         count: pendingCommissions._count,
-        amount: pendingCommissions._sum.commissionAmount || 0
+        amount: pendingCommissions._sum.commissionAmount || 0,
       },
       paidCommissions: {
         count: paidCommissions._count,
-        amount: paidCommissions._sum.commissionAmount || 0
+        amount: paidCommissions._sum.commissionAmount || 0,
       },
       totalEarnings: totalEarnings._sum.commissionAmount || 0,
       recentReferrals,
-      recentCommissions
+      recentCommissions,
     };
   } catch (error: unknown) {
-    logger.error('[Influencer Service] Error getting stats:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '[Influencer Service] Error getting stats:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     throw error;
   }
 }
@@ -301,15 +317,18 @@ export async function createPayout(
       where: {
         id: { in: commissionIds },
         influencerId,
-        status: 'APPROVED'
-      }
+        status: 'APPROVED',
+      },
     });
 
     if (commissions.length === 0) {
       throw new Error('No approved commissions found for payout');
     }
 
-    const totalAmount = commissions.reduce((sum: number, c: { commissionAmount: number }) => sum + c.commissionAmount, 0);
+    const totalAmount = commissions.reduce(
+      (sum: number, c: { commissionAmount: number }) => sum + c.commissionAmount,
+      0
+    );
 
     // Create payout record
     const payout = await prisma.commissionPayout.create({
@@ -322,25 +341,28 @@ export async function createPayout(
         notes,
         metadata: {
           commissionIds,
-          commissionCount: commissions.length
-        } as any
-      }
+          commissionCount: commissions.length,
+        } as any,
+      },
     });
 
     // Update commission status
     await prisma.commission.updateMany({
       where: {
-        id: { in: commissionIds }
+        id: { in: commissionIds },
       },
       data: {
         status: 'PAID',
-        payoutId: payout.id
-      }
+        payoutId: payout.id,
+      },
     });
 
     return payout;
   } catch (error: unknown) {
-    logger.error('[Influencer Service] Error creating payout:', error instanceof Error ? error : new Error(String(error)));
+    logger.error(
+      '[Influencer Service] Error creating payout:',
+      error instanceof Error ? error : new Error(String(error))
+    );
     throw error;
   }
 }

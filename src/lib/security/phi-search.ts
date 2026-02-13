@@ -129,10 +129,7 @@ export interface PHISearchResult<T> {
  *
  * @throws Error if encrypted fields are found in search conditions
  */
-export function validateWhereClause(
-  where: Prisma.PatientWhereInput,
-  context?: string
-): void {
+export function validateWhereClause(where: Prisma.PatientWhereInput, context?: string): void {
   const violations: string[] = [];
 
   function checkObject(obj: Record<string, unknown>, path: string = ''): void {
@@ -150,9 +147,7 @@ export function validateWhereClause(
             'equals' in value ||
             'in' in value)
         ) {
-          violations.push(
-            `Attempted to search encrypted field '${key}' at '${currentPath}'`
-          );
+          violations.push(`Attempted to search encrypted field '${key}' at '${currentPath}'`);
         }
       }
 
@@ -222,9 +217,7 @@ function safeDecrypt(value: string | null | undefined): string {
     const parts = value.split(':');
     if (parts.length === 3) {
       // Validate base64 format
-      const isBase64 = parts.every(
-        (p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2
-      );
+      const isBase64 = parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2);
       if (isBase64) {
         return decryptPHI(value) || value;
       }
@@ -247,9 +240,7 @@ export function decryptPatientRecord<T extends Record<string, unknown>>(
 
   for (const field of fields) {
     if (field in record && typeof record[field] === 'string') {
-      (decrypted as Record<string, unknown>)[field] = safeDecrypt(
-        record[field] as string
-      );
+      (decrypted as Record<string, unknown>)[field] = safeDecrypt(record[field] as string);
     }
   }
 
@@ -298,9 +289,7 @@ export function matchesSearch(
   }
 
   // Check if all terms appear somewhere in searchable fields
-  return searchTerms.every((term) =>
-    fields.some((field) => fieldValues[field].includes(term))
-  );
+  return searchTerms.every((term) => fields.some((field) => fieldValues[field].includes(term)));
 }
 
 // ============================================================================
@@ -351,9 +340,7 @@ export const PHISearchService = {
     const fetchedCount = records.length;
 
     // Decrypt and filter
-    const decryptedRecords = records.map((r) =>
-      decryptPatientRecord(r, searchFields)
-    );
+    const decryptedRecords = records.map((r) => decryptPatientRecord(r, searchFields));
 
     const filteredRecords = search
       ? decryptedRecords.filter((r) =>
@@ -367,9 +354,7 @@ export const PHISearchService = {
     const paginatedRecords = filteredRecords.slice(offset, offset + limit);
 
     // Apply transform if provided
-    const finalRecords = transform
-      ? paginatedRecords.map(transform)
-      : paginatedRecords;
+    const finalRecords = transform ? paginatedRecords.map(transform) : paginatedRecords;
 
     const processingTimeMs = Date.now() - startTime;
 
@@ -436,9 +421,7 @@ export const PHISearchService = {
       decryptPatientRecord(r as Record<string, unknown>, searchFields)
     );
 
-    return decrypted.filter((r) =>
-      matchesSearch(r, search, searchFields)
-    ).length;
+    return decrypted.filter((r) => matchesSearch(r, search, searchFields)).length;
   },
 
   /**
@@ -470,17 +453,11 @@ export const PHISearchService = {
     const records = await prisma.patient.findMany(queryOptions);
 
     for (const record of records) {
-      const decrypted = decryptPatientRecord(
-        record as Record<string, unknown>,
-        [field]
-      );
+      const decrypted = decryptPatientRecord(record as Record<string, unknown>, [field]);
       const fieldValue = ((decrypted[field] as string) || '').toLowerCase().trim();
 
       if (fieldValue === valueLower) {
-        return decryptPatientRecord(
-          record as Record<string, unknown>,
-          PATIENT_PHI_FIELDS
-        );
+        return decryptPatientRecord(record as Record<string, unknown>, PATIENT_PHI_FIELDS);
       }
     }
 

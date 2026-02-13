@@ -2,7 +2,7 @@
 
 /**
  * Admin Provider Compensation Management Page
- * 
+ *
  * Allows clinic admins to set and manage compensation rates for providers.
  */
 
@@ -79,9 +79,7 @@ export default function AdminProviderCompensationPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `/api/admin/providers/${providerId}/compensation`
-      );
+      const response = await fetch(`/api/admin/providers/${providerId}/compensation`);
 
       if (!response.ok) {
         const data = await response.json();
@@ -134,23 +132,18 @@ export default function AdminProviderCompensationPage() {
         }
       }
 
-      const response = await fetch(
-        `/api/admin/providers/${providerId}/compensation`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            compensationType,
-            flatRatePerScript: (compensationType === 'FLAT_RATE' || compensationType === 'HYBRID')
-              ? rateInCents
-              : 0,
-            percentBps: (compensationType === 'PERCENTAGE' || compensationType === 'HYBRID')
-              ? percentInBps
-              : 0,
-            notes: notes || undefined,
-          }),
-        }
-      );
+      const response = await fetch(`/api/admin/providers/${providerId}/compensation`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compensationType,
+          flatRatePerScript:
+            compensationType === 'FLAT_RATE' || compensationType === 'HYBRID' ? rateInCents : 0,
+          percentBps:
+            compensationType === 'PERCENTAGE' || compensationType === 'HYBRID' ? percentInBps : 0,
+          notes: notes || undefined,
+        }),
+      });
 
       if (!response.ok) {
         const data = await response.json();
@@ -200,7 +193,7 @@ export default function AdminProviderCompensationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="flex items-center gap-3 text-gray-600">
           <RefreshCw className="h-6 w-6 animate-spin" />
           <span>Loading compensation data...</span>
@@ -212,33 +205,29 @@ export default function AdminProviderCompensationPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
                 href="/admin/providers"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
               </Link>
               <div>
                 <div className="flex items-center gap-2">
                   <User className="h-5 w-5 text-teal-600" />
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    Provider Compensation
-                  </h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Provider Compensation</h1>
                 </div>
-                <p className="text-gray-500 text-sm mt-1">
-                  Provider ID: {providerId}
-                </p>
+                <p className="mt-1 text-sm text-gray-500">Provider ID: {providerId}</p>
               </div>
             </div>
             {compensationEnabled && (
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-white transition-colors hover:bg-teal-700 disabled:opacity-50"
               >
                 {saving ? (
                   <>
@@ -258,87 +247,87 @@ export default function AdminProviderCompensationPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Alerts */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
             <AlertTriangle className="h-5 w-5 text-red-600" />
             <span className="text-red-700">{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <span className="text-green-700">{success}</span>
           </div>
         )}
 
         {!compensationEnabled ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-3" />
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-center">
+            <AlertTriangle className="mx-auto mb-3 h-12 w-12 text-yellow-500" />
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">
               Compensation Tracking Disabled
             </h2>
             <p className="text-gray-600">
-              Provider compensation tracking is not enabled for this clinic.
-              Contact your super admin to enable this feature.
+              Provider compensation tracking is not enabled for this clinic. Contact your super
+              admin to enable this feature.
             </p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Current Month Stats */}
             {earnings && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-5 border border-gray-200">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-blue-100 rounded-lg">
+                    <div className="rounded-lg bg-blue-100 p-3">
                       <FileText className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">
                         {earnings.totalPrescriptions}
                       </p>
-                      <p className="text-gray-500 text-sm">Prescriptions</p>
+                      <p className="text-sm text-gray-500">Prescriptions</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-5 border border-gray-200">
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-green-100 rounded-lg">
+                    <div className="rounded-lg bg-green-100 p-3">
                       <DollarSign className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">
                         ${(earnings.totalEarningsCents / 100).toFixed(2)}
                       </p>
-                      <p className="text-gray-500 text-sm">Total Earnings</p>
+                      <p className="text-sm text-gray-500">Total Earnings</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-5 border border-gray-200">
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-yellow-100 rounded-lg">
+                    <div className="rounded-lg bg-yellow-100 p-3">
                       <Calendar className="h-5 w-5 text-yellow-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">
                         ${(earnings.pendingEarningsCents / 100).toFixed(2)}
                       </p>
-                      <p className="text-gray-500 text-sm">Pending</p>
+                      <p className="text-sm text-gray-500">Pending</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-5 border border-gray-200">
+                <div className="rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-purple-100 rounded-lg">
+                    <div className="rounded-lg bg-purple-100 p-3">
                       <TrendingUp className="h-5 w-5 text-purple-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-gray-900">
                         ${(earnings.paidEarningsCents / 100).toFixed(2)}
                       </p>
-                      <p className="text-gray-500 text-sm">Paid Out</p>
+                      <p className="text-sm text-gray-500">Paid Out</p>
                     </div>
                   </div>
                 </div>
@@ -346,8 +335,8 @@ export default function AdminProviderCompensationPage() {
             )}
 
             {/* Compensation Rate Form */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
                 <DollarSign className="h-5 w-5 text-gray-500" />
                 Compensation Settings
               </h2>
@@ -355,22 +344,26 @@ export default function AdminProviderCompensationPage() {
               <div className="space-y-6">
                 {/* Compensation Type Selector */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="mb-3 block text-sm font-medium text-gray-700">
                     Compensation Type
                   </label>
                   <div className="grid grid-cols-3 gap-3">
                     <button
                       type="button"
                       onClick={() => setCompensationType('FLAT_RATE')}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${
+                      className={`rounded-lg border-2 p-4 text-left transition-all ${
                         compensationType === 'FLAT_RATE'
                           ? 'border-teal-500 bg-teal-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <DollarSign className={`h-4 w-4 ${compensationType === 'FLAT_RATE' ? 'text-teal-600' : 'text-gray-400'}`} />
-                        <span className={`font-medium ${compensationType === 'FLAT_RATE' ? 'text-teal-900' : 'text-gray-700'}`}>
+                      <div className="mb-1 flex items-center gap-2">
+                        <DollarSign
+                          className={`h-4 w-4 ${compensationType === 'FLAT_RATE' ? 'text-teal-600' : 'text-gray-400'}`}
+                        />
+                        <span
+                          className={`font-medium ${compensationType === 'FLAT_RATE' ? 'text-teal-900' : 'text-gray-700'}`}
+                        >
                           Flat Rate
                         </span>
                       </div>
@@ -380,15 +373,19 @@ export default function AdminProviderCompensationPage() {
                     <button
                       type="button"
                       onClick={() => setCompensationType('PERCENTAGE')}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${
+                      className={`rounded-lg border-2 p-4 text-left transition-all ${
                         compensationType === 'PERCENTAGE'
                           ? 'border-teal-500 bg-teal-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Percent className={`h-4 w-4 ${compensationType === 'PERCENTAGE' ? 'text-teal-600' : 'text-gray-400'}`} />
-                        <span className={`font-medium ${compensationType === 'PERCENTAGE' ? 'text-teal-900' : 'text-gray-700'}`}>
+                      <div className="mb-1 flex items-center gap-2">
+                        <Percent
+                          className={`h-4 w-4 ${compensationType === 'PERCENTAGE' ? 'text-teal-600' : 'text-gray-400'}`}
+                        />
+                        <span
+                          className={`font-medium ${compensationType === 'PERCENTAGE' ? 'text-teal-900' : 'text-gray-700'}`}
+                        >
                           Percentage
                         </span>
                       </div>
@@ -398,15 +395,19 @@ export default function AdminProviderCompensationPage() {
                     <button
                       type="button"
                       onClick={() => setCompensationType('HYBRID')}
-                      className={`p-4 border-2 rounded-lg text-left transition-all ${
+                      className={`rounded-lg border-2 p-4 text-left transition-all ${
                         compensationType === 'HYBRID'
                           ? 'border-teal-500 bg-teal-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Layers className={`h-4 w-4 ${compensationType === 'HYBRID' ? 'text-teal-600' : 'text-gray-400'}`} />
-                        <span className={`font-medium ${compensationType === 'HYBRID' ? 'text-teal-900' : 'text-gray-700'}`}>
+                      <div className="mb-1 flex items-center gap-2">
+                        <Layers
+                          className={`h-4 w-4 ${compensationType === 'HYBRID' ? 'text-teal-600' : 'text-gray-400'}`}
+                        />
+                        <span
+                          className={`font-medium ${compensationType === 'HYBRID' ? 'text-teal-900' : 'text-gray-700'}`}
+                        >
                           Both
                         </span>
                       </div>
@@ -418,7 +419,7 @@ export default function AdminProviderCompensationPage() {
                 {/* Flat Rate Input - Show for FLAT_RATE and HYBRID */}
                 {(compensationType === 'FLAT_RATE' || compensationType === 'HYBRID') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Flat Rate per Prescription
                     </label>
                     <div className="relative max-w-xs">
@@ -431,20 +432,18 @@ export default function AdminProviderCompensationPage() {
                         min="0"
                         value={flatRate}
                         onChange={(e) => setFlatRate(e.target.value)}
-                        className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
                         placeholder="5.00"
                       />
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Fixed amount paid per prescription
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">Fixed amount paid per prescription</p>
                   </div>
                 )}
 
                 {/* Percentage Input - Show for PERCENTAGE and HYBRID */}
                 {(compensationType === 'PERCENTAGE' || compensationType === 'HYBRID') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
                       Percentage of Order Total
                     </label>
                     <div className="relative max-w-xs">
@@ -455,39 +454,44 @@ export default function AdminProviderCompensationPage() {
                         max="100"
                         value={percentBps}
                         onChange={(e) => setPercentBps(e.target.value)}
-                        className="w-full pl-4 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-8 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
                         placeholder="5.00"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
                         %
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Percentage of the invoice amount
-                    </p>
+                    <p className="mt-1 text-sm text-gray-500">Percentage of the invoice amount</p>
                   </div>
                 )}
 
                 {/* Preview Calculation */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                   <div className="flex items-start gap-2">
-                    <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-500" />
                     <div>
-                      <p className="text-sm font-medium text-blue-900 mb-1">
-                        Example Earnings
-                      </p>
+                      <p className="mb-1 text-sm font-medium text-blue-900">Example Earnings</p>
                       <p className="text-sm text-blue-800">
                         For a $100 order:{' '}
                         {compensationType === 'FLAT_RATE' && (
-                          <>Provider earns <strong>${calculatePreview(100).flatAmount.toFixed(2)}</strong> (flat)</>
+                          <>
+                            Provider earns{' '}
+                            <strong>${calculatePreview(100).flatAmount.toFixed(2)}</strong> (flat)
+                          </>
                         )}
                         {compensationType === 'PERCENTAGE' && (
-                          <>Provider earns <strong>${calculatePreview(100).percentAmount.toFixed(2)}</strong> ({percentBps}%)</>
+                          <>
+                            Provider earns{' '}
+                            <strong>${calculatePreview(100).percentAmount.toFixed(2)}</strong> (
+                            {percentBps}%)
+                          </>
                         )}
                         {compensationType === 'HYBRID' && (
                           <>
-                            Provider earns <strong>${calculatePreview(100).flatAmount.toFixed(2)}</strong> (flat) +{' '}
-                            <strong>${calculatePreview(100).percentAmount.toFixed(2)}</strong> ({percentBps}%) ={' '}
+                            Provider earns{' '}
+                            <strong>${calculatePreview(100).flatAmount.toFixed(2)}</strong> (flat) +{' '}
+                            <strong>${calculatePreview(100).percentAmount.toFixed(2)}</strong> (
+                            {percentBps}%) ={' '}
                             <strong>${calculatePreview(100).total.toFixed(2)}</strong> total
                           </>
                         )}
@@ -497,27 +501,30 @@ export default function AdminProviderCompensationPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
                     Notes (Optional)
                   </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
                     placeholder="Add any notes about this compensation arrangement..."
                   />
                 </div>
 
                 {plan && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-500 mb-1">
+                  <div className="border-t border-gray-200 pt-4">
+                    <p className="mb-1 text-sm text-gray-500">
                       <strong>Current Plan:</strong>{' '}
-                      {plan.compensationType === 'FLAT_RATE' && `${plan.flatRateFormatted} per script`}
-                      {plan.compensationType === 'PERCENTAGE' && `${plan.percentFormatted} of order`}
-                      {plan.compensationType === 'HYBRID' && `${plan.flatRateFormatted} + ${plan.percentFormatted}`}
+                      {plan.compensationType === 'FLAT_RATE' &&
+                        `${plan.flatRateFormatted} per script`}
+                      {plan.compensationType === 'PERCENTAGE' &&
+                        `${plan.percentFormatted} of order`}
+                      {plan.compensationType === 'HYBRID' &&
+                        `${plan.flatRateFormatted} + ${plan.percentFormatted}`}
                     </p>
-                    <p className="text-sm text-gray-500 mb-1">
+                    <p className="mb-1 text-sm text-gray-500">
                       <strong>Effective Since:</strong>{' '}
                       {new Date(plan.effectiveFrom).toLocaleDateString()}
                     </p>
@@ -536,8 +543,8 @@ export default function AdminProviderCompensationPage() {
 
             {/* Recent Earnings Breakdown */}
             {earnings && earnings.breakdown.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-6">
+                <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
                   <TrendingUp className="h-5 w-5 text-gray-500" />
                   This Month&apos;s Activity
                 </h2>
@@ -546,30 +553,27 @@ export default function AdminProviderCompensationPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
                           Date
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">
                           Prescriptions
                         </th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">
+                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">
                           Earnings
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {earnings.breakdown.map((day) => (
-                        <tr
-                          key={day.period}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          <td className="py-3 px-4 text-gray-900">
+                        <tr key={day.period} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-900">
                             {new Date(day.period).toLocaleDateString()}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="px-4 py-3 text-right text-gray-600">
                             {day.prescriptions}
                           </td>
-                          <td className="py-3 px-4 text-right font-medium text-green-600">
+                          <td className="px-4 py-3 text-right font-medium text-green-600">
                             ${(day.earningsCents / 100).toFixed(2)}
                           </td>
                         </tr>

@@ -22,12 +22,12 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
           include: {
             provider: {
               include: {
-                user: true
-              }
-            }
-          }
-        }
-      }
+                user: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!submission) {
@@ -57,7 +57,7 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
               View Patient Intake
             </a>
           </p>
-        `
+        `,
       };
 
       notifications.push(
@@ -71,9 +71,9 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
     if (notifyAdmin) {
       const adminUsers = await prisma.user.findMany({
         where: {
-          role: { in: ["SUPER_ADMIN", "ADMIN"] },
-          status: 'ACTIVE'
-        }
+          role: { in: ['SUPER_ADMIN', 'ADMIN'] },
+          status: 'ACTIVE',
+        },
       });
 
       for (const admin of adminUsers) {
@@ -98,12 +98,16 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
                   View Submission
                 </a>
               </p>
-            `
+            `,
           };
-          
+
           notifications.push(
-            sendEmail(adminEmail).catch(err => {
-              logger.error('Failed to send admin notification', { err, submissionId, adminId: admin.id });
+            sendEmail(adminEmail).catch((err) => {
+              logger.error('Failed to send admin notification', {
+                err,
+                submissionId,
+                adminId: admin.id,
+              });
             })
           );
         }
@@ -137,11 +141,11 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
             This is an automated message. Please do not reply directly to this email.
             If you need assistance, please contact our support team.
           </p>
-        `
+        `,
       };
-      
+
       notifications.push(
-        sendEmail(patientEmail).catch(err => {
+        sendEmail(patientEmail).catch((err) => {
           logger.error('Failed to send patient confirmation', { err, submissionId });
         })
       );
@@ -149,14 +153,14 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
 
     // Wait for all notifications to complete
     await Promise.all(notifications);
-    
-    logger.info('Intake form notifications sent', { 
-      submissionId, 
-      notificationsSent: notifications.length 
+
+    logger.info('Intake form notifications sent', {
+      submissionId,
+      notificationsSent: notifications.length,
     });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to send intake form notifications', { error, submissionId });
     throw error;
   }
@@ -170,8 +174,8 @@ export async function getNotificationRecipients(templateId: number): Promise<{
   const template = await prisma.intakeFormTemplate.findUnique({
     where: { id: templateId },
     include: {
-      provider: true
-    }
+      provider: true,
+    },
   });
 
   const providers: string[] = [];
@@ -185,10 +189,10 @@ export async function getNotificationRecipients(templateId: number): Promise<{
   // Get all admin emails
   const adminUsers = await prisma.user.findMany({
     where: {
-      role: { in: ["SUPER_ADMIN", "ADMIN"] },
-      status: 'ACTIVE'
+      role: { in: ['SUPER_ADMIN', 'ADMIN'] },
+      status: 'ACTIVE',
     },
-    select: { email: true }
+    select: { email: true },
   });
 
   adminUsers.forEach((admin: any) => {
@@ -201,10 +205,13 @@ export async function getNotificationRecipients(templateId: number): Promise<{
 }
 
 // Function to send a test notification for a template
-export async function sendTestNotification(templateId: number, recipientEmail: string): Promise<void> {
+export async function sendTestNotification(
+  templateId: number,
+  recipientEmail: string
+): Promise<void> {
   try {
     const template = await prisma.intakeFormTemplate.findUnique({
-      where: { id: templateId }
+      where: { id: templateId },
     });
 
     if (!template) {
@@ -226,14 +233,14 @@ export async function sendTestNotification(templateId: number, recipientEmail: s
         <p style="color: #666; font-size: 14px; margin-top: 30px;">
           This is a test message sent from ${process.env.NEXT_PUBLIC_CLINIC_NAME || 'EONPro'}.
         </p>
-      `
+      `,
     };
 
     await sendEmail(testEmail);
     logger.info('Test notification sent', { templateId, recipientEmail });
   } catch (error: any) {
     // @ts-ignore
-   
+
     logger.error('Failed to send test notification', { error, templateId, recipientEmail });
     throw error;
   }

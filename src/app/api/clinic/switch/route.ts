@@ -17,7 +17,7 @@ const switchClinicSchema = z.object({
 async function handler(request: NextRequest, user: AuthUser) {
   try {
     const body = await request.json();
-    
+
     // Validate input
     const parseResult = switchClinicSchema.safeParse(body);
     if (!parseResult.success) {
@@ -26,9 +26,9 @@ async function handler(request: NextRequest, user: AuthUser) {
         { status: 400 }
       );
     }
-    
+
     const { clinicId } = parseResult.data;
-    
+
     // Verify user has access to this clinic (unless super_admin)
     if (user.role !== 'super_admin') {
       const userClinic = await basePrisma.userClinic.findFirst({
@@ -38,7 +38,7 @@ async function handler(request: NextRequest, user: AuthUser) {
           isActive: true,
         },
       });
-      
+
       if (!userClinic) {
         logger.security('Unauthorized clinic switch attempt', {
           userId: user.id,
@@ -51,7 +51,7 @@ async function handler(request: NextRequest, user: AuthUser) {
         );
       }
     }
-    
+
     // Verify clinic exists and is active
     const clinic = await basePrisma.clinic.findUnique({
       where: { id: clinicId },
@@ -69,23 +69,17 @@ async function handler(request: NextRequest, user: AuthUser) {
         features: true,
         billingPlan: true,
         timezone: true,
-      }
+      },
     });
-    
+
     if (!clinic) {
-      return NextResponse.json(
-        { error: 'Clinic not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
-    
+
     if (!['ACTIVE', 'TRIAL'].includes(clinic.status)) {
-      return NextResponse.json(
-        { error: 'Clinic is not active' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Clinic is not active' }, { status: 403 });
     }
-    
+
     // Set cookie for selected clinic
     const cookieStore = await cookies();
     cookieStore.set('selected-clinic', clinicId.toString(), {
@@ -95,27 +89,24 @@ async function handler(request: NextRequest, user: AuthUser) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     });
-    
+
     logger.info('Clinic switched successfully', {
       userId: user.id,
       clinicId: clinic.id,
       clinicName: clinic.name,
     });
-    
+
     // Return the clinic data
     return NextResponse.json({
       ...clinic,
       requiresReload: false,
     });
   } catch (error) {
-    logger.error('Error switching clinic:', { 
+    logger.error('Error switching clinic:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to switch clinic' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });
   }
 }
 

@@ -1,17 +1,17 @@
 /**
  * Provider Routing Service
  * ========================
- * 
+ *
  * Enterprise feature for routing prescriptions to providers.
  * Supports multiple strategies: state-license match, round-robin, manual assignment, and provider self-select.
- * 
+ *
  * @module services/provider/providerRoutingService
  */
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { 
-  RoutingStrategy, 
+import type {
+  RoutingStrategy,
   SoapApprovalMode,
   Provider,
   ProviderRoutingConfig,
@@ -178,7 +178,7 @@ export const providerRoutingService = {
     });
 
     // Type for provider from the query
-    type ProviderFromQuery = typeof providers[number];
+    type ProviderFromQuery = (typeof providers)[number];
 
     // If patient state is provided, filter by matching license state
     let filteredProviders: ProviderFromQuery[] = providers;
@@ -237,10 +237,7 @@ export const providerRoutingService = {
   /**
    * Get providers by state license match
    */
-  async getProvidersByState(
-    clinicId: number,
-    state: string
-  ): Promise<AvailableProvider[]> {
+  async getProvidersByState(clinicId: number, state: string): Promise<AvailableProvider[]> {
     const providers = await prisma.provider.findMany({
       where: {
         status: 'ACTIVE',
@@ -284,7 +281,7 @@ export const providerRoutingService = {
     patientState?: string
   ): Promise<RoutingResult | null> {
     const config = await this.getRoutingConfig(clinicId);
-    
+
     if (!config?.routingEnabled) {
       logger.debug('[ProviderRoutingService] Routing not enabled for clinic', { clinicId });
       return null;
@@ -391,10 +388,7 @@ export const providerRoutingService = {
   /**
    * Assign using round-robin
    */
-  async assignRoundRobin(
-    clinicId: number,
-    orderId: number
-  ): Promise<RoutingResult | null> {
+  async assignRoundRobin(clinicId: number, orderId: number): Promise<RoutingResult | null> {
     const availableProviders = await this.getAvailableProviders(clinicId);
 
     if (availableProviders.length === 0) {
@@ -498,10 +492,7 @@ export const providerRoutingService = {
   /**
    * Provider self-claims a prescription
    */
-  async claimPrescription(
-    orderId: number,
-    providerId: number
-  ): Promise<RoutingResult> {
+  async claimPrescription(orderId: number, providerId: number): Promise<RoutingResult> {
     const provider = await prisma.provider.findUnique({
       where: { id: providerId },
       select: {
@@ -554,12 +545,9 @@ export const providerRoutingService = {
   /**
    * Check SOAP approval status for prescribing
    */
-  async checkSoapApproval(
-    clinicId: number,
-    patientId: number
-  ): Promise<SoapApprovalCheck> {
+  async checkSoapApproval(clinicId: number, patientId: number): Promise<SoapApprovalCheck> {
     const config = await this.getRoutingConfig(clinicId);
-    
+
     const mode = config?.soapApprovalMode ?? 'DISABLED';
 
     if (mode === 'DISABLED') {
@@ -656,7 +644,7 @@ export const providerRoutingService = {
     }
 
     // Type for order from the query
-    type OrderFromQuery = typeof unassignedOrders[number];
+    type OrderFromQuery = (typeof unassignedOrders)[number];
 
     // Filter and transform
     return unassignedOrders
@@ -717,7 +705,7 @@ export const providerRoutingService = {
     });
 
     // Type for order from the query
-    type AssignedOrderType = typeof orders[number];
+    type AssignedOrderType = (typeof orders)[number];
 
     return orders.map((order: AssignedOrderType) => ({
       orderId: order.id,
@@ -734,9 +722,7 @@ export const providerRoutingService = {
   /**
    * Get admin view of routing queue with all unassigned items
    */
-  async getAdminRoutingQueue(
-    clinicId: number
-  ): Promise<{
+  async getAdminRoutingQueue(clinicId: number): Promise<{
     unassigned: PrescriptionQueueItem[];
     assigned: { providerId: number; providerName: string; count: number }[];
     providers: AvailableProvider[];
@@ -760,16 +746,16 @@ export const providerRoutingService = {
     });
 
     const assigned = await Promise.all(
-      assignedCounts.map(async (ac: { assignedProviderId: number | null; _count: { id: number } }) => {
-        const provider = providers.find((p) => p.id === ac.assignedProviderId);
-        return {
-          providerId: ac.assignedProviderId!,
-          providerName: provider
-            ? `${provider.firstName} ${provider.lastName}`
-            : 'Unknown',
-          count: ac._count.id,
-        };
-      })
+      assignedCounts.map(
+        async (ac: { assignedProviderId: number | null; _count: { id: number } }) => {
+          const provider = providers.find((p) => p.id === ac.assignedProviderId);
+          return {
+            providerId: ac.assignedProviderId!,
+            providerName: provider ? `${provider.firstName} ${provider.lastName}` : 'Unknown',
+            count: ac._count.id,
+          };
+        }
+      )
     );
 
     return {

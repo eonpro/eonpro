@@ -70,7 +70,8 @@ export const patientPortalTranslations: Record<PatientPortalLang, Record<string,
     termsOfService: 'Terms of Service',
     hipaaNotice: 'HIPAA Notice',
     requestDataExport: 'Request Data Export',
-    requestDataExportDesc: 'You can request a copy of all your personal data. This may take up to 30 days to process.',
+    requestDataExportDesc:
+      'You can request a copy of all your personal data. This may take up to 30 days to process.',
     requestDataExportBtn: 'Request Data Export →',
     changesSaved: 'Changes saved successfully!',
     // Dashboard
@@ -245,7 +246,8 @@ export const patientPortalTranslations: Record<PatientPortalLang, Record<string,
     termsOfService: 'Términos de servicio',
     hipaaNotice: 'Aviso HIPAA',
     requestDataExport: 'Solicitar exportación de datos',
-    requestDataExportDesc: 'Puedes solicitar una copia de todos tus datos personales. Puede tardar hasta 30 días en procesarse.',
+    requestDataExportDesc:
+      'Puedes solicitar una copia de todos tus datos personales. Puede tardar hasta 30 días en procesarse.',
     requestDataExportBtn: 'Solicitar exportación de datos →',
     changesSaved: '¡Cambios guardados correctamente!',
     // Dashboard

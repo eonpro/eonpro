@@ -2,23 +2,24 @@
 
 **Document Version:** 1.0  
 **Last Updated:** January 21, 2026  
-**Classification:** INTERNAL - Business Continuity  
+**Classification:** INTERNAL - Business Continuity
 
 ---
 
 ## 1. Overview
 
-This document outlines contingency plans for the Lifefile pharmacy integration, which is critical for prescription fulfillment.
+This document outlines contingency plans for the Lifefile pharmacy integration, which is critical
+for prescription fulfillment.
 
 ### Dependency Assessment
 
-| Aspect | Details |
-|--------|---------|
-| **Service** | Lifefile Pharmacy API |
-| **Criticality** | HIGH - Revenue-generating |
+| Aspect          | Details                    |
+| --------------- | -------------------------- |
+| **Service**     | Lifefile Pharmacy API      |
+| **Criticality** | HIGH - Revenue-generating  |
 | **Alternative** | Manual fax/call (degraded) |
-| **SLA** | 99.9% uptime |
-| **Support** | 24/7 available |
+| **SLA**         | 99.9% uptime               |
+| **Support**     | 24/7 available             |
 
 ---
 
@@ -29,11 +30,13 @@ This document outlines contingency plans for the Lifefile pharmacy integration, 
 **Trigger:** Lifefile API returns 5xx or times out consistently
 
 **Impact:**
+
 - New prescriptions cannot be submitted
 - Order status cannot be updated
 - Patients may experience delays
 
 **Mitigation:**
+
 1. Queue failed orders in Dead Letter Queue (DLQ)
 2. Retry with exponential backoff
 3. Alert operations team
@@ -44,9 +47,11 @@ This document outlines contingency plans for the Lifefile pharmacy integration, 
 **Trigger:** API credentials expired or revoked
 
 **Impact:**
+
 - All API calls fail with 401/403
 
 **Mitigation:**
+
 1. Rotate credentials immediately
 2. Verify in Lifefile dashboard
 3. Update environment variables
@@ -57,10 +62,12 @@ This document outlines contingency plans for the Lifefile pharmacy integration, 
 **Trigger:** Exceeding API rate limits
 
 **Impact:**
+
 - Throttled requests
 - Delayed order processing
 
 **Mitigation:**
+
 1. Implement request queuing
 2. Spread batch operations
 3. Contact Lifefile for limit increase
@@ -70,10 +77,12 @@ This document outlines contingency plans for the Lifefile pharmacy integration, 
 **Trigger:** Business relationship ends
 
 **Impact:**
+
 - Complete loss of pharmacy fulfillment
 - Need alternative provider
 
 **Mitigation:**
+
 1. Maintain 90-day notice clause
 2. Document integration patterns for new provider
 3. Keep pharmacy-agnostic abstraction layer
@@ -89,12 +98,12 @@ This document outlines contingency plans for the Lifefile pharmacy integration, 
 │   EONPRO App    │────▶│  Lifefile API   │────▶│   Pharmacy      │
 │                 │◀────│   (REST)        │◀────│   Fulfillment   │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
-        │                                               
-        ▼                                               
-┌─────────────────┐                                     
-│   DLQ Queue     │  ◀── Failed orders stored here     
-│   (Redis/DB)    │                                     
-└─────────────────┘                                     
+        │
+        ▼
+┌─────────────────┐
+│   DLQ Queue     │  ◀── Failed orders stored here
+│   (Redis/DB)    │
+└─────────────────┘
 ```
 
 ### 3.2 Abstraction Layer
@@ -143,10 +152,10 @@ When API is unavailable, prescriptions can be fulfilled manually:
 
 ### 5.1 Phone Order
 
-**Lifefile Phone:** [Contact Number]
-**Hours:** 24/7
+**Lifefile Phone:** [Contact Number] **Hours:** 24/7
 
 **Required Information:**
+
 - Provider NPI
 - Patient name, DOB, address
 - Medication, strength, quantity
@@ -157,6 +166,7 @@ When API is unavailable, prescriptions can be fulfilled manually:
 **Lifefile Fax:** [Fax Number]
 
 **Process:**
+
 1. Generate prescription PDF from system
 2. Fax to Lifefile
 3. Call to confirm receipt
@@ -167,7 +177,7 @@ When API is unavailable, prescriptions can be fulfilled manually:
 ```sql
 -- Mark order as manually processed
 UPDATE "Order"
-SET 
+SET
   status = 'PROCESSING',
   notes = 'Manually submitted via phone on [DATE]',
   "updatedAt" = NOW()
@@ -180,11 +190,11 @@ WHERE id = [ORDER_ID];
 
 ### 6.1 Health Checks
 
-| Check | Frequency | Alert Threshold |
-|-------|-----------|-----------------|
-| API ping | 1 minute | 3 failures |
-| Order submission | Real-time | Any failure |
-| Status webhook | 5 minutes | 5 failures |
+| Check            | Frequency | Alert Threshold |
+| ---------------- | --------- | --------------- |
+| API ping         | 1 minute  | 3 failures      |
+| Order submission | Real-time | Any failure     |
+| Status webhook   | 5 minutes | 5 failures      |
 
 ### 6.2 Metrics to Track
 
@@ -244,21 +254,21 @@ npx tsx scripts/process-dlq.ts --type LIFEFILE_ORDER
 
 ### 8.1 Evaluation Criteria
 
-| Criteria | Weight | Notes |
-|----------|--------|-------|
-| Compound medications | 30% | Must support compounding |
-| API availability | 25% | REST/SOAP API |
-| Shipping coverage | 20% | US nationwide |
-| Pricing | 15% | Competitive rates |
-| HIPAA compliance | 10% | Required |
+| Criteria             | Weight | Notes                    |
+| -------------------- | ------ | ------------------------ |
+| Compound medications | 30%    | Must support compounding |
+| API availability     | 25%    | REST/SOAP API            |
+| Shipping coverage    | 20%    | US nationwide            |
+| Pricing              | 15%    | Competitive rates        |
+| HIPAA compliance     | 10%    | Required                 |
 
 ### 8.2 Potential Alternatives
 
-| Provider | API | Compounds | Status |
-|----------|-----|-----------|--------|
-| [Provider A] | REST | Yes | Evaluated |
-| [Provider B] | SOAP | Yes | Not evaluated |
-| Local Pharmacy | None | Limited | Manual only |
+| Provider       | API  | Compounds | Status        |
+| -------------- | ---- | --------- | ------------- |
+| [Provider A]   | REST | Yes       | Evaluated     |
+| [Provider B]   | SOAP | Yes       | Not evaluated |
+| Local Pharmacy | None | Limited   | Manual only   |
 
 ---
 
@@ -282,17 +292,17 @@ npx tsx scripts/process-dlq.ts --type LIFEFILE_ORDER
 
 ## 10. Contacts
 
-| Role | Name | Phone | Email |
-|------|------|-------|-------|
-| Lifefile Support | - | [Phone] | support@lifefile.com |
-| Account Manager | [Name] | [Phone] | [Email] |
-| Internal: Pharmacy Lead | [Name] | [Phone] | [Email] |
-| Internal: On-call Engineer | - | PagerDuty | - |
+| Role                       | Name   | Phone     | Email                |
+| -------------------------- | ------ | --------- | -------------------- |
+| Lifefile Support           | -      | [Phone]   | support@lifefile.com |
+| Account Manager            | [Name] | [Phone]   | [Email]              |
+| Internal: Pharmacy Lead    | [Name] | [Phone]   | [Email]              |
+| Internal: On-call Engineer | -      | PagerDuty | -                    |
 
 ---
 
 ## Revision History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-01-21 | Engineering | Initial document |
+| Version | Date       | Author      | Changes          |
+| ------- | ---------- | ----------- | ---------------- |
+| 1.0     | 2026-01-21 | Engineering | Initial document |

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { handleApiError } from '@/domains/shared/errors';
 
 /**
  * GET /api/admin/sales-reps
@@ -71,10 +72,11 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
         },
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      take: 100,
     });
 
     // Transform response
-    const salesRepsData = salesReps.map((rep: typeof salesReps[number]) => ({
+    const salesRepsData = salesReps.map((rep: (typeof salesReps)[number]) => ({
       id: rep.id,
       firstName: rep.firstName,
       lastName: rep.lastName,
@@ -100,12 +102,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[SALES-REPS] Error listing sales reps', {
-      error: errorMessage,
-      userId: user.id,
-    });
-    return NextResponse.json({ error: 'Failed to fetch sales reps' }, { status: 500 });
+    return handleApiError(error, { route: 'GET /api/admin/sales-reps' });
   }
 }
 

@@ -26,7 +26,11 @@ const verifyRequestSchema = z.object({
 // ID Photo Types (require verification)
 // =============================================================================
 
-const ID_PHOTO_TYPES: PatientPhotoType[] = [PatientPhotoType.ID_FRONT, PatientPhotoType.ID_BACK, PatientPhotoType.SELFIE];
+const ID_PHOTO_TYPES: PatientPhotoType[] = [
+  PatientPhotoType.ID_FRONT,
+  PatientPhotoType.ID_BACK,
+  PatientPhotoType.SELFIE,
+];
 
 // =============================================================================
 // POST /api/admin/patient-photos/[id]/verify
@@ -156,10 +160,7 @@ async function handlePost(
       userId: user.id,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      { error: 'Failed to verify photo' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to verify photo' }, { status: 500 });
   }
 }
 

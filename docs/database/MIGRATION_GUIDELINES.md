@@ -2,7 +2,9 @@
 
 > **Enterprise-grade best practices for database schema changes**
 
-This document outlines the procedures and best practices for managing database migrations in the EONPRO platform. Following these guidelines prevents production outages and ensures smooth schema evolution.
+This document outlines the procedures and best practices for managing database migrations in the
+EONPRO platform. Following these guidelines prevents production outages and ensures smooth schema
+evolution.
 
 ## Table of Contents
 
@@ -84,11 +86,11 @@ Always provide a default value to prevent migration failures:
 // schema.prisma
 model Clinic {
   // ... existing fields
-  
+
   // New field with default - SAFE
   buttonTextColor String @default("auto")
-  
-  // New nullable field - SAFE  
+
+  // New nullable field - SAFE
   newOptionalField String?
 }
 ```
@@ -113,7 +115,7 @@ const clinic = await prisma.clinic.findUnique({
   select: {
     id: true,
     name: true,
-    buttonTextColor: true,  // Add new field explicitly
+    buttonTextColor: true, // Add new field explicitly
   },
 });
 
@@ -129,20 +131,23 @@ Add the new column to `scripts/pre-deploy-check.ts`:
 ```typescript
 const criticalTables = {
   Clinic: [
-    'id', 'name', 'subdomain',
-    'buttonTextColor',  // Add new column here
+    'id',
+    'name',
+    'subdomain',
+    'buttonTextColor', // Add new column here
   ],
 };
 ```
 
 ### Step 5: Update Repository (if applicable)
 
-Add the new field to the appropriate select pattern in `src/domains/clinic/repositories/clinic.repository.ts`:
+Add the new field to the appropriate select pattern in
+`src/domains/clinic/repositories/clinic.repository.ts`:
 
 ```typescript
 export const CLINIC_BRANDING_SELECT = {
   // ... existing fields
-  buttonTextColor: true,  // Add here after migration is deployed
+  buttonTextColor: true, // Add here after migration is deployed
 } satisfies Prisma.ClinicSelect;
 ```
 
@@ -197,7 +202,7 @@ await prisma.clinic.update({
   where: { id },
   data: {
     oldColumnName: value,
-    newColumnName: value,  // Write to both
+    newColumnName: value, // Write to both
   },
 });
 ```
@@ -234,9 +239,9 @@ model NewFeature {
   clinicId  Int
   name      String
   createdAt DateTime @default(now())
-  
+
   clinic    Clinic   @relation(fields: [clinicId], references: [id])
-  
+
   @@index([clinicId])
 }
 ```
@@ -282,16 +287,20 @@ Use this checklist for every migration PR:
 ## Database Migration
 
 ### Changes
+
 - Adding: `Clinic.buttonTextColor` (String, default: "auto")
 
 ### Checklist
+
 - [x] DEFAULT value provided
 - [x] Pre-deploy checks updated
 - [x] Explicit selects in all affected queries
 - [x] Repository updated
 
 ### Rollback Plan
+
 If issues occur:
+
 1. Revert PR commit
 2. Migration is backwards-compatible (column has default)
 3. No data migration needed for rollback
@@ -306,10 +315,11 @@ If issues occur:
 1. **Don't panic** - assess the impact first
 
 2. **Check logs**:
+
    ```bash
    # Vercel logs
    vercel logs --follow
-   
+
    # Database status
    npx prisma migrate status
    ```
@@ -364,7 +374,7 @@ The CI/CD pipeline prevents this, but if manually deploying:
 vercel deploy --prod  # Code expects new column
 npx prisma migrate deploy  # Column added too late
 
-# ✅ CORRECT ORDER  
+# ✅ CORRECT ORDER
 npx prisma migrate deploy  # Column exists first
 vercel deploy --prod  # Code can now use it
 ```
@@ -376,8 +386,10 @@ Always update `scripts/pre-deploy-check.ts` when adding critical columns:
 ```typescript
 const criticalTables = {
   Clinic: [
-    'id', 'name', 'subdomain',
-    'newCriticalColumn',  // ADD NEW COLUMNS HERE
+    'id',
+    'name',
+    'subdomain',
+    'newCriticalColumn', // ADD NEW COLUMNS HERE
   ],
 };
 ```
@@ -395,6 +407,6 @@ const criticalTables = {
 
 ## Changelog
 
-| Date | Author | Change |
-|------|--------|--------|
+| Date       | Author | Change                                         |
+| ---------- | ------ | ---------------------------------------------- |
 | 2026-01-24 | System | Initial version after buttonTextColor incident |

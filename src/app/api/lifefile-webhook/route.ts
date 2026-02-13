@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/db";
-import { createHmac } from "crypto";
+import { prisma } from '@/lib/db';
+import { createHmac } from 'crypto';
 import { logger } from '@/lib/logger';
 import { AppError, ApiResponse } from '@/types/common';
 import { Patient, Provider, Order } from '@/types/models';
 
-const SIGNATURE_HEADER = "x-lifefile-signature";
+const SIGNATURE_HEADER = 'x-lifefile-signature';
 
 type WebhookConfig = {
   username?: string;
@@ -15,8 +15,8 @@ type WebhookConfig = {
 };
 
 function getConfig(): WebhookConfig {
-  const allowedIps = (process.env.LIFEFILE_WEBHOOK_ALLOWED_IPS ?? "")
-    .split(",")
+  const allowedIps = (process.env.LIFEFILE_WEBHOOK_ALLOWED_IPS ?? '')
+    .split(',')
     .map((ip: any) => ip.trim())
     .filter(Boolean);
   return {
@@ -31,56 +31,55 @@ function getConfig(): WebhookConfig {
 function unauthorized(message: string) {
   return new Response(message, {
     status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="lifefile-webhook"' },
+    headers: { 'WWW-Authenticate': 'Basic realm="lifefile-webhook"' },
   });
 }
 
-function log(level: "info" | "warn" | "error", message: string, meta?: any) {
+function log(level: 'info' | 'warn' | 'error', message: string, meta?: any) {
   const payload = meta ? { message, ...meta } : { message };
   const serialized = JSON.stringify(payload);
-  if (level === "error") {
-    logger.error("[LIFEFILE WEBHOOK]", { value: serialized });
-  } else if (level === "warn") {
-    logger.warn("[LIFEFILE WEBHOOK]", { value: serialized });
+  if (level === 'error') {
+    logger.error('[LIFEFILE WEBHOOK]', { value: serialized });
+  } else if (level === 'warn') {
+    logger.warn('[LIFEFILE WEBHOOK]', { value: serialized });
   } else {
-    logger.debug("[LIFEFILE WEBHOOK]", { value: serialized });
+    logger.debug('[LIFEFILE WEBHOOK]', { value: serialized });
   }
 }
 
 async function sendAlert(config: WebhookConfig, event: string, detail: Record<string, unknown>) {
-  log("error", event, detail);
+  log('error', event, detail);
   if (!config.alertUrl) return;
   try {
     await fetch(config.alertUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, ...detail }),
     });
   } catch (err: any) {
     // @ts-ignore
-   
-    logger.error("[LIFEFILE WEBHOOK] Failed to notify alert URL", err);
+
+    logger.error('[LIFEFILE WEBHOOK] Failed to notify alert URL', err);
   }
 }
 
 function verifyBasicAuth(config: WebhookConfig, header: string | null): boolean {
   if (!config.username || !config.password) {
-    logger.warn("[LIFEFILE WEBHOOK] Missing LIFEFILE_WEBHOOK_USERNAME/PASSWORD env vars"
-    );
+    logger.warn('[LIFEFILE WEBHOOK] Missing LIFEFILE_WEBHOOK_USERNAME/PASSWORD env vars');
     return false;
   }
-  if (!header?.startsWith("Basic ")) return false;
-  const decoded = Buffer.from(header.replace("Basic ", ""), "base64").toString("utf8");
-  const [authUser, authPass] = decoded.split(":");
+  if (!header?.startsWith('Basic ')) return false;
+  const decoded = Buffer.from(header.replace('Basic ', ''), 'base64').toString('utf8');
+  const [authUser, authPass] = decoded.split(':');
   return authUser === config.username && authPass === config.password;
 }
 
 function getRequestIp(request: Request): string | null {
-  const forwarded = request.headers.get("x-forwarded-for");
+  const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(",")[0]?.trim() ?? null;
+    return forwarded.split(',')[0]?.trim() ?? null;
   }
-  const realIp = request.headers.get("x-real-ip");
+  const realIp = request.headers.get('x-real-ip');
   if (realIp) return realIp.trim();
   return null;
 }
@@ -98,7 +97,7 @@ function verifySignature(
 ): boolean {
   if (!config.hmacSecret) return true;
   if (!signatureHeader) return false;
-  const expected = createHmac("sha256", config.hmacSecret).update(rawBody).digest("hex");
+  const expected = createHmac('sha256', config.hmacSecret).update(rawBody).digest('hex');
   return timingSafeEqual(expected, signatureHeader);
 }
 
@@ -113,7 +112,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 function extractFirst<T>(...values: Array<T | undefined | null>): T | undefined {
   for (const val of values) {
-    if (val !== undefined && val !== null && val !== "") {
+    if (val !== undefined && val !== null && val !== '') {
       return val;
     }
   }
@@ -122,35 +121,29 @@ function extractFirst<T>(...values: Array<T | undefined | null>): T | undefined 
 
 export async function POST(request: Request) {
   const config = getConfig();
-  const authHeader = request.headers.get("authorization");
+  const authHeader = request.headers.get('authorization');
   if (!verifyBasicAuth(config, authHeader)) {
-    await sendAlert(config, "webhook_auth_failed", { reason: "basic_auth" });
-    return unauthorized("Unauthorized");
+    await sendAlert(config, 'webhook_auth_failed', { reason: 'basic_auth' });
+    return unauthorized('Unauthorized');
   }
 
   const ip = getRequestIp(request);
   if (!verifyIp(config, ip)) {
-    await sendAlert(config, "webhook_ip_blocked", { ip });
-    return unauthorized("Unauthorized");
+    await sendAlert(config, 'webhook_ip_blocked', { ip });
+    return unauthorized('Unauthorized');
   }
 
   const rawBody = await request.text();
   if (!verifySignature(config, rawBody, request.headers.get(SIGNATURE_HEADER) ?? undefined)) {
-    await sendAlert(config, "webhook_signature_invalid", { ip, header: SIGNATURE_HEADER });
-    return unauthorized("Unauthorized");
+    await sendAlert(config, 'webhook_signature_invalid', { ip, header: SIGNATURE_HEADER });
+    return unauthorized('Unauthorized');
   }
 
-  let payload: any;
-  try {
-    payload = rawBody ? JSON.parse(rawBody) : {};
-  } catch (err: any) {
-    // @ts-ignore
-   
-    await sendAlert(config, "webhook_invalid_json", {
-      ip,
-      err: (err as Error).message,
-    });
-    return Response.json({ error: "Invalid JSON payload" }, { status: 400 });
+  const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+  const payload: unknown = rawBody ? safeParseJsonString(rawBody) : {};
+  if (rawBody && (payload === null || typeof payload !== 'object')) {
+    await sendAlert(config, 'webhook_invalid_json', { ip, err: 'Invalid JSON' });
+    return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
   const lifefileOrderId = extractFirst(
@@ -163,11 +156,7 @@ export async function POST(request: Request) {
     payload.data?.referenceId,
     payload.order?.referenceId
   );
-  const status = extractFirst(
-    payload.status,
-    payload.order?.status,
-    payload.data?.status
-  );
+  const status = extractFirst(payload.status, payload.order?.status, payload.data?.status);
   const shippingStatus = extractFirst(
     payload.shippingStatus,
     payload.shipping?.status,
@@ -185,29 +174,23 @@ export async function POST(request: Request) {
   );
 
   if (!lifefileOrderId && !referenceId) {
-    await sendAlert(config, "webhook_missing_identifiers", { payload });
-    return Response.json(
-      { error: "Payload missing lifefile order identifiers" },
-      { status: 400 }
-    );
+    await sendAlert(config, 'webhook_missing_identifiers', { payload });
+    return Response.json({ error: 'Payload missing lifefile order identifiers' }, { status: 400 });
   }
 
   const order: any = await // @ts-ignore
-    prisma.order.findFirst({
+  prisma.order.findFirst({
     where: lifefileOrderId
       ? { lifefileOrderId: String(lifefileOrderId) }
       : { referenceId: String(referenceId) },
   });
 
   if (!order) {
-    await sendAlert(config, "webhook_unknown_order", {
+    await sendAlert(config, 'webhook_unknown_order', {
       lifefileOrderId,
       referenceId,
     });
-    return Response.json(
-      { warning: "Order not found, payload logged" },
-      { status: 202 }
-    );
+    return Response.json({ warning: 'Order not found, payload logged' }, { status: 202 });
   }
 
   const updateData: any = {
@@ -228,13 +211,13 @@ export async function POST(request: Request) {
     data: {
       orderId: order.id,
       lifefileOrderId: order.lifefileOrderId,
-      eventType: status ?? shippingStatus ?? "webhook",
+      eventType: status ?? shippingStatus ?? 'webhook',
       payload,
       note: trackingNumber ? `Tracking # ${trackingNumber}` : undefined,
     },
   });
 
-  log("info", "webhook_processed", {
+  log('info', 'webhook_processed', {
     orderId: order.id,
     lifefileOrderId,
     status,
@@ -243,4 +226,3 @@ export async function POST(request: Request) {
 
   return Response.json({ success: true });
 }
-

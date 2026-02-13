@@ -7,10 +7,10 @@ interface Props {
 
 /**
  * Affiliate Landing Page - Simple Redirect
- * 
+ *
  * Short URL format: /r/CODE
  * Example: https://yoursite.com/r/SARAH2024
- * 
+ *
  * This page simply redirects to the main site with the ref code.
  * The tracking is handled client-side by AffiliateTracker component.
  * Invalid codes will just not be tracked (graceful degradation).
@@ -18,7 +18,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params;
-  
+
   return {
     title: `Special Offer - ${code}`,
     description: 'Get started with your health journey today.',

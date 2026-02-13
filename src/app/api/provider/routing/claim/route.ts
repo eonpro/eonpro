@@ -1,6 +1,6 @@
 /**
  * Provider Routing - Claim Prescription API
- * 
+ *
  * POST - Provider claims a prescription from the available queue
  */
 
@@ -21,7 +21,7 @@ const claimSchema = z.object({
 async function handlePost(req: NextRequest, user: AuthUser) {
   try {
     const clinicId = user.clinicId;
-    
+
     if (!clinicId) {
       return NextResponse.json(
         { error: 'Provider must be associated with a clinic' },
@@ -39,7 +39,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     // Check if routing is enabled for this clinic
     const config = await providerRoutingService.getRoutingConfig(clinicId);
-    
+
     if (!config?.routingEnabled) {
       return NextResponse.json(
         { error: 'Provider routing is not enabled for this clinic' },
@@ -56,7 +56,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     const body = await req.json();
     const parsed = claimSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request', details: parsed.error.issues },
@@ -89,7 +89,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     // Handle specific errors
     if (errorMessage.includes('already assigned')) {
       return NextResponse.json(

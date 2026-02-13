@@ -34,7 +34,13 @@ export async function GET(request: NextRequest) {
 
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
-      select: { id: true, name: true, subdomain: true, stripePlatformAccount: true, stripeAccountId: true },
+      select: {
+        id: true,
+        name: true,
+        subdomain: true,
+        stripePlatformAccount: true,
+        stripeAccountId: true,
+      },
     });
 
     if (!clinic) {
@@ -67,7 +73,11 @@ export async function GET(request: NextRequest) {
           let startingAfter: string | undefined = list.data[list.data.length - 1]?.id;
           while (list.has_more && startingAfter) {
             const next = await stripeContext.stripe!.subscriptions.list(
-              withConnectedAccount(stripeContext, { status: 'active', limit: 100, starting_after: startingAfter })
+              withConnectedAccount(stripeContext, {
+                status: 'active',
+                limit: 100,
+                starting_after: startingAfter,
+              })
             );
             list.data.push(...next.data);
             list.has_more = next.has_more;

@@ -1,12 +1,12 @@
 /**
  * Billing Services
  * ================
- * 
+ *
  * Exports all billing-related services for the EONPRO platform.
  */
 
 export { platformFeeService } from './platformFeeService';
-export type { 
+export type {
   FeeConfigInput,
   FeeCalculationDetails,
   FeeSummary,

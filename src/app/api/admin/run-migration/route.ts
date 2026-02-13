@@ -2,7 +2,7 @@
  * RUN MIGRATION API
  * =================
  * Runs pending database migrations (admin only)
- * 
+ *
  * POST /api/admin/run-migration
  */
 
@@ -17,7 +17,10 @@ export async function GET(req: NextRequest) {
     const authResult = await verifyAuth(req);
     const allowedRoles = ['super_admin', 'admin'];
     if (!authResult.success || !authResult.user || !allowedRoles.includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role },
+        { status: 401 }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -27,7 +30,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         message: 'Available migrations',
         migrations: ['phone_otp', 'sms_log', 'product_catalog', 'pricing_system'],
-        usage: 'Add ?migration=pricing_system to URL'
+        usage: 'Add ?migration=pricing_system to URL',
       });
     }
 
@@ -35,8 +38,8 @@ export async function GET(req: NextRequest) {
     const body = { migration };
     return runMigration(body, authResult.user);
   } catch (error: any) {
-    logger.error('Migration error', { error: "Operation failed" });
-    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
+    logger.error('Migration error', { error: 'Operation failed' });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 }
 
@@ -46,14 +49,17 @@ export async function POST(req: NextRequest) {
     const authResult = await verifyAuth(req);
     const allowedRoles = ['super_admin', 'admin'];
     if (!authResult.success || !authResult.user || !allowedRoles.includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role },
+        { status: 401 }
+      );
     }
 
     const body = await req.json();
     return runMigration(body, authResult.user);
   } catch (error: any) {
-    logger.error('Migration error', { error: "Operation failed" });
-    return NextResponse.json({ error: "Operation failed" }, { status: 500 });
+    logger.error('Migration error', { error: 'Operation failed' });
+    return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 }
 
@@ -474,20 +480,19 @@ async function runMigration(body: any, auth: any) {
 
       return NextResponse.json({
         success: true,
-        message: 'Pricing system tables created successfully (DiscountCode, Promotion, ProductBundle, PricingRule)',
+        message:
+          'Pricing system tables created successfully (DiscountCode, Promotion, ProductBundle, PricingRule)',
       });
     }
 
     return NextResponse.json(
-      { error: 'Unknown migration. Available: phone_otp, sms_log, product_catalog, pricing_system' },
+      {
+        error: 'Unknown migration. Available: phone_otp, sms_log, product_catalog, pricing_system',
+      },
       { status: 400 }
     );
-
   } catch (error: any) {
-    logger.error('Migration error', { error: "Operation failed" });
-    return NextResponse.json(
-      { error: 'Migration failed' },
-      { status: 500 }
-    );
+    logger.error('Migration error', { error: 'Operation failed' });
+    return NextResponse.json({ error: 'Migration failed' }, { status: 500 });
   }
 }

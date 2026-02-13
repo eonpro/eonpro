@@ -50,17 +50,19 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
 
   const getAuthToken = () => {
     if (!isBrowser) return null;
-    return getLocalStorageItem('auth-token') ||
-           getLocalStorageItem('admin-token') ||
-           getLocalStorageItem('provider-token') ||
-           getLocalStorageItem('super_admin-token') ||
-           getLocalStorageItem('SUPER_ADMIN-token');
+    return (
+      getLocalStorageItem('auth-token') ||
+      getLocalStorageItem('admin-token') ||
+      getLocalStorageItem('provider-token') ||
+      getLocalStorageItem('super_admin-token') ||
+      getLocalStorageItem('SUPER_ADMIN-token')
+    );
   };
 
   const fetchClinics = async () => {
     try {
       const token = getAuthToken();
-      
+
       if (!token) {
         setLoading(false);
         return;
@@ -68,7 +70,7 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
 
       const response = await fetch('/api/user/clinics', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -77,7 +79,7 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
         setClinics(data.clinics || []);
         setActiveClinicId(data.activeClinicId);
         setError(null);
-        
+
         // Store active clinic in localStorage for other components
         if (data.activeClinicId) {
           setLocalStorageItem('activeClinicId', data.activeClinicId.toString());
@@ -106,7 +108,7 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ clinicId }),
       });
@@ -116,7 +118,7 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
         setActiveClinicId(clinicId);
         setLocalStorageItem('activeClinicId', clinicId.toString());
         setIsOpen(false);
-        
+
         // Refresh the page to load new clinic data (with SSR guard)
         if (isBrowser) {
           window.location.reload();
@@ -138,7 +140,7 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
     return (
       <div className={`flex items-center gap-2 px-3 py-2 text-gray-400 ${className}`}>
         <RefreshCw className="h-4 w-4 animate-spin" />
-        {showLabel && <span className="text-sm hidden sm:inline">Loading...</span>}
+        {showLabel && <span className="hidden text-sm sm:inline">Loading...</span>}
       </div>
     );
   }
@@ -154,18 +156,22 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
     return (
       <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
         {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-        {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
-          <img src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''} alt="" className="h-6 w-6 rounded object-contain" />
+        {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+          <img
+            src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
+            alt=""
+            className="h-6 w-6 rounded object-contain"
+          />
         ) : (
-          <div 
-            className="h-6 w-6 rounded flex items-center justify-center text-white text-xs font-bold"
+          <div
+            className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
             style={{ backgroundColor: clinic.primaryColor || '#3B82F6' }}
           >
             {clinic.name.charAt(0).toUpperCase()}
           </div>
         )}
         {showLabel && (
-          <span className="text-sm font-medium text-gray-700 hidden sm:inline truncate max-w-[120px]">
+          <span className="hidden max-w-[120px] truncate text-sm font-medium text-gray-700 sm:inline">
             {clinic.name}
           </span>
         )}
@@ -173,40 +179,46 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
     );
   }
 
-  const activeClinic = clinics.find(c => c.id === activeClinicId) || clinics[0];
+  const activeClinic = clinics.find((c) => c.id === activeClinicId) || clinics[0];
 
   // Multiple clinics - show dropdown
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200 bg-white"
+        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 transition-colors hover:bg-gray-100"
         disabled={switching}
       >
         {switching ? (
           <RefreshCw className="h-5 w-5 animate-spin text-teal-600" />
-        ) : (activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl) ? (
-          <img src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl || ''} alt="" className="h-6 w-6 rounded object-contain" />
+        ) : activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl ? (
+          <img
+            src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl || ''}
+            alt=""
+            className="h-6 w-6 rounded object-contain"
+          />
         ) : (
-          <div 
-            className="h-6 w-6 rounded flex items-center justify-center text-white text-xs font-bold"
+          <div
+            className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
             style={{ backgroundColor: activeClinic?.primaryColor || '#3B82F6' }}
           >
             {activeClinic?.name.charAt(0).toUpperCase()}
           </div>
         )}
         {showLabel && (
-          <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate hidden sm:inline">
+          <span className="hidden max-w-[120px] truncate text-sm font-medium text-gray-700 sm:inline">
             {activeClinic?.name || 'Select Clinic'}
           </span>
         )}
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 sm:left-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
-          <div className="p-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg sm:left-0">
+          <div className="border-b border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               Switch Clinic
             </p>
           </div>
@@ -216,48 +228,52 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
                 key={clinic.id}
                 onClick={() => switchClinic(clinic.id)}
                 disabled={switching || clinic.status !== 'ACTIVE'}
-                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left ${
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
                   clinic.id === activeClinicId ? 'bg-teal-50' : ''
-                } ${clinic.status !== 'ACTIVE' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${clinic.status !== 'ACTIVE' ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) ? (
-                  <img src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''} alt="" className="h-10 w-10 rounded-lg object-contain flex-shrink-0" />
+                {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+                  <img
+                    src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
+                    alt=""
+                    className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
+                  />
                 ) : (
-                  <div 
-                    className="h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0"
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg font-bold text-white"
                     style={{ backgroundColor: clinic.primaryColor || '#3B82F6' }}
                   >
                     {clinic.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{clinic.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">{clinic.name}</p>
+                  <p className="truncate text-xs text-gray-500">
                     {clinic.subdomain}.eonpro.io
                     {clinic.isPrimary && (
-                      <span className="ml-2 text-teal-600 font-medium">(Primary)</span>
+                      <span className="ml-2 font-medium text-teal-600">(Primary)</span>
                     )}
                   </p>
                   {clinic.role && (
-                    <p className="text-xs text-gray-400 capitalize">{clinic.role.toLowerCase().replace('_', ' ')}</p>
+                    <p className="text-xs capitalize text-gray-400">
+                      {clinic.role.toLowerCase().replace('_', ' ')}
+                    </p>
                   )}
                 </div>
-                <div className="flex-shrink-0 flex items-center gap-2">
+                <div className="flex flex-shrink-0 items-center gap-2">
                   {clinic.status !== 'ACTIVE' && (
-                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                       {clinic.status}
                     </span>
                   )}
-                  {clinic.id === activeClinicId && (
-                    <Check className="h-5 w-5 text-teal-600" />
-                  )}
+                  {clinic.id === activeClinicId && <Check className="h-5 w-5 text-teal-600" />}
                 </div>
               </button>
             ))}
           </div>
-          <div className="p-3 border-t border-gray-100 bg-gray-50">
-            <p className="text-xs text-gray-500 text-center">
+          <div className="border-t border-gray-100 bg-gray-50 p-3">
+            <p className="text-center text-xs text-gray-500">
               {clinics.length} clinic{clinics.length !== 1 ? 's' : ''} available
             </p>
           </div>

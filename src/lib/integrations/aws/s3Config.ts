@@ -1,6 +1,6 @@
 /**
  * AWS S3 Storage Configuration
- * 
+ *
  * Handles AWS S3 setup for secure document storage
  */
 
@@ -17,9 +17,14 @@ export interface AWSS3Config {
 }
 
 // Load configuration from environment
+// Use AWS_S3_DOCUMENTS_BUCKET_NAME for patient/intake documents when set (e.g. intakesnew);
+// otherwise fall back to AWS_S3_BUCKET_NAME so existing deployments keep working.
 export const s3Config: AWSS3Config = {
   region: process.env.AWS_REGION || 'us-east-1',
-  bucketName: process.env.AWS_S3_BUCKET_NAME || 'lifefile-documents',
+  bucketName:
+    process.env.AWS_S3_DOCUMENTS_BUCKET_NAME ||
+    process.env.AWS_S3_BUCKET_NAME ||
+    'lifefile-documents',
   accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
   cloudFrontUrl: process.env.AWS_CLOUDFRONT_URL,
@@ -29,8 +34,8 @@ export const s3Config: AWSS3Config = {
 // Validate S3 configuration
 export function isS3Configured(): boolean {
   return !!(
-    s3Config.bucketName && 
-    s3Config.accessKeyId && 
+    s3Config.bucketName &&
+    s3Config.accessKeyId &&
     s3Config.secretAccessKey &&
     s3Config.region
   );
@@ -68,11 +73,11 @@ export enum FileStatus {
 
 // File Access Level
 export enum FileAccessLevel {
-  PUBLIC = 'public',          // Anyone with link
-  PRIVATE = 'private',        // Only owner
-  RESTRICTED = 'restricted',  // Owner + specific users
-  PROVIDER = 'provider',      // All providers
-  PATIENT = 'patient',        // Patient only
+  PUBLIC = 'public', // Anyone with link
+  PRIVATE = 'private', // Only owner
+  RESTRICTED = 'restricted', // Owner + specific users
+  PROVIDER = 'provider', // All providers
+  PATIENT = 'patient', // Patient only
 }
 
 // Storage Configuration
@@ -81,7 +86,7 @@ export const STORAGE_CONFIG = {
   MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB
   MAX_IMAGE_SIZE: 10 * 1024 * 1024, // 10MB
   MAX_DOCUMENT_SIZE: 50 * 1024 * 1024, // 50MB
-  
+
   // Allowed file types
   ALLOWED_IMAGE_TYPES: [
     'image/jpeg',
@@ -91,7 +96,7 @@ export const STORAGE_CONFIG = {
     'image/webp',
     'image/svg+xml',
   ],
-  
+
   ALLOWED_DOCUMENT_TYPES: [
     'application/pdf',
     'application/msword',
@@ -99,13 +104,13 @@ export const STORAGE_CONFIG = {
     'text/plain',
     'application/rtf',
   ],
-  
+
   ALLOWED_MEDICAL_TYPES: [
     'application/dicom', // Medical imaging
     'application/hl7-v2+er7', // HL7 messages
     'application/fhir+json', // FHIR resources
   ],
-  
+
   // S3 paths
   PATHS: {
     PATIENTS: 'patients',
@@ -117,7 +122,7 @@ export const STORAGE_CONFIG = {
     TEMP: 'temp',
     ARCHIVES: 'archives',
   },
-  
+
   // Retention policies (in days)
   RETENTION: {
     TEMP_FILES: 1,
@@ -125,13 +130,13 @@ export const STORAGE_CONFIG = {
     ARCHIVED_FILES: 2555, // 7 years for HIPAA
     AUDIT_LOGS: 2190, // 6 years
   },
-  
+
   // Encryption
   ENCRYPTION: {
     ALGORITHM: 'AES256',
     KMS_ENABLED: true,
   },
-  
+
   // Lifecycle rules
   LIFECYCLE: {
     ENABLE_GLACIER: true,
@@ -150,23 +155,25 @@ export const BUCKET_POLICIES = {
     ExposeHeaders: ['ETag', 'x-amz-server-side-encryption'],
     MaxAgeSeconds: 3000,
   },
-  
+
   // Versioning
   VERSIONING: {
     Status: 'Enabled',
     MFADelete: 'Disabled',
   },
-  
+
   // Server-side encryption
   ENCRYPTION: {
-    Rules: [{
-      ApplyServerSideEncryptionByDefault: {
-        SSEAlgorithm: 'AES256',
-        KMSMasterKeyID: s3Config.kmsKeyId,
+    Rules: [
+      {
+        ApplyServerSideEncryptionByDefault: {
+          SSEAlgorithm: 'AES256',
+          KMSMasterKeyID: s3Config.kmsKeyId,
+        },
       },
-    }],
+    ],
   },
-  
+
   // Lifecycle rules
   LIFECYCLE_RULES: [
     {

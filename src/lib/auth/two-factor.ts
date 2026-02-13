@@ -16,7 +16,7 @@ const TWO_FACTOR_CONFIG = {
   step: 30, // 30 seconds
   window: 2, // Allow 2 time windows for clock drift
   backupCodesCount: 10,
-  backupCodeLength: 8
+  backupCodeLength: 8,
 };
 
 interface TwoFactorSetupResult {
@@ -42,7 +42,7 @@ export async function generateTwoFactorSecret(
     const secret = speakeasy.generateSecret({
       name: `${TWO_FACTOR_CONFIG.issuer} (${email})`,
       issuer: TWO_FACTOR_CONFIG.issuer,
-      length: 32
+      length: 32,
     });
 
     // Generate QR code
@@ -59,7 +59,7 @@ export async function generateTwoFactorSecret(
     return {
       secret: secret.base32,
       qrCode,
-      backupCodes
+      backupCodes,
     };
   } catch (error) {
     logger.error('Failed to generate 2FA secret', error as Error, { userId });
@@ -70,15 +70,12 @@ export async function generateTwoFactorSecret(
 /**
  * Enable 2FA for a user after successful verification
  */
-export async function enableTwoFactor(
-  userId: number,
-  token: string
-): Promise<boolean> {
+export async function enableTwoFactor(userId: number, token: string): Promise<boolean> {
   try {
     // Get stored secret
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { twoFactorSecret: true, twoFactorEnabled: true }
+      select: { twoFactorSecret: true, twoFactorEnabled: true },
     });
 
     if (!user || !user.twoFactorSecret) {
@@ -102,8 +99,8 @@ export async function enableTwoFactor(
       where: { id: userId },
       data: {
         twoFactorEnabled: true,
-        twoFactorVerifiedAt: new Date()
-      }
+        twoFactorVerifiedAt: new Date(),
+      },
     });
 
     // Create audit log
@@ -111,8 +108,8 @@ export async function enableTwoFactor(
       data: {
         userId,
         action: 'TWO_FACTOR_ENABLED',
-        details: { timestamp: new Date().toISOString() }
-      }
+        details: { timestamp: new Date().toISOString() },
+      },
     });
 
     logger.security('2FA enabled', { userId });
@@ -134,11 +131,11 @@ export async function verifyTwoFactorToken(
     // Get user's 2FA secret
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { 
-        twoFactorSecret: true, 
+      select: {
+        twoFactorSecret: true,
         twoFactorEnabled: true,
-        twoFactorBackupCodes: true 
-      }
+        twoFactorBackupCodes: true,
+      },
     });
 
     if (!user || !user.twoFactorEnabled) {
@@ -183,7 +180,7 @@ export async function disableTwoFactor(
     // Verify admin has permission
     const admin = await prisma.user.findUnique({
       where: { id: adminId },
-      select: { role: true }
+      select: { role: true },
     });
 
     if (!admin || admin.role !== 'admin') {
@@ -197,8 +194,8 @@ export async function disableTwoFactor(
         twoFactorEnabled: false,
         twoFactorSecret: null,
         twoFactorBackupCodes: null,
-        twoFactorVerifiedAt: null
-      }
+        twoFactorVerifiedAt: null,
+      },
     });
 
     // Create audit log
@@ -206,12 +203,12 @@ export async function disableTwoFactor(
       data: {
         userId,
         action: 'TWO_FACTOR_DISABLED',
-        details: { 
+        details: {
           adminId,
           reason,
-          timestamp: new Date().toISOString()
-        }
-      }
+          timestamp: new Date().toISOString(),
+        },
+      },
     });
 
     logger.security('2FA disabled', { userId, adminId, reason });
@@ -228,13 +225,13 @@ export async function disableTwoFactor(
 export async function regenerateBackupCodes(userId: number): Promise<string[]> {
   try {
     const backupCodes = generateBackupCodes();
-    const hashedCodes = backupCodes.map(code => hashBackupCode(code));
+    const hashedCodes = backupCodes.map((code) => hashBackupCode(code));
 
     await prisma.user.update({
       where: { id: userId },
       data: {
-        twoFactorBackupCodes: hashedCodes // Prisma JSON field accepts string[]
-      }
+        twoFactorBackupCodes: hashedCodes, // Prisma JSON field accepts string[]
+      },
     });
 
     logger.security('Backup codes regenerated', { userId });
@@ -261,13 +258,13 @@ function hashBackupCode(code: string): string {
 }
 
 async function verifyBackupCode(
-  userId: number, 
-  code: string, 
+  userId: number,
+  code: string,
   storedCodes: string[]
 ): Promise<boolean> {
   const hashedCode = hashBackupCode(code.toUpperCase());
   const index = storedCodes.indexOf(hashedCode);
-  
+
   if (index === -1) {
     return false;
   }
@@ -275,12 +272,12 @@ async function verifyBackupCode(
   // Remove used backup code
   const updatedCodes = [...storedCodes];
   updatedCodes.splice(index, 1);
-  
+
   await prisma.user.update({
     where: { id: userId },
     data: {
-      twoFactorBackupCodes: updatedCodes // Prisma JSON field accepts string[]
-    }
+      twoFactorBackupCodes: updatedCodes, // Prisma JSON field accepts string[]
+    },
   });
 
   logger.security('Backup code used', { userId });
@@ -292,12 +289,12 @@ function encryptSecret(secret: string): string {
   const iv = crypto.randomBytes(16);
   // GCM with explicit 16-byte (128-bit) auth tag length for security
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
-  
+
   let encrypted = cipher.update(secret, 'utf8', 'hex');
   encrypted += cipher.final('hex');
-  
+
   const authTag = cipher.getAuthTag();
-  
+
   return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
 }
 
@@ -306,15 +303,15 @@ function decryptSecret(encryptedSecret: string): string {
   const iv = Buffer.from(parts[0], 'hex');
   const authTag = Buffer.from(parts[1], 'hex');
   const encrypted = parts[2];
-  
+
   const key = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
   // GCM with explicit 16-byte (128-bit) auth tag length for security
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 });
   decipher.setAuthTag(authTag);
-  
+
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
-  
+
   return decrypted;
 }
 
@@ -325,7 +322,7 @@ function verifyToken(secret: string, token: string): boolean {
     token,
     digits: TWO_FACTOR_CONFIG.digits,
     step: TWO_FACTOR_CONFIG.step,
-    window: TWO_FACTOR_CONFIG.window
+    window: TWO_FACTOR_CONFIG.window,
   });
 }
 
@@ -335,14 +332,14 @@ async function storeTwoFactorSecret(
   backupCodes: string[]
 ): Promise<void> {
   const encryptedSecret = encryptSecret(secret);
-  const hashedBackupCodes = backupCodes.map(code => hashBackupCode(code));
+  const hashedBackupCodes = backupCodes.map((code) => hashBackupCode(code));
 
   await prisma.user.update({
     where: { id: userId },
     data: {
       twoFactorSecret: encryptedSecret,
-      twoFactorBackupCodes: hashedBackupCodes // Prisma JSON field accepts string[]
-    }
+      twoFactorBackupCodes: hashedBackupCodes, // Prisma JSON field accepts string[]
+    },
   });
 }
 
@@ -351,8 +348,8 @@ async function logSuccessfulVerification(userId: number): Promise<void> {
     data: {
       userId,
       action: 'TWO_FACTOR_VERIFICATION_SUCCESS',
-      details: { timestamp: new Date().toISOString() }
-    }
+      details: { timestamp: new Date().toISOString() },
+    },
   });
 }
 
@@ -361,8 +358,8 @@ async function logFailedVerification(userId: number): Promise<void> {
     data: {
       userId,
       action: 'TWO_FACTOR_VERIFICATION_FAILED',
-      details: { timestamp: new Date().toISOString() }
-    }
+      details: { timestamp: new Date().toISOString() },
+    },
   });
 }
 

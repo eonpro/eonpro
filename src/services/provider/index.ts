@@ -1,12 +1,15 @@
 /**
  * Provider Services
  * =================
- * 
+ *
  * Enterprise features for provider routing and compensation.
  */
 
 export { providerRoutingService, type ProviderRoutingService } from './providerRoutingService';
-export { providerCompensationService, type ProviderCompensationService } from './providerCompensationService';
+export {
+  providerCompensationService,
+  type ProviderCompensationService,
+} from './providerCompensationService';
 
 // Re-export types
 export type {

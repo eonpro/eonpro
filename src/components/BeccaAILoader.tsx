@@ -32,7 +32,7 @@ export default function BeccaAILoader({
       </div>
       {(text || subText) && (
         <div className="text-center">
-          {text && <h3 className="text-lg font-semibold mb-1">{text}</h3>}
+          {text && <h3 className="mb-1 text-lg font-semibold">{text}</h3>}
           {subText && <p className="text-sm text-gray-600">{subText}</p>}
         </div>
       )}
@@ -41,10 +41,8 @@ export default function BeccaAILoader({
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8">
-          {content}
-        </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="rounded-lg bg-white p-8">{content}</div>
       </div>
     );
   }

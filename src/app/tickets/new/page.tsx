@@ -11,10 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  ArrowLeft as ArrowLeftIcon,
-  AlertTriangle as ExclamationTriangleIcon,
-} from 'lucide-react';
+import { ArrowLeft as ArrowLeftIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 
 // Types
 interface User {
@@ -123,11 +120,25 @@ export default function NewTicketPage() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  // Fetch users for assignment dropdown
+  // Fetch users for assignment dropdown (clinic-scoped so assignees are from current clinic only)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch('/api/users?role=staff,admin,provider,support&limit=100', {
+        const activeClinicId = typeof window !== 'undefined' ? localStorage.getItem('activeClinicId') : null;
+        const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        let clinicId = activeClinicId;
+        if (!clinicId && userJson) {
+          try {
+            const u = JSON.parse(userJson);
+            if (u.clinicId != null) clinicId = String(u.clinicId);
+          } catch {
+            // ignore
+          }
+        }
+        const params = new URLSearchParams({ limit: '100' });
+        if (clinicId) params.set('clinicId', clinicId);
+        ['staff', 'admin', 'provider', 'support'].forEach((r) => params.append('role', r));
+        const response = await fetch(`/api/users?${params.toString()}`, {
           credentials: 'include',
           headers: getAuthHeaders(),
         });
@@ -194,7 +205,10 @@ export default function NewTicketPage() {
         orderId: formData.orderId ? parseInt(formData.orderId, 10) : undefined,
         dueDate: formData.dueDate || undefined,
         tags: formData.tags
-          ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean)
+          ? formData.tags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
           : undefined,
       };
 
@@ -214,7 +228,7 @@ export default function NewTicketPage() {
       }
 
       const data = await response.json();
-      router.push(`/tickets/${data.ticket.id}`);
+      window.location.href = `/tickets/${data.ticket.id}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -226,12 +240,12 @@ export default function NewTicketPage() {
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push('/tickets')}
-          className="rounded-lg p-1 hover:bg-gray-100"
-        >
-          <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
-        </button>
+          <button
+            onClick={() => { window.location.href = '/tickets'; }}
+            className="rounded-lg p-1 hover:bg-gray-100"
+          >
+            <ArrowLeftIcon className="h-5 w-5 text-gray-500" />
+          </button>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Ticket</h1>
           <p className="text-sm text-gray-500">Create a new support ticket</p>
@@ -250,10 +264,10 @@ export default function NewTicketPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 space-y-6">
+        <div className="space-y-6 rounded-lg border border-gray-200 bg-white p-6">
           {/* Title */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
               Title <span className="text-red-500">*</span>
             </label>
             <input
@@ -270,7 +284,7 @@ export default function NewTicketPage() {
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="mb-1 block text-sm font-medium text-gray-700">
               Description <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -288,7 +302,7 @@ export default function NewTicketPage() {
           {/* Category & Priority */}
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="category" className="mb-1 block text-sm font-medium text-gray-700">
                 Category
               </label>
               <select
@@ -307,7 +321,7 @@ export default function NewTicketPage() {
             </div>
 
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="priority" className="mb-1 block text-sm font-medium text-gray-700">
                 Priority
               </label>
               <select
@@ -329,7 +343,7 @@ export default function NewTicketPage() {
           {/* Source & Assignee */}
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label htmlFor="source" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="source" className="mb-1 block text-sm font-medium text-gray-700">
                 Source
               </label>
               <select
@@ -348,7 +362,10 @@ export default function NewTicketPage() {
             </div>
 
             <div>
-              <label htmlFor="assignedToId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="assignedToId"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
                 Assign To
               </label>
               <select
@@ -370,7 +387,7 @@ export default function NewTicketPage() {
 
           {/* Patient */}
           <div>
-            <label htmlFor="patientSearch" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="patientSearch" className="mb-1 block text-sm font-medium text-gray-700">
               Related Patient
             </label>
             <div className="relative">
@@ -414,7 +431,7 @@ export default function NewTicketPage() {
           {/* Due Date & Tags */}
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="dueDate" className="mb-1 block text-sm font-medium text-gray-700">
                 Due Date
               </label>
               <input
@@ -428,7 +445,7 @@ export default function NewTicketPage() {
             </div>
 
             <div>
-              <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="tags" className="mb-1 block text-sm font-medium text-gray-700">
                 Tags
               </label>
               <input
@@ -448,7 +465,7 @@ export default function NewTicketPage() {
         <div className="flex justify-end gap-3">
           <button
             type="button"
-            onClick={() => router.push('/tickets')}
+            onClick={() => { window.location.href = '/tickets'; }}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Cancel

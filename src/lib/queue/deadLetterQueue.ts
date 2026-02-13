@@ -1,9 +1,9 @@
 /**
  * Dead Letter Queue (DLQ) for failed EONPRO submissions
- * 
+ *
  * Uses Upstash Redis for persistent storage across serverless invocations.
  * Implements exponential backoff with 10 retry attempts.
- * 
+ *
  * Phase 2 of the 5-Phase Integration Plan
  */
 
@@ -31,7 +31,13 @@ const MAX_DELAY_MS = 3_600_000; // 1 hour max delay
 export interface QueuedSubmission {
   id: string;
   payload: Record<string, unknown>;
-  source: 'weightlossintake' | 'wellmedr-intake' | 'heyflow' | 'medlink' | 'direct' | 'overtime-intake';
+  source:
+    | 'weightlossintake'
+    | 'wellmedr-intake'
+    | 'heyflow'
+    | 'medlink'
+    | 'direct'
+    | 'overtime-intake';
   attemptCount: number;
   lastAttemptAt: string;
   lastError: string;
@@ -102,7 +108,7 @@ export async function queueFailedSubmission(
 ): Promise<string> {
   const id = `dlq-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
-  
+
   const submission: QueuedSubmission = {
     id,
     payload,
@@ -116,10 +122,10 @@ export async function queueFailedSubmission(
   };
 
   await upstashCommand(['HSET', DLQ_KEY, id, JSON.stringify(submission)]);
-  
+
   // Update stats
   await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalQueued', '1']);
-  
+
   logger.info(`[DLQ] Queued submission ${id}`, {
     source,
     error: error.slice(0, 200),
@@ -133,8 +139,8 @@ export async function queueFailedSubmission(
  * Get all queued submissions ready for retry
  */
 export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
-  const all = await upstashCommand(['HGETALL', DLQ_KEY]) as string[] | null;
-  
+  const all = (await upstashCommand(['HGETALL', DLQ_KEY])) as string[] | null;
+
   if (!all || all.length === 0) {
     return [];
   }
@@ -143,23 +149,18 @@ export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
   const ready: QueuedSubmission[] = [];
 
   // HGETALL returns [key1, val1, key2, val2, ...]
+  const { safeParseJsonString } = await import('@/lib/utils/safe-json');
   for (let i = 0; i < all.length; i += 2) {
-    try {
-      const submission = JSON.parse(all[i + 1]) as QueuedSubmission;
-      const retryTime = new Date(submission.nextRetryAt).getTime();
-      
-      if (retryTime <= now && submission.attemptCount < MAX_RETRY_ATTEMPTS) {
-        ready.push(submission);
-      }
-    } catch {
-      // Skip malformed entries
+    const submission = safeParseJsonString<QueuedSubmission>(all[i + 1]);
+    if (!submission) continue;
+    const retryTime = new Date(submission.nextRetryAt).getTime();
+    if (retryTime <= now && submission.attemptCount < MAX_RETRY_ATTEMPTS) {
+      ready.push(submission);
     }
   }
 
   // Sort by retry time (oldest first)
-  ready.sort((a, b) => 
-    new Date(a.nextRetryAt).getTime() - new Date(b.nextRetryAt).getTime()
-  );
+  ready.sort((a, b) => new Date(a.nextRetryAt).getTime() - new Date(b.nextRetryAt).getTime());
 
   return ready;
 }
@@ -168,20 +169,18 @@ export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
  * Get all queued submissions (for monitoring)
  */
 export async function getAllSubmissions(): Promise<QueuedSubmission[]> {
-  const all = await upstashCommand(['HGETALL', DLQ_KEY]) as string[] | null;
-  
+  const all = (await upstashCommand(['HGETALL', DLQ_KEY])) as string[] | null;
+
   if (!all || all.length === 0) {
     return [];
   }
 
   const submissions: QueuedSubmission[] = [];
 
+  const { safeParseJsonString } = await import('@/lib/utils/safe-json');
   for (let i = 0; i < all.length; i += 2) {
-    try {
-      submissions.push(JSON.parse(all[i + 1]) as QueuedSubmission);
-    } catch {
-      // Skip malformed entries
-    }
+    const submission = safeParseJsonString<QueuedSubmission>(all[i + 1]);
+    if (submission) submissions.push(submission);
   }
 
   return submissions;
@@ -195,35 +194,40 @@ export async function updateSubmissionAttempt(
   success: boolean,
   error?: string
 ): Promise<void> {
-  const raw = await upstashCommand(['HGET', DLQ_KEY, id]) as string | null;
-  
+  const raw = (await upstashCommand(['HGET', DLQ_KEY, id])) as string | null;
+
   if (!raw) {
     logger.warn(`[DLQ] Submission ${id} not found for update`);
     return;
   }
 
-  const submission = JSON.parse(raw) as QueuedSubmission;
+  const { safeParseJsonString } = await import('@/lib/utils/safe-json');
+  const submission = safeParseJsonString<QueuedSubmission>(raw);
+  if (!submission) {
+    logger.warn(`[DLQ] Submission ${id} has invalid JSON for update`);
+    return;
+  }
   submission.attemptCount += 1;
   submission.lastAttemptAt = new Date().toISOString();
-  
+
   if (success) {
     // Remove from queue on success
     await upstashCommand(['HDEL', DLQ_KEY, id]);
     await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalProcessed', '1']);
     await upstashCommand(['HSET', DLQ_STATS_KEY, 'lastProcessedAt', new Date().toISOString()]);
-    
+
     logger.info(`[DLQ] Successfully processed ${id} after ${submission.attemptCount} attempts`);
   } else if (submission.attemptCount >= MAX_RETRY_ATTEMPTS) {
     // Move to exhausted state
     submission.lastError = error || 'Max retries exhausted';
     await upstashCommand(['HSET', DLQ_KEY, id, JSON.stringify(submission)]);
     await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalExhausted', '1']);
-    
+
     logger.error(`[DLQ] Submission ${id} exhausted all ${MAX_RETRY_ATTEMPTS} retries`, {
       metadata: submission.metadata,
       lastError: error,
     });
-    
+
     // Trigger alert
     await sendExhaustionAlert(submission);
   } else {
@@ -232,8 +236,10 @@ export async function updateSubmissionAttempt(
     submission.nextRetryAt = calculateNextRetry(submission.attemptCount);
     await upstashCommand(['HSET', DLQ_KEY, id, JSON.stringify(submission)]);
     await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalFailed', '1']);
-    
-    logger.info(`[DLQ] Submission ${id} failed attempt ${submission.attemptCount}, next retry at ${submission.nextRetryAt}`);
+
+    logger.info(
+      `[DLQ] Submission ${id} failed attempt ${submission.attemptCount}, next retry at ${submission.nextRetryAt}`
+    );
   }
 }
 
@@ -249,9 +255,9 @@ export async function removeSubmission(id: string): Promise<boolean> {
  * Get queue statistics
  */
 export async function getQueueStats(): Promise<DLQStats & { pending: number; exhausted: number }> {
-  const statsRaw = await upstashCommand(['HGETALL', DLQ_STATS_KEY]) as string[] | null;
+  const statsRaw = (await upstashCommand(['HGETALL', DLQ_STATS_KEY])) as string[] | null;
   const submissions = await getAllSubmissions();
-  
+
   const stats: DLQStats = {
     totalQueued: 0,
     totalProcessed: 0,
@@ -272,8 +278,8 @@ export async function getQueueStats(): Promise<DLQStats & { pending: number; exh
     }
   }
 
-  const pending = submissions.filter(s => s.attemptCount < MAX_RETRY_ATTEMPTS).length;
-  const exhausted = submissions.filter(s => s.attemptCount >= MAX_RETRY_ATTEMPTS).length;
+  const pending = submissions.filter((s) => s.attemptCount < MAX_RETRY_ATTEMPTS).length;
+  const exhausted = submissions.filter((s) => s.attemptCount >= MAX_RETRY_ATTEMPTS).length;
 
   return { ...stats, pending, exhausted };
 }
@@ -287,10 +293,7 @@ export async function getQueueStats(): Promise<DLQStats & { pending: number; exh
  * Attempt 1: 1 min, 2: 2 min, 3: 4 min, 4: 8 min, 5: 16 min, 6: 32 min, 7+: 1 hour
  */
 function calculateNextRetry(attemptCount: number): string {
-  const delay = Math.min(
-    BASE_DELAY_MS * Math.pow(2, attemptCount),
-    MAX_DELAY_MS
-  );
+  const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attemptCount), MAX_DELAY_MS);
   return new Date(Date.now() + delay).toISOString();
 }
 
@@ -300,7 +303,7 @@ function calculateNextRetry(attemptCount: number): string {
 async function sendExhaustionAlert(submission: QueuedSubmission): Promise<void> {
   const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
   const alertEmail = process.env.ALERT_EMAIL;
-  
+
   const message = {
     text: `[EONPRO DLQ ALERT] Submission exhausted all retries`,
     blocks: [

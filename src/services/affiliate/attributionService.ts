@@ -10,6 +10,9 @@
  * - Linear attribution (split evenly)
  * - Time-decay attribution (recent touches get more weight)
  * - Position-based attribution (40% first, 40% last, 20% middle)
+ *
+ * When no AffiliateRefCode exists for a code (e.g. from Airtable "Who recommended OT Mens Health to you?"),
+ * use tagPatientWithReferralCodeOnly to tag the profile so it can be reconciled later.
  */
 
 import { prisma } from '@/lib/db';
@@ -50,13 +53,15 @@ async function getAttributionConfig(clinicId: number) {
   });
 
   // Return defaults if no config exists
-  return config || {
-    newPatientModel: 'FIRST_CLICK',
-    returningPatientModel: 'LAST_CLICK',
-    cookieWindowDays: 30,
-    impressionWindowHours: 24,
-    enableFingerprinting: true,
-  };
+  return (
+    config || {
+      newPatientModel: 'FIRST_CLICK',
+      returningPatientModel: 'LAST_CLICK',
+      cookieWindowDays: 30,
+      impressionWindowHours: 24,
+      enableFingerprinting: true,
+    }
+  );
 }
 
 /**
@@ -100,7 +105,7 @@ async function findTouches(
     },
   });
 
-  return touches.map((t: typeof touches[number]) => ({
+  return touches.map((t: (typeof touches)[number]) => ({
     touchId: t.id,
     affiliateId: t.affiliateId,
     refCode: t.refCode,
@@ -140,7 +145,7 @@ function applyLinear(touches: TouchInfo[]): TouchInfo[] {
   if (touches.length === 0) return [];
 
   const weight = 1 / touches.length;
-  return touches.map(touch => ({
+  return touches.map((touch) => ({
     ...touch,
     weight,
   }));
@@ -157,7 +162,7 @@ function applyTimeDecay(touches: TouchInfo[]): TouchInfo[] {
   const halfLife = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
 
   // Calculate raw weights based on exponential decay
-  const rawWeights = touches.map(touch => {
+  const rawWeights = touches.map((touch) => {
     const age = now - touch.createdAt.getTime();
     return Math.pow(0.5, age / halfLife);
   });
@@ -250,9 +255,7 @@ export async function resolveAttribution(
     const config = await getAttributionConfig(clinicId);
 
     // Select the appropriate model based on patient status
-    const model = isNewPatient
-      ? config.newPatientModel
-      : config.returningPatientModel;
+    const model = isNewPatient ? config.newPatientModel : config.returningPatientModel;
 
     // Find all touches for this visitor
     const touches = await findTouches(
@@ -279,11 +282,7 @@ export async function resolveAttribution(
       current.weight > prev.weight ? current : prev
     );
 
-    const confidence = determineConfidence(
-      !!visitorFingerprint,
-      !!cookieId,
-      touches.length
-    );
+    const confidence = determineConfidence(!!visitorFingerprint, !!cookieId, touches.length);
 
     logger.info('[Attribution] Resolved attribution', {
       clinicId,
@@ -315,9 +314,7 @@ export async function resolveAttribution(
  * Get attribution for a patient by their ID
  * Uses the patient's stored attribution data
  */
-export async function getPatientAttribution(
-  patientId: number
-): Promise<AttributionResult | null> {
+export async function getPatientAttribution(patientId: number): Promise<AttributionResult | null> {
   try {
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
@@ -353,10 +350,7 @@ export async function getPatientAttribution(
 /**
  * Mark a touch as converted (linked to a patient)
  */
-export async function markTouchConverted(
-  touchId: number,
-  patientId: number
-): Promise<void> {
+export async function markTouchConverted(touchId: number, patientId: number): Promise<void> {
   try {
     await prisma.affiliateTouch.update({
       where: { id: touchId },
@@ -475,6 +469,70 @@ export async function attributeFromIntake(
 ): Promise<AttributionResult | null> {
   const result = await attributeFromIntakeExtended(patientId, promoCode, clinicId, source);
   return result.success ? result : null;
+}
+
+/**
+ * Tag a patient with a referral/promo code when no AffiliateRefCode exists yet.
+ * Used for intake sources (e.g. Airtable "Who recommended OT Mens Health to you?") so we can
+ * reconcile later when the code is created. Does not set attributionAffiliateId; only
+ * attributionRefCode and tag. Does not create AffiliateTouch.
+ *
+ * Skips if patient already has attributionAffiliateId (first-wins). Otherwise updates
+ * attributionRefCode and adds affiliate:CODE tag.
+ */
+export async function tagPatientWithReferralCodeOnly(
+  patientId: number,
+  promoCode: string,
+  _clinicId: number
+): Promise<boolean> {
+  const normalizedCode = promoCode.trim().toUpperCase();
+  if (!normalizedCode) return false;
+
+  try {
+    const existing = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { id: true, attributionAffiliateId: true, attributionRefCode: true, tags: true },
+    });
+    if (!existing) {
+      logger.warn('[Attribution] tagPatientWithReferralCodeOnly: patient not found', { patientId });
+      return false;
+    }
+    // Do not overwrite if patient is already attributed to an affiliate
+    if (existing.attributionAffiliateId != null) {
+      logger.debug('[Attribution] tagPatientWithReferralCodeOnly: patient already has affiliate, skip', {
+        patientId,
+        attributionAffiliateId: existing.attributionAffiliateId,
+      });
+      return false;
+    }
+
+    const existingTags = Array.isArray(existing.tags) ? (existing.tags as string[]) : [];
+    const affiliateTag = `affiliate:${normalizedCode}`;
+    const hasTag = existingTags.includes(affiliateTag);
+
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: {
+        attributionRefCode: normalizedCode,
+        attributionFirstTouchAt: new Date(),
+        ...(hasTag ? {} : { tags: { push: affiliateTag } }),
+      },
+    });
+
+    logger.info('[Attribution] Tagged patient with referral code (no affiliate yet)', {
+      patientId,
+      refCode: normalizedCode,
+    });
+    return true;
+  } catch (err) {
+    const code = promoCode.trim().toUpperCase();
+    logger.error('[Attribution] tagPatientWithReferralCodeOnly failed', {
+      patientId,
+      promoCode: code,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return false;
+  }
 }
 
 /**
@@ -689,7 +747,9 @@ export async function attributeFromIntakeExtended(
     // Only update patient attribution if they don't already have one
     if (!hasExistingAttribution) {
       // Check if tag already exists to avoid duplicates
-      const existingTags = Array.isArray(existingPatient.tags) ? existingPatient.tags as string[] : [];
+      const existingTags = Array.isArray(existingPatient.tags)
+        ? (existingPatient.tags as string[])
+        : [];
       const affiliateTag = `affiliate:${normalizedCode}`;
       const shouldAddTag = !existingTags.includes(affiliateTag);
 
@@ -732,12 +792,15 @@ export async function attributeFromIntakeExtended(
         touchCreated: true,
       };
     } else {
-      logger.info('[Attribution] Patient already has attribution, touch tracked but attribution unchanged', {
-        patientId,
-        existingAffiliateId: existingPatient.attributionAffiliateId,
-        newCode: normalizedCode,
-        touchId: touch.id,
-      });
+      logger.info(
+        '[Attribution] Patient already has attribution, touch tracked but attribution unchanged',
+        {
+          patientId,
+          existingAffiliateId: existingPatient.attributionAffiliateId,
+          newCode: normalizedCode,
+          touchId: touch.id,
+        }
+      );
 
       return {
         affiliateId: refCode.affiliateId,

@@ -1,6 +1,6 @@
 /**
  * AWS S3 Delete API Endpoint
- * 
+ *
  * Handles secure file deletion from S3
  * PROTECTED: Requires authentication
  */
@@ -21,10 +21,7 @@ async function deleteHandler(request: NextRequest, user: AuthUser) {
     const { key } = await request.json();
 
     if (!key) {
-      return NextResponse.json(
-        { error: 'File key is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'File key is required' }, { status: 400 });
     }
 
     // Check if feature is enabled
@@ -39,10 +36,7 @@ async function deleteHandler(request: NextRequest, user: AuthUser) {
 
     // Check if S3 is configured
     if (!isS3Enabled()) {
-      return NextResponse.json(
-        { error: S3_ERRORS.NOT_CONFIGURED },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: S3_ERRORS.NOT_CONFIGURED }, { status: 503 });
     }
 
     // Delete from S3
@@ -54,14 +48,11 @@ async function deleteHandler(request: NextRequest, user: AuthUser) {
     return NextResponse.json({ success });
   } catch (error: any) {
     // @ts-ignore
-   
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Delete] Error:', error);
-    
-    return NextResponse.json(
-      { error: errorMessage || S3_ERRORS.DELETE_FAILED },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: errorMessage || S3_ERRORS.DELETE_FAILED }, { status: 500 });
   }
 }
 

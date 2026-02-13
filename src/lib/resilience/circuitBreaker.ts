@@ -34,7 +34,7 @@ export class CircuitBreaker<T = any> {
   };
   private nextAttempt?: number;
   private bucketStart: number = Date.now();
-  
+
   private readonly options: Required<CircuitBreakerOptions>;
 
   constructor(options: CircuitBreakerOptions) {
@@ -139,9 +139,9 @@ export class CircuitBreaker<T = any> {
   private onFailure(error: Error): void {
     this.metrics.failures++;
     this.metrics.lastFailureTime = Date.now();
-    
+
     logger.error(`Circuit breaker ${this.options.name} failure:`, error);
-    
+
     if (this.state === CircuitState.HALF_OPEN) {
       this.open();
     }
@@ -150,9 +150,9 @@ export class CircuitBreaker<T = any> {
   private onTimeout(): void {
     this.metrics.timeouts++;
     this.metrics.lastFailureTime = Date.now();
-    
+
     logger.warn(`Circuit breaker ${this.options.name} timeout`);
-    
+
     if (this.state === CircuitState.HALF_OPEN) {
       this.open();
     }
@@ -163,10 +163,7 @@ export class CircuitBreaker<T = any> {
     logger.debug(`Circuit breaker ${this.options.name} short-circuited`);
   }
 
-  async execute<R = T>(
-    fn: (...args: any[]) => Promise<R>,
-    ...args: any[]
-  ): Promise<R> {
+  async execute<R = T>(fn: (...args: any[]) => Promise<R>, ...args: any[]): Promise<R> {
     this.updateState();
 
     if (this.state === CircuitState.OPEN) {
@@ -179,18 +176,21 @@ export class CircuitBreaker<T = any> {
       this.onSuccess();
       return result;
     } catch (error: any) {
-    // @ts-ignore
-   
+      // @ts-ignore
+
       if (error instanceof Error && error.message.includes('Timeout')) {
         this.onTimeout();
       } else {
         this.onFailure(error as Error);
       }
-      
-      if ((this.state as CircuitState) === CircuitState.OPEN || (this.state as CircuitState) === CircuitState.HALF_OPEN) {
+
+      if (
+        (this.state as CircuitState) === CircuitState.OPEN ||
+        (this.state as CircuitState) === CircuitState.HALF_OPEN
+      ) {
         return this.options.fallback(...args) as Promise<R>;
       }
-      
+
       throw error;
     }
   }
@@ -216,19 +216,13 @@ export class CircuitBreaker<T = any> {
 }
 
 // Factory function for creating circuit breakers
-export function createCircuitBreaker<T = any>(
-  options: CircuitBreakerOptions
-): CircuitBreaker<T> {
+export function createCircuitBreaker<T = any>(options: CircuitBreakerOptions): CircuitBreaker<T> {
   return new CircuitBreaker<T>(options);
 }
 
 // Decorator for adding circuit breaker to methods
 export function withCircuitBreaker(options: Omit<CircuitBreakerOptions, 'name'>) {
-  return function (
-    target: any,
-    propertyName: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
     const circuitBreaker = new CircuitBreaker({
       ...options,
@@ -236,10 +230,7 @@ export function withCircuitBreaker(options: Omit<CircuitBreakerOptions, 'name'>)
     });
 
     descriptor.value = async function (...args: any[]) {
-      return circuitBreaker.execute(
-        originalMethod.bind(this),
-        ...args
-      );
+      return circuitBreaker.execute(originalMethod.bind(this), ...args);
     };
 
     return descriptor;
@@ -268,14 +259,14 @@ class CircuitBreakerRegistry {
 
   getStatus(): Record<string, { state: CircuitState; metrics: Readonly<Metrics> }> {
     const status: Record<string, { state: CircuitState; metrics: Readonly<Metrics> }> = {};
-    
+
     this.breakers.forEach((breaker, name) => {
       status[name] = {
         state: breaker.getState(),
         metrics: breaker.getMetrics(),
       };
     });
-    
+
     return status;
   }
 }
@@ -361,7 +352,9 @@ export const circuitBreakers = {
     volumeThreshold: 5,
     sleepWindow: 60000,
     fallback: async () => {
-      throw new Error('Pharmacy service is temporarily unavailable. Order has been saved and will be processed automatically.');
+      throw new Error(
+        'Pharmacy service is temporarily unavailable. Order has been saved and will be processed automatically.'
+      );
     },
   }),
 };
