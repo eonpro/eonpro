@@ -1,14 +1,14 @@
+const path = require('path');
 const { withSentryConfig } = require("@sentry/nextjs");
-
-// Bundle analyzer (only when ANALYZE=true)
-const withBundleAnalyzer = process.env.ANALYZE === 'true'
-  ? require('@next/bundle-analyzer')({ enabled: true })
-  : (config) => config;
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
-  // Required for Docker: produces .next/standalone and server.js
-  output: 'standalone',
+  // Standalone for Docker/self-host. Vercel uses its own optimization - standalone can cause 404.
+  ...(process.env.VERCEL ? {} : { output: 'standalone' }),
+
+  outputFileTracingRoot: path.resolve(__dirname),
+
+  serverExternalPackages: ['@prisma/client', '@napi-rs/canvas', 'pdf-parse'],
 
   // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).
   // ignoreBuildErrors kept for Vercel OOM; production deploy is gated by CI type-check.
@@ -45,11 +45,8 @@ const nextConfig = {
     } : false,
   },
   
-  // Experimental features (Turbopack is default in Next 16 - no --webpack)
   experimental: {
-    // Next 14: serverExternalPackages is experimental.serverComponentsExternalPackages
-    serverComponentsExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist', 'pdf-parse'],
-    // Optimize specific package imports (reduces bundle size)
+    serverMinification: false,
     optimizePackageImports: [
       'lucide-react',
       '@stripe/stripe-js',
@@ -59,8 +56,6 @@ const nextConfig = {
       'react-chartjs-2',
     ],
   },
-
-  turbopack: {},
 
   // Patient portal at /portal (eonmeds.eonpro.io/portal, wellmedr.eonpro.io/portal, etc.)
   // beforeFiles so /portal is rewritten before filesystem (avoids 404 when app/portal/ exists).
@@ -98,12 +93,13 @@ const nextConfig = {
     ];
   },
   
-  // Webpack configuration (when not using Turbopack)
+  // Webpack configuration (when using --webpack for production)
   webpack: (config, { isServer }) => {
-    // Fix for Prisma client in production
-    if (isServer && config.externals) {
-      config.externals.push('@prisma/client');
-    }
+    // Vercel: memory cache to avoid filesystem cache exceeding 1GB upload limit.
+    // CI/Docker: filesystem cache for faster rebuilds.
+    config.cache = process.env.VERCEL
+      ? { type: 'memory' }
+      : { type: 'filesystem' };
 
     // Resolve "node:" protocol as Node built-ins (avoids UnhandledSchemeError for node:async_hooks used in db.ts).
     if (isServer) {

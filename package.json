@@ -10,8 +10,8 @@
   },
   "scripts": {
     "dev": "next dev -p ${PORT:-3001}",
-    "build": "rm -rf node_modules/.prisma && prisma generate && next build",
-    "build:with-push": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate --accept-data-loss && next build",
+    "build": "rm -rf node_modules/.prisma && prisma generate && next build --webpack",
+    "build:with-push": "rm -rf node_modules/.prisma && prisma generate && prisma db push --skip-generate --accept-data-loss && next build --webpack",
     "start": "next start",
     "postinstall": "rm -rf node_modules/.prisma && prisma generate",
     "vercel-build": "node scripts/vercel-build.js",
