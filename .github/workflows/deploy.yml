@@ -1,8 +1,12 @@
 name: Deploy Pipeline
 
+# DISABLED: This workflow conflicts with Vercel's Git Integration.
+# Vercel Git Integration auto-deploys on push to main; this workflow
+# was also deploying via `vercel deploy --prebuilt --prod`, causing
+# stale prebuilt artifacts to overwrite the Git-triggered deploy.
+# Keep only the Git Integration for production deploys.
+# Re-enable when migrating to a manual deploy pipeline.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       environment:
