@@ -8,18 +8,34 @@
  * This is used by the PrescriptionForm to auto-select the provider
  * when a provider is logged in (they can only prescribe as themselves).
  *
- * Lookup strategy (in order):
- * 1. User.providerId - direct link
- * 2. Provider.email match - email-based link
- * 3. Provider name match - firstName + lastName match
+ * Lookup strategy (aligned with /api/provider/settings for consistency):
+ * 1. User.provider - direct link via User.providerId
+ * 2. Provider by email - exact match first, then case-insensitive
+ * 3. Provider by name - firstName + lastName match
+ * 4. If found by email/name but not linked, link User.providerId for future requests
  *
  * @module api/providers/me
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { basePrisma as prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+
+const providerSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  titleLine: true,
+  npi: true,
+  dea: true,
+  licenseNumber: true,
+  licenseState: true,
+  email: true,
+  phone: true,
+  signatureDataUrl: true,
+  clinicId: true,
+} as const;
 
 export const GET = withAuth(
   async (req: NextRequest, user: AuthUser) => {
@@ -33,89 +49,83 @@ export const GET = withAuth(
 
       let provider = null;
 
-      // Strategy 0: User table providerId (may have been linked after login; token can be stale)
+      // Strategy 1: User.provider via include (same as /api/provider/settings)
       const userRow = await prisma.user.findUnique({
         where: { id: user.id },
-        select: { providerId: true, email: true, firstName: true, lastName: true },
+        select: {
+          providerId: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          provider: { select: providerSelect },
+        },
       });
-      const dbProviderId = userRow?.providerId ?? user.providerId;
-      const userEmail = (userRow?.email || user.email || '').trim().toLowerCase();
+      if (userRow?.provider) {
+        provider = userRow.provider;
+        logger.info('[ProviderMe] Found via User.provider', { providerId: provider.id });
+      }
 
-      // Strategy 1: Direct providerId link (from DB or JWT)
-      if (dbProviderId) {
-        provider = await prisma.provider.findUnique({
+      const dbProviderId = userRow?.providerId ?? user.providerId;
+      const userEmail = (userRow?.email || user.email || '').trim();
+
+      // Strategy 2a: Direct providerId if Strategy 1 didn't return provider
+      if (!provider && dbProviderId) {
+        provider = await basePrisma.provider.findUnique({
           where: { id: dbProviderId },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            titleLine: true,
-            npi: true,
-            dea: true,
-            licenseNumber: true,
-            licenseState: true,
-            email: true,
-            phone: true,
-            signatureDataUrl: true,
-            clinicId: true,
-          },
+          select: providerSelect,
         });
         if (provider) {
           logger.info('[ProviderMe] Found via providerId', { providerId: provider.id });
         }
       }
 
-      // Strategy 2: Email match (case-insensitive)
+      // Strategy 2b: Email match - exact first (like provider/settings), then case-insensitive
       if (!provider && userEmail) {
-        provider = await prisma.provider.findFirst({
-          where: { email: { equals: userEmail, mode: 'insensitive' } },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            titleLine: true,
-            npi: true,
-            dea: true,
-            licenseNumber: true,
-            licenseState: true,
-            email: true,
-            phone: true,
-            signatureDataUrl: true,
-            clinicId: true,
-          },
+        provider = await basePrisma.provider.findFirst({
+          where: { email: userEmail },
+          select: providerSelect,
         });
+        if (!provider) {
+          provider = await basePrisma.provider.findFirst({
+            where: { email: { equals: userEmail.toLowerCase(), mode: 'insensitive' } },
+            select: providerSelect,
+          });
+        }
         if (provider) {
           logger.info('[ProviderMe] Found via email match', { providerId: provider.id });
         }
       }
 
-      // Strategy 3: Name match (use userRow from Strategy 0)
+      // Strategy 3: Name match
       if (!provider && userRow?.firstName && userRow?.lastName) {
-        provider = await prisma.provider.findFirst({
+        provider = await basePrisma.provider.findFirst({
           where: {
             firstName: { equals: userRow.firstName, mode: 'insensitive' },
             lastName: { equals: userRow.lastName, mode: 'insensitive' },
           },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            titleLine: true,
-            npi: true,
-            dea: true,
-            licenseNumber: true,
-            licenseState: true,
-            email: true,
-            phone: true,
-            signatureDataUrl: true,
-            clinicId: true,
-          },
+          select: providerSelect,
         });
         if (provider) {
           logger.info('[ProviderMe] Found via name match', {
             providerId: provider.id,
             name: `${userRow.firstName} ${userRow.lastName}`,
           });
+        }
+      }
+
+      // If found by email/name but not linked, link User.providerId (like provider/settings PUT)
+      if (provider && !userRow?.providerId) {
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { providerId: provider.id },
+          });
+          logger.info('[ProviderMe] Linked provider to user', {
+            userId: user.id,
+            providerId: provider.id,
+          });
+        } catch (linkErr) {
+          logger.warn('[ProviderMe] Failed to link provider to user', { error: linkErr });
         }
       }
 

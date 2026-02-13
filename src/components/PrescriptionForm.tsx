@@ -255,7 +255,7 @@ export default function PrescriptionForm({
 
         // Try /api/providers/me first (works for providers with linked profile)
         // credentials: include sends cookies (API may read provider-token from cookie)
-        const meRes = await fetch('/api/providers/me', {
+        let meRes = await fetch('/api/providers/me', {
           headers,
           credentials: 'include',
           cache: 'no-store',
@@ -270,7 +270,38 @@ export default function PrescriptionForm({
         try {
           meData = await meRes.json();
         } catch {
-          // Non-JSON response - fall through to providers list
+          // Non-JSON response - fall through
+        }
+
+        // Fallback: when /me returns 404 and role is provider, try /api/provider/settings
+        // (same API that successfully loads provider on Settings page)
+        if (!meRes.ok && meRes.status === 404 && (storedUser?.role?.toLowerCase() === 'provider' || role === 'provider')) {
+          const settingsRes = await fetch('/api/provider/settings', {
+            headers,
+            credentials: 'include',
+            cache: 'no-store',
+          });
+          if (settingsRes.ok) {
+            const settingsData = await settingsRes.json();
+            if (settingsData?.provider) {
+              meRes = { ok: true } as Response;
+              meData = {
+                provider: {
+                  id: settingsData.provider.id,
+                  firstName: settingsData.provider.firstName,
+                  lastName: settingsData.provider.lastName,
+                  titleLine: settingsData.provider.titleLine ?? null,
+                  npi: settingsData.provider.npi ?? '',
+                  signatureDataUrl: settingsData.provider.signatureDataUrl ?? null,
+                },
+                isComplete: !!(settingsData.provider.npi && settingsData.provider.dea),
+                missing: {
+                  npi: !settingsData.provider.npi,
+                  dea: !settingsData.provider.dea,
+                },
+              };
+            }
+          }
         }
 
         if (meRes.ok && meData.provider) {
