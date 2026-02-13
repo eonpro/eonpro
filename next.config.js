@@ -46,7 +46,7 @@ const nextConfig = {
   },
   
   experimental: {
-    serverMinification: false,
+    // serverMinification removed — not recognized by Next.js 16
     optimizePackageImports: [
       'lucide-react',
       '@stripe/stripe-js',
