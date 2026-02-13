@@ -69,6 +69,7 @@ export { Errors } from './AppError';
 export {
   handleApiError,
   withErrorHandler,
+  withApiHandler,
   assertOrThrow,
   getUserMessage,
 } from './handler';
