@@ -18,4 +18,5 @@ function run(cmd, description) {
 }
 
 run('node scripts/pre-migrate.js && npx prisma migrate deploy', 'Migrations');
-run('rm -rf node_modules/.prisma && npx prisma generate && npm run build', 'Build');
+// Run next build --webpack directly (Next 16 defaults to Turbopack; explicit flag required)
+run('rm -rf node_modules/.prisma && npx prisma generate && npx next build --webpack', 'Build');
