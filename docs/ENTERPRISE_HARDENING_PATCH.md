@@ -70,6 +70,15 @@ prisma/migrations/20260212100000_enterprise_auth_hardening/migration.sql
 
 ---
 
+## 6. Login 503 (Connection Pool Exhausted)
+
+When login returns 503 "Service is busy":
+- **Cause:** Prisma P2024 (pool exhausted) or P1002 (connection timeout)
+- **Mitigation:** Retry after 15s (Retry-After header); avoid /api/ready in keep-warm crons (use /api/ping only—edge, no DB)
+- **Long-term:** Use RDS Proxy or PgBouncer; set `USE_RDS_PROXY=true` when using RDS Proxy endpoint
+
+---
+
 ## Verification
 
 ```bash

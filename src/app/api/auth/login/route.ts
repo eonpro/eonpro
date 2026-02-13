@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { z } from 'zod';
@@ -22,7 +23,10 @@ import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
 import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
-// Note: Patient, Provider, Order types imported from models are not directly used
+import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
+
+const AUTH_LOCKOUT_AFTER_ATTEMPTS = parseInt(process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '5', 10);
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 // The Prisma client provides type-safe queries for these entities
 
 // Zod schema for login request validation
@@ -34,6 +38,7 @@ const loginSchema = z.object({
     .default('patient'),
   clinicId: z.number().nullable().optional(), // Accept null, undefined, or number
   captchaToken: z.string().optional(), // For CAPTCHA verification when required
+  deviceFingerprint: z.string().max(256).optional(), // Enterprise: device binding for audit
 });
 
 /**
@@ -48,10 +53,47 @@ const loginSchema = z.object({
  *
  * Supports multi-clinic users - returns clinics array for selection
  */
+/** Derive clinicId from request context (header from middleware or body). Avoids null. */
+function getClinicIdFromRequest(req: NextRequest, selectedClinicId?: number | null, userClinicId?: number | null): number | null {
+  const fromHeader = req.headers.get('x-clinic-id');
+  if (fromHeader) {
+    const n = parseInt(fromHeader, 10);
+    if (!Number.isNaN(n)) return n;
+  }
+  return selectedClinicId ?? userClinicId ?? null;
+}
+
+function createLoginAuditData(
+  email: string,
+  outcome: string,
+  opts: {
+    failureReason?: string;
+    ipAddress?: string;
+    userAgent?: string;
+    clinicId?: number | null;
+    deviceFingerprint?: string | null;
+    requestId?: string | null;
+    userId?: number | null;
+  }
+) {
+  return {
+    email: email.substring(0, 3) + '***',
+    outcome,
+    failureReason: opts.failureReason ?? null,
+    ipAddress: opts.ipAddress ?? null,
+    userAgent: opts.userAgent ?? null,
+    clinicId: opts.clinicId ?? null,
+    deviceFingerprint: opts.deviceFingerprint ?? null,
+    requestId: opts.requestId ?? null,
+    userId: opts.userId ?? null,
+  };
+}
+
 async function loginHandler(req: NextRequest) {
   const startTime = Date.now();
   let debugInfo: Record<string, unknown> = { step: 'start' };
   const clientIp = authRateLimiter.getClientIp(req);
+  const requestId = req.headers.get('x-request-id') || crypto.randomUUID();
 
   try {
     const body = await req.json();
@@ -71,6 +113,7 @@ async function loginHandler(req: NextRequest) {
       role,
       clinicId: selectedClinicId,
       captchaToken,
+      deviceFingerprint,
     } = validationResult.data;
 
     // ============================================================================
@@ -79,7 +122,6 @@ async function loginHandler(req: NextRequest) {
     const rateLimitResult = await authRateLimiter.checkAndRecord(clientIp, email, false);
 
     if (!rateLimitResult.allowed) {
-      // Log the rate limit event
       logger.warn('[Login] Rate limit exceeded', {
         ip: clientIp,
         email: email.substring(0, 3) + '***',
@@ -87,6 +129,18 @@ async function loginHandler(req: NextRequest) {
         securityLevel: rateLimitResult.securityLevel,
         isLocked: rateLimitResult.isLocked,
       });
+      prisma.loginAudit
+        .create({
+          data: createLoginAuditData(email, 'FAILURE', {
+            failureReason: 'Rate limit exceeded',
+            ipAddress: clientIp,
+            userAgent: req.headers.get('user-agent') || undefined,
+            clinicId: getClinicIdFromRequest(req, validationResult.data.clinicId),
+            deviceFingerprint: validationResult.data.deviceFingerprint || undefined,
+            requestId,
+          }),
+        })
+        .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
 
       // Return progressive security response
       return NextResponse.json(
@@ -313,14 +367,48 @@ async function loginHandler(req: NextRequest) {
       }
     }
 
-    // Check if user exists
+    const auditClinicId = () => getClinicIdFromRequest(req, selectedClinicId, (user as { clinicId?: number })?.clinicId);
+    const auditIp = clientIp;
+    const auditUserAgent = req.headers.get('user-agent') || undefined;
+
+    // Check if user exists (generic 401 to avoid enumeration)
     if (!user) {
-      // Log failed attempt (no PHI in message)
       logger.warn('Failed login attempt', { emailPrefix: email.substring(0, 3) + '***', role });
+      prisma.loginAudit
+        .create({
+          data: createLoginAuditData(email, 'FAILURE', {
+            failureReason: 'Invalid credentials',
+            ipAddress: auditIp,
+            userAgent: auditUserAgent,
+            clinicId: getClinicIdFromRequest(req, selectedClinicId),
+            deviceFingerprint: deviceFingerprint || undefined,
+            requestId,
+          }),
+        })
+        .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Verify password (if passwordHash exists)
+    // Durable lockout: check User.lockedUntil (generic 401 to avoid enumeration)
+    const userWithLock = user as typeof user & { lockedUntil?: Date | null };
+    if (userWithLock.lockedUntil && new Date(userWithLock.lockedUntil) > new Date()) {
+      logger.warn('[Login] Locked account attempt', { emailPrefix: email.substring(0, 3) + '***' });
+      prisma.loginAudit
+        .create({
+          data: createLoginAuditData(email, 'LOCKOUT', {
+            failureReason: 'Account locked',
+            ipAddress: auditIp,
+            userAgent: auditUserAgent,
+            clinicId: auditClinicId(),
+            deviceFingerprint: deviceFingerprint || undefined,
+            requestId,
+          }),
+        })
+        .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // Verify password (if passwordHash exists); atomic lockout via transaction
     if (passwordHash) {
       const isValid = await bcrypt.compare(password, passwordHash);
       if (!isValid) {
@@ -328,8 +416,35 @@ async function loginHandler(req: NextRequest) {
           emailPrefix: email.substring(0, 3) + '***',
           role,
         });
+        // Atomic: increment + set lockedUntil if threshold reached
+        const updated = await prisma.$transaction(async (tx) => {
+          const u = await tx.user.update({
+            where: { id: user!.id },
+            data: { failedLoginAttempts: { increment: 1 } },
+          });
+          const nextCount = u.failedLoginAttempts;
+          if (nextCount >= AUTH_LOCKOUT_AFTER_ATTEMPTS) {
+            await tx.user.update({
+              where: { id: user!.id },
+              data: { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) },
+            });
+          }
+          return u;
+        });
 
-        // Return with rate limit info so user knows their status
+        prisma.loginAudit
+          .create({
+            data: createLoginAuditData(email, updated.failedLoginAttempts >= AUTH_LOCKOUT_AFTER_ATTEMPTS ? 'LOCKOUT' : 'FAILURE', {
+              failureReason: 'Invalid credentials',
+              ipAddress: auditIp,
+              userAgent: auditUserAgent,
+              clinicId: auditClinicId(),
+              deviceFingerprint: deviceFingerprint || undefined,
+              requestId,
+            }),
+          })
+          .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
+
         return NextResponse.json(
           {
             error: 'Invalid credentials',
@@ -340,10 +455,7 @@ async function loginHandler(req: NextRequest) {
           {
             status: 401,
             headers: {
-              'X-RateLimit-Remaining': Math.max(
-                0,
-                rateLimitResult.remainingAttempts - 1
-              ).toString(),
+              'X-RateLimit-Remaining': Math.max(0, rateLimitResult.remainingAttempts - 1).toString(),
               'X-Security-Level': rateLimitResult.securityLevel.toString(),
             },
           }
@@ -724,105 +836,112 @@ async function loginHandler(req: NextRequest) {
     // Log successful login
     logger.debug(`Successful login: ${email} (${role})`);
 
-    // Update last login, audit log, and session (non-blocking - do not fail login if these fail)
+    // Run providerClinics fetch IN PARALLEL with post-auth writes (login speed: was sequential, now parallel)
     const loginTime = new Date();
-    if (user && 'lastLogin' in user) {
-      try {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            lastLogin: loginTime,
-            failedLoginAttempts: 0,
-          },
-        });
-      } catch (updateErr: unknown) {
-        logger.warn('Failed to update user lastLogin', {
-          userId: user.id,
-          error: updateErr instanceof Error ? updateErr.message : 'Unknown error',
-        });
-      }
 
-      if (tokenPayload.providerId) {
-        await basePrisma.provider
-          .update({
-            where: { id: tokenPayload.providerId },
-            data: { lastLogin: loginTime },
-          })
-          .catch((error: Error) => {
-            logger.warn('Failed to update provider lastLogin:', error);
-          });
-      }
+    const providerClinicsPromise: Promise<
+      Array<{
+        id: number;
+        clinicId: number;
+        isPrimary: boolean;
+        clinic: { id: number; name: string; subdomain: string | null };
+      }>
+    > =
+      tokenPayload.providerId && prisma.providerClinic
+        ? prisma.providerClinic
+            .findMany({
+              where: {
+                providerId: tokenPayload.providerId,
+                isActive: true,
+              },
+              select: {
+                id: true,
+                clinicId: true,
+                isPrimary: true,
+                clinic: {
+                  select: { id: true, name: true, subdomain: true },
+                },
+              },
+              orderBy: { isPrimary: 'desc' },
+            })
+            .catch(() => {
+              logger.debug('ProviderClinic fetch skipped - table may not exist');
+              return [];
+            })
+        : Promise.resolve([]);
 
-      await prisma.userAuditLog
-        .create({
-          data: {
-            userId: user.id,
-            action: 'LOGIN',
-            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
-            userAgent: req.headers.get('user-agent'),
-            details: {
-              role: userRole,
-              clinicId: activeClinicId,
-              providerId: tokenPayload.providerId,
-              loginMethod: 'password',
-            },
-          },
-        })
-        .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', error);
-        });
+    const postAuthWritesPromise =
+      user && 'lastLogin' in user
+        ? (async () => {
+            try {
+              await Promise.all([
+                prisma.user.update({
+                  where: { id: user.id },
+                  data: {
+                    lastLogin: loginTime,
+                    failedLoginAttempts: 0,
+                    lockedUntil: null,
+                  },
+                }),
+                tokenPayload.providerId
+                  ? basePrisma.provider.update({
+                      where: { id: tokenPayload.providerId },
+                      data: { lastLogin: loginTime },
+                    })
+                  : Promise.resolve(),
+                prisma.userAuditLog.create({
+                  data: {
+                    userId: user.id,
+                    action: 'LOGIN',
+                    ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+                    userAgent: req.headers.get('user-agent'),
+                    details: {
+                      role: userRole,
+                      clinicId: activeClinicId,
+                      providerId: tokenPayload.providerId,
+                      loginMethod: 'password',
+                      deviceFingerprint: deviceFingerprint || undefined,
+                    },
+                  },
+                }),
+                prisma.loginAudit.create({
+                  data: createLoginAuditData(email, 'SUCCESS', {
+                    ipAddress: clientIp,
+                    userAgent: req.headers.get('user-agent') || undefined,
+                    clinicId: activeClinicId ?? undefined,
+                    deviceFingerprint: deviceFingerprint || undefined,
+                    requestId,
+                    userId: user.id,
+                  }),
+                }),
+                prisma.userSession.create({
+                  data: {
+                    userId: user.id,
+                    token: token.substring(0, 64),
+                    refreshToken: refreshToken.substring(0, 64),
+                    refreshTokenHash: hashRefreshToken(refreshToken),
+                    ipAddress:
+                      req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+                    userAgent: req.headers.get('user-agent') || 'unknown',
+                    deviceFingerprint: deviceFingerprint || undefined,
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+                    lastActivity: loginTime,
+                  },
+                }),
+              ]);
+            } catch (err: unknown) {
+              logger.warn('Post-auth writes failed (login succeeded)', {
+                userId: user.id,
+                error: err instanceof Error ? err.message : 'Unknown error',
+              });
+            }
+          })()
+        : Promise.resolve();
 
-      try {
-        await prisma.userSession.create({
-          data: {
-            userId: user.id,
-            token: token.substring(0, 64),
-            refreshToken: refreshToken.substring(0, 64),
-            ipAddress:
-              req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
-            userAgent: req.headers.get('user-agent') || 'unknown',
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            lastActivity: loginTime,
-          },
-        });
-      } catch (sessionError) {
-        logger.warn('Failed to create user session', {
-          error: sessionError instanceof Error ? sessionError.message : 'Unknown error',
-        });
-      }
-    }
-
-    // ENTERPRISE: Fetch provider's clinic assignments for multi-clinic support
-    let providerClinics: Array<{
-      id: number;
-      clinicId: number;
-      isPrimary: boolean;
-      clinic: { id: number; name: string; subdomain: string | null };
-    }> = [];
-
-    if (tokenPayload.providerId && prisma.providerClinic) {
-      try {
-        const assignments = await prisma.providerClinic.findMany({
-          where: {
-            providerId: tokenPayload.providerId,
-            isActive: true,
-          },
-          select: {
-            id: true,
-            clinicId: true,
-            isPrimary: true,
-            clinic: {
-              select: { id: true, name: true, subdomain: true },
-            },
-          },
-          orderBy: { isPrimary: 'desc' },
-        });
-        providerClinics = assignments;
-      } catch (err) {
-        // ProviderClinic table may not exist yet (pre-migration)
-        logger.debug('ProviderClinic fetch skipped - table may not exist', { error: err });
-      }
-    }
+    const [providerClinics] = await Promise.all([
+      providerClinicsPromise,
+      postAuthWritesPromise,
+    ]);
 
     // Return tokens with clinic information
     const response = NextResponse.json({
@@ -917,7 +1036,14 @@ async function loginHandler(req: NextRequest) {
     const errorStack = error instanceof Error ? error.stack : undefined;
     const prismaError = (error as { code?: string })?.code;
     const duration = Date.now() - startTime;
-    const isPoolExhausted = prismaError === 'P2024';
+    // P2024 = pool exhausted; P1002 = connection timeout; message check for pool/connection errors
+    const isPoolExhausted =
+      prismaError === 'P2024' ||
+      prismaError === 'P1002' ||
+      (typeof errorMessage === 'string' &&
+        (errorMessage.toLowerCase().includes('connection pool') ||
+          errorMessage.toLowerCase().includes('timed out fetching') ||
+          errorMessage.toLowerCase().includes('connection refused')));
 
     logger.error('Login error', error instanceof Error ? error : new Error(errorMessage), {
       step: debugInfo?.step,
@@ -944,11 +1070,11 @@ async function loginHandler(req: NextRequest) {
         {
           error: 'Service is busy. Please try again in a moment.',
           code: 'SERVICE_UNAVAILABLE',
-          retryAfter: 10,
+          retryAfter: 15,
         },
         {
           status: 503,
-          headers: { 'Retry-After': '10' },
+          headers: { 'Retry-After': '15' },
         }
       );
     }
