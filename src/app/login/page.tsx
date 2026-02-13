@@ -108,6 +108,7 @@ export default function LoginPage() {
   // UI state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false); // Optimistic: "Redirecting..." as soon as login succeeds
   const [step, setStep] = useState<LoginStep>('identifier');
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
   const [sessionMessage, setSessionMessage] = useState('');
@@ -277,7 +278,7 @@ export default function LoginPage() {
   // Safety net: if login loading stays true too long (e.g. request never settles due to extension/network), clear it
   useEffect(() => {
     if (!loading) return;
-    const safetyMs = 30_000; // 25s login timeout + 5s buffer
+    const safetyMs = 90_000; // 40s × 2 attempts + retry delay + buffer
     const t = setTimeout(() => {
       setLoading(false);
       setError((prev) =>
@@ -561,7 +562,8 @@ export default function LoginPage() {
     }
   };
 
-  const LOGIN_TIMEOUT_MS = 25000;
+  // 40s: cold start + DB connect can exceed 25s on serverless; incognito timeout = backend bottleneck
+  const LOGIN_TIMEOUT_MS = 40_000;
   const RETRY_DELAY_MS = 2500;
 
   // Handle email/password login (with timeout so spinner doesn't hang; auto-retry once on 5xx/AbortError)
@@ -573,6 +575,7 @@ export default function LoginPage() {
       setWrongClinicName(null);
       setRetryAfterCountdown(0);
       setShowRetryButton(false);
+      setRedirecting(false);
     }
     setLoading(true);
 
@@ -616,10 +619,12 @@ export default function LoginPage() {
           return;
         }
         // 503 Service Unavailable (e.g. DB pool exhausted): show message and retry countdown
-        if (response.status === 503 && typeof data.retryAfter === 'number' && data.retryAfter > 0) {
+        if (response.status === 503) {
           setError(data.error || 'Service is busy. Please try again in a moment.');
-          setRetryAfterCountdown(data.retryAfter);
-          setShowRetryButton(true);
+          if (typeof data.retryAfter === 'number' && data.retryAfter > 0) {
+            setRetryAfterCountdown(data.retryAfter);
+            setShowRetryButton(true);
+          }
           setLoading(false);
           return;
         }
@@ -639,10 +644,14 @@ export default function LoginPage() {
         setClinics(data.clinics ?? []);
         setPendingLoginData(data);
         setStep('clinic');
+        setLoading(false);
         return;
       }
 
+      // Optimistic UI: show "Redirecting..." immediately so login feels snappy
+      setRedirecting(true);
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
+      return; // Don't run finally setLoading(false) — keep "Redirecting..." until nav
     } catch (err: any) {
       const isTimeout = err?.name === 'AbortError';
       // AbortError (timeout): retry once if we haven't already
@@ -667,6 +676,7 @@ export default function LoginPage() {
       setError('');
       setRetryAfterCountdown(0);
       setShowRetryButton(false);
+      setRedirecting(false);
     }
     setLoading(true);
 
@@ -703,10 +713,12 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        if (response.status === 503 && typeof data.retryAfter === 'number' && data.retryAfter > 0) {
+        if (response.status === 503) {
           setError(data.error || 'Service is busy. Please try again in a moment.');
-          setRetryAfterCountdown(data.retryAfter);
-          setShowRetryButton(true);
+          if (typeof data.retryAfter === 'number' && data.retryAfter > 0) {
+            setRetryAfterCountdown(data.retryAfter);
+            setShowRetryButton(true);
+          }
           setLoading(false);
           return;
         }
@@ -720,7 +732,9 @@ export default function LoginPage() {
 
       setWrongClinicRedirectUrl(null);
       setWrongClinicName(null);
+      setRedirecting(true);
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
+      return; // Keep "Redirecting..." until nav; don't run finally setLoading(false)
     } catch (err: any) {
       const isTimeout = err?.name === 'AbortError';
       // AbortError (timeout): retry once if we haven't already
@@ -855,7 +869,7 @@ export default function LoginPage() {
         className="absolute inset-0"
         style={{
           background: isProviderLogin
-            ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 25%, #e0e7ff 50%, #e0f2fe 75%, #ecfeff 100%)'
+            ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 33%, #e0e7ff 66%, #dbeafe 100%)'
             : branding
               ? `linear-gradient(135deg, ${primaryColor}08 0%, ${primaryColor}12 25%, ${secondaryColor}10 50%, ${accentColor}15 75%, ${accentColor}20 100%)`
               : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)',
@@ -867,9 +881,9 @@ export default function LoginPage() {
         className="absolute inset-0 opacity-30"
         style={{
           backgroundImage: isProviderLogin
-            ? `radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 50%)`
+            ? `radial-gradient(circle at 20% 50%, rgba(167, 139, 250, 0.08) 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 50%)`
             : branding
               ? `radial-gradient(circle at 20% 50%, ${primaryColor}15 0%, transparent 50%),
                  radial-gradient(circle at 80% 20%, ${accentColor}20 0%, transparent 50%),
@@ -1129,7 +1143,7 @@ export default function LoginPage() {
                   {loading ? (
                     <>
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Logging in...
+                      {redirecting ? 'Redirecting...' : 'Logging in...'}
                     </>
                   ) : (
                     'Log in and continue'
