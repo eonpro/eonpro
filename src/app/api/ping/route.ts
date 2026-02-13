@@ -50,6 +50,58 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Simulate authenticated flow with clinic context (add ?clinicTest=ID)
+  const clinicTestId = url.searchParams.get('clinicTest');
+  if (clinicTestId) {
+    const cid = parseInt(clinicTestId, 10);
+    if (!isNaN(cid)) {
+      const tests: Record<string, unknown> = {};
+      // Test within runWithClinicContext (like withAuth does)
+      try {
+        await runWithClinicContext(cid, async () => {
+          // Test 1: clinic-filtered user query (what /api/user/clinics does)
+          try {
+            const userCount = await prisma.user.count();
+            tests.userCount = userCount;
+          } catch (err: unknown) {
+            tests.userCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+          }
+          // Test 2: clinic-filtered patient query
+          try {
+            const patientCount = await prisma.patient.count();
+            tests.patientCount = patientCount;
+          } catch (err: unknown) {
+            tests.patientCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown', stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined };
+          }
+          // Test 3: clinic-filtered notification query
+          try {
+            const notifCount = await prisma.notification.count();
+            tests.notificationCount = notifCount;
+          } catch (err: unknown) {
+            tests.notificationCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+          }
+          // Test 4: clinic-filtered internal message query
+          try {
+            const msgCount = await prisma.internalMessage.count();
+            tests.messageCount = msgCount;
+          } catch (err: unknown) {
+            tests.messageCount = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+          }
+          // Test 5: basePrisma clinic lookup
+          try {
+            const clinic = await basePrisma.clinic.findUnique({ where: { id: cid }, select: { id: true, name: true, status: true } });
+            tests.clinicLookup = clinic || 'NOT_FOUND';
+          } catch (err: unknown) {
+            tests.clinicLookup = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown' };
+          }
+        });
+      } catch (err: unknown) {
+        tests._contextError = { error: err instanceof Error ? err.message : String(err), name: err instanceof Error ? err.constructor.name : 'Unknown', stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined };
+      }
+      dbStatus = { ...dbStatus, clinicContextTests: tests };
+    }
+  }
+
   const payload: Record<string, unknown> = {
     gitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'unknown',
     buildId: process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_BUILD_ID || process.env.NEXT_BUILD_ID || 'local',
