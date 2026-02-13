@@ -101,8 +101,7 @@ const nextConfig = {
       ? { type: 'memory' }
       : { type: 'filesystem' };
 
-    // All server builds: externalize node:* protocol as commonjs.
-    // This prevents "UnhandledSchemeError: Reading from node:os" during compilation.
+    // Resolve "node:" protocol as Node built-ins (avoids UnhandledSchemeError for node:async_hooks used in db.ts).
     if (isServer) {
       const externals = config.externals || [];
       const handler = ({ request }, callback) => {
@@ -112,22 +111,6 @@ const nextConfig = {
         callback();
       };
       config.externals = Array.isArray(externals) ? [...externals, handler] : [externals, handler];
-    }
-
-    // Edge Runtime: additionally alias Node.js built-ins to empty modules.
-    // Vercel's post-build validation rejects Edge Functions that reference
-    // unsupported Node.js modules; aliasing to false makes them empty.
-    if (isServer && nextRuntime === 'edge') {
-      config.resolve = config.resolve || {};
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'node:os': false,
-        'node:fs': false,
-        'node:path': false,
-        'node:child_process': false,
-        'node:async_hooks': false,
-        'node:crypto': require.resolve('next/dist/compiled/crypto-browserify'),
-      };
     }
 
     // Bundle analyzer requires webpack config
@@ -191,7 +174,15 @@ const sentryWebpackPluginOptions = {
   },
 };
 
-// Export with Sentry only if DSN is configured
-module.exports = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
+// Export with Sentry wrapping DISABLED on Vercel due to Edge Runtime incompatibility.
+// Sentry's dependency chain (@sentry/node-core via @sentry/vercel-edge) pulls node:os
+// into the middleware edge bundle, which Vercel rejects. Client-side Sentry still works
+// via sentry.client.config.ts. Server-side works via sentry.server.config.ts + instrumentation.
+// TODO: Re-enable withSentryConfig once Sentry v10 fixes Edge Runtime compatibility,
+//       or after migrating middleware to the Next.js 16 "proxy" convention.
+const useSentryWrapper = !process.env.VERCEL
+  && (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN);
+
+module.exports = useSentryWrapper
   ? withSentryConfig(nextConfig, sentryWebpackPluginOptions)
   : nextConfig;
