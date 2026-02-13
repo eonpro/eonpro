@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, X, User, Loader2 } from 'lucide-react';
+import { Search, X, User, Loader2, UserPlus } from 'lucide-react';
 
 interface PatientResult {
   id: number;
@@ -22,6 +21,8 @@ interface PatientQuickSearchProps {
   className?: string;
   /** Base path for patient links. Use /provider/patients when on provider route. */
   patientDetailBasePath?: string;
+  /** Path for create-patient flow when no results. Default: /admin/patients/new or /provider/patients?create=1 */
+  createPatientPath?: string;
 }
 
 export default function PatientQuickSearch({
@@ -29,8 +30,10 @@ export default function PatientQuickSearch({
   placeholder = 'Search patients...',
   className = '',
   patientDetailBasePath = '/patients',
+  createPatientPath,
 }: PatientQuickSearchProps) {
-  const router = useRouter();
+  const effectiveCreatePath =
+    createPatientPath ?? (patientDetailBasePath.includes('provider') ? '/provider/patients?create=1' : '/admin/patients/new');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PatientResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -67,11 +70,12 @@ export default function PatientQuickSearch({
           .slice(0, 8); // Limit to 8 results for UX
 
         setResults(filtered);
-        setIsOpen(filtered.length > 0);
+        setIsOpen(true); // Show dropdown for results OR no-results/create-patient
         setSelectedIndex(-1);
       } catch (error) {
         console.error('Patient search failed:', error);
         setResults([]);
+        setIsOpen(true); // Show no-results/create-patient dropdown
       } finally {
         setIsLoading(false);
       }
@@ -129,12 +133,12 @@ export default function PatientQuickSearch({
     }
   };
 
-  // Navigate to selected patient
+  // Navigate to selected patient - use window.location for reliability (router.push had issues)
   const navigateToPatient = (patientId: number) => {
     setQuery('');
     setResults([]);
     setIsOpen(false);
-    router.push(`${patientDetailBasePath}/${patientId}`);
+    window.location.href = `${patientDetailBasePath}/${patientId}`;
   };
 
   // Close dropdown when clicking outside
@@ -257,10 +261,21 @@ export default function PatientQuickSearch({
         </div>
       )}
 
-      {/* No results message */}
+      {/* No results - offer create patient */}
       {isOpen && query.length >= 2 && !isLoading && results.length === 0 && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-          <p className="text-center text-sm text-gray-500">No patients found for "{query}"</p>
+          <p className="mb-3 text-center text-sm text-gray-500">No patients found for "{query}"</p>
+          <a
+            href={effectiveCreatePath}
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-90"
+            style={{
+              backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
+              color: 'var(--brand-primary, #4fa77e)',
+            }}
+          >
+            <UserPlus className="h-4 w-4" />
+            Create new patient
+          </a>
         </div>
       )}
     </div>

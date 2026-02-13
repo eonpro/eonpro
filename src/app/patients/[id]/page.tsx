@@ -871,12 +871,12 @@ export default async function PatientDetailPage({
 
           {/* Main Content Area */}
           <div className="min-w-0 flex-1">
-            {/* Quick Search Bar */}
-            <div className="mb-4">
+            {/* Quick Search Bar - full width to match content boxes */}
+            <div className="mb-4 w-full">
               <PatientQuickSearch
                 currentPatientId={patientWithDecryptedPHI.id}
                 placeholder="Search for another patient..."
-                className="max-w-md"
+                className="w-full"
                 patientDetailBasePath={PATIENTS_LIST_PATH}
               />
             </div>

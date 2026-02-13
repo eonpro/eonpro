@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Users, Search, UserPlus, X, Loader2, ChevronDown } from 'lucide-react';
 
@@ -29,6 +29,7 @@ const PAGE_SIZE = 50; // Load 50 at a time for better UX
 
 export default function ProviderPatientsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -58,6 +59,14 @@ export default function ProviderPatientsPage() {
     state: '',
     zip: '',
   });
+
+  // Open add modal when ?create=1 (e.g. from quick search "Create patient")
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setShowAddModal(true);
+      router.replace('/provider/patients', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Debounce search input
   useEffect(() => {
