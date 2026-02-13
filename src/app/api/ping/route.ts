@@ -13,7 +13,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma } from '@/lib/db';
+import { basePrisma, prisma, runWithClinicContext } from '@/lib/db';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,3 +68,76 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+
+/**
+ * POST /api/ping - Authenticated diagnostic
+ * Tests the full auth → DB query flow to diagnose 500 errors
+ */
+async function authedHandler(req: NextRequest, user: AuthUser) {
+  const results: Record<string, unknown> = {
+    user: { id: user.id, role: user.role, clinicId: user.clinicId },
+    timestamp: new Date().toISOString(),
+    tests: {},
+  };
+
+  // Test 1: basePrisma raw query
+  try {
+    await basePrisma.$queryRaw`SELECT 1 as ok`;
+    (results.tests as Record<string, unknown>).rawQuery = 'OK';
+  } catch (err: unknown) {
+    (results.tests as Record<string, unknown>).rawQuery = {
+      error: err instanceof Error ? err.message : String(err),
+      name: err instanceof Error ? err.constructor.name : 'Unknown',
+    };
+  }
+
+  // Test 2: basePrisma.clinic.findUnique (what /api/clinic/current does)
+  if (user.clinicId) {
+    try {
+      const clinic = await basePrisma.clinic.findUnique({
+        where: { id: user.clinicId },
+        select: { id: true, name: true, status: true },
+      });
+      (results.tests as Record<string, unknown>).clinicLookup = clinic
+        ? { id: clinic.id, name: clinic.name, status: clinic.status }
+        : 'NOT_FOUND';
+    } catch (err: unknown) {
+      (results.tests as Record<string, unknown>).clinicLookup = {
+        error: err instanceof Error ? err.message : String(err),
+        name: err instanceof Error ? err.constructor.name : 'Unknown',
+      };
+    }
+  }
+
+  // Test 3: prisma.user.findUnique with clinic context (what /api/user/clinics does)
+  try {
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, clinicId: true, role: true },
+    });
+    (results.tests as Record<string, unknown>).userLookup = userData || 'NOT_FOUND';
+  } catch (err: unknown) {
+    (results.tests as Record<string, unknown>).userLookup = {
+      error: err instanceof Error ? err.message : String(err),
+      name: err instanceof Error ? err.constructor.name : 'Unknown',
+      stack: err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined,
+    };
+  }
+
+  // Test 4: prisma.patient.count (what health check tries)
+  try {
+    const count = await prisma.patient.count();
+    (results.tests as Record<string, unknown>).patientCount = count;
+  } catch (err: unknown) {
+    (results.tests as Record<string, unknown>).patientCount = {
+      error: err instanceof Error ? err.message : String(err),
+      name: err instanceof Error ? err.constructor.name : 'Unknown',
+    };
+  }
+
+  return NextResponse.json(results, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
+}
+
+export const POST = withAuth(authedHandler);
