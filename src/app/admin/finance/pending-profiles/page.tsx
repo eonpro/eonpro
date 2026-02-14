@@ -437,7 +437,7 @@ export default function PendingProfilesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="w-full space-y-6">
       {/* Toast Notifications */}
       <div className="fixed right-4 top-4 z-[100] flex flex-col gap-2">
         {toasts.map((toast) => (
@@ -508,7 +508,7 @@ export default function PendingProfilesPage() {
 
       {/* Stats Cards — 5 columns now with "Invoices Blocked" */}
       {stats && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <div className="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="rounded-lg bg-amber-100 p-2">
