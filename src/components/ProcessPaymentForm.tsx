@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  BILLING_PLANS,
   getGroupedPlans,
   formatPlanPrice,
   getPlanById,
@@ -19,10 +18,11 @@ import { Patient, Provider, Order } from '@/types/models';
 interface ProcessPaymentFormProps {
   patientId: number;
   patientName: string;
+  clinicSubdomain?: string | null;
   onSuccess: () => void;
 }
 
-export function ProcessPaymentForm({ patientId, patientName, onSuccess }: ProcessPaymentFormProps) {
+export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, onSuccess }: ProcessPaymentFormProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState<string>('');
@@ -45,11 +45,11 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [cardErrors, setCardErrors] = useState<{ [key: string]: string }>({});
   const [formSubmitted, setFormSubmitted] = useState(false); // Track if form has been submitted
-  const groupedPlans = getGroupedPlans();
+  const groupedPlans = getGroupedPlans(clinicSubdomain);
 
   useEffect(() => {
     if (selectedPlanId) {
-      const plan = getPlanById(selectedPlanId);
+      const plan = getPlanById(selectedPlanId, clinicSubdomain);
       if (plan) {
         setAmount(plan.price / 100); // Convert cents to dollars
         setDescription(plan.description);
@@ -193,7 +193,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
         body: JSON.stringify({
           patientId,
           amount: Math.round(amount * 100), // Convert to cents
-          description: description || getPlanById(selectedPlanId)?.description || 'Custom Payment',
+          description: description || getPlanById(selectedPlanId, clinicSubdomain)?.description || 'Custom Payment',
           paymentDetails: {
             cardNumber: cardNumber.replace(/\s/g, ''),
             cardholderName,
@@ -207,7 +207,7 @@ export function ProcessPaymentForm({ patientId, patientName, onSuccess }: Proces
           subscription: isRecurring
             ? {
                 planId: selectedPlanId,
-                planName: getPlanById(selectedPlanId)?.name || '',
+                planName: getPlanById(selectedPlanId, clinicSubdomain)?.name || '',
                 interval: 'month',
                 intervalCount: 1,
               }

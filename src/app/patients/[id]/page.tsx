@@ -1089,6 +1089,7 @@ export default async function PatientDetailPage({
                 <PatientBillingView
                   patientId={patientWithDecryptedPHI.id}
                   patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
+                  clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain ?? resolveFallbackSubdomain(patientWithDecryptedPHI.clinic?.subdomain, patientWithDecryptedPHI.clinicId)}
                 />
                 <div className="rounded-2xl border border-gray-200 bg-white p-6">
                   <h3 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">

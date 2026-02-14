@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/stripe';
 import {
-  BILLING_PLANS,
   getGroupedPlans,
   formatPlanPrice,
   getPlanById,
@@ -44,9 +43,10 @@ interface Payment {
 interface PatientBillingViewProps {
   patientId: number;
   patientName: string;
+  clinicSubdomain?: string | null;
 }
 
-export function PatientBillingView({ patientId, patientName }: PatientBillingViewProps) {
+export function PatientBillingView({ patientId, patientName, clinicSubdomain }: PatientBillingViewProps) {
   const [activeTab, setActiveTab] = useState<
     'invoices' | 'payments' | 'subscriptions' | 'process-payment'
   >('invoices');
@@ -398,6 +398,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
       {showCreateInvoice && (
         <CreateInvoiceForm
           patientId={patientId}
+          clinicSubdomain={clinicSubdomain}
           onSuccess={() => {
             setShowCreateInvoice(false);
             fetchBillingData();
@@ -936,6 +937,7 @@ export function PatientBillingView({ patientId, patientName }: PatientBillingVie
         <ProcessPaymentForm
           patientId={patientId}
           patientName={patientName}
+          clinicSubdomain={clinicSubdomain}
           onSuccess={() => {
             fetchBillingData();
             setActiveTab('payments');
@@ -1263,10 +1265,12 @@ function MarkPaidModal({
 // Create Invoice Form Component
 function CreateInvoiceForm({
   patientId,
+  clinicSubdomain,
   onSuccess,
   onCancel,
 }: {
   patientId: number;
+  clinicSubdomain?: string | null;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -1274,7 +1278,7 @@ function CreateInvoiceForm({
   const [autoSend, setAutoSend] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
-  const groupedPlans = getGroupedPlans();
+  const groupedPlans = getGroupedPlans(clinicSubdomain);
 
   // Mark as Paid Externally fields
   const [markAsPaidExternally, setMarkAsPaidExternally] = useState(false);
@@ -1285,7 +1289,7 @@ function CreateInvoiceForm({
   );
 
   const handlePlanSelect = (planId: string) => {
-    const plan = getPlanById(planId);
+    const plan = getPlanById(planId, clinicSubdomain);
     if (plan) {
       setLineItems([
         {
