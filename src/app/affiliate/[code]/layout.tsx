@@ -86,5 +86,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default function AffiliateLandingLayout({ children }: Props) {
-  return <>{children}</>;
+  return (
+    <div style={{ backgroundColor: OT_THEME_COLOR, minHeight: '100vh' }}>
+      {children}
+    </div>
+  );
 }

@@ -26,6 +26,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/verify-email',
     '/pay/',
     '/patients/', // Patient detail pages have their own layout
+    '/affiliate/', // Affiliate landing pages have their own branded layout
   ];
 
   const isFullWidthPage = fullWidthPages.some((page) => pathname?.startsWith(page));
