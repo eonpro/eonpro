@@ -259,12 +259,12 @@ function ArrowRight({ color = BRAND.textMuted }: { color?: string }) {
 // ============================================================================
 
 const PRESS_LOGOS = [
-  { src: ASSETS.press.businessInsider, alt: 'Business Insider' },
-  { src: ASSETS.press.mensHealth, alt: "Men's Health" },
-  { src: ASSETS.press.gq, alt: 'GQ' },
-  { src: ASSETS.press.foxNews, alt: 'Fox News' },
-  { src: ASSETS.press.miamiHerald, alt: 'Miami Herald' },
-  { src: ASSETS.press.usaToday, alt: 'USA Today' },
+  { src: ASSETS.press.businessInsider, alt: 'Business Insider', height: 24 },
+  { src: ASSETS.press.mensHealth, alt: "Men's Health", height: 38 },
+  { src: ASSETS.press.gq, alt: 'GQ', height: 26 },
+  { src: ASSETS.press.foxNews, alt: 'Fox News', height: 22 },
+  { src: ASSETS.press.miamiHerald, alt: 'Miami Herald', height: 28 },
+  { src: ASSETS.press.usaToday, alt: 'USA Today', height: 28 },
 ];
 
 function PressMarquee() {
@@ -297,8 +297,8 @@ function PressMarquee() {
             key={`${logo.alt}-${i}`}
             src={logo.src}
             alt={logo.alt}
-            className="h-6 w-auto flex-shrink-0 object-contain opacity-40 grayscale"
-            style={{ minWidth: '80px', maxHeight: '24px' }}
+            className="w-auto flex-shrink-0 object-contain opacity-40 grayscale"
+            style={{ minWidth: '80px', height: `${logo.height}px` }}
           />
         ))}
         {/* eslint-enable @next/next/no-img-element */}
@@ -391,7 +391,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Header */}
       {/* ================================================================ */}
-      <header style={{ borderBottom: `1px solid ${BRAND.border}`, backgroundColor: BRAND.white }}>
+      <header style={{ backgroundColor: BRAND.white }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
           <a
@@ -507,7 +507,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* "As Seen On" Press Bar — infinite scrolling marquee */}
       {/* ================================================================ */}
-      <section style={{ backgroundColor: BRAND.white, borderTop: `1px solid ${BRAND.border}` }}>
+      <section style={{ backgroundColor: BRAND.white }}>
         <div className="px-6 pb-10 pt-10">
           <p
             className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.2em]"
@@ -522,7 +522,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* How It Works */}
       {/* ================================================================ */}
-      <section style={{ borderTop: `1px solid ${BRAND.border}` }}>
+      <section>
         <div className="mx-auto max-w-5xl px-6 py-16 md:py-24">
           <div className="mb-14 text-center">
             <h2 className="mb-3 text-3xl font-bold tracking-tight md:text-4xl">
@@ -559,7 +559,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Testimonials */}
       {/* ================================================================ */}
-      <section style={{ borderTop: `1px solid ${BRAND.border}` }}>
+      <section>
         <div className="mx-auto max-w-5xl px-6 py-16 md:py-24">
           <div className="mb-12 text-center">
             <p className="mb-3 text-sm font-semibold" style={{ color: BRAND.accent }}>
@@ -599,7 +599,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Providers / Trust Section */}
       {/* ================================================================ */}
-      <section style={{ borderTop: `1px solid ${BRAND.border}` }}>
+      <section>
         <div className="mx-auto max-w-5xl px-6 py-16 md:py-24">
           <div className="grid items-center gap-12 md:grid-cols-2">
             {/* Left: Copy */}
@@ -665,7 +665,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Bottom CTA */}
       {/* ================================================================ */}
-      <section style={{ borderTop: `1px solid ${BRAND.border}`, backgroundColor: BRAND.creamDark }}>
+      <section style={{ backgroundColor: BRAND.creamDark }}>
         <div className="mx-auto max-w-3xl px-6 py-16 text-center md:py-24">
           <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
             Ready to{' '}
@@ -689,7 +689,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Footer */}
       {/* ================================================================ */}
-      <footer style={{ borderTop: `1px solid ${BRAND.border}` }}>
+      <footer>
         <div className="mx-auto max-w-6xl px-6 py-8">
           <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
             <div className="flex items-center gap-4">

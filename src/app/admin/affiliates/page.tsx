@@ -5,10 +5,6 @@ import {
   Users,
   Plus,
   Search,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Link as LinkIcon,
   DollarSign,
   TrendingUp,
   Eye,
@@ -512,148 +508,252 @@ export default function AdminAffiliatesPage() {
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6">
-            <h2 className="mb-4 text-xl font-bold text-gray-900">Create Affiliate</h2>
 
-            <form onSubmit={handleCreateAffiliate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email *</label>
-                <input
-                  type="email"
-                  required
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Password *</label>
-                <input
-                  type="password"
-                  required
-                  value={createForm.password}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Display Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={createForm.displayName}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, displayName: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">First Name</label>
-                  <input
-                    type="text"
-                    value={createForm.firstName}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                  />
+            {/* ---- Success State ---- */}
+            {createSuccess ? (
+              <div className="space-y-5 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                  <input
-                    type="text"
-                    value={createForm.lastName}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                  />
+                  <h2 className="text-xl font-bold text-gray-900">Affiliate Created</h2>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {createSuccess.displayName} is ready to go.
+                  </p>
+                </div>
+
+                {/* Landing Page URL */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    Landing Page URL
+                  </label>
+                  <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <Globe className="h-4 w-4 flex-shrink-0 text-violet-500" />
+                    <span className="flex-1 truncate font-mono text-sm text-gray-800">
+                      {buildLandingPageUrl(createSuccess.refCode)}
+                    </span>
+                    <button
+                      onClick={() => handleCopyUrl(createSuccess.refCode)}
+                      className="flex-shrink-0 rounded-md bg-violet-600 px-3 py-1 text-xs font-medium text-white hover:bg-violet-700"
+                    >
+                      {copiedCode === createSuccess.refCode ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <a
+                    href={buildLandingPageUrl(createSuccess.refCode)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-violet-600 hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Preview landing page
+                  </a>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setCreateSuccess(null);
+                      // Keep modal open for another creation
+                    }}
+                    className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Create Another
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setCreateSuccess(null);
+                    }}
+                    className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700"
+                  >
+                    Done
+                  </button>
                 </div>
               </div>
+            ) : (
+              /* ---- Create Form ---- */
+              <>
+                <h2 className="mb-4 text-xl font-bold text-gray-900">Create Affiliate</h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Initial Ref Code</label>
-                <input
-                  type="text"
-                  value={createForm.initialRefCode}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))
-                  }
-                  placeholder="e.g., PARTNER_ABC"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
+                <form onSubmit={handleCreateAffiliate} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={createForm.email}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Commission Plan</label>
-                <select
-                  value={createForm.commissionPlanId}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, commissionPlanId: e.target.value }))
-                  }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                >
-                  <option value="">Select a plan...</option>
-                  {plans.map((plan) => {
-                    // Check if plan has separate initial/recurring rates
-                    const hasSeperateRates =
-                      plan.initialPercentBps !== null ||
-                      plan.initialFlatAmountCents !== null ||
-                      plan.recurringPercentBps !== null ||
-                      plan.recurringFlatAmountCents !== null;
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Password *</label>
+                    <input
+                      type="password"
+                      required
+                      value={createForm.password}
+                      onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
 
-                    let rateDisplay = '';
-                    if (hasSeperateRates) {
-                      const initialRate =
-                        plan.planType === 'PERCENT'
-                          ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
-                          : formatCurrency(
-                              plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
-                            );
-                      const recurringRate =
-                        plan.planType === 'PERCENT'
-                          ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
-                          : formatCurrency(
-                              plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
-                            );
-                      rateDisplay = `${initialRate} initial / ${recurringRate} recurring`;
-                    } else {
-                      rateDisplay =
-                        plan.planType === 'PERCENT' && plan.percentBps
-                          ? formatPercent(plan.percentBps)
-                          : plan.flatAmountCents
-                            ? formatCurrency(plan.flatAmountCents)
-                            : 'N/A';
-                    }
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Display Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.displayName}
+                      onChange={(e) =>
+                        setCreateForm((f) => ({ ...f, displayName: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
 
-                    return (
-                      <option key={plan.id} value={plan.id}>
-                        {plan.name} ({rateDisplay})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">First Name</label>
+                      <input
+                        type="text"
+                        value={createForm.firstName}
+                        onChange={(e) =>
+                          setCreateForm((f) => ({ ...f, firstName: e.target.value }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                      <input
+                        type="text"
+                        value={createForm.lastName}
+                        onChange={(e) =>
+                          setCreateForm((f) => ({ ...f, lastName: e.target.value }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      />
+                    </div>
+                  </div>
 
-              {createError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{createError}</div>
-              )}
+                  {/* Ref Code with live URL preview */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Landing Page URL Slug
+                    </label>
+                    <div className="mt-1 flex items-center rounded-lg border border-gray-300 focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500">
+                      <span className="flex-shrink-0 pl-3 text-sm text-gray-400">
+                        /affiliate/
+                      </span>
+                      <input
+                        type="text"
+                        value={createForm.initialRefCode}
+                        onChange={(e) =>
+                          setCreateForm((f) => ({
+                            ...f,
+                            initialRefCode: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+                          }))
+                        }
+                        placeholder="PARTNER_ABC"
+                        className="w-full border-0 bg-transparent px-1 py-2 font-mono focus:outline-none focus:ring-0"
+                      />
+                    </div>
+                    {createForm.initialRefCode && (
+                      <div className="mt-2 flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2">
+                        <Globe className="h-3.5 w-3.5 flex-shrink-0 text-violet-500" />
+                        <span className="truncate font-mono text-xs text-violet-700">
+                          {buildLandingPageUrl(createForm.initialRefCode)}
+                        </span>
+                      </div>
+                    )}
+                    <p className="mt-1 text-xs text-gray-400">
+                      This becomes the affiliate&apos;s personalized landing page URL
+                    </p>
+                  </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                >
-                  {creating ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            </form>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Commission Plan
+                    </label>
+                    <select
+                      value={createForm.commissionPlanId}
+                      onChange={(e) =>
+                        setCreateForm((f) => ({ ...f, commissionPlanId: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    >
+                      <option value="">Select a plan...</option>
+                      {plans.map((plan) => {
+                        const hasSeperateRates =
+                          plan.initialPercentBps !== null ||
+                          plan.initialFlatAmountCents !== null ||
+                          plan.recurringPercentBps !== null ||
+                          plan.recurringFlatAmountCents !== null;
+
+                        let rateDisplay = '';
+                        if (hasSeperateRates) {
+                          const initialRate =
+                            plan.planType === 'PERCENT'
+                              ? formatPercent(plan.initialPercentBps ?? plan.percentBps ?? 0)
+                              : formatCurrency(
+                                  plan.initialFlatAmountCents ?? plan.flatAmountCents ?? 0
+                                );
+                          const recurringRate =
+                            plan.planType === 'PERCENT'
+                              ? formatPercent(plan.recurringPercentBps ?? plan.percentBps ?? 0)
+                              : formatCurrency(
+                                  plan.recurringFlatAmountCents ?? plan.flatAmountCents ?? 0
+                                );
+                          rateDisplay = `${initialRate} initial / ${recurringRate} recurring`;
+                        } else {
+                          rateDisplay =
+                            plan.planType === 'PERCENT' && plan.percentBps
+                              ? formatPercent(plan.percentBps)
+                              : plan.flatAmountCents
+                                ? formatCurrency(plan.flatAmountCents)
+                                : 'N/A';
+                        }
+
+                        return (
+                          <option key={plan.id} value={plan.id}>
+                            {plan.name} ({rateDisplay})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {createError && (
+                    <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                      {createError}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateModal(false);
+                        setCreateError(null);
+                      }}
+                      className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creating}
+                      className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {creating ? 'Creating...' : 'Create'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

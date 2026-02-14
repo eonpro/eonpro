@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -11,17 +11,25 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
-  Link as LinkIcon,
   Copy,
   Check,
   Edit,
-  Trash2,
-  MoreVertical,
   MousePointer,
   Target,
-  Hash,
+  Globe,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
+
+// ============================================================================
+// Landing Page URL Builder
+// ============================================================================
+
+const LANDING_PAGE_BASE = 'https://ot.eonpro.io/affiliate';
+
+function buildLandingPageUrl(refCode: string): string {
+  return `${LANDING_PAGE_BASE}/${encodeURIComponent(refCode)}`;
+}
 
 interface AffiliateDetail {
   id: number;
@@ -98,7 +106,6 @@ function formatDateTime(dateStr: string): string {
 
 export default function AffiliateDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const affiliateId = params.id as string;
 
   const [affiliate, setAffiliate] = useState<AffiliateDetail | null>(null);
@@ -136,16 +143,67 @@ export default function AffiliateDetailPage() {
     fetchAffiliate();
   }, [fetchAffiliate]);
 
-  const handleCopyCode = async (code: string) => {
-    const baseUrl = window.location.origin.replace('app.', '');
-    const link = `${baseUrl}?ref=${code}`;
+  // --- Add new ref code state ---
+  const [showAddCode, setShowAddCode] = useState(false);
+  const [newRefCode, setNewRefCode] = useState('');
+  const [newRefDescription, setNewRefDescription] = useState('');
+  const [addingCode, setAddingCode] = useState(false);
+  const [addCodeError, setAddCodeError] = useState<string | null>(null);
+
+  const handleCopyUrl = async (code: string) => {
+    const link = buildLandingPageUrl(code);
 
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch {
-      console.error('Failed to copy');
+      // Fallback
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    }
+  };
+
+  const handleAddRefCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRefCode.trim()) return;
+
+    setAddingCode(true);
+    setAddCodeError(null);
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+
+    try {
+      const response = await fetch(`/api/admin/affiliates/${affiliateId}/ref-codes`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          refCode: newRefCode.toUpperCase(),
+          description: newRefDescription || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create ref code');
+      }
+
+      setNewRefCode('');
+      setNewRefDescription('');
+      setShowAddCode(false);
+      fetchAffiliate(); // Refresh to show new code
+    } catch (err) {
+      setAddCodeError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setAddingCode(false);
     }
   };
 
@@ -286,53 +344,180 @@ export default function AffiliateDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Referral Codes */}
+          {/* Landing Page URLs */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Referral Codes</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Landing Page URLs</h2>
+              <button
+                onClick={() => setShowAddCode(!showAddCode)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 px-3 py-1.5 text-sm font-medium text-violet-600 hover:bg-violet-50"
+              >
+                <Plus className="h-4 w-4" />
+                Add URL
+              </button>
+            </div>
+
+            {/* Add New URL Form */}
+            {showAddCode && (
+              <form
+                onSubmit={handleAddRefCode}
+                className="mb-5 rounded-lg border border-violet-200 bg-violet-50/50 p-4"
+              >
+                <p className="mb-3 text-sm font-medium text-gray-700">Create New Landing Page URL</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">URL Slug *</label>
+                    <div className="mt-1 flex items-center rounded-lg border border-gray-300 bg-white focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500">
+                      <span className="flex-shrink-0 pl-3 text-sm text-gray-400">/affiliate/</span>
+                      <input
+                        type="text"
+                        required
+                        value={newRefCode}
+                        onChange={(e) =>
+                          setNewRefCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))
+                        }
+                        placeholder="NEW_CODE"
+                        className="w-full border-0 bg-transparent px-1 py-2 font-mono text-sm focus:outline-none focus:ring-0"
+                      />
+                    </div>
+                    {newRefCode && (
+                      <div className="mt-1.5 flex items-center gap-1.5 rounded bg-white px-2 py-1">
+                        <Globe className="h-3 w-3 text-violet-500" />
+                        <span className="truncate font-mono text-xs text-violet-700">
+                          {buildLandingPageUrl(newRefCode)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600">
+                      Description (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newRefDescription}
+                      onChange={(e) => setNewRefDescription(e.target.value)}
+                      placeholder="e.g., Instagram campaign"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
+                  {addCodeError && (
+                    <div className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+                      {addCodeError}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddCode(false);
+                        setAddCodeError(null);
+                        setNewRefCode('');
+                        setNewRefDescription('');
+                      }}
+                      className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={addingCode || !newRefCode.trim()}
+                      className="rounded-lg bg-violet-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {addingCode ? 'Creating...' : 'Create URL'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {/* URL Cards */}
             {affiliate.refCodes.length === 0 ? (
-              <p className="text-gray-500">No referral codes assigned</p>
+              <div className="rounded-lg border-2 border-dashed border-gray-200 py-8 text-center">
+                <Globe className="mx-auto h-8 w-8 text-gray-300" />
+                <p className="mt-2 text-sm text-gray-500">No landing page URLs yet</p>
+                <button
+                  onClick={() => setShowAddCode(true)}
+                  className="mt-3 text-sm font-medium text-violet-600 hover:underline"
+                >
+                  Create the first one
+                </button>
+              </div>
             ) : (
               <div className="space-y-3">
-                {affiliate.refCodes.map((code) => (
-                  <div
-                    key={code.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
-                        <Hash className="h-5 w-5 text-violet-600" />
+                {affiliate.refCodes.map((code) => {
+                  const url = buildLandingPageUrl(code.refCode);
+                  return (
+                    <div
+                      key={code.id}
+                      className="rounded-lg border border-gray-200 p-4 transition-colors hover:border-gray-300"
+                    >
+                      {/* Top row: code + status + actions */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
+                            <Globe className="h-4 w-4 text-violet-600" />
+                          </div>
+                          <div>
+                            <p className="font-mono text-sm font-semibold text-gray-900">
+                              {code.refCode}
+                            </p>
+                            {code.description && (
+                              <p className="text-xs text-gray-500">{code.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              code.isActive
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {code.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {formatDate(code.createdAt)}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-mono font-semibold text-gray-900">{code.refCode}</p>
-                        {code.description && (
-                          <p className="text-sm text-gray-500">{code.description}</p>
-                        )}
+
+                      {/* URL row */}
+                      <div className="mt-3 flex items-center gap-2 rounded-md bg-gray-50 px-3 py-2">
+                        <span className="flex-1 truncate font-mono text-xs text-gray-600">
+                          {url}
+                        </span>
+                        <button
+                          onClick={() => handleCopyUrl(code.refCode)}
+                          className="flex-shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                          title="Copy landing page URL"
+                        >
+                          {copiedCode === code.refCode ? (
+                            <span className="flex items-center gap-1 text-green-600">
+                              <Check className="h-3 w-3" /> Copied
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <Copy className="h-3 w-3" /> Copy
+                            </span>
+                          )}
+                        </button>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50"
+                          title="Preview landing page"
+                        >
+                          <span className="flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" /> Preview
+                          </span>
+                        </a>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs ${
-                          code.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {code.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                      <button
-                        onClick={() => handleCopyCode(code.refCode)}
-                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                        title="Copy referral link"
-                      >
-                        {copiedCode === code.refCode ? (
-                          <Check className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
