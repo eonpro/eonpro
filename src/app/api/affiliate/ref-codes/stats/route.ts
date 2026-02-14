@@ -4,12 +4,16 @@
  * Returns detailed performance metrics for each ref code:
  * - Clicks, conversions, revenue, commission per code
  * - Conversion rate and performance trends
+ *
+ * Optimized: uses batch aggregation queries (GROUP BY refCode)
+ * instead of per-code queries to avoid N+1 query patterns.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { suppressSmallNumber } from '@/services/affiliate/reportingConstants';
 
 async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
   const searchParams = req.nextUrl.searchParams;
@@ -28,6 +32,11 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     const dateTo = to ? new Date(to) : new Date();
     dateTo.setHours(23, 59, 59, 999);
 
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
     // Get all ref codes for this affiliate
     const refCodes = await prisma.affiliateRefCode.findMany({
       where: {
@@ -44,115 +53,216 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       take: 100,
     });
 
-    // Get stats for each ref code
-    const refCodeStats = await Promise.all(
-      refCodes.map(
-        async (code: {
-          id: number;
-          refCode: string;
-          description: string | null;
-          createdAt: Date;
-        }) => {
-          // Get clicks (touches) in date range
-          const clicksResult = await prisma.affiliateTouch.aggregate({
-            where: {
-              refCode: code.refCode,
-              affiliateId,
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-            },
-            _count: true,
-          });
+    if (refCodes.length === 0) {
+      return NextResponse.json({
+        refCodes: [],
+        totals: {
+          totalCodes: 0,
+          totalClicks: 0,
+          totalImpressions: 0,
+          totalUniqueVisitors: 0,
+          totalConversions: 0,
+          totalRevenueCents: 0,
+          totalCommissionCents: 0,
+          avgConversionRate: 0,
+          avgClickThroughRate: 0,
+        },
+        period: { from: dateFrom.toISOString(), to: dateTo.toISOString() },
+      });
+    }
 
-          // Get conversions (touches that converted) in date range
-          const conversionsResult = await prisma.affiliateTouch.aggregate({
-            where: {
-              refCode: code.refCode,
-              affiliateId,
-              convertedAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-            },
-            _count: true,
-          });
+    const codeList = refCodes.map((c) => c.refCode);
 
-          // Get revenue and commission from commission events
-          const commissionResult = await prisma.affiliateCommissionEvent.aggregate({
-            where: {
-              affiliateId,
-              createdAt: {
-                gte: dateFrom,
-                lte: dateTo,
-              },
-              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-            },
-            _sum: {
-              eventAmountCents: true,
-              commissionAmountCents: true,
-            },
-          });
+    // Run all batch aggregation queries in parallel
+    const [
+      clicksByCode,
+      impressionsByCode,
+      conversionsByCode,
+      commissionsByCode,
+      uniqueVisitorsByCode,
+      prevPeriodClicksByCode,
+      dailyBreakdown,
+    ] = await Promise.all([
+      // Batch: total clicks per code in date range (CLICK type only)
+      prisma.affiliateTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          affiliateId,
+          refCode: { in: codeList },
+          touchType: 'CLICK',
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+        _count: true,
+      }),
 
-          // Get daily trend for this code (last 7 days)
-          const sevenDaysAgo = new Date();
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      // Batch: impression count per code
+      prisma.affiliateTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          affiliateId,
+          refCode: { in: codeList },
+          touchType: 'IMPRESSION',
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+        _count: true,
+      }),
 
-          // Calculate trend (comparing last 7 days to previous 7 days)
-          const prevPeriodClicks = await prisma.affiliateTouch.count({
-            where: {
-              refCode: code.refCode,
-              affiliateId,
-              createdAt: {
-                gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-                lt: sevenDaysAgo,
-              },
-            },
-          });
+      // Batch: conversions per code (convertedAt in range)
+      prisma.affiliateTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          affiliateId,
+          refCode: { in: codeList },
+          convertedAt: { gte: dateFrom, lte: dateTo },
+        },
+        _count: true,
+      }),
 
-          const recentClicks = clicksResult._count;
-          const trend =
-            prevPeriodClicks > 0
-              ? ((recentClicks - prevPeriodClicks) / prevPeriodClicks) * 100
-              : recentClicks > 0
-                ? 100
-                : 0;
+      // Batch: revenue and commission per code (via raw SQL for JSONB metadata filtering)
+      prisma.$queryRaw<
+        Array<{ refCode: string; revenueCents: number; commissionCents: number }>
+      >`
+        SELECT
+          metadata->>'refCode' as "refCode",
+          COALESCE(SUM("eventAmountCents"), 0)::int as "revenueCents",
+          COALESCE(SUM("commissionAmountCents"), 0)::int as "commissionCents"
+        FROM "AffiliateCommissionEvent"
+        WHERE "affiliateId" = ${affiliateId}
+          AND "occurredAt" >= ${dateFrom}
+          AND "occurredAt" <= ${dateTo}
+          AND "status" IN ('PENDING', 'APPROVED', 'PAID')
+          AND metadata->>'refCode' = ANY(${codeList})
+        GROUP BY metadata->>'refCode'
+      `,
 
-          const clicks = clicksResult._count;
-          const conversions = conversionsResult._count;
-          const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+      // Batch: unique visitors per code (raw SQL COUNT DISTINCT)
+      prisma.$queryRaw<
+        Array<{ refCode: string; uniqueVisitors: number }>
+      >`
+        SELECT
+          "refCode",
+          COUNT(DISTINCT "visitorFingerprint")::int as "uniqueVisitors"
+        FROM "AffiliateTouch"
+        WHERE "affiliateId" = ${affiliateId}
+          AND "refCode" = ANY(${codeList})
+          AND "createdAt" >= ${dateFrom}
+          AND "createdAt" <= ${dateTo}
+          AND "visitorFingerprint" IS NOT NULL
+        GROUP BY "refCode"
+      `,
 
-          return {
-            refCode: code.refCode,
-            description: code.description,
-            createdAt: code.createdAt.toISOString(),
-            clicks,
-            conversions,
-            conversionRate,
-            revenueCents: commissionResult._sum.eventAmountCents || 0,
-            commissionCents: commissionResult._sum.commissionAmountCents || 0,
-            trend,
-            isNew: new Date(code.createdAt) > sevenDaysAgo,
-          };
-        }
-      )
+      // Batch: previous period clicks for trend calculation
+      prisma.affiliateTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          affiliateId,
+          refCode: { in: codeList },
+          createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo },
+        },
+        _count: true,
+      }),
+
+      // Batch: daily click breakdown per code
+      prisma.$queryRaw<
+        Array<{ refCode: string; date: Date; clicks: number }>
+      >`
+        SELECT
+          "refCode",
+          DATE("createdAt") as date,
+          COUNT(*)::int as clicks
+        FROM "AffiliateTouch"
+        WHERE "affiliateId" = ${affiliateId}
+          AND "refCode" = ANY(${codeList})
+          AND "createdAt" >= ${dateFrom}
+          AND "createdAt" <= ${dateTo}
+        GROUP BY "refCode", DATE("createdAt")
+        ORDER BY "refCode", date ASC
+      `,
+    ]);
+
+    // Build lookup maps for O(1) per-code access
+    const clicksMap = new Map(clicksByCode.map((r) => [r.refCode, r._count]));
+    const impressionsMap = new Map(impressionsByCode.map((r) => [r.refCode, r._count]));
+    const conversionsMap = new Map(conversionsByCode.map((r) => [r.refCode, r._count]));
+    const commissionsMap = new Map(
+      (commissionsByCode || []).map((r) => [r.refCode, { revenueCents: r.revenueCents, commissionCents: r.commissionCents }])
     );
+    const uniqueVisitorsMap = new Map(
+      (uniqueVisitorsByCode || []).map((r) => [r.refCode, r.uniqueVisitors])
+    );
+    const prevClicksMap = new Map(prevPeriodClicksByCode.map((r) => [r.refCode, r._count]));
+
+    // Group daily breakdown by refCode
+    const dailyMap = new Map<string, Array<{ date: string; clicks: number }>>();
+    for (const row of dailyBreakdown || []) {
+      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date);
+      if (!dailyMap.has(row.refCode)) {
+        dailyMap.set(row.refCode, []);
+      }
+      dailyMap.get(row.refCode)!.push({ date: dateStr, clicks: row.clicks });
+    }
+
+    // Assemble per-code stats from pre-aggregated data
+    const refCodeStats = refCodes.map((code) => {
+      const clicks = clicksMap.get(code.refCode) || 0;
+      const impressions = impressionsMap.get(code.refCode) || 0;
+      const uniqueVisitors = uniqueVisitorsMap.get(code.refCode) || 0;
+      const conversions = conversionsMap.get(code.refCode) || 0;
+      const commission = commissionsMap.get(code.refCode) || { revenueCents: 0, commissionCents: 0 };
+      const prevPeriodClicks = prevClicksMap.get(code.refCode) || 0;
+
+      const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+      const clickThroughRate = impressions > 0
+        ? ((clicks - impressions) / impressions) * 100
+        : 0;
+
+      const trend =
+        prevPeriodClicks > 0
+          ? ((clicks - prevPeriodClicks) / prevPeriodClicks) * 100
+          : clicks > 0
+            ? 100
+            : 0;
+
+      // HIPAA: suppress small conversion counts to prevent patient re-identification
+      const suppressedConversions = suppressSmallNumber(conversions);
+      const isSuppressed = typeof suppressedConversions === 'string';
+
+      return {
+        refCode: code.refCode,
+        description: code.description,
+        createdAt: code.createdAt.toISOString(),
+        clicks,
+        impressions,
+        uniqueVisitors,
+        conversions: suppressedConversions,
+        conversionRate: isSuppressed ? null : conversionRate,
+        clickThroughRate,
+        revenueCents: isSuppressed ? null : commission.revenueCents,
+        commissionCents: isSuppressed ? null : commission.commissionCents,
+        trend,
+        isNew: new Date(code.createdAt) > sevenDaysAgo,
+        dailyBreakdown: dailyMap.get(code.refCode) || [],
+      };
+    });
 
     // Sort by conversions (highest first)
     refCodeStats.sort((a, b) => b.conversions - a.conversions);
 
-    // Calculate totals
+    // Calculate totals with weighted average conversion rate
+    const totalClicks = refCodeStats.reduce((sum, c) => sum + c.clicks, 0);
+    const totalImpressions = refCodeStats.reduce((sum, c) => sum + c.impressions, 0);
+    const totalUniqueVisitors = refCodeStats.reduce((sum, c) => sum + c.uniqueVisitors, 0);
+    const totalConversions = refCodeStats.reduce((sum, c) => sum + c.conversions, 0);
     const totals = {
       totalCodes: refCodeStats.length,
-      totalClicks: refCodeStats.reduce((sum, c) => sum + c.clicks, 0),
-      totalConversions: refCodeStats.reduce((sum, c) => sum + c.conversions, 0),
+      totalClicks,
+      totalImpressions,
+      totalUniqueVisitors,
+      totalConversions,
       totalRevenueCents: refCodeStats.reduce((sum, c) => sum + c.revenueCents, 0),
       totalCommissionCents: refCodeStats.reduce((sum, c) => sum + c.commissionCents, 0),
-      avgConversionRate:
-        refCodeStats.length > 0
-          ? refCodeStats.reduce((sum, c) => sum + c.conversionRate, 0) / refCodeStats.length
-          : 0,
+      avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
+      avgClickThroughRate: totalImpressions > 0 ? ((totalClicks - totalImpressions) / totalImpressions) * 100 : 0,
     };
 
     return NextResponse.json({

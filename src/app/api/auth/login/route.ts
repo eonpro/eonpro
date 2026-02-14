@@ -35,7 +35,7 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
   role: z
-    .enum(['patient', 'provider', 'admin', 'super_admin', 'influencer', 'staff', 'support'])
+    .enum(['patient', 'provider', 'admin', 'super_admin', 'affiliate', 'staff', 'support'])
     .default('patient'),
   clinicId: z.number().nullable().optional(), // Accept null, undefined, or number
   captchaToken: z.string().optional(), // For CAPTCHA verification when required
@@ -193,7 +193,6 @@ async function loginHandler(req: NextRequest) {
     // Define a flexible type that can hold various user shapes from different queries
     type FlexibleUser = Awaited<ReturnType<typeof prisma.user.findUnique>> & {
       provider?: unknown;
-      influencer?: unknown;
       patient?: unknown;
       permissions?: unknown;
       features?: unknown;
@@ -203,7 +202,6 @@ async function loginHandler(req: NextRequest) {
       where: { email: email.toLowerCase() },
       include: {
         provider: true,
-        influencer: true,
         patient: true,
       },
     });
@@ -248,23 +246,6 @@ async function loginHandler(req: NextRequest) {
               clinicId: providerData.clinicId,
             } as unknown as FlexibleUser;
             passwordHash = providerData.passwordHash || null;
-          }
-          break;
-
-        case 'influencer':
-          const influencer = await prisma.influencer.findUnique({
-            where: { email: email.toLowerCase() },
-          });
-          if (influencer) {
-            user = {
-              id: influencer.id,
-              email: influencer.email,
-              firstName: influencer.name,
-              lastName: '',
-              role: 'influencer',
-              status: 'ACTIVE',
-            } as unknown as FlexibleUser;
-            passwordHash = influencer.passwordHash;
           }
           break;
 
@@ -994,7 +975,7 @@ async function loginHandler(req: NextRequest) {
         'admin-token',
         'provider-token',
         'patient-token',
-        'influencer-token',
+        'affiliate-token',
         'super_admin-token',
         'staff-token',
         'support-token',

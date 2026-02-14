@@ -5,7 +5,7 @@ import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { trackReferral } from '@/services/influencerService';
+import { attributeFromIntakeExtended, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
@@ -712,17 +712,22 @@ export async function POST(req: NextRequest) {
   if (promoCodeEntry?.value) {
     const promoCode = String(promoCodeEntry.value).trim().toUpperCase();
     try {
-      await trackReferral(patient.id, promoCode, 'weightlossintake', {
-        submissionId: normalized.submissionId,
-        intakeDate: normalized.submittedAt,
-        patientEmail: patient.email,
-        clinicId,
-      });
-      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Promo: ${promoCode}`);
+      const result = await attributeFromIntakeExtended(patient.id, promoCode, clinicId, 'weightlossintake');
+      if (result.success) {
+        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Affiliate attribution: ${promoCode} -> affiliateId=${result.affiliateId}`);
+      } else {
+        // No AffiliateRefCode exists yet - tag patient for later reconciliation
+        const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, clinicId);
+        if (tagged) {
+          logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`);
+        } else {
+          logger.debug(`[WEIGHTLOSSINTAKE ${requestId}] No affiliate match for code: ${promoCode}`);
+        }
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Promo tracking failed:`, { error: errMsg });
-      errors.push(`Promo tracking failed: ${promoCode}`);
+      logger.warn(`[WEIGHTLOSSINTAKE ${requestId}] Affiliate tracking failed:`, { error: errMsg });
+      errors.push(`Affiliate tracking failed: ${promoCode}`);
     }
   }
 

@@ -12,7 +12,6 @@ export {
   withProviderAuth,
   withClinicalAuth,
   withSupportAuth,
-  withInfluencerAuth,
   withAffiliateAuth,
   withPatientAuth,
   verifyAuth,

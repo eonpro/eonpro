@@ -6,7 +6,7 @@ import { upsertPatientFromIntake } from '@/lib/medlink/patientService';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { trackReferral } from '@/services/influencerService';
+import { attributeFromIntakeExtended, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     // Upsert patient
     const patient = await upsertPatientFromIntake(normalized);
 
-    // Process referral tracking for influencer promo codes
+    // Process referral tracking for affiliate promo codes
     const promoCodeEntry = normalized.answers?.find(
       (entry) =>
         entry.label?.toLowerCase().includes('promo') ||
@@ -96,20 +96,34 @@ export async function POST(req: NextRequest) {
 
     if (promoCodeEntry?.value) {
       const promoCode = promoCodeEntry.value.trim().toUpperCase();
-      const referralSourceEntry = normalized.answers?.find(
-        (entry) =>
-          entry.label?.toLowerCase().includes('how did you hear') ||
-          entry.label?.toLowerCase().includes('referral source') ||
-          entry.id === 'referral_source'
-      );
 
       logger.debug(`[MEDLINK WEBHOOK] Found promo code: ${promoCode} for patient ${patient.id}`);
 
-      await trackReferral(patient.id, promoCode, referralSourceEntry?.value || 'medlink-intake', {
-        submissionId: normalized.submissionId,
-        intakeDate: normalized.submittedAt,
-        patientEmail: patient.email,
-      });
+      try {
+        // Fetch clinicId from the patient record
+        const patientRecord = await prisma.patient.findUnique({
+          where: { id: patient.id },
+          select: { clinicId: true },
+        });
+        const patientClinicId = patientRecord?.clinicId;
+
+        if (patientClinicId) {
+          const result = await attributeFromIntakeExtended(patient.id, promoCode, patientClinicId, 'medlink-intake');
+          if (result.success) {
+            logger.info(`[MEDLINK WEBHOOK] ✓ Affiliate attribution: ${promoCode} -> affiliateId=${result.affiliateId}`);
+          } else {
+            const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, patientClinicId);
+            if (tagged) {
+              logger.info(`[MEDLINK WEBHOOK] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`);
+            }
+          }
+        } else {
+          logger.warn(`[MEDLINK WEBHOOK] No clinicId found for patient ${patient.id}, skipping affiliate tracking`);
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        logger.warn(`[MEDLINK WEBHOOK] Affiliate tracking failed:`, { error: errMsg, promoCode });
+      }
     }
 
     // Generate PDF

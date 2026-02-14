@@ -47,13 +47,6 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
         userExists = !!provider;
         break;
 
-      case 'influencer':
-        const influencer = await prisma.influencer.findUnique({
-          where: { email: email.toLowerCase() },
-        });
-        userExists = !!influencer;
-        break;
-
       case 'admin':
         userExists = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
         break;
@@ -202,19 +195,6 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
             });
           updated = !!provider;
         }
-        break;
-
-      case 'influencer':
-        const influencer = await prisma.influencer
-          .update({
-            where: { email: email.toLowerCase() },
-            data: { passwordHash },
-          })
-          .catch((err) => {
-            logger.warn('[ResetPassword] Failed to update influencer password', { error: err instanceof Error ? err.message : String(err) });
-            return null;
-          });
-        updated = !!influencer;
         break;
 
       case 'admin':

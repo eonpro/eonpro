@@ -29,7 +29,7 @@ export const GET = withAuth(
       const page = parseInt(searchParams.get('page') || '1', 10);
       const limit = parseInt(searchParams.get('limit') || '50', 10);
       const filter = searchParams.get('filter') || 'all'; // all, online, recent, never
-      const search = searchParams.get('search') || '';
+      const search = (searchParams.get('search') || '').trim();
       const sortBy = searchParams.get('sortBy') || 'lastLogin';
       const sortOrder = searchParams.get('sortOrder') || 'desc';
 

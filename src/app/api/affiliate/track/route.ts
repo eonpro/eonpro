@@ -8,31 +8,48 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
 import crypto from 'crypto';
 
-// Rate limiting (simple in-memory implementation)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 100; // requests per minute
-const RATE_WINDOW = 60 * 1000; // 1 minute
+// Redis-backed rate limiters (works in serverless, unlike the old in-memory Map)
+const trackingRateLimiter = createRateLimiter({
+  identifier: 'affiliate-track',
+  windowSeconds: 60,
+  maxRequests: 100,
+  message: 'Too many tracking requests. Please try again later.',
+});
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+const postbackRateLimiter = createRateLimiter({
+  identifier: 'affiliate-postback',
+  windowSeconds: 60,
+  maxRequests: 100,
+  message: 'Too many postback requests.',
+});
 
-  if (!entry || entry.resetAt < now) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
-    return true;
-  }
-
-  if (entry.count >= RATE_LIMIT) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
+const trackSchema = z.object({
+  visitorFingerprint: z.string().min(1).max(512),
+  cookieId: z.string().max(512).optional(),
+  refCode: z.string().min(1).max(50),
+  touchType: z.enum(['CLICK', 'IMPRESSION', 'POSTBACK']).optional(),
+  utmSource: z.string().max(256).optional(),
+  utmMedium: z.string().max(256).optional(),
+  utmCampaign: z.string().max(256).optional(),
+  utmContent: z.string().max(256).optional(),
+  utmTerm: z.string().max(256).optional(),
+  subId1: z.string().max(256).optional(),
+  subId2: z.string().max(256).optional(),
+  subId3: z.string().max(256).optional(),
+  subId4: z.string().max(256).optional(),
+  subId5: z.string().max(256).optional(),
+  landingPage: z.string().max(2000).optional(),
+  referrerUrl: z.string().max(2000).optional(),
+  userAgent: z.string().max(512).optional(),
+  clinicId: z.number().int().positive().optional(),
+  affiliateId: z.number().int().positive().optional(),
+});
 
 function hashIp(ip: string): string {
   return crypto.createHash('sha256').update(`aff_ip_salt:${ip}`).digest('hex');
@@ -61,28 +78,25 @@ interface TrackRequest {
   affiliateId?: number;
 }
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     // Get client IP
     const forwardedFor = request.headers.get('x-forwarded-for');
     const realIp = request.headers.get('x-real-ip');
     const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
 
-    // Rate limiting
-    if (!checkRateLimit(clientIp)) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-    }
+    // Parse and validate body
+    const rawBody = await request.json();
+    const parsed = trackSchema.safeParse(rawBody);
 
-    // Parse body
-    const body: TrackRequest = await request.json();
-
-    // Validate required fields
-    if (!body.visitorFingerprint || !body.refCode) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: visitorFingerprint, refCode' },
+        { error: parsed.error.issues[0]?.message || 'Invalid tracking data' },
         { status: 400 }
       );
     }
+
+    const body: TrackRequest = parsed.data;
 
     // Look up the ref code to find the affiliate and clinic
     const refCodeRecord = await prisma.affiliateRefCode.findFirst({
@@ -122,7 +136,78 @@ export async function POST(request: NextRequest) {
     // Hash the IP for privacy
     const ipAddressHash = hashIp(clientIp);
 
-    // Create the touch record
+    // Deduplication: Check if a touch with the same visitor+code exists within a 30-minute window
+    // This prevents inflated click counts from page refreshes or accidental double-clicks
+    const DEDUP_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+    const dedupCutoff = new Date(Date.now() - DEDUP_WINDOW_MS);
+
+    const visitorId = body.visitorFingerprint || body.cookieId;
+
+    // Use a PostgreSQL advisory lock to serialize dedup check-then-create for the same
+    // visitor+code combination. This prevents two concurrent clicks from the same visitor
+    // from both seeing "no existing touch" and both creating one.
+    // The lock key is a hash of (clinicId, refCode, visitorId) reduced to a 32-bit int.
+    if (visitorId) {
+      const lockKeyStr = `${clinicId}:${body.refCode}:${visitorId}`;
+      // Convert string to a stable 32-bit integer hash for pg_advisory_xact_lock
+      let lockKey = 0;
+      for (let i = 0; i < lockKeyStr.length; i++) {
+        lockKey = ((lockKey << 5) - lockKey + lockKeyStr.charCodeAt(i)) | 0;
+      }
+
+      const dedupResult = await prisma.$transaction(async (tx) => {
+        // Acquire advisory lock scoped to this transaction (auto-released on commit/rollback)
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+
+        const existingTouch = await tx.affiliateTouch.findFirst({
+          where: {
+            clinicId,
+            refCode: body.refCode,
+            affiliateId,
+            createdAt: { gte: dedupCutoff },
+            OR: [
+              ...(body.visitorFingerprint ? [{ visitorFingerprint: body.visitorFingerprint }] : []),
+              ...(body.cookieId ? [{ cookieId: body.cookieId }] : []),
+            ],
+          },
+          select: { id: true },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        if (existingTouch) {
+          // Duplicate within window - update the existing touch instead of creating a new one
+          await tx.affiliateTouch.update({
+            where: { id: existingTouch.id },
+            data: {
+              // Update with latest UTM/landing page data
+              ...(body.utmSource && { utmSource: body.utmSource }),
+              ...(body.utmMedium && { utmMedium: body.utmMedium }),
+              ...(body.utmCampaign && { utmCampaign: body.utmCampaign }),
+              ...(body.landingPage && { landingPage: body.landingPage.substring(0, 2000) }),
+            },
+          });
+          return { deduplicated: true, touchId: existingTouch.id };
+        }
+
+        return null; // No duplicate found — proceed to create
+      });
+
+      if (dedupResult) {
+        logger.debug('[Tracking] Deduplicated touch (within 30min window)', {
+          touchId: dedupResult.touchId,
+          refCode: body.refCode,
+          affiliateId,
+        });
+
+        return NextResponse.json({
+          success: true,
+          touchId: dedupResult.touchId,
+          deduplicated: true,
+        });
+      }
+    }
+
+    // Create a new touch record (unique click)
     const touch = await prisma.affiliateTouch.create({
       data: {
         clinicId,
@@ -173,7 +258,7 @@ export async function POST(request: NextRequest) {
  * Server-to-server postback tracking
  * Used for tracking conversions from external systems
  */
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
 
@@ -247,3 +332,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
 }
+
+// Apply Redis-backed rate limiting to both endpoints
+export const POST = trackingRateLimiter(handlePost);
+export const GET = postbackRateLimiter(handleGet);

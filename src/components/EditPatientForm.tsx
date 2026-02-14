@@ -111,7 +111,6 @@ export default function EditPatientForm({ patient, documents }: Props) {
         'admin-token',
         'provider-token',
         'staff-token',
-        'influencer-token',
       ];
 
       let token: string | null = null;

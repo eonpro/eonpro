@@ -12,7 +12,6 @@ export type UserRole =
   | 'staff'
   | 'support'
   | 'patient'
-  | 'influencer'
   | 'affiliate'
   | 'sales_rep';
 
@@ -584,106 +583,6 @@ export const PATIENT_CONFIG: RoleConfig = {
   ],
 };
 
-// INFLUENCER - Referral partners
-export const INFLUENCER_CONFIG: RoleConfig = {
-  role: 'influencer',
-  displayName: 'Referral Partner',
-  description: 'Influencers and referral partners',
-  defaultPath: '/influencer',
-  theme: {
-    primaryColor: '#EC4899', // Pink
-    secondaryColor: '#DB2777',
-    iconColor: '#F9A8D4',
-    bgGradient: 'from-pink-500 to-purple-600',
-  },
-  features: {
-    viewAllPatients: false,
-    editPatients: false,
-    deletePatients: false,
-    viewPatientPHI: false,
-    exportPatientData: false,
-    createSoapNotes: false,
-    prescribeRx: false,
-    orderLabs: false,
-    viewMedicalRecords: false,
-    uploadDocuments: false,
-    manageUsers: false,
-    manageClinics: false,
-    viewAnalytics: false,
-    viewFinancials: false,
-    manageSubscriptions: false,
-    internalMessaging: false,
-    patientMessaging: false,
-    ticketManagement: false,
-    supportTickets: true,
-    systemSettings: false,
-    auditLogs: false,
-    apiAccess: false,
-    bulkOperations: false,
-    manageOrders: false,
-    processPayments: false,
-    manageInventory: false,
-    viewCommissions: true,
-  },
-  navigation: {
-    primary: [
-      { label: 'Dashboard', path: '/influencer', icon: 'Home' },
-      { label: 'Referrals', path: '/influencer/referrals', icon: 'Users' },
-      { label: 'Commissions', path: '/influencer/commissions', icon: 'DollarSign' },
-      { label: 'Campaigns', path: '/influencer/campaigns', icon: 'Target' },
-      { label: 'Resources', path: '/influencer/resources', icon: 'Download' },
-      { label: 'Analytics', path: '/influencer/analytics', icon: 'TrendingUp' },
-      { label: 'Support', path: '/influencer/support', icon: 'HelpCircle' },
-    ],
-    quick: [
-      { label: 'Share Link', action: 'share-link', icon: 'Share2', color: 'blue' },
-      { label: 'View Earnings', action: 'view-earnings', icon: 'DollarSign', color: 'green' },
-      { label: 'Get Materials', action: 'get-materials', icon: 'Download', color: 'purple' },
-    ],
-  },
-  widgets: [
-    {
-      id: 'earnings-overview',
-      title: 'Earnings Overview',
-      type: 'stat',
-      size: 'large',
-      position: 1,
-    },
-    {
-      id: 'referral-stats',
-      title: 'Referral Performance',
-      type: 'chart',
-      size: 'large',
-      position: 2,
-    },
-    {
-      id: 'recent-referrals',
-      title: 'Recent Referrals',
-      type: 'list',
-      size: 'medium',
-      position: 3,
-    },
-    {
-      id: 'pending-commissions',
-      title: 'Pending Commissions',
-      type: 'list',
-      size: 'medium',
-      position: 4,
-    },
-    {
-      id: 'campaign-performance',
-      title: 'Campaign Performance',
-      type: 'chart',
-      size: 'full',
-      position: 5,
-    },
-  ],
-  restrictions: [
-    'No patient data access',
-    'View-only commission data',
-    'Cannot process medical operations',
-  ],
-};
 
 // AFFILIATE - Affiliate/referral partners portal
 export const AFFILIATE_CONFIG: RoleConfig = {
@@ -857,7 +756,6 @@ export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   staff: STAFF_CONFIG,
   support: SUPPORT_CONFIG,
   patient: PATIENT_CONFIG,
-  influencer: INFLUENCER_CONFIG,
   affiliate: AFFILIATE_CONFIG,
   sales_rep: SALES_REP_CONFIG,
 };

@@ -17,6 +17,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/observability/request-context';
 
 export interface AttributionResult {
   affiliateId: number;
@@ -381,19 +382,29 @@ export async function setPatientAttribution(
   attribution: AttributionResult
 ): Promise<void> {
   try {
-    await prisma.patient.update({
-      where: { id: patientId },
-      data: {
-        attributionAffiliateId: attribution.affiliateId,
-        attributionRefCode: attribution.refCode,
-        attributionFirstTouchAt: new Date(),
-      },
-    });
+    // Wrap patient update + touch conversion in a single transaction for atomicity.
+    // If the touch update fails, the patient attribution rolls back too.
+    await prisma.$transaction(async (tx) => {
+      await tx.patient.update({
+        where: { id: patientId },
+        data: {
+          attributionAffiliateId: attribution.affiliateId,
+          attributionRefCode: attribution.refCode,
+          attributionFirstTouchAt: new Date(),
+        },
+      });
 
-    // Mark the touch as converted
-    if (attribution.touchId) {
-      await markTouchConverted(attribution.touchId, patientId);
-    }
+      // Mark the touch as converted within the same transaction
+      if (attribution.touchId) {
+        await tx.affiliateTouch.update({
+          where: { id: attribution.touchId },
+          data: {
+            convertedPatientId: patientId,
+            convertedAt: new Date(),
+          },
+        });
+      }
+    });
 
     logger.info('[Attribution] Patient attribution set', {
       patientId,
@@ -483,7 +494,7 @@ export async function attributeFromIntake(
 export async function tagPatientWithReferralCodeOnly(
   patientId: number,
   promoCode: string,
-  _clinicId: number
+  clinicId: number
 ): Promise<boolean> {
   const normalizedCode = promoCode.trim().toUpperCase();
   if (!normalizedCode) return false;
@@ -510,18 +521,42 @@ export async function tagPatientWithReferralCodeOnly(
     const affiliateTag = `affiliate:${normalizedCode}`;
     const hasTag = existingTags.includes(affiliateTag);
 
-    await prisma.patient.update({
-      where: { id: patientId },
-      data: {
-        attributionRefCode: normalizedCode,
-        attributionFirstTouchAt: new Date(),
-        ...(hasTag ? {} : { tags: { push: affiliateTag } }),
-      },
+    // Look up if there's a matching AffiliateRefCode to get the affiliateId.
+    const refCodeRecord = await prisma.affiliateRefCode.findFirst({
+      where: { refCode: { equals: normalizedCode, mode: 'insensitive' } },
+      select: { affiliateId: true, clinicId: true },
     });
 
-    logger.info('[Attribution] Tagged patient with referral code (no affiliate yet)', {
+    // Wrap patient update + touch creation in a transaction for atomicity.
+    // If one fails, both roll back to keep data consistent.
+    await prisma.$transaction(async (tx) => {
+      await tx.patient.update({
+        where: { id: patientId },
+        data: {
+          attributionRefCode: normalizedCode,
+          attributionFirstTouchAt: new Date(),
+          ...(hasTag ? {} : { tags: { push: affiliateTag } }),
+        },
+      });
+
+      // Create an AffiliateTouch record so this code usage appears in traffic reports.
+      // Even though we may not know the affiliate yet, the refCode is recorded for reporting.
+      await tx.affiliateTouch.create({
+        data: {
+          clinicId: refCodeRecord?.clinicId || clinicId,
+          affiliateId: refCodeRecord?.affiliateId || 0, // 0 indicates unresolved
+          refCode: normalizedCode,
+          touchType: 'POSTBACK',
+          convertedPatientId: patientId,
+          convertedAt: new Date(),
+        },
+      });
+    });
+
+    logger.info('[Attribution] Tagged patient with referral code and created AffiliateTouch', {
       patientId,
       refCode: normalizedCode,
+      affiliateId: refCodeRecord?.affiliateId || 'unresolved',
     });
     return true;
   } catch (err) {
@@ -716,75 +751,94 @@ export async function attributeFromIntakeExtended(
       };
     }
 
-    // ALWAYS create an AffiliateTouch record for tracking "uses"
-    // This tracks the code usage even if patient already has attribution
-    const touch = await prisma.affiliateTouch.create({
-      data: {
-        clinicId,
-        affiliateId: refCode.affiliateId,
-        refCode: normalizedCode,
-        touchType: 'POSTBACK', // Direct conversion from intake form
-        landingPage: `/intake/${source}`,
-        utmSource: source,
-        utmMedium: 'intake_form',
-        utmCampaign: 'promo_code',
-        convertedPatientId: patientId,
-        convertedAt: hasExistingAttribution ? null : new Date(), // Only mark converted if new attribution
-        // Generate a fingerprint for deduplication
-        visitorFingerprint: `intake-${patientId}-${Date.now()}`,
-      },
-    });
+    // Wrap all writes in a Serializable transaction for atomicity.
+    // The attribution guard is RE-CHECKED inside the transaction with SELECT FOR UPDATE
+    // to prevent concurrent intake webhooks from double-attributing the same patient.
+    const touch = await prisma.$transaction(async (tx) => {
+      // Re-check attribution INSIDE transaction with row lock to prevent race conditions.
+      // The initial hasExistingAttribution check (line 613) is a fast-path optimization;
+      // this is the correctness guarantee.
+      const [lockedPatient] = await tx.$queryRaw<
+        Array<{ attributionAffiliateId: number | null; tags: unknown }>
+      >`SELECT "attributionAffiliateId", "tags" FROM "Patient" WHERE id = ${patientId} FOR UPDATE`;
+
+      const isAlreadyAttributed = !!lockedPatient?.attributionAffiliateId;
+
+      // ALWAYS create an AffiliateTouch record for tracking "uses"
+      // This tracks the code usage even if patient already has attribution
+      const touchRecord = await tx.affiliateTouch.create({
+        data: {
+          clinicId,
+          affiliateId: refCode.affiliateId,
+          refCode: normalizedCode,
+          touchType: 'POSTBACK', // Direct conversion from intake form
+          landingPage: `/intake/${source}`,
+          utmSource: source,
+          utmMedium: 'intake_form',
+          utmCampaign: 'promo_code',
+          convertedPatientId: patientId,
+          convertedAt: isAlreadyAttributed ? null : new Date(), // Only mark converted if new attribution
+          // Generate a fingerprint for deduplication
+          visitorFingerprint: `intake-${patientId}-${Date.now()}`,
+        },
+      });
+
+      // Only update patient attribution if they don't already have one (verified under lock)
+      if (!isAlreadyAttributed) {
+        // Check if tag already exists to avoid duplicates
+        const currentTags = Array.isArray(lockedPatient?.tags)
+          ? (lockedPatient.tags as string[])
+          : [];
+        const affiliateTag = `affiliate:${normalizedCode}`;
+        const shouldAddTag = !currentTags.includes(affiliateTag);
+
+        await tx.patient.update({
+          where: { id: patientId },
+          data: {
+            attributionAffiliateId: refCode.affiliateId,
+            attributionRefCode: normalizedCode,
+            attributionFirstTouchAt: new Date(),
+            // Only add tag if not already present
+            ...(shouldAddTag ? { tags: { push: affiliateTag } } : {}),
+          },
+        });
+
+        // Increment the affiliate's lifetime conversions
+        await tx.affiliate.update({
+          where: { id: refCode.affiliateId },
+          data: {
+            lifetimeConversions: { increment: 1 },
+          },
+        });
+      }
+
+      return { touchRecord, isAlreadyAttributed };
+    }, { isolationLevel: 'Serializable', timeout: 15000 });
 
     logger.info('[Attribution] Created affiliate touch for intake', {
+      requestId: getRequestId(),
       patientId,
       affiliateId: refCode.affiliateId,
       affiliateName: refCode.affiliate.displayName,
       refCode: normalizedCode,
-      touchId: touch.id,
-      hasExistingAttribution,
+      touchId: touch.touchRecord.id,
+      isAlreadyAttributed: touch.isAlreadyAttributed,
     });
 
-    // Only update patient attribution if they don't already have one
-    if (!hasExistingAttribution) {
-      // Check if tag already exists to avoid duplicates
-      const existingTags = Array.isArray(existingPatient.tags)
-        ? (existingPatient.tags as string[])
-        : [];
-      const affiliateTag = `affiliate:${normalizedCode}`;
-      const shouldAddTag = !existingTags.includes(affiliateTag);
-
-      await prisma.patient.update({
-        where: { id: patientId },
-        data: {
-          attributionAffiliateId: refCode.affiliateId,
-          attributionRefCode: normalizedCode,
-          attributionFirstTouchAt: new Date(),
-          // Only add tag if not already present
-          ...(shouldAddTag ? { tags: { push: affiliateTag } } : {}),
-        },
-      });
-
-      // Increment the affiliate's lifetime conversions
-      await prisma.affiliate.update({
-        where: { id: refCode.affiliateId },
-        data: {
-          lifetimeConversions: { increment: 1 },
-        },
-      });
-
+    if (!touch.isAlreadyAttributed) {
       logger.info('[Attribution] Successfully attributed patient from intake', {
         patientId,
         affiliateId: refCode.affiliateId,
         affiliateName: refCode.affiliate.displayName,
         refCode: normalizedCode,
-        touchId: touch.id,
+        touchId: touch.touchRecord.id,
         source,
       });
 
       return {
         affiliateId: refCode.affiliateId,
         refCode: normalizedCode,
-        touchId: touch.id,
+        touchId: touch.touchRecord.id,
         model: 'INTAKE_DIRECT',
         confidence: 'high',
         weight: 1,
@@ -798,14 +852,14 @@ export async function attributeFromIntakeExtended(
           patientId,
           existingAffiliateId: existingPatient.attributionAffiliateId,
           newCode: normalizedCode,
-          touchId: touch.id,
+          touchId: touch.touchRecord.id,
         }
       );
 
       return {
         affiliateId: refCode.affiliateId,
         refCode: normalizedCode,
-        touchId: touch.id,
+        touchId: touch.touchRecord.id,
         model: 'INTAKE_TOUCH_ONLY',
         confidence: 'high',
         weight: 1,

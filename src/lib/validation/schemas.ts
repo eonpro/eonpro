@@ -75,7 +75,7 @@ export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Password is required'),
   role: z
-    .enum(['admin', 'provider', 'patient', 'influencer', 'staff', 'support'])
+    .enum(['admin', 'provider', 'patient', 'affiliate', 'staff', 'support'])
     .default('patient'),
   mfaCode: z.string().length(6).optional(),
 });
@@ -414,7 +414,7 @@ export const userCreateSchema = z.object({
   password: passwordSchema,
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER', 'PATIENT', 'STAFF', 'SUPPORT']),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'AFFILIATE', 'PATIENT', 'STAFF', 'SUPPORT']),
   clinicId: idSchema.optional(),
   providerId: idSchema.optional(),
   patientId: idSchema.optional(),

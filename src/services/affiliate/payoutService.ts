@@ -15,6 +15,8 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/observability/request-context';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 import Stripe from 'stripe';
 
 export interface PayoutRequest {
@@ -223,56 +225,77 @@ async function processPayPalPayout(
   }
 
   try {
-    // Get access token
-    const authResponse = await fetch(`${apiBase}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    });
+    // Execute PayPal calls through circuit breaker with timeout
+    const result = await circuitBreakers.paypal.fire(async () => {
+      const PAYPAL_TIMEOUT_MS = 10000;
 
-    if (!authResponse.ok) {
-      throw new Error('Failed to get PayPal access token');
-    }
+      // Get access token (with timeout)
+      const authController = new AbortController();
+      const authTimeout = setTimeout(() => authController.abort(), PAYPAL_TIMEOUT_MS);
 
-    const { access_token } = await authResponse.json();
-
-    // Create payout
-    const payoutResponse = await fetch(`${apiBase}/v1/payments/payouts`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender_batch_header: {
-          sender_batch_id: `aff_${affiliate.id}_${Date.now()}`,
-          email_subject: 'You have received a commission payout',
-          email_message: 'Thank you for being an affiliate partner!',
-        },
-        items: [
-          {
-            recipient_type: 'EMAIL',
-            amount: {
-              value: (amountCents / 100).toFixed(2),
-              currency: 'USD',
-            },
-            note: `Commission payout for affiliate ${affiliate.displayName}`,
-            sender_item_id: `payout_${affiliate.id}_${Date.now()}`,
-            receiver: payoutMethod.paypalEmail,
+      try {
+        const authResponse = await fetch(`${apiBase}/v1/oauth2/token`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-        ],
-      }),
+          body: 'grant_type=client_credentials',
+          signal: authController.signal,
+        });
+
+        if (!authResponse.ok) {
+          throw new Error('Failed to get PayPal access token');
+        }
+
+        const { access_token } = await authResponse.json();
+
+        // Create payout (with timeout)
+        const payoutController = new AbortController();
+        const payoutTimeout = setTimeout(() => payoutController.abort(), PAYPAL_TIMEOUT_MS);
+
+        try {
+          const payoutResponse = await fetch(`${apiBase}/v1/payments/payouts`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sender_batch_header: {
+                sender_batch_id: `aff_${affiliate.id}_${Date.now()}`,
+                email_subject: 'You have received a commission payout',
+                email_message: 'Thank you for being an affiliate partner!',
+              },
+              items: [
+                {
+                  recipient_type: 'EMAIL',
+                  amount: {
+                    value: (amountCents / 100).toFixed(2),
+                    currency: 'USD',
+                  },
+                  note: `Commission payout for affiliate ${affiliate.displayName}`,
+                  sender_item_id: `payout_${affiliate.id}_${Date.now()}`,
+                  receiver: payoutMethod.paypalEmail,
+                },
+              ],
+            }),
+            signal: payoutController.signal,
+          });
+
+          if (!payoutResponse.ok) {
+            const errorData = await payoutResponse.json();
+            throw new Error(errorData.message || 'PayPal payout failed');
+          }
+
+          return await payoutResponse.json();
+        } finally {
+          clearTimeout(payoutTimeout);
+        }
+      } finally {
+        clearTimeout(authTimeout);
+      }
     });
-
-    if (!payoutResponse.ok) {
-      const errorData = await payoutResponse.json();
-      throw new Error(errorData.message || 'PayPal payout failed');
-    }
-
-    const result = await payoutResponse.json();
 
     return {
       success: true,
@@ -331,85 +354,88 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
       return { success: false, error: `No verified ${methodType} payout method found` };
     }
 
-    // Get approved commissions to include in this payout
-    const commissionEvents = await prisma.affiliateCommissionEvent.findMany({
-      where: {
-        affiliateId,
-        clinicId,
-        status: 'APPROVED',
-        payoutId: null,
-      },
-      select: {
-        id: true,
-        commissionAmountCents: true,
-      },
-    });
+    // STEP 1: Atomically claim commissions + create payout in a Serializable transaction
+    // This prevents TOCTOU race conditions where two concurrent payouts claim the same commissions
+    const { payout, assignedEventIds, netAmountCents } = await prisma.$transaction(async (tx) => {
+      // Get approved commissions to include in this payout (locked by Serializable isolation)
+      const commissionEvents = await tx.affiliateCommissionEvent.findMany({
+        where: {
+          affiliateId,
+          clinicId,
+          status: 'APPROVED',
+          payoutId: null,
+        },
+        select: {
+          id: true,
+          commissionAmountCents: true,
+        },
+      });
 
-    const totalAvailable = commissionEvents.reduce(
-      (sum: number, e: (typeof commissionEvents)[number]) => sum + e.commissionAmountCents,
-      0
-    );
+      const totalAvailable = commissionEvents.reduce(
+        (sum: number, e: (typeof commissionEvents)[number]) => sum + e.commissionAmountCents,
+        0
+      );
 
-    if (totalAvailable < amountCents) {
-      return {
-        success: false,
-        error: `Requested amount ($${amountCents / 100}) exceeds available balance ($${totalAvailable / 100})`,
-      };
-    }
+      if (totalAvailable < amountCents) {
+        throw new Error(
+          `Requested amount ($${amountCents / 100}) exceeds available balance ($${totalAvailable / 100})`
+        );
+      }
 
-    // Calculate processing fee (if any)
-    const feeCents = methodType === 'BANK_WIRE' ? 2500 : 0; // $25 wire fee
-    const netAmountCents = amountCents - feeCents;
+      // Calculate processing fee (if any)
+      const fee = methodType === 'BANK_WIRE' ? 2500 : 0; // $25 wire fee
+      const net = amountCents - fee;
 
-    // Create payout record
-    const payout = await prisma.affiliatePayout.create({
-      data: {
-        clinicId,
-        affiliateId,
-        amountCents,
-        feeCents,
-        netAmountCents,
-        currency: 'USD',
-        methodType,
-        status: 'PROCESSING',
-        processedAt: new Date(),
-        processedBy,
-        notes,
-        periodStart:
-          commissionEvents.length > 0
-            ? await prisma.affiliateCommissionEvent
-                .findFirst({
-                  where: {
-                    id: {
-                      in: commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id),
-                    },
-                  },
-                  orderBy: { occurredAt: 'asc' },
-                  select: { occurredAt: true },
-                })
-                .then((e: { occurredAt: Date } | null) => e?.occurredAt)
-            : undefined,
-        periodEnd: new Date(),
-      },
-    });
+      // Determine period start
+      const periodStartEvent = commissionEvents.length > 0
+        ? await tx.affiliateCommissionEvent.findFirst({
+            where: {
+              id: { in: commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id) },
+            },
+            orderBy: { occurredAt: 'asc' },
+            select: { occurredAt: true },
+          })
+        : null;
 
-    // Assign commission events to this payout
-    const eventIds = commissionEvents.map((e: (typeof commissionEvents)[number]) => e.id);
-    let remainingAmount = amountCents;
-    const assignedEventIds: number[] = [];
+      // Create payout record with PENDING status (external call happens AFTER commit)
+      const payoutRecord = await tx.affiliatePayout.create({
+        data: {
+          clinicId,
+          affiliateId,
+          amountCents,
+          feeCents: fee,
+          netAmountCents: net,
+          currency: 'USD',
+          methodType,
+          status: 'PROCESSING',
+          processedAt: new Date(),
+          processedBy,
+          notes,
+          periodStart: periodStartEvent?.occurredAt,
+          periodEnd: new Date(),
+        },
+      });
 
-    for (const event of commissionEvents) {
-      if (remainingAmount <= 0) break;
-      assignedEventIds.push(event.id);
-      remainingAmount -= event.commissionAmountCents;
-    }
+      // Assign commission events to this payout
+      let remainingAmount = amountCents;
+      const claimed: number[] = [];
 
-    await prisma.affiliateCommissionEvent.updateMany({
-      where: { id: { in: assignedEventIds } },
-      data: { payoutId: payout.id },
-    });
+      for (const event of commissionEvents) {
+        if (remainingAmount <= 0) break;
+        claimed.push(event.id);
+        remainingAmount -= event.commissionAmountCents;
+      }
 
-    // Process based on method type
+      await tx.affiliateCommissionEvent.updateMany({
+        where: { id: { in: claimed } },
+        data: { payoutId: payoutRecord.id },
+      });
+
+      return { payout: payoutRecord, assignedEventIds: claimed, netAmountCents: net };
+    }, { isolationLevel: 'Serializable' });
+
+    // STEP 2: External API call AFTER transaction commit (per data-integrity rules)
+    // If this fails, the payout stays in PROCESSING and can be retried/cancelled
     let result: PayoutResult;
 
     switch (methodType) {
@@ -453,7 +479,7 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
         result = { success: false, error: 'Unknown payout method' };
     }
 
-    // Update payout with result - status is PayoutStatus enum
+    // STEP 3: Update payout status based on external call result
     const payoutStatus = result.success ? (result.status as 'PROCESSING' | 'COMPLETED') : 'FAILED';
     await prisma.affiliatePayout.update({
       where: { id: payout.id },
@@ -467,7 +493,7 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
     });
 
     if (!result.success) {
-      // Unassign commission events on failure
+      // Unassign commission events on failure (atomically)
       await prisma.affiliateCommissionEvent.updateMany({
         where: { id: { in: assignedEventIds } },
         data: { payoutId: null },
@@ -475,6 +501,7 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
     }
 
     logger.info('[PayoutService] Payout processed', {
+      requestId: getRequestId(),
       payoutId: payout.id,
       affiliateId,
       amountCents,

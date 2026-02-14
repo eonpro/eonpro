@@ -15,6 +15,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
 
 // PHI fields that need decryption
 const PHI_FIELDS = [
@@ -72,7 +73,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
   const page = parseInt(searchParams.get('page') || '1', 10);
   const limit = parseInt(searchParams.get('limit') || '20', 10);
   const status = searchParams.get('status') || 'PENDING_COMPLETION';
-  const search = searchParams.get('search');
+  const search = searchParams.get('search')?.trim() || null;
   const sortBy = searchParams.get('sortBy') || 'createdAt';
   const sortOrder = searchParams.get('sortOrder') || 'desc';
 
@@ -114,21 +115,36 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
       });
 
       // Decrypt and filter by search term
-      const searchLower = search.toLowerCase();
+      const searchLow = normalizeSearch(search);
+      const terms = splitSearchTerms(search);
+      const searchDigitsOnly = search.replace(/\D/g, '');
       const filteredProfiles = allProfiles.filter((profile: (typeof allProfiles)[number]) => {
         const decrypted = decryptPatientPHI(profile, [...PHI_FIELDS]);
         const firstName = decrypted.firstName?.toLowerCase() || '';
         const lastName = decrypted.lastName?.toLowerCase() || '';
         const email = decrypted.email?.toLowerCase() || '';
         const phone = decrypted.phone?.replace(/\D/g, '') || '';
-        const searchNormalized = search.replace(/\D/g, '');
 
+        // Single term: match any field
+        if (terms.length <= 1) {
+          return (
+            firstName.includes(searchLow) ||
+            lastName.includes(searchLow) ||
+            email.includes(searchLow) ||
+            (searchDigitsOnly.length >= 3 && phone.includes(searchDigitsOnly))
+          );
+        }
+
+        // Multi-term: full name match or all terms somewhere
         return (
-          firstName.includes(searchLower) ||
-          lastName.includes(searchLower) ||
-          email.includes(searchLower) ||
-          phone.includes(searchNormalized) ||
-          `${firstName} ${lastName}`.includes(searchLower)
+          `${firstName} ${lastName}`.includes(searchLow) ||
+          `${lastName} ${firstName}`.includes(searchLow) ||
+          terms.every(
+            (term) =>
+              firstName.includes(term) ||
+              lastName.includes(term) ||
+              email.includes(term)
+          )
         );
       });
 

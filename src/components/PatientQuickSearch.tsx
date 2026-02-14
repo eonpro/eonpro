@@ -46,7 +46,8 @@ export default function PatientQuickSearch({
   // Debounced search function
   const searchPatients = useCallback(
     async (searchQuery: string) => {
-      if (searchQuery.length < 2) {
+      const trimmed = searchQuery.trim();
+      if (trimmed.length < 2) {
         setResults([]);
         setIsOpen(false);
         return;
@@ -55,7 +56,7 @@ export default function PatientQuickSearch({
       setIsLoading(true);
       try {
         const response = await fetch(
-          `/api/patients?search=${encodeURIComponent(searchQuery)}&limit=10&includeContact=true`
+          `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`
         );
 
         if (!response.ok) {

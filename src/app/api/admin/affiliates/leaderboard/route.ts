@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { suppressSmallNumber } from '@/services/affiliate/reportingConstants';
 
 type LeaderboardMetric = 'conversions' | 'revenue' | 'clicks' | 'conversionRate';
 
@@ -42,6 +43,15 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
   const metric = (searchParams.get('metric') || 'conversions') as LeaderboardMetric;
   const period = searchParams.get('period') || '30d';
   const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10), 50);
+
+  // HIPAA audit: log admin access to affiliate leaderboard
+  logger.security('[AffiliateAudit] Admin accessed affiliate leaderboard', {
+    adminUserId: user.id,
+    adminRole: user.role,
+    route: req.nextUrl.pathname,
+    clinicId: user.clinicId,
+    metric,
+  });
 
   try {
     // Determine clinic filter based on user role
@@ -92,61 +102,74 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       refCodes: Array<{ refCode: string }>;
     };
 
-    // Get performance metrics for each affiliate
-    const affiliateMetrics = await Promise.all(
-      affiliates.map(async (affiliate: AffiliateWithRefCodes) => {
-        const refCodes = affiliate.refCodes.map((rc: { refCode: string }) => rc.refCode);
+    // Batch aggregation queries — eliminates N+1 pattern (3 queries total instead of 3*N)
+    const affiliateIds = affiliates.map((a: AffiliateWithRefCodes) => a.id);
 
-        const [clicksResult, conversionsResult, revenueResult] = await Promise.all([
-          // Get clicks
-          prisma.affiliateTouch.aggregate({
-            where: {
-              affiliateId: affiliate.id,
-              ...clinicFilter,
-              createdAt: { gte: dateFrom },
-            },
-            _count: true,
-          }),
-          // Get conversions
-          prisma.affiliateTouch.aggregate({
-            where: {
-              affiliateId: affiliate.id,
-              ...clinicFilter,
-              convertedAt: { gte: dateFrom },
-            },
-            _count: true,
-          }),
-          // Get revenue
-          prisma.affiliateCommissionEvent.aggregate({
-            where: {
-              affiliateId: affiliate.id,
-              ...clinicFilter,
-              createdAt: { gte: dateFrom },
-              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-            },
-            _sum: {
-              eventAmountCents: true,
-            },
-          }),
-        ]);
+    const [clicksByAffiliate, conversionsByAffiliate, revenueByAffiliate] = await Promise.all([
+      // Batch: clicks by affiliate (CLICK type only)
+      prisma.affiliateTouch.groupBy({
+        by: ['affiliateId'],
+        where: {
+          affiliateId: { in: affiliateIds },
+          ...clinicFilter,
+          touchType: 'CLICK',
+          createdAt: { gte: dateFrom },
+        },
+        _count: true,
+      }),
+      // Batch: conversions by affiliate (convertedAt in range)
+      prisma.affiliateTouch.groupBy({
+        by: ['affiliateId'],
+        where: {
+          affiliateId: { in: affiliateIds },
+          ...clinicFilter,
+          convertedAt: { gte: dateFrom },
+        },
+        _count: true,
+      }),
+      // Batch: revenue by affiliate (use occurredAt for accurate period-based revenue)
+      prisma.$queryRaw<
+        Array<{ affiliateId: number; revenueCents: number }>
+      >`
+        SELECT
+          "affiliateId",
+          COALESCE(SUM("eventAmountCents"), 0)::int as "revenueCents"
+        FROM "AffiliateCommissionEvent"
+        WHERE "affiliateId" = ANY(${affiliateIds})
+          AND "occurredAt" >= ${dateFrom}
+          AND "status" IN ('PENDING', 'APPROVED', 'PAID')
+          ${clinicFilter.clinicId ? prisma.$queryRaw`AND "clinicId" = ${clinicFilter.clinicId}` : prisma.$queryRaw``}
+        GROUP BY "affiliateId"
+      `,
+    ]);
 
-        const clicks = clicksResult._count;
-        const conversions = conversionsResult._count;
-        const revenue = revenueResult._sum.eventAmountCents || 0;
-        const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+    // Build lookup maps for O(1) per-affiliate access
+    const clicksMap = new Map(clicksByAffiliate.map((r) => [r.affiliateId, r._count]));
+    const conversionsMap = new Map(conversionsByAffiliate.map((r) => [r.affiliateId, r._count]));
+    const revenueMap = new Map((revenueByAffiliate || []).map((r) => [r.affiliateId, r.revenueCents]));
 
-        return {
-          affiliateId: affiliate.id,
-          displayName: affiliate.displayName,
-          status: affiliate.status,
-          refCodes,
-          clicks,
-          conversions,
-          revenue,
-          conversionRate,
-        };
-      })
-    );
+    const affiliateMetrics = affiliates.map((affiliate: AffiliateWithRefCodes) => {
+      const refCodes = affiliate.refCodes.map((rc: { refCode: string }) => rc.refCode);
+      const clicks = clicksMap.get(affiliate.id) || 0;
+      const conversions = conversionsMap.get(affiliate.id) || 0;
+      const revenue = revenueMap.get(affiliate.id) || 0;
+      const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+
+      // HIPAA: suppress small conversion counts
+      const suppressedConversions = suppressSmallNumber(conversions);
+      const isSuppressed = typeof suppressedConversions === 'string';
+
+      return {
+        affiliateId: affiliate.id,
+        displayName: affiliate.displayName,
+        status: affiliate.status,
+        refCodes,
+        clicks,
+        conversions: suppressedConversions,
+        revenue: isSuppressed ? null : revenue,
+        conversionRate: isSuppressed ? null : conversionRate,
+      };
+    });
 
     // Sort by selected metric
     const sortedAffiliates = affiliateMetrics.sort((a, b) => {

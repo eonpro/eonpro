@@ -11,10 +11,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-export const GET = withAuth(
+export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
       // Get affiliate's clinic
@@ -100,6 +100,5 @@ export const GET = withAuth(
       logger.error('[Affiliate Branding] Error fetching branding', error);
       return NextResponse.json({ error: 'Failed to fetch branding' }, { status: 500 });
     }
-  },
-  { roles: ['affiliate', 'super_admin', 'admin'] }
+  }
 );

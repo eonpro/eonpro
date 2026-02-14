@@ -79,7 +79,7 @@ export const GET = withAuth(async (request, user) => {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '20', 10)), 100);
-    const search = searchParams.get('search') || undefined;
+    const search = searchParams.get('search')?.trim() || undefined;
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';
 

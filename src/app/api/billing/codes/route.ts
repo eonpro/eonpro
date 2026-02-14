@@ -31,7 +31,7 @@ const createCodeSchema = z.object({
 export const GET = withAuth(async (req: NextRequest, user) => {
   try {
     const searchParams = req.nextUrl.searchParams;
-    const query = searchParams.get('query') || '';
+    const query = (searchParams.get('query') || '').trim();
     const codeType = searchParams.get('codeType') as 'CPT' | 'ICD10' | null;
     const clinicId = searchParams.get('clinicId');
     const common = searchParams.get('common');

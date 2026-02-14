@@ -21,7 +21,7 @@ import { handleApiError } from '@/domains/shared/errors';
 async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
     // Get clinic context for non-super-admin users

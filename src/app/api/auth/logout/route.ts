@@ -28,7 +28,7 @@ const COOKIE_NAMES = [
   'admin-token',
   'provider-token',
   'patient-token',
-  'influencer-token',
+  'affiliate-token',
   'super_admin-token',
   'staff-token',
   'support-token',

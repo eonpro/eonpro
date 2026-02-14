@@ -10,6 +10,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/observability/request-context';
 
 export interface TierInfo {
   id: number;
@@ -155,93 +156,129 @@ export async function evaluateAffiliateTier(
 }
 
 /**
- * Check and process tier upgrades for an affiliate
- * Returns bonus amount if upgraded
+ * Check and process tier upgrades for an affiliate.
+ * Uses a Serializable transaction to prevent concurrent calls from
+ * double-awarding the same tier bonus.
+ * Returns bonus amount if upgraded.
  */
 export async function checkAndProcessTierUpgrade(
   affiliateId: number,
   planId: number
 ): Promise<TierUpgradeResult> {
-  const affiliate = await prisma.affiliate.findUnique({
-    where: { id: affiliateId },
-    select: {
-      lifetimeConversions: true,
-      lifetimeRevenueCents: true,
-      currentTierId: true,
-    },
-  });
-
-  if (!affiliate) {
-    throw new Error(`Affiliate ${affiliateId} not found`);
-  }
-
-  // Get all tiers sorted by level
+  // Get all tiers sorted by level (read-only, safe outside transaction)
   const tiers = await getPlanTiers(planId);
 
-  // Find the highest tier the affiliate qualifies for
-  let qualifiedTier: TierInfo | null = null;
-
-  for (let i = tiers.length - 1; i >= 0; i--) {
-    const tier = tiers[i];
-    if (
-      affiliate.lifetimeConversions >= tier.minConversions &&
-      affiliate.lifetimeRevenueCents >= tier.minRevenueCents
-    ) {
-      qualifiedTier = tier;
-      break;
-    }
-  }
-
-  // Check if this is an upgrade from current tier
-  const currentTier = affiliate.currentTierId
-    ? tiers.find((t) => t.id === affiliate.currentTierId)
-    : null;
-
-  const isUpgrade = qualifiedTier && (!currentTier || qualifiedTier.level > currentTier.level);
-
-  if (!isUpgrade) {
-    return {
-      upgraded: false,
-      previousTier: currentTier || null,
-      newTier: currentTier || null,
-      bonusAwarded: 0,
-    };
-  }
-
-  // Process the upgrade
-  await prisma.affiliate.update({
-    where: { id: affiliateId },
-    data: {
-      currentTierId: qualifiedTier!.id,
-      tierQualifiedAt: new Date(),
-    },
-  });
-
-  // Award tier bonus if applicable
-  const bonusAwarded = qualifiedTier!.bonusCents || 0;
-
-  if (bonusAwarded > 0) {
-    // Create a bonus commission event
-    // This would need a special event type for tier bonuses
-    logger.info('[TierService] Tier bonus awarded', {
-      affiliateId,
-      tierName: qualifiedTier!.name,
-      bonusCents: bonusAwarded,
+  // Perform the upgrade check + write inside a Serializable transaction
+  // This prevents the read-then-write race where two concurrent calls both
+  // see the old tier and both award the bonus
+  return prisma.$transaction(async (tx) => {
+    const affiliate = await tx.affiliate.findUnique({
+      where: { id: affiliateId },
+      select: {
+        id: true,
+        clinicId: true,
+        lifetimeConversions: true,
+        lifetimeRevenueCents: true,
+        currentTierId: true,
+      },
     });
-  }
 
-  logger.info('[TierService] Affiliate tier upgraded', {
-    affiliateId,
-    previousTier: currentTier?.name || 'None',
-    newTier: qualifiedTier!.name,
-  });
+    if (!affiliate) {
+      throw new Error(`Affiliate ${affiliateId} not found`);
+    }
 
-  return {
-    upgraded: true,
-    previousTier: currentTier || null,
-    newTier: qualifiedTier,
-    bonusAwarded,
-  };
+    // Find the highest tier the affiliate qualifies for
+    let qualifiedTier: TierInfo | null = null;
+
+    for (let i = tiers.length - 1; i >= 0; i--) {
+      const tier = tiers[i];
+      if (
+        affiliate.lifetimeConversions >= tier.minConversions &&
+        affiliate.lifetimeRevenueCents >= tier.minRevenueCents
+      ) {
+        qualifiedTier = tier;
+        break;
+      }
+    }
+
+    // Check if this is an upgrade from current tier
+    const currentTier = affiliate.currentTierId
+      ? tiers.find((t) => t.id === affiliate.currentTierId)
+      : null;
+
+    // Only upgrade if the qualified tier is strictly higher than current
+    const isUpgrade = qualifiedTier && (!currentTier || qualifiedTier.level > currentTier.level);
+
+    if (!isUpgrade) {
+      return {
+        upgraded: false,
+        previousTier: currentTier || null,
+        newTier: currentTier || null,
+        bonusAwarded: 0,
+      };
+    }
+
+    // Process the upgrade within transaction
+    await tx.affiliate.update({
+      where: { id: affiliateId },
+      data: {
+        currentTierId: qualifiedTier!.id,
+        tierQualifiedAt: new Date(),
+      },
+    });
+
+    // Award tier bonus if applicable — persist as a commission event (not just logged)
+    const bonusAwarded = qualifiedTier!.bonusCents || 0;
+
+    if (bonusAwarded > 0) {
+      await tx.affiliateCommissionEvent.create({
+        data: {
+          clinicId: affiliate.clinicId,
+          affiliateId,
+          stripeEventId: `tier-bonus-${affiliateId}-${qualifiedTier!.id}-${Date.now()}`,
+          stripeObjectId: `tier-${qualifiedTier!.id}`,
+          stripeEventType: 'tier_bonus',
+          eventAmountCents: 0, // No order associated
+          commissionAmountCents: bonusAwarded,
+          baseCommissionCents: bonusAwarded,
+          tierBonusCents: 0,
+          promotionBonusCents: 0,
+          productAdjustmentCents: 0,
+          commissionPlanId: planId,
+          isRecurring: false,
+          attributionModel: 'TIER_BONUS',
+          status: 'APPROVED', // Tier bonuses are immediately available
+          occurredAt: new Date(),
+          metadata: {
+            type: 'tier_bonus',
+            tierName: qualifiedTier!.name,
+            tierLevel: qualifiedTier!.level,
+            previousTier: currentTier?.name || 'None',
+          },
+        },
+      });
+
+      logger.info('[TierService] Tier bonus commission event created', {
+        affiliateId,
+        tierName: qualifiedTier!.name,
+        bonusCents: bonusAwarded,
+      });
+    }
+
+    logger.info('[TierService] Affiliate tier upgraded', {
+      requestId: getRequestId(),
+      affiliateId,
+      previousTier: currentTier?.name || 'None',
+      newTier: qualifiedTier!.name,
+    });
+
+    return {
+      upgraded: true,
+      previousTier: currentTier || null,
+      newTier: qualifiedTier,
+      bonusAwarded,
+    };
+  }, { isolationLevel: 'Serializable' });
 }
 
 /**

@@ -18,7 +18,7 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
 export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search')?.toLowerCase();
+    const search = searchParams.get('search')?.trim().toLowerCase();
     const status = searchParams.get('status'); // 'assigned' | 'unassigned' | 'all'
     const providerStatus = searchParams.get('providerStatus'); // 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED' | 'all'
     const clinicId = searchParams.get('clinicId');

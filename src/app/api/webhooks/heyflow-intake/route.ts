@@ -6,8 +6,7 @@ import { upsertPatientFromIntake } from '@/lib/medlink/patientService';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { trackReferral } from '@/services/influencerService';
-import { attributeFromIntake } from '@/services/affiliate/attributionService';
+import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import { logger } from '@/lib/logger';
 
@@ -141,17 +140,7 @@ export async function POST(req: NextRequest) {
     // Extract and track promo/affiliate code
     const promoCode = extractPromoCode(payload);
     if (promoCode) {
-      logger.debug(`[MEDLINK WEBHOOK] Found promo code: ${promoCode}`);
-      // Track in legacy system (Influencer/ReferralTracking)
-      try {
-        await trackReferral(patient.id, promoCode);
-        logger.debug(`[MEDLINK WEBHOOK] Tracked referral in legacy system for code: ${promoCode}`);
-      } catch (trackError: any) {
-        logger.warn(
-          `[MEDLINK WEBHOOK] Failed to track referral in legacy system: ${trackError.message}`
-        );
-      }
-      // Track in modern system (Affiliate/AffiliateTouch)
+      logger.debug(`[HEYFLOW WEBHOOK] Found promo code: ${promoCode}`);
       try {
         const patientRecord = await prisma.patient.findUnique({
           where: { id: patient.id },
@@ -165,13 +154,16 @@ export async function POST(req: NextRequest) {
             'heyflow'
           );
           if (result) {
-            logger.debug(
-              `[MEDLINK WEBHOOK] Tracked attribution in modern system: ${result.refCode}`
-            );
+            logger.debug(`[HEYFLOW WEBHOOK] Affiliate attribution created: ${result.refCode}`);
+          } else {
+            const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, patientRecord.clinicId);
+            if (tagged) {
+              logger.debug(`[HEYFLOW WEBHOOK] Profile tagged with referral code: ${promoCode}`);
+            }
           }
         }
-      } catch (modernError: any) {
-        logger.warn(`[MEDLINK WEBHOOK] Failed to track in modern system: ${modernError.message}`);
+      } catch (trackError: any) {
+        logger.warn(`[HEYFLOW WEBHOOK] Affiliate tracking failed: ${trackError.message}`);
       }
     }
 

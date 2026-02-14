@@ -13,6 +13,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/observability/request-context';
 import { analyzeIp, hashIp } from './ipIntelService';
 
 export interface FraudCheckRequest {

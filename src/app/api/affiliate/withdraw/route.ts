@@ -6,13 +6,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma, Prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
+import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
 
 const MIN_WITHDRAWAL_CENTS = 5000; // $50 minimum
+
+const withdrawSchema = z.object({
+  amountCents: z.number().int('Amount must be a whole number').positive().min(MIN_WITHDRAWAL_CENTS, `Minimum withdrawal is $${MIN_WITHDRAWAL_CENTS / 100}`),
+});
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
@@ -95,136 +101,140 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
 
-    const { amountCents } = await request.json();
+    const body = await request.json();
+    const parsed = withdrawSchema.safeParse(body);
 
-    if (!amountCents || typeof amountCents !== 'number' || amountCents < MIN_WITHDRAWAL_CENTS) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: `Minimum withdrawal is $${MIN_WITHDRAWAL_CENTS / 100}` },
+        { error: parsed.error.issues[0]?.message || 'Invalid withdrawal amount' },
         { status: 400 }
       );
     }
 
-    // Get affiliate with clinic
-    const affiliate = await prisma.affiliate.findUnique({
-      where: { id: affiliateId },
-      select: {
-        id: true,
-        clinicId: true,
-        displayName: true,
+    const { amountCents } = parsed.data;
+
+    // Entire withdrawal flow runs in a Serializable transaction to prevent
+    // double-payout race conditions. SELECT FOR UPDATE locks the affiliate row.
+    const result = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Lock the affiliate row to prevent concurrent withdrawals
+        const [affiliate] = await tx.$queryRaw<
+          Array<{ id: number; clinicId: number; displayName: string }>
+        >`SELECT id, "clinicId", "displayName" FROM "Affiliate" WHERE id = ${affiliateId} FOR UPDATE`;
+
+        if (!affiliate) {
+          return { error: 'Affiliate not found', status: 404 } as const;
+        }
+
+        // Check for pending payout (inside transaction, after locking)
+        const pendingPayout = await tx.affiliatePayout.findFirst({
+          where: {
+            affiliateId,
+            status: { in: ['PENDING', 'PROCESSING'] },
+          },
+        });
+
+        if (pendingPayout) {
+          return {
+            error: 'You already have a pending payout. Please wait for it to complete.',
+            status: 400,
+          } as const;
+        }
+
+        // Get payout method
+        const payoutMethod = await tx.affiliatePayoutMethod.findFirst({
+          where: {
+            affiliateId,
+            isDefault: true,
+            isVerified: true,
+          },
+        });
+
+        if (!payoutMethod) {
+          return { error: 'Please add a verified payout method first', status: 400 } as const;
+        }
+
+        // Get available commissions
+        const availableCommissions = await tx.affiliateCommissionEvent.findMany({
+          where: {
+            affiliateId,
+            status: 'APPROVED',
+            payoutId: null,
+          },
+          orderBy: { createdAt: 'asc' },
+          take: AGGREGATION_TAKE,
+          select: {
+            id: true,
+            commissionAmountCents: true,
+          },
+        });
+
+        const totalAvailable = availableCommissions.reduce(
+          (sum: number, c: { commissionAmountCents: number }) => sum + c.commissionAmountCents,
+          0
+        );
+
+        if (amountCents > totalAvailable) {
+          return {
+            error: `Requested amount exceeds available balance of $${totalAvailable / 100}`,
+            status: 400,
+          } as const;
+        }
+
+        // Create payout record
+        const newPayout = await tx.affiliatePayout.create({
+          data: {
+            clinicId: affiliate.clinicId,
+            affiliateId,
+            amountCents,
+            feeCents: 0,
+            netAmountCents: amountCents,
+            currency: 'USD',
+            methodType: payoutMethod.methodType,
+            status: 'PENDING',
+            notes: `Withdrawal requested by ${affiliate.displayName}`,
+          },
+        });
+
+        // Assign commissions to this payout (up to the requested amount)
+        let remainingAmount = amountCents;
+        const commissionIds: number[] = [];
+
+        for (const commission of availableCommissions) {
+          if (remainingAmount <= 0) break;
+          commissionIds.push(commission.id);
+          remainingAmount -= commission.commissionAmountCents;
+        }
+
+        if (commissionIds.length > 0) {
+          await tx.affiliateCommissionEvent.updateMany({
+            where: { id: { in: commissionIds } },
+            data: { payoutId: newPayout.id },
+          });
+        }
+
+        return { payout: newPayout } as const;
       },
-    });
-
-    if (!affiliate) {
-      return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
-    }
-
-    // Check for pending payout
-    const pendingPayout = await prisma.affiliatePayout.findFirst({
-      where: {
-        affiliateId,
-        status: { in: ['PENDING', 'PROCESSING'] },
-      },
-    });
-
-    if (pendingPayout) {
-      return NextResponse.json(
-        { error: 'You already have a pending payout. Please wait for it to complete.' },
-        { status: 400 }
-      );
-    }
-
-    // Get payout method
-    const payoutMethod = await prisma.affiliatePayoutMethod.findFirst({
-      where: {
-        affiliateId,
-        isDefault: true,
-        isVerified: true,
-      },
-    });
-
-    if (!payoutMethod) {
-      return NextResponse.json(
-        { error: 'Please add a verified payout method first' },
-        { status: 400 }
-      );
-    }
-
-    // Get available commissions
-    const availableCommissions = await prisma.affiliateCommissionEvent.findMany({
-      where: {
-        affiliateId,
-        status: 'APPROVED',
-        payoutId: null,
-      },
-      orderBy: { createdAt: 'asc' },
-      take: AGGREGATION_TAKE,
-      select: {
-        id: true,
-        commissionAmountCents: true,
-      },
-    });
-
-    const totalAvailable = availableCommissions.reduce(
-      (sum: number, c: { commissionAmountCents: number }) => sum + c.commissionAmountCents,
-      0
+      { isolationLevel: 'Serializable', timeout: 15000 }
     );
 
-    if (amountCents > totalAvailable) {
-      return NextResponse.json(
-        { error: `Requested amount exceeds available balance of $${totalAvailable / 100}` },
-        { status: 400 }
-      );
+    // Handle validation errors returned from the transaction
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
-
-    // Create payout and assign commissions in a transaction
-    const payout = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Create payout record
-      const newPayout = await tx.affiliatePayout.create({
-        data: {
-          clinicId: affiliate.clinicId,
-          affiliateId,
-          amountCents,
-          feeCents: 0, // No fees
-          netAmountCents: amountCents,
-          currency: 'USD',
-          methodType: payoutMethod.methodType,
-          status: 'PENDING',
-          notes: `Withdrawal requested by ${affiliate.displayName}`,
-        },
-      });
-
-      // Assign commissions to this payout (up to the requested amount)
-      let remainingAmount = amountCents;
-      const commissionIds: number[] = [];
-
-      for (const commission of availableCommissions) {
-        if (remainingAmount <= 0) break;
-        commissionIds.push(commission.id);
-        remainingAmount -= commission.commissionAmountCents;
-      }
-
-      if (commissionIds.length > 0) {
-        await tx.affiliateCommissionEvent.updateMany({
-          where: { id: { in: commissionIds } },
-          data: { payoutId: newPayout.id },
-        });
-      }
-
-      return newPayout;
-    });
 
     logger.info('[Affiliate Withdraw] Payout requested', {
       affiliateId,
-      payoutId: payout.id,
+      payoutId: result.payout.id,
       amountCents,
     });
 
     return NextResponse.json({
       success: true,
       payout: {
-        id: payout.id,
-        amount: payout.netAmountCents,
-        status: payout.status,
+        id: result.payout.id,
+        amount: result.payout.netAmountCents,
+        status: result.payout.status,
       },
     });
   } catch (error) {
@@ -236,4 +246,4 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 }
 
 export const GET = withAffiliateAuth(handleGet);
-export const POST = withAffiliateAuth(handlePost);
+export const POST = standardRateLimiter(withAffiliateAuth(handlePost));

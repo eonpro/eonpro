@@ -550,6 +550,122 @@ async function checkMigrations(): Promise<HealthCheck> {
   }
 }
 
+/**
+ * Check affiliate system health
+ * Verifies table access, PayPal config, and no orphaned payouts
+ */
+async function checkAffiliateSystem(): Promise<HealthCheck> {
+  const start = Date.now();
+  try {
+    // Extended health checks — covers stuck commissions, orphaned payouts,
+    // fraud alert backlog, and attribution orphans
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      tableCheck,
+      orphanedPayouts,
+      paypalConfigured,
+      stuckCommissions,
+      fraudAlertBacklog,
+      attributionOrphans,
+    ] = await Promise.all([
+      // Verify AffiliateCommissionEvent table is accessible
+      prisma.affiliateCommissionEvent
+        .count({ take: 1 })
+        .then(() => true)
+        .catch(() => false),
+      // Check for orphaned payouts (stuck in PROCESSING > 1 hour)
+      prisma.affiliatePayout.count({
+        where: {
+          status: 'PROCESSING',
+          processedAt: {
+            lt: oneHourAgo,
+          },
+        },
+      }),
+      // Check if PayPal is configured (if used)
+      Promise.resolve(!!process.env.PAYPAL_CLIENT_ID && !!process.env.PAYPAL_CLIENT_SECRET),
+      // Commissions stuck in PENDING past a 7-day hold period (should have been auto-approved)
+      prisma.affiliateCommissionEvent.count({
+        where: {
+          status: 'PENDING',
+          holdUntil: { lt: sevenDaysAgo },
+        },
+      }),
+      // Fraud alerts older than 48 hours that haven't been resolved
+      prisma.affiliateFraudAlert
+        .count({
+          where: {
+            status: 'OPEN',
+            createdAt: { lt: fortyEightHoursAgo },
+          },
+        })
+        .catch(() => 0), // Table may not exist yet
+      // Attribution orphans: patients with attributionRefCode but no attributionAffiliateId
+      prisma.patient.count({
+        where: {
+          attributionRefCode: { not: null },
+          attributionAffiliateId: null,
+        },
+      }),
+    ]);
+
+    if (!tableCheck) {
+      return {
+        name: 'Affiliate System',
+        status: 'unhealthy',
+        responseTime: Date.now() - start,
+        message: 'AffiliateCommissionEvent table not accessible',
+      };
+    }
+
+    const issues: string[] = [];
+    if (orphanedPayouts > 0) {
+      issues.push(`${orphanedPayouts} orphaned payout(s) stuck in PROCESSING > 1h`);
+    }
+    if (!paypalConfigured) {
+      issues.push('PayPal credentials not configured');
+    }
+    if (stuckCommissions > 0) {
+      issues.push(`${stuckCommissions} commission(s) stuck in PENDING past hold period`);
+    }
+    if (fraudAlertBacklog > 0) {
+      issues.push(`${fraudAlertBacklog} unresolved fraud alert(s) older than 48h`);
+    }
+    if (attributionOrphans > 0) {
+      issues.push(`${attributionOrphans} patient(s) with ref code but no affiliate attribution`);
+    }
+
+    const status: 'healthy' | 'degraded' | 'unhealthy' =
+      orphanedPayouts > 0 || stuckCommissions > 5 ? 'degraded' : 'healthy';
+
+    return {
+      name: 'Affiliate System',
+      status,
+      responseTime: Date.now() - start,
+      message: issues.length > 0 ? issues.join('; ') : 'All affiliate subsystems operational',
+      details: {
+        tableAccessible: tableCheck,
+        orphanedPayouts,
+        paypalConfigured,
+        stuckCommissions,
+        fraudAlertBacklog,
+        attributionOrphans,
+      },
+    };
+  } catch (error: any) {
+    return {
+      name: 'Affiliate System',
+      status: 'unhealthy',
+      responseTime: Date.now() - start,
+      message: error.message,
+    };
+  }
+}
+
 async function healthHandler(req: NextRequest) {
   const startTime = Date.now();
   const { searchParams } = new URL(req.url);
@@ -608,6 +724,7 @@ async function healthHandler(req: NextRequest) {
       checkAuth(),
       checkAPIRoutes(),
       checkEncryption(),
+      checkAffiliateSystem(),
     ]);
 
     // Calculate summary

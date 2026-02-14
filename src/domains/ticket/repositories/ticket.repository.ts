@@ -132,12 +132,13 @@ function buildWhereClause(
     where.parentTicketId = filters.parentTicketId;
   }
 
-  // Search
-  if (filters.search) {
+  // Search (trim whitespace for intuitive matching)
+  const searchTrimmed = filters.search?.trim();
+  if (searchTrimmed) {
     where.OR = [
-      { title: { contains: filters.search, mode: 'insensitive' } },
-      { description: { contains: filters.search, mode: 'insensitive' } },
-      { ticketNumber: { contains: filters.search, mode: 'insensitive' } },
+      { title: { contains: searchTrimmed, mode: 'insensitive' } },
+      { description: { contains: searchTrimmed, mode: 'insensitive' } },
+      { ticketNumber: { contains: searchTrimmed, mode: 'insensitive' } },
     ];
   }
 

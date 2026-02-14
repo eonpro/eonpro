@@ -307,10 +307,12 @@ export default function NotificationCenter({
     }
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (n) => n.title.toLowerCase().includes(query) || n.message.toLowerCase().includes(query)
-      );
+      const query = searchQuery.toLowerCase().trim();
+      if (query) {
+        result = result.filter(
+          (n) => n.title.toLowerCase().includes(query) || n.message.toLowerCase().includes(query)
+        );
+      }
     }
 
     return result;

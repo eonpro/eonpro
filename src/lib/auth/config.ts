@@ -121,7 +121,7 @@ export const AUTH_CONFIG = {
   tokenExpiry: {
     access: '8h', // 8 hours for super admin/admin
     refresh: '7d',
-    influencer: '8h',
+    affiliate: '8h',
     provider: '8h', // 8 hours for providers
     patient: '4h', // 4 hours for patients
     absoluteMax: '24h', // Maximum session length

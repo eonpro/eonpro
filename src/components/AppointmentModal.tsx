@@ -86,7 +86,8 @@ export default function AppointmentModal({
 
   // Fetch patients from database
   const fetchPatients = useCallback(async (query: string) => {
-    if (query.length < 2) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       setPatients([]);
       return;
     }
@@ -94,7 +95,7 @@ export default function AppointmentModal({
     setPatientsLoading(true);
     try {
       const response = await fetch(
-        `/api/patients?search=${encodeURIComponent(query)}&limit=10&includeContact=true`
+        `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`
       );
       if (response.ok) {
         const data = await response.json();

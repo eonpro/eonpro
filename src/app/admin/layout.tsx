@@ -304,7 +304,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       'staff-token',
       'support-token',
       'affiliate-token',
-      'influencer-token',
     ].forEach((name) => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });

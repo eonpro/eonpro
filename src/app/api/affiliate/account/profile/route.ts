@@ -5,47 +5,38 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
+
+const profilePatchSchema = z.object({
+  displayName: z.string().min(1).max(100).optional(),
+  email: z.string().email('Invalid email').optional(),
+  phone: z.string().regex(/^\+?\d{10,15}$/, 'Invalid phone number').optional(),
+});
 
 async function handlePatch(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
-    const influencerId = user.influencerId;
-
-    const body = await request.json();
-    const { displayName, email, phone } = body;
-
-    // Handle legacy Influencer users
-    if (!affiliateId && influencerId) {
-      await prisma.influencer.update({
-        where: { id: influencerId },
-        data: {
-          ...(displayName && { name: displayName }),
-          ...(email && { email }),
-          ...(phone && { phone }),
-        },
-      });
-
-      // Also update User if email/phone provided
-      if (email || phone) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            ...(email && { email }),
-            ...(phone && { phone }),
-          },
-        });
-      }
-
-      return NextResponse.json({ success: true });
-    }
 
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
+
+    const rawBody = await request.json();
+    const parsed = profilePatchSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid profile data' },
+        { status: 400 }
+      );
+    }
+
+    const { displayName, email, phone } = parsed.data;
 
     // Update affiliate displayName
     if (displayName) {
@@ -77,4 +68,4 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
   }
 }
 
-export const PATCH = withAffiliateAuth(handlePatch);
+export const PATCH = standardRateLimiter(withAffiliateAuth(handlePatch));

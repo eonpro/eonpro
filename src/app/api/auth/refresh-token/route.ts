@@ -103,49 +103,6 @@ async function refreshTokenHandler(req: NextRequest) {
       });
     }
 
-    // Try influencer
-    const influencerUser = await prisma.influencer.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, name: true },
-    });
-
-    if (influencerUser) {
-      // Create new access token for influencer
-      const newAccessToken = await new SignJWT({
-        id: influencerUser.id,
-        email: influencerUser.email,
-        name: influencerUser.name,
-        role: 'influencer',
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(AUTH_CONFIG.tokenExpiry.influencer)
-        .sign(JWT_SECRET);
-
-      // Create new refresh token (signed with dedicated refresh secret)
-      const newRefreshToken = await new SignJWT({
-        id: influencerUser.id,
-        type: 'refresh',
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_REFRESH_SECRET);
-
-      logger.info('Token refreshed for influencer', { userId: influencerUser.id });
-
-      return NextResponse.json({
-        token: newAccessToken,
-        refreshToken: newRefreshToken,
-        user: {
-          id: influencerUser.id,
-          email: influencerUser.email,
-          name: influencerUser.name,
-          role: 'influencer',
-        },
-      });
-    }
-
     // User table: session-backed rotation + reuse detection (when session has refreshTokenHash)
     const tokenHash = hashRefreshToken(refreshToken);
     const session = await findSessionByRefreshHash(tokenHash);

@@ -344,6 +344,18 @@ export const circuitBreakers = {
     },
   }),
 
+  // ENTERPRISE: PayPal payout service circuit breaker
+  paypal: createCircuitBreaker({
+    name: 'paypal',
+    timeout: 10000, // 10s timeout for PayPal API calls
+    errorThreshold: 30,
+    volumeThreshold: 5,
+    sleepWindow: 60000, // 1 minute cooldown
+    fallback: async () => {
+      throw new Error('PayPal service is temporarily unavailable. Payout will be retried.');
+    },
+  }),
+
   // ENTERPRISE: Lifefile pharmacy API circuit breaker
   lifefile: createCircuitBreaker({
     name: 'lifefile',

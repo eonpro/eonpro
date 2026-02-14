@@ -6,10 +6,28 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { encryptPHI } from '@/lib/security/phi-encryption';
+import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
+
+const bankMethodSchema = z.object({
+  type: z.literal('bank'),
+  accountHolderName: z.string().min(1, 'Account holder name is required').max(200),
+  routingNumber: z.string().length(9, 'Routing number must be 9 digits').regex(/^\d+$/, 'Routing number must be numeric'),
+  accountNumber: z.string().min(4, 'Account number is required').max(17).regex(/^\d+$/, 'Account number must be numeric'),
+  accountType: z.enum(['checking', 'savings']).optional(),
+});
+
+const paypalMethodSchema = z.object({
+  type: z.literal('paypal'),
+  email: z.string().email('Valid PayPal email is required'),
+});
+
+const payoutMethodSchema = z.discriminatedUnion('type', [bankMethodSchema, paypalMethodSchema]);
 
 /**
  * GET - Retrieve the affiliate's current payout method
@@ -90,27 +108,22 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { type, accountHolderName, routingNumber, accountNumber, accountType, email } = body;
+    const rawBody = await request.json();
+    const parsed = payoutMethodSchema.safeParse(rawBody);
 
-    // Validate required fields
-    if (type === 'bank') {
-      if (!accountHolderName || !routingNumber || !accountNumber) {
-        return NextResponse.json(
-          { error: 'Missing required bank account fields' },
-          { status: 400 }
-        );
-      }
-      if (routingNumber.length !== 9) {
-        return NextResponse.json({ error: 'Invalid routing number' }, { status: 400 });
-      }
-    } else if (type === 'paypal') {
-      if (!email) {
-        return NextResponse.json({ error: 'PayPal email is required' }, { status: 400 });
-      }
-    } else {
-      return NextResponse.json({ error: 'Invalid payout method type' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid payout method data' },
+        { status: 400 }
+      );
     }
+
+    const { type } = parsed.data;
+    const accountHolderName = type === 'bank' ? parsed.data.accountHolderName : undefined;
+    const routingNumber = type === 'bank' ? parsed.data.routingNumber : undefined;
+    const accountNumber = type === 'bank' ? parsed.data.accountNumber : undefined;
+    const accountType = type === 'bank' ? parsed.data.accountType : undefined;
+    const email = type === 'paypal' ? parsed.data.email : undefined;
 
     // Deactivate existing default payout methods
     await prisma.affiliatePayoutMethod.updateMany({
@@ -126,21 +139,25 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     // Create new payout method
     // BANK_WIRE is the enum value for ACH/bank transfers
     if (type === 'bank') {
+      // Encrypt sensitive financial details at rest using PHI encryption utilities
+      const encryptedBankDetails = JSON.stringify({
+        accountHolderName: encryptPHI(accountHolderName),
+        routingNumber: encryptPHI(routingNumber),
+        accountNumber: encryptPHI(accountNumber),
+        accountType: accountType || 'checking',
+      });
+
       await prisma.affiliatePayoutMethod.create({
         data: {
           affiliateId,
           methodType: 'BANK_WIRE',
           isDefault: true,
           isVerified: false,
-          bankName: accountHolderName.split(' ')[0] + ' Bank', // Placeholder, would be looked up from routing number
+          bankName: accountHolderName.split(' ')[0] + ' Bank', // Placeholder
           bankAccountLast4: accountNumber.slice(-4),
           bankRoutingLast4: routingNumber.slice(-4),
           bankCountry: 'US',
-          // In production, encrypt full details
-          encryptedDetails: JSON.stringify({
-            accountHolderName,
-            accountType,
-          }),
+          encryptedDetails: encryptedBankDetails,
         },
       });
     } else {
@@ -167,4 +184,4 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 }
 
 export const GET = withAffiliateAuth(handleGet);
-export const POST = withAffiliateAuth(handlePost);
+export const POST = standardRateLimiter(withAffiliateAuth(handlePost));

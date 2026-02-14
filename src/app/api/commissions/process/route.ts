@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { processCommission } from '@/services/influencerService';
+import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 
@@ -34,17 +34,25 @@ async function processCommissionHandler(req: NextRequest) {
 
     // Process commission if invoice is paid
     if (invoice.status === 'PAID') {
-      const commission = await processCommission(invoice.id);
+      const result = await processPaymentForCommission({
+        clinicId: invoice.patient?.clinicId || invoice.clinicId,
+        patientId: invoice.patient?.id || invoice.patientId,
+        stripeEventId: `invoice-${invoice.id}`,
+        stripeObjectId: invoice.stripeInvoiceId || `inv-${invoice.id}`,
+        stripeEventType: 'invoice.paid',
+        amountCents: invoice.totalCents || Math.round((invoice.total || 0) * 100),
+        isFirstPayment: true,
+      });
 
-      if (commission) {
+      if (result) {
         logger.debug(`[Commission API] Commission processed for invoice ${invoice.id}`);
         return NextResponse.json({
           success: true,
           commission: {
-            id: commission.id,
-            amount: commission.commissionAmount,
-            influencerId: commission.influencerId,
-            status: commission.status,
+            id: result.commissionEventId,
+            amountCents: result.commissionAmountCents,
+            affiliateId: result.affiliateId,
+            status: 'PENDING',
           },
         });
       } else {
@@ -60,8 +68,6 @@ async function processCommissionHandler(req: NextRequest) {
       });
     }
   } catch (error: any) {
-    // @ts-ignore
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Commission API] Error processing commission:', error);
     return NextResponse.json(

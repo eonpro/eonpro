@@ -113,9 +113,9 @@ function HomePageInner() {
         const parsedUser = JSON.parse(user);
         const role = parsedUser.role?.toLowerCase();
 
-        // For affiliate/influencer roles, verify auth is still valid before redirecting
+        // For affiliate roles, verify auth is still valid before redirecting
         // This prevents redirect loops when session is expired but localStorage persists
-        if (role === 'affiliate' || role === 'influencer') {
+        if (role === 'affiliate') {
           try {
             const res = await fetch('/api/affiliate/auth/me', { credentials: 'include' });
             if (res.ok) {

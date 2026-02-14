@@ -4425,6 +4425,9 @@ model AffiliateCommissionEvent {
   @@index([occurredAt])
   @@index([stripeEventId])
   @@index([payoutId])
+  // Performance indexes for reporting queries
+  @@index([affiliateId, occurredAt]) // Revenue queries by affiliate with date range
+  @@index([affiliateId, status]) // Payout eligibility checks
 }
 
 enum AffiliateStatus {
@@ -4567,6 +4570,11 @@ model AffiliateTouch {
   @@index([affiliateId])
   @@index([createdAt])
   @@index([refCode])
+  // Performance indexes for reporting queries
+  @@index([affiliateId, convertedAt]) // Conversion counts by affiliate
+  @@index([refCode, createdAt]) // Deduplication and per-code stats
+  @@index([affiliateId, createdAt]) // Click counts with date filter
+  @@index([affiliateId, touchType, createdAt]) // CLICK-specific queries
 }
 
 enum TouchType {

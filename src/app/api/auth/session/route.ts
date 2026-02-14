@@ -21,7 +21,6 @@ interface SessionUser {
   role: string;
   providerId?: number;
   patientId?: number;
-  influencerId?: number;
   clinicId?: number;
   permissions?: string[];
 }
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
         request.cookies.get('admin-token')?.value ||
         request.cookies.get('provider-token')?.value ||
         request.cookies.get('patient-token')?.value ||
-        request.cookies.get('influencer-token')?.value;
+        request.cookies.get('affiliate-token')?.value;
 
     if (!token) {
       return NextResponse.json({ authenticated: false, user: null }, { status: 200 });
@@ -67,7 +66,6 @@ export async function GET(request: NextRequest) {
       role: payload.role as string,
       providerId: payload.providerId as number | undefined,
       patientId: payload.patientId as number | undefined,
-      influencerId: payload.influencerId as number | undefined,
       clinicId: payload.clinicId as number | undefined,
       permissions: payload.permissions as string[] | undefined,
     };

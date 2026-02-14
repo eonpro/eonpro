@@ -8,14 +8,38 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma, Prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
 
+const createAffiliateSchema = z.object({
+  email: z.string().email('Invalid email format').max(255),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  displayName: z.string().min(1, 'Display name is required').max(200),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  initialRefCode: z
+    .string()
+    .max(50)
+    .regex(/^[A-Za-z0-9_-]+$/, 'Ref code may only contain letters, numbers, hyphens, and underscores')
+    .optional(),
+  commissionPlanId: z.number().int().positive().optional(),
+  clinicId: z.number().int().positive().optional(),
+});
+
 // GET - List affiliates for clinic
 export const GET = withAuth(
   async (req: NextRequest, user: AuthUser) => {
+    // HIPAA audit: log admin access to affiliate list
+    logger.security('[AffiliateAudit] Admin accessed affiliate list', {
+      adminUserId: user.id,
+      adminRole: user.role,
+      route: '/api/admin/affiliates',
+      clinicId: user.clinicId,
+    });
+
     try {
       const { searchParams } = new URL(req.url);
       const clinicId =
@@ -126,6 +150,15 @@ export const POST = withAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
       const body = await req.json();
+      const parsed = createAffiliateSchema.safeParse(body);
+
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: parsed.error.issues[0]?.message || 'Invalid input', details: parsed.error.issues },
+          { status: 400 }
+        );
+      }
+
       const {
         clinicId: bodyClinicId,
         email,
@@ -135,23 +168,13 @@ export const POST = withAuth(
         displayName,
         initialRefCode,
         commissionPlanId,
-      } = body;
+      } = parsed.data;
 
       // Determine clinic ID
       const clinicId = user.role === 'super_admin' && bodyClinicId ? bodyClinicId : user.clinicId;
 
       if (!clinicId) {
         return NextResponse.json({ error: 'Clinic ID required' }, { status: 400 });
-      }
-
-      // Validate required fields
-      if (!email || !password || !displayName) {
-        return NextResponse.json(
-          {
-            error: 'Email, password, and displayName are required',
-          },
-          { status: 400 }
-        );
       }
 
       // Check if user with email already exists

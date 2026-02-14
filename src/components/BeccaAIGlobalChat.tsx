@@ -22,7 +22,7 @@ const PUBLIC_PAGES = [
   '/verify-email',
   '/pay/',
   '/patient-portal',
-  '/influencer',
+  '/affiliate',
 ];
 
 // Animated Becca AI Logo Button

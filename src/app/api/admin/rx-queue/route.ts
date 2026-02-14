@@ -17,6 +17,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { normalizeSearch } from '@/lib/utils/search';
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -58,7 +59,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
     const filter = searchParams.get('filter') || 'all'; // all, invoices, soap_notes, refills
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
+    const searchNormalized = search ? normalizeSearch(search) : '';
 
     // Get clinic context for non-super-admin users
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
@@ -102,7 +104,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const firstName = safeDecrypt(invoice.patient.firstName) || invoice.patient.firstName;
         const lastName = safeDecrypt(invoice.patient.lastName) || invoice.patient.lastName;
         const patientName = `${firstName} ${lastName}`;
-        if (search && !patientName.toLowerCase().includes(search.toLowerCase())) {
+        if (searchNormalized && !patientName.toLowerCase().includes(searchNormalized)) {
           continue;
         }
 
@@ -166,7 +168,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const firstName = safeDecrypt(note.patient.firstName) || note.patient.firstName;
         const lastName = safeDecrypt(note.patient.lastName) || note.patient.lastName;
         const patientName = `${firstName} ${lastName}`;
-        if (search && !patientName.toLowerCase().includes(search.toLowerCase())) {
+        if (searchNormalized && !patientName.toLowerCase().includes(searchNormalized)) {
           continue;
         }
 
@@ -225,7 +227,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const firstName = safeDecrypt(refill.patient.firstName) || refill.patient.firstName;
         const lastName = safeDecrypt(refill.patient.lastName) || refill.patient.lastName;
         const patientName = `${firstName} ${lastName}`;
-        if (search && !patientName.toLowerCase().includes(search.toLowerCase())) {
+        if (searchNormalized && !patientName.toLowerCase().includes(searchNormalized)) {
           continue;
         }
 

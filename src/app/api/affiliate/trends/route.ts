@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
 // Small number threshold for HIPAA compliance
@@ -24,7 +24,7 @@ interface TrendData {
   commissionCents: number | null;
 }
 
-export const GET = withAuth(
+export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
       // Get affiliate from user
@@ -150,6 +150,5 @@ export const GET = withAuth(
       logger.error('[Affiliate Trends] Error fetching trends', error);
       return NextResponse.json({ error: 'Failed to fetch trends' }, { status: 500 });
     }
-  },
-  { roles: ['affiliate', 'super_admin', 'admin'] }
+  }
 );

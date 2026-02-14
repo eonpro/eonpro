@@ -16,6 +16,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { AGGREGATION_TAKE_UI, parseTakeFromParams } from '@/lib/pagination';
+import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
 
 const PAGE_SIZE = 25;
 
@@ -48,7 +49,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const { searchParams } = new URL(req.url);
     const limit = parseTakeFromParams(searchParams);
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
     const includeContact = searchParams.get('includeContact') === 'true';
     const salesRepId = searchParams.get('salesRepId'); // Filter by specific sales rep (admin only)
 
@@ -242,8 +243,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     let total = totalWithoutSearch;
 
     if (search) {
-      const searchLower = search.toLowerCase().trim();
-      const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+      const searchNormalized = normalizeSearch(search);
+      const terms = splitSearchTerms(search);
 
       filteredPatients = patients.filter((patient: (typeof patients)[number]) => {
         const decryptedFirst = safeDecrypt(patient.firstName)?.toLowerCase() || '';
@@ -253,7 +254,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
         // Check if any search term matches
         return (
-          searchTerms.some(
+          terms.some(
             (term) =>
               decryptedFirst.includes(term) ||
               decryptedLast.includes(term) ||
@@ -261,7 +262,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               patientIdLower.includes(term)
           ) ||
           // Also check full name match (first + last)
-          (searchTerms.length >= 2 && (decryptedFirst + ' ' + decryptedLast).includes(searchLower))
+          (terms.length >= 2 && (decryptedFirst + ' ' + decryptedLast).includes(searchNormalized))
         );
       });
 

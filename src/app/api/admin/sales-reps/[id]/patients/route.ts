@@ -13,6 +13,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
 import {
   handleApiError,
   BadRequestError,
@@ -64,7 +65,7 @@ async function handleGet(
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
 
     // Get clinic context for non-super-admin users
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
@@ -180,19 +181,35 @@ async function handleGet(
     // Filter by search term if provided (in-memory filtering on decrypted data)
     let filteredPatients = decryptedPatients;
     if (search) {
-      const searchLower = search.toLowerCase();
+      const searchNormalized = normalizeSearch(search);
+      const terms = splitSearchTerms(search);
       filteredPatients = decryptedPatients.filter((patient: (typeof decryptedPatients)[number]) => {
         const firstName = patient.firstName?.toLowerCase() || '';
         const lastName = patient.lastName?.toLowerCase() || '';
         const email = patient.email?.toLowerCase() || '';
         const patientIdStr = patient.patientId?.toLowerCase() || '';
 
+        // Single term: match any field
+        if (terms.length <= 1) {
+          return (
+            firstName.includes(searchNormalized) ||
+            lastName.includes(searchNormalized) ||
+            email.includes(searchNormalized) ||
+            patientIdStr.includes(searchNormalized)
+          );
+        }
+
+        // Multi-term: match full name or all terms somewhere
         return (
-          firstName.includes(searchLower) ||
-          lastName.includes(searchLower) ||
-          email.includes(searchLower) ||
-          patientIdStr.includes(searchLower) ||
-          `${firstName} ${lastName}`.includes(searchLower)
+          `${firstName} ${lastName}`.includes(searchNormalized) ||
+          `${lastName} ${firstName}`.includes(searchNormalized) ||
+          terms.every(
+            (term) =>
+              firstName.includes(term) ||
+              lastName.includes(term) ||
+              email.includes(term) ||
+              patientIdStr.includes(term)
+          )
         );
       });
     }

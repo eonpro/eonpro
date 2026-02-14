@@ -12,110 +12,11 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-
-/**
- * Handle dashboard for legacy Influencer model users
- * Returns simplified dashboard data from the Influencer table
- */
-async function handleInfluencerDashboard(influencerId: number) {
-  const influencer = await prisma.influencer.findUnique({
-    where: { id: influencerId },
-    select: {
-      id: true,
-      name: true,
-      promoCode: true,
-      commissionRate: true,
-      status: true,
-      createdAt: true,
-    },
-  });
-
-  if (!influencer || influencer.status !== 'ACTIVE') {
-    return NextResponse.json({ error: 'Influencer not found or inactive' }, { status: 404 });
-  }
-
-  // Calculate total earnings from commissions table
-  const totalEarningsAgg = await prisma.commission
-    .aggregate({
-      where: { influencerId },
-      _sum: { commissionAmount: true },
-    })
-    .catch(() => ({ _sum: { commissionAmount: null } }));
-
-  // Calculate date ranges for this month
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  // Get legacy commissions from Commission table
-  const [monthlyCommissions, referralCount] = await Promise.all([
-    // Get commissions from Commission table (legacy model)
-    prisma.commission
-      .aggregate({
-        where: {
-          influencerId,
-          createdAt: { gte: startOfMonth },
-          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-        },
-        _sum: { commissionAmount: true },
-        _count: true,
-      })
-      .catch(() => ({ _sum: { commissionAmount: null }, _count: 0 })),
-
-    // Get referral count from ReferralTracking
-    prisma.referralTracking
-      .count({
-        where: {
-          influencerId,
-          createdAt: { gte: startOfMonth },
-        },
-      })
-      .catch(() => 0),
-  ]);
-
-  // Commission amounts are stored as dollars in legacy model
-  const thisMonth = Math.round((monthlyCommissions._sum.commissionAmount || 0) * 100);
-  const conversionsThisMonth = monthlyCommissions._count || 0;
-  const totalEarnings = totalEarningsAgg._sum.commissionAmount || 0;
-
-  return NextResponse.json({
-    affiliate: {
-      displayName: influencer.name,
-      tier: 'Standard',
-      tierProgress: 0,
-    },
-    earnings: {
-      availableBalance: Math.round(totalEarnings * 100), // Convert to cents if stored as dollars
-      pendingBalance: 0,
-      lifetimeEarnings: Math.round(totalEarnings * 100),
-      thisMonth,
-      lastMonth: 0,
-      monthOverMonthChange: 0,
-    },
-    performance: {
-      clicks: referralCount, // Use referral count as a proxy for activity
-      conversions: conversionsThisMonth,
-      conversionRate:
-        referralCount > 0 ? Math.round((conversionsThisMonth / referralCount) * 1000) / 10 : 0,
-      avgOrderValue: 0,
-    },
-    recentActivity: [],
-    // Additional info for influencers
-    influencer: {
-      promoCode: influencer.promoCode,
-      commissionRate: influencer.commissionRate,
-    },
-  });
-}
+import { suppressSmallNumber } from '@/services/affiliate/reportingConstants';
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
-    const influencerId = user.influencerId;
-
-    // Handle legacy Influencer users
-    if (!affiliateId && influencerId) {
-      return handleInfluencerDashboard(influencerId);
-    }
 
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
@@ -150,7 +51,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
     }
 
-    // Calculate date ranges (now already defined above)
+    // Calculate date ranges
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
@@ -159,11 +60,13 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const [
       availableCommissions,
       pendingCommissions,
-      thisMonthCommissions,
-      lastMonthCommissions,
+      thisMonthEarnings,
+      lastMonthEarnings,
       monthlyClicks,
+      monthlyConversions,
       recentCommissions,
       recentPayouts,
+      lifetimeCommissions,
     ] = await Promise.all([
       // Available balance (approved, not yet paid)
       prisma.affiliateCommissionEvent.aggregate({
@@ -184,23 +87,22 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _sum: { commissionAmountCents: true },
       }),
 
-      // This month earnings
+      // This month earnings (from commission events — use occurredAt for when payment actually happened)
       prisma.affiliateCommissionEvent.aggregate({
         where: {
           affiliateId,
           status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-          createdAt: { gte: startOfMonth },
+          occurredAt: { gte: startOfMonth },
         },
         _sum: { commissionAmountCents: true },
-        _count: true,
       }),
 
-      // Last month earnings
+      // Last month earnings (use occurredAt for accurate period-based revenue)
       prisma.affiliateCommissionEvent.aggregate({
         where: {
           affiliateId,
           status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-          createdAt: {
+          occurredAt: {
             gte: startOfLastMonth,
             lte: endOfLastMonth,
           },
@@ -208,11 +110,20 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _sum: { commissionAmountCents: true },
       }),
 
-      // This month clicks
+      // This month clicks (from AffiliateTouch, CLICK type only)
       prisma.affiliateTouch.count({
         where: {
           affiliateId,
+          touchType: 'CLICK',
           createdAt: { gte: startOfMonth },
+        },
+      }),
+
+      // This month conversions (from AffiliateTouch.convertedAt - standardized source of truth)
+      prisma.affiliateTouch.count({
+        where: {
+          affiliateId,
+          convertedAt: { gte: startOfMonth },
         },
       }),
 
@@ -241,14 +152,83 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           status: true,
         },
       }),
+
+      // Lifetime commissions earned (PENDING + APPROVED + PAID, NOT revenue)
+      prisma.affiliateCommissionEvent.aggregate({
+        where: {
+          affiliateId,
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        },
+        _sum: { commissionAmountCents: true },
+      }),
+    ]);
+
+    // Enhanced traffic metrics (run in parallel for performance)
+    const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+
+    const [
+      lifetimeClicks,
+      uniqueVisitorsThisMonth,
+      taggedProfilesCount,
+      topCodesByClicks,
+      dailyClickTrend,
+    ] = await Promise.all([
+      // Total lifetime clicks (CLICK type only — impressions and postbacks are separate)
+      prisma.affiliateTouch.count({
+        where: { affiliateId, touchType: 'CLICK' },
+      }),
+
+      // Unique visitors this month (COUNT DISTINCT via raw SQL - avoids loading all fingerprints into memory)
+      prisma.$queryRaw<[{ count: number }]>`
+        SELECT COUNT(DISTINCT "visitorFingerprint")::int as count
+        FROM "AffiliateTouch"
+        WHERE "affiliateId" = ${affiliateId}
+          AND "createdAt" >= ${startOfMonth}
+          AND "visitorFingerprint" IS NOT NULL
+      `.then((rows) => rows[0]?.count || 0),
+
+      // Tagged profiles (patients attributed to this affiliate)
+      prisma.patient.count({
+        where: { attributionAffiliateId: affiliateId },
+      }),
+
+      // Top performing codes by clicks (CLICK type only, even with zero conversions)
+      prisma.affiliateTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          affiliateId,
+          touchType: 'CLICK',
+          createdAt: { gte: startOfMonth },
+        },
+        _count: true,
+        orderBy: { _count: { refCode: 'desc' } },
+        take: 5,
+      }),
+
+      // Daily click trend (last 30 days, CLICK type only) - raw SQL for date grouping
+      prisma.$queryRaw`
+        SELECT
+          DATE("createdAt") as date,
+          COUNT(*)::int as clicks
+        FROM "AffiliateTouch"
+        WHERE "affiliateId" = ${affiliateId}
+          AND "touchType" = 'CLICK'
+          AND "createdAt" >= ${thirtyDaysAgo}
+        GROUP BY DATE("createdAt")
+        ORDER BY date ASC
+      ` as Promise<Array<{ date: Date; clicks: number }>>,
     ]);
 
     // Calculate metrics
     const availableBalance = availableCommissions._sum.commissionAmountCents || 0;
     const pendingBalance = pendingCommissions._sum.commissionAmountCents || 0;
-    const thisMonth = thisMonthCommissions._sum.commissionAmountCents || 0;
-    const lastMonth = lastMonthCommissions._sum.commissionAmountCents || 0;
-    const conversionsThisMonth = thisMonthCommissions._count || 0;
+    const thisMonth = thisMonthEarnings._sum.commissionAmountCents || 0;
+    const lastMonth = lastMonthEarnings._sum.commissionAmountCents || 0;
+    // Conversions use AffiliateTouch.convertedAt as source of truth (consistent with ref-code stats)
+    // HIPAA: suppress small conversion counts in the response
+    const conversionsThisMonth = monthlyConversions;
+    const suppressedConversions = suppressSmallNumber(conversionsThisMonth);
+    const isConversionsSuppressed = typeof suppressedConversions === 'string';
 
     const monthOverMonthChange =
       lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : thisMonth > 0 ? 100 : 0;
@@ -296,6 +276,18 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
 
+    // Format top codes for response
+    const topCodesFormatted = topCodesByClicks.map((tc: any) => ({
+      refCode: tc.refCode,
+      clicks: tc._count,
+    }));
+
+    // Format daily trend
+    const dailyTrendFormatted = (dailyClickTrend || []).map((d: any) => ({
+      date: d.date instanceof Date ? d.date.toISOString().split('T')[0] : String(d.date),
+      clicks: d.clicks,
+    }));
+
     return NextResponse.json({
       affiliate: {
         displayName: affiliate.displayName,
@@ -305,16 +297,37 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       earnings: {
         availableBalance,
         pendingBalance,
-        lifetimeEarnings: affiliate.lifetimeRevenueCents,
+        lifetimeEarnings: lifetimeCommissions._sum.commissionAmountCents || 0,
         thisMonth,
         lastMonth,
         monthOverMonthChange,
       },
       performance: {
         clicks: monthlyClicks,
-        conversions: conversionsThisMonth,
-        conversionRate: Math.round(conversionRate * 10) / 10,
-        avgOrderValue: conversionsThisMonth > 0 ? Math.round(thisMonth / conversionsThisMonth) : 0,
+        conversions: suppressedConversions,
+        conversionRate: isConversionsSuppressed ? null : Math.round(conversionRate * 10) / 10,
+        avgOrderValue: isConversionsSuppressed ? null : (conversionsThisMonth > 0 ? Math.round(thisMonth / conversionsThisMonth) : 0),
+      },
+      // Enhanced traffic metrics - critical for affiliate satisfaction
+      traffic: {
+        lifetimeClicks,
+        clicksThisMonth: monthlyClicks,
+        uniqueVisitorsThisMonth,
+        taggedProfiles: taggedProfilesCount,
+        // Click-to-conversion funnel
+        funnel: {
+          clicks: monthlyClicks,
+          taggedProfiles: taggedProfilesCount,
+          conversions: suppressedConversions,
+          clickToTagRate: monthlyClicks > 0
+            ? Math.round((taggedProfilesCount / monthlyClicks) * 1000) / 10
+            : 0,
+          tagToConversionRate: isConversionsSuppressed ? null : (taggedProfilesCount > 0
+            ? Math.round((conversionsThisMonth / taggedProfilesCount) * 1000) / 10
+            : 0),
+        },
+        topCodesByClicks: topCodesFormatted,
+        dailyTrend: dailyTrendFormatted,
       },
       recentActivity,
     });

@@ -12,7 +12,6 @@ import type { OvertimePayload, OvertimeTreatmentType } from '@/lib/overtime/type
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { trackReferral } from '@/services/influencerService';
 import {
   attributeFromIntake,
   tagPatientWithReferralCodeOnly,
@@ -764,57 +763,38 @@ export async function POST(req: NextRequest) {
   let modernAffiliateTracked = false;
 
   if (promoCode) {
-    // Track in legacy system (Influencer/ReferralTracking tables)
-    try {
-      await trackReferral(patient.id, promoCode, 'overtime-intake', {
-        submissionId: normalized.submissionId,
-        intakeDate: normalized.submittedAt,
-        patientEmail: patient.email,
-        clinicId,
-        treatmentType,
-        treatmentLabel,
-      });
-      referralTracked = true;
-      logger.info(`[OVERTIME-INTAKE ${requestId}] ✓ Legacy Referral Tracked: ${promoCode}`);
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] Legacy referral tracking failed:`, {
-        error: errMsg,
-        promoCode,
-      });
-      errors.push(`Legacy referral tracking failed: ${promoCode}`);
-    }
-
-    // Track in modern affiliate system (Affiliate/AffiliateTouch tables)
-    // This enables the new affiliate dashboard, commission tracking, and payouts
+    // Track in affiliate system (Affiliate/AffiliateTouch tables)
+    // This enables the affiliate dashboard, commission tracking, and payouts
     try {
       const result = await attributeFromIntake(patient.id, promoCode, clinicId, 'overtime-intake');
       if (result) {
+        referralTracked = true;
         modernAffiliateTracked = true;
         logger.info(
-          `[OVERTIME-INTAKE ${requestId}] ✓ Modern Affiliate Tracked: ${result.refCode} -> affiliateId=${result.affiliateId}`
+          `[OVERTIME-INTAKE ${requestId}] ✓ Affiliate Tracked: ${result.refCode} -> affiliateId=${result.affiliateId}`
         );
       } else {
         // No AffiliateRefCode exists yet (e.g. code from Airtable "Who recommended OT Mens Health to you?")
         // Tag the profile with the code so we can reconcile later when the code is created
         const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, clinicId);
         if (tagged) {
+          referralTracked = true;
           logger.info(
             `[OVERTIME-INTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${promoCode}`
           );
         } else {
           logger.debug(
-            `[OVERTIME-INTAKE ${requestId}] No modern affiliate match for code: ${promoCode}`
+            `[OVERTIME-INTAKE ${requestId}] No affiliate match for code: ${promoCode}`
           );
         }
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[OVERTIME-INTAKE ${requestId}] Modern affiliate tracking failed:`, {
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] Affiliate tracking failed:`, {
         error: errMsg,
         promoCode,
       });
-      // Don't add to errors array - legacy tracking is the primary system
+      errors.push(`Affiliate tracking failed: ${promoCode}`);
     }
   }
 

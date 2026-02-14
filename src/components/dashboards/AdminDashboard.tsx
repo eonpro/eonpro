@@ -147,7 +147,8 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
   const filteredIntakes = recentIntakes.filter((patient) => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
     return (
       patient.firstName?.toLowerCase().includes(query) ||
       patient.lastName?.toLowerCase().includes(query) ||

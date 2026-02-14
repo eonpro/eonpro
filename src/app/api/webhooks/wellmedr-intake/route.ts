@@ -6,7 +6,7 @@ import type { WellmedrPayload } from '@/lib/wellmedr/types';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { trackReferral } from '@/services/influencerService';
+import { attributeFromIntakeExtended, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { notificationService } from '@/services/notification';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
@@ -890,17 +890,21 @@ export async function POST(req: NextRequest) {
   if (promoCode) {
     const code = String(promoCode).trim().toUpperCase();
     try {
-      await trackReferral(patient.id, code, 'wellmedr-intake', {
-        submissionId: normalized.submissionId,
-        intakeDate: normalized.submittedAt,
-        patientEmail: patient.email,
-        clinicId,
-      });
-      logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Promo: ${code}`);
+      const result = await attributeFromIntakeExtended(patient.id, code, clinicId, 'wellmedr-intake');
+      if (result.success) {
+        logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Affiliate attribution: ${code} -> affiliateId=${result.affiliateId}`);
+      } else {
+        const tagged = await tagPatientWithReferralCodeOnly(patient.id, code, clinicId);
+        if (tagged) {
+          logger.info(`[WELLMEDR-INTAKE ${requestId}] ✓ Profile tagged with referral code (no affiliate yet): ${code}`);
+        } else {
+          logger.debug(`[WELLMEDR-INTAKE ${requestId}] No affiliate match for code: ${code}`);
+        }
+      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : 'Unknown error';
-      logger.warn(`[WELLMEDR-INTAKE ${requestId}] Promo tracking failed:`, { error: errMsg });
-      errors.push(`Promo tracking failed: ${code}`);
+      logger.warn(`[WELLMEDR-INTAKE ${requestId}] Affiliate tracking failed:`, { error: errMsg });
+      errors.push(`Affiliate tracking failed: ${code}`);
     }
   }
 

@@ -6,75 +6,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-/**
- * Handle account for legacy Influencer model users
- */
-async function handleInfluencerAccount(influencerId: number, userId: number) {
-  const [influencer, user, commissions] = await Promise.all([
-    prisma.influencer.findUnique({
-      where: { id: influencerId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        commissionRate: true,
-        createdAt: true,
-      },
-    }),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, phone: true },
-    }),
-    // Get total earnings from commissions table
-    prisma.commission.aggregate({
-      where: { influencerId },
-      _sum: { commissionAmount: true },
-    }),
-  ]);
-
-  if (!influencer) {
-    return NextResponse.json({ error: 'Influencer not found' }, { status: 404 });
-  }
-
-  const totalEarnings = commissions._sum?.commissionAmount || 0;
-
-  return NextResponse.json({
-    profile: {
-      displayName: influencer.name,
-      email: user?.email || influencer.email || '',
-      phone: user?.phone || influencer.phone || '',
-      tier: 'Partner',
-      joinedAt: influencer.createdAt.toISOString(),
-    },
-    payoutMethod: null, // Legacy influencers don't have payout methods in new system
-    preferences: {
-      emailNotifications: true,
-      smsNotifications: false,
-      weeklyReport: true,
-    },
-    taxStatus: {
-      hasValidW9: false,
-      yearToDateEarnings: Math.round(totalEarnings * 100),
-      threshold: 60000, // $600 threshold for 1099
-    },
-  });
-}
+const accountPatchSchema = z.object({
+  emailNotifications: z.boolean().optional(),
+  smsNotifications: z.boolean().optional(),
+  weeklyReport: z.boolean().optional(),
+  leaderboardOptIn: z.boolean().optional(),
+  leaderboardAlias: z.string().max(30, 'Alias must be 30 characters or less').nullable().optional(),
+});
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
-    const influencerId = user.influencerId;
-
-    // Handle legacy Influencer users
-    if (!affiliateId && influencerId) {
-      return handleInfluencerAccount(influencerId, user.id);
-    }
 
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
@@ -90,6 +38,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         currentTierId: true,
         leaderboardOptIn: true,
         leaderboardAlias: true,
+        metadata: true,
         user: {
           select: {
             email: true,
@@ -113,7 +62,6 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         });
         if (tier) tierName = tier.name;
       } catch (error: unknown) {
-        // Tier lookup failed, use default
         logger.warn('[Affiliate Account] Tier lookup failed', {
           error: error instanceof Error ? error.message : 'Unknown error',
         });
@@ -143,7 +91,6 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         };
       }
     } catch (error: unknown) {
-      // Payout method lookup failed, leave as null
       logger.warn('[Affiliate Account] Payout method lookup failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -162,7 +109,6 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       });
       hasValidW9 = !!taxDoc;
     } catch (error: unknown) {
-      // Tax doc lookup failed
       logger.warn('[Affiliate Account] Tax document lookup failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -182,11 +128,18 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       });
       ytdEarnings = result._sum.commissionAmountCents || 0;
     } catch (error: unknown) {
-      // YTD calculation failed
       logger.warn('[Affiliate Account] YTD earnings calculation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
+
+    // Extract notification preferences from metadata (persisted in PATCH handler)
+    const meta = (affiliate.metadata && typeof affiliate.metadata === 'object' && !Array.isArray(affiliate.metadata))
+      ? (affiliate.metadata as Record<string, unknown>)
+      : {};
+    const prefs = (meta.notificationPreferences && typeof meta.notificationPreferences === 'object')
+      ? (meta.notificationPreferences as Record<string, unknown>)
+      : {};
 
     return NextResponse.json({
       profile: {
@@ -198,9 +151,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       },
       payoutMethod,
       preferences: {
-        emailNotifications: true,
-        smsNotifications: false,
-        weeklyReport: true,
+        emailNotifications: typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
+        smsNotifications: typeof prefs.smsNotifications === 'boolean' ? prefs.smsNotifications : false,
+        weeklyReport: typeof prefs.weeklyReport === 'boolean' ? prefs.weeklyReport : true,
       },
       leaderboard: {
         optIn: affiliate.leaderboardOptIn,
@@ -228,56 +181,88 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
 
-    const body = await request.json();
+    const rawBody = await request.json();
+    const parsed = accountPatchSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      );
+    }
+
     const {
       emailNotifications,
       smsNotifications,
       weeklyReport,
       leaderboardOptIn,
       leaderboardAlias,
-    } = body;
+    } = parsed.data;
 
-    // Update leaderboard settings if provided
-    if (leaderboardOptIn !== undefined || leaderboardAlias !== undefined) {
-      const updateData: Record<string, unknown> = {};
-      if (leaderboardOptIn !== undefined) {
-        updateData.leaderboardOptIn = leaderboardOptIn;
-      }
-      if (leaderboardAlias !== undefined) {
-        // Validate alias length and characters
-        if (leaderboardAlias && leaderboardAlias.length > 30) {
-          return NextResponse.json(
-            { error: 'Alias must be 30 characters or less' },
-            { status: 400 }
-          );
-        }
-        updateData.leaderboardAlias = leaderboardAlias || null;
-      }
+    // Read current metadata to merge notification preferences
+    const current = await prisma.affiliate.findUnique({
+      where: { id: affiliateId },
+      select: { metadata: true },
+    });
 
-      await prisma.affiliate.update({
-        where: { id: affiliateId },
-        data: updateData,
-      });
+    const currentMeta = (current?.metadata && typeof current.metadata === 'object' && !Array.isArray(current.metadata))
+      ? (current.metadata as Record<string, unknown>)
+      : {};
+    const currentPrefs = (currentMeta.notificationPreferences && typeof currentMeta.notificationPreferences === 'object')
+      ? (currentMeta.notificationPreferences as Record<string, unknown>)
+      : {};
+
+    // Merge only provided notification fields
+    const hasNotifUpdate = emailNotifications !== undefined || smsNotifications !== undefined || weeklyReport !== undefined;
+    const updatedPrefs = {
+      ...currentPrefs,
+      ...(emailNotifications !== undefined && { emailNotifications }),
+      ...(smsNotifications !== undefined && { smsNotifications }),
+      ...(weeklyReport !== undefined && { weeklyReport }),
+    };
+
+    // Build update data
+    const updateData: Record<string, unknown> = {};
+    if (leaderboardOptIn !== undefined) {
+      updateData.leaderboardOptIn = leaderboardOptIn;
+    }
+    if (leaderboardAlias !== undefined) {
+      updateData.leaderboardAlias = leaderboardAlias || null;
+    }
+    if (hasNotifUpdate) {
+      updateData.metadata = {
+        ...currentMeta,
+        notificationPreferences: updatedPrefs,
+      };
     }
 
-    // Get updated affiliate data
-    const affiliate = await prisma.affiliate.findUnique({
+    const affiliate = await prisma.affiliate.update({
       where: { id: affiliateId },
+      data: updateData,
       select: {
         leaderboardOptIn: true,
         leaderboardAlias: true,
+        metadata: true,
       },
     });
 
+    // Read back persisted preferences
+    const meta = (affiliate.metadata && typeof affiliate.metadata === 'object' && !Array.isArray(affiliate.metadata))
+      ? (affiliate.metadata as Record<string, unknown>)
+      : {};
+    const prefs = (meta.notificationPreferences && typeof meta.notificationPreferences === 'object')
+      ? (meta.notificationPreferences as Record<string, unknown>)
+      : {};
+
     return NextResponse.json({
       preferences: {
-        emailNotifications: emailNotifications ?? true,
-        smsNotifications: smsNotifications ?? false,
-        weeklyReport: weeklyReport ?? true,
+        emailNotifications: typeof prefs.emailNotifications === 'boolean' ? prefs.emailNotifications : true,
+        smsNotifications: typeof prefs.smsNotifications === 'boolean' ? prefs.smsNotifications : false,
+        weeklyReport: typeof prefs.weeklyReport === 'boolean' ? prefs.weeklyReport : true,
       },
       leaderboard: {
-        optIn: affiliate?.leaderboardOptIn ?? false,
-        alias: affiliate?.leaderboardAlias ?? null,
+        optIn: affiliate.leaderboardOptIn ?? false,
+        alias: affiliate.leaderboardAlias ?? null,
       },
     });
   } catch (error) {

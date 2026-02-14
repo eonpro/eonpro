@@ -174,7 +174,7 @@ export function clearAuthTokens() {
     'super_admin-token',
     'admin-token',
     'provider-token',
-    'influencer-token',
+    'affiliate-token',
     'patient-token',
     'token_timestamp',
     'user',
@@ -187,7 +187,7 @@ export function clearAuthTokens() {
     'auth-token',
     'admin-token',
     'provider-token',
-    'influencer-token',
+    'affiliate-token',
     'patient-token',
   ];
 

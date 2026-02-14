@@ -690,9 +690,14 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // ===========================================================================
 
   const filteredUsers = users.filter(
-    (user) =>
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (user) => {
+      const term = searchTerm.toLowerCase().trim();
+      if (!term) return true;
+      return (
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term)
+      );
+    }
   );
 
   const platformAdmins = filteredUsers.filter((u) => u.isPlatformAdmin);

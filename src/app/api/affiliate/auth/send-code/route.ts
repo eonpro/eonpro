@@ -6,46 +6,41 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
 import crypto from 'crypto';
 
-// Rate limit: 3 attempts per phone per 15 minutes
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const sendCodeSchema = z.object({
+  phone: z.string().regex(/^\+?\d{10,15}$/, 'Invalid phone number format'),
+});
 
-export async function POST(request: NextRequest) {
+// Redis-backed rate limiter: 3 attempts per 15 minutes per IP
+const sendCodeRateLimiter = createRateLimiter({
+  identifier: 'affiliate-send-code',
+  windowSeconds: 15 * 60,
+  maxRequests: 3,
+  blockDurationSeconds: 15 * 60,
+  message: 'Too many code requests. Please try again in 15 minutes.',
+});
+
+async function handlePost(request: NextRequest) {
   try {
-    const { phone } = await request.json();
+    const body = await request.json();
+    const parsed = sendCodeSchema.safeParse(body);
 
-    if (!phone || typeof phone !== 'string') {
-      return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
-    }
-
-    // Normalize phone number
-    const normalizedPhone = phone.replace(/\D/g, '');
-    if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
-      return NextResponse.json({ error: 'Invalid phone number format' }, { status: 400 });
-    }
-
-    // Rate limiting
-    const now = Date.now();
-    const rateKey = normalizedPhone;
-    const rateLimit = rateLimitMap.get(rateKey);
-
-    if (rateLimit && rateLimit.resetAt > now && rateLimit.count >= 3) {
-      const waitMinutes = Math.ceil((rateLimit.resetAt - now) / 60000);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: `Too many attempts. Try again in ${waitMinutes} minutes.` },
-        { status: 429 }
+        { error: parsed.error.issues[0]?.message || 'Invalid phone number' },
+        { status: 400 }
       );
     }
 
-    // Update rate limit
-    if (!rateLimit || rateLimit.resetAt <= now) {
-      rateLimitMap.set(rateKey, { count: 1, resetAt: now + 15 * 60 * 1000 });
-    } else {
-      rateLimit.count++;
-    }
+    const { phone } = parsed.data;
+
+    // Normalize phone number
+    const normalizedPhone = phone.replace(/\D/g, '');
 
     // Find affiliate by phone
     // Only ACTIVE affiliates can log in (AffiliateStatus enum: ACTIVE, PAUSED, SUSPENDED, INACTIVE)
@@ -131,3 +126,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to send code' }, { status: 500 });
   }
 }
+
+// Apply Redis-backed rate limiting
+export const POST = sendCodeRateLimiter(handlePost);

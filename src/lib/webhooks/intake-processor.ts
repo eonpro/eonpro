@@ -14,8 +14,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { trackReferral } from '@/services/influencerService';
-import { attributeFromIntake } from '@/services/affiliate/attributionService';
+import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { generatePatientId } from '@/lib/patients';
 import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
 
@@ -123,7 +122,7 @@ export class IntakeProcessor {
     // Step 6: Track referral (if promo code provided)
     if (options.promoCode) {
       try {
-        await this.trackReferral(patient.id, options.promoCode, clinicId, options.referralSource);
+        await this.trackReferralAttribution(patient.id, options.promoCode, clinicId, options.referralSource);
       } catch (error: any) {
         this.errors.push(`Referral tracking failed: ${error.message}`);
       }
@@ -368,9 +367,9 @@ export class IntakeProcessor {
   }
 
   /**
-   * Track referral/promo code in both legacy and modern affiliate systems
+   * Track referral/promo code in the affiliate system
    */
-  private async trackReferral(
+  private async trackReferralAttribution(
     patientId: number,
     promoCode: string,
     clinicId: number | null,
@@ -378,45 +377,42 @@ export class IntakeProcessor {
   ): Promise<void> {
     const normalizedCode = promoCode.trim().toUpperCase();
 
-    // Track in legacy influencer system (for backward compatibility)
-    try {
-      await trackReferral(patientId, normalizedCode, referralSource || this.source, {
-        source: this.source,
-        timestamp: new Date().toISOString(),
+    if (!clinicId) {
+      logger.warn(`[INTAKE ${this.requestId}] Cannot track affiliate attribution without clinicId`, {
+        promoCode: normalizedCode,
       });
-      logger.info(`[INTAKE ${this.requestId}] Legacy referral tracked: ${normalizedCode}`);
-    } catch (error) {
-      logger.warn(`[INTAKE ${this.requestId}] Legacy referral tracking failed:`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      return;
     }
 
-    // Track in modern affiliate system (if clinic is known)
-    if (clinicId) {
-      try {
-        const attribution = await attributeFromIntake(
-          patientId,
-          normalizedCode,
-          clinicId,
-          this.source
-        );
+    try {
+      const attribution = await attributeFromIntake(
+        patientId,
+        normalizedCode,
+        clinicId,
+        this.source
+      );
 
-        if (attribution) {
-          logger.info(`[INTAKE ${this.requestId}] Modern affiliate attribution created`, {
-            affiliateId: attribution.affiliateId,
-            refCode: attribution.refCode,
-            touchId: attribution.touchId,
-          });
+      if (attribution) {
+        logger.info(`[INTAKE ${this.requestId}] Affiliate attribution created`, {
+          affiliateId: attribution.affiliateId,
+          refCode: attribution.refCode,
+          touchId: attribution.touchId,
+        });
+      } else {
+        // No AffiliateRefCode exists yet - tag patient for later reconciliation
+        const tagged = await tagPatientWithReferralCodeOnly(patientId, normalizedCode, clinicId);
+        if (tagged) {
+          logger.info(`[INTAKE ${this.requestId}] Profile tagged with referral code (no affiliate yet): ${normalizedCode}`);
         } else {
           logger.debug(
-            `[INTAKE ${this.requestId}] No modern affiliate found for code: ${normalizedCode}`
+            `[INTAKE ${this.requestId}] No affiliate match for code: ${normalizedCode}`
           );
         }
-      } catch (error) {
-        logger.warn(`[INTAKE ${this.requestId}] Modern affiliate attribution failed:`, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
       }
+    } catch (error) {
+      logger.warn(`[INTAKE ${this.requestId}] Affiliate attribution failed:`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 

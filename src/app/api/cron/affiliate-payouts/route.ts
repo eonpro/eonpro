@@ -19,10 +19,43 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { processPayout, checkPayoutEligibility } from '@/services/affiliate/payoutService';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
+
+// Stable lock key for the affiliate-payouts cron job (arbitrary unique integer)
+const AFFILIATE_PAYOUT_LOCK_KEY = 8675309;
+
+/**
+ * Acquire a PostgreSQL advisory lock to prevent concurrent cron runs.
+ * pg_try_advisory_lock is non-blocking: returns true if acquired, false if already held.
+ * The lock is automatically released when the DB session ends.
+ */
+async function acquireCronLock(): Promise<boolean> {
+  try {
+    const result = await prisma.$queryRaw<[{ pg_try_advisory_lock: boolean }]>(
+      Prisma.sql`SELECT pg_try_advisory_lock(${AFFILIATE_PAYOUT_LOCK_KEY})`
+    );
+    return result[0]?.pg_try_advisory_lock === true;
+  } catch (error) {
+    logger.warn('[PayoutCron] Failed to acquire advisory lock', {
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+    return false;
+  }
+}
+
+async function releaseCronLock(): Promise<void> {
+  try {
+    await prisma.$queryRaw(
+      Prisma.sql`SELECT pg_advisory_unlock(${AFFILIATE_PAYOUT_LOCK_KEY})`
+    );
+  } catch {
+    // Best-effort release; lock auto-releases on session end
+  }
+}
 
 interface PayoutScheduleResult {
   clinicId: number;
@@ -144,16 +177,19 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
     });
 
     for (const payout of failedPayouts) {
-      await prisma.affiliateCommissionEvent.updateMany({
-        where: { payoutId: payout.id },
-        data: { payoutId: null },
-      });
-      await prisma.affiliatePayout.update({
-        where: { id: payout.id },
-        data: {
-          status: 'CANCELLED',
-          notes: `${payout.notes || ''} | retry_attempted: ${new Date().toISOString()}`,
-        },
+      // Atomically unassign commissions + cancel payout to prevent inconsistency
+      await prisma.$transaction(async (tx) => {
+        await tx.affiliateCommissionEvent.updateMany({
+          where: { payoutId: payout.id },
+          data: { payoutId: null },
+        });
+        await tx.affiliatePayout.update({
+          where: { id: payout.id },
+          data: {
+            status: 'CANCELLED',
+            notes: `${payout.notes || ''} | retry_attempted: ${new Date().toISOString()}`,
+          },
+        });
       });
       result.failedPayoutsCleanedUp++;
     }
@@ -165,6 +201,17 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
 export async function GET(request: NextRequest) {
   if (!verifyCronAuth(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Acquire distributed lock to prevent concurrent cron executions
+  const lockAcquired = await acquireCronLock();
+  if (!lockAcquired) {
+    logger.warn('[PayoutCron] Another instance is already running, skipping');
+    return NextResponse.json({
+      success: true,
+      skipped: true,
+      reason: 'Another cron instance is already running',
+    });
   }
 
   const startTime = Date.now();
@@ -191,6 +238,8 @@ export async function GET(request: NextRequest) {
 
     logger.info('[PayoutCron] Payout processing complete', summary);
 
+    await releaseCronLock();
+
     return NextResponse.json({
       success: true,
       summary,
@@ -202,6 +251,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
+    await releaseCronLock();
     logger.error('[PayoutCron] Payout processing failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });

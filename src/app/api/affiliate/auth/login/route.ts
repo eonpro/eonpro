@@ -6,26 +6,39 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { SignJWT } from 'jose';
 import bcrypt from 'bcryptjs';
 import { JWT_SECRET } from '@/lib/auth/config';
 
+const loginSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required'),
+});
+
 const COOKIE_NAME = 'affiliate_session';
 const SESSION_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 
-export async function POST(request: NextRequest) {
-  try {
-    const { email, password } = await request.json();
+import { authRateLimiter } from '@/lib/security/rate-limiter-redis';
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+async function handler(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const parsed = loginSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      );
     }
 
+    const { email, password } = parsed.data;
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Try 1: Find in new Affiliate table (linked to User)
+    // Find affiliate in Affiliate table (linked to User)
     const affiliate = await prisma.affiliate.findFirst({
       where: {
         user: {
@@ -51,7 +64,7 @@ export async function POST(request: NextRequest) {
       const isValidPassword = await bcrypt.compare(password, affiliate.user.passwordHash);
 
       if (!isValidPassword) {
-        logger.warn('[Affiliate Auth] Invalid password (Affiliate table)', {
+        logger.warn('[Affiliate Auth] Invalid password', {
           affiliateId: affiliate.id,
         });
 
@@ -79,7 +92,7 @@ export async function POST(request: NextRequest) {
         data: { lastLoginAt: new Date() },
       });
 
-      logger.info('[Affiliate Auth] Login successful (Affiliate table)', {
+      logger.info('[Affiliate Auth] Login successful', {
         affiliateId: affiliate.id,
         userId: affiliate.user.id,
       });
@@ -107,85 +120,6 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // Try 2: Fall back to legacy Influencer table
-    const influencer = await prisma.influencer.findUnique({
-      where: { email: normalizedEmail },
-    });
-
-    if (influencer && influencer.passwordHash) {
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, influencer.passwordHash);
-
-      if (!isValidPassword) {
-        logger.warn('[Affiliate Auth] Invalid password (Influencer table)', {
-          influencerId: influencer.id,
-        });
-
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
-      }
-
-      // Check status
-      if (influencer.status !== 'ACTIVE') {
-        return NextResponse.json({ error: 'Account is not active' }, { status: 401 });
-      }
-
-      // Create JWT token (using influencer ID) - same format as /api/influencers/auth/login
-      const token = await new SignJWT({
-        id: influencer.id,
-        influencerId: influencer.id,
-        clinicId: influencer.clinicId,
-        email: influencer.email,
-        name: influencer.name,
-        promoCode: influencer.promoCode,
-        role: 'influencer',
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime('30d')
-        .sign(JWT_SECRET);
-
-      // Update last login
-      await prisma.influencer.update({
-        where: { id: influencer.id },
-        data: { lastLogin: new Date() },
-      });
-
-      logger.info('[Affiliate Auth] Login successful (Influencer table)', {
-        influencerId: influencer.id,
-      });
-
-      // Create response with cookie
-      const response = NextResponse.json({
-        success: true,
-        token,
-        affiliate: {
-          id: influencer.id,
-          displayName: influencer.name,
-          email: influencer.email,
-        },
-      });
-
-      // Set HTTP-only cookie (same name as influencer login for compatibility)
-      response.cookies.set('influencer-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-        sameSite: 'lax',
-        maxAge: SESSION_DURATION,
-        path: '/',
-      });
-
-      // Also set affiliate_session cookie
-      response.cookies.set(COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'test',
-        sameSite: 'lax',
-        maxAge: SESSION_DURATION,
-        path: '/',
-      });
-
-      return response;
-    }
-
     // No matching account found
     logger.info('[Affiliate Auth] Email not found', {
       email: normalizedEmail.substring(0, 3) + '***',
@@ -201,3 +135,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Login failed' }, { status: 500 });
   }
 }
+
+// Apply rate limiting: 5 attempts per 15 min, 30 min block on exceed
+export const POST = authRateLimiter(handler);

@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 
@@ -51,7 +51,7 @@ function getDeviceType(userAgent: string | null): string {
   return 'Desktop';
 }
 
-export const GET = withAuth(
+export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
       // Get affiliate from user
@@ -198,6 +198,5 @@ export const GET = withAuth(
       logger.error('[Affiliate Traffic Sources] Error fetching data', error);
       return NextResponse.json({ error: 'Failed to fetch traffic sources' }, { status: 500 });
     }
-  },
-  { roles: ['affiliate', 'super_admin', 'admin'] }
+  }
 );

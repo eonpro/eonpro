@@ -38,12 +38,12 @@ async function checkIdentifierHandler(req: NextRequest) {
     const { email } = result.data;
     const emailLower = email.toLowerCase().trim();
 
-    // Check: User with role=provider OR Provider record with this email
+    // Check: User with role=PROVIDER OR Provider record with this email
     const [userWithRole, providerByEmail] = await Promise.all([
       basePrisma.user.findFirst({
         where: {
           email: { equals: emailLower, mode: 'insensitive' },
-          role: 'provider',
+          role: { in: ['PROVIDER', 'ADMIN', 'SUPER_ADMIN'] },
           status: 'ACTIVE',
         },
         select: { id: true },

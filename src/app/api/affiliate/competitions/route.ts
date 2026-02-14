@@ -11,13 +11,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { formatMetricValue } from '@/services/affiliate/leaderboardService';
 
 type CompetitionMetric = 'CLICKS' | 'CONVERSIONS' | 'REVENUE' | 'CONVERSION_RATE' | 'NEW_CUSTOMERS';
 
-export const GET = withAuth(
+export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
       // Get affiliate from user
@@ -148,6 +148,5 @@ export const GET = withAuth(
         { status: 500 }
       );
     }
-  },
-  { roles: ['affiliate', 'super_admin', 'admin'] }
+  }
 );

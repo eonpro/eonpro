@@ -12,6 +12,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/observability/request-context';
 import crypto from 'crypto';
 
 export interface IpIntelResult {

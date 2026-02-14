@@ -1,7 +1,7 @@
 /**
  * Affiliate Commissions API
  *
- * Returns paginated commission events for the affiliate portal
+ * Returns paginated commission events for the affiliate portal.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -20,6 +20,8 @@ interface CommissionEvent {
   planName: string;
 }
 
+const MAX_LIMIT = 100;
+
 async function handler(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
@@ -27,73 +29,65 @@ async function handler(req: NextRequest, user: AuthUser) {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const status = searchParams.get('status');
 
-    const skip = (page - 1) * limit;
-
-    // Build where clause
-    const whereClause: any = {};
-
-    // Check if user is an affiliate
-    if (user.affiliateId) {
-      whereClause.affiliateId = user.affiliateId;
-    } else if (user.influencerId) {
-      whereClause.influencerId = user.influencerId;
-    } else {
+    const affiliateId = user.affiliateId;
+    if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
 
+    const safeLimit = Math.min(limit, MAX_LIMIT);
+    const skip = (page - 1) * safeLimit;
+
+    const whereClause: any = { affiliateId };
     if (status && status !== 'all') {
       whereClause.status = status.toUpperCase();
     }
 
-    // Fetch commissions
-    const [commissions, total] = await Promise.all([
-      prisma.commission.findMany({
+    const [commissions, total, totals] = await Promise.all([
+      prisma.affiliateCommissionEvent.findMany({
         where: whereClause,
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take: safeLimit,
         select: {
           id: true,
           createdAt: true,
-          orderAmount: true,
-          commissionAmount: true,
+          eventAmountCents: true,
+          commissionAmountCents: true,
           status: true,
+          metadata: true,
         },
       }),
-      prisma.commission.count({ where: whereClause }),
+      prisma.affiliateCommissionEvent.count({ where: whereClause }),
+      prisma.affiliateCommissionEvent.aggregate({
+        where: whereClause,
+        _sum: {
+          eventAmountCents: true,
+          commissionAmountCents: true,
+        },
+      }),
     ]);
 
-    // Format for frontend
-    const events: CommissionEvent[] = commissions.map((c: any) => ({
+    const events: CommissionEvent[] = commissions.map((c: (typeof commissions)[number]) => ({
       id: String(c.id),
       date: c.createdAt.toISOString(),
-      orderAmount: Math.round((c.orderAmount || 0) * 100),
-      commission: Math.round((c.commissionAmount || 0) * 100),
-      status: (c.status || 'PENDING').toLowerCase(),
-      refCode: 'N/A', // Legacy commissions don't track ref codes
-      planName: 'Standard',
+      orderAmount: c.eventAmountCents,
+      commission: c.commissionAmountCents,
+      status: c.status.toLowerCase(),
+      refCode: (c.metadata as any)?.refCode || 'DIRECT',
+      planName: (c.metadata as any)?.planName || 'Standard',
     }));
-
-    // Calculate totals
-    const totals = await prisma.commission.aggregate({
-      where: whereClause,
-      _sum: {
-        orderAmount: true,
-        commissionAmount: true,
-      },
-    });
 
     return NextResponse.json({
       events,
       pagination: {
         page,
-        limit,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / limit),
+        pages: Math.ceil(total / safeLimit),
       },
       totals: {
-        orderAmount: Math.round((totals._sum.orderAmount || 0) * 100),
-        commission: Math.round((totals._sum.commissionAmount || 0) * 100),
+        orderAmount: totals._sum.eventAmountCents || 0,
+        commission: totals._sum.commissionAmountCents || 0,
       },
     });
   } catch (error) {

@@ -185,7 +185,6 @@ export default function AffiliateLoginPage() {
       if (data.token) {
         localStorage.setItem('affiliate-token', data.token);
         localStorage.setItem('auth-token', data.token);
-        localStorage.setItem('influencer-token', data.token); // For compatibility
 
         // Store user data for role-based redirects
         localStorage.setItem(

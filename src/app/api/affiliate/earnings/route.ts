@@ -13,79 +13,9 @@ import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-/**
- * Handle earnings for legacy Influencer model users
- */
-async function handleInfluencerEarnings(influencerId: number) {
-  const influencer = await prisma.influencer.findUnique({
-    where: { id: influencerId },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!influencer) {
-    return NextResponse.json({ error: 'Influencer not found' }, { status: 404 });
-  }
-
-  // Get legacy commissions
-  const [commissions, totalEarningsAgg] = await Promise.all([
-    prisma.commission
-      .findMany({
-        where: { influencerId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-        select: {
-          id: true,
-          createdAt: true,
-          commissionAmount: true,
-          status: true,
-          orderAmount: true,
-        },
-      })
-      .catch(() => []),
-    prisma.commission
-      .aggregate({
-        where: { influencerId },
-        _sum: { commissionAmount: true },
-      })
-      .catch(() => ({ _sum: { commissionAmount: null } })),
-  ]);
-
-  // Convert to expected format
-  const formattedCommissions = commissions.map((c: any) => ({
-    id: String(c.id),
-    createdAt: c.createdAt.toISOString(),
-    amount: Math.round((c.commissionAmount || 0) * 100), // Convert to cents
-    status: (c.status || 'pending').toLowerCase() as 'pending' | 'approved' | 'paid' | 'reversed',
-    orderAmount: Math.round((c.orderAmount || 0) * 100),
-    refCode: 'N/A', // Legacy commissions don't track ref codes
-  }));
-
-  const totalEarnings = totalEarningsAgg._sum.commissionAmount || 0;
-
-  return NextResponse.json({
-    summary: {
-      availableBalance: Math.round(totalEarnings * 100),
-      pendingBalance: 0,
-      processingPayout: 0,
-      lifetimeEarnings: Math.round(totalEarnings * 100),
-      lifetimePaid: 0,
-    },
-    commissions: formattedCommissions,
-    payouts: [],
-  });
-}
-
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;
-    const influencerId = user.influencerId;
-
-    // Handle legacy Influencer users
-    if (!affiliateId && influencerId) {
-      return handleInfluencerEarnings(influencerId);
-    }
 
     if (!affiliateId) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
@@ -165,11 +95,11 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _sum: { netAmountCents: true },
       }),
 
-      // Lifetime commissions (all approved/paid)
+      // Lifetime commissions (PENDING + APPROVED + PAID for accounting identity)
       prisma.affiliateCommissionEvent.aggregate({
         where: {
           affiliateId,
-          status: { in: ['APPROVED', 'PAID'] },
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
         },
         _sum: { commissionAmountCents: true },
       }),

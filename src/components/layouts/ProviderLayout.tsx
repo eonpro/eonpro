@@ -188,8 +188,9 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery) {
-      router.push(`/provider/patients?search=${encodeURIComponent(searchQuery)}`);
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
+      router.push(`/provider/patients?search=${encodeURIComponent(trimmed)}`);
     }
   };
 

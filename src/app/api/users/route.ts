@@ -36,7 +36,7 @@ export const GET = withAuth(
       // Support comma-separated roles (e.g. ?role=staff,admin,provider,support from New Ticket page)
       const roles = roleRaw.flatMap((r) => r.split(',').map((s) => s.trim()).filter(Boolean));
       const status = searchParams.get('status');
-      const search = searchParams.get('search');
+      const search = searchParams.get('search')?.trim() || null;
       const clinicIdParam = searchParams.get('clinicId');
 
       // Build filter

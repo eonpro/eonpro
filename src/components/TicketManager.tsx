@@ -379,7 +379,8 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
 
   const filteredTickets = tickets.filter((ticket) => {
     if (filters.search) {
-      const searchTerm = filters.search.toLowerCase();
+      const searchTerm = filters.search.toLowerCase().trim();
+      if (!searchTerm) return true;
       if (
         !ticket.title.toLowerCase().includes(searchTerm) &&
         !ticket.description.toLowerCase().includes(searchTerm) &&

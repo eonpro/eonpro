@@ -94,7 +94,7 @@ export default function ConditionalHeader() {
     '/forgot-password',
     '/reset-password',
     '/verify-email',
-    '/influencer',
+    '/affiliate',
     '/patient-portal',
     '/portal',
     '/provider',

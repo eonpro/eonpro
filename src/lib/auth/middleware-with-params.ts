@@ -116,7 +116,6 @@ function extractToken(req: NextRequest): string | null {
   // Note: Order matters - more specific cookies should be checked first
   const cookieTokens = [
     'affiliate_session', // Affiliate portal - check first for affiliate routes
-    'influencer-token', // Legacy influencer portal
     'affiliate-token',
     'auth-token',
     'super_admin-token',

@@ -48,8 +48,7 @@ export default function GlobalFetchInterceptor() {
             url.includes('/api/auth/verify') ||
             url.includes('/api/auth/refresh') ||
             url.includes('/api/affiliate/auth/login') ||
-            url.includes('/api/affiliate/auth/me') ||
-            url.includes('/api/influencers/auth/');
+            url.includes('/api/affiliate/auth/me');
 
           if (!isAuthRoute && !hasAuthRetry) {
             // Clone response to read the body without consuming it

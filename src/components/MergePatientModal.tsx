@@ -161,7 +161,8 @@ export default function MergePatientModal({
   // Search for patients - Note: Name fields are encrypted, so search by patientId works best
   const searchPatients = useCallback(
     async (query: string) => {
-      if (!query.trim() || query.length < 2) {
+      const trimmed = query.trim();
+      if (!trimmed || trimmed.length < 2) {
         setSearchResults([]);
         return;
       }
@@ -169,7 +170,7 @@ export default function MergePatientModal({
       setSearching(true);
       try {
         const response = await apiFetch(
-          `/api/patients?search=${encodeURIComponent(query)}&limit=20&includeContact=true`
+          `/api/patients?search=${encodeURIComponent(trimmed)}&limit=20&includeContact=true`
         );
         if (!response.ok) {
           const errData = await response.json().catch(() => ({}));

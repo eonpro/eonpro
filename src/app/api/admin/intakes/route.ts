@@ -14,6 +14,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
+import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
 
 const PAGE_SIZE = 25;
 
@@ -42,7 +43,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || String(PAGE_SIZE), 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
     const includeContact = searchParams.get('includeContact') === 'true';
 
     // Get clinic context for non-super-admin users
@@ -130,8 +131,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     let total = totalWithoutSearch;
 
     if (search) {
-      const searchLower = search.toLowerCase().trim();
-      const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+      const searchNormalized = normalizeSearch(search);
+      const terms = splitSearchTerms(search);
 
       filteredIntakes = intakes.filter((patient: (typeof intakes)[number]) => {
         const decryptedFirst = safeDecrypt(patient.firstName)?.toLowerCase() || '';
@@ -140,14 +141,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const patientIdLower = patient.patientId?.toLowerCase() || '';
 
         return (
-          searchTerms.some(
+          terms.some(
             (term) =>
               decryptedFirst.includes(term) ||
               decryptedLast.includes(term) ||
               decryptedEmail.includes(term) ||
               patientIdLower.includes(term)
           ) ||
-          (searchTerms.length >= 2 && (decryptedFirst + ' ' + decryptedLast).includes(searchLower))
+          (terms.length >= 2 && (decryptedFirst + ' ' + decryptedLast).includes(searchNormalized))
         );
       });
 

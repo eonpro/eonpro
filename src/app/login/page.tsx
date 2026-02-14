@@ -869,8 +869,8 @@ export default function LoginPage() {
       case 'patient':
         router.push(PATIENT_PORTAL_PATH);
         break;
-      case 'influencer':
-        router.push('/influencer/dashboard');
+      case 'affiliate':
+        router.push('/affiliate');
         break;
       default:
         router.push('/');
@@ -902,7 +902,7 @@ export default function LoginPage() {
 
   // Gradient backgrounds - never solid; always multi-color gradients
   const mainGradient = isProviderLogin
-    ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 25%, #e0e7ff 50%, #ddd6fe 75%, #dbeafe 100%)'
+    ? 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 20%, #93c5fd 45%, #a5b4fc 65%, #bfdbfe 85%, #dbeafe 100%)'
     : branding
       ? `linear-gradient(135deg, ${primaryColor}15 0%, ${secondaryColor}12 33%, ${accentColor}18 66%, ${primaryColor}20 100%)`
       : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)';
@@ -920,9 +920,9 @@ export default function LoginPage() {
         className="absolute inset-0 opacity-40"
         style={{
           backgroundImage: isProviderLogin
-            ? `radial-gradient(circle at 20% 50%, rgba(167, 139, 250, 0.12) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(96, 165, 250, 0.12) 0%, transparent 50%)`
+            ? `radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.25) 0%, transparent 50%),
+               radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+               radial-gradient(circle at 40% 80%, rgba(147, 197, 253, 0.25) 0%, transparent 50%)`
             : branding
               ? `radial-gradient(circle at 20% 50%, ${primaryColor}20 0%, transparent 50%),
                  radial-gradient(circle at 80% 20%, ${accentColor}25 0%, transparent 50%),

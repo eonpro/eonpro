@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRequestId } from '@/lib/observability/request-context';
 
 export interface LeaderboardEntry {
   rank: number;

@@ -19,6 +19,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
 import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
 
 import type {
   PatientEntity,
@@ -790,10 +791,10 @@ function filterPatientsBySearch<
     phone?: unknown;
   },
 >(patients: T[], search: string): T[] {
-  const searchLower = search.toLowerCase().trim();
-  if (!searchLower) return patients;
+  const searchNormalized = normalizeSearch(search);
+  if (!searchNormalized) return patients;
 
-  const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+  const terms = splitSearchTerms(search);
 
   return patients.filter((patient) => {
     const firstName = toSearchableString(patient.firstName);
@@ -803,13 +804,13 @@ function filterPatientsBySearch<
     const phoneDigits = toSearchableString(patient.phone).replace(/\D/g, '');
 
     // Build searchable strings for matching
-    const searchDigits = searchLower.replace(/\D/g, '');
+    const searchDigits = searchNormalized.replace(/\D/g, '');
     const hasPhoneMatch =
       searchDigits.length >= 3 && phoneDigits.length >= 3 && phoneDigits.includes(searchDigits);
 
     // Single term: match against name, patientId, email, or phone
-    if (searchTerms.length === 1) {
-      const term = searchTerms[0];
+    if (terms.length === 1) {
+      const term = terms[0];
       return (
         firstName.includes(term) ||
         lastName.includes(term) ||
@@ -823,11 +824,11 @@ function filterPatientsBySearch<
     const fullName = `${firstName} ${lastName}`;
     const reverseName = `${lastName} ${firstName}`;
 
-    if (fullName.includes(searchLower) || reverseName.includes(searchLower)) {
+    if (fullName.includes(searchNormalized) || reverseName.includes(searchNormalized)) {
       return true;
     }
 
-    return searchTerms.every(
+    return terms.every(
       (term) =>
         firstName.includes(term) ||
         lastName.includes(term) ||

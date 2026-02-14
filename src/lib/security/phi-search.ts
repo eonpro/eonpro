@@ -260,10 +260,11 @@ export function matchesSearch(
   search: string,
   fields: PatientPHIField[]
 ): boolean {
-  const searchLower = search.toLowerCase().trim();
-  if (!searchLower) return true;
+  // Normalize: trim, lowercase, collapse internal whitespace
+  const searchNormalized = search.toLowerCase().trim().replace(/\s+/g, ' ');
+  if (!searchNormalized) return true;
 
-  const searchTerms = searchLower.split(/\s+/).filter(Boolean);
+  const searchTerms = searchNormalized.split(' ').filter(Boolean);
 
   // Get field values
   const fieldValues: Record<string, string> = {};
@@ -283,8 +284,8 @@ export function matchesSearch(
   const fullName = `${firstName} ${lastName}`;
   const reverseName = `${lastName} ${firstName}`;
 
-  // Check full search against full name
-  if (fullName.includes(searchLower) || reverseName.includes(searchLower)) {
+  // Check full search against full name (normalized handles extra spaces)
+  if (fullName.includes(searchNormalized) || reverseName.includes(searchNormalized)) {
     return true;
   }
 

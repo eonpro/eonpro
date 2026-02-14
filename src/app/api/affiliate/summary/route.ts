@@ -11,15 +11,19 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-export const GET = withAuth(
+export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
+      if (!user.affiliateId) {
+        return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+      }
+
       // Get affiliate from user
       const affiliate = await prisma.affiliate.findUnique({
-        where: { userId: user.id },
+        where: { id: user.affiliateId },
         select: { id: true, clinicId: true, status: true },
       });
 
@@ -45,7 +49,7 @@ export const GET = withAuth(
       };
       const hasDateFilter = fromDate || toDate;
 
-      // Get aggregated stats by status
+      // Get aggregated stats by status (use createdAt consistently across all routes)
       const [pendingStats, approvedStats, paidStats, reversedStats, totalRevenue] =
         await Promise.all([
           prisma.affiliateCommissionEvent.aggregate({
@@ -53,7 +57,7 @@ export const GET = withAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'PENDING',
-              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
+              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
@@ -64,7 +68,7 @@ export const GET = withAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'APPROVED',
-              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
+              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
@@ -75,7 +79,7 @@ export const GET = withAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'PAID',
-              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
+              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
@@ -86,19 +90,19 @@ export const GET = withAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'REVERSED',
-              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
+              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
           }),
 
-          // Total revenue generated (excluding reversed)
+          // Total conversions and revenue (exclude PENDING and REVERSED from conversions)
           prisma.affiliateCommissionEvent.aggregate({
             where: {
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
-              status: { not: 'REVERSED' },
-              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
+              status: { in: ['APPROVED', 'PAID'] },
+              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
             },
             _sum: { eventAmountCents: true },
             _count: true,
@@ -164,6 +168,5 @@ export const GET = withAuth(
       logger.error('[Affiliate Summary] Error fetching summary', error);
       return NextResponse.json({ error: 'Failed to fetch summary' }, { status: 500 });
     }
-  },
-  { roles: ['affiliate', 'super_admin', 'admin'] }
+  }
 );

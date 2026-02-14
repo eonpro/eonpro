@@ -5,25 +5,35 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
+import { JWT_SECRET } from '@/lib/auth/config';
+import { otpRateLimiter } from '@/lib/security/rate-limiter-redis';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'affiliate-portal-secret-key-change-in-production'
-);
+const verifyCodeSchema = z.object({
+  phone: z.string().min(1, 'Phone is required'),
+  code: z.string().length(6, 'Code must be exactly 6 digits'),
+});
 
 const COOKIE_NAME = 'affiliate_session';
 const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
-    const { phone, code } = await request.json();
+    const body = await request.json();
+    const parsed = verifyCodeSchema.safeParse(body);
 
-    if (!phone || !code) {
-      return NextResponse.json({ error: 'Phone and code are required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      );
     }
+
+    const { phone, code } = parsed.data;
 
     const normalizedPhone = phone.replace(/\D/g, '');
 
@@ -145,3 +155,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }
+
+// Apply OTP rate limiting: 5 attempts per 5 min
+export const POST = otpRateLimiter(handler);

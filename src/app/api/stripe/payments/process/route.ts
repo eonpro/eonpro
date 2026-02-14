@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { PaymentStatus } from '@prisma/client';
 import { encryptCardData } from '@/lib/encryption';
 import crypto from 'crypto';
-import { processCommission } from '@/services/influencerService';
+import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 

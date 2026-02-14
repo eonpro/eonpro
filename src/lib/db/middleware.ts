@@ -42,10 +42,6 @@ export function createSecurityMiddleware(): unknown {
         params = await filterProviderAccess(params, user);
         break;
 
-      case 'Influencer':
-        params = await filterInfluencerAccess(params, user);
-        break;
-
       case 'Invoice':
       case 'Payment':
       case 'Subscription':
@@ -125,12 +121,6 @@ async function filterPatientAccess(params: any, user: any): Promise<any> {
       logger.warn('Patient attempted to modify patient data', { userId: user.id });
       throw new Error('Patients cannot modify patient records');
     }
-  }
-
-  if (user.role === 'influencer') {
-    // Influencers cannot access patient data directly
-    logger.warn('Influencer attempted to access patient data', { userId: user.id });
-    throw new Error('Influencers cannot access patient data');
   }
 
   return params;
@@ -264,8 +254,8 @@ async function filterProviderAccess(params: any, user: any): Promise<any> {
     }
   }
 
-  if (user.role === 'patient' || user.role === 'influencer') {
-    // Patients and influencers see only basic provider info
+  if (user.role === 'patient') {
+    // Patients see only basic provider info
     if (params.action === 'findMany' || params.action === 'findUnique') {
       params.args.select = {
         id: true,
@@ -281,35 +271,6 @@ async function filterProviderAccess(params: any, user: any): Promise<any> {
     if (['create', 'update', 'delete'].includes(params.action)) {
       throw new Error('Insufficient permissions to modify provider data');
     }
-  }
-
-  return params;
-}
-
-/**
- * Filter influencer data based on user role
- */
-async function filterInfluencerAccess(params: any, user: any): Promise<any> {
-  if ((user.role as string) === 'admin') {
-    return params;
-  }
-
-  if (user.role === 'influencer') {
-    // Influencers can only see and modify their own data
-    if (params.action === 'findMany' || params.action === 'count') {
-      params.args.where = {
-        ...params.args.where,
-        id: user.influencerId,
-      };
-    } else if (['update', 'delete'].includes(params.action)) {
-      params.args.where = {
-        ...params.args.where,
-        id: user.influencerId,
-      };
-    }
-  } else {
-    // Other roles cannot access influencer data
-    throw new Error('Insufficient permissions to access influencer data');
   }
 
   return params;
@@ -344,11 +305,6 @@ async function filterBillingAccess(params: any, user: any): Promise<any> {
         patientId: user.patientId,
       };
     }
-  }
-
-  if (user.role === 'influencer') {
-    // Influencers cannot access billing data
-    throw new Error('Influencers cannot access billing data');
   }
 
   return params;

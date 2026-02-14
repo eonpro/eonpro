@@ -62,12 +62,12 @@ export const PERMISSIONS = {
   BILLING_REFUND: 'billing:refund',
   BILLING_EXPORT: 'billing:export',
 
-  // Influencer Management
-  INFLUENCER_CREATE: 'influencer:create',
-  INFLUENCER_READ: 'influencer:read',
-  INFLUENCER_UPDATE: 'influencer:update',
-  INFLUENCER_DELETE: 'influencer:delete',
-  INFLUENCER_PAYOUT: 'influencer:payout',
+  // Affiliate Management
+  AFFILIATE_CREATE: 'affiliate:create',
+  AFFILIATE_READ: 'affiliate:read',
+  AFFILIATE_UPDATE: 'affiliate:update',
+  AFFILIATE_DELETE: 'affiliate:delete',
+  AFFILIATE_PAYOUT: 'affiliate:payout',
 
   // System Administration
   SYSTEM_CONFIG: 'system:config',
@@ -245,12 +245,12 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.BILLING_REFUND,
     PERMISSIONS.BILLING_EXPORT,
 
-    // Full Influencer Management
-    PERMISSIONS.INFLUENCER_CREATE,
-    PERMISSIONS.INFLUENCER_READ,
-    PERMISSIONS.INFLUENCER_UPDATE,
-    PERMISSIONS.INFLUENCER_DELETE,
-    PERMISSIONS.INFLUENCER_PAYOUT,
+    // Full Affiliate Management
+    PERMISSIONS.AFFILIATE_CREATE,
+    PERMISSIONS.AFFILIATE_READ,
+    PERMISSIONS.AFFILIATE_UPDATE,
+    PERMISSIONS.AFFILIATE_DELETE,
+    PERMISSIONS.AFFILIATE_PAYOUT,
 
     // System Access (limited config for admins)
     PERMISSIONS.SYSTEM_CONFIG,
@@ -298,12 +298,12 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.REPORT_EXPORT,
   ],
 
-  INFLUENCER: [
+  AFFILIATE: [
     // Limited Patient Access (their referrals)
     PERMISSIONS.PATIENT_READ,
 
     // Read-only access to their data
-    PERMISSIONS.INFLUENCER_READ,
+    PERMISSIONS.AFFILIATE_READ,
 
     // Limited Billing
     PERMISSIONS.BILLING_VIEW,
@@ -404,11 +404,11 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.BILLING_CREATE,
     PERMISSIONS.BILLING_REFUND,
     PERMISSIONS.BILLING_EXPORT,
-    PERMISSIONS.INFLUENCER_CREATE,
-    PERMISSIONS.INFLUENCER_READ,
-    PERMISSIONS.INFLUENCER_UPDATE,
-    PERMISSIONS.INFLUENCER_DELETE,
-    PERMISSIONS.INFLUENCER_PAYOUT,
+    PERMISSIONS.AFFILIATE_CREATE,
+    PERMISSIONS.AFFILIATE_READ,
+    PERMISSIONS.AFFILIATE_UPDATE,
+    PERMISSIONS.AFFILIATE_DELETE,
+    PERMISSIONS.AFFILIATE_PAYOUT,
     PERMISSIONS.SYSTEM_CONFIG,
     PERMISSIONS.SYSTEM_AUDIT,
     PERMISSIONS.SYSTEM_ANALYTICS,
@@ -457,8 +457,8 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.SYSTEM_LOGS,
   ],
-  influencer: [
-    PERMISSIONS.INFLUENCER_READ,
+  affiliate: [
+    PERMISSIONS.AFFILIATE_READ,
     PERMISSIONS.PATIENT_READ,
     PERMISSIONS.ORDER_READ,
     PERMISSIONS.BILLING_VIEW,
@@ -534,7 +534,7 @@ export const ROLE_FEATURES = {
     'lifefile_integration',
   ],
 
-  INFLUENCER: [
+  AFFILIATE: [
     // Limited dashboard
     'dashboard_analytics',
 
@@ -591,7 +591,6 @@ export type UserRole =
   | 'provider'
   | 'staff'
   | 'patient'
-  | 'influencer'
   | 'support'
   | 'affiliate'
   | 'sales_rep';
@@ -606,7 +605,7 @@ const ROLE_KEY_MAP: Record<UserRole, RoleKey> = {
   provider: 'PROVIDER',
   staff: 'STAFF',
   patient: 'PATIENT',
-  influencer: 'INFLUENCER',
+  affiliate: 'AFFILIATE',
   support: 'SUPPORT',
   affiliate: 'AFFILIATE',
   sales_rep: 'SALES_REP',

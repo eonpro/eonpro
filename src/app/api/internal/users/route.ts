@@ -21,7 +21,7 @@ import { UserRole, UserStatus } from '@prisma/client';
 async function getHandler(request: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search') || '';
+    const search = (searchParams.get('search') || '').trim();
     const excludeSelf = searchParams.get('excludeSelf') !== 'false';
 
     logger.api('GET', '/api/internal/users', {

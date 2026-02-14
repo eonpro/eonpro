@@ -18,10 +18,9 @@ interface User {
   id: number;
   email: string;
   name: string;
-  role: 'admin' | 'provider' | 'patient' | 'influencer';
+  role: 'admin' | 'provider' | 'patient' | 'affiliate';
   providerId?: number;
   patientId?: number;
-  influencerId?: number;
   permissions?: string[];
 }
 
@@ -53,7 +52,7 @@ const ROUTE_PERMISSIONS = {
   '/admin': ['admin'],
   '/providers': ['admin', 'provider'],
   '/patients': ['admin', 'provider'],
-  '/influencer': ['admin', 'influencer'],
+  '/affiliate': ['admin', 'affiliate'],
   '/billing': ['admin'],
   '/soap-notes': ['admin', 'provider'],
   '/patient-portal': ['patient', 'admin', 'provider'],
@@ -86,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cookies['auth-token'] ||
       cookies['admin-token'] ||
       cookies['provider-token'] ||
-      cookies['influencer-token'] ||
+      cookies['affiliate-token'] ||
       cookies['patient-token'] ||
       // Legacy: fall back to localStorage during migration (will be removed)
       localStorage.getItem('access_token') ||
@@ -119,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = 'admin-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = 'provider-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'influencer-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'affiliate-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = 'patient-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   }, []);
 
@@ -159,7 +158,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: data.user.role as User['role'],
         providerId: data.user.providerId,
         patientId: data.user.patientId,
-        influencerId: data.user.influencerId,
         permissions: data.user.permissions,
       };
     } catch (error: unknown) {
@@ -206,8 +204,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             case 'provider':
               router.push('/provider');
               break;
-            case 'influencer':
-              router.push('/influencer/dashboard');
+            case 'affiliate':
+              router.push('/affiliate');
               break;
             case 'patient':
               router.push(PATIENT_PORTAL_PATH);

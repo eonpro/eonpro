@@ -37,7 +37,6 @@ export interface AuthUser {
   sessionId?: string;
   providerId?: number;
   patientId?: number;
-  influencerId?: number;
   affiliateId?: number;
   permissions?: string[];
   tokenVersion?: number;
@@ -49,7 +48,6 @@ export type UserRole =
   | 'super_admin'
   | 'admin'
   | 'provider'
-  | 'influencer'
   | 'affiliate'
   | 'patient'
   | 'staff'
@@ -182,7 +180,6 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
       sessionId: payload.sessionId as string | undefined,
       providerId: payload.providerId as number | undefined,
       patientId: payload.patientId as number | undefined,
-      influencerId: payload.influencerId as number | undefined,
       affiliateId: payload.affiliateId as number | undefined,
       permissions: payload.permissions as string[] | undefined,
       tokenVersion: tokenVersion,
@@ -249,7 +246,6 @@ function validateTokenClaims(payload: JWTPayload): string | null {
     'super_admin',
     'admin',
     'provider',
-    'influencer',
     'affiliate',
     'patient',
     'staff',
@@ -282,7 +278,6 @@ function extractToken(req: NextRequest): string | null {
   // Note: Order matters! More specific cookies should be checked first
   const cookieTokenNames = [
     'affiliate_session', // Affiliate portal - check first for affiliate routes
-    'influencer-token', // Legacy influencer portal
     'affiliate-token',
     'auth-token',
     'super_admin-token',
@@ -596,9 +591,14 @@ export function withAuth<T = unknown>(
           ? { ...user, clinicId: effectiveClinicId }
           : user;
 
-      // Execute handler within clinic context (thread-safe using AsyncLocalStorage)
+      // Execute handler within clinic + request context (thread-safe using AsyncLocalStorage)
+      // runWithRequestContext ensures getRequestId() works in all service functions
       const response = await runWithClinicContext(effectiveClinicId, async () => {
-        return handler(modifiedReq, userForHandler, context);
+        const { runWithRequestContext } = await import('@/lib/observability/request-context');
+        return runWithRequestContext(
+          { requestId, clinicId: effectiveClinicId ?? undefined, userId: user.id, route: new URL(req.url).pathname },
+          () => handler(modifiedReq, userForHandler, context)
+        );
       });
 
       // Clear legacy clinic context
@@ -888,23 +888,13 @@ export function withSupportAuth(
 }
 
 /**
- * Middleware for influencer routes
- */
-export function withInfluencerAuth(
-  handler: (req: NextRequest, user: AuthUser) => Promise<Response>
-): (req: NextRequest) => Promise<Response> {
-  return withAuth(handler, { roles: ['super_admin', 'admin', 'influencer'] });
-}
-
-/**
  * Middleware for affiliate portal routes
  * HIPAA-COMPLIANT: Affiliates can only access their own aggregated data
- * Note: Also allows 'influencer' role for legacy Influencer table users
  */
 export function withAffiliateAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
 ): (req: NextRequest) => Promise<Response> {
-  return withAuth(handler, { roles: ['super_admin', 'admin', 'affiliate', 'influencer'] });
+  return withAuth(handler, { roles: ['super_admin', 'admin', 'affiliate'] });
 }
 
 /**
@@ -952,7 +942,6 @@ export async function verifyAuth(req: NextRequest): Promise<{
   if (!token) {
     const cookieTokenNames = [
       'affiliate_session', // Affiliate portal - check first for affiliate routes
-      'influencer-token', // Legacy influencer portal
       'affiliate-token',
       'auth-token',
       'super_admin-token',
@@ -990,7 +979,6 @@ export async function verifyAuth(req: NextRequest): Promise<{
       sessionId: payload.sessionId as string | undefined,
       providerId: payload.providerId as number | undefined,
       patientId: payload.patientId as number | undefined,
-      influencerId: payload.influencerId as number | undefined,
       affiliateId: payload.affiliateId as number | undefined,
       permissions: payload.permissions as string[] | undefined,
       iat: payload.iat,

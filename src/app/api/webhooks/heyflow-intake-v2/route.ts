@@ -7,8 +7,7 @@ import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logWebhookAttempt } from '@/lib/webhookLogger';
-import { trackReferral } from '@/services/influencerService';
-import { attributeFromIntake } from '@/services/affiliate/attributionService';
+import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
@@ -271,16 +270,6 @@ export async function POST(req: NextRequest) {
       const promoCode = extractPromoCode(payload);
       if (promoCode) {
         logger.debug(`[HEYFLOW V2] Found promo code: ${promoCode}`);
-        // Track in legacy system (Influencer/ReferralTracking)
-        try {
-          await trackReferral(patient.id, promoCode);
-          logger.debug(`[HEYFLOW V2] Tracked referral in legacy system for code: ${promoCode}`);
-        } catch (trackError: any) {
-          logger.warn(
-            `[HEYFLOW V2] Failed to track referral in legacy system: ${trackError.message}`
-          );
-        }
-        // Track in modern system (Affiliate/AffiliateTouch)
         try {
           // Get clinic ID from patient
           const patientRecord = await prisma.patient.findUnique({
@@ -295,11 +284,16 @@ export async function POST(req: NextRequest) {
               'heyflow-v2'
             );
             if (result) {
-              logger.debug(`[HEYFLOW V2] Tracked attribution in modern system: ${result.refCode}`);
+              logger.debug(`[HEYFLOW V2] Affiliate attribution created: ${result.refCode}`);
+            } else {
+              const tagged = await tagPatientWithReferralCodeOnly(patient.id, promoCode, patientRecord.clinicId);
+              if (tagged) {
+                logger.debug(`[HEYFLOW V2] Profile tagged with referral code: ${promoCode}`);
+              }
             }
           }
-        } catch (modernError: any) {
-          logger.warn(`[HEYFLOW V2] Failed to track in modern system: ${modernError.message}`);
+        } catch (trackError: any) {
+          logger.warn(`[HEYFLOW V2] Affiliate tracking failed: ${trackError.message}`);
         }
       }
 

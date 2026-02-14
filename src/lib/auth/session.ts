@@ -16,10 +16,9 @@ export interface UserSession {
   id: number;
   email: string;
   name: string;
-  role: 'admin' | 'provider' | 'patient' | 'influencer' | 'super_admin' | 'staff' | 'support';
+  role: 'admin' | 'provider' | 'patient' | 'affiliate' | 'super_admin' | 'staff' | 'support';
   providerId?: number;
   patientId?: number;
-  influencerId?: number;
   clinicId?: number;
   permissions?: string[];
   sessionId: string;
@@ -62,7 +61,6 @@ export async function verifyToken(token: string): Promise<UserSession | null> {
       role: payload.role as UserSession['role'],
       providerId: payload.providerId as number | undefined,
       patientId: payload.patientId as number | undefined,
-      influencerId: payload.influencerId as number | undefined,
       clinicId: payload.clinicId as number | undefined,
       permissions: payload.permissions as string[] | undefined,
       sessionId: (payload.sessionId as string) || generateSessionId(),
@@ -91,7 +89,7 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
       'super_admin-token',
       'admin-token',
       'provider-token',
-      'influencer-token',
+      'affiliate-token',
       'patient-token',
       'staff-token',
       'support-token',

@@ -244,13 +244,15 @@ export default function MedicationSelector({
 
     // Filter by search
     if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (m) =>
-          m.name.toLowerCase().includes(search) ||
-          m.displayName.toLowerCase().includes(search) ||
-          m.strength.toLowerCase().includes(search)
-      );
+      const search = searchTerm.toLowerCase().trim();
+      if (search) {
+        filtered = filtered.filter(
+          (m) =>
+            m.name.toLowerCase().includes(search) ||
+            m.displayName.toLowerCase().includes(search) ||
+            m.strength.toLowerCase().includes(search)
+        );
+      }
     }
 
     return filtered;

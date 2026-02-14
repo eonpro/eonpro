@@ -9,7 +9,6 @@ import ProviderLayout from './ProviderLayout';
 import StaffLayout from './StaffLayout';
 import SupportLayout from './SupportLayout';
 import PatientLayout from './PatientLayout';
-import InfluencerLayout from './InfluencerLayout';
 import { logger } from '@/lib/logger';
 
 interface RoleBasedLayoutProps {
@@ -43,7 +42,6 @@ export default function RoleBasedLayout({ children, userRole, userData }: RoleBa
       staff: [/^\/staff/, /^\/support/],
       support: [/^\/support/],
       patient: [/^\/patient-portal/, /^\/appointments/],
-      influencer: [/^\/influencer/, /^\/referrals/],
     };
 
     const allowedPatterns = rolePathPatterns[normalizedRole] || [];
@@ -83,8 +81,6 @@ export default function RoleBasedLayout({ children, userRole, userData }: RoleBa
         return <SupportLayout userData={userData}>{children}</SupportLayout>;
       case 'patient':
         return <PatientLayout userData={userData}>{children}</PatientLayout>;
-      case 'influencer':
-        return <InfluencerLayout userData={userData}>{children}</InfluencerLayout>;
       default:
         return <PatientLayout userData={userData}>{children}</PatientLayout>;
     }
