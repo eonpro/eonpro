@@ -4,15 +4,29 @@
  * Server component that provides:
  * 1. Dynamic OG metadata with the affiliate's name for social sharing
  * 2. Isolated layout (no dashboard sidebar/nav) for public landing pages
+ * 3. OT Men's brand theme color and viewport settings
  */
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { prisma } from '@/lib/db';
 
 interface Props {
   children: React.ReactNode;
   params: Promise<{ code: string }>;
 }
+
+/** OT Men's brand warm cream background */
+const OT_THEME_COLOR = '#F5F0EB';
+
+/**
+ * Viewport configuration for the affiliate landing pages.
+ * Sets the theme-color to OT Men's warm cream for browser chrome.
+ */
+export const viewport: Viewport = {
+  themeColor: OT_THEME_COLOR,
+  width: 'device-width',
+  initialScale: 1,
+};
 
 /**
  * Generate dynamic metadata for SEO and social sharing.

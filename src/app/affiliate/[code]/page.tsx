@@ -1,17 +1,22 @@
 'use client';
 
 /**
- * Affiliate Landing Page
+ * Affiliate Landing Page — OT Men's Brand Design
  *
  * Dynamic, personalized landing page for each affiliate at /affiliate/[code].
- * Similar to Function Health's referral pages with OT Men's branding.
+ * Matches the warm, premium, minimalist aesthetic of otmens.com:
+ * - Warm cream background (#F5F0EB)
+ * - Clean white cards with subtle shadows
+ * - Warm gold/amber accents
+ * - Dark CTA buttons
+ * - OT brand logo and typography
  *
  * Features:
  * - Auto-tracks affiliate visits (click/link use)
  * - Personalized with affiliate's name
  * - Treatment CTAs link to intake flows with ?ref=CODE
- * - SEO-friendly with OG metadata
- * - Mobile-optimized design
+ * - SEO-friendly with OG metadata (via layout.tsx)
+ * - Mobile-optimized responsive design
  * - Graceful fallback for invalid codes
  */
 
@@ -37,47 +42,71 @@ interface LandingData {
 }
 
 // ============================================================================
+// Brand Colors — OT Men's Health Palette
+// ============================================================================
+
+const BRAND = {
+  cream: '#F5F0EB',
+  creamDark: '#EDE7E0',
+  white: '#FFFFFF',
+  cardHover: '#FAF8F5',
+  text: '#1A1A1A',
+  textSecondary: '#6B6560',
+  textMuted: '#9A948E',
+  accent: '#C9A96E',
+  accentDark: '#A68B55',
+  border: '#E8E2DB',
+  starGold: '#E8B84B',
+  tagBg: '#F0EBE3',
+} as const;
+
+// ============================================================================
 // Treatment Configuration
 // ============================================================================
 
 const TREATMENTS = [
   {
     id: 'trt',
-    title: 'Boost Testosterone',
+    label: 'Boost',
+    keyword: 'Testosterone',
     description: 'Reclaim your energy, strength, and drive with physician-guided TRT protocols.',
-    icon: 'lightning',
+    accentColor: '#C9A96E',
     tag: 'Most Popular',
     path: '/trt',
   },
   {
     id: 'weightloss',
-    title: 'Lose Weight',
+    label: 'Lose',
+    keyword: 'Weight',
     description: 'GLP-1 and GIP therapies that deliver real, sustainable results.',
-    icon: 'scale',
+    accentColor: '#D4845B',
     tag: 'Trending',
     path: '/weightloss',
   },
   {
     id: 'bettersex',
-    title: 'Better Sex',
+    label: 'Better',
+    keyword: 'Sex',
     description: 'Proven treatments to restore confidence and performance.',
-    icon: 'heart',
+    accentColor: '#C47264',
     tag: null,
     path: '/bettersex',
   },
   {
     id: 'optimize',
-    title: 'Peptide Therapy',
+    label: 'Peptide',
+    keyword: 'Therapies',
     description: 'Advanced peptide protocols for recovery, longevity, and optimization.',
-    icon: 'beaker',
+    accentColor: '#8B9A6B',
     tag: 'Advanced',
     path: '/optimize',
   },
   {
     id: 'baseline',
-    title: 'Blood Panels',
+    label: 'Blood',
+    keyword: 'Panels',
     description: "You can't optimize what you don't measure. Know your levels.",
-    icon: 'chart',
+    accentColor: '#A0785A',
     tag: null,
     path: '/baseline',
   },
@@ -101,46 +130,23 @@ const STEPS = [
   },
 ];
 
-// ============================================================================
-// Icons
-// ============================================================================
-
-function TreatmentIcon({ name }: { name: string }) {
-  switch (name) {
-    case 'lightning':
-      return (
-        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-        </svg>
-      );
-    case 'scale':
-      return (
-        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L18.75 4.971zm-16.5.52c.99-.203 1.99-.377 3-.52m0 0l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.031.352 5.988 5.988 0 01-2.031-.352c-.483-.174-.711-.703-.59-1.202L5.25 4.971z" />
-        </svg>
-      );
-    case 'heart':
-      return (
-        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-        </svg>
-      );
-    case 'beaker':
-      return (
-        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
-        </svg>
-      );
-    case 'chart':
-      return (
-        <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
+const TESTIMONIALS = [
+  {
+    quote: 'Within the first month I felt stronger, more motivated, and more like myself again. The progress has been steady and real.',
+    name: 'John M.',
+    age: '26',
+  },
+  {
+    quote: 'Better sleep, better recovery, and consistent improvement week after week. OT Men\'s Health helped me dial in the right protocol.',
+    name: 'Kyle R.',
+    age: '32',
+  },
+  {
+    quote: 'For the first time in years, I feel balanced and in control of my health. My drive, mood, and performance improved.',
+    name: 'Lucas P.',
+    age: '36',
+  },
+];
 
 // ============================================================================
 // URL Builder
@@ -150,6 +156,82 @@ const BASE_INTAKE_URL = 'https://ot.eonpro.io';
 
 function buildCtaUrl(path: string, refCode: string): string {
   return `${BASE_INTAKE_URL}${path}?ref=${encodeURIComponent(refCode)}`;
+}
+
+// ============================================================================
+// Brand Logo Component
+// ============================================================================
+
+function OTLogo({ logoUrl, clinicName }: { logoUrl?: string | null; clinicName?: string }) {
+  if (logoUrl) {
+    return (
+      <Image
+        src={logoUrl}
+        alt={clinicName || "OT Men's Health"}
+        width={160}
+        height={44}
+        className="h-9 w-auto object-contain"
+        priority
+      />
+    );
+  }
+
+  // Inline text logo matching otmens.com style
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span
+        className="text-2xl font-black tracking-tight"
+        style={{ color: BRAND.text }}
+      >
+        OT
+      </span>
+      <span
+        className="text-[11px] font-semibold uppercase tracking-[0.15em]"
+        style={{ color: BRAND.textSecondary }}
+      >
+        Men&apos;s Health
+      </span>
+    </div>
+  );
+}
+
+// ============================================================================
+// Star Rating Component
+// ============================================================================
+
+function StarRating({ count = 5 }: { count?: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[...Array(count)].map((_, i) => (
+        <svg
+          key={i}
+          className="h-4 w-4"
+          fill={BRAND.starGold}
+          viewBox="0 0 20 20"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Arrow Icon
+// ============================================================================
+
+function ArrowRight({ color = BRAND.textMuted }: { color?: string }) {
+  return (
+    <svg
+      className="h-5 w-5 transition-transform group-hover:translate-x-1"
+      fill="none"
+      stroke={color}
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+    </svg>
+  );
 }
 
 // ============================================================================
@@ -198,13 +280,19 @@ function AffiliateLandingContent() {
     }
   }, [data, tracked, trackClick]);
 
-  // Loading state
+  // ---- Loading State ----
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: BRAND.cream }}
+      >
         <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-          <p className="text-sm text-slate-500">Loading...</p>
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: BRAND.accent, borderTopColor: 'transparent' }}
+          />
+          <p className="text-sm" style={{ color: BRAND.textMuted }}>Loading...</p>
         </div>
       </div>
     );
@@ -214,32 +302,21 @@ function AffiliateLandingContent() {
   const refCode = data?.refCode || code;
   const isValid = data?.valid === true;
   const logoUrl = data?.logoUrl;
+  const clinicName = data?.clinicName;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen font-sofia" style={{ backgroundColor: BRAND.cream, color: BRAND.text }}>
+
       {/* ================================================================ */}
       {/* Header */}
       {/* ================================================================ */}
-      <header className="border-b border-white/5">
+      <header style={{ borderBottom: `1px solid ${BRAND.border}` }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                alt={data?.clinicName || 'OT Men\'s Health'}
-                width={140}
-                height={40}
-                className="h-8 w-auto object-contain"
-              />
-            ) : (
-              <span className="text-xl font-bold tracking-tight">
-                OT <span className="text-emerald-400">Men&apos;s</span>
-              </span>
-            )}
-          </div>
+          <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
           <a
             href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
-            className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white transition-all hover:bg-emerald-400"
+            className="rounded-full px-6 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+            style={{ backgroundColor: BRAND.text, color: BRAND.white }}
           >
             Get Started
           </a>
@@ -250,132 +327,134 @@ function AffiliateLandingContent() {
       {/* Hero Section */}
       {/* ================================================================ */}
       <section className="relative overflow-hidden">
-        {/* Gradient orbs */}
-        <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-emerald-600/10 blur-3xl" />
-        <div className="pointer-events-none absolute -top-20 right-0 h-[300px] w-[400px] rounded-full bg-cyan-600/5 blur-3xl" />
+        <div className="relative mx-auto max-w-4xl px-6 pb-16 pt-16 text-center md:pb-20 md:pt-24">
 
-        <div className="relative mx-auto max-w-4xl px-6 pb-16 pt-20 text-center md:pb-24 md:pt-28">
           {/* Personalization badge */}
           {isValid && affiliateName && (
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-5 py-2.5">
-              <svg className="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+            <div
+              className="mb-6 inline-flex items-center gap-2 rounded-full px-5 py-2"
+              style={{ backgroundColor: BRAND.tagBg }}
+            >
+              <svg className="h-4 w-4" fill={BRAND.accent} viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                   clipRule="evenodd"
                 />
               </svg>
-              <span className="text-sm font-medium text-emerald-300">
+              <span className="text-sm font-medium" style={{ color: BRAND.textSecondary }}>
                 Recommended by {affiliateName}
               </span>
             </div>
           )}
 
           {/* Headline */}
-          <h1 className="mb-6 text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl lg:text-7xl">
+          <h1 className="mb-5 text-4xl font-bold leading-[1.1] tracking-tight md:text-5xl lg:text-6xl">
             {isValid && affiliateName ? (
               <>
                 {affiliateName}&apos;s
                 <br />
-                <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-cyan-400 bg-clip-text text-transparent">
-                  exclusive offer
-                </span>
+                <span style={{ color: BRAND.accent }}>exclusive offer</span>
               </>
             ) : (
               <>
-                Optimized health
-                <br />
-                <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-cyan-400 bg-clip-text text-transparent">
-                  for today&apos;s men
-                </span>
+                for today&apos;s{' '}
+                <span style={{ color: BRAND.accent }}>men</span>
               </>
             )}
           </h1>
 
           {/* Subheadline */}
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-400 md:text-xl">
+          <p
+            className="mx-auto mb-8 max-w-xl text-base leading-relaxed md:text-lg"
+            style={{ color: BRAND.textSecondary }}
+          >
             Personalized treatments from board-certified providers.
             Consultations, prescriptions, and ongoing support &mdash; all from home.
           </p>
 
-          {/* CTA */}
-          <div className="mb-14 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          {/* Trust indicators */}
+          <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flex items-center gap-3">
+              {/* Google "G" */}
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <StarRating count={5} />
+              <span className="text-sm font-semibold" style={{ color: BRAND.text }}>
+                4.9/5
+              </span>
+            </div>
+            <p className="text-sm font-medium" style={{ color: BRAND.textMuted }}>
+              Trusted by 10,000+ men nationwide
+            </p>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
               href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
-              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-8 py-4 text-center font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:shadow-emerald-500/40 sm:w-auto"
+              className="w-full rounded-full px-8 py-3.5 text-center text-sm font-semibold transition-all hover:opacity-90 sm:w-auto"
+              style={{ backgroundColor: BRAND.text, color: BRAND.white }}
             >
               Start Your Free Consultation
             </a>
             <a
               href="#treatments"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-8 py-4 text-center font-semibold text-white transition-all hover:bg-white/10 sm:w-auto"
+              className="w-full rounded-full border px-8 py-3.5 text-center text-sm font-semibold transition-all hover:bg-white/60 sm:w-auto"
+              style={{ borderColor: BRAND.border, color: BRAND.text }}
             >
               Browse Treatments
             </a>
-          </div>
-
-          {/* Trust bar */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-500">
-            <span className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Board Certified Providers
-            </span>
-            <span className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              HIPAA Compliant
-            </span>
-            <span className="flex items-center gap-2">
-              <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              10,000+ Members
-            </span>
           </div>
         </div>
       </section>
 
       {/* ================================================================ */}
-      {/* Treatment Cards */}
+      {/* Treatment Cards — otmens.com style grid */}
       {/* ================================================================ */}
-      <section id="treatments" className="border-t border-white/5 bg-[#0d0d14]">
-        <div className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-          <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              Choose your <span className="text-emerald-400">treatment</span>
-            </h2>
-            <p className="mx-auto max-w-xl text-slate-400">
-              Select the treatment that fits your goals. Each starts with a free provider consultation.
-            </p>
+      <section id="treatments" className="pb-16 pt-4 md:pb-24">
+        <div className="mx-auto max-w-5xl px-6">
+
+          {/* Top row: 3 cards */}
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {TREATMENTS.slice(0, 3).map((t) => (
+              <TreatmentCard key={t.id} treatment={t} refCode={refCode} isValid={isValid} />
+            ))}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {TREATMENTS.map((treatment) => (
-              <a
-                key={treatment.id}
-                href={isValid ? buildCtaUrl(treatment.path, refCode) : `${BASE_INTAKE_URL}${treatment.path}`}
-                className="group relative flex flex-col rounded-2xl border border-white/5 bg-white/[0.02] p-6 transition-all hover:border-emerald-500/30 hover:bg-white/[0.04]"
+          {/* Bottom row: 2 cards, centered */}
+          <div className="mx-auto grid max-w-[calc(66.666%+0.5rem)] grid-cols-1 gap-4 sm:grid-cols-2">
+            {TREATMENTS.slice(3).map((t) => (
+              <TreatmentCard key={t.id} treatment={t} refCode={refCode} isValid={isValid} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* "As Seen On" Press Bar */}
+      {/* ================================================================ */}
+      <section className="pb-16" style={{ borderTop: `1px solid ${BRAND.border}` }}>
+        <div className="mx-auto max-w-5xl px-6 pt-12">
+          <p
+            className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ color: BRAND.textMuted }}
+          >
+            Treatments as seen on
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+            {['Business Insider', 'Men\'s Health', 'GQ', 'Fox News', 'iHeart Health'].map((name) => (
+              <span
+                key={name}
+                className="text-sm font-bold tracking-wide"
+                style={{ color: BRAND.textMuted, opacity: 0.6 }}
               >
-                {treatment.tag && (
-                  <span className="absolute right-4 top-4 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-                    {treatment.tag}
-                  </span>
-                )}
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 transition-colors group-hover:bg-emerald-500/20">
-                  <TreatmentIcon name={treatment.icon} />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold">{treatment.title}</h3>
-                <p className="mb-4 flex-1 text-sm leading-relaxed text-slate-400">{treatment.description}</p>
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-400 transition-all group-hover:gap-2">
-                  Get Started
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                  </svg>
-                </span>
-              </a>
+                {name}
+              </span>
             ))}
           </div>
         </div>
@@ -384,23 +463,34 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* How It Works */}
       {/* ================================================================ */}
-      <section className="border-t border-white/5">
-        <div className="mx-auto max-w-5xl px-6 py-20 md:py-28">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              How it <span className="text-emerald-400">works</span>
+      <section style={{ borderTop: `1px solid ${BRAND.border}` }}>
+        <div className="mx-auto max-w-5xl px-6 py-16 md:py-24">
+          <div className="mb-14 text-center">
+            <h2 className="mb-3 text-3xl font-bold tracking-tight md:text-4xl">
+              How it <span style={{ color: BRAND.accent }}>works</span>
             </h2>
-            <p className="text-slate-400">Three simple steps to a better you.</p>
+            <p style={{ color: BRAND.textSecondary }}>
+              Three simple steps to a better you.
+            </p>
           </div>
 
-          <div className="grid gap-12 md:grid-cols-3 md:gap-8">
+          <div className="grid gap-8 md:grid-cols-3 md:gap-6">
             {STEPS.map((step) => (
-              <div key={step.number} className="text-center md:text-left">
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 text-lg font-bold text-emerald-400">
+              <div
+                key={step.number}
+                className="rounded-2xl p-8 text-center"
+                style={{ backgroundColor: BRAND.white }}
+              >
+                <div
+                  className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold"
+                  style={{ backgroundColor: BRAND.tagBg, color: BRAND.accent }}
+                >
                   {step.number}
                 </div>
                 <h3 className="mb-2 text-lg font-semibold">{step.title}</h3>
-                <p className="text-sm leading-relaxed text-slate-400">{step.description}</p>
+                <p className="text-sm leading-relaxed" style={{ color: BRAND.textSecondary }}>
+                  {step.description}
+                </p>
               </div>
             ))}
           </div>
@@ -408,50 +498,38 @@ function AffiliateLandingContent() {
       </section>
 
       {/* ================================================================ */}
-      {/* Social Proof */}
+      {/* Testimonials */}
       {/* ================================================================ */}
-      <section className="border-t border-white/5 bg-[#0d0d14]">
-        <div className="mx-auto max-w-5xl px-6 py-20 md:py-28">
+      <section style={{ borderTop: `1px solid ${BRAND.border}` }}>
+        <div className="mx-auto max-w-5xl px-6 py-16 md:py-24">
           <div className="mb-12 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              Trusted by <span className="text-emerald-400">thousands</span>
+            <p className="mb-3 text-sm font-semibold" style={{ color: BRAND.accent }}>
+              96% of members love their results
+            </p>
+            <h2 className="mb-3 text-3xl font-bold tracking-tight md:text-4xl">
+              Trusted by <span style={{ color: BRAND.accent }}>thousands</span>
             </h2>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                quote: 'Within the first month I felt stronger, more motivated, and more like myself again.',
-                name: 'John M.',
-                age: '26',
-              },
-              {
-                quote: 'Better sleep, better recovery, and consistent improvement week after week.',
-                name: 'Kyle R.',
-                age: '32',
-              },
-              {
-                quote: 'For the first time in years, I feel balanced and in control of my health.',
-                name: 'Lucas P.',
-                age: '36',
-              },
-            ].map((testimonial, i) => (
+          <div className="grid gap-5 md:grid-cols-3">
+            {TESTIMONIALS.map((t, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-white/5 bg-white/[0.02] p-6"
+                className="rounded-2xl p-7"
+                style={{ backgroundColor: BRAND.white }}
               >
-                <div className="mb-4 flex gap-1">
-                  {[...Array(5)].map((_, j) => (
-                    <svg key={j} className="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
+                <div className="mb-4">
+                  <StarRating count={5} />
                 </div>
-                <p className="mb-4 text-sm leading-relaxed text-slate-300">
-                  &ldquo;{testimonial.quote}&rdquo;
+                <p
+                  className="mb-5 text-sm leading-relaxed"
+                  style={{ color: BRAND.textSecondary }}
+                >
+                  &ldquo;{t.quote}&rdquo;
                 </p>
-                <p className="text-sm font-medium text-slate-500">
-                  {testimonial.name} &middot; {testimonial.age}
+                <p className="text-sm font-semibold">
+                  {t.name}{' '}
+                  <span style={{ color: BRAND.textMuted }}>&middot; {t.age}</span>
                 </p>
               </div>
             ))}
@@ -460,18 +538,22 @@ function AffiliateLandingContent() {
       </section>
 
       {/* ================================================================ */}
-      {/* Backed By Section */}
+      {/* Providers / Trust Section */}
       {/* ================================================================ */}
-      <section className="border-t border-white/5">
-        <div className="mx-auto max-w-5xl px-6 py-20 md:py-28">
+      <section style={{ borderTop: `1px solid ${BRAND.border}` }}>
+        <div className="mx-auto max-w-5xl px-6 py-16 md:py-24">
           <div className="grid items-center gap-12 md:grid-cols-2">
+            {/* Left: Copy */}
             <div>
-              <h2 className="mb-6 text-3xl font-bold md:text-4xl">
-                Backed by <span className="text-emerald-400">world-class</span> providers
+              <h2 className="mb-5 text-3xl font-bold tracking-tight md:text-4xl">
+                Backed by{' '}
+                <span style={{ color: BRAND.accent }}>world-class</span>{' '}
+                providers
               </h2>
-              <p className="mb-8 text-slate-400 leading-relaxed">
-                Overtime&apos;s board-certified experts deliver high-quality healthcare at scale.
-                Their combined clinical expertise guides innovative treatment plans.
+              <p className="mb-8 leading-relaxed" style={{ color: BRAND.textSecondary }}>
+                Overtime&apos;s board-certified experts deliver high-quality
+                healthcare at scale. Their combined clinical expertise guides
+                innovative treatment plans and care delivery.
               </p>
               <div className="space-y-4">
                 {[
@@ -480,22 +562,41 @@ function AffiliateLandingContent() {
                   'Thousands of patients treated nationwide',
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    <svg
+                      className="mt-0.5 h-5 w-5 flex-shrink-0"
+                      fill={BRAND.accent}
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
-                    <span className="text-sm text-slate-300">{item}</span>
+                    <span className="text-sm" style={{ color: BRAND.textSecondary }}>
+                      {item}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Right: Stats card */}
             <div className="flex justify-center">
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center">
-                <div className="mb-3 text-5xl font-bold text-emerald-400">96%</div>
-                <p className="text-sm text-slate-400">of members love their results</p>
-                <div className="mt-6 border-t border-white/5 pt-6">
-                  <div className="text-3xl font-bold">10,000+</div>
-                  <p className="text-sm text-slate-400">optimized members and counting</p>
+              <div className="w-full max-w-xs rounded-2xl p-10 text-center" style={{ backgroundColor: BRAND.white }}>
+                <div className="mb-2 text-5xl font-bold" style={{ color: BRAND.accent }}>
+                  96%
                 </div>
+                <p className="text-sm" style={{ color: BRAND.textSecondary }}>
+                  of members love their results
+                </p>
+                <div className="my-6" style={{ borderTop: `1px solid ${BRAND.border}` }} />
+                <div className="text-3xl font-bold" style={{ color: BRAND.text }}>
+                  10,000+
+                </div>
+                <p className="text-sm" style={{ color: BRAND.textSecondary }}>
+                  optimized members and counting
+                </p>
               </div>
             </div>
           </div>
@@ -505,19 +606,21 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Bottom CTA */}
       {/* ================================================================ */}
-      <section className="border-t border-white/5 bg-gradient-to-b from-[#0d0d14] to-[#0a0a0f]">
-        <div className="mx-auto max-w-3xl px-6 py-20 text-center md:py-28">
-          <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-            Ready to <span className="text-emerald-400">get started</span>?
+      <section style={{ borderTop: `1px solid ${BRAND.border}`, backgroundColor: BRAND.creamDark }}>
+        <div className="mx-auto max-w-3xl px-6 py-16 text-center md:py-24">
+          <h2 className="mb-4 text-3xl font-bold tracking-tight md:text-4xl">
+            Ready to{' '}
+            <span style={{ color: BRAND.accent }}>get started</span>?
           </h2>
-          <p className="mb-8 text-slate-400">
+          <p className="mb-8" style={{ color: BRAND.textSecondary }}>
             {isValid && affiliateName
               ? `Join ${affiliateName}'s community. Start your free consultation today.`
               : 'Start your free consultation today.'}
           </p>
           <a
             href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
-            className="inline-block rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 px-10 py-4 font-semibold text-white shadow-lg shadow-emerald-500/20 transition-all hover:shadow-emerald-500/40"
+            className="inline-block rounded-full px-10 py-4 font-semibold transition-all hover:opacity-90"
+            style={{ backgroundColor: BRAND.text, color: BRAND.white }}
           >
             Start Your Free Consultation
           </a>
@@ -527,24 +630,82 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Footer */}
       {/* ================================================================ */}
-      <footer className="border-t border-white/5">
+      <footer style={{ borderTop: `1px solid ${BRAND.border}` }}>
         <div className="mx-auto max-w-6xl px-6 py-8">
-          <div className="flex flex-col items-center justify-between gap-4 text-center text-xs text-slate-600 sm:flex-row sm:text-left">
-            <p>
+          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+            <div className="flex items-center gap-4">
+              <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
               {isValid && (
-                <span className="mr-3 rounded bg-white/5 px-2 py-1 text-slate-500">
-                  Partner code: {refCode}
+                <span
+                  className="rounded-full px-3 py-1 text-xs font-medium"
+                  style={{ backgroundColor: BRAND.tagBg, color: BRAND.textMuted }}
+                >
+                  Partner: {refCode}
                 </span>
               )}
-              {data?.clinicName || 'OT Men\'s Health'}
+            </div>
+            <p className="text-xs" style={{ color: BRAND.textMuted }}>
+              &copy; OT Men&apos;s Health. All rights reserved. Powered by EONPro
             </p>
-            <p>
-              All treatments require a provider consultation. Results may vary.
-            </p>
+          </div>
+          <div
+            className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs sm:justify-start"
+            style={{ color: BRAND.textMuted }}
+          >
+            <span>All treatments require a provider consultation.</span>
+            <span>Results may vary.</span>
           </div>
         </div>
       </footer>
     </div>
+  );
+}
+
+// ============================================================================
+// Treatment Card Component
+// ============================================================================
+
+function TreatmentCard({
+  treatment,
+  refCode,
+  isValid,
+}: {
+  treatment: (typeof TREATMENTS)[number];
+  refCode: string;
+  isValid: boolean;
+}) {
+  return (
+    <a
+      href={isValid ? buildCtaUrl(treatment.path, refCode) : `${BASE_INTAKE_URL}${treatment.path}`}
+      className="group relative flex flex-col justify-between rounded-2xl p-6 transition-all duration-200 hover:shadow-md"
+      style={{ backgroundColor: BRAND.white, minHeight: '180px' }}
+    >
+      {/* Tag */}
+      {treatment.tag && (
+        <span
+          className="absolute right-4 top-4 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider"
+          style={{ backgroundColor: BRAND.tagBg, color: BRAND.textMuted }}
+        >
+          {treatment.tag}
+        </span>
+      )}
+
+      {/* Title */}
+      <div>
+        <h3 className="mb-2 text-xl font-bold leading-tight">
+          {treatment.label}{' '}
+          <span style={{ color: treatment.accentColor }}>{treatment.keyword}</span>
+        </h3>
+        <p className="text-sm leading-relaxed" style={{ color: BRAND.textSecondary }}>
+          {treatment.description}
+        </p>
+      </div>
+
+      {/* Arrow */}
+      <div className="mt-4 flex items-center justify-end">
+        <ArrowRight color={BRAND.textMuted} />
+      </div>
+    </a>
   );
 }
 
@@ -556,8 +717,14 @@ export default function AffiliateLandingPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0f]">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+        <div
+          className="flex min-h-screen items-center justify-center"
+          style={{ backgroundColor: BRAND.cream }}
+        >
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+            style={{ borderColor: BRAND.accent, borderTopColor: 'transparent' }}
+          />
         </div>
       }
     >
