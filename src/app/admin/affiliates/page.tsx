@@ -16,7 +16,20 @@ import {
   Check,
   BarChart3,
   Target,
+  ExternalLink,
+  Globe,
+  CheckCircle,
 } from 'lucide-react';
+
+// ============================================================================
+// Landing Page URL Builder
+// ============================================================================
+
+const LANDING_PAGE_BASE = 'https://ot.eonpro.io/affiliate';
+
+function buildLandingPageUrl(refCode: string): string {
+  return `${LANDING_PAGE_BASE}/${encodeURIComponent(refCode)}`;
+}
 
 interface Affiliate {
   id: number;
@@ -99,6 +112,10 @@ export default function AdminAffiliatesPage() {
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<{
+    displayName: string;
+    refCode: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -160,7 +177,22 @@ export default function AdminAffiliatesPage() {
         throw new Error(data.error || 'Failed to create affiliate');
       }
 
-      setShowCreateModal(false);
+      const result = await response.json();
+      const createdRefCode =
+        createForm.initialRefCode ||
+        result?.affiliate?.refCodes?.[0]?.refCode ||
+        '';
+
+      // Show success state with URL if ref code exists
+      if (createdRefCode) {
+        setCreateSuccess({
+          displayName: createForm.displayName,
+          refCode: createdRefCode,
+        });
+      } else {
+        setShowCreateModal(false);
+      }
+
       setCreateForm({
         email: '',
         password: '',
@@ -178,16 +210,23 @@ export default function AdminAffiliatesPage() {
     }
   };
 
-  const handleCopyCode = async (code: string) => {
-    const baseUrl = window.location.origin;
-    const link = `${baseUrl}?ref=${code}`;
+  const handleCopyUrl = async (code: string) => {
+    const link = buildLandingPageUrl(code);
 
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
-    } catch (e) {
-      console.error('Failed to copy');
+    } catch {
+      // Fallback: select text
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
     }
   };
 
@@ -352,25 +391,41 @@ export default function AdminAffiliatesPage() {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
+                  <div className="space-y-1.5">
                     {affiliate.refCodes.slice(0, 3).map((ref) => (
-                      <button
-                        key={ref.id}
-                        onClick={() => handleCopyCode(ref.refCode)}
-                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700 hover:bg-gray-200"
-                      >
-                        {ref.refCode}
-                        {copiedCode === ref.refCode ? (
-                          <Check className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </button>
+                      <div key={ref.id} className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleCopyUrl(ref.refCode)}
+                          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-700 hover:bg-gray-200"
+                          title={`Copy: ${buildLandingPageUrl(ref.refCode)}`}
+                        >
+                          {ref.refCode}
+                          {copiedCode === ref.refCode ? (
+                            <Check className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                        <a
+                          href={buildLandingPageUrl(ref.refCode)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-violet-600"
+                          title="Preview landing page"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
                     ))}
                     {affiliate.refCodes.length > 3 && (
                       <span className="text-xs text-gray-400">
                         +{affiliate.refCodes.length - 3} more
                       </span>
+                    )}
+                    {affiliate.refCodes.length > 0 && (
+                      <p className="truncate text-[10px] text-gray-400" style={{ maxWidth: '200px' }}>
+                        {buildLandingPageUrl(affiliate.refCodes[0].refCode)}
+                      </p>
                     )}
                   </div>
                 </td>

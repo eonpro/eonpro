@@ -22,6 +22,7 @@ import {
   CreditCard,
   Key,
   Building2,
+  ClipboardCheck,
 } from 'lucide-react';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 
@@ -30,6 +31,7 @@ const adminNavIconMap = {
   UserPlus,
   Users,
   Pill,
+  ClipboardCheck,
   ShoppingCart,
   Ticket,
   Store,

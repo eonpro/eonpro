@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Ticket,
   Gauge,
+  ClipboardCheck,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -117,6 +118,7 @@ const adminNavIconMap = {
   UserPlus,
   Users,
   Pill,
+  ClipboardCheck,
   ShoppingCart,
   Ticket,
   Store,

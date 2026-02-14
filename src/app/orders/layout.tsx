@@ -22,6 +22,7 @@ import {
   CreditCard,
   Key,
   Building2,
+  ClipboardCheck,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getStoredUserRole } from '@/lib/auth/stored-role';
@@ -39,6 +40,7 @@ const adminNavIconMap = {
   UserPlus,
   Users,
   Pill,
+  ClipboardCheck,
   ShoppingCart,
   Ticket,
   Store,
