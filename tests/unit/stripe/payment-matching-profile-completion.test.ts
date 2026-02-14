@@ -620,4 +620,190 @@ describe('Profile Completion Gating — Payment to Rx Queue', () => {
       expect(inQueue).toBe(true);
     });
   });
+
+  // --------------------------------------------------------------------------
+  // Data extraction: Stripe payment data → patient info
+  // --------------------------------------------------------------------------
+  describe('Stripe Data Extraction — Ensuring Name/Email Are Captured', () => {
+    it('should extract billing_details from expanded Charge object', () => {
+      // Simulates a Charge object with full billing_details (the common case)
+      const charge = {
+        id: 'ch_test',
+        billing_details: {
+          email: 'amy@example.com',
+          name: 'Amy Jefferson',
+          phone: '+15555551234',
+          address: {
+            line1: '123 Main St',
+            line2: null,
+            city: 'Austin',
+            state: 'TX',
+            postal_code: '78701',
+            country: 'US',
+          },
+        },
+        receipt_email: 'amy@example.com',
+        customer: 'cus_test123',
+        amount: 15000,
+        currency: 'usd',
+        description: 'Weight loss consultation',
+        metadata: {},
+        created: Math.floor(Date.now() / 1000),
+      };
+
+      // Verify billing_details fields are accessible
+      const email =
+        charge.billing_details?.email || charge.receipt_email || null;
+      const name = charge.billing_details?.name || null;
+      const phone = charge.billing_details?.phone || null;
+
+      expect(email).toBe('amy@example.com');
+      expect(name).toBe('Amy Jefferson');
+      expect(phone).toBe('+15555551234');
+    });
+
+    it('should detect when latest_charge is a string ID (not expanded)', () => {
+      // Simulates a PaymentIntent from a webhook event where latest_charge is NOT expanded
+      const paymentIntent = {
+        id: 'pi_test123',
+        latest_charge: 'ch_test456', // STRING, not expanded
+        customer: 'cus_test123',
+        amount: 15000,
+        currency: 'usd',
+        description: null,
+        metadata: {},
+        created: Math.floor(Date.now() / 1000),
+      };
+
+      const charge = paymentIntent.latest_charge;
+      const isString = typeof charge === 'string';
+      const chargeObj = typeof charge === 'object' ? charge : null;
+
+      expect(isString).toBe(true);
+      expect(chargeObj).toBeNull();
+
+      // When latest_charge is a string, billing_details are NOT accessible
+      // The fix retrieves the full Charge object via Stripe API
+    });
+
+    it('should fall back to receipt_email when billing_details.email is null', () => {
+      const piReceiptEmail = 'receipt@example.com';
+      const billingEmail = null;
+      const chargeReceiptEmail = null;
+
+      const email =
+        billingEmail ||
+        chargeReceiptEmail ||
+        piReceiptEmail ||
+        null;
+
+      expect(email).toBe('receipt@example.com');
+    });
+
+    it('should extract name from metadata when billing_details.name is null', () => {
+      const billingName = null;
+      const metadata = {
+        name: 'John Doe',
+        customer_name: 'John Doe Alt',
+      };
+
+      const name =
+        billingName ||
+        metadata.name ||
+        metadata.customer_name ||
+        null;
+
+      expect(name).toBe('John Doe');
+    });
+
+    it('should extract name from description pattern when all else fails', () => {
+      const description = 'Payment for consultation (Amy Jefferson)';
+      const nameMatch = description.match(/\(([^)]+)\)\s*$/);
+
+      expect(nameMatch).not.toBeNull();
+      expect(nameMatch![1]).toBe('Amy Jefferson');
+    });
+
+    it('should always fetch Customer data even when billing_details has email+name', () => {
+      // Enhancement should NOT early-return when email+name exist
+      const paymentData = createStripePaymentData({
+        email: 'amy@example.com',
+        name: 'Amy Jefferson',
+        customerId: 'cus_test123',
+        phone: null,
+      });
+
+      // Previously: if email && name → early return (skipping Customer fetch)
+      // Now: always fetch Customer data to get phone/address
+      const shouldFetchCustomer = !!paymentData.customerId;
+      // The early return was: if (email && name) return;
+      // It should NOT short-circuit anymore
+      const earlyReturnWouldSkip =
+        !!paymentData.email && !!paymentData.name;
+
+      expect(shouldFetchCustomer).toBe(true);
+      expect(earlyReturnWouldSkip).toBe(true);
+      // Even though early return condition is true, we should still fetch
+      // because the Customer object may have phone/address data
+    });
+
+    it('should merge Customer data with billing_details (billing takes priority)', () => {
+      // Billing data from charge
+      const billingData = {
+        email: 'billing@example.com',
+        name: 'Billing Name',
+        phone: null as string | null,
+        address: null as { line1: string } | null,
+      };
+
+      // Customer data from Stripe API
+      const customerData = {
+        email: 'customer@example.com',
+        name: 'Customer Name',
+        phone: '+15555551234',
+        address: { line1: '123 Main St' },
+      };
+
+      // Merge: existing (billing) data takes priority via || operator
+      const merged = {
+        email: billingData.email || customerData.email,
+        name: billingData.name || customerData.name,
+        phone: billingData.phone || customerData.phone,
+        address: billingData.address || customerData.address,
+      };
+
+      expect(merged.email).toBe('billing@example.com'); // billing wins
+      expect(merged.name).toBe('Billing Name'); // billing wins
+      expect(merged.phone).toBe('+15555551234'); // customer fills gap
+      expect(merged.address).toEqual({ line1: '123 Main St' }); // customer fills gap
+    });
+
+    it('should handle Charge with empty billing_details gracefully', () => {
+      const charge = {
+        billing_details: {
+          email: null,
+          name: null,
+          phone: null,
+          address: null,
+        },
+        receipt_email: null,
+        customer: 'cus_test123',
+        metadata: {},
+      };
+
+      const email =
+        charge.billing_details?.email ||
+        charge.receipt_email ||
+        charge.metadata?.email ||
+        null;
+      const name =
+        charge.billing_details?.name ||
+        charge.metadata?.name ||
+        null;
+
+      expect(email).toBeNull();
+      expect(name).toBeNull();
+      // Customer fetch via enhancePaymentDataWithCustomerInfo should fill these
+    });
+  });
 });

@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
 
       let paymentData;
       if (eventType.includes('payment_intent')) {
-        paymentData = extractPaymentDataFromPaymentIntent(eventData);
+        paymentData = await extractPaymentDataFromPaymentIntent(eventData);
       } else if (eventType.includes('charge')) {
         paymentData = extractPaymentDataFromCharge(eventData);
       } else if (eventType.includes('checkout')) {
@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
       const results: { id: string; success: boolean; error?: string }[] = [];
       for (const pi of toProcess) {
         try {
-          const paymentData = extractPaymentDataFromPaymentIntent(pi);
+          const paymentData = await extractPaymentDataFromPaymentIntent(pi);
           if (!paymentData.metadata?.clinicId) {
             paymentData.metadata = { ...paymentData.metadata, clinicId: String(clinicId) };
           }
@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
       const { processStripePayment, extractPaymentDataFromPaymentIntent } =
         await import('@/services/stripe/paymentMatchingService');
 
-      const paymentData = extractPaymentDataFromPaymentIntent(paymentIntent);
+      const paymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
       // Inject clinicId when missing (EonMeds/IntakeQ payments from Payment Links lack metadata)
       const fallbackClinicId =
         overrideClinicId ??

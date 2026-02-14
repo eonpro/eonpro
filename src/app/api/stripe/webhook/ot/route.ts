@@ -263,7 +263,7 @@ async function processOTWebhookEvent(
         }
 
         // Extract payment data and add OT clinic ID
-        const intentPaymentData = extractPaymentDataFromPaymentIntent(paymentIntent);
+        const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
         intentPaymentData.metadata = {
           ...intentPaymentData.metadata,
           clinicId: clinicId.toString(),

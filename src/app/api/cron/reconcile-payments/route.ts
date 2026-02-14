@@ -120,7 +120,7 @@ async function runReconcile(req: NextRequest) {
 
           for (const pi of missingForClinic) {
             try {
-              const paymentData = extractPaymentDataFromPaymentIntent(pi);
+              const paymentData = await extractPaymentDataFromPaymentIntent(pi);
               const result = await processStripePayment(
                 paymentData,
                 `cron_${pi.id}_${Date.now()}`,

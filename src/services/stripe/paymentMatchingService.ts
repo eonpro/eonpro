@@ -274,12 +274,9 @@ export async function enhancePaymentDataWithCustomerInfo(
     });
   }
 
-  // If we already have complete data, just check if description has better name
-  if (paymentData.email && paymentData.name) {
-    return enhanced;
-  }
-
-  // Fetch from Stripe Customer if we have customer ID
+  // ALWAYS fetch Customer data when customerId exists.
+  // Even if billing_details has email/name, the Customer object often has better data
+  // (phone, address, verified email, full legal name). Existing data takes priority in merge.
   if (paymentData.customerId) {
     logger.debug('[PaymentMatching] Fetching full customer data from Stripe', {
       customerId: paymentData.customerId,
@@ -988,12 +985,37 @@ export function extractPaymentDataFromCharge(charge: Stripe.Charge): StripePayme
  * 3. metadata - Custom fields
  * 4. description - Often contains customer name
  */
-export function extractPaymentDataFromPaymentIntent(
+export async function extractPaymentDataFromPaymentIntent(
   paymentIntent: Stripe.PaymentIntent
-): StripePaymentData {
-  // Get billing details from the first successful charge
+): Promise<StripePaymentData> {
+  // Get billing details from the latest charge.
+  // CRITICAL: In webhook events, latest_charge is typically a string ID (not expanded).
+  // We must retrieve the full Charge object from Stripe to access billing_details.
   const charge = paymentIntent.latest_charge;
-  const chargeObj = typeof charge === 'object' ? (charge as Stripe.Charge) : null;
+  let chargeObj: Stripe.Charge | null =
+    typeof charge === 'object' ? (charge as Stripe.Charge) : null;
+
+  // If latest_charge is a string ID, retrieve the full Charge object from Stripe
+  if (!chargeObj && typeof charge === 'string') {
+    const stripe = getStripeClient();
+    if (stripe) {
+      try {
+        chargeObj = await stripe.charges.retrieve(charge);
+        logger.debug('[PaymentMatching] Expanded latest_charge from string ID', {
+          chargeId: charge,
+          hasBillingDetails: !!chargeObj.billing_details,
+          billingEmail: !!chargeObj.billing_details?.email,
+          billingName: !!chargeObj.billing_details?.name,
+        });
+      } catch (err) {
+        logger.warn('[PaymentMatching] Failed to expand latest_charge', {
+          chargeId: charge,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      }
+    }
+  }
+
   const billing = chargeObj?.billing_details;
   // Access invoice field from PaymentIntent - exists at runtime but not in type definitions
   const piWithInvoice = paymentIntent as Stripe.PaymentIntent & {
@@ -1001,10 +1023,15 @@ export function extractPaymentDataFromPaymentIntent(
   };
   const piInvoice = piWithInvoice.invoice;
 
+  // Access receipt_email on PaymentIntent (exists at runtime)
+  const piReceiptEmail = (paymentIntent as Stripe.PaymentIntent & { receipt_email?: string | null })
+    .receipt_email;
+
   // Try to get email from multiple sources
   const email =
     billing?.email ||
     chargeObj?.receipt_email ||
+    piReceiptEmail ||
     (paymentIntent.metadata?.email as string) ||
     (paymentIntent.metadata?.customer_email as string) ||
     null;

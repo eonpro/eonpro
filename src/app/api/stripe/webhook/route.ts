@@ -338,7 +338,7 @@ async function processWebhookEvent(
           };
         }
 
-        const intentPaymentData = extractPaymentDataFromPaymentIntent(paymentIntent);
+        const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
         if (resolvedClinicId > 0 && !intentPaymentData.metadata?.clinicId) {
           intentPaymentData.metadata = { ...intentPaymentData.metadata, clinicId: String(resolvedClinicId) };
         }
