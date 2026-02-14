@@ -22,7 +22,6 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
 
 // ============================================================================
 // Types
@@ -159,46 +158,54 @@ function buildCtaUrl(path: string, refCode: string): string {
 }
 
 // ============================================================================
+// Brand Assets — Wix Static CDN
+// ============================================================================
+
+const ASSETS = {
+  logo: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
+  googleStars: 'https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg',
+  press: {
+    foxNews: 'https://static.wixstatic.com/shapes/c49a9b_0149dfbab1794e248ef9935d870d601d.svg',
+    mensHealth: 'https://static.wixstatic.com/shapes/c49a9b_1a66cf45f53743d78a641eb67c07ead8.svg',
+    gq: 'https://static.wixstatic.com/shapes/c49a9b_c6b0f67ae44f40ae88a76031173b81d8.svg',
+    businessInsider: 'https://static.wixstatic.com/shapes/c49a9b_01fed7e538f94a4cbec406882e86dc91.svg',
+  },
+} as const;
+
+// ============================================================================
 // Brand Logo Component
 // ============================================================================
 
-function OTLogo({ logoUrl, clinicName }: { logoUrl?: string | null; clinicName?: string }) {
-  if (logoUrl) {
-    return (
-      <Image
-        src={logoUrl}
-        alt={clinicName || "OT Men's Health"}
-        width={160}
-        height={44}
-        className="h-9 w-auto object-contain"
-        priority
-      />
-    );
-  }
+function OTLogo({ logoUrl, clinicName, size = 'default' }: { logoUrl?: string | null; clinicName?: string; size?: 'default' | 'small' }) {
+  const src = logoUrl || ASSETS.logo;
+  const height = size === 'small' ? 'h-7' : 'h-9';
 
-  // Inline text logo matching otmens.com style
   return (
-    <div className="flex items-baseline gap-1.5">
-      <span
-        className="text-2xl font-black tracking-tight"
-        style={{ color: BRAND.text }}
-      >
-        OT
-      </span>
-      <span
-        className="text-[11px] font-semibold uppercase tracking-[0.15em]"
-        style={{ color: BRAND.textSecondary }}
-      >
-        Men&apos;s Health
-      </span>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={clinicName || "OT Men's Health"}
+      className={`${height} w-auto object-contain`}
+    />
   );
 }
 
 // ============================================================================
-// Star Rating Component
+// Star Rating Component (uses actual Google review SVG from otmens.com)
 // ============================================================================
 
+function GoogleStarRating() {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={ASSETS.googleStars}
+      alt="Rated 4.9/5 on Google - based on 434 verified reviews"
+      className="h-7 w-auto object-contain"
+    />
+  );
+}
+
+/** Fallback star rating for testimonial cards */
 function StarRating({ count = 5 }: { count?: number }) {
   return (
     <div className="flex gap-0.5">
@@ -373,21 +380,9 @@ function AffiliateLandingContent() {
             Consultations, prescriptions, and ongoing support &mdash; all from home.
           </p>
 
-          {/* Trust indicators */}
+          {/* Trust indicators — actual Google review badge from otmens.com */}
           <div className="mb-8 flex flex-col items-center gap-3">
-            <div className="flex items-center gap-3">
-              {/* Google "G" */}
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <StarRating count={5} />
-              <span className="text-sm font-semibold" style={{ color: BRAND.text }}>
-                4.9/5
-              </span>
-            </div>
+            <GoogleStarRating />
             <p className="text-sm font-medium" style={{ color: BRAND.textMuted }}>
               Trusted by 10,000+ men nationwide
             </p>
@@ -436,7 +431,7 @@ function AffiliateLandingContent() {
       </section>
 
       {/* ================================================================ */}
-      {/* "As Seen On" Press Bar */}
+      {/* "As Seen On" Press Bar — actual logos from otmens.com */}
       {/* ================================================================ */}
       <section className="pb-16" style={{ borderTop: `1px solid ${BRAND.border}` }}>
         <div className="mx-auto max-w-5xl px-6 pt-12">
@@ -446,16 +441,13 @@ function AffiliateLandingContent() {
           >
             Treatments as seen on
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
-            {['Business Insider', 'Men\'s Health', 'GQ', 'Fox News', 'iHeart Health'].map((name) => (
-              <span
-                key={name}
-                className="text-sm font-bold tracking-wide"
-                style={{ color: BRAND.textMuted, opacity: 0.6 }}
-              >
-                {name}
-              </span>
-            ))}
+          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
+            {/* eslint-disable @next/next/no-img-element */}
+            <img src={ASSETS.press.businessInsider} alt="Business Insider" className="h-6 w-auto opacity-50 grayscale" />
+            <img src={ASSETS.press.mensHealth} alt="Men's Health" className="h-6 w-auto opacity-50 grayscale" />
+            <img src={ASSETS.press.gq} alt="GQ" className="h-7 w-auto opacity-50 grayscale" />
+            <img src={ASSETS.press.foxNews} alt="Fox News" className="h-5 w-auto opacity-50 grayscale" />
+            {/* eslint-enable @next/next/no-img-element */}
           </div>
         </div>
       </section>
@@ -634,7 +626,7 @@ function AffiliateLandingContent() {
         <div className="mx-auto max-w-6xl px-6 py-8">
           <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
             <div className="flex items-center gap-4">
-              <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
+              <OTLogo logoUrl={logoUrl} clinicName={clinicName} size="small" />
               {isValid && (
                 <span
                   className="rounded-full px-3 py-1 text-xs font-medium"
