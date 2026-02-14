@@ -212,7 +212,7 @@ function GoogleStarRating() {
     <img
       src={ASSETS.googleStars}
       alt="Rated 4.9/5 on Google - based on 434 verified reviews"
-      className="h-7 w-auto object-contain"
+      className="h-10 w-auto object-contain md:h-12"
     />
   );
 }
@@ -410,40 +410,24 @@ function AffiliateLandingContent() {
       <section className="relative overflow-hidden">
         <div className="relative mx-auto max-w-4xl px-6 pb-16 pt-16 text-center md:pb-20 md:pt-24">
 
-          {/* Personalization badge */}
-          {isValid && affiliateName && (
-            <div
-              className="mb-6 inline-flex items-center gap-2 rounded-full px-5 py-2"
-              style={{ backgroundColor: BRAND.tagBg }}
-            >
-              <svg className="h-4 w-4" fill={BRAND.accent} viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="text-sm font-medium" style={{ color: BRAND.textSecondary }}>
-                Recommended by {affiliateName}
-              </span>
-            </div>
-          )}
-
           {/* Headline */}
           <h1 className="mb-5 text-4xl font-bold leading-[1.1] tracking-tight md:text-5xl lg:text-6xl">
-            {isValid && affiliateName ? (
-              <>
-                {affiliateName}&apos;s
-                <br />
-                <span style={{ color: BRAND.accent }}>exclusive offer</span>
-              </>
-            ) : (
-              <>
-                for today&apos;s{' '}
-                <span style={{ color: BRAND.accent }}>men</span>
-              </>
-            )}
+            for today&apos;s{' '}
+            <span style={{ color: BRAND.accent }}>men</span>
           </h1>
+
+          {/* Trust indicators — Google reviews + affiliate name */}
+          <div className="mb-8 flex flex-col items-center gap-3">
+            {isValid && affiliateName && (
+              <p className="text-sm font-semibold tracking-wide" style={{ color: BRAND.textSecondary }}>
+                Recommended by {affiliateName}
+              </p>
+            )}
+            <GoogleStarRating />
+            <p className="text-sm font-medium" style={{ color: BRAND.textMuted }}>
+              Trusted by 10,000+ men nationwide
+            </p>
+          </div>
 
           {/* Subheadline */}
           <p
@@ -453,14 +437,6 @@ function AffiliateLandingContent() {
             Personalized treatments from board-certified providers.
             Consultations, prescriptions, and ongoing support &mdash; all from home.
           </p>
-
-          {/* Trust indicators — actual Google review badge from otmens.com */}
-          <div className="mb-8 flex flex-col items-center gap-3">
-            <GoogleStarRating />
-            <p className="text-sm font-medium" style={{ color: BRAND.textMuted }}>
-              Trusted by 10,000+ men nationwide
-            </p>
-          </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
