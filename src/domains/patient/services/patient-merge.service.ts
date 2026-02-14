@@ -198,6 +198,37 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
         throw new ForbiddenError('No clinic associated with your account');
       }
 
+      // Provider-specific authorization: verify provider is assigned to the clinic
+      if (user.role === 'provider') {
+        if (!user.providerId) {
+          throw new ForbiddenError('No provider profile linked to your account');
+        }
+        // Verify provider-clinic assignment (multi-clinic providers may have access to multiple clinics)
+        const providerClinicAssignment = await db.providerClinic.findFirst({
+          where: {
+            providerId: user.providerId,
+            clinicId: clinicId!,
+            isActive: true,
+          },
+        });
+        // Fallback: check legacy direct clinicId on provider record
+        if (!providerClinicAssignment) {
+          const provider = await db.provider.findUnique({
+            where: { id: user.providerId },
+            select: { clinicId: true },
+          });
+          if (provider?.clinicId !== clinicId && provider?.clinicId !== null) {
+            throw new ForbiddenError('You are not assigned to this clinic');
+          }
+        }
+        logger.info('Provider initiating patient merge preview', {
+          providerId: user.providerId,
+          clinicId,
+          sourcePatientId,
+          targetPatientId,
+        });
+      }
+
       // Fetch both patients with all relation counts
       const [sourceRaw, targetRaw] = await Promise.all([
         fetchPatientWithCounts(db, sourcePatientId, clinicId ?? undefined),
@@ -561,6 +592,8 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           recordsMoved: preview.totalRecordsToMove,
           mergedFields,
           performedBy: audit.actorEmail,
+          performedByRole: audit.actorRole,
+          performedByProviderId: performedBy.providerId ?? null,
           performedAt: new Date().toISOString(),
         };
         const auditEntry = await tx.patientAudit.create({
@@ -603,6 +636,8 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           targetPatientId,
           recordsMoved: preview.totalRecordsToMove,
           performedBy: audit.actorEmail,
+          performedByRole: audit.actorRole,
+          performedByProviderId: performedBy.providerId ?? null,
         });
 
         return {

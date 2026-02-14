@@ -71,6 +71,7 @@ const previewHandler = withAuth(
         role: user.role as UserContext['role'],
         clinicId: user.clinicId,
         patientId: user.patientId,
+        providerId: user.providerId,
       };
 
       // Get the merge preview
@@ -90,7 +91,7 @@ const previewHandler = withAuth(
       });
     }
   },
-  { roles: ['super_admin', 'admin'] }
+  { roles: ['super_admin', 'admin', 'provider'] }
 );
 
 export const POST = previewHandler;

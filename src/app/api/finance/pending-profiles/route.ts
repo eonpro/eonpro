@@ -395,6 +395,14 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
       return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
     }
 
+    // Providers can only perform merge actions — complete/archive require admin
+    if (user.role === 'provider' && action !== 'merge') {
+      return NextResponse.json(
+        { error: 'Providers can only merge profiles. Complete and archive actions require admin access.' },
+        { status: 403 }
+      );
+    }
+
     // Verify patient exists and user has access
     const patient = await prisma.patient.findFirst({
       where: {
@@ -520,6 +528,7 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
             email: user.email,
             role: user.role as 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient',
             clinicId: user.clinicId,
+            providerId: user.providerId,
           },
         });
 
@@ -659,4 +668,4 @@ async function findMatchCandidates(
 }
 
 export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider', 'staff'] });
-export const PATCH = withAuth(handlePatch, { roles: ['super_admin', 'admin'] });
+export const PATCH = withAuth(handlePatch, { roles: ['super_admin', 'admin', 'provider'] });

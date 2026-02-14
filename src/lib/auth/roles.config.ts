@@ -65,6 +65,9 @@ export interface RoleConfig {
     processPayments: boolean;
     manageInventory: boolean;
     viewCommissions: boolean;
+
+    // Patient Profile Management
+    mergePatients: boolean;
   };
   navigation: {
     primary: NavigationItem[];
@@ -139,6 +142,7 @@ export const SUPER_ADMIN_CONFIG: RoleConfig = {
     processPayments: true,
     manageInventory: true,
     viewCommissions: true,
+    mergePatients: true,
   },
   navigation: {
     primary: [
@@ -218,6 +222,7 @@ export const ADMIN_CONFIG: RoleConfig = {
     processPayments: true,
     manageInventory: true,
     viewCommissions: true,
+    mergePatients: true,
   },
   navigation: {
     primary: [
@@ -310,11 +315,13 @@ export const PROVIDER_CONFIG: RoleConfig = {
     processPayments: false,
     manageInventory: false,
     viewCommissions: true,
+    mergePatients: true,
   },
   navigation: {
     primary: [
       { label: 'Dashboard', path: '/provider', icon: 'Home' },
       { label: 'My Patients', path: '/provider/patients', icon: 'Users' },
+      { label: 'Pending Profiles', path: '/provider/pending-profiles', icon: 'UserCheck', badge: 'count' },
       { label: 'Calendar', path: '/provider/calendar', icon: 'Calendar' },
       { label: 'Consultations', path: '/provider/consultations', icon: 'Video' },
       { label: 'Prescriptions', path: '/provider/prescriptions', icon: 'Pill' },
@@ -329,6 +336,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
       { label: 'Start Consultation', action: 'start-consultation', icon: 'Video', color: 'green' },
       { label: 'Write SOAP Note', action: 'create-soap', icon: 'PenTool', color: 'blue' },
       { label: 'E-Prescribe', action: 'prescribe', icon: 'Pill', color: 'purple' },
+      { label: 'Merge Profiles', action: 'merge-profiles', icon: 'GitMerge', color: 'amber' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
     ],
   },
@@ -346,9 +354,10 @@ export const PROVIDER_CONFIG: RoleConfig = {
     { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 5 },
   ],
   restrictions: [
-    'Cannot delete patients',
+    'Cannot delete patients (except via merge)',
     'Cannot access financial data',
     'Cannot manage other users',
+    'Can merge duplicate patient profiles within their clinic',
   ],
 };
 
@@ -392,6 +401,7 @@ export const STAFF_CONFIG: RoleConfig = {
     processPayments: true,
     manageInventory: true,
     viewCommissions: false,
+    mergePatients: false,
   },
   navigation: {
     primary: [
@@ -466,6 +476,7 @@ export const SUPPORT_CONFIG: RoleConfig = {
     processPayments: false,
     manageInventory: false,
     viewCommissions: false,
+    mergePatients: false,
   },
   navigation: {
     primary: [
@@ -533,6 +544,7 @@ export const PATIENT_CONFIG: RoleConfig = {
     processPayments: true, // Their own
     manageInventory: false,
     viewCommissions: false,
+    mergePatients: false,
   },
   navigation: {
     primary: [
@@ -624,6 +636,7 @@ export const AFFILIATE_CONFIG: RoleConfig = {
     processPayments: false,
     manageInventory: false,
     viewCommissions: true, // View own commission data
+    mergePatients: false,
   },
   navigation: {
     primary: [
@@ -711,6 +724,7 @@ export const SALES_REP_CONFIG: RoleConfig = {
     processPayments: false,
     manageInventory: false,
     viewCommissions: true, // View own commissions/performance
+    mergePatients: false,
   },
   navigation: {
     primary: [

@@ -85,6 +85,7 @@ const mergeHandler = withAuth(
         role: user.role as UserContext['role'],
         clinicId: user.clinicId,
         patientId: user.patientId,
+        providerId: user.providerId,
       };
 
       // Execute the merge
@@ -109,7 +110,7 @@ const mergeHandler = withAuth(
       });
     }
   },
-  { roles: ['super_admin', 'admin'] }
+  { roles: ['super_admin', 'admin', 'provider'] }
 );
 
 export const POST = mergeHandler;
