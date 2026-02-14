@@ -69,7 +69,8 @@ const TREATMENTS = [
     label: 'Better',
     keyword: 'Sex',
     image: 'https://static.wixstatic.com/media/c49a9b_45dbc9caf94447b587c2e999b7a8027c~mv2.png',
-    accentColor: '#C47264',
+    keywordColor: '#771911',
+    hoverBg: '#ea3942',
     url: 'https://bettersex.otmens.com/',
   },
   {
@@ -77,7 +78,8 @@ const TREATMENTS = [
     label: 'Peptide',
     keyword: 'Therapies',
     image: 'https://static.wixstatic.com/media/c49a9b_87a5fa7b71ea4594939f319dcbaefd49~mv2.webp',
-    accentColor: '#8B9A6B',
+    keywordColor: '#b76e32',
+    hoverBg: '#f1994e',
     url: 'https://optimize.otmens.com/',
   },
   {
@@ -85,7 +87,8 @@ const TREATMENTS = [
     label: 'Stay',
     keyword: 'Young',
     image: 'https://static.wixstatic.com/media/c49a9b_7b4f8183a2d448af835cc73702cb8c55~mv2.png',
-    accentColor: '#8B9A6B',
+    keywordColor: '#3e83f7',
+    hoverBg: '#204ac5',
     url: 'https://optimize.otmens.com/#logo',
   },
   {
@@ -93,7 +96,8 @@ const TREATMENTS = [
     label: 'Boost',
     keyword: 'Testosterone',
     image: 'https://static.wixstatic.com/media/c49a9b_c12e882be1064a3da6a50fad86c7f5bc~mv2.webp',
-    accentColor: '#C9A96E',
+    keywordColor: '#295f3d',
+    hoverBg: '#59c27b',
     url: 'https://trt.otmens.com/',
   },
   {
@@ -101,7 +105,8 @@ const TREATMENTS = [
     label: 'Lose',
     keyword: 'Weight',
     image: 'https://static.wixstatic.com/media/c49a9b_5b411cd2f37741709bb33a1bf383232b~mv2.webp',
-    accentColor: '#D4845B',
+    keywordColor: '#b39231',
+    hoverBg: '#f7cc49',
     url: 'https://weightloss.otmens.com/',
   },
 ];
@@ -235,11 +240,12 @@ function StarRating({ count = 5 }: { count?: number }) {
 function ArrowRight({ color = BRAND.textMuted }: { color?: string }) {
   return (
     <svg
-      className="h-5 w-5 transition-transform group-hover:translate-x-1"
+      className="h-5 w-5"
       fill="none"
       stroke={color}
       viewBox="0 0 24 24"
       strokeWidth={1.5}
+      style={{ transition: 'stroke 0.35s ease-in-out' }}
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
     </svg>
@@ -426,8 +432,8 @@ function AffiliateLandingContent() {
             ))}
           </div>
 
-          {/* Bottom row: 2 cards, centered */}
-          <div className="mx-auto grid max-w-[calc(66.666%+0.5rem)] grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Bottom row: 2 cards, full width */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {TREATMENTS.slice(3).map((t) => (
               <TreatmentCard key={t.id} treatment={t} refCode={refCode} isValid={isValid} />
             ))}
@@ -671,18 +677,36 @@ function TreatmentCard({
   refCode: string;
   isValid: boolean;
 }) {
+  const [hovered, setHovered] = useState(false);
   const href = isValid ? buildTreatmentUrl(treatment.url, refCode) : treatment.url;
 
   return (
     <a
       href={href}
-      className="group flex items-center justify-between rounded-2xl px-5 py-4 transition-all duration-200 hover:shadow-md sm:px-6 sm:py-5"
-      style={{ backgroundColor: BRAND.tagBg }}
+      className="flex items-center justify-between rounded-2xl px-5 py-4 shadow-sm sm:px-6 sm:py-5"
+      style={{
+        backgroundColor: hovered ? treatment.hoverBg : BRAND.white,
+        transition: 'background-color 0.35s ease-in-out, box-shadow 0.35s ease-in-out',
+        boxShadow: hovered
+          ? '0 8px 24px rgba(0,0,0,0.12)'
+          : '0 1px 3px rgba(0,0,0,0.06)',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       {/* Title */}
       <h3 className="text-lg font-bold leading-tight md:text-xl">
-        {treatment.label}{' '}
-        <span style={{ color: treatment.accentColor }}>{treatment.keyword}</span>
+        <span
+          style={{
+            color: hovered ? '#FFFFFF' : BRAND.text,
+            transition: 'color 0.35s ease-in-out',
+          }}
+        >
+          {treatment.label}
+        </span>{' '}
+        <span style={{ color: treatment.keywordColor }}>
+          {treatment.keyword}
+        </span>
       </h3>
 
       {/* Image + Arrow */}
@@ -692,8 +716,19 @@ function TreatmentCard({
           src={treatment.image}
           alt={`${treatment.label} ${treatment.keyword}`}
           className="h-12 w-12 object-contain sm:h-14 sm:w-14"
+          style={{
+            transform: hovered ? 'scale(1.15)' : 'scale(1)',
+            transition: 'transform 0.35s ease-in-out',
+          }}
         />
-        <ArrowRight color={BRAND.textMuted} />
+        <div
+          style={{
+            transform: hovered ? 'scale(0.8)' : 'scale(1)',
+            transition: 'transform 0.35s ease-in-out',
+          }}
+        >
+          <ArrowRight color={hovered ? '#FFFFFF' : BRAND.textMuted} />
+        </div>
       </div>
     </a>
   );
