@@ -65,49 +65,44 @@ const BRAND = {
 
 const TREATMENTS = [
   {
-    id: 'trt',
-    label: 'Boost',
-    keyword: 'Testosterone',
-    description: 'Reclaim your energy, strength, and drive with physician-guided TRT protocols.',
-    accentColor: '#C9A96E',
-    tag: 'Most Popular',
-    path: '/trt',
-  },
-  {
-    id: 'weightloss',
-    label: 'Lose',
-    keyword: 'Weight',
-    description: 'GLP-1 and GIP therapies that deliver real, sustainable results.',
-    accentColor: '#D4845B',
-    tag: 'Trending',
-    path: '/weightloss',
-  },
-  {
     id: 'bettersex',
     label: 'Better',
     keyword: 'Sex',
-    description: 'Proven treatments to restore confidence and performance.',
+    image: 'https://static.wixstatic.com/media/c49a9b_45dbc9caf94447b587c2e999b7a8027c~mv2.png',
     accentColor: '#C47264',
-    tag: null,
-    path: '/bettersex',
+    url: 'https://bettersex.otmens.com/',
   },
   {
     id: 'optimize',
     label: 'Peptide',
     keyword: 'Therapies',
-    description: 'Advanced peptide protocols for recovery, longevity, and optimization.',
+    image: 'https://static.wixstatic.com/media/c49a9b_87a5fa7b71ea4594939f319dcbaefd49~mv2.webp',
     accentColor: '#8B9A6B',
-    tag: 'Advanced',
-    path: '/optimize',
+    url: 'https://optimize.otmens.com/',
   },
   {
-    id: 'baseline',
-    label: 'Blood',
-    keyword: 'Panels',
-    description: "You can't optimize what you don't measure. Know your levels.",
-    accentColor: '#A0785A',
-    tag: null,
-    path: '/baseline',
+    id: 'stayyoung',
+    label: 'Stay',
+    keyword: 'Young',
+    image: 'https://static.wixstatic.com/media/c49a9b_7b4f8183a2d448af835cc73702cb8c55~mv2.png',
+    accentColor: '#8B9A6B',
+    url: 'https://optimize.otmens.com/#logo',
+  },
+  {
+    id: 'trt',
+    label: 'Boost',
+    keyword: 'Testosterone',
+    image: 'https://static.wixstatic.com/media/c49a9b_c12e882be1064a3da6a50fad86c7f5bc~mv2.webp',
+    accentColor: '#C9A96E',
+    url: 'https://trt.otmens.com/',
+  },
+  {
+    id: 'weightloss',
+    label: 'Lose',
+    keyword: 'Weight',
+    image: 'https://static.wixstatic.com/media/c49a9b_5b411cd2f37741709bb33a1bf383232b~mv2.webp',
+    accentColor: '#D4845B',
+    url: 'https://weightloss.otmens.com/',
   },
 ];
 
@@ -155,6 +150,16 @@ const BASE_INTAKE_URL = 'https://ot.eonpro.io';
 
 function buildCtaUrl(path: string, refCode: string): string {
   return `${BASE_INTAKE_URL}${path}?ref=${encodeURIComponent(refCode)}`;
+}
+
+function buildTreatmentUrl(url: string, refCode: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('ref', refCode);
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 // ============================================================================
@@ -666,35 +671,28 @@ function TreatmentCard({
   refCode: string;
   isValid: boolean;
 }) {
+  const href = isValid ? buildTreatmentUrl(treatment.url, refCode) : treatment.url;
+
   return (
     <a
-      href={isValid ? buildCtaUrl(treatment.path, refCode) : `${BASE_INTAKE_URL}${treatment.path}`}
-      className="group relative flex flex-col justify-between rounded-2xl p-6 transition-all duration-200 hover:shadow-md"
-      style={{ backgroundColor: BRAND.white, minHeight: '180px' }}
+      href={href}
+      className="group flex items-center justify-between rounded-2xl px-5 py-4 transition-all duration-200 hover:shadow-md sm:px-6 sm:py-5"
+      style={{ backgroundColor: BRAND.tagBg }}
     >
-      {/* Tag */}
-      {treatment.tag && (
-        <span
-          className="absolute right-4 top-4 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider"
-          style={{ backgroundColor: BRAND.tagBg, color: BRAND.textMuted }}
-        >
-          {treatment.tag}
-        </span>
-      )}
-
       {/* Title */}
-      <div>
-        <h3 className="mb-2 text-xl font-bold leading-tight">
-          {treatment.label}{' '}
-          <span style={{ color: treatment.accentColor }}>{treatment.keyword}</span>
-        </h3>
-        <p className="text-sm leading-relaxed" style={{ color: BRAND.textSecondary }}>
-          {treatment.description}
-        </p>
-      </div>
+      <h3 className="text-lg font-bold leading-tight md:text-xl">
+        {treatment.label}{' '}
+        <span style={{ color: treatment.accentColor }}>{treatment.keyword}</span>
+      </h3>
 
-      {/* Arrow */}
-      <div className="mt-4 flex items-center justify-end">
+      {/* Image + Arrow */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={treatment.image}
+          alt={`${treatment.label} ${treatment.keyword}`}
+          className="h-12 w-12 object-contain sm:h-14 sm:w-14"
+        />
         <ArrowRight color={BRAND.textMuted} />
       </div>
     </a>
