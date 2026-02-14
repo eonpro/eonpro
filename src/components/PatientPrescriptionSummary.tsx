@@ -95,14 +95,15 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
   // Add tracking form state
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingTracking, setAddingTracking] = useState(false);
+  const [carrierAutoDetected, setCarrierAutoDetected] = useState(false);
   const [formData, setFormData] = useState({
     trackingNumber: '',
     carrier: 'UPS',
-    selectedPrescriptionId: '', // 'orderId-rxId' or ''
+    selectedPrescriptions: [] as string[], // array of 'orderId-rxId'
     medicationName: '',
     medicationStrength: '',
     medicationQuantity: '',
-    orderId: null as number | null,
+    orderIds: [] as number[],
     isRefill: false,
     refillNumber: 1,
     notes: '',
@@ -184,7 +185,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
         body: JSON.stringify({
           trackingNumber: formData.trackingNumber.trim(),
           carrier: formData.carrier,
-          orderId: formData.orderId || undefined,
+          orderIds: formData.orderIds.length > 0 ? formData.orderIds : undefined,
           medicationName: formData.medicationName.trim() || undefined,
           medicationStrength: formData.medicationStrength.trim() || undefined,
           medicationQuantity: formData.medicationQuantity.trim() || '1',
@@ -203,15 +204,16 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
       setFormData({
         trackingNumber: '',
         carrier: 'UPS',
-        selectedPrescriptionId: '',
+        selectedPrescriptions: [],
         medicationName: '',
         medicationStrength: '',
         medicationQuantity: '',
-        orderId: null,
+        orderIds: [],
         isRefill: false,
         refillNumber: 1,
         notes: '',
       });
+      setCarrierAutoDetected(false);
       setShowAddForm(false);
       fetchTrackingData();
     } catch (err) {
@@ -347,85 +349,143 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                 value={formData.trackingNumber}
                 onChange={(e) => {
                   const v = e.target.value;
-                  const detected = detectCarrierFromTrackingNumber(v);
+                  const detected = detectCarrierFromTrackingNumber(v.trim());
+                  const isAutoDetected = detected !== 'Other' && v.trim().length > 5;
+                  setCarrierAutoDetected(isAutoDetected);
                   setFormData((prev) => ({
                     ...prev,
                     trackingNumber: v,
-                    carrier: detected !== 'Other' ? detected : prev.carrier,
+                    carrier: isAutoDetected ? detected : prev.carrier,
                   }));
                 }}
                 placeholder="FedEx: 888705580712 · UPS: 1Z036E5K0321370144"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                 required
               />
+              {carrierAutoDetected && formData.trackingNumber.trim().length > 5 && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Auto-detected as <span className="font-semibold">{formData.carrier}</span>
+                </p>
+              )}
             </div>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-700">
                 Carrier <span className="text-red-500">*</span>
               </label>
-              <select
-                value={formData.carrier}
-                onChange={(e) => setFormData({ ...formData, carrier: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
-              >
-                {CARRIERS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={formData.carrier}
+                  onChange={(e) => {
+                    setCarrierAutoDetected(false);
+                    setFormData({ ...formData, carrier: e.target.value });
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e] ${
+                    carrierAutoDetected
+                      ? 'border-emerald-300 bg-emerald-50'
+                      : 'border-gray-300'
+                  }`}
+                >
+                  {CARRIERS.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                {carrierAutoDetected && (
+                  <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2">
+                    <svg className="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="col-span-2">
               <label className="mb-1 block text-xs font-medium text-gray-700">
-                Match to Prescription (optional)
+                Match to Prescriptions (optional)
               </label>
-              <select
-                value={formData.selectedPrescriptionId}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      selectedPrescriptionId: '',
-                      medicationName: '',
-                      medicationStrength: '',
-                      medicationQuantity: '',
-                      orderId: null,
-                    }));
-                    return;
-                  }
-                  const rx = unmatchedPrescriptions.find(
-                    (p) => `${p.orderId}-${p.rxId}` === val
-                  );
-                  if (rx) {
-                    setFormData((prev) => ({
-                      ...prev,
-                      selectedPrescriptionId: val,
-                      medicationName: rx.medName,
-                      medicationStrength: rx.strength,
-                      medicationQuantity: rx.quantity,
-                      orderId: rx.orderId,
-                    }));
-                  }
-                }}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
-              >
-                <option value="">
-                  {unmatchedPrescriptions.length === 0
-                    ? 'No unmatched prescriptions'
-                    : '— Select prescription or type manually below —'}
-                </option>
-                {unmatchedPrescriptions.map((rx) => (
-                  <option key={`${rx.orderId}-${rx.rxId}`} value={`${rx.orderId}-${rx.rxId}`}>
-                    {rx.displayName}
-                  </option>
-                ))}
-              </select>
-              {unmatchedPrescriptions.length > 0 && (
+              {unmatchedPrescriptions.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-500">
+                  No unmatched prescriptions available
+                </div>
+              ) : (
+                <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
+                  {unmatchedPrescriptions.map((rx) => {
+                    const key = `${rx.orderId}-${rx.rxId}`;
+                    const isChecked = formData.selectedPrescriptions.includes(key);
+                    return (
+                      <label
+                        key={key}
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors ${
+                          isChecked
+                            ? 'bg-emerald-50 ring-1 ring-emerald-200'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setFormData((prev) => {
+                              const selected = prev.selectedPrescriptions.includes(key)
+                                ? prev.selectedPrescriptions.filter((k) => k !== key)
+                                : [...prev.selectedPrescriptions, key];
+
+                              // Collect unique order IDs from selected prescriptions
+                              const selectedRxs = unmatchedPrescriptions.filter((p) =>
+                                selected.includes(`${p.orderId}-${p.rxId}`)
+                              );
+                              const uniqueOrderIds = [...new Set(selectedRxs.map((p) => p.orderId))];
+
+                              // Auto-fill medication info from the first selected prescription
+                              const firstRx = selectedRxs[0];
+
+                              return {
+                                ...prev,
+                                selectedPrescriptions: selected,
+                                orderIds: uniqueOrderIds,
+                                medicationName: selectedRxs.length === 1
+                                  ? (firstRx?.medName || '')
+                                  : selectedRxs.length > 1
+                                    ? selectedRxs.map((r) => r.medName).join(', ')
+                                    : prev.medicationName,
+                                medicationStrength: selectedRxs.length === 1
+                                  ? (firstRx?.strength || '')
+                                  : '',
+                                medicationQuantity: selectedRxs.length === 1
+                                  ? (firstRx?.quantity || '1')
+                                  : prev.medicationQuantity,
+                              };
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-gray-900">{rx.displayName}</span>
+                          <span className="ml-2 text-xs text-gray-400">Order #{rx.orderId}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {formData.selectedPrescriptions.length > 0 && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {formData.selectedPrescriptions.length} prescription{formData.selectedPrescriptions.length > 1 ? 's' : ''} selected
+                  {formData.orderIds.length > 1 && ` across ${formData.orderIds.length} orders`}
+                </p>
+              )}
+              {unmatchedPrescriptions.length > 0 && formData.selectedPrescriptions.length === 0 && (
                 <p className="mt-1 text-xs text-gray-500">
-                  Only prescriptions not yet matched to tracking are listed.
+                  Select one or more prescriptions to link with this tracking number.
                 </p>
               )}
             </div>

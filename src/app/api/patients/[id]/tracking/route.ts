@@ -42,7 +42,8 @@ const addTrackingSchema = z.object({
   shippedAt: z.string().optional(), // ISO date string
   estimatedDelivery: z.string().optional(), // ISO date string
   notes: z.string().optional(),
-  orderId: z.number().optional(), // Optional link to existing order
+  orderId: z.number().optional(), // Optional link to existing order (legacy, single)
+  orderIds: z.array(z.number()).optional(), // Link to multiple orders at once
   isRefill: z.boolean().optional().default(false),
   refillNumber: z.number().optional(),
 });
@@ -374,6 +375,14 @@ export const POST = withAuthParams(
         );
       }
 
+      // Resolve order IDs: prefer orderIds array, fall back to single orderId for backward compat
+      const resolvedOrderIds: number[] =
+        data.orderIds && data.orderIds.length > 0
+          ? data.orderIds
+          : data.orderId
+            ? [data.orderId]
+            : [];
+
       const result = await runWithClinicContext(effectiveClinicId, async () => {
         const patient = patientForPost;
 
@@ -381,62 +390,119 @@ export const POST = withAuthParams(
         const trackingUrl =
           data.trackingUrl || generateTrackingUrl(effectiveCarrier, data.trackingNumber);
 
-        // Create shipping update record
-        const shippingUpdate = await prisma.patientShippingUpdate.create({
-          data: {
-            clinicId: effectiveClinicId,
-            patientId: patient.id,
-            orderId: data.orderId || null,
-            trackingNumber: data.trackingNumber,
-            carrier: effectiveCarrier,
-            trackingUrl,
-            status: data.status as ShippingStatus,
-            statusNote: data.notes,
-            shippedAt: data.shippedAt ? new Date(data.shippedAt) : new Date(),
-            estimatedDelivery: data.estimatedDelivery ? new Date(data.estimatedDelivery) : null,
-            medicationName: data.medicationName,
-            medicationStrength: data.medicationStrength,
-            medicationQuantity: data.medicationQuantity,
-            source: 'manual',
-            rawPayload: {
-              addedBy: user.id,
-              addedByEmail: user.email,
-              isRefill: data.isRefill,
-              refillNumber: data.refillNumber,
-              notes: data.notes,
-            } as any,
-            processedAt: new Date(),
-          },
-        });
+        // If multiple orders are selected, look up per-order medication info
+        let orderMedications: Map<number, { medName: string; strength: string; quantity: string }> =
+          new Map();
+        if (resolvedOrderIds.length > 1) {
+          const ordersWithRxs = await prisma.order.findMany({
+            where: { id: { in: resolvedOrderIds }, patientId: patient.id },
+            select: {
+              id: true,
+              primaryMedName: true,
+              primaryMedStrength: true,
+              rxs: {
+                select: { medName: true, strength: true, quantity: true },
+                take: 1,
+              },
+            },
+          });
+          for (const order of ordersWithRxs) {
+            const rx = order.rxs[0];
+            orderMedications.set(order.id, {
+              medName: rx?.medName || order.primaryMedName || data.medicationName || '',
+              strength: rx?.strength || order.primaryMedStrength || data.medicationStrength || '',
+              quantity: rx?.quantity || data.medicationQuantity || '1',
+            });
+          }
+        }
 
-        return { patient, shippingUpdate, trackingUrl };
+        // Create shipping update records — one per order (or one if no order)
+        const shippingUpdates = await prisma.$transaction(
+          async (tx) => {
+            const idsToCreate = resolvedOrderIds.length > 0 ? resolvedOrderIds : [null];
+            const created = [];
+
+            for (const orderId of idsToCreate) {
+              // Per-order medication info when linking to multiple orders
+              const medInfo =
+                orderId && orderMedications.has(orderId)
+                  ? orderMedications.get(orderId)!
+                  : {
+                      medName: data.medicationName || '',
+                      strength: data.medicationStrength || '',
+                      quantity: data.medicationQuantity || '1',
+                    };
+
+              const record = await tx.patientShippingUpdate.create({
+                data: {
+                  clinicId: effectiveClinicId,
+                  patientId: patient.id,
+                  orderId: orderId,
+                  trackingNumber: data.trackingNumber,
+                  carrier: effectiveCarrier,
+                  trackingUrl,
+                  status: data.status as ShippingStatus,
+                  statusNote: data.notes,
+                  shippedAt: data.shippedAt ? new Date(data.shippedAt) : new Date(),
+                  estimatedDelivery: data.estimatedDelivery
+                    ? new Date(data.estimatedDelivery)
+                    : null,
+                  medicationName: medInfo.medName || undefined,
+                  medicationStrength: medInfo.strength || undefined,
+                  medicationQuantity: medInfo.quantity || undefined,
+                  source: 'manual',
+                  rawPayload: {
+                    addedBy: user.id,
+                    addedByEmail: user.email,
+                    isRefill: data.isRefill,
+                    refillNumber: data.refillNumber,
+                    notes: data.notes,
+                    linkedOrderIds: resolvedOrderIds,
+                  } as any,
+                  processedAt: new Date(),
+                },
+              });
+              created.push(record);
+            }
+
+            return created;
+          },
+          { timeout: 15000 }
+        );
+
+        return { patient, shippingUpdates, trackingUrl };
       });
 
       if (!result) {
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
 
-      const { patient, shippingUpdate, trackingUrl } = result;
+      const { patient, shippingUpdates, trackingUrl } = result;
 
       logger.info(`[TRACKING] Manual entry added for patient ${patientId} by user ${user.id}`, {
         trackingNumber: data.trackingNumber,
-        carrier: data.carrier,
+        carrier: effectiveCarrier,
         isRefill: data.isRefill,
+        linkedOrders: resolvedOrderIds.length,
       });
 
       return NextResponse.json({
         success: true,
-        message: 'Tracking entry added successfully',
-        tracking: {
-          id: shippingUpdate.id,
-          trackingNumber: shippingUpdate.trackingNumber,
-          carrier: shippingUpdate.carrier,
+        message:
+          shippingUpdates.length > 1
+            ? `Tracking entry linked to ${shippingUpdates.length} prescriptions`
+            : 'Tracking entry added successfully',
+        tracking: shippingUpdates.map((su) => ({
+          id: su.id,
+          trackingNumber: su.trackingNumber,
+          carrier: su.carrier,
           trackingUrl,
-          status: shippingUpdate.status,
-          medicationName: shippingUpdate.medicationName,
+          status: su.status,
+          medicationName: su.medicationName,
+          orderId: su.orderId,
           isRefill: data.isRefill,
           refillNumber: data.refillNumber,
-        },
+        })),
         patient: {
           id: patient.id,
           name: `${patient.firstName} ${patient.lastName}`,
