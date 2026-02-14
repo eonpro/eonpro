@@ -179,6 +179,8 @@ const ASSETS = {
     mensHealth: 'https://static.wixstatic.com/shapes/c49a9b_1a66cf45f53743d78a641eb67c07ead8.svg',
     gq: 'https://static.wixstatic.com/shapes/c49a9b_c6b0f67ae44f40ae88a76031173b81d8.svg',
     businessInsider: 'https://static.wixstatic.com/shapes/c49a9b_01fed7e538f94a4cbec406882e86dc91.svg',
+    miamiHerald: 'https://static.wixstatic.com/shapes/c49a9b_77e5d41514994fa48ddd19ae6f399d71.svg',
+    usaToday: 'https://static.wixstatic.com/shapes/c49a9b_77e5d41514994fa48ddd19ae6f399d71.svg',
   },
 } as const;
 
@@ -249,6 +251,67 @@ function ArrowRight({ color = BRAND.textMuted }: { color?: string }) {
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
     </svg>
+  );
+}
+
+// ============================================================================
+// Infinite Scrolling Press Marquee
+// ============================================================================
+
+const PRESS_LOGOS = [
+  { src: ASSETS.press.businessInsider, alt: 'Business Insider' },
+  { src: ASSETS.press.mensHealth, alt: "Men's Health" },
+  { src: ASSETS.press.gq, alt: 'GQ' },
+  { src: ASSETS.press.foxNews, alt: 'Fox News' },
+  { src: ASSETS.press.miamiHerald, alt: 'Miami Herald' },
+  { src: ASSETS.press.usaToday, alt: 'USA Today' },
+];
+
+function PressMarquee() {
+  // Duplicate logos for seamless infinite loop
+  const logos = [...PRESS_LOGOS, ...PRESS_LOGOS];
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Fade edges */}
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16"
+        style={{ background: `linear-gradient(to right, ${BRAND.white}, transparent)` }}
+      />
+      <div
+        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16"
+        style={{ background: `linear-gradient(to left, ${BRAND.white}, transparent)` }}
+      />
+
+      {/* Scrolling track */}
+      <div
+        className="flex items-center gap-16"
+        style={{
+          animation: 'marquee 30s linear infinite',
+          width: 'max-content',
+        }}
+      >
+        {/* eslint-disable @next/next/no-img-element */}
+        {logos.map((logo, i) => (
+          <img
+            key={`${logo.alt}-${i}`}
+            src={logo.src}
+            alt={logo.alt}
+            className="h-6 w-auto flex-shrink-0 object-contain opacity-40 grayscale"
+            style={{ minWidth: '80px', maxHeight: '24px' }}
+          />
+        ))}
+        {/* eslint-enable @next/next/no-img-element */}
+      </div>
+
+      {/* Keyframes injected via style tag */}
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
   );
 }
 
@@ -328,7 +391,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Header */}
       {/* ================================================================ */}
-      <header style={{ borderBottom: `1px solid ${BRAND.border}` }}>
+      <header style={{ borderBottom: `1px solid ${BRAND.border}`, backgroundColor: BRAND.white }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
           <a
@@ -442,24 +505,17 @@ function AffiliateLandingContent() {
       </section>
 
       {/* ================================================================ */}
-      {/* "As Seen On" Press Bar — actual logos from otmens.com */}
+      {/* "As Seen On" Press Bar — infinite scrolling marquee */}
       {/* ================================================================ */}
-      <section className="pb-16" style={{ borderTop: `1px solid ${BRAND.border}` }}>
-        <div className="mx-auto max-w-5xl px-6 pt-12">
+      <section style={{ backgroundColor: BRAND.white, borderTop: `1px solid ${BRAND.border}` }}>
+        <div className="px-6 pb-10 pt-10">
           <p
             className="mb-8 text-center text-xs font-semibold uppercase tracking-[0.2em]"
             style={{ color: BRAND.textMuted }}
           >
             Treatments as seen on
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-6">
-            {/* eslint-disable @next/next/no-img-element */}
-            <img src={ASSETS.press.businessInsider} alt="Business Insider" className="h-6 w-auto opacity-50 grayscale" />
-            <img src={ASSETS.press.mensHealth} alt="Men's Health" className="h-6 w-auto opacity-50 grayscale" />
-            <img src={ASSETS.press.gq} alt="GQ" className="h-7 w-auto opacity-50 grayscale" />
-            <img src={ASSETS.press.foxNews} alt="Fox News" className="h-5 w-auto opacity-50 grayscale" />
-            {/* eslint-enable @next/next/no-img-element */}
-          </div>
+          <PressMarquee />
         </div>
       </section>
 
