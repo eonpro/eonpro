@@ -13,6 +13,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { suppressConversionMetrics, CLICK_FILTER } from '@/services/affiliate/reportingConstants';
+import { badRequest, notFound, serverError } from '@/lib/api/error-response';
 
 interface AffiliateDetail {
   id: number;
@@ -67,7 +69,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
   const affiliateId = parseInt(id, 10);
 
   if (isNaN(affiliateId) || affiliateId <= 0) {
-    return NextResponse.json({ error: 'Invalid affiliate ID' }, { status: 400 });
+    return badRequest('Invalid affiliate ID');
   }
 
   try {
@@ -114,10 +116,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 
       const refCodeStrings = modernAffiliate.refCodes.map((rc: RefCode) => rc.refCode);
 
-      // Get all clicks (touches) for this affiliate's codes
+      // Get all clicks for this affiliate's codes (use shared CLICK_FILTER constant)
       const totalClicks = await prisma.affiliateTouch.count({
         where: {
           refCode: { in: refCodeStrings },
+          ...CLICK_FILTER,
           ...clinicFilter,
         },
       });
@@ -164,6 +167,22 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       }));
 
       const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
+
+      // HIPAA small-number suppression for admin-facing conversion metrics
+      const suppressedMetrics = suppressConversionMetrics({
+        conversions: totalConversions,
+        revenueCents: commissionAgg._sum.eventAmountCents || 0,
+        commissionCents: commissionAgg._sum.commissionAmountCents || 0,
+      });
+
+      // Audit log for admin access to individual affiliate data
+      logger.security('[AffiliateAudit] Admin accessed affiliate detail', {
+        action: 'AFFILIATE_DETAIL_VIEWED',
+        affiliateId: modernAffiliate.id,
+        clinicId: modernAffiliate.clinicId,
+        performedBy: user.id,
+        performedByRole: user.role,
+      });
 
       const response: AffiliateDetail = {
         id: modernAffiliate.id,
@@ -288,7 +307,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     }
 
     // Not found
-    return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+    return notFound('Affiliate not found');
   } catch (error) {
     logger.error('[AffiliateDetail] Failed to fetch affiliate', {
       affiliateId,
@@ -296,7 +315,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json({ error: 'Failed to fetch affiliate details' }, { status: 500 });
+    return serverError('Failed to fetch affiliate details');
   }
 }
 

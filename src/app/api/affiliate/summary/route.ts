@@ -13,12 +13,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { ACTIVE_COMMISSION_STATUSES } from '@/services/affiliate/reportingConstants';
+import { notFound, forbidden, serverError } from '@/lib/api/error-response';
 
 export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
       if (!user.affiliateId) {
-        return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+        return notFound('Affiliate not found');
       }
 
       // Get affiliate from user
@@ -28,11 +30,11 @@ export const GET = withAffiliateAuth(
       });
 
       if (!affiliate) {
-        return NextResponse.json({ error: 'Affiliate profile not found' }, { status: 404 });
+        return notFound('Affiliate profile not found');
       }
 
       if (affiliate.status !== 'ACTIVE') {
-        return NextResponse.json({ error: 'Affiliate account is not active' }, { status: 403 });
+        return forbidden('Affiliate account is not active');
       }
 
       // Parse date filters
@@ -49,7 +51,7 @@ export const GET = withAffiliateAuth(
       };
       const hasDateFilter = fromDate || toDate;
 
-      // Get aggregated stats by status (use createdAt consistently across all routes)
+      // Get aggregated stats by status (use occurredAt for revenue date alignment)
       const [pendingStats, approvedStats, paidStats, reversedStats, totalRevenue] =
         await Promise.all([
           prisma.affiliateCommissionEvent.aggregate({
@@ -57,7 +59,7 @@ export const GET = withAffiliateAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'PENDING',
-              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
@@ -68,7 +70,7 @@ export const GET = withAffiliateAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'APPROVED',
-              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
@@ -79,7 +81,7 @@ export const GET = withAffiliateAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'PAID',
-              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
@@ -90,19 +92,19 @@ export const GET = withAffiliateAuth(
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
               status: 'REVERSED',
-              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
             },
             _sum: { commissionAmountCents: true, eventAmountCents: true },
             _count: true,
           }),
 
-          // Total conversions and revenue (exclude PENDING and REVERSED from conversions)
+          // Total conversions and revenue (only active statuses; exclude REVERSED)
           prisma.affiliateCommissionEvent.aggregate({
             where: {
               affiliateId: affiliate.id,
               clinicId: affiliate.clinicId,
-              status: { in: ['APPROVED', 'PAID'] },
-              ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+              status: { in: [...ACTIVE_COMMISSION_STATUSES] },
+              ...(hasDateFilter ? { occurredAt: dateFilter } : {}),
             },
             _sum: { eventAmountCents: true },
             _count: true,
@@ -166,7 +168,7 @@ export const GET = withAffiliateAuth(
       });
     } catch (error) {
       logger.error('[Affiliate Summary] Error fetching summary', error);
-      return NextResponse.json({ error: 'Failed to fetch summary' }, { status: 500 });
+      return serverError('Failed to fetch summary');
     }
   }
 );

@@ -195,6 +195,17 @@ export const POST = withAuthParams(
         approvedBy: user.id,
       });
 
+      // HIPAA/SOC2 audit log for admin actions on affiliate data
+      logger.security('[AffiliateAudit] Admin approved affiliate application', {
+        action: 'AFFILIATE_APPLICATION_APPROVED',
+        applicationId,
+        affiliateId: result.affiliate.id,
+        clinicId: application.clinicId,
+        performedBy: user.id,
+        performedByRole: user.role,
+        applicantEmail: application.email,
+      });
+
       // TODO: Send welcome email/SMS to affiliate
 
       return NextResponse.json({

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
 
 // Validation schema for application
 const socialProfileSchema = z.object({
@@ -35,10 +36,16 @@ const applicationSchema = z.object({
   promotionPlan: z.string().max(1000).optional(),
 });
 
-// Rate limit: 3 applications per email per day
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+// Redis-backed rate limit: 5 applications per IP per hour (serverless-compatible)
+const applicationRateLimiter = createRateLimiter({
+  identifier: 'affiliate-application',
+  windowSeconds: 60 * 60, // 1 hour
+  maxRequests: 5,
+  blockDurationSeconds: 24 * 60 * 60, // 24-hour block after abuse
+  message: 'Too many applications submitted. Please try again later.',
+});
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   try {
     const body = await request.json();
 
@@ -76,25 +83,6 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info('[AffiliateApply] Clinic resolved', { clinicId: clinic.id, domain });
-
-    // Rate limiting by email
-    const now = Date.now();
-    const rateKey = `${clinic.id}:${data.email.toLowerCase()}`;
-    const rateLimit = rateLimitMap.get(rateKey);
-
-    if (rateLimit && rateLimit.resetAt > now && rateLimit.count >= 3) {
-      return NextResponse.json(
-        { error: 'Too many applications from this email. Please try again tomorrow.' },
-        { status: 429 }
-      );
-    }
-
-    // Update rate limit
-    if (!rateLimit || rateLimit.resetAt <= now) {
-      rateLimitMap.set(rateKey, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
-    } else {
-      rateLimit.count++;
-    }
 
     // Normalize phone
     const normalizedPhone = data.phone.replace(/\D/g, '');
@@ -218,6 +206,9 @@ export async function POST(request: NextRequest) {
 /**
  * Resolve clinic from domain string
  */
+// Wrap with Redis-backed rate limiter for serverless compatibility
+export const POST = applicationRateLimiter(handlePost);
+
 async function resolveClinicFromDomain(domain: string) {
   const normalizedDomain = domain.split(':')[0].toLowerCase();
 

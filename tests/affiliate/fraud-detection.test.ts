@@ -54,18 +54,25 @@ function makeRequest(overrides: Partial<FraudCheckRequest> = {}): FraudCheckRequ
 }
 
 function mockDefaultConfig() {
+  // Field names must match the actual Prisma schema / FraudConfig type
   mockPrisma.affiliateFraudConfig.findUnique.mockResolvedValue({
     clinicId: 1,
-    selfReferralEnabled: true,
-    duplicateIpEnabled: true,
-    velocitySpikeEnabled: true,
-    refundRateEnabled: true,
-    duplicateIpWindowHours: 24,
-    velocitySpikeThreshold: 10,
-    velocitySpikeWindowHours: 1,
-    refundRateThreshold: 30,
-    refundRateWindowDays: 30,
-    ipRiskScoreEnabled: false,
+    enabled: true,
+    maxConversionsPerDay: 50,
+    maxConversionsPerHour: 10,
+    velocitySpikeMultiplier: 3.0,
+    maxConversionsPerIp: 3,
+    minIpRiskScore: 75,
+    blockProxyVpn: false,
+    blockDatacenter: true,
+    blockTor: true,
+    maxRefundRatePct: 20,
+    minRefundsForAlert: 5,
+    enableGeoMismatchCheck: true,
+    allowedCountries: null,
+    enableSelfReferralCheck: true,
+    autoHoldOnHighRisk: true,
+    autoSuspendOnCritical: false,
   });
 }
 
@@ -81,25 +88,17 @@ describe('Fraud Detection Service', () => {
   describe('performFraudCheck', () => {
     it('should pass when no fraud signals detected', async () => {
       mockDefaultConfig();
-      // No affiliate user match
+      // No patientEmail in request → self-referral email check is skipped
       mockPrisma.affiliate.findUnique.mockResolvedValue({
         id: 100,
         userId: 1,
         user: { email: 'affiliate@example.com' },
       });
-      mockPrisma.patient.findUnique.mockResolvedValue({
-        id: 200,
-        email: 'patient@different.com',
-      });
-      // No duplicate IPs
-      mockPrisma.affiliateTouch.count.mockResolvedValue(0);
-      // No velocity spike
+      // Velocity check: count called twice (hourly, daily); refund check: count called twice (total, reversed)
+      // All return 2 → below all thresholds; refund total (2) < minRefundsForAlert (5) → skipped
       mockPrisma.affiliateCommissionEvent.count.mockResolvedValue(2);
-      // No high refund rate
-      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({
-        _count: { id: 10 },
-      });
-      mockPrisma.$queryRaw.mockResolvedValue([{ reversed_count: 1 }]);
+      // Monthly aggregate for velocity average
+      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: 10 });
 
       const result = await performFraudCheck(makeRequest());
 
@@ -115,39 +114,31 @@ describe('Fraud Detection Service', () => {
         userId: 1,
         user: { email: 'same@example.com' },
       });
-      mockPrisma.patient.findUnique.mockResolvedValue({
-        id: 200,
-        email: 'same@example.com',
-      });
-      // Clear other checks
-      mockPrisma.affiliateTouch.count.mockResolvedValue(0);
+      // Velocity and refund checks — low values so they don't trigger
       mockPrisma.affiliateCommissionEvent.count.mockResolvedValue(0);
-      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: { id: 0 } });
-      mockPrisma.$queryRaw.mockResolvedValue([{ reversed_count: 0 }]);
+      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: 0 });
 
-      const result = await performFraudCheck(makeRequest());
+      // patientEmail is passed to checkSelfReferral — must be in the request
+      const result = await performFraudCheck(makeRequest({ patientEmail: 'same@example.com' }));
 
       expect(result.passed).toBe(false);
-      expect(result.alerts.some(a => a.type.includes('SELF_REFERRAL') || a.type.includes('self'))).toBe(true);
+      expect(result.alerts.some(a => a.type === 'SELF_REFERRAL')).toBe(true);
     });
 
     it('should handle missing fraud config gracefully', async () => {
-      // No config for this clinic — should use defaults or pass
+      // No config for this clinic — should use DEFAULT_CONFIG
       mockPrisma.affiliateFraudConfig.findUnique.mockResolvedValue(null);
       mockPrisma.affiliate.findUnique.mockResolvedValue({
         id: 100,
         userId: 1,
         user: { email: 'affiliate@example.com' },
       });
-      mockPrisma.patient.findUnique.mockResolvedValue(null);
-      mockPrisma.affiliateTouch.count.mockResolvedValue(0);
       mockPrisma.affiliateCommissionEvent.count.mockResolvedValue(0);
-      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: { id: 0 } });
-      mockPrisma.$queryRaw.mockResolvedValue([{ reversed_count: 0 }]);
+      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: 0 });
 
       const result = await performFraudCheck(makeRequest());
 
-      // Should not throw, should return a result
+      // Should not throw, should return a result using default config
       expect(result).toBeDefined();
       expect(result.passed).toBeDefined();
     });
@@ -159,11 +150,8 @@ describe('Fraud Detection Service', () => {
         userId: 1,
         user: { email: 'affiliate@example.com' },
       });
-      mockPrisma.patient.findUnique.mockResolvedValue(null);
-      mockPrisma.affiliateTouch.count.mockResolvedValue(0);
       mockPrisma.affiliateCommissionEvent.count.mockResolvedValue(0);
-      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: { id: 0 } });
-      mockPrisma.$queryRaw.mockResolvedValue([{ reversed_count: 0 }]);
+      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: 0 });
 
       const result = await performFraudCheck(makeRequest({ ipAddress: undefined }));
 
@@ -178,21 +166,22 @@ describe('Fraud Detection Service', () => {
         userId: 1,
         user: { email: 'affiliate@example.com' },
       });
-      mockPrisma.patient.findUnique.mockResolvedValue({
-        id: 200,
-        email: 'patient@example.com',
-      });
-      mockPrisma.affiliateTouch.count.mockResolvedValue(0);
-      // Velocity: 50 commissions in the window (above threshold of 10)
-      mockPrisma.affiliateCommissionEvent.count.mockResolvedValue(50);
-      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: { id: 100 } });
-      mockPrisma.$queryRaw.mockResolvedValue([{ reversed_count: 0 }]);
+      // Velocity check calls count twice (hourly, daily) then aggregate (monthly).
+      // Refund check calls count twice (total, reversed).
+      // Order: hourly=50, daily=50, refund-total=100, refund-reversed=0
+      mockPrisma.affiliateCommissionEvent.count
+        .mockResolvedValueOnce(50)   // velocity hourly → exceeds maxConversionsPerHour (10)
+        .mockResolvedValueOnce(50)   // velocity daily
+        .mockResolvedValueOnce(100)  // refund total
+        .mockResolvedValueOnce(0);   // refund reversed
+      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: 200 });
 
       const result = await performFraudCheck(makeRequest());
 
       expect(result.riskScore).toBeGreaterThan(0);
       // Should flag velocity concern
       expect(result.alerts.length).toBeGreaterThan(0);
+      expect(result.alerts.some(a => a.type === 'VELOCITY_SPIKE')).toBe(true);
     });
 
     it('should detect high refund rates', async () => {
@@ -202,19 +191,19 @@ describe('Fraud Detection Service', () => {
         userId: 1,
         user: { email: 'affiliate@example.com' },
       });
-      mockPrisma.patient.findUnique.mockResolvedValue({
-        id: 200,
-        email: 'patient@example.com',
-      });
-      mockPrisma.affiliateTouch.count.mockResolvedValue(0);
-      mockPrisma.affiliateCommissionEvent.count.mockResolvedValue(1);
-      // High refund: 50 total, 20 reversed = 40% refund rate (threshold is 30%)
-      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: { id: 50 } });
-      mockPrisma.$queryRaw.mockResolvedValue([{ reversed_count: 20 }]);
+      // Velocity count (hourly, daily): low values so velocity doesn't trigger.
+      // Refund count (total, reversed): 50 total, 20 reversed = 40% > maxRefundRatePct (20%).
+      mockPrisma.affiliateCommissionEvent.count
+        .mockResolvedValueOnce(1)    // velocity hourly (< 10)
+        .mockResolvedValueOnce(1)    // velocity daily (< 50)
+        .mockResolvedValueOnce(50)   // refund total (>= minRefundsForAlert=5)
+        .mockResolvedValueOnce(20);  // refund reversed → 40% rate
+      mockPrisma.affiliateCommissionEvent.aggregate.mockResolvedValue({ _count: 10 });
 
       const result = await performFraudCheck(makeRequest());
 
       expect(result.riskScore).toBeGreaterThan(0);
+      expect(result.alerts.some(a => a.type === 'REFUND_ABUSE')).toBe(true);
     });
   });
 });

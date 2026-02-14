@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withSuperAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { suppressConversionMetrics, CLICK_FILTER, ACTIVE_COMMISSION_STATUSES } from '@/services/affiliate/reportingConstants';
+import { serverError } from '@/lib/api/error-response';
 
 interface ClinicBreakdown {
   clinicId: number;
@@ -56,6 +58,13 @@ async function handler(req: NextRequest): Promise<Response> {
   const clinicId = searchParams.get('clinicId');
 
   logger.info('[SuperAdmin Analytics] Starting request', { period, clinicId });
+
+  // HIPAA/SOC2 audit log for super-admin access to cross-clinic analytics
+  logger.security('[AffiliateAudit] Super admin accessed cross-clinic analytics', {
+    action: 'CROSS_CLINIC_ANALYTICS_VIEWED',
+    period,
+    clinicFilter: clinicId || 'all',
+  });
 
   try {
     // Calculate date range
@@ -107,10 +116,11 @@ async function handler(req: NextRequest): Promise<Response> {
             prisma.affiliateRefCode.count({
               where: { clinicId: clinic.id, isActive: true },
             }),
-            // Total clicks (uses) in period
+            // Total clicks in period (use shared CLICK_FILTER constant)
             prisma.affiliateTouch.count({
               where: {
                 clinicId: clinic.id,
+                ...CLICK_FILTER,
                 createdAt: { gte: dateFrom },
               },
             }),
@@ -121,11 +131,11 @@ async function handler(req: NextRequest): Promise<Response> {
                 convertedAt: { not: null, gte: dateFrom },
               },
             }),
-            // Total revenue in period
+            // Total revenue in period (use occurredAt for revenue date alignment)
             prisma.affiliateCommissionEvent.aggregate({
               where: {
                 clinicId: clinic.id,
-                createdAt: { gte: dateFrom },
+                occurredAt: { gte: dateFrom },
                 status: { in: ['PENDING', 'APPROVED', 'PAID'] },
               },
               _sum: { eventAmountCents: true },
@@ -220,19 +230,24 @@ async function handler(req: NextRequest): Promise<Response> {
                 affiliate: {
                   refCodes: { some: { refCode: code.refCode } },
                 },
-                createdAt: { gte: dateFrom },
+                occurredAt: { gte: dateFrom },
                 status: { in: ['PENDING', 'APPROVED', 'PAID'] },
               },
               _sum: { eventAmountCents: true },
             }),
           ]);
 
+          // HIPAA small-number suppression for conversion metrics
+          const suppressed = suppressConversionMetrics({
+            conversions,
+            revenueCents: revenue._sum.eventAmountCents || 0,
+          });
           return {
             code: code.refCode,
             affiliateName: code.affiliate.displayName,
             clinicName: code.clinic.name,
-            conversions,
-            revenue: revenue._sum.eventAmountCents || 0,
+            conversions: suppressed.conversions,
+            revenue: suppressed.revenueCents ?? 0,
           };
         } catch (codeErr) {
           logger.error('[SuperAdmin Analytics] Failed for code', {
@@ -253,49 +268,53 @@ async function handler(req: NextRequest): Promise<Response> {
     // Sort by conversions and take top 10
     const topCodes = topCodesWithMetrics.sort((a, b) => b.conversions - a.conversions).slice(0, 10);
 
-    // Get daily trends for the period
+    // Get daily trends for the period using batch queries (avoids N+1 loop)
     logger.info('[SuperAdmin Analytics] Calculating trends');
     const days = Math.min(Math.ceil((Date.now() - dateFrom.getTime()) / (24 * 60 * 60 * 1000)), 30);
-    const trends: Array<{ date: string; conversions: number; revenue: number }> = [];
+    const trendStart = new Date();
+    trendStart.setDate(trendStart.getDate() - (days - 1));
+    trendStart.setHours(0, 0, 0, 0);
 
+    const clinicFilterRaw = clinicId ? parseInt(clinicId, 10) : null;
+
+    const [conversionTrends, revenueTrends] = await Promise.all([
+      // Batch: conversions by day
+      prisma.$queryRaw<Array<{ date: Date; count: number }>>`
+        SELECT DATE("convertedAt") as date, COUNT(*)::int as count
+        FROM "AffiliateTouch"
+        WHERE "convertedAt" IS NOT NULL
+          AND "convertedAt" >= ${trendStart}
+          ${clinicFilterRaw ? prisma.$queryRaw`AND "clinicId" = ${clinicFilterRaw}` : prisma.$queryRaw``}
+        GROUP BY DATE("convertedAt")
+        ORDER BY date
+      `.catch(() => [] as Array<{ date: Date; count: number }>),
+      // Batch: revenue by day (use occurredAt for date alignment)
+      prisma.$queryRaw<Array<{ date: Date; revenue: number }>>`
+        SELECT DATE("occurredAt") as date, COALESCE(SUM("eventAmountCents"), 0)::int as revenue
+        FROM "AffiliateCommissionEvent"
+        WHERE "occurredAt" >= ${trendStart}
+          AND status IN ('PENDING', 'APPROVED', 'PAID')
+          ${clinicFilterRaw ? prisma.$queryRaw`AND "clinicId" = ${clinicFilterRaw}` : prisma.$queryRaw``}
+        GROUP BY DATE("occurredAt")
+        ORDER BY date
+      `.catch(() => [] as Array<{ date: Date; revenue: number }>),
+    ]);
+
+    // Build a date-keyed map for O(1) lookup
+    const conversionMap = new Map(conversionTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.count]));
+    const revenueMap = new Map(revenueTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.revenue]));
+
+    const trends: Array<{ date: string; conversions: number; revenue: number }> = [];
     for (let i = days - 1; i >= 0; i--) {
       const dayStart = new Date();
       dayStart.setDate(dayStart.getDate() - i);
       dayStart.setHours(0, 0, 0, 0);
-
-      const dayEnd = new Date(dayStart);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      try {
-        const [dayConversions, dayRevenue] = await Promise.all([
-          prisma.affiliateTouch.count({
-            where: {
-              ...(clinicId ? { clinicId: parseInt(clinicId, 10) } : {}),
-              convertedAt: { not: null, gte: dayStart, lte: dayEnd },
-            },
-          }),
-          prisma.affiliateCommissionEvent.aggregate({
-            where: {
-              ...(clinicId ? { clinicId: parseInt(clinicId, 10) } : {}),
-              createdAt: { gte: dayStart, lte: dayEnd },
-              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-            },
-            _sum: { eventAmountCents: true },
-          }),
-        ]);
-
-        trends.push({
-          date: dayStart.toISOString(),
-          conversions: dayConversions,
-          revenue: dayRevenue._sum.eventAmountCents || 0,
-        });
-      } catch (dayErr) {
-        trends.push({
-          date: dayStart.toISOString(),
-          conversions: 0,
-          revenue: 0,
-        });
-      }
+      const key = dayStart.toISOString().slice(0, 10);
+      trends.push({
+        date: dayStart.toISOString(),
+        conversions: conversionMap.get(key) || 0,
+        revenue: revenueMap.get(key) || 0,
+      });
     }
 
     const response: CrossClinicAnalyticsResponse = {
@@ -313,7 +332,7 @@ async function handler(req: NextRequest): Promise<Response> {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json({ error: 'Failed to fetch analytics data' }, { status: 500 });
+    return serverError('Failed to fetch analytics data');
   }
 }
 

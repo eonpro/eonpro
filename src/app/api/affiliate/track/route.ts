@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
+import { badRequest, serverError } from '@/lib/api/error-response';
 import crypto from 'crypto';
 
 // Redis-backed rate limiters (works in serverless, unlike the old in-memory Map)
@@ -189,25 +190,60 @@ async function handlePost(request: NextRequest) {
           return { deduplicated: true, touchId: existingTouch.id };
         }
 
-        return null; // No duplicate found — proceed to create
+        // No duplicate found — create INSIDE the transaction while holding the advisory lock.
+        // This prevents the race condition where two concurrent requests both pass the dedup
+        // check and both create a touch.
+        const newTouch = await tx.affiliateTouch.create({
+          data: {
+            clinicId,
+            affiliateId,
+            visitorFingerprint: body.visitorFingerprint,
+            cookieId: body.cookieId,
+            ipAddressHash,
+            userAgent: body.userAgent || request.headers.get('user-agent') || undefined,
+            refCode: body.refCode,
+            touchType: body.touchType || 'CLICK',
+            utmSource: body.utmSource,
+            utmMedium: body.utmMedium,
+            utmCampaign: body.utmCampaign,
+            utmContent: body.utmContent,
+            utmTerm: body.utmTerm,
+            subId1: body.subId1,
+            subId2: body.subId2,
+            subId3: body.subId3,
+            subId4: body.subId4,
+            subId5: body.subId5,
+            landingPage: body.landingPage?.substring(0, 2000),
+            referrerUrl: body.referrerUrl?.substring(0, 2000),
+          },
+        });
+        return { deduplicated: false, touchId: newTouch.id };
       });
 
-      if (dedupResult) {
+      if (dedupResult.deduplicated) {
         logger.debug('[Tracking] Deduplicated touch (within 30min window)', {
           touchId: dedupResult.touchId,
           refCode: body.refCode,
           affiliateId,
         });
-
-        return NextResponse.json({
-          success: true,
+      } else {
+        logger.info('[Tracking] Touch recorded', {
           touchId: dedupResult.touchId,
-          deduplicated: true,
+          clinicId,
+          affiliateId,
+          refCode: body.refCode,
+          touchType: body.touchType || 'CLICK',
         });
       }
+
+      return NextResponse.json({
+        success: true,
+        touchId: dedupResult.touchId,
+        deduplicated: dedupResult.deduplicated,
+      });
     }
 
-    // Create a new touch record (unique click)
+    // No visitor identifier — no dedup possible, create touch directly
     const touch = await prisma.affiliateTouch.create({
       data: {
         clinicId,
@@ -228,12 +264,12 @@ async function handlePost(request: NextRequest) {
         subId3: body.subId3,
         subId4: body.subId4,
         subId5: body.subId5,
-        landingPage: body.landingPage?.substring(0, 2000), // Limit URL length
+        landingPage: body.landingPage?.substring(0, 2000),
         referrerUrl: body.referrerUrl?.substring(0, 2000),
       },
     });
 
-    logger.info('[Tracking] Touch recorded', {
+    logger.info('[Tracking] Touch recorded (no visitor ID for dedup)', {
       touchId: touch.id,
       clinicId,
       affiliateId,
@@ -250,7 +286,7 @@ async function handlePost(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json({ error: 'Failed to record touch' }, { status: 500 });
+    return serverError('Failed to record touch');
   }
 }
 

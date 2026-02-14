@@ -23,7 +23,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 // Mocks – vi.hoisted ensures these are available when vi.mock factories run
 // ---------------------------------------------------------------------------
-const { mockPrisma, mockLogger } = vi.hoisted(() => {
+const { mockPrisma, mockLogger, mockPerformFraudCheck, mockProcessFraudCheckResult } = vi.hoisted(() => {
   const fn = () => vi.fn();
   return {
     mockPrisma: {
@@ -40,7 +40,7 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
       },
       affiliateCommissionTier: { findMany: fn() },
       affiliateProductRate: { findMany: fn() },
-      affiliatePromotion: { findMany: fn(), update: fn() },
+      affiliatePromotion: { findMany: fn(), update: fn(), updateMany: fn() },
       affiliatePlanAssignment: { findFirst: fn() },
       affiliateAttributionConfig: { findUnique: fn() },
       affiliatePayoutMethod: { findFirst: fn() },
@@ -50,13 +50,21 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
       patient: { findUnique: fn(), update: fn(), count: fn() },
       payment: { count: fn() },
       $queryRaw: fn(),
+      $transaction: fn(),
     },
     mockLogger: { info: fn(), warn: fn(), error: fn(), debug: fn() },
+    mockPerformFraudCheck: fn(),
+    mockProcessFraudCheckResult: fn(),
   };
 });
 
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
+vi.mock('@/lib/observability/request-context', () => ({ getRequestId: () => 'test-req-id' }));
+vi.mock('@/services/affiliate/fraudDetectionService', () => ({
+  performFraudCheck: mockPerformFraudCheck,
+  processFraudCheckResult: mockProcessFraudCheckResult,
+}));
 
 // Mock @prisma/client to provide Prisma.sql and Prisma.join used by raw queries
 vi.mock('@prisma/client', async (importOriginal) => {
@@ -79,14 +87,14 @@ const CLINIC_ID = 1;
 const AFFILIATE_ID = 100;
 const PATIENT_ID = 500;
 
-function setupAttributionMocks() {
-  // Patient exists, no prior attribution
+function setupAttributionMocks(overrides: { alreadyAttributed?: boolean } = {}) {
+  // Patient exists, no prior attribution (unless overridden)
   mockPrisma.patient.findUnique.mockResolvedValue({
     id: PATIENT_ID,
     clinicId: CLINIC_ID,
-    attributionAffiliateId: null,
-    attributionRefCode: null,
-    tags: [],
+    attributionAffiliateId: overrides.alreadyAttributed ? AFFILIATE_ID : null,
+    attributionRefCode: overrides.alreadyAttributed ? 'PARTNER1' : null,
+    tags: overrides.alreadyAttributed ? ['affiliate:PARTNER1'] : [],
   });
   // Ref code exists, active
   mockPrisma.affiliateRefCode.findFirst.mockResolvedValue({
@@ -99,6 +107,12 @@ function setupAttributionMocks() {
     affiliate: { id: AFFILIATE_ID, status: 'ACTIVE', displayName: 'Partner One' },
     clinic: { id: CLINIC_ID, name: 'Test Clinic' },
   });
+  // $transaction passes mockPrisma as tx; $queryRaw returns locked patient data
+  mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
+  mockPrisma.$queryRaw.mockResolvedValue([{
+    attributionAffiliateId: overrides.alreadyAttributed ? AFFILIATE_ID : null,
+    tags: overrides.alreadyAttributed ? ['affiliate:PARTNER1'] : [],
+  }]);
   mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 999 });
   mockPrisma.patient.update.mockResolvedValue({});
   mockPrisma.affiliate.update.mockResolvedValue({});
@@ -120,6 +134,16 @@ function setupCommissionMocks() {
     clinicId: CLINIC_ID,
     status: 'ACTIVE',
   });
+  // $transaction passes mockPrisma as tx
+  mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
+  // Fraud check defaults to approve
+  mockPerformFraudCheck.mockResolvedValue({
+    passed: true,
+    riskScore: 0,
+    alerts: [],
+    recommendation: 'approve',
+  });
+  mockProcessFraudCheckResult.mockResolvedValue(undefined);
   // Commission plan: 10%, 7-day hold, clawback enabled
   mockPrisma.affiliatePlanAssignment.findFirst.mockResolvedValue({
     commissionPlan: {
@@ -279,7 +303,8 @@ describe('End-to-End: Refund Clawback Flow', () => {
         ],
       },
     });
-    mockPrisma.affiliateCommissionEvent.update.mockResolvedValue({});
+    // Now uses updateMany with optimistic concurrency
+    mockPrisma.affiliateCommissionEvent.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await reverseCommissionForRefund({
       clinicId: CLINIC_ID,
@@ -294,10 +319,11 @@ describe('End-to-End: Refund Clawback Flow', () => {
     expect(result.success).toBe(true);
     expect(result.commissionEventId).toBe(1000);
 
-    // Commission should be REVERSED
-    const updateData = mockPrisma.affiliateCommissionEvent.update.mock.calls[0][0].data;
-    expect(updateData.status).toBe('REVERSED');
-    expect(updateData.reversalReason).toBe('Customer refund');
+    // Commission should be REVERSED (via updateMany with optimistic concurrency)
+    const updateCall = mockPrisma.affiliateCommissionEvent.updateMany.mock.calls[0][0];
+    expect(updateCall.data.status).toBe('REVERSED');
+    expect(updateCall.data.reversalReason).toBe('Customer refund');
+    expect(updateCall.where.reversedAt).toBeNull(); // optimistic concurrency check
   });
 });
 
@@ -305,7 +331,11 @@ describe('End-to-End: Refund Clawback Flow', () => {
 // Tag-Only Flow (code not in AffiliateRefCode)
 // ===========================================================================
 describe('End-to-End: Tag-Only Flow', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // tagPatientWithReferralCodeOnly now uses $transaction
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
+  });
 
   it('should tag patient with code even when no affiliate exists yet', async () => {
     const { tagPatientWithReferralCodeOnly } = await import(
@@ -318,7 +348,9 @@ describe('End-to-End: Tag-Only Flow', () => {
       attributionRefCode: null,
       tags: [],
     });
+    mockPrisma.affiliateRefCode.findFirst.mockResolvedValue(null); // no matching ref code
     mockPrisma.patient.update.mockResolvedValue({});
+    mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 1 });
 
     const success = await tagPatientWithReferralCodeOnly(PATIENT_ID, 'UNKNOWN_CODE', CLINIC_ID);
 
@@ -360,7 +392,9 @@ describe('End-to-End: Tag-Only Flow', () => {
 // Recurring Commission Flow
 // ===========================================================================
 describe('End-to-End: Recurring Commission Flow', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('should create commission for recurring payment (month 3)', async () => {
     setupCommissionMocks();
@@ -495,7 +529,11 @@ describe('End-to-End: Multi-Tenant Isolation', () => {
 // Idempotency Through Flow
 // ===========================================================================
 describe('End-to-End: Idempotency', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Both attribution and commission now use $transaction
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
+  });
 
   it('should not create duplicate commission for same Stripe event', async () => {
     // First processing succeeds
@@ -561,6 +599,11 @@ describe('End-to-End: Idempotency', () => {
       affiliate: { id: 300, status: 'ACTIVE', displayName: 'New Affiliate' },
       clinic: { id: CLINIC_ID, name: 'Test Clinic' },
     });
+    // SELECT FOR UPDATE inside transaction sees existing attribution
+    mockPrisma.$queryRaw.mockResolvedValue([{
+      attributionAffiliateId: 200,
+      tags: ['affiliate:OLDCODE'],
+    }]);
     mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 1010 });
 
     const result = await attributeFromIntakeExtended(PATIENT_ID, 'NEWCODE', CLINIC_ID);

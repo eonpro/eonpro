@@ -165,17 +165,19 @@ async function processStripeConnectPayout(
   const stripe = getStripeClient();
 
   try {
-    // Create transfer to connected account
-    const transfer = await stripe.transfers.create({
-      amount: amountCents,
-      currency: 'usd',
-      destination: payoutMethod.stripeAccountId,
-      description: `Affiliate commission payout - ${affiliate.displayName}`,
-      metadata: {
-        affiliateId: affiliate.id.toString(),
-        clinicId: clinicId.toString(),
-        type: 'affiliate_payout',
-      },
+    // Wrap Stripe API call in circuit breaker to prevent cascading failures
+    const transfer = await circuitBreakers.stripe.execute(async () => {
+      return stripe.transfers.create({
+        amount: amountCents,
+        currency: 'usd',
+        destination: payoutMethod.stripeAccountId,
+        description: `Affiliate commission payout - ${affiliate.displayName}`,
+        metadata: {
+          affiliateId: affiliate.id.toString(),
+          clinicId: clinicId.toString(),
+          type: 'affiliate_payout',
+        },
+      });
     });
 
     return {
@@ -188,6 +190,7 @@ async function processStripeConnectPayout(
     logger.error('[PayoutService] Stripe transfer failed', {
       affiliateId: affiliate.id,
       error: message,
+      circuitState: circuitBreakers.stripe.getState(),
     });
     return {
       success: false,

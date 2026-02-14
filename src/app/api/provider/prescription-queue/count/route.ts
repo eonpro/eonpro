@@ -27,6 +27,10 @@ async function handleGet(_req: NextRequest, user: AuthUser) {
           clinicId: { in: clinicIds },
           status: 'PAID',
           prescriptionProcessed: false,
+          // Exclude patients with incomplete profiles (awaiting admin completion)
+          patient: {
+            profileStatus: { not: 'PENDING_COMPLETION' },
+          },
         },
       }),
       prisma.refillQueue.count({

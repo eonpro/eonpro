@@ -126,6 +126,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // - EONmeds patients use internal intake forms (IntakeFormSubmission)
     // The prescription process handles both scenarios
     // Also fetch orders queued by admin for provider approval (status = queued_for_provider)
+    //
+    // IMPORTANT: Exclude patients with PENDING_COMPLETION profileStatus.
+    // These are auto-created from Stripe payments and need admin profile completion
+    // before they can be prescribed. They are visible in /api/finance/pending-profiles.
     const [invoices, invoiceCount, refills, refillCount, queuedOrders, queuedOrderCount] =
       await Promise.all([
         prisma.invoice.findMany({
@@ -133,6 +137,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             clinicId: { in: clinicIds },
             status: 'PAID',
             prescriptionProcessed: false,
+            // Only show invoices for patients with complete profiles
+            patient: {
+              profileStatus: { not: 'PENDING_COMPLETION' },
+            },
           },
           include: {
             // CRITICAL: Include clinic for prescription context (Lifefile API, PDF branding)
@@ -201,6 +209,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             clinicId: { in: clinicIds },
             status: 'PAID',
             prescriptionProcessed: false,
+            patient: {
+              profileStatus: { not: 'PENDING_COMPLETION' },
+            },
           },
         }),
         // Query approved refills from RefillQueue (all provider's clinics)

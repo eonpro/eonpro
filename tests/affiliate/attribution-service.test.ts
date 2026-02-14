@@ -26,6 +26,8 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
       affiliate: { findUnique: fn(), update: fn() },
       patient: { findUnique: fn(), update: fn(), count: fn() },
       payment: { count: fn() },
+      $transaction: fn(),
+      $queryRaw: fn(),
     },
     mockLogger: { info: fn(), warn: fn(), error: fn(), debug: fn() },
   };
@@ -80,6 +82,9 @@ function makePatient(overrides: Record<string, unknown> = {}) {
 describe('attributeFromIntake', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // attributeFromIntakeExtended now wraps writes in prisma.$transaction (Serializable)
+    // The transaction callback receives `tx` which in tests is just mockPrisma itself
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
   });
 
   // -------------------------------------------------------------------------
@@ -90,6 +95,8 @@ describe('attributeFromIntake', () => {
     mockPrisma.affiliateRefCode.findFirst
       .mockResolvedValueOnce(makeRefCode()) // first call: by clinic
       .mockResolvedValueOnce(null); // second call: inactive check (unreachable)
+    // $queryRaw returns locked patient inside transaction (SELECT FOR UPDATE)
+    mockPrisma.$queryRaw.mockResolvedValue([{ attributionAffiliateId: null, tags: [] }]);
     mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 999 });
     mockPrisma.patient.update.mockResolvedValue({});
     mockPrisma.affiliate.update.mockResolvedValue({});
@@ -103,7 +110,7 @@ describe('attributeFromIntake', () => {
     expect(result!.model).toBe('INTAKE_DIRECT');
     expect(result!.confidence).toBe('high');
 
-    // Touch should be created
+    // Touch should be created inside the transaction
     expect(mockPrisma.affiliateTouch.create).toHaveBeenCalledOnce();
     const touchData = mockPrisma.affiliateTouch.create.mock.calls[0][0].data;
     expect(touchData.clinicId).toBe(1);
@@ -111,13 +118,13 @@ describe('attributeFromIntake', () => {
     expect(touchData.refCode).toBe('PARTNER1');
     expect(touchData.touchType).toBe('POSTBACK');
 
-    // Patient should be updated with attribution
+    // Patient should be updated with attribution inside the transaction
     expect(mockPrisma.patient.update).toHaveBeenCalledOnce();
     const patientUpdate = mockPrisma.patient.update.mock.calls[0][0].data;
     expect(patientUpdate.attributionAffiliateId).toBe(100);
     expect(patientUpdate.attributionRefCode).toBe('PARTNER1');
 
-    // Affiliate lifetime conversions should be incremented
+    // Affiliate lifetime conversions should be incremented inside the transaction
     expect(mockPrisma.affiliate.update).toHaveBeenCalledOnce();
     const affiliateUpdate = mockPrisma.affiliate.update.mock.calls[0][0].data;
     expect(affiliateUpdate.lifetimeConversions).toEqual({ increment: 1 });
@@ -129,6 +136,7 @@ describe('attributeFromIntake', () => {
   it('should normalize promo code to uppercase and trimmed', async () => {
     mockPrisma.patient.findUnique.mockResolvedValue(makePatient());
     mockPrisma.affiliateRefCode.findFirst.mockResolvedValueOnce(makeRefCode());
+    mockPrisma.$queryRaw.mockResolvedValue([{ attributionAffiliateId: null, tags: [] }]);
     mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 1000 });
     mockPrisma.patient.update.mockResolvedValue({});
     mockPrisma.affiliate.update.mockResolvedValue({});
@@ -152,6 +160,8 @@ describe('attributeFromIntake', () => {
     });
     mockPrisma.patient.findUnique.mockResolvedValue(alreadyAttributed);
     mockPrisma.affiliateRefCode.findFirst.mockResolvedValueOnce(makeRefCode());
+    // SELECT FOR UPDATE inside transaction sees the existing attribution
+    mockPrisma.$queryRaw.mockResolvedValue([{ attributionAffiliateId: 200, tags: [] }]);
     mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 1001 });
 
     const result = await attributeFromIntakeExtended(500, 'partner1', 1);
@@ -161,9 +171,9 @@ describe('attributeFromIntake', () => {
     expect(result.model).toBe('INTAKE_TOUCH_ONLY');
     expect(result.failureReason).toBe('ALREADY_ATTRIBUTED');
 
-    // Touch should still be created (code usage tracking)
+    // Touch should still be created (code usage tracking) — inside the transaction
     expect(mockPrisma.affiliateTouch.create).toHaveBeenCalledOnce();
-    // Patient attribution should NOT be updated
+    // Patient attribution should NOT be updated (already attributed, verified under lock)
     expect(mockPrisma.patient.update).not.toHaveBeenCalled();
     // Lifetime conversions should NOT be incremented
     expect(mockPrisma.affiliate.update).not.toHaveBeenCalled();
@@ -256,13 +266,15 @@ describe('attributeFromIntake', () => {
     const patientWithTag = makePatient({ tags: ['affiliate:PARTNER1'] });
     mockPrisma.patient.findUnique.mockResolvedValue(patientWithTag);
     mockPrisma.affiliateRefCode.findFirst.mockResolvedValueOnce(makeRefCode());
+    // SELECT FOR UPDATE returns tag data used for dedup check inside the transaction
+    mockPrisma.$queryRaw.mockResolvedValue([{ attributionAffiliateId: null, tags: ['affiliate:PARTNER1'] }]);
     mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 1002 });
     mockPrisma.patient.update.mockResolvedValue({});
     mockPrisma.affiliate.update.mockResolvedValue({});
 
     await attributeFromIntake(500, 'PARTNER1', 1);
 
-    // patient.update should NOT include tags push
+    // patient.update should NOT include tags push (tag already exists, checked from locked row data)
     const updateData = mockPrisma.patient.update.mock.calls[0][0].data;
     expect(updateData.tags).toBeUndefined(); // no push because tag already exists
   });
@@ -286,11 +298,15 @@ describe('attributeFromIntake', () => {
 describe('tagPatientWithReferralCodeOnly', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // tagPatientWithReferralCodeOnly now wraps patient.update + affiliateTouch.create in $transaction
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
   });
 
   it('should tag patient with ref code and affiliate: tag when no affiliate exists', async () => {
     mockPrisma.patient.findUnique.mockResolvedValue(makePatient());
+    mockPrisma.affiliateRefCode.findFirst.mockResolvedValue(null); // no matching ref code
     mockPrisma.patient.update.mockResolvedValue({});
+    mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 1 });
 
     const success = await tagPatientWithReferralCodeOnly(500, 'PROMO123', 1);
 
@@ -301,6 +317,8 @@ describe('tagPatientWithReferralCodeOnly', () => {
     expect(data.tags).toEqual({ push: 'affiliate:PROMO123' });
     // Should NOT set attributionAffiliateId
     expect(data.attributionAffiliateId).toBeUndefined();
+    // AffiliateTouch should also be created
+    expect(mockPrisma.affiliateTouch.create).toHaveBeenCalledOnce();
   });
 
   it('should NOT overwrite if patient already has an affiliate attribution', async () => {
@@ -325,7 +343,9 @@ describe('tagPatientWithReferralCodeOnly', () => {
     mockPrisma.patient.findUnique.mockResolvedValue(
       makePatient({ tags: ['affiliate:PROMO123'] })
     );
+    mockPrisma.affiliateRefCode.findFirst.mockResolvedValue(null);
     mockPrisma.patient.update.mockResolvedValue({});
+    mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 2 });
 
     await tagPatientWithReferralCodeOnly(500, 'PROMO123', 1);
 
@@ -593,9 +613,13 @@ describe('markTouchConverted', () => {
 });
 
 describe('setPatientAttribution', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // setPatientAttribution now wraps in $transaction — make it execute the callback with mockPrisma
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
+  });
 
-  it('should update patient and mark touch converted', async () => {
+  it('should update patient and mark touch converted in a transaction', async () => {
     mockPrisma.patient.update.mockResolvedValue({});
     mockPrisma.affiliateTouch.update.mockResolvedValue({});
 
@@ -608,6 +632,8 @@ describe('setPatientAttribution', () => {
       weight: 1,
     });
 
+    // Both operations now happen inside $transaction
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
     expect(mockPrisma.patient.update).toHaveBeenCalledWith({
       where: { id: 500 },
       data: {
@@ -626,7 +652,7 @@ describe('setPatientAttribution', () => {
     });
   });
 
-  it('should not call markTouchConverted if touchId is 0', async () => {
+  it('should not update touch if touchId is 0', async () => {
     mockPrisma.patient.update.mockResolvedValue({});
 
     await setPatientAttribution(500, {
@@ -638,6 +664,7 @@ describe('setPatientAttribution', () => {
       weight: 1,
     });
 
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
     expect(mockPrisma.patient.update).toHaveBeenCalledOnce();
     expect(mockPrisma.affiliateTouch.update).not.toHaveBeenCalled();
   });

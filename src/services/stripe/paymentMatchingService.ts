@@ -19,8 +19,23 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
+import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
 import Stripe from 'stripe';
 import type { Patient, Invoice, InvoiceStatus } from '@prisma/client';
+
+// PHI fields that are encrypted in the patient table
+const PHI_FIELDS = [
+  'firstName',
+  'lastName',
+  'dob',
+  'email',
+  'phone',
+  'address1',
+  'address2',
+  'city',
+  'state',
+  'zip',
+] as const;
 
 // ProfileStatus enum - will be available after running migration and prisma generate
 // For now, we use string literals: 'ACTIVE' | 'PENDING_COMPLETION' | 'MERGED' | 'ARCHIVED'
@@ -334,8 +349,51 @@ export async function findPatientByStripeCustomerId(customerId: string): Promise
   });
 }
 
+// ============================================================================
+// PHI-Aware Patient Matching
+// ============================================================================
+//
+// Patient PHI fields (email, phone, firstName, lastName) are encrypted at rest
+// using AES-256-GCM with random IVs (non-deterministic encryption).
+// This means we CANNOT do SQL-level text comparisons on encrypted columns.
+//
+// Strategy:
+// 1. Try plaintext SQL match first (handles unencrypted patients in migration period)
+// 2. If no match, fetch candidate patients for the clinic, decrypt PHI in memory,
+//    and compare against the search value.
+// ============================================================================
+
 /**
- * Find a patient by email (case-insensitive)
+ * Safely decrypt a single PHI field value.
+ * Returns the original value if it doesn't appear encrypted (migration period).
+ */
+function safeDecryptField(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value);
+  } catch {
+    return value; // Return raw value if decryption fails
+  }
+}
+
+/**
+ * Normalize a phone number to digits only for comparison
+ */
+function normalizePhoneForComparison(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  // Normalize to 10-digit US format
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return digits.slice(1);
+  }
+  return digits;
+}
+
+/**
+ * Find a patient by email (handles encrypted PHI)
+ *
+ * Two-pass approach:
+ * 1. SQL-level search for plaintext emails (migration period / unencrypted data)
+ * 2. In-memory decryption and comparison for encrypted emails
  */
 export async function findPatientByEmail(
   email: string,
@@ -343,92 +401,167 @@ export async function findPatientByEmail(
 ): Promise<Patient | null> {
   const normalizedEmail = email.toLowerCase().trim();
 
-  const where: { email: { equals: string; mode: 'insensitive' }; clinicId?: number } = {
-    email: {
-      equals: normalizedEmail,
-      mode: 'insensitive',
-    },
+  // Pass 1: Try plaintext SQL match (works for unencrypted patients)
+  const plaintextWhere: Record<string, unknown> = {
+    email: { equals: normalizedEmail, mode: 'insensitive' },
   };
+  if (clinicId) plaintextWhere.clinicId = clinicId;
 
-  if (clinicId) {
-    where.clinicId = clinicId;
-  }
-
-  // Return most recently created patient if multiple matches
-  return prisma.patient.findFirst({
-    where,
+  const plaintextMatch = await prisma.patient.findFirst({
+    where: plaintextWhere,
     orderBy: { createdAt: 'desc' },
   });
+
+  if (plaintextMatch) return plaintextMatch;
+
+  // Pass 2: Fetch candidates for the clinic and decrypt emails in memory
+  // This handles patients whose emails are encrypted with AES-256-GCM (random IV)
+  const candidateWhere: Record<string, unknown> = {};
+  if (clinicId) candidateWhere.clinicId = clinicId;
+
+  const candidates = await prisma.patient.findMany({
+    where: candidateWhere,
+    select: {
+      id: true,
+      email: true,
+      clinicId: true,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5000, // Reasonable clinic size limit
+  });
+
+  for (const candidate of candidates) {
+    const decryptedEmail = safeDecryptField(candidate.email);
+    if (decryptedEmail && decryptedEmail.toLowerCase().trim() === normalizedEmail) {
+      // Found a match - fetch the full patient record
+      return prisma.patient.findUnique({ where: { id: candidate.id } });
+    }
+  }
+
+  return null;
 }
 
 /**
- * Find a patient by phone number (normalized)
+ * Find a patient by phone number (handles encrypted PHI)
+ *
+ * Normalizes phone numbers to 10-digit US format before comparing.
  */
 export async function findPatientByPhone(
   phone: string,
   clinicId?: number
 ): Promise<Patient | null> {
-  // Normalize phone: remove all non-digits
-  const normalizedPhone = phone.replace(/\D/g, '');
+  const normalizedPhone = normalizePhoneForComparison(phone);
+  if (!normalizedPhone || normalizedPhone.length < 7) return null;
 
-  // Also try with common formats
+  // Pass 1: Try plaintext SQL match (works for unencrypted patients)
   const phoneVariants = [
     normalizedPhone,
-    // If 10 digits, try with +1 prefix
     normalizedPhone.length === 10 ? `1${normalizedPhone}` : null,
-    // If 11 digits starting with 1, try without
     normalizedPhone.length === 11 && normalizedPhone.startsWith('1')
       ? normalizedPhone.slice(1)
       : null,
   ].filter(Boolean) as string[];
 
-  const where: { OR: { phone: { contains: string } }[]; clinicId?: number } = {
-    OR: phoneVariants.map((p) => ({
-      phone: { contains: p },
-    })),
+  const plaintextWhere: Record<string, unknown> = {
+    OR: phoneVariants.map((p) => ({ phone: { contains: p } })),
   };
+  if (clinicId) plaintextWhere.clinicId = clinicId;
 
-  if (clinicId) {
-    where.clinicId = clinicId;
-  }
-
-  return prisma.patient.findFirst({
-    where,
+  const plaintextMatch = await prisma.patient.findFirst({
+    where: plaintextWhere,
     orderBy: { createdAt: 'desc' },
   });
+
+  if (plaintextMatch) return plaintextMatch;
+
+  // Pass 2: In-memory decryption and comparison
+  const candidateWhere: Record<string, unknown> = {};
+  if (clinicId) candidateWhere.clinicId = clinicId;
+
+  const candidates = await prisma.patient.findMany({
+    where: candidateWhere,
+    select: {
+      id: true,
+      phone: true,
+      clinicId: true,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5000,
+  });
+
+  for (const candidate of candidates) {
+    const decryptedPhone = safeDecryptField(candidate.phone);
+    if (decryptedPhone) {
+      const candidateNormalized = normalizePhoneForComparison(decryptedPhone);
+      if (candidateNormalized === normalizedPhone) {
+        return prisma.patient.findUnique({ where: { id: candidate.id } });
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
- * Find a patient by name (first + last)
+ * Find a patient by name (handles encrypted PHI)
+ *
+ * Case-insensitive comparison after decrypting stored values.
  */
 export async function findPatientByName(
   firstName: string,
   lastName: string,
   clinicId?: number
 ): Promise<Patient | null> {
-  const where: {
-    firstName: { equals: string; mode: 'insensitive' };
-    lastName: { equals: string; mode: 'insensitive' };
-    clinicId?: number;
-  } = {
-    firstName: {
-      equals: firstName.trim(),
-      mode: 'insensitive',
-    },
-    lastName: {
-      equals: lastName.trim(),
-      mode: 'insensitive',
-    },
+  const normalizedFirst = firstName.trim().toLowerCase();
+  const normalizedLast = lastName.trim().toLowerCase();
+
+  if (!normalizedFirst || !normalizedLast) return null;
+
+  // Pass 1: Try plaintext SQL match (works for unencrypted patients)
+  const plaintextWhere: Record<string, unknown> = {
+    firstName: { equals: firstName.trim(), mode: 'insensitive' },
+    lastName: { equals: lastName.trim(), mode: 'insensitive' },
   };
+  if (clinicId) plaintextWhere.clinicId = clinicId;
 
-  if (clinicId) {
-    where.clinicId = clinicId;
-  }
-
-  return prisma.patient.findFirst({
-    where,
+  const plaintextMatch = await prisma.patient.findFirst({
+    where: plaintextWhere,
     orderBy: { createdAt: 'desc' },
   });
+
+  if (plaintextMatch) return plaintextMatch;
+
+  // Pass 2: In-memory decryption and comparison
+  const candidateWhere: Record<string, unknown> = {};
+  if (clinicId) candidateWhere.clinicId = clinicId;
+
+  const candidates = await prisma.patient.findMany({
+    where: candidateWhere,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      clinicId: true,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5000,
+  });
+
+  for (const candidate of candidates) {
+    const decryptedFirst = safeDecryptField(candidate.firstName);
+    const decryptedLast = safeDecryptField(candidate.lastName);
+
+    if (
+      decryptedFirst &&
+      decryptedLast &&
+      decryptedFirst.trim().toLowerCase() === normalizedFirst &&
+      decryptedLast.trim().toLowerCase() === normalizedLast
+    ) {
+      return prisma.patient.findUnique({ where: { id: candidate.id } });
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -480,8 +613,8 @@ export async function matchPatientFromPayment(
     const patient = await findPatientByEmail(paymentData.email, clinicId);
     if (patient) {
       logger.debug('[PaymentMatching] Matched by email', {
-        email: paymentData.email,
         patientId: patient.id,
+        clinicId: patient.clinicId,
       });
       return {
         patient,
@@ -496,8 +629,8 @@ export async function matchPatientFromPayment(
     const patient = await findPatientByPhone(paymentData.phone, clinicId);
     if (patient) {
       logger.debug('[PaymentMatching] Matched by phone', {
-        phone: paymentData.phone,
         patientId: patient.id,
+        clinicId: patient.clinicId,
       });
       return {
         patient,
@@ -514,8 +647,8 @@ export async function matchPatientFromPayment(
       const patient = await findPatientByName(firstName, lastName, clinicId);
       if (patient) {
         logger.debug('[PaymentMatching] Matched by name', {
-          name: paymentData.name,
           patientId: patient.id,
+          clinicId: patient.clinicId,
         });
         return {
           patient,
@@ -526,12 +659,13 @@ export async function matchPatientFromPayment(
     }
   }
 
-  // No match found
+  // No match found — log only non-PHI identifiers
   logger.debug('[PaymentMatching] No patient match found', {
     customerId: paymentData.customerId,
-    email: paymentData.email,
-    phone: paymentData.phone,
-    name: paymentData.name,
+    hasEmail: !!paymentData.email,
+    hasPhone: !!paymentData.phone,
+    hasName: !!paymentData.name,
+    clinicId,
   });
 
   return {
@@ -549,6 +683,9 @@ export async function matchPatientFromPayment(
  * Create a new patient from Stripe customer data
  * Uses a transaction to ensure atomicity of counter increment and patient creation
  *
+ * HIPAA COMPLIANCE: All PHI fields are encrypted before storage using
+ * the same encryption as the patient repository (encryptPatientPHI).
+ *
  * PROFILE STATUS:
  * - PENDING_COMPLETION: Created from payment with incomplete info (placeholder email/name)
  * - ACTIVE: Has real email and name from Stripe
@@ -561,10 +698,16 @@ export async function createPatientFromStripePayment(
     ? splitName(paymentData.name)
     : { firstName: 'Unknown', lastName: 'Customer' };
 
-  // Determine if this is a placeholder/incomplete profile
+  // Determine data completeness (used for notes/metadata)
   const hasRealEmail = paymentData.email && !paymentData.email.includes('@placeholder.local');
   const hasRealName = paymentData.name && !paymentData.name.toLowerCase().includes('unknown');
-  const isIncompleteProfile = !hasRealEmail || !hasRealName;
+  const hasMissingData = !hasRealEmail || !hasRealName;
+
+  // IMPORTANT: ALL auto-created patients from Stripe payments start as PENDING_COMPLETION.
+  // Even with complete Stripe data, clinical profiles need admin review (DOB, medical history,
+  // address verification, etc.) before they can be sent to the provider prescription queue.
+  // Admin completes the profile via /api/finance/pending-profiles → moves to Rx queue.
+  const isIncompleteProfile = true;
 
   // Generate patient ID using the shared utility (handles clinic prefixes like EON-123, WEL-456)
   const patientId = await generatePatientId(clinicId);
@@ -572,23 +715,31 @@ export async function createPatientFromStripePayment(
   // Use address from Stripe if available
   const address = paymentData.address;
 
-  // Create the patient record
+  // Build plaintext PHI data
+  const phiData = {
+    firstName: firstName || 'Unknown',
+    lastName: lastName || 'Customer',
+    email:
+      paymentData.email || `stripe-${paymentData.customerId || Date.now()}@placeholder.local`,
+    phone: paymentData.phone || '',
+    dob: '1900-01-01', // Placeholder - to be updated
+    address1: address?.line1 || '',
+    address2: address?.line2 || null,
+    city: address?.city || '',
+    state: address?.state || '',
+    zip: address?.postal_code || '',
+  };
+
+  // HIPAA: Encrypt PHI fields before storage (same as patient repository)
+  const encryptedPHI = encryptPatientPHI(phiData, [...PHI_FIELDS]);
+
+  // Create the patient record with encrypted PHI
   const patient = await prisma.patient.create({
     data: {
       patientId,
       clinicId,
-      firstName: firstName || 'Unknown',
-      lastName: lastName || 'Customer',
-      email:
-        paymentData.email || `stripe-${paymentData.customerId || Date.now()}@placeholder.local`,
-      phone: paymentData.phone || '',
-      dob: '1900-01-01', // Placeholder - to be updated
+      ...encryptedPHI,
       gender: 'unknown',
-      address1: address?.line1 || '',
-      address2: address?.line2 || null,
-      city: address?.city || '',
-      state: address?.state || '',
-      zip: address?.postal_code || '',
       stripeCustomerId: paymentData.customerId,
       source: 'stripe',
       profileStatus: isIncompleteProfile ? 'PENDING_COMPLETION' : 'ACTIVE',
@@ -597,24 +748,19 @@ export async function createPatientFromStripePayment(
         firstPaymentId: paymentData.paymentIntentId || paymentData.chargeId,
         createdFrom: 'payment_webhook',
         timestamp: new Date().toISOString(),
-        originalData: {
-          email: paymentData.email,
-          name: paymentData.name,
-          phone: paymentData.phone,
-          address: paymentData.address,
-        },
-        requiresCompletion: isIncompleteProfile,
+        // NOTE: Do NOT store plaintext PHI in sourceMetadata — only IDs
+        requiresCompletion: true,
+        hasMissingStripeData: hasMissingData,
       },
-      notes: isIncompleteProfile
+      notes: hasMissingData
         ? `⚠️ PENDING COMPLETION: Auto-created from Stripe payment (${paymentData.paymentIntentId || paymentData.chargeId}). Missing ${!hasRealEmail ? 'email' : ''}${!hasRealEmail && !hasRealName ? ', ' : ''}${!hasRealName ? 'name' : ''}. Please update patient details or merge with existing profile.`
-        : `Auto-created from Stripe payment on ${new Date().toLocaleDateString()}.`,
+        : `⚠️ PENDING COMPLETION: Auto-created from Stripe payment on ${new Date().toLocaleDateString()}. Has Stripe data (name/email). Please verify clinical details (DOB, address, medical history) and complete profile to send to provider queue.`,
     },
   });
 
   logger.info('[PaymentMatching] Created new patient from Stripe payment', {
     patientId: patient.id,
     stripeCustomerId: paymentData.customerId,
-    email: paymentData.email,
     profileStatus: isIncompleteProfile ? 'PENDING_COMPLETION' : 'ACTIVE',
     isIncompleteProfile,
   });
@@ -1130,8 +1276,29 @@ export async function processStripePayment(
       }
     }
 
-    // Create paid invoice
+    // Create paid invoice (prescriptionProcessed defaults to false → appears in provider queue)
     const invoice = await createPaidInvoiceFromStripe(patient, enhancedPaymentData);
+
+    // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
+    // This ensures clinical documentation is complete before providers prescribe.
+    // Same trigger as StripeInvoiceService.updateFromWebhook for consistency.
+    try {
+      const { ensureSoapNoteExists } = await import('@/lib/soap-note-automation');
+      const soapResult = await ensureSoapNoteExists(patient.id, invoice.id);
+      logger.info('[PaymentMatching] SOAP note check for paid invoice', {
+        invoiceId: invoice.id,
+        patientId: patient.id,
+        soapAction: soapResult.action,
+        soapNoteId: soapResult.soapNoteId,
+      });
+    } catch (soapError: unknown) {
+      // Log but don't fail — SOAP note can be generated manually if needed
+      logger.warn('[PaymentMatching] SOAP note generation failed for paid invoice (non-fatal)', {
+        invoiceId: invoice.id,
+        patientId: patient.id,
+        error: soapError instanceof Error ? soapError.message : 'Unknown',
+      });
+    }
 
     // Log successful reconciliation
     await createReconciliationRecord(enhancedPaymentData, stripeEventId, stripeEventType, {

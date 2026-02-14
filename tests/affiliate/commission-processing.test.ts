@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 // Mocks – vi.hoisted ensures these are available when vi.mock factories run
 // ---------------------------------------------------------------------------
-const { mockPrisma, mockLogger } = vi.hoisted(() => {
+const { mockPrisma, mockLogger, mockPerformFraudCheck, mockProcessFraudCheckResult } = vi.hoisted(() => {
   const fn = () => vi.fn();
   return {
     mockPrisma: {
@@ -29,18 +29,26 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
       },
       affiliateCommissionTier: { findMany: fn() },
       affiliateProductRate: { findMany: fn() },
-      affiliatePromotion: { findMany: fn(), update: fn() },
+      affiliatePromotion: { findMany: fn(), update: fn(), updateMany: fn() },
       affiliatePlanAssignment: { findFirst: fn() },
       patient: { findUnique: fn() },
       payment: { count: fn() },
       $queryRaw: fn(),
+      $transaction: fn(),
     },
     mockLogger: { info: fn(), warn: fn(), error: fn(), debug: fn() },
+    mockPerformFraudCheck: fn(),
+    mockProcessFraudCheckResult: fn(),
   };
 });
 
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
+vi.mock('@/lib/observability/request-context', () => ({ getRequestId: () => 'test-req-id' }));
+vi.mock('@/services/affiliate/fraudDetectionService', () => ({
+  performFraudCheck: mockPerformFraudCheck,
+  processFraudCheckResult: mockProcessFraudCheckResult,
+}));
 
 import {
   calculateCommission,
@@ -292,7 +300,6 @@ describe('calculateEnhancedCommission', () => {
         isActive: true,
       },
     ]);
-    mockPrisma.affiliatePromotion.update.mockResolvedValue({});
 
     const result = await calculateEnhancedCommission(100, 1, makePlan(), 10000, {
       isFirstPayment: true,
@@ -305,11 +312,8 @@ describe('calculateEnhancedCommission', () => {
     expect(result.totalCommissionCents).toBe(1700);
     expect(result.promotionName).toBe('Summer Bonus');
 
-    // Promotion usage count should be incremented
-    expect(mockPrisma.affiliatePromotion.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: { usesCount: { increment: 1 } },
-    });
+    // appliedPromotionIds should contain the promotion ID for caller to increment usage
+    expect(result.appliedPromotionIds).toContain(1);
   });
 
   it('should not apply promotion that has reached maxUses', async () => {
@@ -384,7 +388,19 @@ describe('calculateEnhancedCommission', () => {
 // processPaymentForCommission
 // ---------------------------------------------------------------------------
 describe('processPaymentForCommission', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Commission creation now happens inside $transaction — pass mockPrisma as tx
+    mockPrisma.$transaction.mockImplementation(async (fn: Function) => fn(mockPrisma));
+    // Fraud check defaults to "approve" for most tests
+    mockPerformFraudCheck.mockResolvedValue({
+      passed: true,
+      riskScore: 0,
+      alerts: [],
+      recommendation: 'approve',
+    });
+    mockProcessFraudCheckResult.mockResolvedValue(undefined);
+  });
 
   it('should skip if event already processed (idempotency)', async () => {
     mockPrisma.affiliateCommissionEvent.findUnique.mockResolvedValue({
@@ -499,6 +515,12 @@ describe('processPaymentForCommission', () => {
     expect(result.commissionEventId).toBe(1000);
     expect(result.commissionAmountCents).toBe(1000); // 10% of $100
 
+    // Fraud check should have been called
+    expect(mockPerformFraudCheck).toHaveBeenCalledOnce();
+
+    // Commission creation happens inside $transaction
+    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+
     // Verify commission event was created with correct data
     const createCall = mockPrisma.affiliateCommissionEvent.create.mock.calls[0][0].data;
     expect(createCall.clinicId).toBe(1);
@@ -513,8 +535,10 @@ describe('processPaymentForCommission', () => {
     expect(createCall.metadata.refCode).toBe('PARTNER1');
     expect(createCall.metadata).not.toHaveProperty('patientName');
     expect(createCall.metadata).not.toHaveProperty('patientEmail');
+    // Fraud check metadata should be present
+    expect(createCall.metadata.fraudCheck).toBeDefined();
 
-    // Affiliate stats should be updated
+    // Affiliate stats should be updated inside the transaction
     expect(mockPrisma.affiliate.update).toHaveBeenCalledWith({
       where: { id: 100 },
       data: {
@@ -560,6 +584,7 @@ describe('processPaymentForCommission', () => {
     mockPrisma.affiliateCommissionTier.findMany.mockResolvedValue([]);
     mockPrisma.affiliateProductRate.findMany.mockResolvedValue([]);
     mockPrisma.affiliatePromotion.findMany.mockResolvedValue([]);
+    // Commission event creation happens inside $transaction
     mockPrisma.affiliateCommissionEvent.create.mockResolvedValue({ id: 1001, commissionAmountCents: 1000 });
     mockPrisma.affiliate.update.mockResolvedValue({});
 
@@ -567,6 +592,7 @@ describe('processPaymentForCommission', () => {
       makePaymentEvent({ occurredAt: new Date('2026-02-01') })
     );
 
+    // create is called inside the transaction
     const createData = mockPrisma.affiliateCommissionEvent.create.mock.calls[0][0].data;
     const holdUntil = new Date(createData.holdUntil);
     const expected = new Date('2026-02-15'); // 14 days after Feb 1
@@ -603,7 +629,8 @@ describe('reverseCommissionForRefund', () => {
         ],
       },
     });
-    mockPrisma.affiliateCommissionEvent.update.mockResolvedValue({});
+    // Now uses updateMany with optimistic concurrency (reversedAt: null check)
+    mockPrisma.affiliateCommissionEvent.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await reverseCommissionForRefund({
       clinicId: 1,
@@ -618,10 +645,13 @@ describe('reverseCommissionForRefund', () => {
     expect(result.success).toBe(true);
     expect(result.commissionEventId).toBe(1000);
 
-    const updateData = mockPrisma.affiliateCommissionEvent.update.mock.calls[0][0].data;
-    expect(updateData.status).toBe('REVERSED');
-    expect(updateData.reversedAt).toBeInstanceOf(Date);
-    expect(updateData.reversalReason).toBe('Customer requested refund');
+    // Verify updateMany was called with optimistic concurrency (reversedAt: null)
+    const call = mockPrisma.affiliateCommissionEvent.updateMany.mock.calls[0][0];
+    expect(call.where.id).toBe(1000);
+    expect(call.where.reversedAt).toBeNull();
+    expect(call.data.status).toBe('REVERSED');
+    expect(call.data.reversedAt).toBeInstanceOf(Date);
+    expect(call.data.reversalReason).toBe('Customer requested refund');
   });
 
   it('should skip reversal if clawback is disabled', async () => {

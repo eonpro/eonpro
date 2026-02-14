@@ -83,6 +83,16 @@ export const POST = withAuthParams(
         rejectedBy: user.id,
       });
 
+      // HIPAA/SOC2 audit log for admin actions on affiliate data
+      logger.security('[AffiliateAudit] Admin rejected affiliate application', {
+        action: 'AFFILIATE_APPLICATION_REJECTED',
+        applicationId,
+        clinicId: application.clinicId,
+        performedBy: user.id,
+        performedByRole: user.role,
+        applicantEmail: application.email,
+      });
+
       // TODO: Send rejection email/SMS to applicant (optionally with reason)
 
       return NextResponse.json({

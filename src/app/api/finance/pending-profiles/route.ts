@@ -196,14 +196,26 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
       );
 
       // Get summary stats
-      const stats = await prisma.patient.groupBy({
-        by: ['profileStatus'],
-        where:
-          user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : undefined,
-        _count: true,
-      });
+      const searchClinicFilter =
+        user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : undefined;
 
-      const statusCounts = stats.reduce(
+      const [searchStats, searchInvoicesBlocked] = await Promise.all([
+        prisma.patient.groupBy({
+          by: ['profileStatus'],
+          where: searchClinicFilter,
+          _count: true,
+        }),
+        prisma.invoice.count({
+          where: {
+            status: 'PAID',
+            prescriptionProcessed: false,
+            patient: { profileStatus: 'PENDING_COMPLETION' },
+            ...(searchClinicFilter?.clinicId ? { clinicId: searchClinicFilter.clinicId } : {}),
+          },
+        }),
+      ]);
+
+      const statusCounts = searchStats.reduce(
         (acc: Record<string, number>, s: { profileStatus: string; _count: number }) => {
           acc[s.profileStatus] = s._count;
           return acc;
@@ -224,6 +236,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
           active: statusCounts['ACTIVE'] || 0,
           merged: statusCounts['MERGED'] || 0,
           archived: statusCounts['ARCHIVED'] || 0,
+          invoicesAwaitingProfileCompletion: searchInvoicesBlocked,
         },
       });
     }
@@ -311,11 +324,25 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
     );
 
     // Get summary stats
-    const stats = await prisma.patient.groupBy({
-      by: ['profileStatus'],
-      where: user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : undefined,
-      _count: true,
-    });
+    const clinicFilter =
+      user.role !== 'super_admin' && user.clinicId ? { clinicId: user.clinicId } : undefined;
+
+    const [stats, invoicesBlockedByProfile] = await Promise.all([
+      prisma.patient.groupBy({
+        by: ['profileStatus'],
+        where: clinicFilter,
+        _count: true,
+      }),
+      // Count paid invoices blocked from the Rx queue because patient profile is incomplete
+      prisma.invoice.count({
+        where: {
+          status: 'PAID',
+          prescriptionProcessed: false,
+          patient: { profileStatus: 'PENDING_COMPLETION' },
+          ...(clinicFilter?.clinicId ? { clinicId: clinicFilter.clinicId } : {}),
+        },
+      }),
+    ]);
 
     const statusCounts = stats.reduce(
       (acc: Record<string, number>, s: { profileStatus: string; _count: number }) => {
@@ -338,6 +365,8 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<NextResponse
         active: statusCounts['ACTIVE'] || 0,
         merged: statusCounts['MERGED'] || 0,
         archived: statusCounts['ARCHIVED'] || 0,
+        // Paid invoices blocked from Rx queue until profiles are completed
+        invoicesAwaitingProfileCompletion: invoicesBlockedByProfile,
       },
     });
   } catch (error) {
@@ -403,6 +432,44 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
           patientId,
           updatedBy: user.id,
         });
+
+        // CRITICAL: When a profile is completed, paid invoices will now flow to the
+        // provider prescription queue. Ensure SOAP notes exist for those invoices so
+        // providers have clinical documentation when prescribing.
+        try {
+          const paidInvoices = await prisma.invoice.findMany({
+            where: {
+              patientId,
+              status: 'PAID',
+              prescriptionProcessed: false,
+            },
+            select: { id: true },
+          });
+
+          if (paidInvoices.length > 0) {
+            const { ensureSoapNoteExists } = await import('@/lib/soap-note-automation');
+            for (const inv of paidInvoices) {
+              try {
+                await ensureSoapNoteExists(patientId, inv.id);
+              } catch (soapErr) {
+                logger.warn('[Pending Profiles] SOAP note generation failed for invoice', {
+                  invoiceId: inv.id,
+                  patientId,
+                  error: soapErr instanceof Error ? soapErr.message : 'Unknown',
+                });
+              }
+            }
+            logger.info('[Pending Profiles] SOAP notes ensured for paid invoices moving to Rx queue', {
+              patientId,
+              invoiceCount: paidInvoices.length,
+            });
+          }
+        } catch (soapError) {
+          logger.warn('[Pending Profiles] Non-fatal: failed to ensure SOAP notes on profile completion', {
+            patientId,
+            error: soapError instanceof Error ? soapError.message : 'Unknown',
+          });
+        }
 
         return NextResponse.json({
           success: true,

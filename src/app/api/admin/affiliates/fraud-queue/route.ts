@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { badRequest, notFound, forbidden, serverError } from '@/lib/api/error-response';
 
 interface FraudAlertListParams {
   clinicId?: number;
@@ -176,7 +177,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     logger.error('[FraudQueue] Error listing alerts', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json({ error: 'Failed to list fraud alerts' }, { status: 500 });
+    return serverError('Failed to list fraud alerts');
   }
 }
 
@@ -186,10 +187,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     const { alertId, action, resolution, reversCommission } = body;
 
     if (!alertId || !action) {
-      return NextResponse.json(
-        { error: 'Missing required fields: alertId, action' },
-        { status: 400 }
-      );
+      return badRequest('Missing required fields: alertId, action');
     }
 
     // Get the alert
@@ -201,12 +199,12 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     });
 
     if (!alert) {
-      return NextResponse.json({ error: 'Alert not found' }, { status: 404 });
+      return notFound('Alert not found');
     }
 
     // Check clinic access
     if (user.role !== 'super_admin' && alert.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return forbidden('Access denied to this clinic');
     }
 
     // Process action - use Prisma enum types (must match schema exactly)
@@ -244,10 +242,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
         status = 'INVESTIGATING';
         break;
       default:
-        return NextResponse.json(
-          { error: 'Invalid action. Must be: dismiss, false_positive, confirm, or investigate' },
-          { status: 400 }
-        );
+        return badRequest('Invalid action. Must be: dismiss, false_positive, confirm, or investigate');
     }
 
     // Update alert
@@ -298,6 +293,20 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
       resolvedBy: user.id,
     });
 
+    // HIPAA/SOC2 audit log for fraud resolution actions
+    logger.security('[AffiliateAudit] Admin resolved fraud alert', {
+      action: 'FRAUD_ALERT_RESOLVED',
+      alertId,
+      fraudAction: action,
+      resultStatus: status,
+      resolutionAction,
+      affiliateId: alert.affiliateId,
+      clinicId: alert.clinicId,
+      performedBy: user.id,
+      performedByRole: user.role,
+      commissionReversed: !!reversCommission,
+    });
+
     return NextResponse.json({
       success: true,
       alert: {
@@ -311,7 +320,7 @@ async function handlePatch(request: NextRequest, user: AuthUser) {
     logger.error('[FraudQueue] Error updating alert', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json({ error: 'Failed to update fraud alert' }, { status: 500 });
+    return serverError('Failed to update fraud alert');
   }
 }
 
