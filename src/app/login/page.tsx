@@ -845,8 +845,19 @@ export default function LoginPage() {
 
     const redirectTo = wasSystemLogout ? null : searchParams.get('redirect');
     if (redirectTo) {
-      router.push(redirectTo);
-      return;
+      // Validate that the redirect path is appropriate for the user's actual role.
+      // If the redirect targets a role-specific area (e.g. /provider, /admin) but the user
+      // doesn't have that role, skip the redirect and fall through to role-based routing.
+      const redirectTargetRole = getLoginRoleFromRedirect(redirectTo);
+      const isRoleSpecificRedirect = !!redirectTargetRole;
+
+      if (!isRoleSpecificRedirect || redirectTargetRole === userRole) {
+        // Redirect is either non-role-specific (e.g. /portal, /settings) or matches the user's role
+        router.push(redirectTo);
+        return;
+      }
+      // Otherwise, the redirect targets a different role's area (e.g. patient on /provider)
+      // Fall through to role-based routing below
     }
 
     // Otherwise redirect based on role (home for that role)

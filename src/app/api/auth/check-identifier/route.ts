@@ -38,23 +38,22 @@ async function checkIdentifierHandler(req: NextRequest) {
     const { email } = result.data;
     const emailLower = email.toLowerCase().trim();
 
-    // Check: User with role=PROVIDER OR Provider record with this email
-    const [userWithRole, providerByEmail] = await Promise.all([
-      basePrisma.user.findFirst({
-        where: {
-          email: { equals: emailLower, mode: 'insensitive' },
-          role: { in: ['PROVIDER', 'ADMIN', 'SUPER_ADMIN'] },
-          status: 'ACTIVE',
-        },
-        select: { id: true },
-      }),
-      basePrisma.provider.findFirst({
-        where: { email: { equals: emailLower, mode: 'insensitive' } },
-        select: { id: true },
-      }),
-    ]);
+    // Check: User with role=PROVIDER in the unified User table only.
+    // We intentionally do NOT check:
+    //   - ADMIN/SUPER_ADMIN roles (they have their own dashboards and should not be auto-redirected to provider login)
+    //   - Legacy Provider table (may contain stale records or emails that belong to patients in the unified system)
+    // Users in the legacy Provider table without a unified User record can still log in as provider
+    // by clicking the "Provider? Log in as provider" link on the login page.
+    const userWithProviderRole = await basePrisma.user.findFirst({
+      where: {
+        email: { equals: emailLower, mode: 'insensitive' },
+        role: 'PROVIDER',
+        status: 'ACTIVE',
+      },
+      select: { id: true },
+    });
 
-    const isProvider = !!(userWithRole || providerByEmail);
+    const isProvider = !!userWithProviderRole;
 
     if (isProvider) {
       logger.info('[CheckIdentifier] Provider email detected', {
