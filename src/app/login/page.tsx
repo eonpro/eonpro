@@ -821,26 +821,6 @@ export default function LoginPage() {
       return;
     }
 
-    // ── TEMPORARY DIAGNOSTIC: decode JWT and log claim keys to console ──
-    // This runs BEFORE redirect so we capture the token state before any 401s clear it.
-    try {
-      const parts = data.token.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        console.log('[LOGIN-DIAG] JWT claim keys:', Object.keys(payload).sort());
-        console.log('[LOGIN-DIAG] hasSessionId:', !!payload.sessionId);
-        console.log('[LOGIN-DIAG] sessionId type:', typeof payload.sessionId);
-        console.log('[LOGIN-DIAG] role:', payload.role, 'clinicId:', payload.clinicId, 'id:', payload.id);
-        console.log('[LOGIN-DIAG] iat:', payload.iat, 'exp:', payload.exp);
-        if (!payload.sessionId) {
-          console.error('[LOGIN-DIAG] ⚠️ TOKEN IS MISSING sessionId — this WILL cause "Invalid session" 401s in production');
-        }
-      }
-    } catch (e) {
-      console.warn('[LOGIN-DIAG] Failed to decode JWT:', e);
-    }
-    // ── END DIAGNOSTIC ──
-
     // Store tokens and user data (both keys for compatibility)
     localStorage.setItem('auth-token', data.token);
     localStorage.setItem('token', data.token); // Legacy key for compatibility

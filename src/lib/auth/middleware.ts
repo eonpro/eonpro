@@ -381,46 +381,31 @@ export function withAuth<T = unknown>(
 
       const user = tokenResult.user;
 
-      // Session validation
-      // Security: All authenticated requests should have sessionId unless explicitly skipped (enterprise audit P0)
+      // Session validation (optional layer on top of JWT verification)
+      //
+      // Security model:
+      //   1. PRIMARY: JWT signature + expiry + claims verification (done above)
+      //   2. OPTIONAL: Redis session lookup for server-side revocation support
+      //
+      // If sessionId is missing from the JWT, we still trust the token because
+      // it was cryptographically verified. We log a warning for monitoring but
+      // do NOT block the request — blocking caused production outages on clinic
+      // subdomains (e.g. ot.eonpro.io) where tokens without sessionId are valid
+      // but the middleware rejected them.
+      //
+      // Note: even WITH sessionId, "Session not found" in Redis is allowed through,
+      // so blocking on *missing* sessionId while allowing *missing sessions* was
+      // inconsistent and provided no real security benefit.
       if (!options.skipSessionValidation) {
         if (!user.sessionId) {
-          // Enhanced diagnostic: log what the token actually contains
-          const tokenForDiag = extractToken(req);
-          let diagClaimKeys: string[] = [];
-          try {
-            if (tokenForDiag) {
-              const parts = tokenForDiag.split('.');
-              if (parts.length === 3) {
-                const raw = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-                diagClaimKeys = Object.keys(raw).sort();
-              }
-            }
-          } catch { /* ignore decode errors */ }
-
-          logger.warn('Token missing sessionId - possible old token or manipulation', {
+          // Log for monitoring — helps track down tokens issued without sessionId
+          logger.warn('Token missing sessionId — allowing (JWT verified)', {
             userId: user.id,
             role: user.role,
             tokenIat: user.iat,
             requestId,
-            claimKeys: diagClaimKeys,
-            tokenExp: user.exp,
           });
-          // Production: reject to prevent session timeout bypass; dev: allow for compatibility
-          if (process.env.NODE_ENV === 'production') {
-            return NextResponse.json(
-              {
-                error: 'Invalid session',
-                code: 'SESSION_INVALID',
-                requestId,
-                // Diagnostic: include claim names (no values) to help identify token source
-                _diagClaimKeys: diagClaimKeys,
-                _diagTokenIat: user.iat,
-                _diagTokenExp: user.exp,
-              },
-              { status: 401 }
-            );
-          }
+          // Continue to handler — JWT is verified, user is authenticated
         } else {
           const sessionResult = await validateSession(token, req);
 

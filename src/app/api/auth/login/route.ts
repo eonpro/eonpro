@@ -810,17 +810,6 @@ async function loginHandler(req: NextRequest) {
 
     tokenPayload.sessionId = sessionId;
 
-    // ── TEMPORARY DIAGNOSTIC: verify sessionId is in payload before signing ──
-    logger.info('[Login-DIAG] JWT payload keys before sign', {
-      claimKeys: Object.keys(tokenPayload).sort(),
-      hasSessionId: !!tokenPayload.sessionId,
-      sessionIdLength: tokenPayload.sessionId?.length ?? 0,
-      userId: user.id,
-      role: userRole,
-      clinicId: activeClinicId ?? null,
-    });
-    // ── END DIAGNOSTIC ──
-
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
