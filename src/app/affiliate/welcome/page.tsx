@@ -266,9 +266,12 @@ export default function AffiliateWelcomePage() {
 
       setStep('success');
 
+      // Use window.location for a full page load — ensures the new
+      // httpOnly cookie is picked up by the dashboard layout auth check.
+      // router.push can serve cached RSC payloads that miss the new session.
       setTimeout(() => {
-        router.push('/affiliate');
-      }, 3500);
+        window.location.href = '/affiliate';
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -852,7 +855,7 @@ export default function AffiliateWelcomePage() {
                     style={{ backgroundColor: primaryColor }}
                     initial={{ width: '0%' }}
                     animate={{ width: '100%' }}
-                    transition={{ duration: 3.5 }}
+                    transition={{ duration: 2 }}
                   />
                 </div>
 
