@@ -13,25 +13,27 @@
  *    - Hash-based (#ref=CODE)
  *    - Edge cases (malformed URLs, encoding, special chars)
  *
- * B. extractPromoCode — PHASE 1: Direct code fields
- *    - Every promo field name variant
- *    - Generic source filtering (Instagram, Google, etc.)
- *    - URL values in promo fields
- *
- * C. extractPromoCode — PHASE 2: URL-based fields
+ * B. extractPromoCode — PHASE 1: URL-based fields (HIGHEST PRIORITY)
  *    - "URL with parameters" (the CRITICAL Heyflow field)
  *    - "URL" field
  *    - "Referrer" field
  *    - All field name variants
+ *    URLs are machine-generated and CANNOT contain typos — always trusted first.
  *
- * D. extractPromoCode — PHASE 3: Fallback scan
+ * C. extractPromoCode — PHASE 2: Fallback URL scan
  *    - Non-standard field names containing affiliate URLs
  *    - Mixed payloads
  *
+ * D. extractPromoCode — PHASE 3: Direct code fields (FALLBACK)
+ *    - Every promo field name variant
+ *    - Generic source filtering (Instagram, Google, etc.)
+ *    - URL values in promo fields
+ *    Human-typed codes — useful when no URL attribution exists.
+ *
  * E. extractPromoCode — Priority ordering
- *    - Phase 1 wins over Phase 2
- *    - Phase 2 wins over Phase 3
- *    - Within Phase 1: first match wins
+ *    - URL detection (Phase 1) ALWAYS wins over typed promo codes (Phase 3)
+ *    - Phase 1 wins over Phase 2 wins over Phase 3
+ *    - Within each phase: first match wins
  *
  * F. Real-world Airtable/Heyflow payload simulations
  *    - Patient #9843 (original TEAMSAV case)
@@ -459,61 +461,83 @@ describe('D. Phase 3 — Fallback scan of all payload fields', () => {
 // ============================================================================
 // E. extractPromoCode — Priority ordering
 // ============================================================================
-describe('E. Priority — Phase 1 > Phase 2 > Phase 3', () => {
-  it('Phase 1 (typed code) beats Phase 2 (URL ref param)', () => {
+describe('E. Priority — URL (Phase 1) > URL fallback (Phase 2) > Typed code (Phase 3)', () => {
+  // -------------------------------------------------------------------------
+  // THE CORE RULE: URL-based detection ALWAYS beats typed promo codes.
+  // URLs are machine-generated and cannot contain typos. Promo codes are
+  // human-typed and may have errors. The URL is the source of truth.
+  // -------------------------------------------------------------------------
+
+  it('URL ref param (Phase 1) ALWAYS beats typed promo code (Phase 3)', () => {
+    // Patient typed "DIRECTCODE" but arrived via ?ref=URLCODE — URL wins
     expect(extractPromoCode({
       'promo-code': 'DIRECTCODE',
       'URL with parameters': 'https://optimize.otmens.com/?ref=URLCODE#check-out',
       Referrer: 'https://ot.eonpro.io/affiliate/REFERRERCODE',
-    })).toBe('DIRECTCODE');
+    })).toBe('URLCODE');
   });
 
-  it('Phase 1 "Who recommended" beats Phase 2 URL', () => {
+  it('URL ref param beats "Who recommended" text (even if different code)', () => {
+    // Patient typed "FRIEND_CODE" in the field but the URL has the real code
     expect(extractPromoCode({
       'Who recommended OT Mens Health to you?': 'FRIEND_CODE',
-      'URL with parameters': 'https://optimize.otmens.com/?ref=URLCODE',
-    })).toBe('FRIEND_CODE');
+      'URL with parameters': 'https://optimize.otmens.com/?ref=REAL_CODE',
+    })).toBe('REAL_CODE');
   });
 
-  it('Phase 2 URL beats Phase 3 fallback', () => {
+  it('Referrer /affiliate/ path beats typed promo code', () => {
     expect(extractPromoCode({
-      'URL with parameters': 'https://optimize.otmens.com/?ref=URL_PARAM_CODE',
-      'some-random-field': 'https://ot.eonpro.io/affiliate/FALLBACK_CODE',
-    })).toBe('URL_PARAM_CODE');
+      'promo-code': 'TYPED_CODE',
+      Referrer: 'https://ot.eonpro.io/affiliate/URL_CODE',
+    })).toBe('URL_CODE');
   });
 
-  it('Phase 2 "URL with parameters" beats Phase 2 "Referrer" (comes first in list)', () => {
+  it('"URL with parameters" beats "Referrer" (comes first in Phase 1 list)', () => {
     expect(extractPromoCode({
       'URL with parameters': 'https://optimize.otmens.com/?ref=URL_PARAMS',
       Referrer: 'https://ot.eonpro.io/affiliate/REFERRER_CODE',
     })).toBe('URL_PARAMS');
   });
 
-  it('Phase 1 promo-code field beats "Who recommended" (comes first in list)', () => {
+  it('Phase 1 URL beats Phase 2 fallback URL scan', () => {
+    expect(extractPromoCode({
+      'URL with parameters': 'https://optimize.otmens.com/?ref=PHASE1_URL',
+      'some-random-field': 'https://ot.eonpro.io/affiliate/PHASE2_FALLBACK',
+    })).toBe('PHASE1_URL');
+  });
+
+  it('Phase 2 fallback URL scan beats Phase 3 typed code', () => {
+    expect(extractPromoCode({
+      'promo-code': 'TYPED_CODE',
+      'weird_custom_field': 'https://ot.eonpro.io/affiliate/SCAN_CODE',
+    })).toBe('SCAN_CODE');
+  });
+
+  it('Phase 3 promo-code field beats "Who recommended" (within Phase 3)', () => {
     expect(extractPromoCode({
       'promo-code': 'PROMO',
       'Who recommended OT Mens Health to you?': 'RECOMMENDED',
     })).toBe('PROMO');
   });
 
-  it('skips generic source in Phase 1, falls through to Phase 2', () => {
+  it('URL wins even when promo code is set AND generic source is set', () => {
     expect(extractPromoCode({
       'Who reccomended OT Mens Health to you?': 'Instagram',
+      'promo-code': 'TYPED_WRONG',
       'URL with parameters': 'https://optimize.otmens.com/?ref=TEAMSAV#check-out',
     })).toBe('TEAMSAV');
   });
 
-  it('skips empty Phase 1 field, falls through to Phase 2', () => {
+  it('falls through to Phase 3 typed code when URLs have no ref', () => {
     expect(extractPromoCode({
-      'Who reccomended OT Mens Health to you?': '',
-      'promo-code': '',
-      'URL with parameters': 'https://optimize.otmens.com/?ref=TEAMSAV',
-    })).toBe('TEAMSAV');
+      'promo-code': 'TYPED_CODE',
+      'URL with parameters': 'https://optimize.otmens.com/#check-out',
+      Referrer: 'https://www.otmens.com/',
+    })).toBe('TYPED_CODE');
   });
 
-  it('skips empty Phase 1 AND Phase 2, uses Phase 3 fallback', () => {
+  it('falls through to Phase 2 fallback when Phase 1 URLs have no ref', () => {
     expect(extractPromoCode({
-      'Who reccomended OT Mens Health to you?': '',
       Referrer: 'https://www.otmens.com/',
       'URL with parameters': 'https://optimize.otmens.com/#check-out',
       'weird_custom_field': 'https://ot.eonpro.io/affiliate/FALLBACK',

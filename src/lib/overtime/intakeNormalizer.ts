@@ -1596,11 +1596,73 @@ function extractRefCodeFromUrl(urlStr: string): string | null {
  */
 export function extractPromoCode(payload: Record<string, unknown>): string | null {
   // -----------------------------------------------------------------------
-  // PHASE 1: Check explicit promo / affiliate code text fields FIRST.
-  //          These are user-typed values like "TEAMSAV" in a form field.
+  // PHASE 1 (HIGHEST PRIORITY): URL-based detection.
+  //
+  // URLs are machine-generated and CANNOT contain typos. When a visitor
+  // clicks through an affiliate landing page (/affiliate/CODE), the intake
+  // form URL carries ?ref=CODE automatically. This is the most reliable
+  // source of truth for attribution and ALWAYS takes priority over
+  // human-typed promo codes.
+  //
+  // Checks: "URL with parameters", "URL", "Referrer" and their variants.
+  // -----------------------------------------------------------------------
+  const urlFields = [
+    // Heyflow / Airtable URL fields (highest signal for affiliate attribution)
+    'URL with parameters',
+    'url with parameters',
+    'URL With Parameters',
+    'urlWithParameters',
+    'url_with_parameters',
+    // The base URL field (may also carry ?ref=)
+    'URL',
+    'url',
+    'sourceUrl',
+    'source_url',
+    'page_url',
+    'pageUrl',
+    // Referrer (usually just domain, but sometimes has /affiliate/CODE path)
+    'Referrer',
+    'referrer',
+    'referrer_url',
+    'referrerUrl',
+  ];
+
+  for (const field of urlFields) {
+    const value = payload[field];
+    if (value && typeof value === 'string' && value.trim()) {
+      const trimmed = value.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        const refCodeFromUrl = extractRefCodeFromUrl(trimmed);
+        if (refCodeFromUrl) {
+          return refCodeFromUrl;
+        }
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // PHASE 2 (FALLBACK): Scan ALL payload fields for any URL containing
+  // /affiliate/ or ref= to catch non-standard or unexpected field names.
+  // Still URL-based, so still reliable — just from an unknown field name.
+  // -----------------------------------------------------------------------
+  for (const [, value] of Object.entries(payload)) {
+    if (typeof value === 'string' && (value.includes('/affiliate/') || value.includes('ref='))) {
+      const refCode = extractRefCodeFromUrl(value.trim());
+      if (refCode) {
+        return refCode;
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // PHASE 3 (LAST RESORT): Check human-typed promo / affiliate code fields.
+  //
+  // These are typed by the patient and may contain typos, but still useful
+  // when no URL-based attribution is available (e.g. patient heard about
+  // the clinic from an affiliate in person and typed the code manually).
   // -----------------------------------------------------------------------
   const directCodeFields = [
-    // Direct promo code fields (highest priority — user explicitly typed a code)
+    // Direct promo code fields
     'promo-code',
     'promoCode',
     'promo_code',
@@ -1672,59 +1734,6 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
 
       if (!genericSources.includes(trimmed.toLowerCase())) {
         return trimmed.toUpperCase();
-      }
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // PHASE 2: Check URL-based fields that carry ?ref=CODE or /affiliate/CODE.
-  //          These are set automatically by the intake page when the visitor
-  //          arrives from an affiliate landing page. This is the CRITICAL path
-  //          for Heyflow "URL with parameters" → "https://optimize.otmens.com/?ref=TEAMSAV#check-out"
-  // -----------------------------------------------------------------------
-  const urlFields = [
-    // Heyflow / Airtable URL fields (highest signal for affiliate attribution)
-    'URL with parameters',
-    'url with parameters',
-    'URL With Parameters',
-    'urlWithParameters',
-    'url_with_parameters',
-    // The base URL field (may also carry ?ref=)
-    'URL',
-    'url',
-    'sourceUrl',
-    'source_url',
-    'page_url',
-    'pageUrl',
-    // Referrer (usually just domain, but sometimes has /affiliate/CODE path)
-    'Referrer',
-    'referrer',
-    'referrer_url',
-    'referrerUrl',
-  ];
-
-  for (const field of urlFields) {
-    const value = payload[field];
-    if (value && typeof value === 'string' && value.trim()) {
-      const trimmed = value.trim();
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        const refCodeFromUrl = extractRefCodeFromUrl(trimmed);
-        if (refCodeFromUrl) {
-          return refCodeFromUrl;
-        }
-      }
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // PHASE 3: Last-resort fallback — scan ALL payload fields for any URL
-  //          containing /affiliate/ or ref= to catch non-standard field names.
-  // -----------------------------------------------------------------------
-  for (const [, value] of Object.entries(payload)) {
-    if (typeof value === 'string' && (value.includes('/affiliate/') || value.includes('ref='))) {
-      const refCode = extractRefCodeFromUrl(value.trim());
-      if (refCode) {
-        return refCode;
       }
     }
   }
