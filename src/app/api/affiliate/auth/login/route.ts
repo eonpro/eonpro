@@ -3,6 +3,11 @@
  *
  * Authenticates affiliates using email and password.
  * Creates a session and returns a JWT token.
+ *
+ * First-time detection:
+ * - If User.lastPasswordChange is null, the user was created with a temp password
+ *   (via application approval or admin creation) and has never set their own password.
+ * - Returns { needsPasswordSetup: true } so the client can redirect to the setup flow.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,6 +23,15 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/**
+ * Email-only check schema — used when client wants to pre-check
+ * whether the account needs password setup before prompting for password.
+ */
+const emailCheckSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  checkOnly: z.literal(true),
+});
+
 const COOKIE_NAME = 'affiliate_session';
 const SESSION_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 
@@ -26,6 +40,51 @@ import { authRateLimiter } from '@/lib/security/rate-limiter-redis';
 async function handler(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Pre-flight email check: does this affiliate need password setup?
+    // Called from the login page before showing the password field.
+    // ──────────────────────────────────────────────────────────────────────
+    const emailCheck = emailCheckSchema.safeParse(body);
+    if (emailCheck.success) {
+      const normalizedEmail = emailCheck.data.email.trim().toLowerCase();
+
+      const affiliate = await prisma.affiliate.findFirst({
+        where: {
+          user: { email: normalizedEmail },
+          status: 'ACTIVE',
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              lastPasswordChange: true,
+            },
+          },
+        },
+      });
+
+      // Always return same shape to prevent enumeration
+      if (!affiliate || !affiliate.user) {
+        return NextResponse.json({ needsPasswordSetup: false });
+      }
+
+      // If lastPasswordChange is null, user has never set their own password
+      const needsSetup = affiliate.user.lastPasswordChange === null;
+
+      if (needsSetup) {
+        logger.info('[Affiliate Auth] First-time user detected', {
+          affiliateId: affiliate.id,
+          userId: affiliate.user.id,
+        });
+      }
+
+      return NextResponse.json({ needsPasswordSetup: needsSetup });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Standard login flow
+    // ──────────────────────────────────────────────────────────────────────
     const parsed = loginSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -54,6 +113,7 @@ async function handler(request: NextRequest) {
             passwordHash: true,
             firstName: true,
             lastName: true,
+            lastPasswordChange: true,
           },
         },
       },

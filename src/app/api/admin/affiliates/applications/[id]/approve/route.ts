@@ -11,6 +11,7 @@ import { prisma, Prisma } from '@/lib/db';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { sendEmail } from '@/lib/email';
 import { z } from 'zod';
 import crypto from 'crypto';
 
@@ -96,10 +97,17 @@ export const POST = withAuthParams(
         return NextResponse.json({ error: 'User with this email already exists' }, { status: 409 });
       }
 
-      // Generate a temporary password (affiliate will use phone auth)
-      const tempPassword = crypto.randomBytes(16).toString('hex');
+      // Generate a temporary password (affiliate will set their own via email link)
+      const tempPassword = crypto.randomBytes(32).toString('hex');
       const bcrypt = await import('bcryptjs');
       const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+      // Generate password setup token for welcome email
+      const RESET_TOKEN_EXPIRY_HOURS = 72; // 3 days for initial setup
+      const rawSetupToken = crypto.randomBytes(32).toString('hex');
+      const hashedSetupToken = crypto.createHash('sha256').update(rawSetupToken).digest('hex');
+      const setupTokenExpiresAt = new Date();
+      setupTokenExpiresAt.setHours(setupTokenExpiresAt.getHours() + RESET_TOKEN_EXPIRY_HOURS);
 
       // Parse name
       const nameParts = application.fullName.trim().split(/\s+/);
@@ -184,6 +192,15 @@ export const POST = withAuthParams(
           },
         });
 
+        // Create password setup token (for welcome email)
+        await tx.passwordResetToken.create({
+          data: {
+            userId: newUser.id,
+            token: hashedSetupToken,
+            expiresAt: setupTokenExpiresAt,
+          },
+        });
+
         return { user: newUser, affiliate: newAffiliate, refCode };
       });
 
@@ -206,7 +223,86 @@ export const POST = withAuthParams(
         applicantEmail: application.email,
       });
 
-      // TODO: Send welcome email/SMS to affiliate
+      // Send welcome email with password setup link
+      // Resolve clinic branding for email
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: application.clinicId },
+        select: {
+          name: true,
+          subdomain: true,
+          customDomain: true,
+          logoUrl: true,
+        },
+      });
+
+      // Build the setup URL using the clinic's domain
+      const clinicDomain = clinic?.customDomain
+        || (clinic?.subdomain ? `${clinic.subdomain}.eonpro.io` : null)
+        || 'app.eonpro.io';
+      const setupUrl = `https://${clinicDomain}/affiliate/welcome?token=${rawSetupToken}`;
+      const clinicName = clinic?.name || 'EONPro';
+      const logoUrl = clinic?.logoUrl;
+      const logoHtml = logoUrl
+        ? `<img src="${logoUrl}" alt="${clinicName}" style="height: 40px; max-width: 200px; object-fit: contain;" />`
+        : `<h2 style="color: #1f2937; margin: 0;">${clinicName}</h2>`;
+
+      sendEmail({
+        to: application.email,
+        subject: `Welcome to ${clinicName} Partner Program!`,
+        html: `
+          <div style="max-width: 480px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #374151;">
+            <div style="text-align: center; padding: 32px 0 24px;">
+              ${logoHtml}
+            </div>
+            <div style="background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e5e7eb;">
+              <h1 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 8px;">
+                Welcome, ${firstName}!
+              </h1>
+              <p style="font-size: 15px; line-height: 1.6; color: #4b5563; margin: 0 0 16px;">
+                Your application to the <strong>${clinicName}</strong> Partner Program has been approved.
+                To get started, set your password by clicking the button below.
+              </p>
+              ${result.refCode ? `
+                <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin: 0 0 24px; text-align: center;">
+                  <p style="font-size: 12px; color: #6b7280; margin: 0 0 4px;">Your referral code</p>
+                  <p style="font-size: 24px; font-weight: 700; color: #111827; margin: 0; letter-spacing: 2px;">${result.refCode}</p>
+                </div>
+              ` : ''}
+              <div style="text-align: center; margin: 24px 0;">
+                <a href="${setupUrl}" style="
+                  display: inline-block;
+                  background: #111827;
+                  color: #ffffff;
+                  padding: 14px 32px;
+                  border-radius: 12px;
+                  text-decoration: none;
+                  font-weight: 600;
+                  font-size: 15px;
+                ">
+                  Set My Password
+                </a>
+              </div>
+              <p style="font-size: 13px; line-height: 1.5; color: #6b7280; margin: 24px 0 0;">
+                This link expires in 72 hours. After setting your password, you can log in to your Partner Portal at any time.
+              </p>
+            </div>
+            <div style="text-align: center; padding: 24px 0;">
+              <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+                Powered by <strong>EONPro</strong> • Partner Portal
+              </p>
+            </div>
+          </div>
+        `,
+        clinicId: application.clinicId,
+        sourceType: 'notification',
+        sourceId: `affiliate-welcome-${result.affiliate.id}`,
+      }).catch((err) => {
+        logger.warn('[Admin Applications] Failed to send welcome email', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+          affiliateId: result.affiliate.id,
+          email: application.email,
+        });
+      });
 
       return NextResponse.json({
         success: true,

@@ -10,9 +10,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Mail, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Mail, ArrowRight, KeyRound } from 'lucide-react';
 
-type LoginStep = 'email' | 'password' | 'success';
+type LoginStep = 'email' | 'password' | 'setup' | 'success';
 
 interface ClinicBranding {
   clinicId: number;
@@ -131,6 +131,8 @@ export default function AffiliateLoginPage() {
     }
   }, [step]);
 
+  const [setupSending, setSetupSending] = useState(false);
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -141,8 +143,62 @@ export default function AffiliateLoginPage() {
       return;
     }
 
+    setIsLoading(true);
     setError(null);
-    setStep('password');
+
+    try {
+      // Check if this affiliate needs first-time password setup
+      const checkRes = await fetch('/api/affiliate/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, checkOnly: true }),
+      });
+
+      const checkData = await checkRes.json();
+
+      if (checkData.needsPasswordSetup) {
+        // First-time user — trigger password setup flow
+        setStep('setup');
+        return;
+      }
+
+      // Existing user with password — show password field
+      setStep('password');
+    } catch {
+      // If check fails, fall through to normal password flow
+      setStep('password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Send a password setup email for first-time affiliates.
+   * Called from the 'setup' step.
+   */
+  const handleSendSetupEmail = async () => {
+    setSetupSending(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/affiliate/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to send setup email');
+      }
+
+      // Redirect to forgot-password success state
+      router.push(`/affiliate/forgot-password?sent=true&email=${encodeURIComponent(email.trim().toLowerCase())}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSetupSending(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -479,6 +535,86 @@ export default function AffiliateLoginPage() {
                   >
                     Forgot password?
                   </a>
+                </div>
+              </motion.div>
+            )}
+
+            {step === 'setup' && (
+              <motion.div
+                key="setup"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="w-full max-w-md"
+              >
+                <button
+                  onClick={handleBack}
+                  className="mb-6 flex items-center gap-1 text-gray-500 transition-colors hover:text-gray-700"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                  Back
+                </button>
+
+                {/* Setup Card */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${primaryColor}15` }}
+                    >
+                      <KeyRound className="h-5 w-5" style={{ color: primaryColor }} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Welcome! Let&apos;s get you set up</h2>
+                      <p className="text-xs text-gray-500">{email}</p>
+                    </div>
+                  </div>
+
+                  <p className="mb-6 text-sm leading-relaxed text-gray-600">
+                    This is your first time logging in. We&apos;ll send you an email with a secure link
+                    to set up your partner account — view your compensation plan, update your info,
+                    and create your password.
+                  </p>
+
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3"
+                    >
+                      <p className="text-center text-sm text-red-600">{error}</p>
+                    </motion.div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSendSetupEmail}
+                    disabled={setupSending}
+                    className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                      setupSending ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                    }`}
+                    style={{
+                      backgroundColor: setupSending ? '#9CA3AF' : primaryColor,
+                      color: buttonTextColor,
+                    }}
+                  >
+                    {setupSending ? (
+                      <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : (
+                      <>
+                        Send setup email
+                        <ArrowRight className="h-5 w-5" />
+                      </>
+                    )}
+                  </button>
                 </div>
               </motion.div>
             )}
