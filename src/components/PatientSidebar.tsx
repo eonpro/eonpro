@@ -96,6 +96,8 @@ function AffiliateAttributionSection({
   const [success, setSuccess] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState<'link' | 'remove' | null>(null);
 
   const hasAttribution = !!(affiliateAttribution || affiliateCode);
 
@@ -110,7 +112,7 @@ function AffiliateAttributionSection({
         setOptions(data.refCodes || []);
       }
     } catch {
-      // Silently fail — user can still type
+      // Silently fail
     } finally {
       setLoadingOptions(false);
     }
@@ -128,7 +130,6 @@ function AffiliateAttributionSection({
     setSelectedCode(null);
     setShowDropdown(true);
     setError(null);
-    // Debounce via timeout
     const timer = setTimeout(() => fetchOptions(value), 200);
     return () => clearTimeout(timer);
   }, [fetchOptions]);
@@ -140,10 +141,32 @@ function AffiliateAttributionSection({
     setError(null);
   }, []);
 
+  // Request password before linking
+  const requestLinkConfirm = useCallback(() => {
+    if (!selectedCode) {
+      setError('Select an affiliate code from the list');
+      return;
+    }
+    setShowPasswordConfirm('link');
+    setAdminPassword('');
+    setError(null);
+  }, [selectedCode]);
+
+  // Request password before removing
+  const requestRemoveConfirm = useCallback(() => {
+    setShowPasswordConfirm('remove');
+    setAdminPassword('');
+    setError(null);
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     const code = selectedCode?.code;
     if (!code) {
       setError('Select an affiliate code from the list');
+      return;
+    }
+    if (!adminPassword.trim()) {
+      setError('Admin password is required');
       return;
     }
     setLoading(true);
@@ -152,11 +175,12 @@ function AffiliateAttributionSection({
       const res = await fetch('/api/admin/affiliates/attribute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId, refCode: code }),
+        body: JSON.stringify({ patientId, refCode: code, password: adminPassword }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setSuccess(true);
+        setShowPasswordConfirm(null);
         setTimeout(() => {
           router.refresh();
           window.location.reload();
@@ -169,25 +193,35 @@ function AffiliateAttributionSection({
     } finally {
       setLoading(false);
     }
-  }, [patientId, selectedCode, router]);
+  }, [patientId, selectedCode, adminPassword, router]);
 
   const handleRemove = useCallback(async () => {
-    if (!confirm('Remove affiliate attribution from this patient?')) return;
+    if (!adminPassword.trim()) {
+      setError('Admin password is required');
+      return;
+    }
     setRemoving(true);
+    setError(null);
     try {
-      await fetch('/api/admin/affiliates/attribute', {
+      const res = await fetch('/api/admin/affiliates/attribute', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId }),
+        body: JSON.stringify({ patientId, password: adminPassword }),
       });
-      router.refresh();
-      window.location.reload();
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowPasswordConfirm(null);
+        router.refresh();
+        window.location.reload();
+      } else {
+        setError(data.message || 'Failed to remove');
+      }
     } catch {
-      window.location.reload();
+      setError('Network error — try again');
     } finally {
       setRemoving(false);
     }
-  }, [patientId, router]);
+  }, [patientId, adminPassword, router]);
 
   const handleClose = useCallback(() => {
     setShowForm(false);
@@ -196,6 +230,8 @@ function AffiliateAttributionSection({
     setSelectedCode(null);
     setShowDropdown(false);
     setOptions([]);
+    setShowPasswordConfirm(null);
+    setAdminPassword('');
   }, []);
 
   // --- Existing attribution: show banner ---
@@ -213,15 +249,46 @@ function AffiliateAttributionSection({
         ) : (
           <AffiliateTag name={name} code={code} />
         )}
-        {isAdmin && (
+        {isAdmin && !showPasswordConfirm && (
           <button
-            onClick={handleRemove}
+            onClick={requestRemoveConfirm}
             disabled={removing}
             className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1 text-xs text-gray-400 transition-colors hover:text-red-500"
           >
             {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
             Remove attribution
           </button>
+        )}
+        {showPasswordConfirm === 'remove' && (
+          <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
+            <p className="mb-1.5 text-xs font-medium text-red-700">Enter admin password to confirm</p>
+            <div className="flex gap-1.5">
+              <input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => { setAdminPassword(e.target.value); setError(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleRemove(); }}
+                placeholder="Password"
+                className="min-w-0 flex-1 rounded border border-red-200 bg-white px-2 py-1 text-sm outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400"
+                autoFocus
+                disabled={removing}
+              />
+              <button
+                onClick={handleRemove}
+                disabled={removing || !adminPassword.trim()}
+                className="rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Remove'}
+              </button>
+              <button
+                onClick={() => { setShowPasswordConfirm(null); setAdminPassword(''); setError(null); }}
+                className="rounded px-1.5 py-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+          </div>
         )}
       </div>
     );
@@ -273,17 +340,11 @@ function AffiliateAttributionSection({
             )}
           </div>
           <button
-            onClick={handleSubmit}
+            onClick={requestLinkConfirm}
             disabled={loading || success || !selectedCode}
             className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
           >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : success ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              'Link'
-            )}
+            {success ? <Check className="h-3.5 w-3.5" /> : 'Link'}
           </button>
         </div>
 
@@ -315,6 +376,38 @@ function AffiliateAttributionSection({
           </div>
         )}
       </div>
+
+      {/* Password confirmation for linking */}
+      {showPasswordConfirm === 'link' && (
+        <div className="mt-2 rounded-lg border border-violet-200 bg-white p-2.5">
+          <p className="mb-1.5 text-xs font-medium text-violet-700">Enter admin password to confirm</p>
+          <div className="flex gap-1.5">
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => { setAdminPassword(e.target.value); setError(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+              placeholder="Password"
+              className="min-w-0 flex-1 rounded border border-violet-200 bg-white px-2 py-1 text-sm outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
+              autoFocus
+              disabled={loading}
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !adminPassword.trim()}
+              className="rounded bg-violet-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm'}
+            </button>
+            <button
+              onClick={() => { setShowPasswordConfirm(null); setAdminPassword(''); setError(null); }}
+              className="rounded px-1.5 py-1 text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
       {success && <p className="mt-1.5 text-xs font-medium text-green-600">Attributed! Refreshing...</p>}
@@ -560,7 +653,7 @@ export default function PatientSidebar({
           patientId={patient.id}
           affiliateAttribution={affiliateAttribution}
           affiliateCode={affiliateCode}
-          isAdmin={!!userRole && ['super_admin', 'admin', 'provider'].includes(userRole.toLowerCase())}
+          isAdmin={!!userRole && ['super_admin', 'admin'].includes(userRole.toLowerCase())}
         />
 
         {/* Address */}

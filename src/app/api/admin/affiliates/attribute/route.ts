@@ -5,14 +5,15 @@
  * Used for data reconciliation when automatic attribution was missed.
  *
  * CRITICAL: All queries scoped to user's clinicId for multi-tenant isolation.
+ * CRITICAL: Requires admin password re-entry for every action.
  *
- * Body: { patientId: number, refCode: string, force?: boolean }
+ * Body: { patientId: number, refCode: string, password: string, force?: boolean }
  *
  * DELETE /api/admin/affiliates/attribute
  *
  * Remove affiliate attribution from a patient.
  *
- * Body: { patientId: number }
+ * Body: { patientId: number, password: string }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
@@ -20,6 +21,19 @@ import { attributeFromIntake } from '@/services/affiliate/attributionService';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { badRequest, notFound, serverError } from '@/lib/api/error-response';
+import bcrypt from 'bcryptjs';
+
+// ---------------------------------------------------------------------------
+// Helper — verify the requesting admin's password before sensitive operations
+// ---------------------------------------------------------------------------
+async function verifyAdminPassword(userId: number, password: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!user?.passwordHash) return false;
+  return bcrypt.compare(password, user.passwordHash);
+}
 
 // ---------------------------------------------------------------------------
 // POST — attribute patient to affiliate
@@ -27,14 +41,35 @@ import { badRequest, notFound, serverError } from '@/lib/api/error-response';
 async function handlePost(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
-    const { patientId, refCode, force } = body as {
+    const { patientId, refCode, password, force } = body as {
       patientId?: number;
       refCode?: string;
+      password?: string;
       force?: boolean;
     };
 
     if (!patientId || !refCode) {
       return badRequest('patientId and refCode are required');
+    }
+
+    // Require admin password for manual attribution
+    if (!password) {
+      return NextResponse.json(
+        { success: false, message: 'Admin password is required' },
+        { status: 403 }
+      );
+    }
+
+    const isPasswordValid = await verifyAdminPassword(user.id, password);
+    if (!isPasswordValid) {
+      logger.warn('[ManualAttribution] Invalid admin password attempt', {
+        userId: user.id,
+        patientId,
+      });
+      return NextResponse.json(
+        { success: false, message: 'Invalid admin password' },
+        { status: 403 }
+      );
     }
 
     const normalizedCode = refCode.trim().toUpperCase();
@@ -144,10 +179,30 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 async function handleDelete(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
-    const { patientId } = body as { patientId?: number };
+    const { patientId, password } = body as { patientId?: number; password?: string };
 
     if (!patientId) {
       return badRequest('patientId is required');
+    }
+
+    // Require admin password for attribution removal
+    if (!password) {
+      return NextResponse.json(
+        { success: false, message: 'Admin password is required' },
+        { status: 403 }
+      );
+    }
+
+    const isPasswordValid = await verifyAdminPassword(user.id, password);
+    if (!isPasswordValid) {
+      logger.warn('[ManualAttribution] Invalid admin password on removal attempt', {
+        userId: user.id,
+        patientId,
+      });
+      return NextResponse.json(
+        { success: false, message: 'Invalid admin password' },
+        { status: 403 }
+      );
     }
 
     const patient = await prisma.patient.findUnique({
