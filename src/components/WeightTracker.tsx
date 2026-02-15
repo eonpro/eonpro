@@ -151,7 +151,7 @@ export default function WeightTracker({
             if (parsed && Array.isArray(parsed)) setWeightData(parsed);
           }
         } catch (error) {
-          logger.error('Failed to fetch weight data:', error);
+          logger.error('Failed to fetch weight data', { error: error instanceof Error ? error.message : 'Unknown' });
           const stored = localStorage.getItem(`weightData_${patientId}`);
           const parsed = safeParseJsonString<WeightEntry[]>(stored);
           if (parsed && Array.isArray(parsed)) setWeightData(parsed);
@@ -219,7 +219,7 @@ export default function WeightTracker({
       if (onWeightSaved) onWeightSaved();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save weight';
-      logger.error('Failed to save weight:', error);
+      logger.error('Failed to save weight', { error: error instanceof Error ? error.message : 'Unknown' });
       setSaveError(message);
     } finally {
       setIsLoading(false);
