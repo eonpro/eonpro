@@ -180,7 +180,7 @@ const ASSETS = {
     gq: 'https://static.wixstatic.com/shapes/c49a9b_c6b0f67ae44f40ae88a76031173b81d8.svg',
     businessInsider: 'https://static.wixstatic.com/shapes/c49a9b_01fed7e538f94a4cbec406882e86dc91.svg',
     miamiHerald: 'https://static.wixstatic.com/shapes/c49a9b_77e5d41514994fa48ddd19ae6f399d71.svg',
-    usaToday: 'https://static.wixstatic.com/shapes/c49a9b_77e5d41514994fa48ddd19ae6f399d71.svg',
+    usaToday: 'https://www.vectorlogo.zone/logos/usatoday/usatoday-ar21~bgwhite.svg',
   },
 } as const;
 
@@ -259,12 +259,12 @@ function ArrowRight({ color = BRAND.textMuted }: { color?: string }) {
 // ============================================================================
 
 const PRESS_LOGOS = [
-  { src: ASSETS.press.businessInsider, alt: 'Business Insider', height: 24 },
-  { src: ASSETS.press.mensHealth, alt: "Men's Health", height: 38 },
-  { src: ASSETS.press.gq, alt: 'GQ', height: 26 },
-  { src: ASSETS.press.foxNews, alt: 'Fox News', height: 22 },
-  { src: ASSETS.press.miamiHerald, alt: 'Miami Herald', height: 28 },
-  { src: ASSETS.press.usaToday, alt: 'USA Today', height: 28 },
+  { src: ASSETS.press.businessInsider, alt: 'Business Insider', height: 22 },
+  { src: ASSETS.press.mensHealth, alt: "Men's Health", height: 28 },
+  { src: ASSETS.press.gq, alt: 'GQ', height: 24 },
+  { src: ASSETS.press.foxNews, alt: 'Fox News', height: 20 },
+  { src: ASSETS.press.miamiHerald, alt: 'Miami Herald', height: 22 },
+  { src: ASSETS.press.usaToday, alt: 'USA Today', height: 22 },
 ];
 
 function PressMarquee() {
@@ -387,6 +387,38 @@ function AffiliateLandingContent() {
 
   return (
     <div className="min-h-screen font-sofia" style={{ backgroundColor: BRAND.cream, color: BRAND.text }}>
+
+      {/* ================================================================ */}
+      {/* Top Promo Banner — black bar with affiliate CTA */}
+      {/* ================================================================ */}
+      <div
+        className="w-full py-2.5 text-center text-xs font-medium tracking-wide sm:text-sm"
+        style={{ backgroundColor: '#000000', color: '#FFFFFF' }}
+      >
+        {isValid && affiliateName ? (
+          <span>
+            Referred by <strong>{affiliateName}</strong> &mdash; Start your personalized intake today.{' '}
+            <a
+              href={buildCtaUrl('/trt', refCode)}
+              className="underline underline-offset-2 transition-opacity hover:opacity-80"
+              style={{ color: BRAND.accent }}
+            >
+              Get Started
+            </a>
+          </span>
+        ) : (
+          <span>
+            Personalized treatments from board-certified providers.{' '}
+            <a
+              href={`${BASE_INTAKE_URL}/trt`}
+              className="underline underline-offset-2 transition-opacity hover:opacity-80"
+              style={{ color: BRAND.accent }}
+            >
+              Start Your Free Consultation
+            </a>
+          </span>
+        )}
+      </div>
 
       {/* ================================================================ */}
       {/* Header */}

@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { dispatchSessionExpired, clearAuthTokens } from '@/lib/api/fetch';
 import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
+
+/** Public routes where fetch interception for session expiry should be skipped */
+const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/register', '/reset-password', '/verify-email'];
 
 /**
  * Global Fetch Interceptor
@@ -12,9 +16,15 @@ import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
  * (not just those using apiFetch) properly handle expired sessions.
  */
 export default function GlobalFetchInterceptor() {
+  const pathname = usePathname();
+  const isPublicPage = PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
+
   useEffect(() => {
     // SSR guard - only run on client
     if (!isBrowser || !safeWindow) return;
+
+    // Don't patch fetch on public-facing pages — no session to expire
+    if (isPublicPage) return;
 
     // Store original fetch
     const originalFetch = window.fetch;
@@ -107,7 +117,7 @@ export default function GlobalFetchInterceptor() {
     return () => {
       window.fetch = originalFetch;
     };
-  }, []);
+  }, [isPublicPage]);
 
   return null; // This component doesn't render anything
 }

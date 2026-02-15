@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { SESSION_EXPIRED_EVENT, clearAuthTokens, redirectToLogin } from '@/lib/api/fetch';
 import { AlertTriangle, LogOut } from 'lucide-react';
 
@@ -13,19 +13,27 @@ import { AlertTriangle, LogOut } from 'lucide-react';
  * 2. Shows a modal when session expires
  * 3. Redirects to login after acknowledgment or timeout
  */
+/** Public routes that should never trigger session expiration logic */
+const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/register', '/reset-password', '/verify-email'];
+
 export default function SessionExpirationHandler() {
   const [isExpired, setIsExpired] = useState(false);
   const [reason, setReason] = useState('Your session has expired');
   const [countdown, setCountdown] = useState(10);
-  const router = useRouter();
+  const pathname = usePathname();
+
+  // Skip all session logic on public-facing pages
+  const isPublicPage = PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
 
   const handleLogout = useCallback(() => {
     clearAuthTokens();
     redirectToLogin('session_expired');
   }, []);
 
-  // Listen for session expiration events
+  // Listen for session expiration events (skip on public pages)
   useEffect(() => {
+    if (isPublicPage) return;
+
     const handleSessionExpired = (event: CustomEvent) => {
       setIsExpired(true);
       setReason(event.detail?.reason || 'Your session has expired');
@@ -36,7 +44,7 @@ export default function SessionExpirationHandler() {
     return () => {
       window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired as EventListener);
     };
-  }, []);
+  }, [isPublicPage]);
 
   // Countdown timer when expired
   useEffect(() => {
@@ -55,8 +63,10 @@ export default function SessionExpirationHandler() {
     return () => clearInterval(interval);
   }, [isExpired, handleLogout]);
 
-  // Periodically check if token is still valid
+  // Periodically check if token is still valid (skip on public pages)
   useEffect(() => {
+    if (isPublicPage) return;
+
     const checkTokenValidity = async () => {
       // Skip if already showing expired modal
       if (isExpired) return;
@@ -102,9 +112,10 @@ export default function SessionExpirationHandler() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isExpired]);
+  }, [isExpired, isPublicPage]);
 
-  if (!isExpired) return null;
+  // Never render the expiration modal on public pages
+  if (isPublicPage || !isExpired) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
