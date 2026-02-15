@@ -759,9 +759,22 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   // STEP 13: TRACK PROMO CODE / AFFILIATE REFERRAL (CRITICAL FOR AFFILIATE PROGRAM)
   // ═══════════════════════════════════════════════════════════════════
+  // Log affiliate-relevant fields for debugging attribution issues
+  const urlWithParams = payload['URL with parameters'] || payload['url with parameters'];
+  const urlField = payload['URL'] || payload['url'];
+  const referrerField = payload['Referrer'] || payload['referrer'];
+  logger.info(`[OVERTIME-INTAKE ${requestId}] Affiliate fields:`, {
+    urlWithParams: urlWithParams ? String(urlWithParams).substring(0, 200) : null,
+    url: urlField ? String(urlField).substring(0, 200) : null,
+    referrer: referrerField ? String(referrerField).substring(0, 200) : null,
+    whoRecommended: (payload['Who reccomended OT Mens Health to you?'] || payload['Who recommended OT Mens Health to you?'] || null) as string | null,
+  });
+
   const promoCode = extractPromoCode(payload);
   let referralTracked = false;
   let modernAffiliateTracked = false;
+
+  logger.info(`[OVERTIME-INTAKE ${requestId}] Extracted promo code: ${promoCode || '(none)'}`);
 
   if (promoCode) {
     // Track in affiliate system (Affiliate/AffiliateTouch tables)

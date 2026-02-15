@@ -1595,17 +1595,12 @@ function extractRefCodeFromUrl(urlStr: string): string | null {
  * This captures visitors who clicked through /affiliate/CODE landing pages.
  */
 export function extractPromoCode(payload: Record<string, unknown>): string | null {
-  const promoFields = [
-    // Airtable "Who recommended OT Mens Health to you?" - primary source for OT intake
-    'Who reccomended OT Mens Health to you?', // Typo in Airtable
-    'Who recommended OT Mens Health to you?',
-    'Who Recommended Us?',
-    'referrer-name', // Airtable field map maps "Who recommended..." to this
-    'who_recommended',
-    'whoRecommended',
-    'Referrer',
-    'referrer',
-    // Direct promo code fields
+  // -----------------------------------------------------------------------
+  // PHASE 1: Check explicit promo / affiliate code text fields FIRST.
+  //          These are user-typed values like "TEAMSAV" in a form field.
+  // -----------------------------------------------------------------------
+  const directCodeFields = [
+    // Direct promo code fields (highest priority — user explicitly typed a code)
     'promo-code',
     'promoCode',
     'promo_code',
@@ -1617,12 +1612,6 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
     'influencer_code',
     'INFLUENCER CODE',
     'Influencer Code',
-    // Referral code fields
-    'referral-code',
-    'referralCode',
-    'referral_code',
-    'REFERRAL CODE',
-    'Referral Code',
     // Affiliate code fields (OT clinic Heyflow forms)
     'affiliate-code',
     'affiliateCode',
@@ -1635,6 +1624,19 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
     'partner_code',
     'PARTNER CODE',
     'Partner Code',
+    // Referral code fields
+    'referral-code',
+    'referralCode',
+    'referral_code',
+    'REFERRAL CODE',
+    'Referral Code',
+    // Airtable "Who recommended" fields (often contains affiliate code text)
+    'Who reccomended OT Mens Health to you?', // Typo in Airtable
+    'Who recommended OT Mens Health to you?',
+    'Who Recommended Us?',
+    'referrer-name',
+    'who_recommended',
+    'whoRecommended',
   ];
 
   // Skip generic answers like "Instagram", "Facebook", "Google", etc.
@@ -1653,7 +1655,7 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
     '-',
   ];
 
-  for (const field of promoFields) {
+  for (const field of directCodeFields) {
     const value = payload[field];
     if (value && typeof value === 'string' && value.trim()) {
       const trimmed = value.trim();
@@ -1674,8 +1676,50 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
     }
   }
 
-  // Fallback: scan ALL payload fields for a URL containing an affiliate ref code.
-  // This catches cases where the referrer URL is in a non-standard field name.
+  // -----------------------------------------------------------------------
+  // PHASE 2: Check URL-based fields that carry ?ref=CODE or /affiliate/CODE.
+  //          These are set automatically by the intake page when the visitor
+  //          arrives from an affiliate landing page. This is the CRITICAL path
+  //          for Heyflow "URL with parameters" → "https://optimize.otmens.com/?ref=TEAMSAV#check-out"
+  // -----------------------------------------------------------------------
+  const urlFields = [
+    // Heyflow / Airtable URL fields (highest signal for affiliate attribution)
+    'URL with parameters',
+    'url with parameters',
+    'URL With Parameters',
+    'urlWithParameters',
+    'url_with_parameters',
+    // The base URL field (may also carry ?ref=)
+    'URL',
+    'url',
+    'sourceUrl',
+    'source_url',
+    'page_url',
+    'pageUrl',
+    // Referrer (usually just domain, but sometimes has /affiliate/CODE path)
+    'Referrer',
+    'referrer',
+    'referrer_url',
+    'referrerUrl',
+  ];
+
+  for (const field of urlFields) {
+    const value = payload[field];
+    if (value && typeof value === 'string' && value.trim()) {
+      const trimmed = value.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        const refCodeFromUrl = extractRefCodeFromUrl(trimmed);
+        if (refCodeFromUrl) {
+          return refCodeFromUrl;
+        }
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // PHASE 3: Last-resort fallback — scan ALL payload fields for any URL
+  //          containing /affiliate/ or ref= to catch non-standard field names.
+  // -----------------------------------------------------------------------
   for (const [, value] of Object.entries(payload)) {
     if (typeof value === 'string' && (value.includes('/affiliate/') || value.includes('ref='))) {
       const refCode = extractRefCodeFromUrl(value.trim());
