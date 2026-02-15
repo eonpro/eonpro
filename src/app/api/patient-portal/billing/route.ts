@@ -140,11 +140,11 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       subscription = {
         id: localSub.id.toString(),
         planName: localSub.planName || 'Subscription',
-        amount: localSub.price ? localSub.price * 100 : 0,
-        interval: localSub.interval || 'month',
+        amount: (localSub as any).price ? (localSub as any).price * 100 : (localSub.amount ?? 0),
+        interval: (localSub as any).interval || 'month',
         status: localSub.status,
-        currentPeriodEnd: localSub.currentPeriodEnd?.toISOString() || '',
-        cancelAtPeriodEnd: localSub.cancelAtPeriodEnd || false,
+        currentPeriodEnd: (localSub as any).currentPeriodEnd?.toISOString() || '',
+        cancelAtPeriodEnd: (localSub as any).cancelAtPeriodEnd || false,
       };
     }
 

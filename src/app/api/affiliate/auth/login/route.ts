@@ -37,54 +37,61 @@ const SESSION_DURATION = 30 * 24 * 60 * 60; // 30 days in seconds
 
 import { authRateLimiter } from '@/lib/security/rate-limiter-redis';
 
-async function handler(request: NextRequest) {
+// ──────────────────────────────────────────────────────────────────────
+// Pre-flight email check: does this affiliate need password setup?
+// NOT rate-limited — this is a read-only check that doesn't expose
+// credentials and returns the same shape regardless of whether the
+// account exists (prevents enumeration).
+// ──────────────────────────────────────────────────────────────────────
+async function handleEmailCheck(data: { email: string }) {
   try {
-    const body = await request.json();
+    const normalizedEmail = data.email.trim().toLowerCase();
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Pre-flight email check: does this affiliate need password setup?
-    // Called from the login page before showing the password field.
-    // ──────────────────────────────────────────────────────────────────────
-    const emailCheck = emailCheckSchema.safeParse(body);
-    if (emailCheck.success) {
-      const normalizedEmail = emailCheck.data.email.trim().toLowerCase();
-
-      const affiliate = await prisma.affiliate.findFirst({
-        where: {
-          user: { email: normalizedEmail },
-          status: 'ACTIVE',
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              lastPasswordChange: true,
-            },
+    const affiliate = await prisma.affiliate.findFirst({
+      where: {
+        user: { email: normalizedEmail },
+        status: 'ACTIVE',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            lastPasswordChange: true,
           },
         },
-      });
+      },
+    });
 
-      // Always return same shape to prevent enumeration
-      if (!affiliate || !affiliate.user) {
-        return NextResponse.json({ needsPasswordSetup: false });
-      }
-
-      // If lastPasswordChange is null, user has never set their own password
-      const needsSetup = affiliate.user.lastPasswordChange === null;
-
-      if (needsSetup) {
-        logger.info('[Affiliate Auth] First-time user detected', {
-          affiliateId: affiliate.id,
-          userId: affiliate.user.id,
-        });
-      }
-
-      return NextResponse.json({ needsPasswordSetup: needsSetup });
+    // Always return same shape to prevent enumeration
+    if (!affiliate || !affiliate.user) {
+      return NextResponse.json({ needsPasswordSetup: false });
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // Standard login flow
-    // ──────────────────────────────────────────────────────────────────────
+    // If lastPasswordChange is null, user has never set their own password
+    const needsSetup = affiliate.user.lastPasswordChange === null;
+
+    if (needsSetup) {
+      logger.info('[Affiliate Auth] First-time user detected', {
+        affiliateId: affiliate.id,
+        userId: affiliate.user.id,
+      });
+    }
+
+    return NextResponse.json({ needsPasswordSetup: needsSetup });
+  } catch (error) {
+    logger.error('[Affiliate Auth] Email check error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return NextResponse.json({ needsPasswordSetup: false });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Standard login flow — rate-limited
+// ──────────────────────────────────────────────────────────────────────
+async function loginHandler(request: NextRequest) {
+  try {
+    const body = await request.json();
     const parsed = loginSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -196,5 +203,32 @@ async function handler(request: NextRequest) {
   }
 }
 
-// Apply rate limiting: 5 attempts per 15 min, 30 min block on exceed
-export const POST = authRateLimiter(handler);
+// Rate-limited login handler
+const rateLimitedLogin = authRateLimiter(loginHandler);
+
+/**
+ * POST /api/affiliate/auth/login
+ *
+ * Routes between two flows:
+ * 1. checkOnly=true  → email pre-flight (NOT rate-limited)
+ * 2. email+password  → actual login   (rate-limited: 10 attempts / 15 min)
+ */
+export async function POST(request: NextRequest) {
+  // Clone the request so we can peek at the body without consuming
+  // the original stream (the rate-limited handler needs to read it too)
+  const clone = request.clone();
+
+  try {
+    const body = await clone.json();
+    const emailCheck = emailCheckSchema.safeParse(body);
+
+    if (emailCheck.success) {
+      return handleEmailCheck(emailCheck.data);
+    }
+  } catch {
+    // Body parse failed — fall through to the rate-limited handler
+    // which will return its own validation error
+  }
+
+  return rateLimitedLogin(request);
+}

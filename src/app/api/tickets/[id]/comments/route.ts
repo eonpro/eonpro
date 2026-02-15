@@ -23,7 +23,7 @@ interface RouteParams {
  * GET /api/tickets/[id]/comments
  * Get all comments for a ticket
  */
-export const GET = withAuth(async (request, user, { params }: RouteParams) => {
+export const GET = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);
@@ -59,7 +59,7 @@ export const GET = withAuth(async (request, user, { params }: RouteParams) => {
  * POST /api/tickets/[id]/comments
  * Add a comment to a ticket
  */
-export const POST = withAuth(async (request, user, { params }: RouteParams) => {
+export const POST = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);

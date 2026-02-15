@@ -123,7 +123,7 @@ export const GET = withAdminAuth(async (req: NextRequest, user) => {
         ? `${invoice.patient.firstName} ${invoice.patient.lastName}`
         : 'Unknown Patient',
       patientId: invoice.patient?.id || 0,
-      amount: invoice.amountDue / 100,
+      amount: (invoice.amountDue ?? 0) / 100,
       dueDate: invoice.dueDate?.toISOString() || undefined,
       stripeInvoiceNumber: invoice.stripeInvoiceNumber || undefined,
     }));

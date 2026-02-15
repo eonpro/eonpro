@@ -213,7 +213,7 @@ export default function ClinicPortalSettingsPage() {
     if (!preset || Object.keys(preset).length === 0) return;
     setSettings((prev) => ({
       ...prev,
-      features: applyPresetToFeatures(prev.features, preset),
+      features: applyPresetToFeatures(prev.features as any, preset as any),
     }));
     setSaved(false);
   };

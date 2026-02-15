@@ -53,7 +53,7 @@ const RECENT_INTAKES_LIMIT = 20;
 export async function getAdminDashboard(
   userContext: UserContext
 ): Promise<AdminDashboardPayload> {
-  const clinicId = userContext.role === 'super_admin' ? undefined : userContext.clinicId;
+  const clinicId = userContext.role === 'super_admin' ? undefined : (userContext.clinicId ?? undefined);
   const cached = getDashboardCache(clinicId, userContext.id);
   if (cached) return cached;
 

@@ -350,7 +350,7 @@ export async function importExternalEventsAsBlockedTime(
             isAllDay: false,
             isRecurring: false,
             source: 'calendar_sync',
-          },
+          } as any,
         });
 
         result.imported++;

@@ -256,8 +256,8 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         city: safeDecrypt(invoice.patient.city),
         state: safeDecrypt(invoice.patient.state),
         zip: safeDecrypt(invoice.patient.zip),
-        allergies: invoice.patient.allergies,
-        notes: invoice.patient.notes,
+        allergies: (invoice.patient as any).allergies,
+        notes: (invoice.patient as any).notes,
       },
       clinic: invoice.clinic,
       intake: {

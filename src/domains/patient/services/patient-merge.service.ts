@@ -533,7 +533,7 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
 
         // Encrypt PHI fields before writing to database
         const encryptedMergedFields = encryptPatientPHI(
-          mergedFields as Record<string, unknown>,
+          mergedFields as unknown as Record<string, unknown>,
           [...PHI_FIELDS]
         );
 

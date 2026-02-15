@@ -35,12 +35,13 @@ async function processCommissionHandler(req: NextRequest) {
     // Process commission if invoice is paid
     if (invoice.status === 'PAID') {
       const result = await processPaymentForCommission({
-        clinicId: invoice.patient?.clinicId || invoice.clinicId,
-        patientId: invoice.patient?.id || invoice.patientId,
+        clinicId: (invoice.patient?.clinicId || invoice.clinicId) as number,
+        patientId: (invoice.patient?.id || invoice.patientId) as number,
         stripeEventId: `invoice-${invoice.id}`,
         stripeObjectId: invoice.stripeInvoiceId || `inv-${invoice.id}`,
         stripeEventType: 'invoice.paid',
-        amountCents: invoice.totalCents || Math.round((invoice.total || 0) * 100),
+        amountCents: (invoice as any).totalCents || Math.round(((invoice as any).total || 0) * 100),
+        occurredAt: new Date(),
         isFirstPayment: true,
       });
 
@@ -51,7 +52,7 @@ async function processCommissionHandler(req: NextRequest) {
           commission: {
             id: result.commissionEventId,
             amountCents: result.commissionAmountCents,
-            affiliateId: result.affiliateId,
+            affiliateId: (result as any).affiliateId,
             status: 'PENDING',
           },
         });

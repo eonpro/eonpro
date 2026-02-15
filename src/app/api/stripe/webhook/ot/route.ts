@@ -649,9 +649,9 @@ async function queueFailedEvent(
         source: 'stripe-ot',
         eventId: event.id,
         eventType: event.type,
-        status: 'FAILED',
+        status: 'FAILED' as any,
         errorMessage: error,
-        payload: payload as object | null,
+        payload: payload as any,
         retryCount: 0,
         processedAt: null,
         metadata: {

@@ -130,7 +130,7 @@ export default function AchievementsPage() {
         const data = await safeParseJson(achievementsRes);
         setAchievements(
           data !== null && typeof data === 'object' && 'achievements' in data
-            ? (data as { achievements?: unknown[] }).achievements ?? []
+            ? ((data as { achievements?: Achievement[] }).achievements ?? [])
             : []
         );
       }
@@ -139,7 +139,7 @@ export default function AchievementsPage() {
         const data = await safeParseJson(streaksRes);
         setStreaks(
           data !== null && typeof data === 'object' && 'streaks' in data
-            ? (data as { streaks?: unknown[] }).streaks ?? []
+            ? ((data as { streaks?: StreakInfo[] }).streaks ?? [])
             : []
         );
       }
@@ -148,8 +148,8 @@ export default function AchievementsPage() {
         const data = await safeParseJson(pointsRes);
         setPoints(
           data !== null && typeof data === 'object' && 'points' in data
-            ? (data as { points?: number }).points ?? 0
-            : 0
+            ? ((data as { points?: PointsInfo }).points ?? null)
+            : null
         );
       }
 
@@ -157,7 +157,7 @@ export default function AchievementsPage() {
         const data = await safeParseJson(challengesRes);
         setChallenges(
           data !== null && typeof data === 'object' && 'challenges' in data
-            ? (data as { challenges?: unknown[] }).challenges ?? []
+            ? ((data as { challenges?: Challenge[] }).challenges ?? [])
             : []
         );
       }

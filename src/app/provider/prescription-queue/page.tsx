@@ -482,12 +482,12 @@ export default function PrescriptionQueuePage() {
         setTimeout(() => setSuccessMessage(''), 4000);
 
         // Refresh patient details if expanded
-        if (expandedItem === item.invoiceId) {
+        if (expandedItem === item.invoiceId && item.invoiceId != null) {
           await fetchPatientDetails(item.invoiceId);
         }
 
         // Refresh prescription panel if open for this item
-        if (prescriptionPanel && prescriptionPanel.item.invoiceId === item.invoiceId) {
+        if (prescriptionPanel && prescriptionPanel.item.invoiceId === item.invoiceId && item.invoiceId != null) {
           const updatedDetails = await fetchPatientDetails(item.invoiceId);
           if (updatedDetails) {
             setPrescriptionPanel({ item: prescriptionPanel.item, details: updatedDetails });
@@ -543,12 +543,12 @@ export default function PrescriptionQueuePage() {
         setTimeout(() => setSuccessMessage(''), 4000);
 
         // Refresh patient details if expanded
-        if (expandedItem === item.invoiceId) {
+        if (expandedItem === item.invoiceId && item.invoiceId != null) {
           await fetchPatientDetails(item.invoiceId);
         }
 
         // Refresh prescription panel if open
-        if (prescriptionPanel && prescriptionPanel.item.invoiceId === item.invoiceId) {
+        if (prescriptionPanel && prescriptionPanel.item.invoiceId === item.invoiceId && item.invoiceId != null) {
           const updatedDetails = await fetchPatientDetails(item.invoiceId);
           if (updatedDetails) {
             setPrescriptionPanel({ item: prescriptionPanel.item, details: updatedDetails });
@@ -857,7 +857,7 @@ export default function PrescriptionQueuePage() {
       if (response.ok) {
         // Mark as processed
         await handleMarkProcessed(
-          prescriptionPanel.item.invoiceId,
+          prescriptionPanel.item.invoiceId!,
           prescriptionPanel.item.patientName,
           false
         );

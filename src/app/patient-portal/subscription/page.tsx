@@ -103,7 +103,7 @@ export default function SubscriptionPage() {
         setSubscription({
           id: sub.id || '',
           planName: sub.planName || 'Subscription',
-          status: sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active',
+          status: (sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active') as 'active' | 'cancelled' | 'paused',
           amount: amountCents / 100,
           interval: (sub.interval === 'year' ? 'year' : 'month') as 'month' | 'year',
           nextBillingDate: sub.currentPeriodEnd || sub.nextBillingDate || '',

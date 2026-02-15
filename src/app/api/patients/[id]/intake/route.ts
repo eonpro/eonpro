@@ -61,7 +61,6 @@ export const GET = withAuthParams(
         documentId: intakeDoc.id,
         intakeData,
         createdAt: intakeDoc.createdAt,
-        updatedAt: intakeDoc.updatedAt,
       });
     } catch (error) {
       logger.error('Error fetching intake data:', error);

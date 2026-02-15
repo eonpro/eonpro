@@ -182,4 +182,4 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
   }
 }
 
-export const POST = (req: NextRequest, context: Params) => withProviderAuth(handler)(req, context);
+export const POST = (req: NextRequest, context: Params) => withProviderAuth(handler as (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>)(req, context);

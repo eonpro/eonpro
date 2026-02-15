@@ -94,7 +94,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
             });
 
             if (existing) {
-              existingDuplicate = existing;
+              existingDuplicate = existing as unknown as typeof existingDuplicate;
             }
           }
         }
@@ -256,7 +256,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       // withRetry: resilient to transient pool exhaustion (P2024)
       const invoice = await withRetry(
         () =>
-          prisma.$transaction(async (tx: typeof prisma) => {
+          prisma.$transaction(async (tx) => {
         const newInvoice = await tx.invoice.create({
           data: {
             patientId: validatedData.patientId,
@@ -362,7 +362,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
 
       const invoice = await withRetry(
         () =>
-          prisma.$transaction(async (tx: typeof prisma) => {
+          prisma.$transaction(async (tx) => {
             const newInvoice = await tx.invoice.create({
               data: {
                 patientId: validatedData.patientId,
@@ -462,7 +462,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       // withRetry: resilient to transient pool exhaustion (P2024)
       await withRetry(
         () =>
-          prisma.$transaction(async (tx: typeof prisma) => {
+          prisma.$transaction(async (tx) => {
         // Update invoice with subscription flag
         await tx.invoice.update({
           where: { id: result.invoice.id },

@@ -537,6 +537,7 @@ type IntakeData = {
   }>;
   answers?: Array<{ id?: string; label?: string; value?: any }>;
   patient?: any;
+  checkoutCompleted?: boolean | string;
   // E-Signature and consent metadata fields
   ipAddress?: string;
   userAgent?: string;

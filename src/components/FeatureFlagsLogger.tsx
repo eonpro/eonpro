@@ -9,9 +9,7 @@ export function FeatureFlagsLogger() {
     if (process.env.NODE_ENV === 'development') {
       logger.debug(
         '[FEATURE_FLAGS] Active:',
-        Object.entries(FEATURES)
-          .filter(([, enabled]) => enabled)
-          .map(([feature]) => feature)
+        { features: Object.entries(FEATURES).filter(([, enabled]) => enabled).map(([feature]) => feature) }
       );
     }
   }, []);

@@ -324,8 +324,9 @@ export const DELETE = withSuperAdminAuth(
       // Helper function to safely delete from a model
       const safeDeleteMany = async (tx: Prisma.TransactionClient, modelName: string, where: Prisma.InputJsonValue) => {
         try {
-          if (tx[modelName] && typeof tx[modelName].deleteMany === 'function') {
-            await tx[modelName].deleteMany({ where });
+          const model = (tx as any)[modelName];
+          if (model && typeof model.deleteMany === 'function') {
+            await model.deleteMany({ where });
           }
         } catch (e: any) {
           logger.warn(`Could not delete from ${modelName}`, { message: (e as Error).message });
@@ -335,8 +336,9 @@ export const DELETE = withSuperAdminAuth(
       // Helper function to safely update a model
       const safeUpdateMany = async (tx: Prisma.TransactionClient, modelName: string, where: Prisma.InputJsonValue, data: Prisma.InputJsonValue) => {
         try {
-          if (tx[modelName] && typeof tx[modelName].updateMany === 'function') {
-            await tx[modelName].updateMany({ where, data });
+          const model = (tx as any)[modelName];
+          if (model && typeof model.updateMany === 'function') {
+            await model.updateMany({ where, data });
           }
         } catch (e: any) {
           logger.warn(`Could not update ${modelName}`, { message: (e as Error).message });

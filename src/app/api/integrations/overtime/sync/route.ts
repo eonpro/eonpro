@@ -66,9 +66,9 @@ export async function POST(req: NextRequest) {
 
     const options: SyncOptions = {
       dryRun: body.dryRun === true,
-      maxRecordsPerTable: body.maxRecordsPerTable,
+      maxRecordsPerTable: body.maxRecordsPerTable as number | undefined,
       markAsSynced: body.markAsSynced === true,
-      syncStatusField: body.syncStatusField,
+      syncStatusField: body.syncStatusField as string | undefined,
     };
 
     // Filter by treatment types if specified
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     // Filter by since date if specified
     if (body.since) {
-      const sinceDate = new Date(body.since);
+      const sinceDate = new Date(body.since as string);
       if (!isNaN(sinceDate.getTime())) {
         options.since = sinceDate;
       }

@@ -132,6 +132,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
+    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'invoice:view', {
       patientId: invoice.patientId ?? undefined,
@@ -189,14 +190,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     });
 
     if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
+    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     switch (action) {
       case 'send': {
         // Send invoice via Stripe or email
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const { getStripe } = await import('@/lib/stripe');
-            const stripe = getStripe();
+            const { getStripeClient } = await import('@/lib/stripe');
+            const stripe = getStripeClient()!;
             await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
 
             await prisma.invoice.update({
@@ -240,8 +242,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const { getStripe } = await import('@/lib/stripe');
-            const stripe = getStripe();
+            const { getStripeClient } = await import('@/lib/stripe');
+            const stripe = getStripeClient()!;
             await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
           } catch (stripeError: any) {
             logger.warn('[API] Stripe void invoice error:', stripeError);
@@ -333,8 +335,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const { getStripe } = await import('@/lib/stripe');
-            const stripe = getStripe();
+            const { getStripeClient } = await import('@/lib/stripe');
+            const stripe = getStripeClient()!;
             const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.stripeInvoiceId);
 
             await prisma.invoice.update({
@@ -389,8 +391,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const { getStripe } = await import('@/lib/stripe');
-            const stripe = getStripe();
+            const { getStripeClient } = await import('@/lib/stripe');
+            const stripe = getStripeClient()!;
 
             // Add a negative line item (credit)
             await stripe.invoiceItems.create({
@@ -462,11 +464,11 @@ export async function POST(request: NextRequest, { params }: Params) {
             amountDue: invoice.amountDue,
             status: 'DRAFT',
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            lineItems: invoice.lineItems,
+            lineItems: invoice.lineItems as any,
             metadata: {
               ...((invoice.metadata as any) || {}),
               duplicatedFrom: invoice.id,
-            },
+            } as any,
             createSubscription: invoice.createSubscription,
           },
         });
@@ -488,8 +490,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const { getStripe } = await import('@/lib/stripe');
-            const stripe = getStripe();
+            const { getStripeClient } = await import('@/lib/stripe');
+            const stripe = getStripeClient()!;
             await stripe.invoices.markUncollectible(invoice.stripeInvoiceId);
           } catch (stripeError: any) {
             logger.warn('[API] Stripe mark uncollectible error:', stripeError);
@@ -511,8 +513,8 @@ export async function POST(request: NextRequest, { params }: Params) {
         // Resend invoice email
         if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
           try {
-            const { getStripe } = await import('@/lib/stripe');
-            const stripe = getStripe();
+            const { getStripeClient } = await import('@/lib/stripe');
+            const stripe = getStripeClient()!;
             await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
 
             return NextResponse.json({
@@ -578,6 +580,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     });
 
     if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
+    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     // Check if invoice can be edited
     if (invoice.status === 'PAID') {
@@ -665,8 +668,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     // Update Stripe invoice if applicable
     if (invoice.stripeInvoiceId && isStripeConfigured() && invoice.status === 'DRAFT') {
       try {
-        const { getStripe } = await import('@/lib/stripe');
-        const stripe = getStripe();
+        const { getStripeClient } = await import('@/lib/stripe');
+        const stripe = getStripeClient()!;
 
         const stripeUpdateData: any = {};
 
@@ -769,6 +772,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     });
 
     if (ensureTenantResource(invoice, user.clinicId ?? undefined)) return tenantNotFoundResponse();
+    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
     // Check if invoice can be deleted
     if (invoice.status === 'PAID') {
@@ -791,8 +795,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     // Delete/void in Stripe if applicable
     if (invoice.stripeInvoiceId && isStripeConfigured()) {
       try {
-        const { getStripe } = await import('@/lib/stripe');
-        const stripe = getStripe();
+        const { getStripeClient } = await import('@/lib/stripe');
+        const stripe = getStripeClient()!;
 
         // Try to delete if draft, otherwise void
         if (invoice.status === 'DRAFT') {
@@ -809,7 +813,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     }
 
     // Wrap deletion of invoice items and invoice in a transaction for atomicity
-    await prisma.$transaction(async (tx: typeof prisma) => {
+    await prisma.$transaction(async (tx) => {
       // Delete related invoice items first (if table exists)
       try {
         await tx.invoiceItem.deleteMany({

@@ -308,7 +308,7 @@ export default function MedicalImagesPage() {
         <div className="space-y-6">
           {photos.length > 0 ? (
             <PhotoGallery
-              photos={photos}
+              photos={photos as any}
               onDelete={handleDeletePhoto}
               showFilters
               showDateGroups

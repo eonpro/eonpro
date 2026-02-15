@@ -246,21 +246,21 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     });
 
     // Sort by conversions (highest first)
-    refCodeStats.sort((a, b) => b.conversions - a.conversions);
+    refCodeStats.sort((a, b) => Number(b.conversions) - Number(a.conversions));
 
     // Calculate totals with weighted average conversion rate
     const totalClicks = refCodeStats.reduce((sum, c) => sum + c.clicks, 0);
     const totalImpressions = refCodeStats.reduce((sum, c) => sum + c.impressions, 0);
     const totalUniqueVisitors = refCodeStats.reduce((sum, c) => sum + c.uniqueVisitors, 0);
-    const totalConversions = refCodeStats.reduce((sum, c) => sum + c.conversions, 0);
+    const totalConversions = refCodeStats.reduce((sum, c) => sum + Number(c.conversions), 0);
     const totals = {
       totalCodes: refCodeStats.length,
       totalClicks,
       totalImpressions,
       totalUniqueVisitors,
       totalConversions,
-      totalRevenueCents: refCodeStats.reduce((sum, c) => sum + c.revenueCents, 0),
-      totalCommissionCents: refCodeStats.reduce((sum, c) => sum + c.commissionCents, 0),
+      totalRevenueCents: refCodeStats.reduce((sum, c) => sum + (c.revenueCents ?? 0), 0),
+      totalCommissionCents: refCodeStats.reduce((sum, c) => sum + (c.commissionCents ?? 0), 0),
       avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
       avgClickThroughRate: totalImpressions > 0 ? ((totalClicks - totalImpressions) / totalImpressions) * 100 : 0,
     };

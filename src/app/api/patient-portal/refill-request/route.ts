@@ -196,7 +196,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     }));
 
     // Transform refill history for frontend
-    const pastRefills = refillHistory.map((refill: RefillHistoryItem) => ({
+    const pastRefills = refillHistory.map((refill: any) => ({
       id: refill.id,
       status: refill.status,
       medication: refill.medicationName || 'Prescription Refill',

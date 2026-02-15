@@ -44,7 +44,7 @@ export default function PatientPortalBloodworkPage() {
         const data = await safeParseJson(res);
         const list =
           data !== null && typeof data === 'object' && 'reports' in data
-            ? (data as { reports?: unknown[] }).reports
+            ? (data as { reports?: LabReportSummary[] }).reports
             : undefined;
         setReports(Array.isArray(list) ? list : []);
         setError(null);

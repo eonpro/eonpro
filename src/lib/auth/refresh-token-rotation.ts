@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger';
 
 const PEPPER = process.env.REFRESH_TOKEN_PEPPER;
 const HMAC_ALGO = 'sha256';
-const HASH_ENCODING: BufferEncoding = 'hex';
+const HASH_ENCODING: crypto.BinaryToTextEncoding = 'hex';
 
 /**
  * Hash a refresh token for storage (HMAC-SHA256 with pepper when set).

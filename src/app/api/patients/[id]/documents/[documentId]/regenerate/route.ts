@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import type { AuthUser } from '@/lib/auth/middleware';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import type { NormalizedIntake } from '@/lib/heyflow/types';
@@ -14,7 +15,7 @@ import type { NormalizedIntake } from '@/lib/heyflow/types';
 export const POST = withAuthParams(
   async (
     request: NextRequest,
-    user: { id: number; role: string; clinicId: number | null; patientId?: number },
+    user: AuthUser,
     context: { params: Promise<{ id: string; documentId: string }> }
   ) => {
     try {

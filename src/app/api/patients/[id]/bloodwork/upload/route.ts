@@ -76,6 +76,7 @@ async function postHandler(
   const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
   const notFound = ensureTenantResource(patient, clinicId);
   if (notFound) return notFound;
+  if (!patient) return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
   if (patient.clinicId == null) {
     return NextResponse.json(
       { error: 'Patient must be assigned to a clinic before uploading lab reports.' },

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { PaymentMethodService } from '@/services/paymentMethodService';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
-import { getStripeForClinic } from '@/lib/stripe';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
 import { Patient, Provider, Order } from '@/types/models';
 

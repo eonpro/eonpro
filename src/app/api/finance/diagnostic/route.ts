@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         if (list.has_more) {
           let startingAfter: string | undefined = list.data[list.data.length - 1]?.id;
           while (list.has_more && startingAfter) {
-            const next = await stripeContext.stripe!.subscriptions.list(
+            const next: typeof list = await stripeContext.stripe!.subscriptions.list(
               withConnectedAccount(stripeContext, {
                 status: 'active',
                 limit: 100,

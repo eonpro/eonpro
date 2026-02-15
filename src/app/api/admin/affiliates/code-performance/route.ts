@@ -24,9 +24,9 @@ interface CodePerformance {
   affiliateStatus: string;
   uses: number;
   clicks: number;
-  conversions: number;
-  revenue: number;
-  conversionRate: number;
+  conversions: string | number;
+  revenue: number | null;
+  conversionRate: number | null;
   taggedProfiles: number;
   lastUseAt: string | null;
   lastClickAt: string | null;
@@ -314,33 +314,33 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           comparison = a.uses - b.uses;
           break;
         case 'conversions':
-          comparison = a.conversions - b.conversions;
+          comparison = Number(a.conversions) - Number(b.conversions);
           break;
         case 'revenue':
-          comparison = a.revenue - b.revenue;
+          comparison = (a.revenue ?? 0) - (b.revenue ?? 0);
           break;
         case 'conversionRate':
-          comparison = a.conversionRate - b.conversionRate;
+          comparison = (a.conversionRate ?? 0) - (b.conversionRate ?? 0);
           break;
         case 'lastUseAt':
         case 'lastClickAt':
           comparison = (a.lastUseAt || '').localeCompare(b.lastUseAt || '');
           break;
         default:
-          comparison = a.conversions - b.conversions;
+          comparison = Number(a.conversions) - Number(b.conversions);
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
     // Calculate totals with weighted average conversion rate
     const totalUses = sortedPerformances.reduce((sum, c) => sum + c.uses, 0);
-    const totalConversions = sortedPerformances.reduce((sum, c) => sum + c.conversions, 0);
+    const totalConversions = sortedPerformances.reduce((sum, c) => sum + Number(c.conversions), 0);
     const totals = {
       totalCodes: sortedPerformances.length,
       totalUses,
       totalClicks: totalUses,
       totalConversions,
-      totalRevenue: sortedPerformances.reduce((sum, c) => sum + c.revenue, 0),
+      totalRevenue: sortedPerformances.reduce((sum, c) => sum + (c.revenue ?? 0), 0),
       avgConversionRate: totalUses > 0 ? (totalConversions / totalUses) * 100 : 0,
     };
 

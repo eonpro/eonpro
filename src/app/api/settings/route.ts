@@ -167,7 +167,7 @@ export const PUT = withAuth(
           data: {
             userId: user.id > 0 ? user.id : undefined,
             action: 'SETTING_UPDATED',
-            details: {
+            details: ({
               settingId,
               category: categoryName,
               subcategory: subcategoryName,
@@ -177,13 +177,13 @@ export const PUT = withAuth(
                 : getSettingValue(settingId, settingDef.defaultValue),
               newValue: settingDef.sensitive ? '***' : value,
               updatedBy: user.id,
-            },
+            }) as any,
             ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
             userAgent: req.headers.get('user-agent'),
-          },
+          } as any,
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', error);
+          logger.warn('Failed to create audit log:', { error: error.message });
         });
 
       logger.info('Setting updated', { settingId, userId: user.id });

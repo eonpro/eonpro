@@ -277,10 +277,10 @@ export default function DemographicsReportPage() {
                   tick={{ fontSize: 12, fill: '#6B7280' }}
                 />
                 <Tooltip
-                  formatter={(value: number, name: string, props: { payload: { percentage: number } }) => [
+                  formatter={((value: number, name: string, props: { payload: { percentage: number } }) => [
                     `${value} (${props.payload.percentage}%)`,
                     'Patients',
-                  ]}
+                  ]) as any}
                 />
                 <Bar dataKey="count" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -311,17 +311,17 @@ export default function DemographicsReportPage() {
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={2}
-                  label={({ value, percent }) => `${value} (${(percent * 100).toFixed(1)}%)`}
+                  label={({ value, percent }: any) => `${value} (${((percent ?? 0) * 100).toFixed(1)}%)`}
                 >
                   {genderChartData.map((_, index) => (
                     <Cell key={index} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number, name: string, props: { payload: { percentage: number } }) => [
+                  formatter={((value: number, name: string, props: { payload: { percentage: number } }) => [
                     `${value} (${props.payload.percentage}%)`,
                     name,
-                  ]}
+                  ]) as any}
                 />
               </RechartsPieChart>
             </ResponsiveContainer>
@@ -350,10 +350,10 @@ export default function DemographicsReportPage() {
               />
               <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} />
               <Tooltip
-                formatter={(value: number, name: string, props: { payload: { percentage: number } }) => [
+                formatter={((value: number, name: string, props: { payload: { percentage: number } }) => [
                   `${value} (${props.payload.percentage}%)`,
                   'Patients',
-                ]}
+                ]) as any}
               />
               <Bar dataKey="count" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
             </BarChart>

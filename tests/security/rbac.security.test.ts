@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  hasPermission,
+  hasPermission as rbacHasPermission,
   requirePermission,
   toPermissionContext,
   PERMISSION_MATRIX,
@@ -216,7 +216,7 @@ describe('Role-Based Access Control', () => {
         role: 'provider',
         clinicId: 1,
       });
-      expect(hasPermission(ctx, 'invoice:export')).toBe(false);
+      expect(rbacHasPermission(ctx, 'invoice:export')).toBe(false);
       expect(() => requirePermission(ctx, 'invoice:export')).toThrow('Forbidden');
       const err = (() => {
         try {
@@ -234,7 +234,7 @@ describe('Role-Based Access Control', () => {
         role: 'staff',
         clinicId: 1,
       });
-      expect(hasPermission(ctx, 'patient:edit')).toBe(false);
+      expect(rbacHasPermission(ctx, 'patient:edit')).toBe(false);
       expect(() => requirePermission(ctx, 'patient:edit')).toThrow('Forbidden');
     });
 
@@ -243,7 +243,7 @@ describe('Role-Based Access Control', () => {
         role: 'sales_rep',
         clinicId: 1,
       });
-      expect(hasPermission(ctx, 'financial:view')).toBe(false);
+      expect(rbacHasPermission(ctx, 'financial:view')).toBe(false);
       expect(() => requirePermission(ctx, 'financial:view')).toThrow('Forbidden');
     });
 

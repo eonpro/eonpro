@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { createInvoiceManager } from '@/services/billing/InvoiceManager';
-import { getStripeForClinic } from '@/lib/stripe';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 import { logger } from '@/lib/logger';
 
 // GET - Get patient billing summary

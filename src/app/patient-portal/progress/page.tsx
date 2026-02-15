@@ -147,8 +147,8 @@ export default function ProgressPage() {
             if (me && !cancelled) {
               const fromMePid = typeof me.patientId === 'number' && me.patientId > 0 ? me.patientId : null;
               pid = fromMePid;
-              const toStore = userData ? { ...userData, patientId: fromMePid ?? userData.patientId } : { id: me.id, role: me.role, patientId: fromMePid, email: me.email };
-              setPortalUserStorage(getMinimalPortalUserPayload(toStore));
+              const toStore = userData ? { ...userData, patientId: fromMePid ?? userData.patientId } : { id: me.id, role: me.role, patientId: fromMePid ?? undefined, email: me.email };
+              setPortalUserStorage(getMinimalPortalUserPayload(toStore as any));
             }
           }
           if (!userData && !meRes.ok && !cancelled) {
@@ -268,10 +268,10 @@ export default function ProgressPage() {
         fetchData();
       } else {
         const errBody = await safeParseJson(response);
-        const message =
+        const errMessage =
           (errBody && typeof errBody === 'object' && 'error' in errBody && (errBody as { error?: string }).error) ||
           `Could not save water (${response.status}). Please try again.`;
-        setError(message);
+        setError(String(errMessage));
       }
     } catch (error) {
       logger.error('Failed to log water', {

@@ -39,12 +39,17 @@ interface Invoice {
   };
 }
 
+interface SummaryBucket {
+  count: number;
+  amount: number;
+}
+
 interface Summary {
-  draftCount: number;
-  pendingCount: number;
-  sentCount: number;
-  paidCount: number;
-  overdueCount: number;
+  draft: SummaryBucket;
+  pending: SummaryBucket;
+  sent: SummaryBucket;
+  overdue: SummaryBucket;
+  paid: SummaryBucket;
   totalInvoices: number;
   totalAmountCents: number;
   paidAmountCents: number;
@@ -182,6 +187,8 @@ export default function InvoicesPage() {
           periodType: 'MONTHLY',
           periodStart: '',
           periodEnd: '',
+          notes: '',
+          externalNotes: '',
           createStripeInvoice: true,
         });
         fetchInvoices();

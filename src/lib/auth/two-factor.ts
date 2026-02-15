@@ -183,7 +183,7 @@ export async function disableTwoFactor(
       select: { role: true },
     });
 
-    if (!admin || admin.role !== 'admin') {
+    if (!admin || (admin.role !== 'ADMIN' && admin.role !== 'SUPER_ADMIN')) {
       throw new Error('Unauthorized');
     }
 
@@ -193,7 +193,7 @@ export async function disableTwoFactor(
       data: {
         twoFactorEnabled: false,
         twoFactorSecret: null,
-        twoFactorBackupCodes: null,
+        twoFactorBackupCodes: null as any,
         twoFactorVerifiedAt: null,
       },
     });

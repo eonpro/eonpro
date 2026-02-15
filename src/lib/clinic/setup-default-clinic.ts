@@ -15,7 +15,7 @@ export async function setupDefaultClinic() {
     });
 
     if (existingClinic) {
-      logger.info('Default clinic already exists:', existingClinic.name);
+      logger.info('Default clinic already exists:', { name: existingClinic.name });
       return existingClinic;
     }
 
@@ -60,7 +60,7 @@ export async function setupDefaultClinic() {
       },
     });
 
-    logger.info('Created default clinic:', defaultClinic.name);
+    logger.info('Created default clinic:', { name: defaultClinic.name });
 
     // Update all existing records to belong to this clinic
     const clinicId = defaultClinic.id;

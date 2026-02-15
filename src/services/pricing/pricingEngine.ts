@@ -553,7 +553,7 @@ export class PricingEngine {
         startsAt: { lte: now },
         OR: [{ endsAt: null }, { endsAt: { gte: now } }],
       },
-      orderBy: { priority: 'desc' },
+      orderBy: { priority: 'desc' } as any,
     });
   }
 
@@ -694,7 +694,7 @@ export class PricingEngine {
       const promotions = await this.getActivePromotionsForClinic(params.clinicId);
 
       for (const promo of promotions) {
-        if (promo.autoApply && (promo.stackable || appliedDiscounts.length === 0)) {
+        if (promo.autoApply && ((promo as any).stackable || appliedDiscounts.length === 0)) {
           const promoDiscount = this.calculateDiscount(
             runningTotal,
             promo.discountType as 'PERCENTAGE' | 'FIXED_AMOUNT',

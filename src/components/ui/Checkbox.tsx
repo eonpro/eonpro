@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 // CHECKBOX - Clear visual checkbox with prominent checkmark
 // =============================================================================
 
-export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
+export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
   /** Label text displayed next to the checkbox */
   label?: string;
   /** Optional description text below the label */

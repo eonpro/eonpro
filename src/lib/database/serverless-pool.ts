@@ -57,9 +57,9 @@ export function getServerlessConfig(): ServerlessPoolConfig {
   const isVercel = !!process.env.VERCEL;
   const isProduction = process.env.NODE_ENV === 'production';
   const useRdsProxy =
-    process.env.USE_RDS_PROXY === 'true' || process.env.DATABASE_URL?.includes('.proxy-');
+    process.env.USE_RDS_PROXY === 'true' || !!process.env.DATABASE_URL?.includes('.proxy-');
   const usePgBouncer =
-    process.env.DATABASE_URL?.includes('pgbouncer=true') || process.env.USE_PGBOUNCER === 'true';
+    !!process.env.DATABASE_URL?.includes('pgbouncer=true') || process.env.USE_PGBOUNCER === 'true';
 
   // Explicit environment variable override takes priority (but capped on Vercel)
   const explicitLimit = process.env.DATABASE_CONNECTION_LIMIT;
@@ -356,4 +356,4 @@ export function logPoolConfiguration(): void {
 // EXPORTS
 // =============================================================================
 
-export type { ServerlessPoolConfig };
+// ServerlessPoolConfig already exported at definition

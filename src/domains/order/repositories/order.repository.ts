@@ -524,7 +524,7 @@ export const orderRepository = {
         orderId: input.orderId,
         lifefileOrderId: input.lifefileOrderId ?? null,
         eventType: input.eventType,
-        payload: input.payload ?? null,
+        payload: (input.payload ?? null) as any,
         note: input.note ?? null,
       },
     });

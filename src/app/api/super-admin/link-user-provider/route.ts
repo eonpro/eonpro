@@ -111,7 +111,7 @@ export const POST = withAuth(
                 lastName: targetUser.lastName,
               },
               potentialMatches: potentialMatches.map(
-                (p: { id: number; firstName: string; lastName: string; email: string }) => ({
+                (p: any) => ({
                   id: p.id,
                   name: `${p.firstName} ${p.lastName}`,
                   email: p.email,

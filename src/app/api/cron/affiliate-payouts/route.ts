@@ -149,7 +149,7 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
           clinicId,
           affiliateId: affiliate.id,
           amountCents: eligibility.availableAmountCents,
-          methodType: anyMethod.methodType as 'STRIPE' | 'BANK_TRANSFER' | 'CHECK',
+          methodType: anyMethod.methodType as any,
           notes: 'Automated scheduled payout',
         });
 

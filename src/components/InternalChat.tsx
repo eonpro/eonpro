@@ -219,7 +219,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
             });
             window.location.href = '/login?reason=session_mismatch';
-            return; // Stop processing
+            return false; // Stop processing
           }
         }
 
@@ -463,10 +463,10 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
       }
     };
 
-    if (activeReactionPicker) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
+    if (!activeReactionPicker) return;
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [activeReactionPicker]);
 
   useEffect(() => {

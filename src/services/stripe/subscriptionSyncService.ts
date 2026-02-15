@@ -121,8 +121,8 @@ export async function syncSubscriptionFromStripe(
   const status = STRIPE_STATUS_TO_OUR[stripeSubscription.status] ?? 'ACTIVE';
   const details = extractSubscriptionDetails(stripeSubscription);
 
-  const currentPeriodStart = new Date((stripeSubscription.current_period_start ?? 0) * 1000);
-  const currentPeriodEnd = new Date((stripeSubscription.current_period_end ?? 0) * 1000);
+  const currentPeriodStart = new Date(((stripeSubscription as any).current_period_start ?? 0) * 1000);
+  const currentPeriodEnd = new Date(((stripeSubscription as any).current_period_end ?? 0) * 1000);
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
   const canceledAt = stripeSubscription.canceled_at
     ? new Date(stripeSubscription.canceled_at * 1000)

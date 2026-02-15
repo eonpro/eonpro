@@ -1128,7 +1128,7 @@ class PrismaWithClinicFilter {
     return this.client.$transaction(async (tx) => {
       // Create wrapped transaction client
       const wrappedTx = new PrismaWithClinicFilter(tx as PrismaClient);
-      return fn(wrappedTx);
+      return fn(wrappedTx as any);
     }, options); // CRITICAL: Forward transaction options (timeout, isolation level)
   }
 

@@ -273,7 +273,7 @@ export class IntakeProcessor {
         data: {
           ...patientData,
           patientId: patientNumber,
-          clinicId,
+          clinicId: clinicId!,
           tags: allTags,
           notes: `Created via ${this.source} intake ${normalized.submissionId}`,
           source: 'webhook',

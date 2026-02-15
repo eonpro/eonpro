@@ -234,7 +234,7 @@ async function scheduleEmail(
       recipientUserId: params.recipientUserId,
       clinicId: params.clinicId,
       template: params.template,
-      templateData: params.data,
+      templateData: params.data as any,
       subject: params.subject,
       scheduledFor,
       priority: params.priority || 'NORMAL',

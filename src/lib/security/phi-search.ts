@@ -337,7 +337,7 @@ export const PHISearchService = {
     if (select) queryOptions.select = select;
     if (include) queryOptions.include = include;
 
-    const records = (await prisma.patient.findMany(queryOptions)) as T[];
+    const records = (await prisma.patient.findMany(queryOptions)) as unknown as T[];
     const fetchedCount = records.length;
 
     // Decrypt and filter

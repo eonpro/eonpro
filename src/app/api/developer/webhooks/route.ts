@@ -87,20 +87,21 @@ export const GET = withAuth(
       const endpointStats = recentLogs.reduce(
         (
           acc: Record<string, { total: number; success: number; failed: number }>,
-          log: { endpoint: string; status: string }
+          log: { endpoint: string | null; status: string }
         ) => {
-          if (!acc[log.endpoint]) {
-            acc[log.endpoint] = {
+          const endpoint = log.endpoint ?? 'unknown';
+          if (!acc[endpoint]) {
+            acc[endpoint] = {
               total: 0,
               success: 0,
               failed: 0,
             };
           }
-          acc[log.endpoint].total++;
+          acc[endpoint].total++;
           if ((log.status as string) === 'SUCCESS' || (log.status as string) === 'processed') {
-            acc[log.endpoint].success++;
+            acc[endpoint].success++;
           } else {
-            acc[log.endpoint].failed++;
+            acc[endpoint].failed++;
           }
           return acc;
         },
@@ -256,7 +257,7 @@ export const POST = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', error);
+          logger.warn('Failed to create audit log:', { error: error.message });
         });
 
       logger.info('Webhook created', { webhookName: validated.name, userId: user.id });

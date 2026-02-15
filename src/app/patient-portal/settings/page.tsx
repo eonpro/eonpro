@@ -305,7 +305,7 @@ export default function SettingsPage() {
                   key={item.id}
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => setActiveSection(item.id)}
+                  onClick={() => setActiveSection(item.id as any)}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all ${
                     isActive ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
                   }`}

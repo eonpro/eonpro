@@ -981,7 +981,7 @@ async function handleAppointmentConfirmation(
         where: {
           patientId: patient.id,
           startTime: { gte: new Date() },
-          status: { in: ['SCHEDULED', 'PENDING'] },
+          status: { in: ['SCHEDULED', 'CONFIRMED'] },
         },
         orderBy: { startTime: 'asc' },
       });
@@ -1031,7 +1031,7 @@ async function handleAppointmentCancellation(
         where: {
           patientId: patient.id,
           startTime: { gte: new Date() },
-          status: { in: ['SCHEDULED', 'PENDING', 'CONFIRMED'] },
+          status: { in: ['SCHEDULED', 'CONFIRMED'] },
         },
         orderBy: { startTime: 'asc' },
       });

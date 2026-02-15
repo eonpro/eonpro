@@ -67,11 +67,13 @@ async function getHandler(request: Request, context: { params: Promise<{ id: str
     const timeToFirstResponse = sla.firstResponseDue
       ? Math.floor((sla.firstResponseDue.getTime() - now.getTime()) / 60000)
       : null;
-    const timeToResolution = Math.floor((sla.resolutionDue.getTime() - now.getTime()) / 60000);
+    const timeToResolution = sla.resolutionDue
+      ? Math.floor((sla.resolutionDue.getTime() - now.getTime()) / 60000)
+      : null;
 
     const firstResponseBreached =
       sla.firstResponseDue && !sla.firstResponseAt && now > sla.firstResponseDue;
-    const resolutionBreached = !sla.resolvedAt && now > sla.resolutionDue;
+    const resolutionBreached = sla.resolutionDue ? !sla.resolvedAt && now > sla.resolutionDue : false;
 
     return NextResponse.json({
       ...sla,
@@ -188,7 +190,7 @@ async function patchHandler(request: Request, context: { params: Promise<{ id: s
       updateData.resolvedAt = now;
 
       // Check if breached
-      if (now > sla.resolutionDue) {
+      if (sla.resolutionDue && now > sla.resolutionDue) {
         updateData.breached = true;
         updateData.breachReason = updateData.breachReason
           ? `${updateData.breachReason}, Resolution SLA breached`

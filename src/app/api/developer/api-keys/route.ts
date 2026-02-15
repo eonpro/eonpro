@@ -142,7 +142,7 @@ export const POST = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', error);
+          logger.warn('Failed to create audit log:', { error: error.message });
         });
 
       logger.info('API key created', { keyName: validated.name, userId: user.id });
@@ -209,7 +209,7 @@ export const DELETE = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', error);
+          logger.warn('Failed to create audit log:', { error: error.message });
         });
 
       logger.info('API key revoked', { keyId, userId: user.id });
@@ -305,7 +305,7 @@ export const PUT = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', error);
+          logger.warn('Failed to create audit log:', { error: error.message });
         });
 
       return NextResponse.json(responseData);

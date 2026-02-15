@@ -133,7 +133,7 @@ export async function generateSOAPFromIntake(
           : intakeDocument.data instanceof Uint8Array
             ? Buffer.from(intakeDocument.data).toString('utf8')
             : Buffer.isBuffer(intakeDocument.data)
-              ? intakeDocument.data.toString('utf8')
+              ? (intakeDocument.data as Buffer).toString('utf8')
               : JSON.stringify(intakeDocument.data);
 
       if (rawDataStr.match(/^\d+,\d+,\d+/)) {

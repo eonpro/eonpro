@@ -70,13 +70,34 @@ function getPatientPortalBasePath(): string {
   return process.env.NEXT_PUBLIC_PATIENT_PORTAL_PATH || '/portal';
 }
 
+function isAffiliatePortalRoute(pathname: string): boolean {
+  const portalBase = getPatientPortalBasePath();
+  return (
+    pathname === `${portalBase}/affiliate` ||
+    pathname.startsWith(`${portalBase}/affiliate/`)
+  );
+}
+
 function isPatientPortalRoute(pathname: string): boolean {
   const portalBase = getPatientPortalBasePath();
+  if (isAffiliatePortalRoute(pathname)) return false;
   return pathname === portalBase || pathname.startsWith(portalBase + '/');
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isAffiliatePortalRoute(pathname)) {
+    const token =
+      request.cookies.get('affiliate_session')?.value ||
+      request.cookies.get('auth-token')?.value;
+    if (!token || token.split('.').length !== 3) {
+      const loginUrl = new URL('/affiliate/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      loginUrl.searchParams.set('reason', 'no_session');
+      return NextResponse.redirect(loginUrl);
+    }
+  }
 
   if (isPatientPortalRoute(pathname)) {
     const token =

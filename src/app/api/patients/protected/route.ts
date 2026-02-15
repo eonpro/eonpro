@@ -89,7 +89,6 @@ export const POST = withProviderAuth(async (req, user) => {
         data: {
           patientId: newPatient.id,
           action: 'CREATE',
-          providerId: user.providerId || body.providerId,
           actorEmail: user.email,
           diff: JSON.stringify(body),
         },

@@ -196,7 +196,7 @@ export default function PatientDocumentsView({
 
   const handleView = async (doc: Document, skipRegeneratePrompt?: boolean) => {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
       const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}`, {

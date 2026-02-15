@@ -482,7 +482,8 @@ export const clinicInvoiceService = {
     } else {
       // Send email directly
       const billingEmail = invoice.config.billingEmail || invoice.clinic.adminEmail;
-      await sendEmail(billingEmail, {
+      await sendEmail({
+        to: billingEmail,
         subject: `Platform Invoice ${invoice.invoiceNumber} - EONPRO`,
         html: generateInvoiceEmailHtml(invoice),
       });

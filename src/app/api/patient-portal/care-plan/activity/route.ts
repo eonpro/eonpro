@@ -64,7 +64,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       data: {
         status: action === 'complete' ? 'COMPLETED' : 'PENDING',
         completedAt: action === 'complete' ? new Date() : null,
-      },
+      } as any,
     });
 
     logger.info('Care plan activity updated', {
@@ -81,8 +81,8 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       success: true,
       activity: {
         id: updated.id,
-        status: updated.status,
-        completedAt: updated.completedAt,
+        status: (updated as any).status,
+        completedAt: (updated as any).completedAt,
       },
     });
   } catch (error) {

@@ -385,7 +385,7 @@ export class StripeInvoiceService {
 
       // Wrap all database operations in a transaction for atomicity
       if (stripeSubscriptions.length > 0) {
-        await prisma.$transaction(async (tx: typeof prisma) => {
+        await prisma.$transaction(async (tx) => {
           const intervalMap: Record<string, string> = {
             WEEKLY: 'week',
             MONTHLY: 'month',

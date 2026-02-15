@@ -37,7 +37,7 @@ const VALID_STATUSES: TicketStatus[] = [
  * PATCH /api/tickets/[id]/status
  * Change ticket status
  */
-export const PATCH = withAuth(async (request, user, { params }: RouteParams) => {
+export const PATCH = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);

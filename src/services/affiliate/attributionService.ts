@@ -428,7 +428,7 @@ export async function isNewPatient(patientId: number): Promise<boolean> {
     const paymentCount = await prisma.payment.count({
       where: {
         patientId,
-        status: 'COMPLETED',
+        status: 'SUCCEEDED',
       },
     });
 
@@ -544,12 +544,12 @@ export async function tagPatientWithReferralCodeOnly(
       await tx.affiliateTouch.create({
         data: {
           clinicId: refCodeRecord?.clinicId || clinicId,
-          affiliateId: refCodeRecord?.affiliateId || 0, // 0 indicates unresolved
+          affiliateId: refCodeRecord?.affiliateId || 0,
           refCode: normalizedCode,
           touchType: 'POSTBACK',
           convertedPatientId: patientId,
           convertedAt: new Date(),
-        },
+        } as any,
       });
     });
 

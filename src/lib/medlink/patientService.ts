@@ -113,7 +113,7 @@ export async function upsertPatientFromIntake(
     data: {
       ...normalized,
       patientId,
-      clinicId: options?.clinicId || null,
+      clinicId: options?.clinicId!,
       tags: allTags,
       notes: `Created via MedLink submission ${intake.submissionId}`,
       source: 'webhook',

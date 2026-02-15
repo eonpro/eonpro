@@ -218,7 +218,7 @@ export async function createShipmentScheduleForSubscription(
       const shipmentNumber = i + 1;
       const isFirstShipment = i === 0;
 
-      const refill = await tx.refillQueue.create({
+      const refill: any = await tx.refillQueue.create({
         data: {
           clinicId: subscription.clinicId!,
           patientId: subscription.patientId,
@@ -304,7 +304,7 @@ export async function createShipmentSchedule(
       const shipmentNumber = i + 1;
       const isFirstShipment = i === 0;
 
-      const refill = await tx.refillQueue.create({
+      const refill: any = await tx.refillQueue.create({
         data: {
           clinicId,
           patientId,
@@ -410,7 +410,7 @@ export async function scheduleFutureRefillsFromInvoice(
     for (let i = 1; i < totalShipments; i++) {
       const shipmentNumber = i + 1;
 
-      const refill = await tx.refillQueue.create({
+      const refill: any = await tx.refillQueue.create({
         data: {
           clinicId,
           patientId,

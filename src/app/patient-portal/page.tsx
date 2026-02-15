@@ -292,7 +292,7 @@ export default function PatientPortalDashboard() {
                 (a, b) =>
                   new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
               )[0];
-              idStatus = latestIdPhoto.verificationStatus || 'PENDING';
+              idStatus = (latestIdPhoto.verificationStatus || 'PENDING') as typeof idStatus;
             }
 
             // Get most recent progress photo URL
@@ -305,8 +305,8 @@ export default function PatientPortalDashboard() {
                 : null;
 
             setPhotoStats({
-              totalPhotos: photos.length,
-              recentPhoto: recentProgressPhoto,
+              totalPhotos: Array.isArray(photos) ? photos.length : 0,
+              recentPhoto: recentProgressPhoto ?? null,
               idVerificationStatus: idStatus,
             });
           }
@@ -573,7 +573,7 @@ export default function PatientPortalDashboard() {
             </div>
             <p className="font-semibold capitalize text-gray-900">{recentShipment.status}</p>
             <p className="text-sm text-gray-500">
-              {t('dashboardEst')} {recentShipment.estimatedDelivery}
+              {t('dashboardEst')} {String(recentShipment.estimatedDelivery ?? '')}
             </p>
           </Link>
         )}

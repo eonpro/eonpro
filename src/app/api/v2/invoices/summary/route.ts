@@ -240,8 +240,8 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
             ]);
             patientData = {
               name: `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim() || 'Unknown',
-              email: (decrypted.email as string) || inv.patient?.email || undefined,
-              phone: (decrypted.phone as string) || inv.patient?.phone || undefined,
+              email: (decrypted.email as string) || inv.patient?.email || '',
+              phone: (decrypted.phone as string) || inv.patient?.phone || '',
             };
           } catch {
             patientData.name = 'Unknown';

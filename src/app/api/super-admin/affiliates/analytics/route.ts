@@ -28,8 +28,8 @@ interface TopCode {
   code: string;
   affiliateName: string;
   clinicName: string;
-  conversions: number;
-  revenue: number;
+  conversions: string | number;
+  revenue: string | number;
 }
 
 interface CrossClinicAnalyticsResponse {
@@ -266,7 +266,7 @@ async function handler(req: NextRequest): Promise<Response> {
     );
 
     // Sort by conversions and take top 10
-    const topCodes = topCodesWithMetrics.sort((a, b) => b.conversions - a.conversions).slice(0, 10);
+    const topCodes = topCodesWithMetrics.sort((a, b) => Number(b.conversions) - Number(a.conversions)).slice(0, 10);
 
     // Get daily trends for the period using batch queries (avoids N+1 loop)
     logger.info('[SuperAdmin Analytics] Calculating trends');

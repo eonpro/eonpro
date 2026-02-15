@@ -77,10 +77,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tab
     const syncService = createSyncService();
     const result = await syncService.syncTable(tableId, table.treatmentType, {
       dryRun: body.dryRun === true,
-      maxRecordsPerTable: body.maxRecords,
+      maxRecordsPerTable: body.maxRecords as number | undefined,
       markAsSynced: body.markAsSynced === true,
-      syncStatusField: body.syncStatusField,
-      since: body.since ? new Date(body.since) : undefined,
+      syncStatusField: body.syncStatusField as string | undefined,
+      since: body.since ? new Date(body.since as string) : undefined,
     });
 
     return NextResponse.json({

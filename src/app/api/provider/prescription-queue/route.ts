@@ -375,14 +375,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     };
 
     // Extract preferred medication from intake document for fallback when invoice metadata has plan-only
-    const extractMedicationFromDocument = (documentData: Buffer | null): string | null => {
+    const extractMedicationFromDocument = (documentData: Buffer | Uint8Array | null): string | null => {
       if (!documentData) return null;
       try {
         let rawData: string;
-        if (documentData instanceof Uint8Array) {
-          rawData = new TextDecoder().decode(documentData);
-        } else if (Buffer.isBuffer(documentData)) {
+        if (Buffer.isBuffer(documentData)) {
           rawData = documentData.toString('utf8');
+        } else if (documentData instanceof Uint8Array) {
+          rawData = new TextDecoder().decode(documentData);
         } else if (
           typeof documentData === 'object' &&
           (documentData as any).type === 'Buffer' &&
@@ -479,7 +479,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Helper function to extract GLP-1 info from metadata and/or document data
     const extractGlp1Info = (
       metadata: Record<string, unknown> | null,
-      documentData: Buffer | null,
+      documentData: Buffer | Uint8Array | null,
       patientName?: string
     ) => {
       // Helper to check for exact Airtable field names (with dashes)
@@ -514,10 +514,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         try {
           // Handle various buffer/array formats (Prisma 6.x returns Bytes as Uint8Array)
           let rawData: string;
-          if (documentData instanceof Uint8Array) {
-            rawData = new TextDecoder().decode(documentData);
-          } else if (Buffer.isBuffer(documentData)) {
+          if (Buffer.isBuffer(documentData)) {
             rawData = documentData.toString('utf8');
+          } else if (documentData instanceof Uint8Array) {
+            rawData = new TextDecoder().decode(documentData);
           } else if (
             typeof documentData === 'object' &&
             (documentData as any).type === 'Buffer' &&

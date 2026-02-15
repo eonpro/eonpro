@@ -293,11 +293,11 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     // Log medications for debugging
     logger.debug(
       `[PRESCRIPTIONS] Processing ${rxsWithMeds.length} medications:`,
-      rxsWithMeds.map(({ med }) => ({
+      { medications: rxsWithMeds.map(({ med }) => ({
         name: med.name,
         strength: med.strength,
         form: med.form,
-      }))
+      })) }
     );
 
     const now = new Date();
@@ -494,8 +494,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
 
       const transactionResult = await withRetry<TransactionResult>(
         () =>
-          prisma.$transaction(
-            async (tx: TransactionClient) => {
+          (prisma.$transaction(
+            async (tx) => {
               // Check for duplicate submission (idempotency)
               const existingOrder = await tx.order.findFirst({
                 where: {
@@ -682,7 +682,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
               isolationLevel: 'Serializable',
               timeout: 30000,
             }
-          ),
+          )) as unknown as Promise<TransactionResult>,
         {
           maxRetries: 3,
           initialDelayMs: 200,
@@ -717,7 +717,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             userId: user.id,
             userEmail: user.email,
             userRole: user.role,
-            clinicId: order.clinicId ?? undefined,
+            clinicId: (order as any).clinicId ?? undefined,
             eventType: AuditEventType.PRESCRIPTION_QUEUED,
             resourceType: 'Order',
             resourceId: String(order.id),
@@ -922,7 +922,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         });
         if (orderCount === 1) {
           const clinic = await prisma.clinic.findUnique({
-            where: { id: patientRecord.clinicId },
+            where: { id: (patientRecord as any).clinicId },
             select: { settings: true },
           });
           const settings = (

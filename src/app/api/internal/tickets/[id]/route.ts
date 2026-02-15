@@ -239,8 +239,8 @@ const patchHandler = withAuth(
         await prisma.ticketStatusHistory.create({
           data: {
             ticketId,
-            fromStatus: currentTicket.status as string,
-            toStatus: body.status,
+            fromStatus: currentTicket.status as any,
+            toStatus: body.status as any,
             changedById: updatedById,
             reason: body.statusChangeReason,
           },

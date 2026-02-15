@@ -107,7 +107,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       const invoiceId = payment?.invoiceId || invoice?.id;
 
       // Wrap all database updates in a transaction for atomicity
-      await prisma.$transaction(async (tx: typeof prisma) => {
+      await prisma.$transaction(async (tx) => {
         // Update payment status if we have a payment
         if (payment) {
           await tx.payment.update({
@@ -377,7 +377,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       let dbUpdateSuccess = true;
 
       try {
-        await prisma.$transaction(async (tx: typeof prisma) => {
+        await prisma.$transaction(async (tx) => {
           // Update payment in database if we have one
           if (payment) {
             await tx.payment.update({

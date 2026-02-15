@@ -302,18 +302,9 @@ export async function completeSession(sessionId: string): Promise<{
 
   // Build segments from messages
   const segments: TranscriptionSegment[] = conversation.messages
-    .filter((m: { queryType: string }) => m.queryType === 'transcription')
+    .filter((m: any) => m.queryType === 'transcription')
     .map(
-      (
-        m: {
-          queryType: string;
-          citations: unknown;
-          role: string;
-          content: string;
-          createdAt: Date;
-        },
-        idx: number
-      ) => {
+      (m: any, idx: number) => {
         const citations = (m.citations as any) || {};
         return {
           id: `seg-${idx}`,
@@ -380,8 +371,8 @@ export async function getActiveSession(sessionId: string): Promise<{
   }
 
   const segments: TranscriptionSegment[] = conversation.messages.map(
-    (m: { role: string; content: string; citations: unknown; createdAt: Date }, idx: number) => {
-      const citations = (m.citations as Record<string, unknown>) || {};
+    (m: any, idx: number) => {
+      const citations = (m.citations as any) || {};
       return {
         id: `seg-${idx}`,
         speaker: citations.speaker || (m.role === 'assistant' ? 'provider' : 'patient'),

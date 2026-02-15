@@ -133,7 +133,7 @@ export default function AppointmentsPage() {
         const data = await safeParseJson(response);
         const list =
           data !== null && typeof data === 'object' && 'appointments' in data
-            ? (data as { appointments?: unknown[] }).appointments
+            ? (data as { appointments?: Appointment[] }).appointments
             : undefined;
         setAppointments(Array.isArray(list) ? list : []);
       }
@@ -153,7 +153,7 @@ export default function AppointmentsPage() {
         const data = await safeParseJson(response);
         const list =
           data !== null && typeof data === 'object' && 'providers' in data
-            ? (data as { providers?: unknown[] }).providers
+            ? (data as { providers?: Provider[] }).providers
             : undefined;
         setProviders(Array.isArray(list) ? list : []);
       }
@@ -171,7 +171,7 @@ export default function AppointmentsPage() {
         const data = await safeParseJson(response);
         const list =
           data !== null && typeof data === 'object' && 'appointmentTypes' in data
-            ? (data as { appointmentTypes?: unknown[] }).appointmentTypes
+            ? (data as { appointmentTypes?: AppointmentType[] }).appointmentTypes
             : undefined;
         setAppointmentTypes(Array.isArray(list) ? list : []);
       }
@@ -200,7 +200,7 @@ export default function AppointmentsPage() {
         const data = await safeParseJson(response);
         const list =
           data !== null && typeof data === 'object' && 'slots' in data
-            ? (data as { slots?: unknown[] }).slots
+            ? (data as { slots?: TimeSlot[] }).slots
             : undefined;
         setAvailableSlots(Array.isArray(list) ? list : []);
       }

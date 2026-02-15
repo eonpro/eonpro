@@ -301,20 +301,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.REPORT_EXPORT,
   ],
 
-  AFFILIATE: [
-    // Limited Patient Access (their referrals)
-    PERMISSIONS.PATIENT_READ,
-
-    // Read-only access to their data
-    PERMISSIONS.AFFILIATE_READ,
-
-    // Limited Billing
-    PERMISSIONS.BILLING_VIEW,
-
-    // Basic Reports
-    PERMISSIONS.REPORT_GENERATE,
-  ],
-
   PATIENT: [
     // Read their own data
     PERMISSIONS.PATIENT_READ,
@@ -470,7 +456,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.REPORT_GENERATE,
   ],
   patient: [PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW],
-  affiliate: [PERMISSIONS.BILLING_VIEW, PERMISSIONS.REPORT_GENERATE],
   sales_rep: [
     PERMISSIONS.PATIENT_READ,
     PERMISSIONS.PATIENT_UPDATE,
@@ -539,15 +524,6 @@ export const ROLE_FEATURES = {
     'lifefile_integration',
   ],
 
-  AFFILIATE: [
-    // Limited dashboard
-    'dashboard_analytics',
-
-    // Communication
-    'secure_messaging',
-    'email_campaigns',
-  ],
-
   PATIENT: [
     // Communication only
     'secure_messaging',
@@ -612,7 +588,6 @@ const ROLE_KEY_MAP: Record<UserRole, RoleKey> = {
   patient: 'PATIENT',
   affiliate: 'AFFILIATE',
   support: 'SUPPORT',
-  affiliate: 'AFFILIATE',
   sales_rep: 'SALES_REP',
 };
 

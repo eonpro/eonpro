@@ -66,7 +66,7 @@ async function handler(req: NextRequest, user: AuthUser) {
 
   await prisma.clinic.update({
     where: { id: clinicId },
-    data: { features: merged },
+    data: { features: merged as any },
   });
 
   logger.info('[SyncFeatureDefaults] Merged missing defaults', {

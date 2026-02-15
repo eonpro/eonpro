@@ -177,13 +177,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         case 'clicks':
           return b.clicks - a.clicks;
         case 'conversions':
-          return b.conversions - a.conversions;
+          return Number(b.conversions) - Number(a.conversions);
         case 'revenue':
-          return b.revenue - a.revenue;
+          return (b.revenue ?? 0) - (a.revenue ?? 0);
         case 'conversionRate':
-          return b.conversionRate - a.conversionRate;
+          return (b.conversionRate ?? 0) - (a.conversionRate ?? 0);
         default:
-          return b.conversions - a.conversions;
+          return Number(b.conversions) - Number(a.conversions);
       }
     });
 
@@ -193,13 +193,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         case 'clicks':
           return sum + a.clicks;
         case 'conversions':
-          return sum + a.conversions;
+          return sum + Number(a.conversions);
         case 'revenue':
-          return sum + a.revenue;
+          return sum + (a.revenue ?? 0);
         case 'conversionRate':
-          return sum + a.conversionRate;
+          return sum + (a.conversionRate ?? 0);
         default:
-          return sum + a.conversions;
+          return sum + Number(a.conversions);
       }
     }, 0);
 
@@ -214,11 +214,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           formattedValue = value.toLocaleString();
           break;
         case 'conversions':
-          value = affiliate.conversions;
+          value = Number(affiliate.conversions);
           formattedValue = value.toLocaleString();
           break;
         case 'revenue':
-          value = affiliate.revenue;
+          value = affiliate.revenue ?? 0;
           formattedValue = new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
@@ -226,11 +226,11 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           }).format(value / 100);
           break;
         case 'conversionRate':
-          value = affiliate.conversionRate;
+          value = affiliate.conversionRate ?? 0;
           formattedValue = `${value.toFixed(1)}%`;
           break;
         default:
-          value = affiliate.conversions;
+          value = Number(affiliate.conversions);
           formattedValue = value.toLocaleString();
       }
 

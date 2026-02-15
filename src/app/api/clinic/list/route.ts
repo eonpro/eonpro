@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 /**
  * GET /api/clinic/list
@@ -18,11 +19,11 @@ export const GET = withAuth(
       const isSuperAdmin = user.role === 'super_admin';
 
       // Super admin sees all clinics, others only see their assigned clinic
-      const whereClause = isSuperAdmin
-        ? { status: { in: ['ACTIVE', 'TRIAL'] as const } }
+      const whereClause: Prisma.ClinicWhereInput = isSuperAdmin
+        ? { status: { in: ['ACTIVE', 'TRIAL'] } }
         : {
-            id: user.clinicId,
-            status: { in: ['ACTIVE', 'TRIAL'] as const },
+            id: user.clinicId!,
+            status: { in: ['ACTIVE', 'TRIAL'] },
           };
 
       // Non-super-admin must have a clinic assignment
@@ -65,7 +66,7 @@ export const GET = withAuth(
             prisma.user.count({
               where: {
                 clinicId: clinic.id,
-                role: 'provider',
+                role: 'PROVIDER',
               },
             }),
             prisma.provider.count({
@@ -85,7 +86,7 @@ export const GET = withAuth(
             faviconUrl: clinic.faviconUrl,
             status: clinic.status,
             billingPlan: clinic.billingPlan,
-            patientCount: clinic._count.patients,
+            patientCount: (clinic as any)._count?.patients ?? 0,
             providerCount: providerCount,
           };
         })

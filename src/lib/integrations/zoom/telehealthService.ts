@@ -206,7 +206,7 @@ export async function createTelehealthSession(
         metadata: {
           zoomResponse: meeting,
           createdAt: new Date().toISOString(),
-        },
+        } as any,
       },
       include: {
         patient: {

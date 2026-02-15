@@ -141,9 +141,9 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     if (type === 'bank') {
       // Encrypt sensitive financial details at rest using PHI encryption utilities
       const encryptedBankDetails = JSON.stringify({
-        accountHolderName: encryptPHI(accountHolderName),
-        routingNumber: encryptPHI(routingNumber),
-        accountNumber: encryptPHI(accountNumber),
+        accountHolderName: encryptPHI(accountHolderName!),
+        routingNumber: encryptPHI(routingNumber!),
+        accountNumber: encryptPHI(accountNumber!),
         accountType: accountType || 'checking',
       });
 
@@ -153,9 +153,9 @@ async function handlePost(request: NextRequest, user: AuthUser) {
           methodType: 'BANK_WIRE',
           isDefault: true,
           isVerified: false,
-          bankName: accountHolderName.split(' ')[0] + ' Bank', // Placeholder
-          bankAccountLast4: accountNumber.slice(-4),
-          bankRoutingLast4: routingNumber.slice(-4),
+          bankName: accountHolderName!.split(' ')[0] + ' Bank', // Placeholder
+          bankAccountLast4: accountNumber!.slice(-4),
+          bankRoutingLast4: routingNumber!.slice(-4),
           bankCountry: 'US',
           encryptedDetails: encryptedBankDetails,
         },

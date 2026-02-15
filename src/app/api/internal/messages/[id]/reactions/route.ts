@@ -16,7 +16,7 @@ type ReactionType = (typeof VALID_REACTIONS)[number];
 async function postHandler(
   request: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> }
+  { params } = {} as { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -107,7 +107,7 @@ async function postHandler(
 async function deleteHandler(
   request: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> }
+  { params } = {} as { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -162,7 +162,7 @@ async function deleteHandler(
 async function getHandler(
   request: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> }
+  { params } = {} as { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;

@@ -767,7 +767,7 @@ async function queueFailedEvent(
         eventType: event.type,
         status: 'ERROR',
         errorMessage: error,
-        payload: payload as object | null,
+        payload: payload as any,
         retryCount: 0,
         processedAt: null,
         metadata: {

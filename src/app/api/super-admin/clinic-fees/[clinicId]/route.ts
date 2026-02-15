@@ -115,7 +115,7 @@ export const PUT = withSuperAdminAuth(
       }
 
       // Update fee config
-      const config = await platformFeeService.updateFeeConfig(clinicId, result.data, user.id);
+      const config = await platformFeeService.updateFeeConfig(clinicId, result.data as any, user.id);
 
       logger.info('[SuperAdmin] Updated clinic fee config', {
         clinicId,

@@ -227,7 +227,7 @@ async function updatePreferencesHandler(req: NextRequest, user: AuthUser): Promi
     // Try to update in database - if tables don't exist, silently succeed
     // (preferences are also stored in localStorage as backup)
     try {
-      await prisma.$transaction(async (tx: typeof prisma) => {
+      await prisma.$transaction(async (tx) => {
         // Update User email preferences
         if (Object.keys(emailUpdates).length > 0) {
           await tx.user.update({

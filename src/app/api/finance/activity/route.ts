@@ -154,7 +154,6 @@ export async function GET(request: NextRequest) {
           case 'PAID':
             description = `Invoice paid by ${patientName}`;
             break;
-          case 'SENT':
           case 'OPEN':
             description = `Invoice sent to ${patientName}`;
             break;
@@ -187,8 +186,8 @@ export async function GET(request: NextRequest) {
           case 'CREATED':
             description = `New subscription for ${patientName}`;
             break;
-          case 'CANCELED':
-            description = `Subscription canceled by ${patientName}`;
+          case 'CANCELLED':
+            description = `Subscription cancelled by ${patientName}`;
             break;
           case 'PAUSED':
             description = `Subscription paused for ${patientName}`;

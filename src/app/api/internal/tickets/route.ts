@@ -236,7 +236,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         title,
         description,
         priority,
-        category,
+        category: category as any,
         status: 'OPEN',
         patientId: patientId,
         orderId: orderId,
@@ -244,10 +244,10 @@ async function postHandler(request: NextRequest, user: AuthUser) {
         assignedToId: assignedToId,
         clinicId: user.clinicId,
         tags,
-        customFields,
-        attachments,
+        customFields: customFields as any,
+        attachments: attachments as any,
         isNonClientIssue: !patientId || isNonClientIssue,
-      },
+      } as any,
       include: {
         patient: {
           select: {
@@ -319,9 +319,9 @@ async function postHandler(request: NextRequest, user: AuthUser) {
 
 // Export handlers with authentication
 export const GET = withAuth(getHandler, {
-  roles: ['admin', 'provider', 'influencer'],
+  roles: ['admin', 'provider', 'affiliate'],
 });
 
 export const POST = withAuth(postHandler, {
-  roles: ['admin', 'provider', 'influencer'],
+  roles: ['admin', 'provider', 'affiliate'],
 });

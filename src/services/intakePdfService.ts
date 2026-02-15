@@ -232,7 +232,7 @@ export async function generateIntakePdf(intake: NormalizedIntake, patient: Patie
   const displaySections = buildDisplaySections(intake);
   logger.debug(
     '[PDF] Sections to render:',
-    displaySections.map((s: any) => `${s.title} (${s.entries.length} items)`)
+    { sections: displaySections.map((s: any) => `${s.title} (${s.entries.length} items)`) }
   );
 
   displaySections.forEach((section: any) => {

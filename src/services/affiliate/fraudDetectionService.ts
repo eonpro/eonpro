@@ -540,7 +540,7 @@ export async function createFraudAlert(
     data: {
       clinicId,
       affiliateId,
-      alertType: alert.type, // FraudAlertType enum
+      alertType: alert.type as any, // FraudAlertType enum
       severity: alert.severity, // FraudSeverity enum
       description: alert.description,
       evidence: alert.evidence,

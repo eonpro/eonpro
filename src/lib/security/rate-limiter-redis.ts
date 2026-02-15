@@ -412,12 +412,12 @@ export function createRateLimiter(config: Partial<RateLimitConfig> = {}) {
 
 /**
  * Strict rate limit for authentication endpoints
- * 5 attempts per 15 minutes, 30 minute block on exceed
+ * 10 attempts per 15 minutes, 30 minute block on exceed
  */
 export const authRateLimiter = createRateLimiter({
   identifier: 'auth',
   windowSeconds: 15 * 60,
-  maxRequests: 5,
+  maxRequests: 10,
   blockDurationSeconds: 30 * 60,
   message: 'Too many login attempts. Please try again in 30 minutes.',
 });

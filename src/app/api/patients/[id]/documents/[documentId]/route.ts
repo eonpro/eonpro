@@ -41,7 +41,8 @@ export const GET = withAuthParams(
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId ?? undefined;
       const tenant404 = ensureTenantResource(patient, clinicId);
       if (tenant404) return tenant404;
-      if (user.role === 'patient' && (!user.patientId || patient!.id !== user.patientId)) {
+      if (!patient) return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      if (user.role === 'patient' && (!user.patientId || patient.id !== user.patientId)) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
       }
 

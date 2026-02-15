@@ -177,7 +177,7 @@ export class StripePaymentService {
     }
 
     // Wrap payment and invoice updates in a transaction for atomicity
-    await prisma.$transaction(async (tx: typeof prisma) => {
+    await prisma.$transaction(async (tx) => {
       // Update payment
       await tx.payment.update({
         where: { id: payment.id },

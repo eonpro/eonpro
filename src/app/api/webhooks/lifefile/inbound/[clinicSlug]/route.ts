@@ -719,7 +719,7 @@ export async function POST(req: NextRequest, context: RouteParams) {
       req.headers.get('x-signature');
     if (!verifyHmacSignature(rawBody, signature, secret)) {
       logger.warn('[LIFEFILE INBOUND] Signature verification failed');
-      webhookLogData.status = WebhookStatus.INVALID_SIGNATURE;
+      webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Invalid webhook signature';
 
@@ -742,7 +742,7 @@ export async function POST(req: NextRequest, context: RouteParams) {
       });
       return NextResponse.json({ error: 'Invalid JSON format' }, { status: 400 });
     }
-    const payload = parsed as Record<string, unknown>;
+    const payload = parsed as Record<string, any>;
 
     webhookLogData.payload = payload;
 

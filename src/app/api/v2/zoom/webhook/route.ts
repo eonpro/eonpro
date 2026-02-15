@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Get raw body for signature verification
     const rawBody = await req.text();
     const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-    const payload = safeParseJsonString<Record<string, unknown>>(rawBody);
+    const payload = safeParseJsonString<Record<string, any>>(rawBody);
     if (payload === null) {
       logger.warn('Zoom webhook: Invalid JSON payload');
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });

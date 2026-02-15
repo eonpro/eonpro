@@ -258,13 +258,14 @@ export async function POST(req: NextRequest) {
   const patientName =
     (payload.patient_name || payload.customer_name || payload.cardholder_name || '').trim();
 
-  let patient: {
+  type WellMedRPatient = {
     id: number;
     patientId: string | null;
     firstName: string | null;
     lastName: string | null;
     email: string | null;
-  } | null;
+  };
+  let patient: WellMedRPatient | null = null;
 
   try {
     // Try email first - use PHISearchService because email is encrypted at rest
@@ -288,7 +289,7 @@ export async function POST(req: NextRequest) {
       const candidate = emailResults.data[0] as { email?: string | null };
       const decryptedEmail = safeDecrypt(candidate.email)?.toLowerCase().trim();
       if (decryptedEmail === email) {
-        patient = emailResults.data[0] as typeof patient;
+        patient = emailResults.data[0] as WellMedRPatient;
       }
     }
 
@@ -313,7 +314,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (nameResults.data.length === 1) {
-        patient = nameResults.data[0] as typeof patient;
+        patient = nameResults.data[0] as WellMedRPatient;
         logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found by name`, {
           patientId: patient.id,
           matchedName: patientName,
@@ -357,11 +358,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // TypeScript can't track narrowing across try-catch, so use non-null assertion.
+  // Both try and catch paths return on failure, so patient is guaranteed non-null here.
+  const verifiedPatient = patient!;
+
   // STEP 6: Check for duplicate invoice
   try {
     const existingInvoice = await prisma.invoice.findFirst({
       where: {
-        patientId: patient.id,
+        patientId: verifiedPatient.id,
         clinicId: clinicId,
         metadata: {
           path: ['stripePaymentMethodId'],
@@ -379,7 +384,7 @@ export async function POST(req: NextRequest) {
         duplicate: true,
         message: 'Invoice already exists for this payment',
         invoiceId: existingInvoice.id,
-        patientId: patient.id,
+        patientId: verifiedPatient.id,
       });
     }
   } catch (err) {
@@ -477,9 +482,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Decrypt patient PHI for display purposes
-  const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
-  const decryptedLastName = safeDecrypt(patient.lastName) || '';
-  const decryptedEmail = safeDecrypt(patient.email) || '';
+  const decryptedFirstName = safeDecrypt(verifiedPatient.firstName) || 'Patient';
+  const decryptedLastName = safeDecrypt(verifiedPatient.lastName) || '';
+  const decryptedEmail = safeDecrypt(verifiedPatient.email) || '';
   const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
 
   const customerName = payload.customer_name || payload.cardholder_name || patientDisplayName;
@@ -574,7 +579,7 @@ export async function POST(req: NextRequest) {
     // Create internal EONPRO invoice (NO Stripe - WellMedR doesn't have Stripe configured)
     const invoice = await prisma.invoice.create({
       data: {
-        patientId: patient.id,
+        patientId: verifiedPatient.id,
         clinicId: clinicId,
         // NO Stripe IDs - this is an internal invoice only
         stripeInvoiceId: null,
@@ -656,7 +661,7 @@ export async function POST(req: NextRequest) {
             : product || medicationType || 'GLP-1';
         const refills = await scheduleFutureRefillsFromInvoice({
           clinicId,
-          patientId: patient.id,
+          patientId: verifiedPatient.id,
           invoiceId: invoice.id,
           medicationName,
           planName: plan || productName,
@@ -804,11 +809,11 @@ export async function POST(req: NextRequest) {
 
         if (Object.keys(addressUpdate).length > 0) {
           await prisma.patient.update({
-            where: { id: patient.id },
+            where: { id: verifiedPatient.id },
             data: addressUpdate,
           });
           logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient address updated`, {
-            patientId: patient.id,
+            patientId: verifiedPatient.id,
             updatedFields: Object.keys(addressUpdate),
             values: addressUpdate,
           });
@@ -836,11 +841,11 @@ export async function POST(req: NextRequest) {
     let soapNoteId: number | null = null;
     let soapNoteAction: string = 'skipped';
     try {
-      const soapResult = await ensureSoapNoteExists(patient.id, invoice.id);
+      const soapResult = await ensureSoapNoteExists(verifiedPatient.id, invoice.id);
       soapNoteId = soapResult.soapNoteId;
       soapNoteAction = soapResult.action;
       logger.info(`[WELLMEDR-INVOICE ${requestId}] SOAP note check completed`, {
-        patientId: patient.id,
+        patientId: verifiedPatient.id,
         invoiceId: invoice.id,
         soapAction: soapResult.action,
         soapNoteId: soapResult.soapNoteId,
@@ -849,7 +854,7 @@ export async function POST(req: NextRequest) {
     } catch (soapError: any) {
       // Log but don't fail - SOAP note can be generated manually if needed
       logger.warn(`[WELLMEDR-INVOICE ${requestId}] SOAP note generation failed (non-fatal)`, {
-        patientId: patient.id,
+        patientId: verifiedPatient.id,
         invoiceId: invoice.id,
         error: soapError.message,
       });
@@ -859,7 +864,7 @@ export async function POST(req: NextRequest) {
     logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ SUCCESS in ${duration}ms`, {
       invoiceId: invoice.id,
       invoiceNumber,
-      patientId: patient.id,
+      patientId: verifiedPatient.id,
       amount: amountInCents,
       product: productName,
       medicationType: medicationType,
@@ -884,8 +889,8 @@ export async function POST(req: NextRequest) {
         isPaid: true,
       },
       patient: {
-        id: patient.id,
-        patientId: patient.patientId,
+        id: verifiedPatient.id,
+        patientId: verifiedPatient.patientId,
         name: patientDisplayName,
         email: decryptedEmail,
       },
@@ -907,7 +912,7 @@ export async function POST(req: NextRequest) {
         success: false,
         error: 'Failed to create invoice',
         message: errMsg,
-        patientId: patient.id,
+        patientId: verifiedPatient.id,
         requestId,
       },
       { status: 500 }

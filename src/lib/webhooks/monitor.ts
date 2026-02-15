@@ -134,7 +134,7 @@ export async function recordError(
           error,
           metadata,
           timestamp: new Date().toISOString(),
-        },
+        } as any,
         ipAddress: 'system',
       },
     });
@@ -222,7 +222,7 @@ async function triggerAlert(alert: WebhookAlert) {
         resource: 'Webhook',
         resourceId: 0,
         userId: 0,
-        details: alert,
+        details: alert as any,
         ipAddress: 'system',
       },
     });

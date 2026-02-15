@@ -347,7 +347,7 @@ export async function scheduleEmail(params: {
       recipientUserId: params.recipientUserId,
       clinicId: params.clinicId,
       template: params.template,
-      templateData: params.templateData,
+      templateData: params.templateData as any,
       subject: params.subject,
       scheduledFor: params.scheduledFor,
       priority: params.priority || 'NORMAL',

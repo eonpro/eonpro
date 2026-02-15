@@ -91,7 +91,6 @@ export async function POST(req: NextRequest) {
         firstName: true,
         lastName: true,
         createdAt: true,
-        updatedAt: true,
         sourceMetadata: true,
       },
       take: requireServiceAuthForJob(authVerified),
@@ -162,7 +161,7 @@ export async function POST(req: NextRequest) {
           airtableId: record.airtableId,
           email,
           eonproPatientId: eonproPatient.id,
-          eonproPatientNumber: eonproPatient.patientId,
+          eonproPatientNumber: eonproPatient.patientId ?? '',
           match: record.eonproPatientId ? 'exact' : 'email_only',
         });
       }
@@ -233,7 +232,7 @@ export async function GET(req: NextRequest) {
         sourceMetadata: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: requireServiceAuthForJob(authVerified),
+      take: requireServiceAuthForJob(true),
     });
 
     return NextResponse.json({

@@ -47,16 +47,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     // Calculate progress for each goal
     const goalsWithProgress = carePlan.goals.map(
-      (goal: {
-        id: number;
-        name: string;
-        description: string | null;
-        targetValue: number | null;
-        currentValue: number | null;
-        unit: string | null;
-        targetDate: Date | null;
-        status: string;
-      }) => {
+      (goal: any) => {
         const progress =
           goal.targetValue && goal.currentValue
             ? Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100))
@@ -120,7 +111,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     return NextResponse.json({
       carePlan: {
         id: carePlan.id,
-        name: carePlan.name || carePlan.template?.name || 'Your Care Plan',
+        name: (carePlan as any).name || carePlan.template?.name || 'Your Care Plan',
         description: carePlan.description || 'Your personalized treatment plan',
         status: carePlan.status,
         startDate: carePlan.startDate,
@@ -128,16 +119,9 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         phase,
         goals: goalsWithProgress,
         activities: carePlan.activities.map(
-          (a: {
-            id: number;
-            name: string;
-            description: string | null;
-            frequency: string | null;
-            status: string;
-            completedAt: Date | null;
-          }) => ({
+          (a: any) => ({
             id: a.id,
-            name: a.name,
+            name: a.title || a.name,
             description: a.description,
             frequency: a.frequency || 'As needed',
             status: a.status,

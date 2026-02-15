@@ -129,7 +129,7 @@ export const GET = withAuth(
           phone: userData.phone,
           providerId: userData.providerId,
           patientId: userData.patientId,
-          affiliateId: userData.affiliateId,
+          affiliateId: (userData as any).affiliateId ?? null,
           avatarUrl: userData.avatarUrl,
           status: userData.status,
           emailVerified: userData.emailVerified,

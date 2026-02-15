@@ -79,7 +79,7 @@ export async function userHasClinicAccess(userId: number, clinicId: number): Pro
   }
 
   // Super admins have access to all clinics
-  if (user.role === 'super_admin') {
+  if (user.role === 'SUPER_ADMIN') {
     return true;
   }
 

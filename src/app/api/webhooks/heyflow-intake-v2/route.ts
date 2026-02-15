@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PatientDocumentCategory, WebhookStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
@@ -44,9 +44,7 @@ function authenticateWebhook(req: NextRequest): {
   // Log which headers are present
   logger.debug(
     '[HEYFLOW V2] Auth headers present:',
-    Object.entries(authHeaders)
-      .filter(([_, value]) => value)
-      .map(([key]) => key)
+    { headers: Object.entries(authHeaders).filter(([_, value]) => value).map(([key]) => key) }
   );
 
   // Check each possible authentication method

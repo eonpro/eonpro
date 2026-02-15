@@ -22,7 +22,7 @@ interface RouteParams {
  * POST /api/tickets/[id]/assign
  * Assign a ticket to a user or team
  */
-export const POST = withAuth(async (request, user, { params }: RouteParams) => {
+export const POST = withAuth<RouteParams>(async (request, user, { params } = {} as RouteParams) => {
   try {
     const { id } = await params;
     const ticketId = parseInt(id, 10);

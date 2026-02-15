@@ -281,7 +281,7 @@ async function processOrderStatus(clinicId: number, data: any) {
             });
           }
         } catch (err) {
-          logger.warn('[LIFEFILE DATA PUSH] Notification failed:', err);
+          logger.warn('[LIFEFILE DATA PUSH] Notification failed:', { error: err instanceof Error ? err.message : String(err) });
         }
       }
     } else {
@@ -355,7 +355,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
 
-    let payload: Record<string, unknown>;
+    let payload: Record<string, any>;
     if (contentType.includes('xml')) {
       const parsed = await parseXmlPayload(rawBody);
       if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {

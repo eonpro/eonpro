@@ -129,11 +129,11 @@ export default function ShipmentsPage() {
       const data = await safeParseJson(response);
       const active =
         data !== null && typeof data === 'object' && 'activeShipments' in data
-          ? (data as { activeShipments?: unknown[] }).activeShipments ?? []
+          ? ((data as { activeShipments?: Shipment[] }).activeShipments ?? [])
           : [];
       const delivered =
         data !== null && typeof data === 'object' && 'deliveredShipments' in data
-          ? (data as { deliveredShipments?: unknown[] }).deliveredShipments ?? []
+          ? ((data as { deliveredShipments?: Shipment[] }).deliveredShipments ?? [])
           : [];
       setActiveShipments(Array.isArray(active) ? active : []);
       setDeliveredShipments(Array.isArray(delivered) ? delivered : []);

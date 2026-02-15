@@ -634,7 +634,7 @@ export const providerRepository = {
         providerId: entry.providerId,
         actorEmail: entry.actorEmail,
         action: entry.action,
-        diff: entry.diff ?? {},
+        diff: (entry.diff ?? {}) as any,
       },
     });
   },

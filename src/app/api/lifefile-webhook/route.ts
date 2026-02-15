@@ -140,11 +140,12 @@ export async function POST(request: Request) {
   }
 
   const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-  const payload: unknown = rawBody ? safeParseJsonString(rawBody) : {};
-  if (rawBody && (payload === null || typeof payload !== 'object')) {
+  const rawPayload: unknown = rawBody ? safeParseJsonString(rawBody) : {};
+  if (rawBody && (rawPayload === null || typeof rawPayload !== 'object')) {
     await sendAlert(config, 'webhook_invalid_json', { ip, err: 'Invalid JSON' });
     return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
+  const payload = rawPayload as Record<string, any>;
 
   const lifefileOrderId = extractFirst(
     payload.orderId,

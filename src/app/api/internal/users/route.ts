@@ -142,7 +142,6 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         },
       },
       orderBy: [{ role: 'asc' }, { firstName: 'asc' }, { lastName: 'asc' }],
-      take: 100, // Limit for performance
     });
 
     // Transform to add display info

@@ -81,7 +81,7 @@ export async function checkAchievements(
       if (unlockedIdSet.has(achievement.id)) continue;
 
       // Check if criteria matches
-      const criteria = achievement.criteria as AchievementCriteria;
+      const criteria = achievement.criteria as unknown as AchievementCriteria;
       const qualifies = await checkCriteria(patientId, criteria, trigger);
 
       if (qualifies) {
@@ -245,7 +245,7 @@ export async function getPatientAchievements(
       criteria: unknown;
     }) => {
       const unlocked = unlockedMap.get(achievement.id);
-      const criteria = achievement.criteria as AchievementCriteria;
+      const criteria = achievement.criteria as unknown as AchievementCriteria;
 
       let progress = 0;
       if (unlocked) {

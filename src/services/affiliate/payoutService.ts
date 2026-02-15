@@ -229,7 +229,7 @@ async function processPayPalPayout(
 
   try {
     // Execute PayPal calls through circuit breaker with timeout
-    const result = await circuitBreakers.paypal.fire(async () => {
+    const result = await circuitBreakers.paypal.execute(async () => {
       const PAYPAL_TIMEOUT_MS = 10000;
 
       // Get access token (with timeout)

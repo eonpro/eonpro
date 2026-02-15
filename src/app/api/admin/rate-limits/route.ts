@@ -17,6 +17,7 @@ import {
   adminClearRateLimit,
   RateLimitStatus,
 } from '@/lib/security/enterprise-rate-limiter';
+import { clearRateLimit as clearSimpleRateLimit } from '@/lib/security/rate-limiter-redis';
 import { logger } from '@/lib/logger';
 
 // ============================================================================
@@ -132,11 +133,20 @@ async function clearHandler(
     // Get current status before clearing (for audit)
     const statusBefore = await adminGetRateLimitStatus(ip || 'unknown', email);
 
-    // Clear the rate limit
+    // Clear the rate limit from enterprise rate limiter
     const result = await adminClearRateLimit(ip, email, user.id);
 
     if (!result.success) {
       return NextResponse.json({ error: result.message }, { status: 400 });
+    }
+
+    // Also clear from the simple (Redis/in-memory) rate limiter used by
+    // affiliate login, main login, and other authRateLimiter-wrapped routes
+    if (ip) {
+      const simpleIdentifiers = ['auth', 'password-reset', 'otp'];
+      await Promise.all(
+        simpleIdentifiers.map((id) => clearSimpleRateLimit(id, ip))
+      );
     }
 
     // Log admin action with full audit trail

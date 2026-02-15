@@ -224,12 +224,13 @@ export async function GET() {
       };
       result.maxConnections = parseInt(maxConnResult[0]?.current_setting ?? '0', 10);
 
-      const total = result.pgStatActivity?.totalConnections ?? 0;
-      const maxConn = result.maxConnections ?? 0;
+      const pgStats = result.pgStatActivity as { totalConnections?: number } | undefined;
+      const total = pgStats?.totalConnections ?? 0;
+      const maxConn = (result.maxConnections as number) ?? 0;
       if (maxConn > 0 && total >= maxConn * 0.9) {
         result.rootCause = result.rootCause || 'rds_connection_limit_near';
         result.recommendations = [
-          ...(result.recommendations as string[]),
+          ...((result.recommendations as string[]) ?? []),
           `RDS connections at ${total}/${maxConn} (~${Math.round((total / maxConn) * 100)}%)`,
         ];
       }
@@ -242,7 +243,7 @@ export async function GET() {
   }
 
   // Add recommended pool config if not already set
-  if (!result.recommendations?.length) {
+  if (!(result.recommendations as string[] | undefined)?.length) {
     result.recommendations = [
       'Database reachable. If issues persist, ensure connection_limit=1 on Vercel.',
       'Use RDS Proxy or PgBouncer for production serverless.',

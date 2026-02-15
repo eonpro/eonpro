@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       const unmatchedPayments = await prisma.payment.findMany({
         where: {
           clinicId,
-          patientId: null,
+          patientId: null as any,
           status: 'SUCCEEDED',
         },
         orderBy: { createdAt: 'desc' },
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
       const matchedToday = await prisma.payment.count({
         where: {
           clinicId,
-          patientId: { not: null },
+          patientId: { not: null } as any,
           status: 'SUCCEEDED',
-          updatedAt: { gte: today },
+          createdAt: { gte: today },
         },
       });
 
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         where: {
           clinicId,
           status: 'SUCCEEDED',
-          patientId: { not: null },
+          patientId: { not: null } as any,
           createdAt: { gte: subDays(new Date(), 30) },
         },
       });
