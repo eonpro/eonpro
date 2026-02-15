@@ -122,11 +122,30 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
-    // Single efficient query with pagination (replaces 3-phase fetch + massive IN clause)
+    // Use explicit `select` (not `include`) to avoid SELECT * on Patient.
+    // This prevents failures when schema columns haven't been migrated yet
+    // (e.g. portalNotificationPrefs) and reduces data transfer.
     const [patients, total] = await Promise.all([
       db.patient.findMany({
         where: whereClause,
-        include: {
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          gender: true,
+          tags: true,
+          source: true,
+          createdAt: true,
+          clinicId: true,
+          email: true,
+          phone: true,
+          dob: true,
+          address1: true,
+          address2: true,
+          city: true,
+          state: true,
+          zip: true,
           clinic: {
             select: { id: true, name: true, subdomain: true },
           },

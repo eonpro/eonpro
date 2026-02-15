@@ -8,16 +8,19 @@
  * Search uses the `searchIndex` column (populated on create/update) with a
  * pg_trgm GIN index for O(1) substring matching at any scale (10M+ records).
  *
+ * Performance: Uses Prisma `none` relation filters to generate efficient
+ * NOT EXISTS subqueries instead of fetching IDs separately.
+ *
  * @module api/admin/intakes
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { AGGREGATION_TAKE } from '@/lib/pagination';
-import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
+import { splitSearchTerms } from '@/lib/utils/search';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 const PAGE_SIZE = 25;
 
@@ -39,7 +42,10 @@ const safeDecrypt = (value: string | null): string | null => {
 
 /**
  * GET /api/admin/intakes
- * List patients who are still intakes (no payment or order)
+ * List patients who are still intakes (no successful payment AND no order)
+ *
+ * Uses Prisma `none` relation filters which generate NOT EXISTS subqueries,
+ * replacing the old "fetch all converted IDs → NOT IN clause" pattern.
  */
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
@@ -49,89 +55,72 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const search = (searchParams.get('search') || '').trim();
     const includeContact = searchParams.get('includeContact') === 'true';
 
-    // Get clinic context for non-super-admin users
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-    // First, get all patient IDs that have successful payments or orders (converted patients)
-    const [patientsWithPayments, patientsWithOrders] = await Promise.all([
-      prisma.payment.findMany({
-        where: {
-          status: 'SUCCEEDED',
-          ...(clinicId && { patient: { clinicId } }),
-        },
-        select: { patientId: true },
-        distinct: ['patientId'],
-        take: AGGREGATION_TAKE,
-      }),
-      prisma.order.findMany({
-        where: {
-          ...(clinicId && { patient: { clinicId } }),
-        },
-        select: { patientId: true },
-        distinct: ['patientId'],
-        take: AGGREGATION_TAKE,
-      }),
-    ]);
+    // Super admin has no clinic context → clinic-filtered prisma throws.
+    // basePrisma.patient is in BASE_PRISMA_ALLOWLIST.
+    const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
 
-    // Combine to get all converted patient IDs
-    const convertedIds = new Set<number>();
-    for (const p of patientsWithPayments) {
-      convertedIds.add(p.patientId);
-    }
-    for (const o of patientsWithOrders) {
-      convertedIds.add(o.patientId);
-    }
-
-    // Build base where clause (intakes = not converted)
-    const baseWhere: Record<string, unknown> = {
-      id: { notIn: Array.from(convertedIds) },
-      ...(clinicId && { clinicId }),
+    // Intakes = patients with NO successful payments AND NO orders.
+    // `none` generates efficient NOT EXISTS subqueries (indexed).
+    const whereClause: Prisma.PatientWhereInput = {
+      payments: { none: { status: 'SUCCEEDED' } },
+      orders: { none: {} },
     };
 
-    // Add search filter using the searchIndex column (DB-level, scales to 10M+)
-    // Falls back to in-memory filtering for records without a searchIndex (pre-backfill)
+    if (clinicId) {
+      whereClause.clinicId = clinicId;
+    }
+
+    // Search filter using the searchIndex column (DB-level, scales to 10M+)
     if (search) {
-      const searchLower = normalizeSearch(search);
-      const searchDigitsOnly = search.replace(/\D/g, '');
-
-      // Build OR conditions for searchIndex column
-      // Each term must appear somewhere in the searchIndex
       const terms = splitSearchTerms(search);
-
-      // For phone-only searches (all digits, 3+ chars), search by digits
+      const searchDigitsOnly = search.replace(/\D/g, '');
       const isPhoneSearch = searchDigitsOnly.length >= 3 && searchDigitsOnly === search.trim();
 
       if (isPhoneSearch) {
-        baseWhere.searchIndex = { contains: searchDigitsOnly, mode: 'insensitive' };
+        whereClause.searchIndex = { contains: searchDigitsOnly, mode: 'insensitive' };
       } else if (terms.length === 1) {
-        // Single term: simple contains
-        baseWhere.searchIndex = { contains: terms[0], mode: 'insensitive' };
+        whereClause.searchIndex = { contains: terms[0], mode: 'insensitive' };
       } else {
-        // Multi-term: ALL terms must appear in searchIndex
-        baseWhere.AND = terms.map((term) => ({
-          searchIndex: { contains: term, mode: 'insensitive' },
+        whereClause.AND = terms.map((term) => ({
+          searchIndex: { contains: term, mode: 'insensitive' as const },
         }));
       }
     }
 
-    // Execute query with DB-level search + pagination
+    // Use explicit `select` (not `include`) to avoid SELECT * on Patient.
+    // Prevents failures when schema columns haven't been migrated yet.
     const [intakes, total] = await Promise.all([
-      prisma.patient.findMany({
-        where: baseWhere,
-        include: {
+      db.patient.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          gender: true,
+          tags: true,
+          source: true,
+          createdAt: true,
+          clinicId: true,
+          email: true,
+          phone: true,
+          dob: true,
+          address1: true,
+          address2: true,
+          city: true,
+          state: true,
+          zip: true,
           clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-            },
+            select: { id: true, name: true, subdomain: true },
           },
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
       }),
-      prisma.patient.count({ where: baseWhere }),
+      db.patient.count({ where: whereClause }),
     ]);
 
     // Transform response - minimize PHI unless explicitly requested
@@ -139,7 +128,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const baseData: Record<string, unknown> = {
         id: patient.id,
         patientId: patient.patientId,
-        // Decrypt PHI fields including names
         firstName: safeDecrypt(patient.firstName),
         lastName: safeDecrypt(patient.lastName),
         gender: safeDecrypt(patient.gender),
@@ -148,7 +136,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         createdAt: patient.createdAt,
         clinicId: patient.clinicId,
         clinicName: patient.clinic?.name || null,
-        status: 'intake', // Explicitly mark as intake
+        status: 'intake',
       };
 
       if (includeContact) {
