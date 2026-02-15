@@ -260,11 +260,11 @@ function ArrowRight({ color = BRAND.textMuted }: { color?: string }) {
 
 const PRESS_LOGOS = [
   { src: ASSETS.press.businessInsider, alt: 'Business Insider', height: 22 },
-  { src: ASSETS.press.mensHealth, alt: "Men's Health", height: 28 },
+  { src: ASSETS.press.mensHealth, alt: "Men's Health", height: 42 },
   { src: ASSETS.press.gq, alt: 'GQ', height: 24 },
   { src: ASSETS.press.foxNews, alt: 'Fox News', height: 20 },
   { src: ASSETS.press.miamiHerald, alt: 'Miami Herald', height: 22 },
-  { src: ASSETS.press.usaToday, alt: 'USA Today', height: 22 },
+  { src: ASSETS.press.usaToday, alt: 'USA Today', height: 40 },
 ];
 
 function PressMarquee() {
@@ -326,6 +326,13 @@ function AffiliateLandingContent() {
   const [data, setData] = useState<LandingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [tracked, setTracked] = useState(false);
+
+  // Override body background to prevent corners showing the root bg color
+  useEffect(() => {
+    const prev = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = '#000000';
+    return () => { document.body.style.backgroundColor = prev; };
+  }, []);
 
   // Fetch affiliate data
   useEffect(() => {
