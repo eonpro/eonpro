@@ -626,24 +626,27 @@ export async function attributeByRecentTouch(
       return result;
     }
 
-    // Last resort: look for a recent AffiliateTouch CLICK (last 2 hours)
-    // that hasn't been converted yet — match by clinic.
+    // Last resort: look for recent AffiliateTouch CLICKs (last 4 hours)
+    // that haven't been converted yet — match by clinic.
     //
-    // SAFETY: We use a tight 2-hour window AND require there be exactly ONE
-    // matching unconverted click to avoid misattribution when multiple
-    // affiliates are sending traffic simultaneously.
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    // SAFETY RULES:
+    //  1. If all unconverted clicks share the SAME ref code → attribute (safe:
+    //     only one affiliate is sending traffic, multiple clicks may be from
+    //     page refreshes or multiple visitors).
+    //  2. If there is exactly ONE unconverted click → attribute.
+    //  3. If clicks have DIFFERENT ref codes → ambiguous, skip.
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
     const recentTouches = await prisma.affiliateTouch.findMany({
       where: {
         clinicId,
         touchType: 'CLICK',
         convertedPatientId: null,
-        createdAt: { gte: twoHoursAgo },
+        createdAt: { gte: fourHoursAgo },
         affiliateId: { gt: 0 },
         affiliate: { status: 'ACTIVE' },
       },
       orderBy: { createdAt: 'desc' },
-      take: 2, // Only need to know if there's more than one
+      take: 20, // Get enough to see if there's a mix of ref codes
       select: {
         id: true,
         refCode: true,
@@ -651,30 +654,35 @@ export async function attributeByRecentTouch(
       },
     });
 
-    // Only attribute if exactly ONE unconverted click in the window
-    // Multiple clicks = ambiguous, skip to avoid misattribution
-    if (recentTouches.length === 1) {
-      const touch = recentTouches[0];
-      const result = await attributeFromIntake(
-        patientId,
-        touch.refCode,
-        clinicId,
-        'recent-touch-fallback'
-      );
-      if (result) {
-        logger.info('[Attribution] Fallback attribution via recent touch (2h window, single click)', {
-          patientId,
-          touchId: touch.id,
-          refCode: touch.refCode,
-        });
-      }
-      return result;
-    }
+    if (recentTouches.length > 0) {
+      // Check if all clicks share the same ref code
+      const uniqueRefCodes = new Set(recentTouches.map(t => t.refCode.toUpperCase()));
 
-    if (recentTouches.length > 1) {
-      logger.debug('[Attribution] Skipping recent-touch fallback: multiple unconverted clicks in window', {
+      if (uniqueRefCodes.size === 1) {
+        // All clicks are for the same ref code — safe to attribute
+        const touch = recentTouches[0];
+        const result = await attributeFromIntake(
+          patientId,
+          touch.refCode,
+          clinicId,
+          'recent-touch-fallback'
+        );
+        if (result) {
+          logger.info('[Attribution] Fallback attribution via recent touch (4h window, all same refCode)', {
+            patientId,
+            touchId: touch.id,
+            refCode: touch.refCode,
+            clickCount: recentTouches.length,
+          });
+        }
+        return result;
+      }
+
+      // Multiple different ref codes — ambiguous, skip
+      logger.debug('[Attribution] Skipping recent-touch fallback: mixed ref codes in window', {
         patientId,
         clinicId,
+        uniqueRefCodes: Array.from(uniqueRefCodes),
         clickCount: recentTouches.length,
       });
     }

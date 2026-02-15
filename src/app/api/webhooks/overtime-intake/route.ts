@@ -684,6 +684,19 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get('user-agent') || 'unknown';
     const consentTimestamp = new Date().toISOString();
 
+    // Store raw payload keys for affiliate debugging (helps diagnose missing fields)
+    const rawPayloadKeys = Object.keys(payload);
+    const rawAffiliateFields: Record<string, string> = {};
+    for (const key of rawPayloadKeys) {
+      const lower = key.toLowerCase().replace(/\s+/g, '');
+      if (lower.includes('url') || lower.includes('ref') || lower.includes('promo') || lower.includes('affiliate')) {
+        const val = payload[key as keyof typeof payload];
+        if (val && typeof val === 'string') {
+          rawAffiliateFields[key] = val.substring(0, 300);
+        }
+      }
+    }
+
     const intakeDataToStore = {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
@@ -700,6 +713,12 @@ export async function POST(req: NextRequest) {
       ipAddress,
       userAgent,
       consentTimestamp,
+      // Debug: raw payload structure for affiliate troubleshooting
+      _debug: {
+        payloadKeyCount: rawPayloadKeys.length,
+        payloadKeys: rawPayloadKeys,
+        affiliateRelatedFields: rawAffiliateFields,
+      },
     };
 
     if (existingDoc) {
@@ -759,15 +778,39 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   // STEP 13: TRACK PROMO CODE / AFFILIATE REFERRAL (CRITICAL FOR AFFILIATE PROGRAM)
   // ═══════════════════════════════════════════════════════════════════
-  // Log affiliate-relevant fields for debugging attribution issues
-  const urlWithParams = payload['URL with parameters'] || payload['url with parameters'];
-  const urlField = payload['URL'] || payload['url'];
-  const referrerField = payload['Referrer'] || payload['referrer'];
-  logger.info(`[OVERTIME-INTAKE ${requestId}] Affiliate fields:`, {
-    urlWithParams: urlWithParams ? String(urlWithParams).substring(0, 200) : null,
-    url: urlField ? String(urlField).substring(0, 200) : null,
-    referrer: referrerField ? String(referrerField).substring(0, 200) : null,
-    whoRecommended: (payload['Who reccomended OT Mens Health to you?'] || payload['Who recommended OT Mens Health to you?'] || null) as string | null,
+  // -----------------------------------------------------------------------
+  // CRITICAL AFFILIATE DIAGNOSTICS — Log everything for attribution debugging
+  // -----------------------------------------------------------------------
+  const allPayloadKeys = Object.keys(payload);
+
+  // Find ALL fields that might contain affiliate data (case-insensitive search)
+  const affiliateRelevantFields: Record<string, string> = {};
+  for (const key of allPayloadKeys) {
+    const lower = key.toLowerCase();
+    if (
+      lower.includes('url') ||
+      lower.includes('referr') ||
+      lower.includes('ref') ||
+      lower.includes('promo') ||
+      lower.includes('affiliate') ||
+      lower.includes('influencer') ||
+      lower.includes('recommend') ||
+      lower.includes('partner') ||
+      lower.includes('code')
+    ) {
+      const val = payload[key];
+      if (val && typeof val === 'string') {
+        affiliateRelevantFields[key] = val.substring(0, 300);
+      }
+    }
+  }
+
+  logger.info(`[OVERTIME-INTAKE ${requestId}] AFFILIATE DIAG — Payload has ${allPayloadKeys.length} keys:`, {
+    allKeys: allPayloadKeys,
+    affiliateRelevantFields,
+    hasUrlWithParams: allPayloadKeys.some(k => k.toLowerCase().replace(/\s+/g, '') === 'urlwithparameters'),
+    hasUrl: allPayloadKeys.some(k => k.toLowerCase().trim() === 'url'),
+    hasReferrer: allPayloadKeys.some(k => k.toLowerCase().trim() === 'referrer'),
   });
 
   const promoCode = extractPromoCode(payload);

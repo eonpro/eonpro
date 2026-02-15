@@ -449,11 +449,20 @@ describe('D. Phase 3 — Fallback scan of all payload fields', () => {
     })).toBeNull();
   });
 
-  it('ignores non-string values in fallback scan', () => {
+  it('finds ref codes inside nested objects via deep scan', () => {
+    // Deep scan now searches nested objects (up to depth 3)
     expect(extractPromoCode({
       someNumber: 42,
       someObj: { url: 'https://ot.eonpro.io/affiliate/TEAMSAV' },
-      someArray: ['https://ot.eonpro.io/affiliate/TEAMSAV'],
+    })).toBe('TEAMSAV');
+  });
+
+  it('ignores non-string / non-object values in fallback scan', () => {
+    // Arrays and simple scalars are not scanned
+    expect(extractPromoCode({
+      someNumber: 42,
+      someBoolean: true,
+      someNull: null,
     })).toBeNull();
   });
 });
@@ -844,7 +853,58 @@ describe('G. attributeByRecentTouch', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null when multiple recent touches (ambiguous — prevents misattribution)', async () => {
+  it('attributes when multiple recent touches all have the SAME refCode', async () => {
+    // First call: patient lookup in attributeByRecentTouch
+    mockPrisma.patient.findUnique.mockResolvedValueOnce({
+      id: 9843,
+      attributionAffiliateId: null,
+      email: 'jones@test.com',
+      phone: null,
+    });
+
+    // Recent touches: all TEAMSAV
+    mockPrisma.affiliateTouch.findMany.mockResolvedValueOnce([
+      { id: 55, refCode: 'TEAMSAV', affiliateId: 3 },
+      { id: 56, refCode: 'TEAMSAV', affiliateId: 3 },
+      { id: 57, refCode: 'TEAMSAV', affiliateId: 3 },
+    ]);
+
+    // Second call: patient lookup in attributeFromIntakeExtended
+    mockPrisma.patient.findUnique.mockResolvedValueOnce({
+      id: 9843,
+      clinicId: 1,
+      attributionAffiliateId: null,
+      tags: [],
+    });
+
+    // Mock the attributeFromIntake chain: look up ref code
+    mockPrisma.affiliateRefCode.findFirst
+      .mockResolvedValueOnce({
+        refCode: 'TEAMSAV',
+        clinicId: 1,
+        affiliateId: 3,
+        isActive: true,
+        affiliate: { id: 3, status: 'ACTIVE', displayName: 'Savannah' },
+        clinic: { id: 1, name: 'Overtime' },
+      });
+
+    // Mock the transaction
+    mockPrisma.$transaction.mockImplementation(async (fn: any) => {
+      const txClient = {
+        $queryRaw: async () => [{ attributionAffiliateId: null, tags: [] }],
+        affiliateTouch: { create: async () => ({ id: 100 }) },
+        patient: { update: async () => ({ id: 9843 }) },
+        affiliate: { update: async () => ({ id: 3 }) },
+      };
+      return fn(txClient);
+    });
+
+    const result = await attributeByRecentTouch(9843, null, 1);
+    expect(result).not.toBeNull();
+    expect(result?.refCode).toBe('TEAMSAV');
+  });
+
+  it('returns null when multiple recent touches with DIFFERENT refCodes (ambiguous)', async () => {
     mockPrisma.patient.findUnique.mockResolvedValue({
       id: 9843,
       attributionAffiliateId: null,
@@ -859,7 +919,7 @@ describe('G. attributeByRecentTouch', () => {
     const result = await attributeByRecentTouch(9843, null, 1);
     expect(result).toBeNull();
     expect(mockLogger.debug).toHaveBeenCalledWith(
-      '[Attribution] Skipping recent-touch fallback: multiple unconverted clicks in window',
+      '[Attribution] Skipping recent-touch fallback: mixed ref codes in window',
       expect.objectContaining({ patientId: 9843, clickCount: 2 })
     );
   });

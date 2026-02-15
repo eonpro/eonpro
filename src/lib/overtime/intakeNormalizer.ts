@@ -1605,14 +1605,16 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
   // human-typed promo codes.
   //
   // Checks: "URL with parameters", "URL", "Referrer" and their variants.
+  // Also checks with trailing spaces (common in Airtable exports).
   // -----------------------------------------------------------------------
-  const urlFields = [
+  const urlFieldBases = [
     // Heyflow / Airtable URL fields (highest signal for affiliate attribution)
     'URL with parameters',
     'url with parameters',
     'URL With Parameters',
     'urlWithParameters',
     'url_with_parameters',
+    'Url With Parameters',
     // The base URL field (may also carry ?ref=)
     'URL',
     'url',
@@ -1626,6 +1628,15 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
     'referrer_url',
     'referrerUrl',
   ];
+
+  // Also try each field with trailing space (common in Airtable)
+  const urlFields: string[] = [];
+  for (const base of urlFieldBases) {
+    urlFields.push(base);
+    urlFields.push(`${base} `);     // trailing space
+    urlFields.push(` ${base}`);     // leading space
+    urlFields.push(`${base}  `);    // double trailing space
+  }
 
   for (const field of urlFields) {
     const value = payload[field];
@@ -1641,17 +1652,56 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
   }
 
   // -----------------------------------------------------------------------
-  // PHASE 2 (FALLBACK): Scan ALL payload fields for any URL containing
-  // /affiliate/ or ref= to catch non-standard or unexpected field names.
-  // Still URL-based, so still reliable — just from an unknown field name.
+  // PHASE 1.5: DEEP SCAN — Check nested objects (Heyflow native webhooks
+  // wrap data in `data`, `tracking`, `metadata` etc.)
   // -----------------------------------------------------------------------
-  for (const [, value] of Object.entries(payload)) {
-    if (typeof value === 'string' && (value.includes('/affiliate/') || value.includes('ref='))) {
-      const refCode = extractRefCodeFromUrl(value.trim());
-      if (refCode) {
-        return refCode;
+  const nestedContainers = ['data', 'tracking', 'metadata', 'fields', 'record', 'properties'];
+  for (const containerKey of nestedContainers) {
+    const container = payload[containerKey];
+    if (container && typeof container === 'object' && !Array.isArray(container)) {
+      const nested = container as Record<string, unknown>;
+      for (const field of urlFields) {
+        const value = nested[field];
+        if (value && typeof value === 'string' && value.trim()) {
+          const trimmed = value.trim();
+          if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            const refCodeFromUrl = extractRefCodeFromUrl(trimmed);
+            if (refCodeFromUrl) {
+              return refCodeFromUrl;
+            }
+          }
+        }
       }
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // PHASE 2 (FALLBACK): Scan ALL payload fields — including nested objects
+  // — for any string value containing /affiliate/ or ref= to catch
+  // non-standard or unexpected field names.
+  // Still URL-based, so still reliable — just from an unknown field name.
+  // -----------------------------------------------------------------------
+  function scanObjectForRefUrls(obj: Record<string, unknown>, depth = 0): string | null {
+    if (depth > 3) return null; // Prevent infinite recursion
+    for (const [, value] of Object.entries(obj)) {
+      if (typeof value === 'string' && (value.includes('/affiliate/') || value.includes('ref='))) {
+        const refCode = extractRefCodeFromUrl(value.trim());
+        if (refCode) {
+          return refCode;
+        }
+      }
+      // Also scan nested objects
+      if (value && typeof value === 'object' && !Array.isArray(value) && depth < 3) {
+        const nested = scanObjectForRefUrls(value as Record<string, unknown>, depth + 1);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  }
+
+  const phase2Result = scanObjectForRefUrls(payload);
+  if (phase2Result) {
+    return phase2Result;
   }
 
   // -----------------------------------------------------------------------
