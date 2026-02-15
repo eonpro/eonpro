@@ -466,7 +466,7 @@ export default function PatientSidebar({
           patientId={patient.id}
           affiliateAttribution={affiliateAttribution}
           affiliateCode={affiliateCode}
-          isAdmin={userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'}
+          isAdmin={!!userRole && ['super_admin', 'admin', 'provider'].includes(userRole.toLowerCase())}
         />
 
         {/* Address */}
