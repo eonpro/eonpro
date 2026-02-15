@@ -49,7 +49,7 @@ export default function DrugReferencePage() {
         </div>
 
         <div className="cursor-pointer rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--brand-primary-light)]0">
             <Info className="h-6 w-6 text-white" />
           </div>
           <h3 className="mb-1 font-semibold text-gray-900">Dosing Guidelines</h3>

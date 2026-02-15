@@ -255,12 +255,12 @@ export default function TransactionsPage() {
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
       semaglutide: 'bg-blue-100 text-blue-800',
-      tirzepatide: 'bg-purple-100 text-purple-800',
+      tirzepatide: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
       subscription: 'bg-emerald-100 text-emerald-800',
       new_patient: 'bg-amber-100 text-amber-800',
       consultation: 'bg-cyan-100 text-cyan-800',
       lab_work: 'bg-pink-100 text-pink-800',
-      refill: 'bg-indigo-100 text-indigo-800',
+      refill: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
       one_time: 'bg-orange-100 text-orange-800',
       other: 'bg-gray-100 text-gray-800',
     };
@@ -354,7 +354,7 @@ export default function TransactionsPage() {
             className="flex w-full items-center justify-between"
           >
             <div className="flex items-center gap-2">
-              <PieChart className="h-5 w-5 text-indigo-600" />
+              <PieChart className="h-5 w-5 text-[var(--brand-primary)]" />
               <h3 className="font-semibold text-gray-900">Sales by Category</h3>
             </div>
             {showCategoryBreakdown ? (
@@ -374,7 +374,7 @@ export default function TransactionsPage() {
                   }
                   className={`rounded-lg border p-3 text-left transition-all ${
                     filterCategory === cat.category
-                      ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200'
+                      ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)] ring-2 ring-[var(--brand-primary-medium)]'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >

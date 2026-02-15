@@ -454,7 +454,7 @@ export default function PricingManagementPage() {
                           >
                             {promo.isActive ? 'Active' : 'Inactive'}
                           </span>
-                          <span className="rounded bg-purple-100 px-2 py-1 text-xs text-purple-700">
+                          <span className="rounded bg-[var(--brand-primary-light)] px-2 py-1 text-xs text-[var(--brand-primary)]">
                             {promo.promotionType.replace('_', ' ')}
                           </span>
                         </div>

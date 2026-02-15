@@ -179,7 +179,7 @@ export default function FAQsPage() {
           <div className="text-gray-600">Avg. Helpful Votes</div>
         </div>
         <div className="rounded-lg bg-white p-6 shadow">
-          <div className="text-3xl font-bold text-purple-600">{categories.length - 1}</div>
+          <div className="text-3xl font-bold text-[var(--brand-primary)]">{categories.length - 1}</div>
           <div className="text-gray-600">Categories</div>
         </div>
       </div>

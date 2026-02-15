@@ -503,7 +503,7 @@ export default function TelehealthPage() {
                 <div className="text-sm text-gray-600">Total Minutes</div>
               </div>
               <div className="rounded-lg bg-white p-4 shadow-sm">
-                <div className="text-2xl font-bold text-purple-600">98%</div>
+                <div className="text-2xl font-bold text-[var(--brand-primary)]">98%</div>
                 <div className="text-sm text-gray-600">Satisfaction</div>
               </div>
             </div>

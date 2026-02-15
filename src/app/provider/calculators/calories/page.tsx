@@ -339,7 +339,7 @@ Macronutrient Targets (${effectiveCalories} cal):
               <button
                 onClick={() => setIsOnGLP1(!isOnGLP1)}
                 className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${
-                  isOnGLP1 ? 'bg-purple-500' : 'bg-gray-300'
+                  isOnGLP1 ? 'bg-[var(--brand-primary-light)]0' : 'bg-gray-300'
                 }`}
               >
                 <span
@@ -420,7 +420,7 @@ Macronutrient Targets (${effectiveCalories} cal):
               {macros && (
                 <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
                   <h3 className="mb-3 font-semibold text-gray-900">
-                    <Target className="mr-2 inline h-5 w-5 text-purple-500" />
+                    <Target className="mr-2 inline h-5 w-5 text-[var(--brand-primary)]0" />
                     Macro Targets
                   </h3>
                   <div className="space-y-3">
@@ -466,8 +466,8 @@ Macronutrient Targets (${effectiveCalories} cal):
 
               {/* GLP-1 Note */}
               {isOnGLP1 && glp1Adjustment && (
-                <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
-                  <p className="text-sm text-purple-800">
+                <div className="rounded-2xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4">
+                  <p className="text-sm text-[var(--brand-primary)]">
                     <strong>GLP-1 Adjustment:</strong> {glp1Adjustment.note}
                   </p>
                 </div>

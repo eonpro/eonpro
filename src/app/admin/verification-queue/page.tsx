@@ -238,7 +238,7 @@ export default function VerificationQueuePage() {
   if (loading && !data) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function VerificationQueuePage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[var(--brand-primary)] focus:outline-none"
         >
           <option value="all">All Status</option>
           <option value="PENDING">Pending</option>
@@ -346,8 +346,8 @@ export default function VerificationQueuePage() {
               <div className="border-b border-gray-100 bg-gray-50 px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100">
-                      <User className="h-6 w-6 text-violet-600" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
+                      <User className="h-6 w-6 text-[var(--brand-primary)]" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">
@@ -370,7 +370,7 @@ export default function VerificationQueuePage() {
                     </div>
                     <button
                       onClick={() => setSelectedVerification(verification)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                      className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90"
                     >
                       <Eye className="h-4 w-4" />
                       Review
@@ -462,8 +462,8 @@ export default function VerificationQueuePage() {
             <div className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-100">
-                    <User className="h-6 w-6 text-violet-600" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
+                    <User className="h-6 w-6 text-[var(--brand-primary)]" />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">
@@ -580,7 +580,7 @@ export default function VerificationQueuePage() {
                 onChange={(e) => setRejectionNotes(e.target.value)}
                 placeholder="Enter reason for rejection or resubmit request..."
                 rows={2}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[var(--brand-primary)] focus:outline-none"
               />
             </div>
 

@@ -189,7 +189,7 @@ export default function StaffAppointmentsPage() {
           <div className="text-sm text-gray-600">In Progress</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-purple-600">
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">
             {filteredAppointments.filter((a) => a.type === 'video').length}
           </div>
           <div className="text-sm text-gray-600">Video Calls</div>

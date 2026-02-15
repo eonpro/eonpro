@@ -50,8 +50,8 @@ const categoryConfig: Record<
 > = {
   PRESCRIPTION: {
     icon: Pill,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100',
+    color: 'text-[var(--brand-primary)]',
+    bgColor: 'bg-[var(--brand-primary-light)]',
     label: 'Prescriptions',
   },
   PATIENT: { icon: User, color: 'text-blue-600', bgColor: 'bg-blue-100', label: 'Patients' },
@@ -70,8 +70,8 @@ const categoryConfig: Record<
   },
   MESSAGE: {
     icon: MessageSquare,
-    color: 'text-indigo-600',
-    bgColor: 'bg-indigo-100',
+    color: 'text-[var(--brand-secondary)]',
+    bgColor: 'bg-[var(--brand-secondary-light)]',
     label: 'Messages',
   },
   PAYMENT: {

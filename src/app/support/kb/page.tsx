@@ -102,7 +102,7 @@ export default function KnowledgeBasePage() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'video':
-        return <Video className="h-5 w-5 text-purple-600" />;
+        return <Video className="h-5 w-5 text-[var(--brand-primary)]" />;
       case 'pdf':
         return <Download className="h-5 w-5 text-red-600" />;
       default:

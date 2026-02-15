@@ -168,7 +168,7 @@ export default function AdminBillingPage() {
                 {stats.activeSubscriptions}
               </p>
             </div>
-            <Calendar className="h-12 w-12 text-purple-500 opacity-30" />
+            <Calendar className="h-12 w-12 text-[var(--brand-primary)] opacity-30" />
           </div>
         </div>
 
@@ -317,7 +317,7 @@ export default function AdminBillingPage() {
           </Link>
           <Link
             href="/admin/influencers"
-            className="flex items-center justify-center rounded-lg border-2 border-purple-500 px-4 py-3 text-purple-500 transition hover:bg-purple-500 hover:text-white"
+            className="flex items-center justify-center rounded-lg border-2 border-[var(--brand-primary)] px-4 py-3 text-[var(--brand-primary)] transition hover:bg-[var(--brand-primary)] hover:text-white"
           >
             <DollarSign className="mr-2 h-5 w-5" />
             Manage Commissions

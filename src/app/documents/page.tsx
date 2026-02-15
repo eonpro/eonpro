@@ -124,9 +124,9 @@ export default function DocumentManagementPage() {
   const getCategoryColor = (category: FileCategory): string => {
     const colors: Record<FileCategory, string> = {
       [FileCategory.MEDICAL_RECORDS]: 'bg-blue-100 text-blue-800',
-      [FileCategory.LAB_RESULTS]: 'bg-purple-100 text-purple-800',
+      [FileCategory.LAB_RESULTS]: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
       [FileCategory.PRESCRIPTIONS]: 'bg-green-100 text-green-800',
-      [FileCategory.IMAGING]: 'bg-indigo-100 text-indigo-800',
+      [FileCategory.IMAGING]: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
       [FileCategory.INSURANCE]: 'bg-yellow-100 text-yellow-800',
       [FileCategory.CONSENT_FORMS]: 'bg-pink-100 text-pink-800',
       [FileCategory.INTAKE_FORMS]: 'bg-cyan-100 text-cyan-800',
@@ -452,7 +452,7 @@ export default function DocumentManagementPage() {
                     {documents.length > 0 ? formatDate(documents[0].uploadedAt) : 'No uploads yet'}
                   </p>
                 </div>
-                <Clock className="h-8 w-8 text-purple-500" />
+                <Clock className="h-8 w-8 text-[var(--brand-primary)]" />
               </div>
             </div>
           </div>

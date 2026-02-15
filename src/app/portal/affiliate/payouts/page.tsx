@@ -139,7 +139,7 @@ export default function PayoutsPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -154,7 +154,7 @@ export default function PayoutsPage() {
 
       {/* Balance Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 p-6 text-white">
+        <div className="rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)]0 to-[var(--brand-primary)] p-6 text-white">
           <p className="text-sm font-medium text-white/80">Available for Payout</p>
           <p className="mt-2 text-3xl font-bold">
             {formatCurrency(data?.balance.availableCents || 0)}
@@ -209,7 +209,7 @@ export default function PayoutsPage() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`border-b-2 pb-3 text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? 'border-violet-600 text-violet-600'
+                  ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -281,7 +281,7 @@ export default function PayoutsPage() {
                   className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+                    <div className="rounded-lg bg-[var(--brand-primary-light)] p-2 text-[var(--brand-primary)]">
                       <MethodIcon className="h-5 w-5" />
                     </div>
                     <div>
@@ -297,7 +297,7 @@ export default function PayoutsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {method.isDefault && (
-                      <span className="rounded-full bg-violet-100 px-2 py-1 text-xs font-medium text-violet-700">
+                      <span className="rounded-full bg-[var(--brand-primary-light)] px-2 py-1 text-xs font-medium text-[var(--brand-primary)]">
                         Default
                       </span>
                     )}
@@ -369,7 +369,7 @@ export default function PayoutsPage() {
             <div className="rounded-xl bg-white py-12 text-center shadow-sm">
               <FileText className="mx-auto h-12 w-12 text-gray-300" />
               <p className="mt-2 text-gray-500">No tax documents submitted</p>
-              <button className="mt-4 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700">
+              <button className="mt-4 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90">
                 Submit W-9 Form
               </button>
             </div>

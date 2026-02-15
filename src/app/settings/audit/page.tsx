@@ -71,7 +71,7 @@ export default function AuditLogsPage() {
     if (action.includes('UPDATE') || action.includes('MODIFIED'))
       return 'bg-blue-100 text-blue-800';
     if (action.includes('DELETE') || action.includes('REMOVED')) return 'bg-red-100 text-red-800';
-    if (action.includes('LOGIN') || action.includes('AUTH')) return 'bg-purple-100 text-purple-800';
+    if (action.includes('LOGIN') || action.includes('AUTH')) return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
     return 'bg-gray-100 text-gray-800';
   };
 

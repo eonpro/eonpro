@@ -203,7 +203,7 @@ export default function DeveloperToolsPage() {
                       {key.lastUsed}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                      <button className="mr-3 text-indigo-600 hover:text-indigo-900">
+                      <button className="mr-3 text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
                         Regenerate
                       </button>
                       <button className="text-red-600 hover:text-red-900">Revoke</button>

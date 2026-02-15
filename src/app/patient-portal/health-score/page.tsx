@@ -329,7 +329,7 @@ export default function HealthScorePage() {
       </div>
 
       {/* AI Insights */}
-      <div className="mb-6 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+      <div className="mb-6 rounded-xl bg-[var(--brand-primary-light)] p-4">
         <div className="mb-3 flex items-center gap-2">
           <Info className="h-5 w-5 text-blue-600" />
           <h3 className="font-semibold text-gray-900">AI Insights</h3>

@@ -194,7 +194,7 @@ export default function UserActivityPage() {
 
   const getRoleBadge = (role: string) => {
     const colors: Record<string, string> = {
-      SUPER_ADMIN: 'bg-purple-100 text-purple-800',
+      SUPER_ADMIN: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
       ADMIN: 'bg-blue-100 text-blue-800',
       PROVIDER: 'bg-green-100 text-green-800',
       STAFF: 'bg-gray-100 text-gray-800',
@@ -251,8 +251,8 @@ export default function UserActivityPage() {
 
           <div className="rounded-lg bg-white p-6 shadow">
             <div className="flex items-center gap-4">
-              <div className="rounded-lg bg-purple-100 p-3">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
+              <div className="rounded-lg bg-[var(--brand-primary-light)] p-3">
+                <TrendingUp className="h-6 w-6 text-[var(--brand-primary)]" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.activeUsers}</p>

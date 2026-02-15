@@ -101,7 +101,7 @@ export default function SupportDashboard() {
                 <p className="text-2xl font-bold text-gray-900">94%</p>
                 <p className="mt-1 text-xs text-green-600">↑ 2% this week</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-purple-600" />
+              <TrendingUp className="h-8 w-8 text-[var(--brand-primary)]" />
             </div>
           </div>
         </div>

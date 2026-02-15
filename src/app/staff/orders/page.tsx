@@ -113,11 +113,11 @@ export default function StaffOrdersPage() {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'prescription':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       case 'medical-supplies':
         return 'bg-cyan-100 text-cyan-800';
       case 'equipment':
-        return 'bg-indigo-100 text-indigo-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       default:
         return 'bg-gray-100 text-gray-800';
     }

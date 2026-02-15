@@ -75,7 +75,7 @@ const REACTION_EMOJIS = {
   love: { icon: Heart, label: 'Love', color: 'text-red-500', bg: 'bg-red-50' },
   like: { icon: ThumbsUp, label: 'Like', color: 'text-blue-500', bg: 'bg-blue-50' },
   dislike: { icon: ThumbsDown, label: 'Dislike', color: 'text-gray-500', bg: 'bg-gray-100' },
-  question: { icon: HelpCircle, label: 'Question', color: 'text-purple-500', bg: 'bg-purple-50' },
+  question: { icon: HelpCircle, label: 'Question', color: 'text-[var(--brand-primary)]', bg: 'bg-[var(--brand-primary-light)]' },
   exclamation: {
     icon: AlertCircle,
     label: 'Emphasis',
@@ -726,7 +726,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   const getRoleStyle = (role: string, isPlatformAdmin?: boolean) => {
     if (isPlatformAdmin) {
-      return 'bg-gradient-to-r from-violet-500 to-purple-500 text-white';
+      return 'bg-[var(--brand-primary)] text-white';
     }
     switch (role?.toLowerCase()) {
       case 'admin':
@@ -744,7 +744,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   const getAvatarGradient = (id: number, isPlatformAdmin?: boolean) => {
     if (isPlatformAdmin) {
-      return 'from-violet-500 to-purple-600';
+      return 'from-[var(--brand-primary)] to-[var(--brand-primary)]';
     }
     const gradients = [
       'from-blue-400 to-blue-600',
@@ -779,7 +779,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
             className={`absolute inset-0 rounded-full blur-lg transition-opacity ${
               unreadCount > 0
                 ? 'bg-gradient-to-r from-red-500 to-orange-500 opacity-60'
-                : 'bg-gradient-to-r from-blue-500 to-indigo-600 opacity-40 group-hover:opacity-60'
+                : 'bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)] opacity-40 group-hover:opacity-60'
             }`}
           />
 
@@ -788,7 +788,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
             className={`relative transform rounded-full p-4 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl ${
               unreadCount > 0
                 ? 'bg-gradient-to-r from-red-500 to-orange-500'
-                : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                : 'bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)]'
             }`}
           >
             <MessageCircle className="h-6 w-6" />
@@ -829,7 +829,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         )}
         {/* Platform Admin badge */}
         {user.isPlatformAdmin && (
-          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm">
+          <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-primary)] shadow-sm">
             <Shield className="h-2.5 w-2.5 text-white" />
           </div>
         )}
@@ -900,7 +900,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand-primary)] to-[var(--brand-primary)]">
                   <MessageCircle className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -1190,8 +1190,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                       {platformAdmins.length > 0 && (
                         <div className="mb-2">
                           <div className="flex items-center gap-2 px-3 py-2">
-                            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-violet-600">
+                            <Sparkles className="h-3.5 w-3.5 text-[var(--brand-primary)]" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--brand-primary)]">
                               Platform Support
                             </span>
                           </div>

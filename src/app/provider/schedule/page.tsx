@@ -104,7 +104,7 @@ export default function ProviderSchedulePage() {
             Schedule
           </h1>
           <div className="flex gap-2">
-            <button className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+            <button className="rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90">
               Block Time
             </button>
             <button className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700">
@@ -122,7 +122,7 @@ export default function ProviderSchedulePage() {
                 onClick={() => setView(v as any)}
                 className={`rounded-lg px-4 py-2 ${
                   view === v
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-[var(--brand-primary)] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -142,7 +142,7 @@ export default function ProviderSchedulePage() {
       {/* Today's Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-indigo-600">{appointments.length}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">{appointments.length}</div>
           <div className="text-sm text-gray-600">Total Appointments</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
@@ -158,7 +158,7 @@ export default function ProviderSchedulePage() {
           <div className="text-sm text-gray-600">Video Calls</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-purple-600">
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">
             {appointments.filter((a) => a.type === 'in-person').length}
           </div>
           <div className="text-sm text-gray-600">In-Person</div>
@@ -213,7 +213,7 @@ export default function ProviderSchedulePage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="rounded bg-indigo-100 px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-200">
+                  <button className="rounded bg-[var(--brand-primary-light)] px-3 py-1 text-sm text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]">
                     View
                   </button>
                   <button className="rounded bg-green-100 px-3 py-1 text-sm text-green-700 hover:bg-green-200">
@@ -231,7 +231,7 @@ export default function ProviderSchedulePage() {
               {['3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM', '5:00 PM', '5:30 PM'].map((time) => (
                 <button
                   key={time}
-                  className="rounded border bg-gray-50 px-3 py-2 text-sm hover:border-indigo-300 hover:bg-indigo-50"
+                  className="rounded border bg-gray-50 px-3 py-2 text-sm hover:border-[var(--brand-primary-medium)] hover:bg-[var(--brand-primary-light)]"
                 >
                   {time}
                 </button>

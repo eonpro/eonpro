@@ -95,7 +95,7 @@ function SignatureModal({
             <span
               className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                 signatureType === 'executive_approval'
-                  ? 'bg-purple-100 text-purple-800'
+                  ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                   : 'bg-green-100 text-green-800'
               }`}
             >
@@ -699,7 +699,7 @@ export default function PoliciesPage() {
                       {!policy.approvals.find((a) => a.type === 'executive_approval') && (
                         <button
                           onClick={() => handleOpenSignature(policy, 'executive_approval')}
-                          className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+                          className="rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90"
                         >
                           Sign as CEO
                         </button>

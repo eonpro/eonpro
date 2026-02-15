@@ -353,7 +353,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       SUCCEEDED: 'bg-green-100 text-green-700',
       FAILED: 'bg-red-100 text-red-700',
       CANCELED: 'bg-gray-100 text-gray-700',
-      REFUNDED: 'bg-purple-100 text-purple-700',
+      REFUNDED: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
     };
 
     return (
@@ -599,7 +599,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                                             }
                                       );
                                     }}
-                                    className="font-medium text-purple-600 hover:text-purple-800"
+                                    className="font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
                                   >
                                     Refund
                                   </button>
@@ -739,7 +739,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                                     }
                               );
                             }}
-                            className="min-w-[60px] flex-1 rounded-lg bg-purple-50 px-3 py-2 text-sm font-medium text-purple-600 transition-colors hover:bg-purple-100"
+                            className="min-w-[60px] flex-1 rounded-lg bg-[var(--brand-primary-light)] px-3 py-2 text-sm font-medium text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
                           >
                             Refund
                           </button>
@@ -858,7 +858,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                                     maxAmount: payment.amount,
                                   })
                                 }
-                                className="font-medium text-purple-600 hover:text-purple-800"
+                                className="font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
                               >
                                 Refund
                               </button>
@@ -914,7 +914,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                                 maxAmount: payment.amount,
                               })
                             }
-                            className="w-full rounded-lg bg-purple-50 px-3 py-2 text-sm font-medium text-purple-600 transition-colors hover:bg-purple-100"
+                            className="w-full rounded-lg bg-[var(--brand-primary-light)] px-3 py-2 text-sm font-medium text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
                           >
                             Refund
                           </button>
@@ -1074,7 +1074,7 @@ function RefundModal({
                   step="0.01"
                   min="0.01"
                   max={maxAmount / 100}
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 focus:ring-2 focus:ring-purple-500"
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 focus:ring-2 focus:ring-[var(--brand-primary)]"
                   required
                 />
               </div>
@@ -1087,7 +1087,7 @@ function RefundModal({
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
             >
               <option value="requested_by_customer">Requested by customer</option>
               <option value="duplicate">Duplicate charge</option>
@@ -1116,7 +1116,7 @@ function RefundModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:opacity-50"
+              className="rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90 disabled:opacity-50"
             >
               {submitting
                 ? 'Processing...'

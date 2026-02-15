@@ -68,7 +68,7 @@ export default function PatientTimeline({
   const getEventColor = (type: TimelineEvent['type']) => {
     switch (type) {
       case 'creation':
-        return 'border-purple-400 bg-purple-50';
+        return 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]';
       case 'intake':
         return 'border-blue-400 bg-blue-50';
       case 'prescription':
@@ -78,7 +78,7 @@ export default function PatientTimeline({
       case 'document':
         return 'border-yellow-400 bg-yellow-50';
       case 'chat':
-        return 'border-indigo-400 bg-indigo-50';
+        return 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]';
       case 'appointment':
         return 'border-pink-400 bg-pink-50';
       default:

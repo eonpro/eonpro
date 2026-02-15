@@ -146,7 +146,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   },
   PENDING_PROVIDER: {
     label: 'Provider Queue',
-    color: 'bg-purple-100 text-purple-800',
+    color: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
     icon: <Pill className="h-4 w-4" />,
   },
   PRESCRIBED: {
@@ -384,7 +384,7 @@ export default function AdminRefillQueuePage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -439,12 +439,12 @@ export default function AdminRefillQueuePage() {
             </div>
             <p className="mt-2 text-2xl font-bold text-green-800">{stats.approved}</p>
           </div>
-          <div className="rounded-xl bg-purple-50 p-4">
-            <div className="flex items-center gap-2 text-purple-700">
+          <div className="rounded-xl bg-[var(--brand-primary-light)] p-4">
+            <div className="flex items-center gap-2 text-[var(--brand-primary)]">
               <Pill className="h-5 w-5" />
               <span className="text-sm font-medium">Provider Queue</span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-purple-800">{stats.pendingProvider}</p>
+            <p className="mt-2 text-2xl font-bold text-[var(--brand-primary)]">{stats.pendingProvider}</p>
           </div>
           <div className="rounded-xl bg-gray-50 p-4">
             <div className="flex items-center gap-2 text-gray-700">
@@ -478,7 +478,7 @@ export default function AdminRefillQueuePage() {
             onClick={() => setStatusFilter(tab.key as StatusFilter)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               statusFilter === tab.key
-                ? 'bg-violet-600 text-white'
+                ? 'bg-[var(--brand-primary)] text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -505,7 +505,7 @@ export default function AdminRefillQueuePage() {
             placeholder="Search by patient name, email, or medication..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
           />
         </div>
       </div>
@@ -879,14 +879,14 @@ export default function AdminRefillQueuePage() {
                   <button
                     onClick={handleAutoMatchPayment}
                     disabled={processing}
-                    className="flex-1 rounded-lg border border-violet-300 py-2 font-medium text-violet-600 hover:bg-violet-50 disabled:opacity-50"
+                    className="flex-1 rounded-lg border border-[var(--brand-primary-medium)] py-2 font-medium text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)] disabled:opacity-50"
                   >
                     {processing ? 'Checking...' : 'Auto-Match Payment'}
                   </button>
                   <button
                     onClick={() => setShowPaymentModal(true)}
                     disabled={processing}
-                    className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                    className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90 disabled:opacity-50"
                   >
                     Manual Verify
                   </button>
@@ -918,7 +918,7 @@ export default function AdminRefillQueuePage() {
                 selectedRefill.status === 'PENDING_PROVIDER') && (
                 <button
                   onClick={() => router.push('/provider/prescription-queue')}
-                  className="w-full rounded-lg bg-purple-600 py-2 font-medium text-white hover:bg-purple-700"
+                  className="w-full rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90"
                 >
                   View in Provider Queue
                 </button>
@@ -949,7 +949,7 @@ export default function AdminRefillQueuePage() {
                 <select
                   value={paymentForm.method}
                   onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 >
                   <option value="MANUAL_VERIFIED">Manually Verified</option>
                   <option value="EXTERNAL_REFERENCE">External Payment (Venmo, Check, etc.)</option>
@@ -969,7 +969,7 @@ export default function AdminRefillQueuePage() {
                       setPaymentForm((f) => ({ ...f, paymentReference: e.target.value }))
                     }
                     placeholder="e.g., Venmo @username, Check #1234"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                   />
                 </div>
               )}
@@ -988,7 +988,7 @@ export default function AdminRefillQueuePage() {
                     processing ||
                     (paymentForm.method === 'EXTERNAL_REFERENCE' && !paymentForm.paymentReference)
                   }
-                  className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90 disabled:opacity-50"
                 >
                   {processing ? 'Verifying...' : 'Verify Payment'}
                 </button>
@@ -1021,7 +1021,7 @@ export default function AdminRefillQueuePage() {
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Provide a reason for rejection..."
                   rows={3}
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 

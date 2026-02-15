@@ -175,14 +175,14 @@ export default function ProviderDashboard() {
 
         <Link
           href="/provider/prescriptions"
-          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-purple-200"
+          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-[var(--brand-primary-medium)]"
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Prescriptions</p>
               <p className="mt-1 text-3xl font-bold text-gray-900">{stats.recentPrescriptions}</p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--brand-primary)]">
               <Pill className="h-6 w-6 text-white" />
             </div>
           </div>
@@ -328,7 +328,7 @@ export default function ProviderDashboard() {
             </button>
             <button
               onClick={() => router.push('/provider/prescriptions')}
-              className="flex flex-col items-center rounded-xl bg-purple-50 p-4 text-purple-700 transition-colors hover:bg-purple-100"
+              className="flex flex-col items-center rounded-xl bg-[var(--brand-primary-light)] p-4 text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
             >
               <Pill className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Prescriptions</span>

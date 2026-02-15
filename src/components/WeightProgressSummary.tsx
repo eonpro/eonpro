@@ -199,7 +199,7 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
                 key={entry.id}
                 className={`h-2 w-2 rounded-full border border-white ${
                   entry.source === 'intake'
-                    ? 'bg-purple-500'
+                    ? 'bg-[var(--brand-primary)]'
                     : entry.source === 'provider'
                       ? 'bg-blue-500'
                       : 'bg-green-500'
@@ -216,7 +216,7 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
             })}
           </span>
           {weightData.some((e) => e.source === 'intake') && (
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-purple-700">
+            <span className="rounded-full bg-[var(--brand-primary-light)] px-2 py-0.5 text-[var(--brand-primary)]">
               Intake recorded
             </span>
           )}

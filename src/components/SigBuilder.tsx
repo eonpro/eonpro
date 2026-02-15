@@ -487,7 +487,7 @@ export default function SigBuilder({
           type="button"
           onClick={handleAiGenerate}
           disabled={disabled || isAiGenerating}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:from-purple-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-primary)] px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:brightness-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isAiGenerating ? (
             <>
@@ -626,7 +626,7 @@ export default function SigBuilder({
           onClick={() => toggleOption('includeMissedDose')}
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
             options.includeMissedDose
-              ? 'border-purple-300 bg-purple-50 text-purple-700'
+              ? 'border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
               : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
           }`}
         >

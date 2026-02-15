@@ -84,7 +84,7 @@ interface Pagination {
 const STATUS_COLORS: Record<string, string> = {
   NEW: 'bg-blue-100 text-blue-800',
   OPEN: 'bg-yellow-100 text-yellow-800',
-  IN_PROGRESS: 'bg-purple-100 text-purple-800',
+  IN_PROGRESS: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
   PENDING: 'bg-gray-100 text-gray-800',
   PENDING_CUSTOMER: 'bg-orange-100 text-orange-800',
   PENDING_INTERNAL: 'bg-orange-100 text-orange-800',

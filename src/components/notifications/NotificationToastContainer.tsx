@@ -36,7 +36,7 @@ const categoryConfig: Record<
 > = {
   PRESCRIPTION: {
     icon: Pill,
-    gradient: 'from-purple-500 to-purple-600',
+    gradient: 'from-[var(--brand-primary)] to-[var(--brand-primary)]',
     iconColor: 'text-white',
     label: 'Prescriptions',
   },
@@ -66,7 +66,7 @@ const categoryConfig: Record<
   },
   MESSAGE: {
     icon: MessageSquare,
-    gradient: 'from-indigo-500 to-indigo-600',
+    gradient: 'from-[var(--brand-primary)] to-[var(--brand-primary)]',
     iconColor: 'text-white',
     label: 'New Chat',
   },
@@ -342,8 +342,8 @@ export default function NotificationToastContainer() {
           exit={{ opacity: 0, scale: 0.9, y: -10 }}
           className="flex items-center gap-3 rounded-2xl bg-gray-900/95 px-4 py-3 text-white shadow-xl backdrop-blur-xl"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/20">
-            <Moon className="h-4 w-4 text-purple-400" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
+            <Moon className="h-4 w-4 text-[var(--brand-primary)]" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold">Do Not Disturb</p>

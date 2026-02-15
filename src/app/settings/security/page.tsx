@@ -50,8 +50,8 @@ export default function SecuritySettingsPage() {
         {/* Active Sessions */}
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <div className="mb-4 flex items-center gap-3">
-            <div className="rounded-lg bg-purple-100 p-2">
-              <Clock className="h-5 w-5 text-purple-600" />
+            <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+              <Clock className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <div>
               <h2 className="font-semibold text-gray-900">Active Sessions</h2>

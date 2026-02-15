@@ -128,7 +128,7 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
           {/* Medication Selection */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
-              <Pill className="h-5 w-5 text-purple-500" />
+              <Pill className="h-5 w-5 text-emerald-500" />
               Select Medication
             </h2>
             <div className="grid grid-cols-2 gap-4">
@@ -136,13 +136,13 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
                 onClick={() => setMedication('semaglutide')}
                 className={`rounded-xl border-2 p-4 text-left transition-all ${
                   medication === 'semaglutide'
-                    ? 'border-purple-500 bg-purple-50'
+                    ? 'border-emerald-500 bg-emerald-50'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <p className="font-semibold text-gray-900">Semaglutide</p>
                 <p className="text-sm text-gray-500">Wegovy, Ozempic</p>
-                {medication === 'semaglutide' && <Check className="mt-2 h-5 w-5 text-purple-500" />}
+                {medication === 'semaglutide' && <Check className="mt-2 h-5 w-5 text-emerald-500" />}
               </button>
               <button
                 onClick={() => setMedication('tirzepatide')}
@@ -449,7 +449,7 @@ ${notes ? `\nNotes: ${notes}` : ''}`;
             style={{
               background:
                 medication === 'semaglutide'
-                  ? 'linear-gradient(135deg, #8B5CF6, #A78BFA)'
+                  ? 'linear-gradient(135deg, #4fa77e, #6EBF9A)'
                   : 'linear-gradient(135deg, #F59E0B, #FBBF24)',
             }}
           >

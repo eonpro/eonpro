@@ -570,7 +570,7 @@ export default function PatientPortalDashboard() {
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 p-3">
+                <div className="rounded-xl bg-[var(--brand-primary)] p-3">
                   <Camera className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -641,13 +641,13 @@ export default function PatientPortalDashboard() {
 
             {/* Upload Prompt for users with no photos */}
             {!photoStats?.totalPhotos && (
-              <div className="mt-4 flex items-center gap-3 rounded-lg bg-violet-50 p-3">
-                <ImageIcon className="h-5 w-5 text-violet-600" />
+              <div className="mt-4 flex items-center gap-3 rounded-lg bg-[var(--brand-primary-light)] p-3">
+                <ImageIcon className="h-5 w-5 text-[var(--brand-primary)]" />
                 <div>
-                  <p className="text-sm font-medium text-violet-700">
+                  <p className="text-sm font-medium text-[var(--brand-primary)]">
                     {t('dashboardStartDocumenting')}
                   </p>
-                  <p className="text-xs text-violet-600">{t('dashboardUploadFirstPhoto')}</p>
+                  <p className="text-xs text-[var(--brand-primary)]">{t('dashboardUploadFirstPhoto')}</p>
                 </div>
               </div>
             )}
@@ -674,7 +674,7 @@ export default function PatientPortalDashboard() {
               href={`${PATIENT_PORTAL_PATH}/calculators`}
               className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
-              <Calculator className="mb-2 h-6 w-6 text-purple-600" />
+              <Calculator className="mb-2 h-6 w-6 text-[var(--brand-primary)]" />
               <span className="text-sm font-medium text-gray-700">{t('dashboardCalculators')}</span>
             </Link>
           )}
@@ -747,8 +747,8 @@ export default function PatientPortalDashboard() {
           <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-purple-50 p-3">
-                  <Activity className="h-6 w-6 text-purple-600" />
+                <div className="rounded-xl bg-[var(--brand-primary-light)] p-3">
+                  <Activity className="h-6 w-6 text-[var(--brand-primary)]" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">BMI Calculator</h3>

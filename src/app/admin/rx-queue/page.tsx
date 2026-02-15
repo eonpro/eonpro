@@ -106,7 +106,7 @@ export default function AdminRxQueuePage() {
       case 'soap_note':
         return <ClipboardCheck className="h-4 w-4 text-amber-600" />;
       case 'refill':
-        return <RefreshCw className="h-4 w-4 text-purple-600" />;
+        return <RefreshCw className="h-4 w-4 text-[var(--brand-primary)]" />;
       default:
         return <FileText className="h-4 w-4 text-gray-600" />;
     }
@@ -119,7 +119,7 @@ export default function AdminRxQueuePage() {
       case 'soap_note':
         return 'bg-amber-100 text-amber-800';
       case 'refill':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -261,8 +261,8 @@ export default function AdminRxQueuePage() {
           style={
             filter === 'refills'
               ? {
-                  borderColor: '#a855f7',
-                  boxShadow: '0 0 0 3px rgba(168, 85, 247, 0.15)',
+                  borderColor: 'var(--brand-primary)',
+                  boxShadow: '0 0 0 3px var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
                 }
               : {}
           }
@@ -271,10 +271,10 @@ export default function AdminRxQueuePage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500 sm:text-sm">Refills</p>
-              <p className="text-xl font-bold text-purple-600 sm:text-2xl">{counts.refills}</p>
+              <p className="text-xl font-bold text-[var(--brand-primary)] sm:text-2xl">{counts.refills}</p>
             </div>
-            <div className="rounded-xl bg-purple-100 p-2 sm:p-3">
-              <RefreshCw className="h-5 w-5 text-purple-600 sm:h-6 sm:w-6" />
+            <div className="rounded-xl bg-[var(--brand-primary-light)] p-2 sm:p-3">
+              <RefreshCw className="h-5 w-5 text-[var(--brand-primary)] sm:h-6 sm:w-6" />
             </div>
           </div>
         </div>
@@ -463,7 +463,7 @@ export default function AdminRxQueuePage() {
             <span className="text-gray-600">Clinical notes pending approval</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-purple-800">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-primary-light)] px-2 py-1 text-[var(--brand-primary)]">
               <RefreshCw className="h-3 w-3" />
               Refill
             </span>

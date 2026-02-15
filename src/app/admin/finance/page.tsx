@@ -264,7 +264,7 @@ export default function FinanceOverviewPage() {
       case 'invoice':
         return <FileText className="h-4 w-4 text-blue-500" />;
       case 'subscription':
-        return <Users className="h-4 w-4 text-purple-500" />;
+        return <Users className="h-4 w-4 text-[var(--brand-primary)]" />;
       case 'refund':
         return <RefreshCcw className="h-4 w-4 text-orange-500" />;
       case 'payout':
@@ -272,6 +272,19 @@ export default function FinanceOverviewPage() {
       default:
         return <Activity className="h-4 w-4 text-gray-500" />;
     }
+  };
+
+  // Explicit color class map so purple/indigo resolve to brand CSS vars
+  const kpiColorClasses: Record<string, { bg: string; text: string }> = {
+    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
+    blue: { bg: 'bg-blue-50', text: 'text-blue-600' },
+    purple: { bg: 'bg-[var(--brand-primary-light)]', text: 'text-[var(--brand-primary)]' },
+    indigo: { bg: 'bg-[var(--brand-primary-light)]', text: 'text-[var(--brand-primary)]' },
+    cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600' },
+    red: { bg: 'bg-red-50', text: 'text-red-600' },
+    green: { bg: 'bg-green-50', text: 'text-green-600' },
+    amber: { bg: 'bg-amber-50', text: 'text-amber-600' },
+    orange: { bg: 'bg-orange-50', text: 'text-orange-600' },
   };
 
   return (
@@ -344,8 +357,8 @@ export default function FinanceOverviewPage() {
               className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex items-start justify-between">
-                <div className={`rounded-lg p-2 bg-${kpi.color}-50`}>
-                  <Icon className={`h-5 w-5 text-${kpi.color}-600`} />
+                <div className={`rounded-lg p-2 ${kpiColorClasses[kpi.color]?.bg ?? `bg-${kpi.color}-50`}`}>
+                  <Icon className={`h-5 w-5 ${kpiColorClasses[kpi.color]?.text ?? `text-${kpi.color}-600`}`} />
                 </div>
                 {change !== 0 && (
                   <span

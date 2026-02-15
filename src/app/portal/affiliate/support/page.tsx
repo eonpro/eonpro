@@ -81,7 +81,7 @@ export default function SupportPage() {
               setSubmitted(false);
               setFormData({ subject: '', category: 'general', message: '' });
             }}
-            className="rounded-lg bg-violet-600 px-6 py-2 font-medium text-white hover:bg-violet-700"
+            className="rounded-lg bg-[var(--brand-primary)] px-6 py-2 font-medium text-white hover:brightness-90"
           >
             Send Another Message
           </button>
@@ -101,7 +101,7 @@ export default function SupportPage() {
       {/* Quick Links */}
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
-          <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+          <div className="rounded-lg bg-[var(--brand-primary-light)] p-2 text-[var(--brand-primary)]">
             <Mail className="h-5 w-5" />
           </div>
           <div>
@@ -167,7 +167,7 @@ export default function SupportPage() {
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData((f) => ({ ...f, category: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 >
                   <option value="general">General Question</option>
                   <option value="technical">Technical Issue</option>
@@ -185,7 +185,7 @@ export default function SupportPage() {
                   value={formData.subject}
                   onChange={(e) => setFormData((f) => ({ ...f, subject: e.target.value }))}
                   placeholder="Brief description of your question"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -197,14 +197,14 @@ export default function SupportPage() {
                   value={formData.message}
                   onChange={(e) => setFormData((f) => ({ ...f, message: e.target.value }))}
                   placeholder="Please provide details about your question or issue..."
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary)] py-3 font-medium text-white hover:brightness-90 disabled:opacity-50"
               >
                 {submitting ? (
                   'Sending...'

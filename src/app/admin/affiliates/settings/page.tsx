@@ -117,7 +117,7 @@ export default function AffiliateSettingsPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -133,7 +133,7 @@ export default function AffiliateSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 font-medium text-white hover:brightness-90 disabled:opacity-50"
         >
           {saved ? (
             <>
@@ -163,7 +163,7 @@ export default function AffiliateSettingsPage() {
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-medium transition-all ${
                 activeTab === tab.id
-                  ? 'border-violet-600 text-violet-600'
+                  ? 'border-[var(--brand-primary)] text-[var(--brand-primary)]'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -185,7 +185,7 @@ export default function AffiliateSettingsPage() {
               <select
                 value={settings.newPatientModel}
                 onChange={(e) => setSettings((s) => ({ ...s, newPatientModel: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
               >
                 <option value="FIRST_CLICK">First Click</option>
                 <option value="LAST_CLICK">Last Click</option>
@@ -205,7 +205,7 @@ export default function AffiliateSettingsPage() {
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, returningPatientModel: e.target.value }))
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
               >
                 <option value="FIRST_CLICK">First Click</option>
                 <option value="LAST_CLICK">Last Click</option>
@@ -230,7 +230,7 @@ export default function AffiliateSettingsPage() {
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, cookieWindowDays: parseInt(e.target.value) || 30 }))
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
               />
               <p className="mt-1 text-xs text-gray-500">How long attribution cookies last</p>
             </div>
@@ -243,7 +243,7 @@ export default function AffiliateSettingsPage() {
                   onChange={(e) =>
                     setSettings((s) => ({ ...s, enableFingerprinting: e.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                 />
                 <span className="text-sm text-gray-700">Enable browser fingerprinting</span>
               </label>
@@ -252,7 +252,7 @@ export default function AffiliateSettingsPage() {
                   type="checkbox"
                   checked={settings.enableSubIds}
                   onChange={(e) => setSettings((s) => ({ ...s, enableSubIds: e.target.checked }))}
-                  className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                 />
                 <span className="text-sm text-gray-700">Enable sub-ID tracking</span>
               </label>
@@ -274,7 +274,7 @@ export default function AffiliateSettingsPage() {
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, defaultCommissionType: e.target.value }))
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
               >
                 <option value="PERCENT">Percentage</option>
                 <option value="FLAT">Flat Amount</option>
@@ -296,7 +296,7 @@ export default function AffiliateSettingsPage() {
                       defaultCommissionValue: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                   {settings.defaultCommissionType === 'PERCENT' ? '%' : '$'}
@@ -314,7 +314,7 @@ export default function AffiliateSettingsPage() {
                 onChange={(e) =>
                   setSettings((s) => ({ ...s, holdDays: parseInt(e.target.value) || 0 }))
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Days before commission is approved for payout
@@ -329,7 +329,7 @@ export default function AffiliateSettingsPage() {
                   onChange={(e) =>
                     setSettings((s) => ({ ...s, clawbackEnabled: e.target.checked }))
                   }
-                  className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                 />
                 <span className="text-sm text-gray-700">
                   Enable clawback on refunds/chargebacks
@@ -360,7 +360,7 @@ export default function AffiliateSettingsPage() {
                       minimumPayoutCents: Math.round((parseFloat(e.target.value) || 0) * 100),
                     }))
                   }
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
             </div>
@@ -370,7 +370,7 @@ export default function AffiliateSettingsPage() {
               <select
                 value={settings.payoutFrequency}
                 onChange={(e) => setSettings((s) => ({ ...s, payoutFrequency: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
               >
                 <option value="WEEKLY">Weekly</option>
                 <option value="BIWEEKLY">Bi-weekly</option>
@@ -391,7 +391,7 @@ export default function AffiliateSettingsPage() {
                 type="checkbox"
                 checked={settings.fraudEnabled}
                 onChange={(e) => setSettings((s) => ({ ...s, fraudEnabled: e.target.checked }))}
-                className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
               />
               <span className="font-medium text-gray-900">Enable Fraud Detection</span>
             </label>
@@ -413,7 +413,7 @@ export default function AffiliateSettingsPage() {
                       maxConversionsPerDay: parseInt(e.target.value) || 50,
                     }))
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -431,7 +431,7 @@ export default function AffiliateSettingsPage() {
                       maxConversionsPerIp: parseInt(e.target.value) || 3,
                     }))
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -443,7 +443,7 @@ export default function AffiliateSettingsPage() {
                     onChange={(e) =>
                       setSettings((s) => ({ ...s, blockProxyVpn: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                   />
                   <span className="text-sm text-gray-700">Block proxy/VPN traffic</span>
                 </label>
@@ -452,7 +452,7 @@ export default function AffiliateSettingsPage() {
                     type="checkbox"
                     checked={settings.blockTor}
                     onChange={(e) => setSettings((s) => ({ ...s, blockTor: e.target.checked }))}
-                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                   />
                   <span className="text-sm text-gray-700">Block TOR exit nodes</span>
                 </label>
@@ -463,7 +463,7 @@ export default function AffiliateSettingsPage() {
                     onChange={(e) =>
                       setSettings((s) => ({ ...s, autoHoldOnHighRisk: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                   />
                   <span className="text-sm text-gray-700">
                     Auto-hold commissions on high-risk alerts

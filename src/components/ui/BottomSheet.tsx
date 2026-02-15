@@ -331,7 +331,7 @@ export function BottomSheetConfirm({
             disabled={loading}
             className={cn(
               'flex-1 rounded-xl py-3 font-medium text-white transition-colors disabled:opacity-50',
-              destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-violet-600 hover:bg-violet-700'
+              destructive ? 'bg-red-600 hover:bg-red-700' : 'bg-[var(--brand-primary)] hover:brightness-90'
             )}
           >
             {loading ? (

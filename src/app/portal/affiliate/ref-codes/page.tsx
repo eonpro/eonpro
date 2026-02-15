@@ -118,7 +118,7 @@ export default function RefCodesPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -133,7 +133,7 @@ export default function RefCodesPage() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 font-medium text-white hover:brightness-90"
         >
           <Plus className="h-5 w-5" />
           New Ref Code
@@ -182,7 +182,7 @@ export default function RefCodesPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => handleCopyLink(ref.refCode)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-50 py-2 text-sm font-medium text-violet-600 hover:bg-violet-100"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary-light)] py-2 text-sm font-medium text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
               >
                 {copiedCode === ref.refCode ? (
                   <>
@@ -221,7 +221,7 @@ export default function RefCodesPage() {
           <p className="mt-2 text-gray-500">No referral codes yet</p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="mt-4 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            className="mt-4 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90"
           >
             Create Your First Code
           </button>
@@ -248,7 +248,7 @@ export default function RefCodesPage() {
                     }))
                   }
                   placeholder="e.g., SUMMER2026"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Letters, numbers, underscores, and hyphens only
@@ -262,7 +262,7 @@ export default function RefCodesPage() {
                   value={newCode.description}
                   onChange={(e) => setNewCode((c) => ({ ...c, description: e.target.value }))}
                   placeholder="e.g., Summer campaign 2026"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -284,7 +284,7 @@ export default function RefCodesPage() {
                 <button
                   type="submit"
                   disabled={creating}
-                  className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90 disabled:opacity-50"
                 >
                   {creating ? 'Creating...' : 'Create'}
                 </button>
@@ -321,7 +321,7 @@ export default function RefCodesPage() {
               <a
                 href={generateQrCode(showQrModal)}
                 download={`qr-${showQrModal}.png`}
-                className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700"
+                className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90"
               >
                 Download
               </a>

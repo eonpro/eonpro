@@ -158,9 +158,9 @@ export default function ResourcesPage() {
       </div>
 
       {/* Tips Card */}
-      <div className="mb-6 rounded-xl bg-gradient-to-r from-violet-50 to-purple-50 p-4">
+      <div className="mb-6 rounded-xl bg-gradient-to-r from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] p-4">
         <div className="flex items-start gap-3">
-          <Sparkles className="h-5 w-5 flex-shrink-0 text-violet-600" />
+          <Sparkles className="h-5 w-5 flex-shrink-0 text-[var(--brand-primary)]" />
           <div>
             <p className="font-medium text-gray-900">Pro Tips</p>
             <ul className="mt-1 text-sm text-gray-600">
@@ -180,7 +180,7 @@ export default function ResourcesPage() {
             onClick={() => setFilter(type as any)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
               filter === type
-                ? 'bg-violet-600 text-white'
+                ? 'bg-[var(--brand-primary)] text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -198,7 +198,7 @@ export default function ResourcesPage() {
             <div key={resource.id} className="rounded-xl bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-violet-100 p-1.5 text-violet-600">
+                  <div className="rounded-lg bg-[var(--brand-primary-light)] p-1.5 text-[var(--brand-primary)]">
                     <TypeIcon className="h-4 w-4" />
                   </div>
                   <div>
@@ -236,7 +236,7 @@ export default function ResourcesPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleCopy(resource.id, resource.content)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-50 py-2 text-sm font-medium text-violet-600 hover:bg-violet-100"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--brand-primary-light)] py-2 text-sm font-medium text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
                 >
                   {copiedId === resource.id ? (
                     <>
@@ -281,7 +281,7 @@ export default function ResourcesPage() {
         </p>
         <a
           href="/portal/affiliate/support"
-          className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700"
+          className="inline-flex items-center gap-2 text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
         >
           Contact Support
           <ExternalLink className="h-4 w-4" />

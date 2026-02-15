@@ -132,7 +132,7 @@ export default function ClinicsAdminPage() {
   const getPlanBadge = (plan: string) => {
     switch (plan) {
       case 'enterprise':
-        return 'bg-gradient-to-r from-purple-600 to-blue-600 text-white';
+        return 'bg-gradient-to-r from-[var(--brand-primary)] to-blue-600 text-white';
       case 'professional':
         return 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white';
       case 'starter':
@@ -218,7 +218,7 @@ export default function ClinicsAdminPage() {
               <p className="text-sm font-medium text-gray-600">Total Providers</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">{totals.providers}</p>
             </div>
-            <Activity className="h-8 w-8 text-purple-500 opacity-50" />
+            <Activity className="h-8 w-8 text-[var(--brand-primary)] opacity-50" />
           </div>
           <p className="mt-2 text-xs text-gray-500">Active providers</p>
         </div>

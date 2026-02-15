@@ -438,8 +438,8 @@ export default function RevenuePage() {
 
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="rounded-lg bg-purple-50 p-2">
-              <Calendar className="h-5 w-5 text-purple-600" />
+            <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+              <Calendar className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <span
               className={`flex items-center text-sm font-medium ${
@@ -713,7 +713,7 @@ export default function RevenuePage() {
             </ResponsiveContainer>
             <div className="mt-4 flex items-center gap-6 border-t border-gray-100 pt-4 text-sm text-gray-500">
               <div className="flex items-center gap-2">
-                <div className="h-0.5 w-4 bg-purple-500" style={{ strokeDasharray: '5 5' }} />
+                <div className="h-0.5 w-4 bg-[var(--brand-primary)]" style={{ strokeDasharray: '5 5' }} />
                 <span>Predicted Revenue</span>
               </div>
               <div className="flex items-center gap-2">

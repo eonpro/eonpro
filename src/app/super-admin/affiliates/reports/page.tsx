@@ -220,7 +220,7 @@ export default function SuperAdminAffiliateReportsPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -231,8 +231,8 @@ export default function SuperAdminAffiliateReportsPage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-violet-600" />
-            <span className="text-sm font-medium text-violet-600">Cross-Clinic View</span>
+            <Building2 className="h-5 w-5 text-[var(--brand-primary)]" />
+            <span className="text-sm font-medium text-[var(--brand-primary)]">Cross-Clinic View</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Affiliate Reports</h1>
           <p className="text-gray-500">Program performance across all clinics</p>
@@ -245,7 +245,7 @@ export default function SuperAdminAffiliateReportsPage() {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
-                  period === p ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                  period === p ? 'bg-[var(--brand-primary)] text-white' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 {p === 'ytd' ? 'YTD' : p}
@@ -259,7 +259,7 @@ export default function SuperAdminAffiliateReportsPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+            <div className="rounded-lg bg-[var(--brand-primary-light)] p-2 text-[var(--brand-primary)]">
               <Users className="h-5 w-5" />
             </div>
             <div>
@@ -322,7 +322,7 @@ export default function SuperAdminAffiliateReportsPage() {
                     <span className="w-12 text-xs text-gray-500">{formatDate(day.date)}</span>
                     <div className="flex-1">
                       <div
-                        className="h-5 rounded-r bg-violet-500 transition-all"
+                        className="h-5 rounded-r bg-[var(--brand-primary)] transition-all"
                         style={{ width: `${Math.max(width, 2)}%` }}
                       />
                     </div>
@@ -405,7 +405,7 @@ export default function SuperAdminAffiliateReportsPage() {
                 onClick={() => setLeaderboardMetric(key)}
                 className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                   leaderboardMetric === key
-                    ? 'bg-white text-violet-600 shadow-sm'
+                    ? 'bg-white text-[var(--brand-primary)] shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -418,7 +418,7 @@ export default function SuperAdminAffiliateReportsPage() {
 
         {leaderboardLoading ? (
           <div className="flex h-48 items-center justify-center">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
           </div>
         ) : leaderboardData && leaderboardData.entries.length > 0 ? (
           <div className="space-y-2">
@@ -473,7 +473,7 @@ export default function SuperAdminAffiliateReportsPage() {
                       leaderboardMetric === 'revenue'
                         ? 'text-green-600'
                         : leaderboardMetric === 'conversions'
-                          ? 'text-violet-600'
+                          ? 'text-[var(--brand-primary)]'
                           : leaderboardMetric === 'clicks'
                             ? 'text-blue-600'
                             : 'text-orange-600'
@@ -494,7 +494,7 @@ export default function SuperAdminAffiliateReportsPage() {
                         leaderboardMetric === 'revenue'
                           ? 'bg-green-500'
                           : leaderboardMetric === 'conversions'
-                            ? 'bg-violet-500'
+                            ? 'bg-[var(--brand-primary)]'
                             : leaderboardMetric === 'clicks'
                               ? 'bg-blue-500'
                               : 'bg-orange-500'
@@ -520,7 +520,7 @@ export default function SuperAdminAffiliateReportsPage() {
         <div className="mt-4 border-t border-gray-100 pt-4">
           <a
             href="/super-admin/affiliates/code-performance"
-            className="inline-flex items-center gap-2 text-sm text-violet-600 hover:text-violet-700"
+            className="inline-flex items-center gap-2 text-sm text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
           >
             <Target className="h-4 w-4" />
             View detailed code performance

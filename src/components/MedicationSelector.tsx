@@ -26,9 +26,9 @@ const CATEGORY_CONFIG: Record<
   },
   'Hormone Support': {
     label: 'Hormone Support',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
+    color: 'text-[var(--brand-primary)]',
+    bgColor: 'bg-[var(--brand-primary-light)]',
+    borderColor: 'border-[var(--brand-primary-medium)]',
     emoji: '⚖️',
   },
   Peptide: {
@@ -306,7 +306,7 @@ export default function MedicationSelector({
                   selectedMed.subCategory === 'Semaglutide'
                     ? 'bg-teal-100'
                     : selectedMed.subCategory === 'Tirzepatide'
-                      ? 'bg-violet-100'
+                      ? 'bg-[var(--brand-primary-light)]'
                       : 'bg-gray-100'
                 }`}
               >
@@ -315,7 +315,7 @@ export default function MedicationSelector({
                     selectedMed.subCategory === 'Semaglutide'
                       ? 'text-teal-600'
                       : selectedMed.subCategory === 'Tirzepatide'
-                        ? 'text-violet-600'
+                        ? 'text-[var(--brand-primary)]'
                         : 'text-gray-600'
                   }`}
                 />
@@ -328,7 +328,7 @@ export default function MedicationSelector({
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         selectedMed.subCategory === 'Semaglutide'
                           ? 'bg-teal-100 text-teal-700'
-                          : 'bg-violet-100 text-violet-700'
+                          : 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                       }`}
                     >
                       {selectedMed.subCategory === 'Semaglutide' ? '🟢' : '🟣'}{' '}
@@ -419,7 +419,7 @@ export default function MedicationSelector({
               onClick={() => setActiveTab('tirzepatide')}
               className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === 'tirzepatide'
-                  ? 'border-b-2 border-violet-500 bg-white text-violet-600'
+                  ? 'border-b-2 border-[var(--brand-primary)] bg-white text-[var(--brand-primary)]'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -473,10 +473,10 @@ export default function MedicationSelector({
                 {/* Tirzepatide Group */}
                 {groupedMedications.tirzepatide.length > 0 && (
                   <div>
-                    <div className="sticky top-0 border-b border-violet-100 bg-violet-50 px-4 py-2">
-                      <span className="flex items-center gap-2 text-sm font-semibold text-violet-700">
+                    <div className="sticky top-0 border-b border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] px-4 py-2">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-[var(--brand-primary)]">
                         🟣 Tirzepatide
-                        <span className="text-xs font-normal text-violet-600">
+                        <span className="text-xs font-normal text-[var(--brand-primary)]">
                           ({groupedMedications.tirzepatide.length} options)
                         </span>
                       </span>
@@ -487,7 +487,7 @@ export default function MedicationSelector({
                         med={med}
                         isSelected={value === med.key}
                         onSelect={handleSelect}
-                        colorClass="violet"
+                        colorClass="brand"
                       />
                     ))}
                   </div>
@@ -528,7 +528,7 @@ export default function MedicationSelector({
                     med.subCategory === 'Semaglutide'
                       ? 'teal'
                       : med.subCategory === 'Tirzepatide'
-                        ? 'violet'
+                        ? 'brand'
                         : 'gray'
                   }
                 />
@@ -551,7 +551,7 @@ function MedicationOption({
   med: MedicationOption;
   isSelected: boolean;
   onSelect: (key: string) => void;
-  colorClass: 'teal' | 'violet' | 'gray';
+  colorClass: 'teal' | 'brand' | 'gray';
 }) {
   const colorClasses = {
     teal: {
@@ -560,11 +560,11 @@ function MedicationOption({
       icon: 'bg-teal-100 text-teal-600',
       badge: 'bg-teal-100 text-teal-700',
     },
-    violet: {
-      bg: 'hover:bg-violet-50',
-      selected: 'bg-violet-100 border-l-4 border-violet-500',
-      icon: 'bg-violet-100 text-violet-600',
-      badge: 'bg-violet-100 text-violet-700',
+    brand: {
+      bg: 'hover:bg-[var(--brand-primary-light)]',
+      selected: 'bg-[var(--brand-primary-light)] border-l-4 border-[var(--brand-primary)]',
+      icon: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
+      badge: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
     },
     gray: {
       bg: 'hover:bg-gray-50',

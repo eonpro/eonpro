@@ -76,7 +76,7 @@ export default function AdminAnalyticsPage() {
     return (
       <div className="mx-auto max-w-7xl p-6">
         <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--brand-primary)]" />
         </div>
       </div>
     );
@@ -97,8 +97,8 @@ export default function AdminAnalyticsPage() {
           return (
             <div key={index} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <div className="rounded-lg bg-indigo-50 p-2">
-                  <Icon className="h-6 w-6 text-indigo-600" />
+                <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+                  <Icon className="h-6 w-6 text-[var(--brand-primary)]" />
                 </div>
                 <span
                   className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-gray-500'}`}
@@ -151,9 +151,9 @@ export default function AdminAnalyticsPage() {
         {/* Info Box */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Analytics Dashboard</h2>
-          <div className="flex h-64 items-center justify-center rounded-lg bg-gradient-to-br from-purple-50 to-indigo-50">
+          <div className="flex h-64 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--brand-primary-light)] to-[var(--brand-primary-light)]">
             <div className="text-center">
-              <BarChart3 className="mx-auto mb-2 h-12 w-12 text-purple-400" />
+              <BarChart3 className="mx-auto mb-2 h-12 w-12 text-[var(--brand-primary)]" />
               <p className="font-medium text-gray-700">Real-Time Data</p>
               <p className="mt-1 text-sm text-gray-500">
                 All metrics shown are live from your database

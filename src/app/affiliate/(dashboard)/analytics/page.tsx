@@ -415,8 +415,8 @@ export default function AffiliateAnalyticsPage() {
             title="Revenue"
             value={formatCurrency(periodTotals?.revenue || 0)}
             icon={DollarSign}
-            iconBg="bg-purple-50"
-            iconColor="text-purple-500"
+            iconBg="bg-emerald-50"
+            iconColor="text-emerald-500"
           />
           <StatCard
             title="Earnings"
@@ -598,7 +598,7 @@ export default function AffiliateAnalyticsPage() {
                         </span>
                       </div>
                       <div className="relative text-center">
-                        <p className="text-lg font-semibold text-purple-600">
+                        <p className="text-lg font-semibold text-emerald-600">
                           {ref.conversionRate.toFixed(1)}%
                         </p>
                         <p className="text-xs text-gray-500">Conv. Rate</p>

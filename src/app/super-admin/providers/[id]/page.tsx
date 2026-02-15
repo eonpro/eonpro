@@ -811,7 +811,7 @@ export default function SuperAdminProviderDetailPage() {
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-purple-100 p-2 text-purple-600">
+            <div className="rounded-lg bg-[var(--brand-primary-light)] p-2 text-[var(--brand-primary)]">
               <Calendar className="h-5 w-5" />
             </div>
             <div>

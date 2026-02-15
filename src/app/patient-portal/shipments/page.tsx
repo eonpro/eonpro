@@ -58,15 +58,15 @@ const statusConfig = {
     color: '#3B82F6',
     bgColor: 'bg-blue-100',
     textColor: 'text-blue-700',
-    gradient: 'from-blue-400 to-indigo-500',
+    gradient: 'from-blue-400 to-blue-600',
     icon: Package,
   },
   in_transit: {
     label: 'In Transit',
-    color: '#8B5CF6',
-    bgColor: 'bg-purple-100',
-    textColor: 'text-purple-700',
-    gradient: 'from-violet-400 to-purple-600',
+    color: '#06B6D4',
+    bgColor: 'bg-cyan-100',
+    textColor: 'text-cyan-700',
+    gradient: 'from-cyan-400 to-teal-600',
     icon: Truck,
   },
   out_for_delivery: {
@@ -167,8 +167,8 @@ export default function ShipmentsPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
         <div className="relative">
-          <div className="h-16 w-16 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
-          <Package className="absolute inset-0 m-auto h-6 w-6 text-purple-600" />
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
+          <Package className="absolute inset-0 m-auto h-6 w-6 text-emerald-600" />
         </div>
       </div>
     );
@@ -215,7 +215,7 @@ export default function ShipmentsPage() {
           }}
           className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === 'active'
-              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -229,7 +229,7 @@ export default function ShipmentsPage() {
           }}
           className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === 'history'
-              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -274,7 +274,7 @@ export default function ShipmentsPage() {
                   onClick={() => setSelectedShipment(shipment)}
                   className={`w-full rounded-2xl border-2 bg-white p-4 text-left transition-all ${
                     isSelected
-                      ? 'border-purple-500 shadow-lg shadow-purple-500/10'
+                      ? 'border-emerald-500 shadow-lg shadow-emerald-500/10'
                       : 'border-transparent shadow-sm hover:border-gray-200 hover:shadow-md'
                   }`}
                 >
@@ -288,7 +288,7 @@ export default function ShipmentsPage() {
                           {shipment.orderNumber}
                         </p>
                         {shipment.isRefill && (
-                          <span className="flex items-center gap-0.5 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          <span className="flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                             <Sparkles className="h-3 w-3" />
                             Refill
                           </span>
@@ -303,7 +303,7 @@ export default function ShipmentsPage() {
                     </div>
                     <ChevronRight
                       className={`h-5 w-5 flex-shrink-0 transition-colors ${
-                        isSelected ? 'text-purple-500' : 'text-gray-300'
+                        isSelected ? 'text-emerald-500' : 'text-gray-300'
                       }`}
                     />
                   </div>
@@ -402,12 +402,12 @@ export default function ShipmentsPage() {
                                 isCompleted
                                   ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                                   : isCurrent
-                                    ? 'scale-110 bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+                                    ? 'scale-110 bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
                                     : 'bg-gray-100 text-gray-400'
                               }`}
                             >
                               {isCurrent && (
-                                <div className="absolute inset-0 animate-ping rounded-full bg-purple-400 opacity-30" />
+                                <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-30" />
                               )}
                               {isCompleted ? (
                                 <CheckCircle2 className="h-5 w-5" />
@@ -419,7 +419,7 @@ export default function ShipmentsPage() {
                             <span
                               className={`mt-2 text-center text-xs font-medium ${
                                 isCurrent
-                                  ? 'text-purple-600'
+                                  ? 'text-emerald-600'
                                   : isCompleted
                                     ? 'text-emerald-600'
                                     : 'text-gray-400'
@@ -441,7 +441,7 @@ export default function ShipmentsPage() {
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                    <div className="rounded-2xl border border-blue-100 bg-[var(--brand-primary-light)] p-4">
                       <p className="mb-1 text-xs font-medium text-blue-600">Carrier</p>
                       <p className="text-lg font-bold text-blue-900">{selectedShipment.carrier}</p>
                     </div>
@@ -454,16 +454,16 @@ export default function ShipmentsPage() {
                   </div>
 
                   {selectedShipment.lastLocation && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-purple-100 bg-gradient-to-r from-violet-50 to-purple-50 p-4">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/10">
-                        <MapPin className="h-5 w-5 text-purple-600" />
+                    <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+                        <MapPin className="h-5 w-5 text-emerald-600" />
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-purple-600">Latest Update</p>
-                        <p className="font-semibold text-purple-900">
+                        <p className="text-xs font-medium text-emerald-600">Latest Update</p>
+                        <p className="font-semibold text-emerald-900">
                           {selectedShipment.lastLocation}
                         </p>
-                        <p className="mt-0.5 text-xs text-purple-500">
+                        <p className="mt-0.5 text-xs text-emerald-500">
                           {new Date(selectedShipment.lastUpdate).toLocaleString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -480,7 +480,7 @@ export default function ShipmentsPage() {
                       href={selectedShipment.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.01] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.99]"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.01] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.99]"
                     >
                       <Truck className="h-5 w-5" />
                       Track on {selectedShipment.carrier}

@@ -330,8 +330,8 @@ export default function RegistrationCodesPage() {
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100">
-              <Users className="h-6 w-6 text-purple-600" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--brand-primary-light)]">
+              <Users className="h-6 w-6 text-[var(--brand-primary)]" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">

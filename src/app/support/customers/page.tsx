@@ -123,7 +123,7 @@ export default function CustomersPage() {
     const styles = {
       basic: 'bg-gray-100 text-gray-800',
       premium: 'bg-blue-100 text-blue-800',
-      vip: 'bg-purple-100 text-purple-800',
+      vip: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
     };
     return styles[tier as keyof typeof styles] || styles.basic;
   };
@@ -157,7 +157,7 @@ export default function CustomersPage() {
           <div className="text-gray-600">Active</div>
         </div>
         <div className="rounded-lg bg-white p-6 shadow">
-          <div className="text-3xl font-bold text-purple-600">
+          <div className="text-3xl font-bold text-[var(--brand-primary)]">
             {customers.filter((c) => c.tier === 'vip').length}
           </div>
           <div className="text-gray-600">VIP Customers</div>

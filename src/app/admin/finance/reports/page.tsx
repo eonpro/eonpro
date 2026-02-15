@@ -81,7 +81,7 @@ const accentStyles: Record<string, string> = {
   teal: 'from-teal-500/10 to-teal-600/5 border-teal-200/60 text-teal-700 hover:border-teal-300',
   blue: 'from-blue-500/10 to-blue-600/5 border-blue-200/60 text-blue-700 hover:border-blue-300',
   amber: 'from-amber-500/10 to-amber-600/5 border-amber-200/60 text-amber-700 hover:border-amber-300',
-  purple: 'from-purple-500/10 to-purple-600/5 border-purple-200/60 text-purple-700 hover:border-purple-300',
+  purple: 'from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] border-[var(--brand-primary-medium)] text-[var(--brand-primary)] hover:border-[var(--brand-primary)]',
   slate: 'from-slate-500/10 to-slate-600/5 border-slate-200/60 text-slate-700 hover:border-slate-300',
 };
 
@@ -90,7 +90,7 @@ const iconBgStyles: Record<string, string> = {
   teal: 'bg-teal-500/12 text-teal-600',
   blue: 'bg-blue-500/12 text-blue-600',
   amber: 'bg-amber-500/12 text-amber-600',
-  purple: 'bg-purple-500/12 text-purple-600',
+  purple: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
   slate: 'bg-slate-500/12 text-slate-600',
 };
 

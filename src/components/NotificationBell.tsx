@@ -36,12 +36,12 @@ const categoryConfig: Record<
   NotificationCategory,
   { icon: typeof Bell; color: string; bgColor: string }
 > = {
-  PRESCRIPTION: { icon: Pill, color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  PRESCRIPTION: { icon: Pill, color: 'text-[var(--brand-primary)]', bgColor: 'bg-[var(--brand-primary-light)]' },
   PATIENT: { icon: User, color: 'text-blue-600', bgColor: 'bg-blue-100' },
   ORDER: { icon: Package, color: 'text-green-600', bgColor: 'bg-green-100' },
   SYSTEM: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-100' },
   APPOINTMENT: { icon: Calendar, color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
-  MESSAGE: { icon: MessageSquare, color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  MESSAGE: { icon: MessageSquare, color: 'text-[var(--brand-primary)]', bgColor: 'bg-[var(--brand-primary-light)]' },
   PAYMENT: { icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
   REFILL: { icon: RefreshCw, color: 'text-pink-600', bgColor: 'bg-pink-100' },
   SHIPMENT: { icon: Package, color: 'text-amber-600', bgColor: 'bg-amber-100' },

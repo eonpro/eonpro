@@ -242,7 +242,7 @@ export default function InvoiceDetailPage() {
   const getFeeTypeBadge = (feeType: string) => {
     if (feeType === 'PRESCRIPTION') {
       return (
-        <span className="inline-flex items-center rounded bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">
+        <span className="inline-flex items-center rounded bg-[var(--brand-primary-light)] px-2 py-1 text-xs font-medium text-[var(--brand-primary)]">
           Medical Prescription
         </span>
       );
@@ -562,7 +562,7 @@ export default function InvoiceDetailPage() {
               )}
               {invoice.stripeInvoiceId && (
                 <div className="flex items-start gap-3">
-                  <div className="mt-2 h-2 w-2 rounded-full bg-purple-500" />
+                  <div className="mt-2 h-2 w-2 rounded-full bg-[var(--brand-primary)]" />
                   <div>
                     <p className="text-sm text-gray-900">Stripe Invoice Created</p>
                     <p className="text-xs text-gray-500">{invoice.stripeInvoiceId}</p>

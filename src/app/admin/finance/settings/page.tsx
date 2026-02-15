@@ -119,8 +119,8 @@ export default function FinanceSettingsPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-purple-50 p-2">
-              <CreditCard className="h-5 w-5 text-purple-600" />
+            <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+              <CreditCard className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">

@@ -151,7 +151,7 @@ export default function FraudQueuePage() {
   if (loading && !data) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -219,7 +219,7 @@ export default function FraudQueuePage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[var(--brand-primary)] focus:outline-none"
         >
           <option value="all">All Status</option>
           <option value="OPEN">Open</option>
@@ -234,7 +234,7 @@ export default function FraudQueuePage() {
             setSeverityFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[var(--brand-primary)] focus:outline-none"
         >
           <option value="all">All Severity</option>
           <option value="CRITICAL">Critical</option>

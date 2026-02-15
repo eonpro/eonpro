@@ -116,7 +116,7 @@ export default function PerformancePage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -137,7 +137,7 @@ export default function PerformancePage() {
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-4 py-2 text-sm font-medium transition-all ${
-                period === p ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                period === p ? 'bg-[var(--brand-primary)] text-white' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : '90 Days'}
@@ -151,7 +151,7 @@ export default function PerformancePage() {
         {/* Conversions */}
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-violet-100 p-2 text-violet-600">
+            <div className="rounded-xl bg-[var(--brand-primary-light)] p-2 text-[var(--brand-primary)]">
               <Users className="h-6 w-6" />
             </div>
             {data?.comparison.conversionsChange !== undefined && (
@@ -281,7 +281,7 @@ export default function PerformancePage() {
                       </span>
                       <div className="flex-1">
                         <div
-                          className="h-6 rounded-r bg-violet-500 transition-all"
+                          className="h-6 rounded-r bg-[var(--brand-primary-light)]0 transition-all"
                           style={{ width: `${Math.max(width, 2)}%` }}
                         />
                       </div>
@@ -308,13 +308,13 @@ export default function PerformancePage() {
 
       {/* Tier Progress */}
       {data?.tierProgress && (
-        <div className="rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 p-6">
+        <div className="rounded-2xl bg-gradient-to-r from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Tier Progress</h2>
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm text-gray-600">Current Tier</span>
-                <span className="font-semibold text-violet-700">
+                <span className="font-semibold text-[var(--brand-primary)]">
                   {data.tierProgress.currentTier || 'None'}
                 </span>
               </div>
@@ -334,7 +334,7 @@ export default function PerformancePage() {
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-white">
                     <div
-                      className="h-full rounded-full bg-violet-500 transition-all"
+                      className="h-full rounded-full bg-[var(--brand-primary-light)]0 transition-all"
                       style={{ width: `${data.tierProgress.conversionsProgress}%` }}
                     />
                   </div>
@@ -346,7 +346,7 @@ export default function PerformancePage() {
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-white">
                     <div
-                      className="h-full rounded-full bg-violet-500 transition-all"
+                      className="h-full rounded-full bg-[var(--brand-primary-light)]0 transition-all"
                       style={{ width: `${data.tierProgress.revenueProgress}%` }}
                     />
                   </div>

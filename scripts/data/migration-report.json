@@ -1,0 +1,2670 @@
+{
+  "batchId": "intakeq-import-2026-02-15T00-17-25-556Z",
+  "csvPath": "/Users/italo/Desktop/lifefile integration/scripts/data/intakeq-export.csv",
+  "timestamp": "2026-02-15T00:17:25.699Z",
+  "totalParsed": 12890,
+  "malformedRows": [],
+  "testRecords": [
+    {
+      "intakeqClientId": "13715",
+      "firstName": "Test",
+      "lastName": "Test",
+      "email": "test@gmail.com"
+    },
+    {
+      "intakeqClientId": "13862",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "test@gnail.com"
+    },
+    {
+      "intakeqClientId": "13751",
+      "firstName": "Hotfix",
+      "lastName": "Test",
+      "email": "hotfix@test.com"
+    },
+    {
+      "intakeqClientId": "13740",
+      "firstName": "Testee",
+      "lastName": "Carlitos",
+      "email": "test@email.com"
+    },
+    {
+      "intakeqClientId": "6187",
+      "firstName": "Oscar",
+      "lastName": "Test",
+      "email": "ana.saavedra.toledo@outlook.com"
+    },
+    {
+      "intakeqClientId": "13583",
+      "firstName": "Wind",
+      "lastName": "Test",
+      "email": "wind@test.com"
+    },
+    {
+      "intakeqClientId": "13571",
+      "firstName": "Italo",
+      "lastName": "Trster",
+      "email": "test@test.eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13507",
+      "firstName": "test",
+      "lastName": "capicapi",
+      "email": "capi@capi.com"
+    },
+    {
+      "intakeqClientId": "13504",
+      "firstName": "Test",
+      "lastName": "Capiting",
+      "email": "realtest.webhook@test.eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13499",
+      "firstName": "test",
+      "lastName": "fbclid",
+      "email": "test@capicapi.com"
+    },
+    {
+      "intakeqClientId": "13496",
+      "firstName": "Test",
+      "lastName": "Metacapi",
+      "email": "test@metacapi.com"
+    },
+    {
+      "intakeqClientId": "13495",
+      "firstName": "Test",
+      "lastName": "Capimetas",
+      "email": "test@cpaimetas.com"
+    },
+    {
+      "intakeqClientId": "13475",
+      "firstName": "GHL",
+      "lastName": "Test",
+      "email": "ghltest1766549683@test.com"
+    },
+    {
+      "intakeqClientId": "13469",
+      "firstName": "New",
+      "lastName": "Test",
+      "email": "test@newtest.com"
+    },
+    {
+      "intakeqClientId": "13461",
+      "firstName": "Test",
+      "lastName": "Eonmeds",
+      "email": "test@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13460",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "testuser123@example.com"
+    },
+    {
+      "intakeqClientId": "13456",
+      "firstName": "Debug",
+      "lastName": "Test",
+      "email": "debug@test.com"
+    },
+    {
+      "intakeqClientId": "13443",
+      "firstName": "Test",
+      "lastName": "Patient",
+      "email": "test@example.com"
+    },
+    {
+      "intakeqClientId": "13440",
+      "firstName": "Test",
+      "lastName": "Twilio",
+      "email": "real@realtest.com"
+    },
+    {
+      "intakeqClientId": "13414",
+      "firstName": "testing",
+      "lastName": "test",
+      "email": "realtest@tester.com"
+    },
+    {
+      "intakeqClientId": "13409",
+      "firstName": "Testing",
+      "lastName": "Again",
+      "email": "test@again.test"
+    },
+    {
+      "intakeqClientId": "13389",
+      "firstName": "PDFVerify",
+      "lastName": "Test",
+      "email": "pdf.verify.test@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13386",
+      "firstName": "NonBlocking",
+      "lastName": "Test",
+      "email": "nonblocking.test@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13385",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test789@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13384",
+      "firstName": "Debug",
+      "lastName": "Test",
+      "email": "debug.test.webhook@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13382",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test.webhook.final@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13381",
+      "firstName": "Test",
+      "lastName": "Pignano",
+      "email": "test@testing.eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13379",
+      "firstName": "Final",
+      "lastName": "Test",
+      "email": "final.integration.test@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13373",
+      "firstName": "PDF",
+      "lastName": "Test",
+      "email": "pdf.longtext.test@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13367",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test+intakeq4@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13366",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test+intakeq3@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13365",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test+intakeq2@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "13361",
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "test+intakeq@eonmeds.com"
+    },
+    {
+      "intakeqClientId": "12088",
+      "firstName": "Italo",
+      "lastName": "Test",
+      "email": "italo@test.com"
+    },
+    {
+      "intakeqClientId": "6144",
+      "firstName": "Max",
+      "lastName": "Test",
+      "email": "maxputrello@gmail.com"
+    },
+    {
+      "intakeqClientId": "7903",
+      "firstName": "italo",
+      "lastName": "test",
+      "email": "italo@msns.com"
+    },
+    {
+      "intakeqClientId": "7404",
+      "firstName": "Italo",
+      "lastName": "Test",
+      "email": "italo@teesssst.com"
+    },
+    {
+      "intakeqClientId": "7276",
+      "firstName": "Test",
+      "lastName": "Client",
+      "email": "testclient1751717690643@example.com"
+    },
+    {
+      "intakeqClientId": "7275",
+      "firstName": "Test",
+      "lastName": "Client",
+      "email": "testclient1751694312598@example.com"
+    },
+    {
+      "intakeqClientId": "7274",
+      "firstName": "Test",
+      "lastName": "Client",
+      "email": "testclient1751693912779@example.com"
+    },
+    {
+      "intakeqClientId": "6624",
+      "firstName": "Italo",
+      "lastName": "Pignano",
+      "email": "ytest@test.com"
+    },
+    {
+      "intakeqClientId": "5969",
+      "firstName": "Italo",
+      "lastName": "test",
+      "email": "tracking@eonmedicalcenter.com"
+    },
+    {
+      "intakeqClientId": "5636",
+      "firstName": "Kellen",
+      "lastName": "Test",
+      "email": "test@test.com"
+    },
+    {
+      "intakeqClientId": "4826",
+      "firstName": "Test",
+      "lastName": "Test",
+      "email": "sara.sandland@gmail.com"
+    },
+    {
+      "intakeqClientId": "4824",
+      "firstName": "Test",
+      "lastName": "Bob",
+      "email": "bob@gmail.com"
+    },
+    {
+      "intakeqClientId": "2209",
+      "firstName": "John",
+      "lastName": "doe",
+      "email": "john@gmail.com"
+    },
+    {
+      "intakeqClientId": "1716",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "jane@doe.com"
+    },
+    {
+      "intakeqClientId": "1159",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "italo@thebladkwkfr.com"
+    },
+    {
+      "intakeqClientId": "1010",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "italo@eonmedicalcenter.com"
+    },
+    {
+      "intakeqClientId": "642",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "maurizio@eonmeds.com"
+    }
+  ],
+  "duplicateGroups": [
+    {
+      "key": "mariadelaluzvelazquez130@gmail.com",
+      "count": 2,
+      "primaryClientId": "13474",
+      "mergedFromClientIds": [
+        "7483"
+      ]
+    },
+    {
+      "key": "fabriadri9804@hotmail.com",
+      "count": 2,
+      "primaryClientId": "7202",
+      "mergedFromClientIds": [
+        "13914"
+      ]
+    },
+    {
+      "key": "stephanyzelaya2112@gmail.com",
+      "count": 2,
+      "primaryClientId": "13891",
+      "mergedFromClientIds": [
+        "13890"
+      ]
+    },
+    {
+      "key": "test@gmail.com",
+      "count": 2,
+      "primaryClientId": "13715",
+      "mergedFromClientIds": [
+        "13863"
+      ]
+    },
+    {
+      "key": "laura@eonmeds.com",
+      "count": 2,
+      "primaryClientId": "13834",
+      "mergedFromClientIds": [
+        "740"
+      ]
+    },
+    {
+      "key": "m59chavez@gmail.com",
+      "count": 2,
+      "primaryClientId": "13807",
+      "mergedFromClientIds": [
+        "10736"
+      ]
+    },
+    {
+      "key": "meydimelgar1997@gmail.com",
+      "count": 2,
+      "primaryClientId": "13804",
+      "mergedFromClientIds": [
+        "4806"
+      ]
+    },
+    {
+      "key": "nraquellemus2@gmail.com",
+      "count": 2,
+      "primaryClientId": "4938",
+      "mergedFromClientIds": [
+        "6727"
+      ]
+    },
+    {
+      "key": "italo@eonmeds.com",
+      "count": 13,
+      "primaryClientId": "13742",
+      "mergedFromClientIds": [
+        "13745",
+        "13738",
+        "13462",
+        "13362",
+        "13337",
+        "13318",
+        "13317",
+        "13316",
+        "13315",
+        "13314",
+        "8549",
+        "6986"
+      ]
+    },
+    {
+      "key": "jea2629@gmail.com",
+      "count": 2,
+      "primaryClientId": "13732",
+      "mergedFromClientIds": [
+        "7893"
+      ]
+    },
+    {
+      "key": "bryan_kevin1983@yahoo.com",
+      "count": 2,
+      "primaryClientId": "13656",
+      "mergedFromClientIds": [
+        "13657"
+      ]
+    },
+    {
+      "key": "ana.saavedra.toledo@outlook.com",
+      "count": 7,
+      "primaryClientId": "6187",
+      "mergedFromClientIds": [
+        "13584",
+        "13347",
+        "7470",
+        "7431",
+        "7013",
+        "5843"
+      ]
+    },
+    {
+      "key": "julio@jones.com",
+      "count": 2,
+      "primaryClientId": "13581",
+      "mergedFromClientIds": [
+        "13570"
+      ]
+    },
+    {
+      "key": "gherreramarin@gmail.com",
+      "count": 4,
+      "primaryClientId": "13542",
+      "mergedFromClientIds": [
+        "6306",
+        "5846",
+        "5718"
+      ]
+    },
+    {
+      "key": "felix-anthony-25@hotmail.com",
+      "count": 2,
+      "primaryClientId": "13520",
+      "mergedFromClientIds": [
+        "5351"
+      ]
+    },
+    {
+      "key": "leonmanjarrez31@gmail.com",
+      "count": 2,
+      "primaryClientId": "12120",
+      "mergedFromClientIds": [
+        "13515"
+      ]
+    },
+    {
+      "key": "bventuraes@gmail.com",
+      "count": 2,
+      "primaryClientId": "13446",
+      "mergedFromClientIds": [
+        "13455"
+      ]
+    },
+    {
+      "key": "veronicalopez3330@yahoo.com",
+      "count": 2,
+      "primaryClientId": "13346",
+      "mergedFromClientIds": [
+        "13201"
+      ]
+    },
+    {
+      "key": "lilinelleon@gmail.com",
+      "count": 2,
+      "primaryClientId": "13343",
+      "mergedFromClientIds": [
+        "10673"
+      ]
+    },
+    {
+      "key": "yaz3512@gmail.com",
+      "count": 2,
+      "primaryClientId": "13287",
+      "mergedFromClientIds": [
+        "11158"
+      ]
+    },
+    {
+      "key": "aneliseggarcia@gmail.com",
+      "count": 2,
+      "primaryClientId": "13124",
+      "mergedFromClientIds": [
+        "554"
+      ]
+    },
+    {
+      "key": "fiore0808@hotmail.com",
+      "count": 2,
+      "primaryClientId": "13016",
+      "mergedFromClientIds": [
+        "4563"
+      ]
+    },
+    {
+      "key": "junm20188@gmail.com",
+      "count": 3,
+      "primaryClientId": "12997",
+      "mergedFromClientIds": [
+        "12945",
+        "8440"
+      ]
+    },
+    {
+      "key": "as20011911@gmail.com",
+      "count": 2,
+      "primaryClientId": "12955",
+      "mergedFromClientIds": [
+        "7656"
+      ]
+    },
+    {
+      "key": "obduliaduenas01@gmail.com",
+      "count": 2,
+      "primaryClientId": "12882",
+      "mergedFromClientIds": [
+        "12881"
+      ]
+    },
+    {
+      "key": "rosangelruiz53@gmail.com",
+      "count": 2,
+      "primaryClientId": "12876",
+      "mergedFromClientIds": [
+        "12877"
+      ]
+    },
+    {
+      "key": "angelesysabel82@gmail.com",
+      "count": 2,
+      "primaryClientId": "12840",
+      "mergedFromClientIds": [
+        "3075"
+      ]
+    },
+    {
+      "key": "muno-01@hotmail.com",
+      "count": 2,
+      "primaryClientId": "12838",
+      "mergedFromClientIds": [
+        "12839"
+      ]
+    },
+    {
+      "key": "josetejeda3379@gmail.com",
+      "count": 2,
+      "primaryClientId": "12829",
+      "mergedFromClientIds": [
+        "12830"
+      ]
+    },
+    {
+      "key": "kangel9030@gmail.com",
+      "count": 3,
+      "primaryClientId": "12825",
+      "mergedFromClientIds": [
+        "12826",
+        "12823"
+      ]
+    },
+    {
+      "key": "lopezrosa643@yahoo.com",
+      "count": 2,
+      "primaryClientId": "12789",
+      "mergedFromClientIds": [
+        "12197"
+      ]
+    },
+    {
+      "key": "poncejimena24@gmail.com",
+      "count": 2,
+      "primaryClientId": "12782",
+      "mergedFromClientIds": [
+        "4356"
+      ]
+    },
+    {
+      "key": "angelremember45@icloud.com",
+      "count": 2,
+      "primaryClientId": "12761",
+      "mergedFromClientIds": [
+        "10394"
+      ]
+    },
+    {
+      "key": "mariamtadros98@gmail.com",
+      "count": 2,
+      "primaryClientId": "12750",
+      "mergedFromClientIds": [
+        "11915"
+      ]
+    },
+    {
+      "key": "delgadoleyanis924@gmail.com",
+      "count": 2,
+      "primaryClientId": "5035",
+      "mergedFromClientIds": [
+        "12751"
+      ]
+    },
+    {
+      "key": "candycastro53@yahoo.com",
+      "count": 2,
+      "primaryClientId": "12735",
+      "mergedFromClientIds": [
+        "12736"
+      ]
+    },
+    {
+      "key": "guevarasorto14@gmail.com",
+      "count": 4,
+      "primaryClientId": "11436",
+      "mergedFromClientIds": [
+        "12705",
+        "10085",
+        "8953"
+      ]
+    },
+    {
+      "key": "yanitamayo.yga@gmail.com",
+      "count": 2,
+      "primaryClientId": "12681",
+      "mergedFromClientIds": [
+        "12680"
+      ]
+    },
+    {
+      "key": "gamezfree0227@gmail.com",
+      "count": 2,
+      "primaryClientId": "1412",
+      "mergedFromClientIds": [
+        "1522"
+      ]
+    },
+    {
+      "key": "ncdm14@gmail.com",
+      "count": 2,
+      "primaryClientId": "12620",
+      "mergedFromClientIds": [
+        "12619"
+      ]
+    },
+    {
+      "key": "velazquez.raquel180@gmail.com",
+      "count": 2,
+      "primaryClientId": "12498",
+      "mergedFromClientIds": [
+        "12421"
+      ]
+    },
+    {
+      "key": "rjulissalopez.com@icloud.com",
+      "count": 2,
+      "primaryClientId": "12593",
+      "mergedFromClientIds": [
+        "12592"
+      ]
+    },
+    {
+      "key": "eliseoargueta2001@gmail.com",
+      "count": 2,
+      "primaryClientId": "12585",
+      "mergedFromClientIds": [
+        "12586"
+      ]
+    },
+    {
+      "key": "mariaeli33024@yahoo.com",
+      "count": 2,
+      "primaryClientId": "12573",
+      "mergedFromClientIds": [
+        "12574"
+      ]
+    },
+    {
+      "key": "bonitha1406@gmail.com",
+      "count": 2,
+      "primaryClientId": "12546",
+      "mergedFromClientIds": [
+        "12547"
+      ]
+    },
+    {
+      "key": "graceriveraortiz06@outlook.com",
+      "count": 2,
+      "primaryClientId": "12534",
+      "mergedFromClientIds": [
+        "12161"
+      ]
+    },
+    {
+      "key": "nidiamlarrotta@gmail.com",
+      "count": 2,
+      "primaryClientId": "12519",
+      "mergedFromClientIds": [
+        "3039"
+      ]
+    },
+    {
+      "key": "rvdb2377@icloud.com",
+      "count": 2,
+      "primaryClientId": "6603",
+      "mergedFromClientIds": [
+        "12504"
+      ]
+    },
+    {
+      "key": "janetmendoza76@gmail.com",
+      "count": 2,
+      "primaryClientId": "12385",
+      "mergedFromClientIds": [
+        "12384"
+      ]
+    },
+    {
+      "key": "peraltasashkia@yahoo.com.mx",
+      "count": 2,
+      "primaryClientId": "12368",
+      "mergedFromClientIds": [
+        "12369"
+      ]
+    },
+    {
+      "key": "teresa1831@yahoo.com",
+      "count": 2,
+      "primaryClientId": "12362",
+      "mergedFromClientIds": [
+        "12363"
+      ]
+    },
+    {
+      "key": "rosannycr27@gmail.com",
+      "count": 2,
+      "primaryClientId": "12319",
+      "mergedFromClientIds": [
+        "4208"
+      ]
+    },
+    {
+      "key": "estefaniolguin28@gmail.com",
+      "count": 2,
+      "primaryClientId": "12312",
+      "mergedFromClientIds": [
+        "12311"
+      ]
+    },
+    {
+      "key": "meliissamendez0938@gmail.com",
+      "count": 2,
+      "primaryClientId": "12283",
+      "mergedFromClientIds": [
+        "12284"
+      ]
+    },
+    {
+      "key": "maritpretto@gmail.com",
+      "count": 2,
+      "primaryClientId": "12252",
+      "mergedFromClientIds": [
+        "10566"
+      ]
+    },
+    {
+      "key": "jorgitoperez71@gmail.com",
+      "count": 2,
+      "primaryClientId": "11048",
+      "mergedFromClientIds": [
+        "3304"
+      ]
+    },
+    {
+      "key": "salcedomelanii07@gmail.com",
+      "count": 2,
+      "primaryClientId": "12211",
+      "mergedFromClientIds": [
+        "12212"
+      ]
+    },
+    {
+      "key": "araceli1706@icloud.com",
+      "count": 2,
+      "primaryClientId": "12203",
+      "mergedFromClientIds": [
+        "5785"
+      ]
+    },
+    {
+      "key": "maldonadodora641@mail.com",
+      "count": 2,
+      "primaryClientId": "12193",
+      "mergedFromClientIds": [
+        "12194"
+      ]
+    },
+    {
+      "key": "cadenascecilia@gmail.com",
+      "count": 3,
+      "primaryClientId": "12155",
+      "mergedFromClientIds": [
+        "12154",
+        "5629"
+      ]
+    },
+    {
+      "key": "gomez.marcoantonio@yahoo.com",
+      "count": 2,
+      "primaryClientId": "12152",
+      "mergedFromClientIds": [
+        "12153"
+      ]
+    },
+    {
+      "key": "sebasysandra@aol.com",
+      "count": 2,
+      "primaryClientId": "12148",
+      "mergedFromClientIds": [
+        "7520"
+      ]
+    },
+    {
+      "key": "alexialopez1709@gmail.com",
+      "count": 2,
+      "primaryClientId": "12145",
+      "mergedFromClientIds": [
+        "12146"
+      ]
+    },
+    {
+      "key": "sandrypeeez@icloud.com",
+      "count": 3,
+      "primaryClientId": "12139",
+      "mergedFromClientIds": [
+        "12136",
+        "9961"
+      ]
+    },
+    {
+      "key": "esai2012@hotmail.com",
+      "count": 2,
+      "primaryClientId": "12125",
+      "mergedFromClientIds": [
+        "685"
+      ]
+    },
+    {
+      "key": "roxanaleyvarabi@gmail.com",
+      "count": 2,
+      "primaryClientId": "12118",
+      "mergedFromClientIds": [
+        "12119"
+      ]
+    },
+    {
+      "key": "cics31@hotmail.com",
+      "count": 2,
+      "primaryClientId": "12043",
+      "mergedFromClientIds": [
+        "12044"
+      ]
+    },
+    {
+      "key": "pkarengutierrez3010@gmail.com",
+      "count": 2,
+      "primaryClientId": "12000",
+      "mergedFromClientIds": [
+        "12001"
+      ]
+    },
+    {
+      "key": "jm3164955@gmail.com",
+      "count": 2,
+      "primaryClientId": "11996",
+      "mergedFromClientIds": [
+        "9844"
+      ]
+    },
+    {
+      "key": "leila_afara95@hotmail.com",
+      "count": 2,
+      "primaryClientId": "11938",
+      "mergedFromClientIds": [
+        "11935"
+      ]
+    },
+    {
+      "key": "elsiportillo1994@icloud.com",
+      "count": 2,
+      "primaryClientId": "11922",
+      "mergedFromClientIds": [
+        "11920"
+      ]
+    },
+    {
+      "key": "lopezgreydin8@gmail.com",
+      "count": 2,
+      "primaryClientId": "11807",
+      "mergedFromClientIds": [
+        "11806"
+      ]
+    },
+    {
+      "key": "tracymaldonado766@gmail.com",
+      "count": 2,
+      "primaryClientId": "11789",
+      "mergedFromClientIds": [
+        "11790"
+      ]
+    },
+    {
+      "key": "midulcem1980@gmail.com",
+      "count": 2,
+      "primaryClientId": "11787",
+      "mergedFromClientIds": [
+        "11788"
+      ]
+    },
+    {
+      "key": "brendalizethreyesgarcia@gmail.com",
+      "count": 2,
+      "primaryClientId": "11745",
+      "mergedFromClientIds": [
+        "11746"
+      ]
+    },
+    {
+      "key": "laujh87@gmail.com",
+      "count": 2,
+      "primaryClientId": "11729",
+      "mergedFromClientIds": [
+        "9496"
+      ]
+    },
+    {
+      "key": "martinezs19@hotmail.com",
+      "count": 2,
+      "primaryClientId": "11651",
+      "mergedFromClientIds": [
+        "8020"
+      ]
+    },
+    {
+      "key": "jyjonly4@yahoo.com",
+      "count": 2,
+      "primaryClientId": "7477",
+      "mergedFromClientIds": [
+        "11643"
+      ]
+    },
+    {
+      "key": "mayliam_04@icloud.com",
+      "count": 2,
+      "primaryClientId": "11639",
+      "mergedFromClientIds": [
+        "11640"
+      ]
+    },
+    {
+      "key": "tatyvicky96@icloud.com",
+      "count": 2,
+      "primaryClientId": "11614",
+      "mergedFromClientIds": [
+        "11613"
+      ]
+    },
+    {
+      "key": "gabitagovea@gmail.com",
+      "count": 2,
+      "primaryClientId": "4665",
+      "mergedFromClientIds": [
+        "11608"
+      ]
+    },
+    {
+      "key": "gmurcia0@gmail.com",
+      "count": 2,
+      "primaryClientId": "11586",
+      "mergedFromClientIds": [
+        "11587"
+      ]
+    },
+    {
+      "key": "qanaadriana@gmail.com",
+      "count": 2,
+      "primaryClientId": "11476",
+      "mergedFromClientIds": [
+        "11475"
+      ]
+    },
+    {
+      "key": "gesenia81@gmail.com",
+      "count": 2,
+      "primaryClientId": "9222",
+      "mergedFromClientIds": [
+        "8625"
+      ]
+    },
+    {
+      "key": "marymalave10@gmail.com",
+      "count": 2,
+      "primaryClientId": "11380",
+      "mergedFromClientIds": [
+        "11379"
+      ]
+    },
+    {
+      "key": "dope990@icloud.com",
+      "count": 2,
+      "primaryClientId": "11368",
+      "mergedFromClientIds": [
+        "11369"
+      ]
+    },
+    {
+      "key": "ashamika129@gmail.com",
+      "count": 2,
+      "primaryClientId": "11266",
+      "mergedFromClientIds": [
+        "7320"
+      ]
+    },
+    {
+      "key": "eslinbarrios2@gmail.com",
+      "count": 2,
+      "primaryClientId": "11235",
+      "mergedFromClientIds": [
+        "2150"
+      ]
+    },
+    {
+      "key": "paganivette90@gmail.com",
+      "count": 2,
+      "primaryClientId": "11227",
+      "mergedFromClientIds": [
+        "929"
+      ]
+    },
+    {
+      "key": "castrohelvia8@gmail.com",
+      "count": 2,
+      "primaryClientId": "11207",
+      "mergedFromClientIds": [
+        "4138"
+      ]
+    },
+    {
+      "key": "abigail212310d@gmail.com",
+      "count": 2,
+      "primaryClientId": "11193",
+      "mergedFromClientIds": [
+        "11194"
+      ]
+    },
+    {
+      "key": "anerolgutierrez41@gmail.com",
+      "count": 2,
+      "primaryClientId": "11133",
+      "mergedFromClientIds": [
+        "8243"
+      ]
+    },
+    {
+      "key": "manuelrios@hotmail.com",
+      "count": 2,
+      "primaryClientId": "11120",
+      "mergedFromClientIds": [
+        "5773"
+      ]
+    },
+    {
+      "key": "omarcardona2000@icloud.com",
+      "count": 2,
+      "primaryClientId": "11059",
+      "mergedFromClientIds": [
+        "11060"
+      ]
+    },
+    {
+      "key": "de.lip1703@gmail.com",
+      "count": 2,
+      "primaryClientId": "11021",
+      "mergedFromClientIds": [
+        "11022"
+      ]
+    },
+    {
+      "key": "ailimycabezas99@gmail.com",
+      "count": 2,
+      "primaryClientId": "10980",
+      "mergedFromClientIds": [
+        "3035"
+      ]
+    },
+    {
+      "key": "carvajalashley603@gmail.com",
+      "count": 2,
+      "primaryClientId": "10978",
+      "mergedFromClientIds": [
+        "10979"
+      ]
+    },
+    {
+      "key": "cubano0310@yahoo.com",
+      "count": 2,
+      "primaryClientId": "10976",
+      "mergedFromClientIds": [
+        "10977"
+      ]
+    },
+    {
+      "key": "cristhiammanuelsozarizo@gmail.com",
+      "count": 2,
+      "primaryClientId": "10973",
+      "mergedFromClientIds": [
+        "2197"
+      ]
+    },
+    {
+      "key": "luisfernandofer1972@icloud.com",
+      "count": 2,
+      "primaryClientId": "10862",
+      "mergedFromClientIds": [
+        "10529"
+      ]
+    },
+    {
+      "key": "johandgelysjimenez@gmail.com",
+      "count": 2,
+      "primaryClientId": "10800",
+      "mergedFromClientIds": [
+        "10028"
+      ]
+    },
+    {
+      "key": "montsefh.28104@gmail.com",
+      "count": 5,
+      "primaryClientId": "10731",
+      "mergedFromClientIds": [
+        "6729",
+        "1817",
+        "1816",
+        "1751"
+      ]
+    },
+    {
+      "key": "mercedrolon@hotmail.com",
+      "count": 2,
+      "primaryClientId": "10704",
+      "mergedFromClientIds": [
+        "5687"
+      ]
+    },
+    {
+      "key": "camilagaitan3373@outlook.es",
+      "count": 2,
+      "primaryClientId": "5290",
+      "mergedFromClientIds": [
+        "10660"
+      ]
+    },
+    {
+      "key": "anyelaconde@hotmail.com",
+      "count": 2,
+      "primaryClientId": "10593",
+      "mergedFromClientIds": [
+        "10594"
+      ]
+    },
+    {
+      "key": "chelocalderon345@gmail.com",
+      "count": 2,
+      "primaryClientId": "10643",
+      "mergedFromClientIds": [
+        "10630"
+      ]
+    },
+    {
+      "key": "catalina.jero@icloud.com",
+      "count": 2,
+      "primaryClientId": "10634",
+      "mergedFromClientIds": [
+        "10612"
+      ]
+    },
+    {
+      "key": "amcstgo25@gmail.com",
+      "count": 2,
+      "primaryClientId": "10584",
+      "mergedFromClientIds": [
+        "10585"
+      ]
+    },
+    {
+      "key": "corte_abc@hotmail.com",
+      "count": 2,
+      "primaryClientId": "6889",
+      "mergedFromClientIds": [
+        "6892"
+      ]
+    },
+    {
+      "key": "trejoangelica67@gmail.com",
+      "count": 2,
+      "primaryClientId": "10538",
+      "mergedFromClientIds": [
+        "10382"
+      ]
+    },
+    {
+      "key": "colimam1717@gmail.com",
+      "count": 2,
+      "primaryClientId": "10537",
+      "mergedFromClientIds": [
+        "10527"
+      ]
+    },
+    {
+      "key": "dianamedina1998e@gmail.com",
+      "count": 2,
+      "primaryClientId": "10522",
+      "mergedFromClientIds": [
+        "10523"
+      ]
+    },
+    {
+      "key": "juliocesarvictoriovalentin18@gmail.com",
+      "count": 2,
+      "primaryClientId": "10456",
+      "mergedFromClientIds": [
+        "10457"
+      ]
+    },
+    {
+      "key": "rluzhelena@hotmail.com",
+      "count": 2,
+      "primaryClientId": "10439",
+      "mergedFromClientIds": [
+        "10440"
+      ]
+    },
+    {
+      "key": "elenaabril23@gmail.com",
+      "count": 2,
+      "primaryClientId": "10352",
+      "mergedFromClientIds": [
+        "8527"
+      ]
+    },
+    {
+      "key": "griseldamartinez52@gmail.com",
+      "count": 2,
+      "primaryClientId": "10292",
+      "mergedFromClientIds": [
+        "10254"
+      ]
+    },
+    {
+      "key": "marquezcondeantoniojoseeleazar@gmail.com",
+      "count": 2,
+      "primaryClientId": "6506",
+      "mergedFromClientIds": [
+        "10200"
+      ]
+    },
+    {
+      "key": "jaimesleida86@gmail.com",
+      "count": 2,
+      "primaryClientId": "10191",
+      "mergedFromClientIds": [
+        "2325"
+      ]
+    },
+    {
+      "key": "moniquita35ny@hotmail.com",
+      "count": 2,
+      "primaryClientId": "5788",
+      "mergedFromClientIds": [
+        "10144"
+      ]
+    },
+    {
+      "key": "losjuarez@gmail.com",
+      "count": 5,
+      "primaryClientId": "10087",
+      "mergedFromClientIds": [
+        "10068",
+        "10067",
+        "10063",
+        "10044"
+      ]
+    },
+    {
+      "key": "odalyshernandez886@gmail.com",
+      "count": 2,
+      "primaryClientId": "10078",
+      "mergedFromClientIds": [
+        "8076"
+      ]
+    },
+    {
+      "key": "guadalupelandaverde1899@gmail.com",
+      "count": 2,
+      "primaryClientId": "10064",
+      "mergedFromClientIds": [
+        "7581"
+      ]
+    },
+    {
+      "key": "princesa8128@gmail.com",
+      "count": 2,
+      "primaryClientId": "9949",
+      "mergedFromClientIds": [
+        "9814"
+      ]
+    },
+    {
+      "key": "qtpieseni13@yahoo.com",
+      "count": 2,
+      "primaryClientId": "7144",
+      "mergedFromClientIds": [
+        "9915"
+      ]
+    },
+    {
+      "key": "marylucas620@gmail.com",
+      "count": 2,
+      "primaryClientId": "9902",
+      "mergedFromClientIds": [
+        "7784"
+      ]
+    },
+    {
+      "key": "delarosagenny38@gmail.com",
+      "count": 2,
+      "primaryClientId": "9885",
+      "mergedFromClientIds": [
+        "3176"
+      ]
+    },
+    {
+      "key": "ruthvelazquez41@gmail.com",
+      "count": 2,
+      "primaryClientId": "3089",
+      "mergedFromClientIds": [
+        "9804"
+      ]
+    },
+    {
+      "key": "dariangelyzelle@gmail.com",
+      "count": 2,
+      "primaryClientId": "1741",
+      "mergedFromClientIds": [
+        "6911"
+      ]
+    },
+    {
+      "key": "coreasvane1216@gmail.com",
+      "count": 2,
+      "primaryClientId": "9703",
+      "mergedFromClientIds": [
+        "9388"
+      ]
+    },
+    {
+      "key": "cespedeschany@gmail.com",
+      "count": 2,
+      "primaryClientId": "9621",
+      "mergedFromClientIds": [
+        "6152"
+      ]
+    },
+    {
+      "key": "ismarromero2004@gmail.com",
+      "count": 2,
+      "primaryClientId": "8069",
+      "mergedFromClientIds": [
+        "6381"
+      ]
+    },
+    {
+      "key": "lizzeth179@gmail.com",
+      "count": 2,
+      "primaryClientId": "6429",
+      "mergedFromClientIds": [
+        "9416"
+      ]
+    },
+    {
+      "key": "mile8arua@icloud.com",
+      "count": 2,
+      "primaryClientId": "2305",
+      "mergedFromClientIds": [
+        "9402"
+      ]
+    },
+    {
+      "key": "rociodejesus084@gmail.com",
+      "count": 2,
+      "primaryClientId": "9327",
+      "mergedFromClientIds": [
+        "7573"
+      ]
+    },
+    {
+      "key": "duverliorellana55@gmail.com",
+      "count": 2,
+      "primaryClientId": "5444",
+      "mergedFromClientIds": [
+        "5442"
+      ]
+    },
+    {
+      "key": "negrita_brizuela@hotmail.com",
+      "count": 2,
+      "primaryClientId": "9163",
+      "mergedFromClientIds": [
+        "9157"
+      ]
+    },
+    {
+      "key": "diazyudeli1@gmail.com",
+      "count": 2,
+      "primaryClientId": "5757",
+      "mergedFromClientIds": [
+        "9061"
+      ]
+    },
+    {
+      "key": "mirzasequeira80@gmail.com",
+      "count": 2,
+      "primaryClientId": "8987",
+      "mergedFromClientIds": [
+        "8112"
+      ]
+    },
+    {
+      "key": "argeliasandoval10@gmail.com",
+      "count": 2,
+      "primaryClientId": "8917",
+      "mergedFromClientIds": [
+        "7707"
+      ]
+    },
+    {
+      "key": "maritzasantos16@gmail.com",
+      "count": 2,
+      "primaryClientId": "3329",
+      "mergedFromClientIds": [
+        "8866"
+      ]
+    },
+    {
+      "key": "sari032421@gmail.com",
+      "count": 2,
+      "primaryClientId": "8803",
+      "mergedFromClientIds": [
+        "7743"
+      ]
+    },
+    {
+      "key": "andrea2023sandoval@gmail.com",
+      "count": 2,
+      "primaryClientId": "8660",
+      "mergedFromClientIds": [
+        "4940"
+      ]
+    },
+    {
+      "key": "katycastillo559@gmail.com",
+      "count": 2,
+      "primaryClientId": "8631",
+      "mergedFromClientIds": [
+        "8578"
+      ]
+    },
+    {
+      "key": "hvcl_jal@outlook.com",
+      "count": 2,
+      "primaryClientId": "8586",
+      "mergedFromClientIds": [
+        "8462"
+      ]
+    },
+    {
+      "key": "ariannakilito@gmail.com",
+      "count": 2,
+      "primaryClientId": "8504",
+      "mergedFromClientIds": [
+        "8360"
+      ]
+    },
+    {
+      "key": "maxputrello@gmail.com",
+      "count": 2,
+      "primaryClientId": "6144",
+      "mergedFromClientIds": [
+        "8463"
+      ]
+    },
+    {
+      "key": "escalantemarisol11@gmail.com",
+      "count": 2,
+      "primaryClientId": "6409",
+      "mergedFromClientIds": [
+        "8380"
+      ]
+    },
+    {
+      "key": "apineda2008@aol.com",
+      "count": 2,
+      "primaryClientId": "8372",
+      "mergedFromClientIds": [
+        "7641"
+      ]
+    },
+    {
+      "key": "citlaliortiz101516@gmail.com",
+      "count": 2,
+      "primaryClientId": "8298",
+      "mergedFromClientIds": [
+        "7400"
+      ]
+    },
+    {
+      "key": "rojazy77@gmail.com",
+      "count": 2,
+      "primaryClientId": "5549",
+      "mergedFromClientIds": [
+        "8232"
+      ]
+    },
+    {
+      "key": "ferr35710@gmail.com",
+      "count": 3,
+      "primaryClientId": "8123",
+      "mergedFromClientIds": [
+        "8125",
+        "7605"
+      ]
+    },
+    {
+      "key": "mafgjen@gmail.com",
+      "count": 2,
+      "primaryClientId": "5768",
+      "mergedFromClientIds": [
+        "8024"
+      ]
+    },
+    {
+      "key": "zaimedgar@gmail.com",
+      "count": 2,
+      "primaryClientId": "4854",
+      "mergedFromClientIds": [
+        "8001"
+      ]
+    },
+    {
+      "key": "marisol68.mb@gmail.com",
+      "count": 2,
+      "primaryClientId": "6841",
+      "mergedFromClientIds": [
+        "7983"
+      ]
+    },
+    {
+      "key": "mattyemy@icloud.com",
+      "count": 2,
+      "primaryClientId": "7973",
+      "mergedFromClientIds": [
+        "1428"
+      ]
+    },
+    {
+      "key": "yussanchez.23@icloud.com",
+      "count": 2,
+      "primaryClientId": "5000",
+      "mergedFromClientIds": [
+        "7959"
+      ]
+    },
+    {
+      "key": "alejandrarico684@gmail.com",
+      "count": 2,
+      "primaryClientId": "1764",
+      "mergedFromClientIds": [
+        "7824"
+      ]
+    },
+    {
+      "key": "naaracuadros@gmail.com",
+      "count": 2,
+      "primaryClientId": "7819",
+      "mergedFromClientIds": [
+        "2435"
+      ]
+    },
+    {
+      "key": "cjob0286@gmail.com",
+      "count": 2,
+      "primaryClientId": "7586",
+      "mergedFromClientIds": [
+        "7807"
+      ]
+    },
+    {
+      "key": "abi.sandovalb@icloud.com",
+      "count": 2,
+      "primaryClientId": "3076",
+      "mergedFromClientIds": [
+        "7559"
+      ]
+    },
+    {
+      "key": "marilenduarte19@gmail.com",
+      "count": 2,
+      "primaryClientId": "7507",
+      "mergedFromClientIds": [
+        "7498"
+      ]
+    },
+    {
+      "key": "rosaleidyiglesias31@gmail.com",
+      "count": 2,
+      "primaryClientId": "5237",
+      "mergedFromClientIds": [
+        "7347"
+      ]
+    },
+    {
+      "key": "zavalae45@yahoo.com",
+      "count": 2,
+      "primaryClientId": "7209",
+      "mergedFromClientIds": [
+        "7234"
+      ]
+    },
+    {
+      "key": "berenice.almaraz23@icloud.com",
+      "count": 2,
+      "primaryClientId": "6137",
+      "mergedFromClientIds": [
+        "7190"
+      ]
+    },
+    {
+      "key": "jojedajossy@gmail.com",
+      "count": 2,
+      "primaryClientId": "7164",
+      "mergedFromClientIds": [
+        "7173"
+      ]
+    },
+    {
+      "key": "m.gonzalezrincon2717@gmail.com",
+      "count": 2,
+      "primaryClientId": "674",
+      "mergedFromClientIds": [
+        "7161"
+      ]
+    },
+    {
+      "key": "azuri.dgm@gmail.com",
+      "count": 2,
+      "primaryClientId": "4962",
+      "mergedFromClientIds": [
+        "7117"
+      ]
+    },
+    {
+      "key": "magalimejia294@gmail.com",
+      "count": 2,
+      "primaryClientId": "6476",
+      "mergedFromClientIds": [
+        "7097"
+      ]
+    },
+    {
+      "key": "daianacast87@yahoo.com",
+      "count": 2,
+      "primaryClientId": "5251",
+      "mergedFromClientIds": [
+        "1527"
+      ]
+    },
+    {
+      "key": "mribon@hotmail.com",
+      "count": 2,
+      "primaryClientId": "5343",
+      "mergedFromClientIds": [
+        "5734"
+      ]
+    },
+    {
+      "key": "rojasarlis99@gmail.com",
+      "count": 2,
+      "primaryClientId": "7017",
+      "mergedFromClientIds": [
+        "3155"
+      ]
+    },
+    {
+      "key": "limacasandra53@gmail.com",
+      "count": 2,
+      "primaryClientId": "6993",
+      "mergedFromClientIds": [
+        "6877"
+      ]
+    },
+    {
+      "key": "karlacortez051594@gmail.com",
+      "count": 2,
+      "primaryClientId": "6978",
+      "mergedFromClientIds": [
+        "6976"
+      ]
+    },
+    {
+      "key": "suritg1@hotmail.com",
+      "count": 2,
+      "primaryClientId": "6934",
+      "mergedFromClientIds": [
+        "6933"
+      ]
+    },
+    {
+      "key": "jade2014saory@gmail.com",
+      "count": 2,
+      "primaryClientId": "4602",
+      "mergedFromClientIds": [
+        "2975"
+      ]
+    },
+    {
+      "key": "amsg.uets@gmail.com",
+      "count": 2,
+      "primaryClientId": "6840",
+      "mergedFromClientIds": [
+        "6842"
+      ]
+    },
+    {
+      "key": "patriciaarita26@gmail.com",
+      "count": 2,
+      "primaryClientId": "6782",
+      "mergedFromClientIds": [
+        "5603"
+      ]
+    },
+    {
+      "key": "lorelynrodriguez@gmail.com",
+      "count": 2,
+      "primaryClientId": "6770",
+      "mergedFromClientIds": [
+        "3167"
+      ]
+    },
+    {
+      "key": "ddj@cfl.rr.com",
+      "count": 2,
+      "primaryClientId": "6724",
+      "mergedFromClientIds": [
+        "6723"
+      ]
+    },
+    {
+      "key": "jorgeventoserrano@gmail.com",
+      "count": 2,
+      "primaryClientId": "4126",
+      "mergedFromClientIds": [
+        "6402"
+      ]
+    },
+    {
+      "key": "glez21625@gmail.com",
+      "count": 2,
+      "primaryClientId": "4125",
+      "mergedFromClientIds": [
+        "6401"
+      ]
+    },
+    {
+      "key": "bersymichellem@gmail.com",
+      "count": 2,
+      "primaryClientId": "5223",
+      "mergedFromClientIds": [
+        "6320"
+      ]
+    },
+    {
+      "key": "jcristales123@gmail.com",
+      "count": 2,
+      "primaryClientId": "6290",
+      "mergedFromClientIds": [
+        "6289"
+      ]
+    },
+    {
+      "key": "melamarash@gmail.com",
+      "count": 2,
+      "primaryClientId": "6241",
+      "mergedFromClientIds": [
+        "5249"
+      ]
+    },
+    {
+      "key": "kary.joshua@gmail.com",
+      "count": 2,
+      "primaryClientId": "6211",
+      "mergedFromClientIds": [
+        "6182"
+      ]
+    },
+    {
+      "key": "missygarcia22@outlook.com",
+      "count": 2,
+      "primaryClientId": "1659",
+      "mergedFromClientIds": [
+        "6202"
+      ]
+    },
+    {
+      "key": "zamora.jimenez1989@gmail.com",
+      "count": 2,
+      "primaryClientId": "2171",
+      "mergedFromClientIds": [
+        "1470"
+      ]
+    },
+    {
+      "key": "cindymelissaap8@gmail.com",
+      "count": 2,
+      "primaryClientId": "6185",
+      "mergedFromClientIds": [
+        "5435"
+      ]
+    },
+    {
+      "key": "mariacv443@gmail.com",
+      "count": 2,
+      "primaryClientId": "4165",
+      "mergedFromClientIds": [
+        "6161"
+      ]
+    },
+    {
+      "key": "luzt_200@hotmail.com",
+      "count": 2,
+      "primaryClientId": "6111",
+      "mergedFromClientIds": [
+        "6114"
+      ]
+    },
+    {
+      "key": "frankpin1405@gmail.com",
+      "count": 2,
+      "primaryClientId": "6055",
+      "mergedFromClientIds": [
+        "6050"
+      ]
+    },
+    {
+      "key": "carmenangel47@gmail.com",
+      "count": 2,
+      "primaryClientId": "5924",
+      "mergedFromClientIds": [
+        "5985"
+      ]
+    },
+    {
+      "key": "welsimycbp1976@gmail.com",
+      "count": 2,
+      "primaryClientId": "5833",
+      "mergedFromClientIds": [
+        "5821"
+      ]
+    },
+    {
+      "key": "diorka084@gmail.com",
+      "count": 2,
+      "primaryClientId": "5870",
+      "mergedFromClientIds": [
+        "2574"
+      ]
+    },
+    {
+      "key": "rithaveroalmeida@gmail.com",
+      "count": 2,
+      "primaryClientId": "5841",
+      "mergedFromClientIds": [
+        "5844"
+      ]
+    },
+    {
+      "key": "marco_godinez@hotmail.com",
+      "count": 2,
+      "primaryClientId": "5840",
+      "mergedFromClientIds": [
+        "5839"
+      ]
+    },
+    {
+      "key": "elivyc02@gmail.com",
+      "count": 2,
+      "primaryClientId": "5532",
+      "mergedFromClientIds": [
+        "5800"
+      ]
+    },
+    {
+      "key": "c2000hernandez@gmail.com",
+      "count": 2,
+      "primaryClientId": "3066",
+      "mergedFromClientIds": [
+        "5260"
+      ]
+    },
+    {
+      "key": "quickietwo@yahoo.com",
+      "count": 2,
+      "primaryClientId": "37",
+      "mergedFromClientIds": [
+        "5794"
+      ]
+    },
+    {
+      "key": "monika2630@gmail.com",
+      "count": 2,
+      "primaryClientId": "5721",
+      "mergedFromClientIds": [
+        "1573"
+      ]
+    },
+    {
+      "key": "test@test.com",
+      "count": 2,
+      "primaryClientId": "5636",
+      "mergedFromClientIds": [
+        "5608"
+      ]
+    },
+    {
+      "key": "dulcecardenasb2014@hotmail.com",
+      "count": 2,
+      "primaryClientId": "2906",
+      "mergedFromClientIds": [
+        "5572"
+      ]
+    },
+    {
+      "key": "love_life02@icloud.com",
+      "count": 2,
+      "primaryClientId": "5464",
+      "mergedFromClientIds": [
+        "395"
+      ]
+    },
+    {
+      "key": "fatimalunac1960@gmail.com",
+      "count": 2,
+      "primaryClientId": "5386",
+      "mergedFromClientIds": [
+        "1671"
+      ]
+    },
+    {
+      "key": "celestephanie@hotmail.com",
+      "count": 2,
+      "primaryClientId": "5418",
+      "mergedFromClientIds": [
+        "5298"
+      ]
+    },
+    {
+      "key": "rodrigueztania1727@gmail.com",
+      "count": 2,
+      "primaryClientId": "5360",
+      "mergedFromClientIds": [
+        "5362"
+      ]
+    },
+    {
+      "key": "amalia_larrea212@yahoo.com",
+      "count": 2,
+      "primaryClientId": "5356",
+      "mergedFromClientIds": [
+        "5357"
+      ]
+    },
+    {
+      "key": "ana.sue.simon@gmail.com",
+      "count": 2,
+      "primaryClientId": "5299",
+      "mergedFromClientIds": [
+        "5300"
+      ]
+    },
+    {
+      "key": "ptoledoh@hotmail.com",
+      "count": 2,
+      "primaryClientId": "5244",
+      "mergedFromClientIds": [
+        "5177"
+      ]
+    },
+    {
+      "key": "maria.garcia7715@gmail.com",
+      "count": 2,
+      "primaryClientId": "3110",
+      "mergedFromClientIds": [
+        "5209"
+      ]
+    },
+    {
+      "key": "quijanosandra.025@gmail.com",
+      "count": 2,
+      "primaryClientId": "5126",
+      "mergedFromClientIds": [
+        "2710"
+      ]
+    },
+    {
+      "key": "leslysalazarsilva@gmail.com",
+      "count": 2,
+      "primaryClientId": "5071",
+      "mergedFromClientIds": [
+        "5031"
+      ]
+    },
+    {
+      "key": "yabatista@yahoo.com",
+      "count": 2,
+      "primaryClientId": "5032",
+      "mergedFromClientIds": [
+        "1328"
+      ]
+    },
+    {
+      "key": "serranoyansidy@gmail.com",
+      "count": 2,
+      "primaryClientId": "4981",
+      "mergedFromClientIds": [
+        "4980"
+      ]
+    },
+    {
+      "key": "no@no.com",
+      "count": 2,
+      "primaryClientId": "4968",
+      "mergedFromClientIds": [
+        "493"
+      ]
+    },
+    {
+      "key": "blopez1175@icloud.com",
+      "count": 2,
+      "primaryClientId": "3451",
+      "mergedFromClientIds": [
+        "3453"
+      ]
+    },
+    {
+      "key": "macy.wood26@hotmail.com",
+      "count": 2,
+      "primaryClientId": "4937",
+      "mergedFromClientIds": [
+        "2660"
+      ]
+    },
+    {
+      "key": "dianaventura2007@gmail.com",
+      "count": 2,
+      "primaryClientId": "4912",
+      "mergedFromClientIds": [
+        "4918"
+      ]
+    },
+    {
+      "key": "leoneljhr@hotmail.com",
+      "count": 2,
+      "primaryClientId": "4863",
+      "mergedFromClientIds": [
+        "4784"
+      ]
+    },
+    {
+      "key": "mayleencantillo@gmail.com",
+      "count": 2,
+      "primaryClientId": "4850",
+      "mergedFromClientIds": [
+        "4853"
+      ]
+    },
+    {
+      "key": "cadavidbermudeza@gmail.com",
+      "count": 2,
+      "primaryClientId": "4821",
+      "mergedFromClientIds": [
+        "2564"
+      ]
+    },
+    {
+      "key": "af3413431@gmail.com",
+      "count": 2,
+      "primaryClientId": "4688",
+      "mergedFromClientIds": [
+        "1401"
+      ]
+    },
+    {
+      "key": "michaelaschultz21@gmail.com",
+      "count": 2,
+      "primaryClientId": "111",
+      "mergedFromClientIds": [
+        "4639"
+      ]
+    },
+    {
+      "key": "luciiaflores2018@gmail.com",
+      "count": 2,
+      "primaryClientId": "4607",
+      "mergedFromClientIds": [
+        "4408"
+      ]
+    },
+    {
+      "key": "farolita32@gmail.com",
+      "count": 2,
+      "primaryClientId": "4583",
+      "mergedFromClientIds": [
+        "3855"
+      ]
+    },
+    {
+      "key": "jenguerrerom@gmail.com",
+      "count": 2,
+      "primaryClientId": "4462",
+      "mergedFromClientIds": [
+        "4558"
+      ]
+    },
+    {
+      "key": "jaismargonzalezsilva@gmail.com",
+      "count": 2,
+      "primaryClientId": "4374",
+      "mergedFromClientIds": [
+        "4516"
+      ]
+    },
+    {
+      "key": "gimniaramireztapullima@gmail.com",
+      "count": 2,
+      "primaryClientId": "4488",
+      "mergedFromClientIds": [
+        "4472"
+      ]
+    },
+    {
+      "key": "heidyruiz817@gmail.com",
+      "count": 2,
+      "primaryClientId": "4370",
+      "mergedFromClientIds": [
+        "4369"
+      ]
+    },
+    {
+      "key": "pequenitoseventos@gmail.com",
+      "count": 2,
+      "primaryClientId": "4349",
+      "mergedFromClientIds": [
+        "4348"
+      ]
+    },
+    {
+      "key": "myrna524@icloud.com",
+      "count": 2,
+      "primaryClientId": "4308",
+      "mergedFromClientIds": [
+        "4307"
+      ]
+    },
+    {
+      "key": "sanvicente072219@gmail.com",
+      "count": 2,
+      "primaryClientId": "4298",
+      "mergedFromClientIds": [
+        "2184"
+      ]
+    },
+    {
+      "key": "lilianaecmreyes03@hotmail.com",
+      "count": 2,
+      "primaryClientId": "4295",
+      "mergedFromClientIds": [
+        "1221"
+      ]
+    },
+    {
+      "key": "none@none.com",
+      "count": 2,
+      "primaryClientId": "4289",
+      "mergedFromClientIds": [
+        "1650"
+      ]
+    },
+    {
+      "key": "atroluz79@gmail.com",
+      "count": 2,
+      "primaryClientId": "4286",
+      "mergedFromClientIds": [
+        "4285"
+      ]
+    },
+    {
+      "key": "estrellacardoza@yahoo.com",
+      "count": 2,
+      "primaryClientId": "4111",
+      "mergedFromClientIds": [
+        "2953"
+      ]
+    },
+    {
+      "key": "evelynivettem@gmail.com",
+      "count": 2,
+      "primaryClientId": "4053",
+      "mergedFromClientIds": [
+        "4052"
+      ]
+    },
+    {
+      "key": "yomarysrosario08@gmail.com",
+      "count": 2,
+      "primaryClientId": "4011",
+      "mergedFromClientIds": [
+        "3791"
+      ]
+    },
+    {
+      "key": "contrerasmarina130@gmail.com",
+      "count": 3,
+      "primaryClientId": "3954",
+      "mergedFromClientIds": [
+        "3950",
+        "3949"
+      ]
+    },
+    {
+      "key": "katiuskafaraud123@gmail.com",
+      "count": 2,
+      "primaryClientId": "3903",
+      "mergedFromClientIds": [
+        "3272"
+      ]
+    },
+    {
+      "key": "sarahsanchez131967@gmail.com",
+      "count": 2,
+      "primaryClientId": "3632",
+      "mergedFromClientIds": [
+        "3633"
+      ]
+    },
+    {
+      "key": "mineliaruiz40@gmail.com",
+      "count": 2,
+      "primaryClientId": "3702",
+      "mergedFromClientIds": [
+        "3703"
+      ]
+    },
+    {
+      "key": "bettyvazquez84@outlook.com",
+      "count": 2,
+      "primaryClientId": "3648",
+      "mergedFromClientIds": [
+        "3630"
+      ]
+    },
+    {
+      "key": "rosyl8019@gmail.com",
+      "count": 2,
+      "primaryClientId": "3634",
+      "mergedFromClientIds": [
+        "3605"
+      ]
+    },
+    {
+      "key": "giulianaleonela@gmail.com",
+      "count": 2,
+      "primaryClientId": "1200",
+      "mergedFromClientIds": [
+        "3631"
+      ]
+    },
+    {
+      "key": "contactoceciliamoya@gmail.com",
+      "count": 2,
+      "primaryClientId": "3585",
+      "mergedFromClientIds": [
+        "3559"
+      ]
+    },
+    {
+      "key": "andreaeliza1818@gmail.com",
+      "count": 2,
+      "primaryClientId": "3572",
+      "mergedFromClientIds": [
+        "3571"
+      ]
+    },
+    {
+      "key": "greciahernandez065@gmail.com",
+      "count": 2,
+      "primaryClientId": "3445",
+      "mergedFromClientIds": [
+        "3405"
+      ]
+    },
+    {
+      "key": "love.derek0213@gmail.com",
+      "count": 2,
+      "primaryClientId": "2900",
+      "mergedFromClientIds": [
+        "1169"
+      ]
+    },
+    {
+      "key": "ninyarevalo@gmail.com",
+      "count": 2,
+      "primaryClientId": "2855",
+      "mergedFromClientIds": [
+        "2909"
+      ]
+    },
+    {
+      "key": "lm2dios@gmail.com",
+      "count": 3,
+      "primaryClientId": "2833",
+      "mergedFromClientIds": [
+        "2832",
+        "2814"
+      ]
+    },
+    {
+      "key": "eilenerika2024@gmail.com",
+      "count": 2,
+      "primaryClientId": "2825",
+      "mergedFromClientIds": [
+        "2795"
+      ]
+    },
+    {
+      "key": "yocastapena38@gmail.com",
+      "count": 2,
+      "primaryClientId": "2804",
+      "mergedFromClientIds": [
+        "2809"
+      ]
+    },
+    {
+      "key": "mariajoel529@gmail.com",
+      "count": 3,
+      "primaryClientId": "2770",
+      "mergedFromClientIds": [
+        "2769",
+        "2768"
+      ]
+    },
+    {
+      "key": "brigeetr@gmail.com",
+      "count": 2,
+      "primaryClientId": "2506",
+      "mergedFromClientIds": [
+        "2029"
+      ]
+    },
+    {
+      "key": "jeffry19785@gmail.com",
+      "count": 2,
+      "primaryClientId": "2448",
+      "mergedFromClientIds": [
+        "2444"
+      ]
+    },
+    {
+      "key": "isaacmarkandy@gmail.com",
+      "count": 2,
+      "primaryClientId": "1031",
+      "mergedFromClientIds": [
+        "2432"
+      ]
+    },
+    {
+      "key": "maarychaavez4@gmail.com",
+      "count": 2,
+      "primaryClientId": "1508",
+      "mergedFromClientIds": [
+        "2390"
+      ]
+    },
+    {
+      "key": "lennyladura0612@gmail.com",
+      "count": 2,
+      "primaryClientId": "2384",
+      "mergedFromClientIds": [
+        "2383"
+      ]
+    },
+    {
+      "key": "carolinacamacho0925@yahoo.com",
+      "count": 2,
+      "primaryClientId": "2140",
+      "mergedFromClientIds": [
+        "2135"
+      ]
+    },
+    {
+      "key": "eveloz.ny@gmail.com",
+      "count": 2,
+      "primaryClientId": "2163",
+      "mergedFromClientIds": [
+        "2164"
+      ]
+    },
+    {
+      "key": "rosiegbadillo@gmail.com",
+      "count": 2,
+      "primaryClientId": "1533",
+      "mergedFromClientIds": [
+        "1532"
+      ]
+    },
+    {
+      "key": "xiomara.diaz1953@gmail.com",
+      "count": 2,
+      "primaryClientId": "2044",
+      "mergedFromClientIds": [
+        "1482"
+      ]
+    },
+    {
+      "key": "gaby0512@gmail.com",
+      "count": 2,
+      "primaryClientId": "2030",
+      "mergedFromClientIds": [
+        "1630"
+      ]
+    },
+    {
+      "key": "11evengroupc@gmail.com",
+      "count": 2,
+      "primaryClientId": "1995",
+      "mergedFromClientIds": [
+        "654"
+      ]
+    },
+    {
+      "key": "airamlora80@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1416",
+      "mergedFromClientIds": [
+        "1423"
+      ]
+    },
+    {
+      "key": "gaby30031991@gmail.com",
+      "count": 2,
+      "primaryClientId": "1399",
+      "mergedFromClientIds": [
+        "1911"
+      ]
+    },
+    {
+      "key": "mayo200718@gmail.com",
+      "count": 2,
+      "primaryClientId": "1194",
+      "mergedFromClientIds": [
+        "1211"
+      ]
+    },
+    {
+      "key": "angelgabrielcoronel8@gmail.com",
+      "count": 2,
+      "primaryClientId": "1801",
+      "mergedFromClientIds": [
+        "1802"
+      ]
+    },
+    {
+      "key": "il0430032@gmail.com",
+      "count": 2,
+      "primaryClientId": "1734",
+      "mergedFromClientIds": [
+        "1050"
+      ]
+    },
+    {
+      "key": "sandrapinto1383@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1596",
+      "mergedFromClientIds": [
+        "1730"
+      ]
+    },
+    {
+      "key": "lisandra6683@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1003",
+      "mergedFromClientIds": [
+        "1641"
+      ]
+    },
+    {
+      "key": "ginairaperez@gmail.com",
+      "count": 2,
+      "primaryClientId": "1027",
+      "mergedFromClientIds": [
+        "700"
+      ]
+    },
+    {
+      "key": "ramirezxiomara1918@gmail.com",
+      "count": 2,
+      "primaryClientId": "1545",
+      "mergedFromClientIds": [
+        "1543"
+      ]
+    },
+    {
+      "key": "jorgitolopez1980@gmail.com",
+      "count": 2,
+      "primaryClientId": "1520",
+      "mergedFromClientIds": [
+        "1519"
+      ]
+    },
+    {
+      "key": "katheryn116@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1375",
+      "mergedFromClientIds": [
+        "1379"
+      ]
+    },
+    {
+      "key": "aguileraevakarina@gmail.com",
+      "count": 2,
+      "primaryClientId": "1365",
+      "mergedFromClientIds": [
+        "1364"
+      ]
+    },
+    {
+      "key": "mnconstru.2016@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1313",
+      "mergedFromClientIds": [
+        "1116"
+      ]
+    },
+    {
+      "key": "verocalderon87@gmail.com",
+      "count": 2,
+      "primaryClientId": "1234",
+      "mergedFromClientIds": [
+        "1236"
+      ]
+    },
+    {
+      "key": "katica86@gmail.com",
+      "count": 2,
+      "primaryClientId": "1173",
+      "mergedFromClientIds": [
+        "1175"
+      ]
+    },
+    {
+      "key": "yurisaygomez@gmail.com",
+      "count": 2,
+      "primaryClientId": "1177",
+      "mergedFromClientIds": [
+        "1176"
+      ]
+    },
+    {
+      "key": "nunez_03@hotmail.com",
+      "count": 2,
+      "primaryClientId": "1156",
+      "mergedFromClientIds": [
+        "1154"
+      ]
+    },
+    {
+      "key": "arelispino@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1056",
+      "mergedFromClientIds": [
+        "952"
+      ]
+    },
+    {
+      "key": "mayracmendezc@gmail.com",
+      "count": 2,
+      "primaryClientId": "1036",
+      "mergedFromClientIds": [
+        "1034"
+      ]
+    },
+    {
+      "key": "luciaromaofficial@icloud.com",
+      "count": 3,
+      "primaryClientId": "582",
+      "mergedFromClientIds": [
+        "583",
+        "702"
+      ]
+    },
+    {
+      "key": "leilumiderm@gmail.com",
+      "count": 2,
+      "primaryClientId": "977",
+      "mergedFromClientIds": [
+        "982"
+      ]
+    },
+    {
+      "key": "gemisiana2527@hotmail.com",
+      "count": 2,
+      "primaryClientId": "747",
+      "mergedFromClientIds": [
+        "807"
+      ]
+    },
+    {
+      "key": "geizel2000@gmail.com",
+      "count": 2,
+      "primaryClientId": "645",
+      "mergedFromClientIds": [
+        "644"
+      ]
+    },
+    {
+      "key": "thirddaypower@gmail.com",
+      "count": 2,
+      "primaryClientId": "71",
+      "mergedFromClientIds": [
+        "73"
+      ]
+    }
+  ],
+  "readyForImport": 12516,
+  "stripeIdsToVerify": 1443,
+  "recordsWithoutStripe": 11073,
+  "recordsWithStripe": 1443,
+  "summary": {
+    "totalParsed": 12890,
+    "malformed": 0,
+    "testRecords": 50,
+    "duplicatesRemoved": 324,
+    "uniqueAfterDedup": 12566,
+    "readyForImport": 12516
+  }
+}

@@ -126,9 +126,9 @@ export default function SubscriptionsPage() {
               </div>
 
               <div className="text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
                   <svg
-                    className="h-6 w-6 text-purple-600"
+                    className="h-6 w-6 text-[var(--brand-primary)]"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"

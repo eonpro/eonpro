@@ -226,7 +226,7 @@ export default function ProviderSOAPNotesPage() {
             </button>
             <button
               onClick={handleNewNote}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+              className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
             >
               <Plus className="h-4 w-4" />
               New SOAP Note
@@ -243,13 +243,13 @@ export default function ProviderSOAPNotesPage() {
               placeholder="Search by patient or complaint..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-[var(--brand-primary)]"
             />
           </div>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-lg border px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+            className="rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
           >
             <option value="all">All Notes</option>
             <option value="draft">Drafts</option>
@@ -262,7 +262,7 @@ export default function ProviderSOAPNotesPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-indigo-600">{soapNotes.length}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">{soapNotes.length}</div>
           <div className="text-sm text-gray-600">Total Notes</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
@@ -316,7 +316,7 @@ export default function ProviderSOAPNotesPage() {
                     key={note.id}
                     onClick={() => setSelectedNote(note)}
                     className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md ${
-                      selectedNote?.id === note.id ? 'border-indigo-500 bg-indigo-50' : ''
+                      selectedNote?.id === note.id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]' : ''
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -428,7 +428,7 @@ export default function ProviderSOAPNotesPage() {
                       selectedNote.status === 'PENDING_REVIEW') && (
                       <button
                         onClick={() => handleEditNote(selectedNote.id)}
-                        className="w-full rounded bg-indigo-100 px-3 py-2 text-indigo-700 hover:bg-indigo-200"
+                        className="w-full rounded bg-[var(--brand-primary-light)] px-3 py-2 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
                       >
                         Edit Note
                       </button>

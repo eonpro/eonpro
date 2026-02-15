@@ -278,7 +278,7 @@ export default function CommissionPlansPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -301,7 +301,7 @@ export default function CommissionPlansPage() {
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 font-medium text-white hover:brightness-90"
           >
             <Plus className="h-5 w-5" />
             New Plan
@@ -356,9 +356,9 @@ export default function CommissionPlansPage() {
               plan.recurringPercentBps !== null ||
               plan.recurringFlatAmountCents !== null ? (
                 <>
-                  <div className="flex items-center justify-between rounded-lg bg-violet-50 p-2">
-                    <span className="text-sm text-violet-600">Initial Payment</span>
-                    <span className="font-semibold text-violet-700">
+                  <div className="flex items-center justify-between rounded-lg bg-[var(--brand-primary-light)] p-2">
+                    <span className="text-sm text-[var(--brand-primary)]">Initial Payment</span>
+                    <span className="font-semibold text-[var(--brand-primary)]">
                       {plan.planType === 'PERCENT' && plan.initialPercentBps !== null
                         ? formatPercent(plan.initialPercentBps)
                         : plan.initialFlatAmountCents !== null
@@ -448,7 +448,7 @@ export default function CommissionPlansPage() {
             <p className="mt-2 text-gray-500">No commission plans yet</p>
             <button
               onClick={handleOpenCreateModal}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 font-medium text-white hover:brightness-90"
             >
               <Plus className="h-5 w-5" />
               Create Your First Plan
@@ -475,7 +475,7 @@ export default function CommissionPlansPage() {
                   value={formData.name}
                   onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g., Standard 10% Plan"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -486,7 +486,7 @@ export default function CommissionPlansPage() {
                   value={formData.description}
                   onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Optional description"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -498,7 +498,7 @@ export default function CommissionPlansPage() {
                   onChange={(e) =>
                     setFormData((f) => ({ ...f, planType: e.target.value as 'FLAT' | 'PERCENT' }))
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 >
                   <option value="PERCENT">Percentage of Sale</option>
                   <option value="FLAT">Flat Amount</option>
@@ -527,7 +527,7 @@ export default function CommissionPlansPage() {
                               percentBps: Math.round(parseFloat(e.target.value || '0') * 100),
                             }))
                           }
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-8 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-8 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                           %
@@ -550,7 +550,7 @@ export default function CommissionPlansPage() {
                               flatAmountCents: Math.round(parseFloat(e.target.value || '0') * 100),
                             }))
                           }
-                          className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                         />
                       </>
                     )}
@@ -559,7 +559,7 @@ export default function CommissionPlansPage() {
               )}
 
               {/* Separate Initial/Recurring Rates Toggle */}
-              <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
+              <div className="rounded-lg border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4">
                 <label className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -567,7 +567,7 @@ export default function CommissionPlansPage() {
                     onChange={(e) =>
                       setFormData((f) => ({ ...f, useSeperateRates: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                   />
                   <div>
                     <span className="font-medium text-gray-900">
@@ -583,7 +583,7 @@ export default function CommissionPlansPage() {
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     {/* Initial Payment Rate */}
                     <div>
-                      <label className="block text-sm font-medium text-violet-700">
+                      <label className="block text-sm font-medium text-[var(--brand-primary)]">
                         Initial Payment {formData.planType === 'PERCENT' ? '%' : 'Amount'}
                       </label>
                       <div className="relative mt-1">
@@ -603,7 +603,7 @@ export default function CommissionPlansPage() {
                                   ),
                                 }))
                               }
-                              className="w-full rounded-lg border border-violet-300 bg-white px-3 py-2 pr-8 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                              className="w-full rounded-lg border border-[var(--brand-primary)] bg-white px-3 py-2 pr-8 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
                               %
@@ -627,12 +627,12 @@ export default function CommissionPlansPage() {
                                   ),
                                 }))
                               }
-                              className="w-full rounded-lg border border-violet-300 bg-white py-2 pl-7 pr-3 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                              className="w-full rounded-lg border border-[var(--brand-primary)] bg-white py-2 pl-7 pr-3 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                             />
                           </>
                         )}
                       </div>
-                      <p className="mt-1 text-xs text-violet-600">First payment commission</p>
+                      <p className="mt-1 text-xs text-[var(--brand-primary)]">First payment commission</p>
                     </div>
 
                     {/* Recurring Payment Rate */}
@@ -701,7 +701,7 @@ export default function CommissionPlansPage() {
                     onChange={(e) =>
                       setFormData((f) => ({ ...f, recurringEnabled: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                   />
                   <span className="text-sm text-gray-700">Enable recurring commissions</span>
                 </label>
@@ -724,7 +724,7 @@ export default function CommissionPlansPage() {
                             e.target.value === 'lifetime' ? null : parseInt(e.target.value),
                         }))
                       }
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                     >
                       <option value="lifetime">Lifetime (no limit)</option>
                       <option value="3">3 months</option>
@@ -750,7 +750,7 @@ export default function CommissionPlansPage() {
                     onChange={(e) =>
                       setFormData((f) => ({ ...f, holdDays: parseInt(e.target.value) || 0 }))
                     }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                   />
                   <p className="mt-1 text-xs text-gray-500">Days before commission approved</p>
                 </div>
@@ -763,7 +763,7 @@ export default function CommissionPlansPage() {
                       onChange={(e) =>
                         setFormData((f) => ({ ...f, clawbackEnabled: e.target.checked }))
                       }
-                      className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                      className="h-4 w-4 rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
                     />
                     <span className="text-sm text-gray-700">Enable clawback on refunds</span>
                   </label>
@@ -787,7 +787,7 @@ export default function CommissionPlansPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                  className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90 disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editingPlan ? 'Update Plan' : 'Create Plan'}
                 </button>

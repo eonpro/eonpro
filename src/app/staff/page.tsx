@@ -103,7 +103,7 @@ export default function StaffDashboard() {
                 <p className="text-sm text-gray-500">Documents to File</p>
                 <p className="text-2xl font-bold text-gray-900">23</p>
               </div>
-              <FileText className="h-8 w-8 text-purple-600" />
+              <FileText className="h-8 w-8 text-[var(--brand-primary)]" />
             </div>
           </div>
         </div>
@@ -136,7 +136,7 @@ export default function StaffDashboard() {
                         ? 'bg-yellow-100 text-yellow-700'
                         : intake.status === 'In Progress'
                           ? 'bg-blue-100 text-blue-700'
-                          : 'bg-purple-100 text-purple-700'
+                          : 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                     }`}
                   >
                     {intake.status}
@@ -204,7 +204,7 @@ export default function StaffDashboard() {
                 user: 'Lab Results',
                 time: '1 hour ago',
                 icon: FileText,
-                color: 'text-purple-600',
+                color: 'text-[var(--brand-primary)]',
               },
             ].map((activity, idx) => {
               const Icon = activity.icon;
@@ -239,7 +239,7 @@ export default function StaffDashboard() {
               <Package className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Process Order</span>
             </button>
-            <button className="flex flex-col items-center rounded-lg bg-purple-50 p-4 text-purple-700 transition-colors hover:bg-purple-100">
+            <button className="flex flex-col items-center rounded-lg bg-[var(--brand-primary-light)] p-4 text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]">
               <FileText className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Upload Docs</span>
             </button>

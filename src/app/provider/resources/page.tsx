@@ -143,7 +143,7 @@ export default function ProviderResourcesPage() {
       case 'form':
         return 'bg-green-100 text-green-800';
       case 'video':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       case 'article':
         return 'bg-yellow-100 text-yellow-800';
       case 'protocol':
@@ -173,7 +173,7 @@ export default function ProviderResourcesPage() {
             <BookOpen className="h-6 w-6" />
             Provider Resources
           </h1>
-          <button className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+          <button className="rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90">
             Request Resource
           </button>
         </div>
@@ -187,7 +187,7 @@ export default function ProviderResourcesPage() {
               placeholder="Search resources..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-[var(--brand-primary)]"
             />
           </div>
           <div className="flex gap-2">
@@ -197,7 +197,7 @@ export default function ProviderResourcesPage() {
                 onClick={() => setSelectedCategory(category)}
                 className={`rounded-lg px-4 py-2 capitalize ${
                   selectedCategory === category
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-[var(--brand-primary)] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -211,7 +211,7 @@ export default function ProviderResourcesPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-indigo-600">{resources.length}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">{resources.length}</div>
           <div className="text-sm text-gray-600">Total Resources</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
@@ -227,7 +227,7 @@ export default function ProviderResourcesPage() {
           <div className="text-sm text-gray-600">Forms</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-purple-600">
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">
             {resources.reduce((acc, r) => acc + (r.downloads || 0), 0)}
           </div>
           <div className="text-sm text-gray-600">Total Downloads</div>
@@ -284,7 +284,7 @@ export default function ProviderResourcesPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button className="flex flex-1 items-center justify-center gap-2 rounded bg-indigo-100 px-4 py-2 text-indigo-700 hover:bg-indigo-200">
+                <button className="flex flex-1 items-center justify-center gap-2 rounded bg-[var(--brand-primary-light)] px-4 py-2 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]">
                   <Download className="h-4 w-4" />
                   Download
                 </button>

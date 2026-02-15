@@ -16,7 +16,7 @@ const calculators = [
     name: 'GLP-1 Dosage Calculator',
     description: 'Semaglutide & Tirzepatide dosing with titration schedules',
     icon: Syringe,
-    color: 'bg-purple-500',
+    color: 'bg-[var(--brand-primary-light)]0',
     href: '/provider/calculators/glp1-dose',
     implemented: true,
   },

@@ -21,7 +21,7 @@ export default function TutorialVideosPage() {
     { id: 'all', label: 'All', color: 'bg-gray-500' },
     { id: 'injection', label: 'Injections', color: 'bg-blue-500' },
     { id: 'exercise', label: 'Exercise', color: 'bg-green-500' },
-    { id: 'nutrition', label: 'Nutrition', color: 'bg-purple-500' },
+    { id: 'nutrition', label: 'Nutrition', color: 'bg-[var(--brand-primary)]' },
     { id: 'wellness', label: 'Wellness', color: 'bg-pink-500' },
   ];
 
@@ -86,7 +86,7 @@ export default function TutorialVideosPage() {
     selectedCategory === 'all' ? videos : videos.filter((v) => v.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
+    <div className="min-h-screen bg-[var(--brand-primary-light)]">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b bg-white">
         <div className="mx-auto max-w-2xl px-4 py-3">

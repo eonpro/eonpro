@@ -119,7 +119,7 @@ export default function StaffResourcesPage() {
       case 'forms':
         return 'bg-green-100 text-green-800';
       case 'videos':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       case 'policies':
         return 'bg-red-100 text-red-800';
       case 'guides':
@@ -205,7 +205,7 @@ export default function StaffResourcesPage() {
           <div className="text-sm text-gray-600">Forms</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-purple-600">
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">
             {resources.reduce((acc, r) => acc + (r.downloads || 0), 0)}
           </div>
           <div className="text-sm text-gray-600">Total Downloads</div>

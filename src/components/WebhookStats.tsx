@@ -184,15 +184,15 @@ export default function WebhookStats() {
           </div>
         </div>
 
-        <div className="rounded-lg bg-purple-50 p-3">
+        <div className="rounded-lg bg-[var(--brand-primary-light)] p-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-600">Avg Time</p>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-2xl font-bold text-[var(--brand-primary)]">
                 {formatTime(stats.avgProcessingTimeMs)}
               </p>
             </div>
-            <Clock className="h-8 w-8 text-purple-400" />
+            <Clock className="h-8 w-8 text-[var(--brand-primary)]" />
           </div>
         </div>
       </div>

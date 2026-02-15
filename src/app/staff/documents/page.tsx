@@ -97,7 +97,7 @@ export default function StaffDocumentsPage() {
       case 'lab-results':
         return 'bg-green-100 text-green-800';
       case 'insurance':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       case 'consent-forms':
         return 'bg-yellow-100 text-yellow-800';
       case 'prescriptions':

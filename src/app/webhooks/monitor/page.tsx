@@ -255,9 +255,9 @@ export default function WebhookMonitorPage() {
                   {stats.successRate.toFixed(1)}%
                 </p>
               </div>
-              <div className="rounded bg-purple-50 p-4">
+              <div className="rounded bg-[var(--brand-primary-light)] p-4">
                 <p className="text-sm text-gray-600">Avg Time</p>
-                <p className="text-2xl font-semibold text-purple-600">
+                <p className="text-2xl font-semibold text-[var(--brand-primary)]">
                   {stats.avgProcessingTimeMs.toFixed(0)}ms
                 </p>
               </div>

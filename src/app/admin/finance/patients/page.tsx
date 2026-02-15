@@ -345,8 +345,8 @@ export default function PatientFinancePage() {
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="w-fit rounded-lg bg-purple-50 p-2">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
+              <div className="w-fit rounded-lg bg-emerald-50 p-2">
+                <TrendingUp className="h-5 w-5 text-emerald-600" />
               </div>
               <h3 className="mt-4 text-2xl font-bold text-gray-900">
                 {displayData.metrics.activeSubscriptions}

@@ -276,8 +276,8 @@ export default function SubscriptionsPage() {
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="w-fit rounded-lg bg-purple-50 p-2">
-            <DollarSign className="h-5 w-5 text-purple-600" />
+          <div className="w-fit rounded-lg bg-[var(--brand-primary-light)] p-2">
+            <DollarSign className="h-5 w-5 text-[var(--brand-primary)]" />
           </div>
           <h3 className="mt-4 text-2xl font-bold text-gray-900">
             {formatCurrency(mockMetrics.totalMrr)}

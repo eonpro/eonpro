@@ -677,7 +677,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                         {statusConfig.label}
                       </span>
                       {entry.isRefill && (
-                        <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                        <span className="inline-flex rounded-full bg-[var(--brand-primary-light)] px-2 py-0.5 text-xs font-medium text-[var(--brand-primary)]">
                           Refill #{entry.refillNumber || '—'}
                         </span>
                       )}

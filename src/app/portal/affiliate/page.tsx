@@ -121,7 +121,7 @@ export default function AffiliateDashboard() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -143,7 +143,7 @@ export default function AffiliateDashboard() {
       {/* Stats Grid */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Earnings */}
-        <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 p-6 text-white">
+        <div className="rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)]0 to-[var(--brand-primary)] p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-white/20 p-2">
               <DollarSign className="h-6 w-6" />
@@ -261,7 +261,7 @@ export default function AffiliateDashboard() {
             <h2 className="text-lg font-semibold text-gray-900">Your Referral Links</h2>
             <a
               href="/portal/affiliate/ref-codes"
-              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+              className="text-sm font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
             >
               Manage
             </a>
@@ -281,7 +281,7 @@ export default function AffiliateDashboard() {
                   </div>
                   <button
                     onClick={() => handleCopyCode(ref.refCode)}
-                    className="ml-4 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-100"
+                    className="ml-4 flex items-center gap-2 rounded-lg bg-[var(--brand-primary-light)] px-3 py-2 text-sm font-medium text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
                   >
                     {copiedCode === ref.refCode ? (
                       <>
@@ -308,7 +308,7 @@ export default function AffiliateDashboard() {
 
       {/* Commission Plan Info */}
       {summary?.currentPlan && (
-        <div className="mt-6 rounded-2xl bg-gradient-to-r from-violet-50 to-purple-50 p-6">
+        <div className="mt-6 rounded-2xl bg-gradient-to-r from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] p-6">
           <h3 className="mb-2 font-semibold text-gray-900">
             Your Commission Plan: {summary.currentPlan.name}
           </h3>

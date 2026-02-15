@@ -131,7 +131,7 @@ export default function CareTeamPage() {
                 <div
                   className={`flex h-14 w-14 items-center justify-center rounded-full font-semibold text-white ${
                     member.avatar === 'AI'
-                      ? 'bg-gradient-to-br from-purple-500 to-pink-500'
+                      ? 'bg-[var(--brand-primary)]'
                       : 'bg-gradient-to-br from-blue-500 to-blue-600'
                   }`}
                 >
@@ -191,20 +191,20 @@ export default function CareTeamPage() {
         </div>
 
         {/* Concierge Card */}
-        <div className="rounded-xl border border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-6">
+        <div className="rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-gray-900">Concierge Service</h3>
               <p className="mt-1 text-sm text-gray-600">Need help? We can assist with anything</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-primary)]">
               <MessageCircle className="h-5 w-5 text-white" />
             </div>
           </div>
 
           <button
             onClick={handleContactConcierge}
-            className="w-full rounded-lg bg-purple-600 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
+            className="w-full rounded-lg bg-[var(--brand-primary)] py-2 text-sm font-medium text-white transition-colors hover:brightness-90"
           >
             Contact Concierge
           </button>

@@ -1479,8 +1479,8 @@ export default function PatientIntakeView({
                 className="flex w-full items-center justify-between p-4 transition-colors hover:bg-gray-50"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-                    <ClipboardList className="h-5 w-5 text-purple-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
+                    <ClipboardList className="h-5 w-5 text-[var(--brand-primary)]" />
                   </div>
                   <h2 className="text-lg font-semibold text-gray-900">Additional Responses</h2>
                   <span className="text-sm text-gray-500">({additionalAnswers.length} items)</span>

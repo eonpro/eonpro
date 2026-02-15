@@ -237,7 +237,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-600">Activity Tracking</h3>
-            <Activity className="h-5 w-5 text-purple-500" />
+            <Activity className="h-5 w-5 text-[var(--brand-primary)]" />
           </div>
           <p className="text-2xl font-bold text-gray-900">
             {weightData.length + medicationReminders.length}
@@ -445,7 +445,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
                         entry.source === 'intake'
-                          ? 'bg-purple-100 text-purple-700'
+                          ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                           : entry.source === 'provider'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-600'

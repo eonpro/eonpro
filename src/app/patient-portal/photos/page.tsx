@@ -155,8 +155,8 @@ export default function PhotosHubPage() {
       title: 'ID Verification',
       description: 'Verify your identity securely',
       status: stats?.verification.status,
-      color: 'bg-purple-500',
-      bgColor: 'bg-purple-50',
+      color: 'bg-emerald-500',
+      bgColor: 'bg-emerald-50',
     },
     {
       href: '/patient-portal/photos/medical',
@@ -281,8 +281,8 @@ export default function PhotosHubPage() {
                   style={{
                     color: section.color.includes('blue')
                       ? '#3B82F6'
-                      : section.color.includes('purple')
-                        ? '#8B5CF6'
+                      : section.color.includes('emerald')
+                        ? '#10B981'
                         : '#14B8A6',
                   }}
                 />

@@ -749,10 +749,10 @@ export default function AdminSettingsPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-purple-50 p-4">
-                  <p className="text-3xl font-bold text-purple-700">{stats.orders.thisMonth}</p>
-                  <p className="text-sm text-purple-600">Orders This Month</p>
-                  <p className="mt-2 text-xs text-purple-500">{stats.orders.pending} pending</p>
+                <div className="rounded-xl bg-[var(--brand-primary-light)] p-4">
+                  <p className="text-3xl font-bold text-[var(--brand-primary)]">{stats.orders.thisMonth}</p>
+                  <p className="text-sm text-[var(--brand-primary)]">Orders This Month</p>
+                  <p className="mt-2 text-xs text-[var(--brand-primary)]">{stats.orders.pending} pending</p>
                 </div>
 
                 <div className="rounded-xl bg-orange-50 p-4">
@@ -797,7 +797,7 @@ export default function AdminSettingsPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between rounded bg-gray-50 p-2">
                       <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-purple-600" />
+                        <CreditCard className="h-4 w-4 text-[var(--brand-primary)]" />
                         <span className="text-sm">Stripe Connect</span>
                       </div>
                       {clinic.stripeChargesEnabled ? (
@@ -1230,7 +1230,7 @@ export default function AdminSettingsPage() {
                             <span
                               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                                 u.role === 'ADMIN'
-                                  ? 'bg-purple-100 text-purple-800'
+                                  ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                                   : u.role === 'PROVIDER'
                                     ? 'bg-blue-100 text-blue-800'
                                     : 'bg-gray-100 text-gray-800'
@@ -1635,12 +1635,12 @@ export default function AdminSettingsPage() {
 
               {/* Stripe Connect */}
               <div className="overflow-hidden rounded-xl border">
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
+                <div className="bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)] px-6 py-4">
                   <div className="flex items-center gap-3">
                     <CreditCard className="h-6 w-6 text-white" />
                     <h3 className="text-lg font-semibold text-white">Stripe Connect</h3>
                   </div>
-                  <p className="mt-1 text-sm text-purple-100">
+                  <p className="mt-1 text-sm text-white/80">
                     Accept payments directly to your bank account
                   </p>
                 </div>
@@ -1649,7 +1649,7 @@ export default function AdminSettingsPage() {
                     <div className="flex items-center gap-3">
                       {clinic.stripePlatformAccount ? (
                         <>
-                          <CheckCircle className="h-6 w-6 text-purple-500" />
+                          <CheckCircle className="h-6 w-6 text-[var(--brand-primary)]" />
                           <div>
                             <p className="font-medium">Platform Account</p>
                             <p className="text-sm text-gray-500">
@@ -1691,7 +1691,7 @@ export default function AdminSettingsPage() {
                     </div>
                     <button
                       onClick={() => router.push('/admin/settings/stripe')}
-                      className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+                      className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
                     >
                       {clinic.stripeAccountId ? 'Manage' : 'Connect'}
                       <ExternalLink className="h-4 w-4" />
@@ -1730,8 +1730,8 @@ export default function AdminSettingsPage() {
                 <div className="rounded-lg border p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-purple-100 p-2">
-                        <CreditCard className="h-5 w-5 text-purple-600" />
+                      <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+                        <CreditCard className="h-5 w-5 text-[var(--brand-primary)]" />
                       </div>
                       <div>
                         <h3 className="font-medium text-gray-900">Stripe</h3>

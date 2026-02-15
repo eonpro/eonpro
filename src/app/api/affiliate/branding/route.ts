@@ -64,9 +64,9 @@ export const GET = withAffiliateAuth(
         affiliateName: affiliate.displayName,
         logoUrl: clinic.logoUrl,
         faviconUrl: clinic.faviconUrl,
-        primaryColor: clinic.primaryColor || '#8B5CF6', // Default violet for affiliate
-        secondaryColor: clinic.secondaryColor || '#7C3AED',
-        accentColor: affiliateSettings.accentColor || '#C4B5FD',
+        primaryColor: clinic.primaryColor || '#4fa77e',
+        secondaryColor: clinic.secondaryColor || '#3B82F6',
+        accentColor: affiliateSettings.accentColor || '#d3f931',
         customCss: clinic.customCss,
         features: {
           showPerformanceChart: affiliateSettings.showPerformanceChart ?? true,

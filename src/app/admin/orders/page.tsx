@@ -93,7 +93,7 @@ export default function AdminOrdersPage() {
         return 'bg-blue-100 text-blue-800';
       case 'shipped':
       case 'in_transit':
-        return 'bg-indigo-100 text-indigo-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       case 'pending':
       case 'sent':
         return 'bg-yellow-100 text-yellow-800';

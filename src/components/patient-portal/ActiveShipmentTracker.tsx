@@ -47,15 +47,15 @@ const statusConfig = {
   },
   shipped: {
     color: '#3B82F6',
-    bgColor: 'from-blue-400 to-indigo-500',
+    bgColor: 'from-blue-400 to-blue-500',
     lightBg: 'bg-blue-50',
     icon: Package,
     message: 'Package is on its way!',
   },
   in_transit: {
-    color: '#8B5CF6',
-    bgColor: 'from-violet-400 to-purple-600',
-    lightBg: 'bg-purple-50',
+    color: '#06B6D4',
+    bgColor: 'from-cyan-400 to-teal-600',
+    lightBg: 'bg-cyan-50',
     icon: Truck,
     message: 'Speeding to you!',
   },
@@ -138,11 +138,11 @@ export default function ActiveShipmentTracker({
   if (loading) {
     return (
       <div className="mb-6">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-1">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-teal-500 to-emerald-500 p-1">
           <div className="rounded-[22px] bg-white p-6">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="h-16 w-16 animate-pulse rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100" />
+                <div className="h-16 w-16 animate-pulse rounded-2xl bg-gradient-to-br from-blue-100 to-emerald-100" />
               </div>
               <div className="flex-1 space-y-3">
                 <div className="h-5 w-48 animate-pulse rounded-full bg-gray-200" />
@@ -167,7 +167,7 @@ export default function ActiveShipmentTracker({
   return (
     <div className="mb-6">
       {/* Main Card with Animated Border */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-[3px] shadow-2xl shadow-purple-500/20">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-teal-500 to-emerald-500 p-[3px] shadow-2xl shadow-teal-500/20">
         {/* Animated shimmer effect */}
         <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
@@ -277,12 +277,12 @@ export default function ActiveShipmentTracker({
                             isCompleted
                               ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                               : isCurrent
-                                ? 'scale-110 bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-500/30'
+                                ? 'scale-110 bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
                                 : 'bg-gray-100 text-gray-400'
                           }`}
                         >
                           {isCurrent && (
-                            <div className="absolute inset-0 animate-ping rounded-full bg-purple-400 opacity-30" />
+                            <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-30" />
                           )}
                           {isCompleted ? (
                             <CheckCircle2 className="h-5 w-5" />
@@ -295,7 +295,7 @@ export default function ActiveShipmentTracker({
                         <span
                           className={`mt-2 text-center text-xs font-medium ${
                             isCurrent
-                              ? 'text-purple-600'
+                              ? 'text-emerald-600'
                               : isCompleted
                                 ? 'text-emerald-600'
                                 : 'text-gray-400'
@@ -333,7 +333,7 @@ export default function ActiveShipmentTracker({
                 )}
 
                 {/* Carrier Info */}
-                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-blue-50 p-4">
                   <div className="mb-1 flex items-center gap-2">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
                       <Truck className="h-3.5 w-3.5 text-blue-600" />
@@ -346,14 +346,14 @@ export default function ActiveShipmentTracker({
 
               {/* Last Location */}
               {mainShipment.lastLocation && (
-                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-purple-100 bg-gradient-to-r from-violet-50 to-purple-50 p-4">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/10">
-                    <MapPin className="h-5 w-5 text-purple-600" />
+                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+                    <MapPin className="h-5 w-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-purple-600">Latest Update</p>
-                    <p className="font-semibold text-purple-900">{mainShipment.lastLocation}</p>
-                    <p className="mt-0.5 text-xs text-purple-500">
+                    <p className="text-xs font-medium text-emerald-600">Latest Update</p>
+                    <p className="font-semibold text-emerald-900">{mainShipment.lastLocation}</p>
+                    <p className="mt-0.5 text-xs text-emerald-500">
                       {new Date(mainShipment.lastUpdate).toLocaleString('en-US', {
                         month: 'short',
                         day: 'numeric',
@@ -384,7 +384,7 @@ export default function ActiveShipmentTracker({
                   </div>
                 ))}
                 {mainShipment.isRefill && (
-                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-700">
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
                     <Sparkles className="h-3 w-3" />
                     Refill #{mainShipment.refillNumber || ''}
                   </div>
@@ -398,7 +398,7 @@ export default function ActiveShipmentTracker({
                     href={mainShipment.trackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)] px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98]"
                   >
                     <Truck className="h-5 w-5" />
                     Track on {mainShipment.carrier}
@@ -421,7 +421,7 @@ export default function ActiveShipmentTracker({
       {activeShipments.length > 1 && (
         <Link
           href="/patient-portal/shipments"
-          className="mt-3 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/50 p-4 text-sm font-semibold text-purple-700 transition-all hover:border-purple-300 hover:bg-purple-50"
+          className="mt-3 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 p-4 text-sm font-semibold text-emerald-700 transition-all hover:border-emerald-300 hover:bg-emerald-50"
         >
           <Package className="h-5 w-5" />+{activeShipments.length - 1} more shipment
           {activeShipments.length > 2 ? 's' : ''} on the way

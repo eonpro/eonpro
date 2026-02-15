@@ -85,8 +85,8 @@ export default function OfflinePage() {
               href="/patient-portal/medications"
               className="flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-gray-50"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-                <Pill className="h-5 w-5 text-purple-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
+                <Pill className="h-5 w-5 text-[var(--brand-primary)]" />
               </div>
               <div className="text-left">
                 <p className="font-medium text-gray-900">Medications</p>

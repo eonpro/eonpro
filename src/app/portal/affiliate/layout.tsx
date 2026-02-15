@@ -177,8 +177,8 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  const primaryColor = branding?.primaryColor || '#8B5CF6';
-  const accentColor = branding?.accentColor || '#C4B5FD';
+  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const accentColor = branding?.accentColor || '#A7F3D0';
 
   if (isLoading) {
     return (

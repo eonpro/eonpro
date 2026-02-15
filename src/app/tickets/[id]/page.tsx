@@ -137,7 +137,7 @@ interface Activity {
 const STATUS_COLORS: Record<string, string> = {
   NEW: 'bg-blue-100 text-blue-800 border-blue-300',
   OPEN: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  IN_PROGRESS: 'bg-purple-100 text-purple-800 border-purple-300',
+  IN_PROGRESS: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-medium)]',
   PENDING: 'bg-gray-100 text-gray-800 border-gray-300',
   PENDING_CUSTOMER: 'bg-orange-100 text-orange-800 border-orange-300',
   PENDING_INTERNAL: 'bg-orange-100 text-orange-800 border-orange-300',

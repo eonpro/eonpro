@@ -195,9 +195,9 @@ export default function SuperAdminCodePerformancePage() {
     if (effectiveSortBy !== effectiveField)
       return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     return sortOrder === 'asc' ? (
-      <ArrowUp className="h-4 w-4 text-violet-600" />
+      <ArrowUp className="h-4 w-4 text-[var(--brand-primary)]" />
     ) : (
-      <ArrowDown className="h-4 w-4 text-violet-600" />
+      <ArrowDown className="h-4 w-4 text-[var(--brand-primary)]" />
     );
   };
 
@@ -207,8 +207,8 @@ export default function SuperAdminCodePerformancePage() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-violet-600" />
-            <span className="text-sm font-medium text-violet-600">Cross-Clinic View</span>
+            <Building2 className="h-5 w-5 text-[var(--brand-primary)]" />
+            <span className="text-sm font-medium text-[var(--brand-primary)]">Cross-Clinic View</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Code Performance</h1>
           <p className="text-gray-500">Track affiliate referral code usage across all clinics</p>
@@ -224,7 +224,7 @@ export default function SuperAdminCodePerformancePage() {
           <button
             onClick={handleExport}
             disabled={codes.length === 0}
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -237,7 +237,7 @@ export default function SuperAdminCodePerformancePage() {
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+              <div className="rounded-lg bg-[var(--brand-primary-light)] p-2 text-[var(--brand-primary)]">
                 <Target className="h-5 w-5" />
               </div>
               <div>
@@ -298,7 +298,7 @@ export default function SuperAdminCodePerformancePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search codes or affiliates..."
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
           />
         </div>
 
@@ -309,7 +309,7 @@ export default function SuperAdminCodePerformancePage() {
               key={p}
               onClick={() => setPeriod(p)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
-                period === p ? 'bg-violet-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                period === p ? 'bg-[var(--brand-primary)] text-white' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               {p === 'ytd' ? 'YTD' : p === 'all' ? 'All' : p}
@@ -322,12 +322,12 @@ export default function SuperAdminCodePerformancePage() {
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
         {loading ? (
           <div className="flex h-96 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
           </div>
         ) : error ? (
           <div className="flex h-96 flex-col items-center justify-center text-center">
             <p className="text-red-600">{error}</p>
-            <button onClick={fetchData} className="mt-4 text-violet-600 hover:text-violet-700">
+            <button onClick={fetchData} className="mt-4 text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
               Try again
             </button>
           </div>
@@ -441,7 +441,7 @@ export default function SuperAdminCodePerformancePage() {
                         </div>
                         <a
                           href={`/super-admin/affiliates/${code.affiliateId}`}
-                          className="text-gray-400 hover:text-violet-600"
+                          className="text-gray-400 hover:text-[var(--brand-primary)]"
                           title="View affiliate"
                         >
                           <ExternalLink className="h-4 w-4" />

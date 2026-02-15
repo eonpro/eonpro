@@ -75,7 +75,7 @@ const categoryLabels: Record<string, { label: string; icon: typeof Camera; color
   verification: {
     label: 'ID Verification',
     icon: Shield,
-    color: 'text-purple-600 bg-purple-50',
+    color: 'text-[var(--brand-primary)] bg-[var(--brand-primary-light)]',
   },
   medical: {
     label: 'Medical Images',
@@ -237,7 +237,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
               key={key}
               onClick={() => setActiveCategory(key as any)}
               className={`rounded-xl p-4 text-left transition-all ${
-                isActive ? 'ring-2 ring-violet-500' : 'hover:shadow-md'
+                isActive ? 'ring-2 ring-[var(--brand-primary)]' : 'hover:shadow-md'
               } ${config.color}`}
             >
               <div className="flex items-center justify-between">
@@ -263,7 +263,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
             onClick={() => setActiveCategory(cat as any)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               activeCategory === cat
-                ? 'bg-violet-100 text-violet-700'
+                ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -336,7 +336,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                     {format(parseISO(photo.takenAt), 'MMM d, yyyy')}
                   </p>
                   {photo.weight && (
-                    <p className="mt-1 text-xs font-medium text-violet-600">{photo.weight} lbs</p>
+                    <p className="mt-1 text-xs font-medium text-[var(--brand-primary)]">{photo.weight} lbs</p>
                   )}
                 </div>
               </div>
@@ -379,7 +379,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                     ))}
                   </div>
                   {datePhotos[0]?.weight && (
-                    <p className="mt-1 text-center text-xs font-medium text-violet-600">
+                    <p className="mt-1 text-center text-xs font-medium text-[var(--brand-primary)]">
                       {datePhotos[0].weight} lbs
                     </p>
                   )}
@@ -434,7 +434,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                   {selectedPhoto.weight && (
                     <div>
                       <p className="text-xs font-medium uppercase text-gray-500">Weight</p>
-                      <p className="text-lg font-semibold text-violet-600">
+                      <p className="text-lg font-semibold text-[var(--brand-primary)]">
                         {selectedPhoto.weight} lbs
                       </p>
                     </div>

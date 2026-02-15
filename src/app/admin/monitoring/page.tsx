@@ -480,7 +480,7 @@ export default function MonitoringDashboard() {
               className="flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-3 text-sm transition hover:bg-gray-600"
             >
               <svg
-                className="h-5 w-5 text-purple-400"
+                className="h-5 w-5 text-[var(--brand-primary)]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

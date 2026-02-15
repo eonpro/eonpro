@@ -63,10 +63,10 @@ const TYPE_STYLES: Record<
     iconColor: 'text-blue-600',
   },
   reminder: {
-    bg: 'bg-purple-50',
-    border: 'border-purple-200',
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600',
+    bg: 'bg-[var(--brand-primary-light)]',
+    border: 'border-[var(--brand-primary-medium)]',
+    iconBg: 'bg-[var(--brand-primary-light)]',
+    iconColor: 'text-[var(--brand-primary)]',
   },
   alert: {
     bg: 'bg-red-50',

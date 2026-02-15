@@ -352,7 +352,7 @@ export default function ProductCatalogPage() {
                       <span
                         className={`rounded px-2 py-1 text-sm ${
                           product.billingType === 'RECURRING'
-                            ? 'bg-purple-100 text-purple-700'
+                            ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                             : 'bg-blue-100 text-blue-700'
                         }`}
                       >
@@ -502,7 +502,7 @@ export default function ProductCatalogPage() {
               </div>
 
               {form.billingType === 'RECURRING' && (
-                <div className="grid grid-cols-2 gap-4 rounded-lg bg-purple-50 p-4">
+                <div className="grid grid-cols-2 gap-4 rounded-lg bg-[var(--brand-primary-light)] p-4">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
                       Billing Interval

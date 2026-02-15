@@ -314,8 +314,8 @@ function StatCard({ title, value, subValue, icon: Icon, color, trend }: StatCard
     green: 'bg-green-50 text-green-600',
     red: 'bg-red-50 text-red-600',
     orange: 'bg-orange-50 text-orange-600',
-    purple: 'bg-purple-50 text-purple-600',
-    indigo: 'bg-indigo-50 text-indigo-600',
+    purple: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
+    indigo: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
     gray: 'bg-gray-50 text-gray-600',
   };
 

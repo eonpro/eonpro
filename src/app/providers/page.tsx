@@ -516,7 +516,7 @@ export default function ProvidersPage() {
                 {step === 1 && (
                   <div className="animate-in fade-in slide-in-from-right-4 space-y-6 duration-300">
                     <div className="mb-6 text-center">
-                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 text-white shadow-lg shadow-blue-500/30">
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-white shadow-lg shadow-blue-500/30">
                         {Icons.shield}
                       </div>
                       <h3 className="text-lg font-bold text-slate-900">Verify NPI Number</h3>
@@ -753,7 +753,7 @@ export default function ProvidersPage() {
                 {step === 3 && (
                   <div className="animate-in fade-in slide-in-from-right-4 space-y-5 duration-300">
                     <div className="mb-4 text-center">
-                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-400 to-pink-500 text-white shadow-lg shadow-purple-500/30">
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--brand-primary)] text-white shadow-lg">
                         {Icons.signature}
                       </div>
                       <h3 className="text-lg font-bold text-slate-900">Provider Signature</h3>

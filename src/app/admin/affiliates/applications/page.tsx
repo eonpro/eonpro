@@ -309,7 +309,7 @@ export default function AdminAffiliateApplicationsPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -342,7 +342,7 @@ export default function AdminAffiliateApplicationsPage() {
             onClick={() => setStatusFilter(tab.key as typeof statusFilter)}
             className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               statusFilter === tab.key
-                ? 'bg-violet-600 text-white'
+                ? 'bg-[var(--brand-primary)] text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
@@ -369,7 +369,7 @@ export default function AdminAffiliateApplicationsPage() {
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
           />
         </div>
       </div>
@@ -623,7 +623,7 @@ export default function AdminAffiliateApplicationsPage() {
                   onClick={() =>
                     (window.location.href = `/admin/affiliates/${selectedApplication.affiliate!.id}`)
                   }
-                  className="w-full rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700"
+                  className="w-full rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90"
                 >
                   View Affiliate Profile
                 </button>
@@ -651,7 +651,7 @@ export default function AdminAffiliateApplicationsPage() {
                   onChange={(e) =>
                     setApproveForm((f) => ({ ...f, commissionPlanId: e.target.value }))
                   }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 >
                   <option value="">Select a plan (optional)</option>
                   {plans.map((plan) => {
@@ -704,7 +704,7 @@ export default function AdminAffiliateApplicationsPage() {
                     setApproveForm((f) => ({ ...f, initialRefCode: e.target.value.toUpperCase() }))
                   }
                   placeholder="Auto-generated if empty"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 font-mono focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -715,7 +715,7 @@ export default function AdminAffiliateApplicationsPage() {
                   onChange={(e) => setApproveForm((f) => ({ ...f, reviewNotes: e.target.value }))}
                   placeholder="Optional notes about this approval..."
                   rows={2}
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 
@@ -764,7 +764,7 @@ export default function AdminAffiliateApplicationsPage() {
                   onChange={(e) => setRejectNotes(e.target.value)}
                   placeholder="Optional reason for rejection..."
                   rows={3}
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 />
               </div>
 

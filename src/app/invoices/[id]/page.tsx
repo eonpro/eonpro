@@ -129,8 +129,8 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
       PAID: 'bg-green-100 text-green-700',
       VOID: 'bg-red-100 text-red-700',
       UNCOLLECTIBLE: 'bg-orange-100 text-orange-700',
-      REFUNDED: 'bg-purple-100 text-purple-700',
-      PARTIALLY_REFUNDED: 'bg-purple-100 text-purple-700',
+      REFUNDED: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
+      PARTIALLY_REFUNDED: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
@@ -380,7 +380,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                               payment.status === 'SUCCEEDED'
                                 ? 'bg-green-100 text-green-700'
                                 : payment.status === 'REFUNDED'
-                                  ? 'bg-purple-100 text-purple-700'
+                                  ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                                   : 'bg-gray-100 text-gray-700'
                             }`}
                           >

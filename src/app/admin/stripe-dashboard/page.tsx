@@ -227,7 +227,7 @@ function StatCard({
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
     green: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    purple: 'bg-purple-50 text-purple-600 border-purple-100',
+    purple: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-light)]',
     orange: 'bg-orange-50 text-orange-600 border-orange-100',
     red: 'bg-red-50 text-red-600 border-red-100',
     gray: 'bg-gray-50 text-gray-600 border-gray-100',
@@ -646,8 +646,8 @@ export default function StripeDashboard() {
         <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-2">
-                <CreditCard className="h-6 w-6 text-purple-600" />
+              <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+                <CreditCard className="h-6 w-6 text-[var(--brand-primary)]" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Stripe Dashboard</h1>
@@ -665,7 +665,7 @@ export default function StripeDashboard() {
                 <select
                   value={dateRange}
                   onChange={(e) => handleDateRangeChange(e.target.value)}
-                  className="rounded-lg border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                  className="rounded-lg border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
                 >
                   {DATE_RANGES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -703,7 +703,7 @@ export default function StripeDashboard() {
                     onChange={(e) =>
                       handleClinicChange(e.target.value ? parseInt(e.target.value) : null)
                     }
-                    className="rounded-lg border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                    className="rounded-lg border bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
                   >
                     <option value="">Platform Account (All)</option>
                     {clinics.map((clinic) => (
@@ -731,7 +731,7 @@ export default function StripeDashboard() {
                 href="https://dashboard.stripe.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700"
+                className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white transition hover:brightness-90"
               >
                 <ExternalLink className="h-4 w-4" />
                 Stripe Dashboard
@@ -761,7 +761,7 @@ export default function StripeDashboard() {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-2 rounded-t-lg px-4 py-2.5 text-sm font-medium transition ${
                   activeTab === tab.id
-                    ? 'border-x border-t border-gray-200 bg-gray-50 text-purple-600'
+                    ? 'border-x border-t border-gray-200 bg-gray-50 text-[var(--brand-primary)]'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -896,7 +896,7 @@ function OverviewTab({
       <div>
         <div className="mb-3 flex items-center gap-2">
           <h3 className="text-sm font-medium text-gray-500">Recurring Revenue</h3>
-          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-600">
+          <span className="rounded-full bg-[var(--brand-primary-light)] px-2 py-0.5 text-xs text-[var(--brand-primary)]">
             Current subscriptions
           </span>
         </div>
@@ -1496,7 +1496,7 @@ function ConnectTab({
       {/* Current Status */}
       <div className="rounded-xl border bg-white p-6">
         <h3 className="mb-4 flex items-center gap-2 font-semibold text-gray-900">
-          <Link2 className="h-5 w-5 text-purple-500" />
+          <Link2 className="h-5 w-5 text-[var(--brand-primary)]" />
           Stripe Connect Status
         </h3>
 
@@ -1507,12 +1507,12 @@ function ConnectTab({
         )}
 
         {isPlatform ? (
-          <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+          <div className="rounded-lg border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4">
             <div className="mb-2 flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-purple-600" />
-              <span className="font-semibold text-purple-900">Platform Account</span>
+              <CheckCircle className="h-5 w-5 text-[var(--brand-primary)]" />
+              <span className="font-semibold text-[var(--brand-primary)]">Platform Account</span>
             </div>
-            <p className="text-sm text-purple-700">
+            <p className="text-sm text-[var(--brand-primary)]">
               This clinic uses the platform's Stripe account directly (EONmeds). All transactions
               are processed through the main account.
             </p>
@@ -1595,7 +1595,7 @@ function ConnectTab({
                 <button
                   onClick={handleOpenDashboard}
                   disabled={loading}
-                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition hover:bg-purple-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white transition hover:brightness-90 disabled:opacity-50"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Open Stripe Dashboard
@@ -1632,12 +1632,12 @@ function ConnectTab({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="clinic@example.com"
-                  className="flex-1 rounded-lg border px-3 py-2 focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 rounded-lg border px-3 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
                 />
                 <button
                   onClick={handleCreateAccount}
                   disabled={loading || !email}
-                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition hover:bg-purple-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white transition hover:brightness-90 disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1660,7 +1660,7 @@ function ConnectTab({
         <h3 className="mb-4 font-semibold text-gray-900">How Stripe Connect Works</h3>
         <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-lg bg-gray-50 p-4">
-            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary-light)] font-bold text-[var(--brand-primary)]">
               1
             </div>
             <h4 className="mb-1 font-medium">Create Account</h4>
@@ -1669,7 +1669,7 @@ function ConnectTab({
             </p>
           </div>
           <div className="rounded-lg bg-gray-50 p-4">
-            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary-light)] font-bold text-[var(--brand-primary)]">
               2
             </div>
             <h4 className="mb-1 font-medium">Complete Onboarding</h4>
@@ -1678,7 +1678,7 @@ function ConnectTab({
             </p>
           </div>
           <div className="rounded-lg bg-gray-50 p-4">
-            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+            <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-primary-light)] font-bold text-[var(--brand-primary)]">
               3
             </div>
             <h4 className="mb-1 font-medium">Start Accepting Payments</h4>

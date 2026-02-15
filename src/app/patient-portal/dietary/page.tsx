@@ -197,9 +197,9 @@ export default function DietaryPlansPage() {
             </div>
 
             {/* Dinner */}
-            <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+            <div className="rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4">
               <div className="mb-2 flex items-center gap-3">
-                <Moon className="h-5 w-5 text-purple-600" />
+                <Moon className="h-5 w-5 text-[var(--brand-primary)]" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{todaysMeals.dinner.name}</p>
                   <p className="text-xs text-gray-600">{todaysMeals.dinner.time}</p>
@@ -259,7 +259,7 @@ export default function DietaryPlansPage() {
         </div>
 
         {/* Tips */}
-        <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-purple-50 p-6">
+        <div className="rounded-xl border border-blue-200 bg-[var(--brand-primary-light)] p-6">
           <h3 className="mb-3 font-semibold">Daily Tips</h3>
           <div className="space-y-2">
             {tips.map((tip, idx) => (

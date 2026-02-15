@@ -116,7 +116,7 @@ export default function EmailCommunicationsPage() {
     },
     [EmailTemplate.ORDER_CONFIRMATION]: {
       icon: Package,
-      color: 'text-purple-600',
+      color: 'text-[var(--brand-primary)]',
       description: 'Confirm prescription orders',
       sampleData: {
         customerName: 'John Doe',
@@ -601,7 +601,7 @@ export default function EmailCommunicationsPage() {
                   <p className="text-sm text-gray-500">Send Rate</p>
                   <p className="text-lg font-bold text-gray-900">14/sec</p>
                 </div>
-                <Clock className="h-8 w-8 text-purple-500" />
+                <Clock className="h-8 w-8 text-[var(--brand-primary)]" />
               </div>
             </div>
           </div>

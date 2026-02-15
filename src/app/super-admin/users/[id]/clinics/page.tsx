@@ -279,7 +279,7 @@ export default function UserClinicsPage() {
 
   const getRoleBadgeColor = (role: string) => {
     const colors: Record<string, string> = {
-      SUPER_ADMIN: 'bg-purple-100 text-purple-800',
+      SUPER_ADMIN: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]',
       ADMIN: 'bg-blue-100 text-blue-800',
       PROVIDER: 'bg-green-100 text-green-800',
       STAFF: 'bg-gray-100 text-gray-800',

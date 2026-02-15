@@ -317,7 +317,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
                     <button
                       key={action.action}
                       onClick={() => handleQuickAction(action.action)}
-                      className={`rounded-lg p-2 text-white transition-colors ${action.color === 'green' ? 'bg-green-600 hover:bg-green-700' : ''} ${action.color === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : ''} ${action.color === 'purple' ? 'bg-purple-600 hover:bg-purple-700' : ''} `}
+                      className={`rounded-lg p-2 text-white transition-colors ${action.color === 'green' ? 'bg-green-600 hover:bg-green-700' : ''} ${action.color === 'blue' ? 'bg-blue-600 hover:bg-blue-700' : ''} ${action.color === 'brand' || action.color === 'purple' ? 'bg-[var(--brand-primary)] hover:brightness-90' : ''} `}
                       title={action.label}
                     >
                       <Icon className="h-5 w-5" />

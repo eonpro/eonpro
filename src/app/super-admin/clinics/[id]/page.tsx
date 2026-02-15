@@ -375,7 +375,7 @@ export default function ClinicDetailPage() {
     phone: '',
     address: '',
     primaryColor: '#0d9488',
-    secondaryColor: '#6366f1',
+    secondaryColor: '#3B82F6',
     accentColor: '#d3f931',
     buttonTextColor: 'auto',
     logoUrl: '',
@@ -417,7 +417,7 @@ export default function ClinicDetailPage() {
           phone: clinicData.phone || '',
           address: clinicData.address || '',
           primaryColor: clinicData.primaryColor || '#0d9488',
-          secondaryColor: clinicData.secondaryColor || '#6366f1',
+          secondaryColor: clinicData.secondaryColor || '#3B82F6',
           isActive: clinicData.status === 'ACTIVE',
           plan: clinicData.billingPlan || 'starter',
           features: {
@@ -445,7 +445,7 @@ export default function ClinicDetailPage() {
           phone: fetchedClinic.phone || '',
           address: fetchedClinic.address || '',
           primaryColor: clinicData.primaryColor || '#0d9488',
-          secondaryColor: clinicData.secondaryColor || '#6366f1',
+          secondaryColor: clinicData.secondaryColor || '#3B82F6',
           accentColor: clinicData.accentColor || '#d3f931',
           buttonTextColor: clinicData.buttonTextColor || 'auto',
           logoUrl: clinicData.logoUrl || '',
@@ -1301,8 +1301,8 @@ export default function ClinicDetailPage() {
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-6">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-purple-100 p-3">
-                    <Calendar className="h-6 w-6 text-purple-600" />
+                  <div className="rounded-lg bg-[var(--brand-primary-light)] p-3">
+                    <Calendar className="h-6 w-6 text-[var(--brand-primary)]" />
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-gray-900">
@@ -1924,8 +1924,8 @@ export default function ClinicDetailPage() {
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="rounded-lg bg-purple-100 p-3">
-                        <Pill className="h-6 w-6 text-purple-600" />
+                      <div className="rounded-lg bg-[var(--brand-primary-light)] p-3">
+                        <Pill className="h-6 w-6 text-[var(--brand-primary)]" />
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900">
@@ -2103,7 +2103,7 @@ export default function ClinicDetailPage() {
                 {/* Practice Information */}
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
                   <div className="mb-6 flex items-center gap-3">
-                    <Building2 className="h-5 w-5 text-purple-600" />
+                    <Building2 className="h-5 w-5 text-[var(--brand-primary)]" />
                     <h3 className="text-lg font-semibold text-gray-900">Practice Information</h3>
                     <span className="text-xs text-gray-500">Appears on prescriptions</span>
                   </div>
@@ -2672,7 +2672,7 @@ export default function ClinicDetailPage() {
                             <span
                               className={`rounded-full px-2 py-1 text-xs font-medium ${
                                 user.role === 'admin' || user.role === 'ADMIN'
-                                  ? 'bg-purple-100 text-purple-700'
+                                  ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                                   : user.role === 'provider' || user.role === 'PROVIDER'
                                     ? 'bg-blue-100 text-blue-700'
                                     : user.role === 'staff' || user.role === 'STAFF'

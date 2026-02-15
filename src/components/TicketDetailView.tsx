@@ -269,7 +269,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
         return <XCircle className="h-4 w-4 text-gray-600" />;
       case 'CONTACTED_PATIENT':
       case 'CONTACTED_PROVIDER':
-        return <MessageSquare className="h-4 w-4 text-purple-600" />;
+        return <MessageSquare className="h-4 w-4 text-[var(--brand-primary)]" />;
       default:
         return <Activity className="h-4 w-4 text-gray-600" />;
     }
@@ -295,7 +295,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
   return (
     <div className="rounded-lg bg-white shadow-lg">
       {/* Header with Key Metrics */}
-      <div className="border-b bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+      <div className="border-b bg-gradient-to-r from-blue-50 to-[var(--brand-primary-light)] p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{ticket.title}</h2>

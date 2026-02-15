@@ -189,10 +189,10 @@ export const ADMIN_CONFIG: RoleConfig = {
   description: 'Manage clinic operations, staff, and settings',
   defaultPath: '/admin',
   theme: {
-    primaryColor: '#7C3AED', // Purple
-    secondaryColor: '#6D28D9',
-    iconColor: '#C4B5FD',
-    bgGradient: 'from-purple-600 to-indigo-700',
+    primaryColor: 'var(--brand-primary, #4fa77e)',
+    secondaryColor: 'var(--brand-secondary, #3B82F6)',
+    iconColor: 'var(--brand-accent, #d3f931)',
+    bgGradient: 'from-[var(--brand-primary)] to-[var(--brand-secondary)]',
   },
   features: {
     viewAllPatients: true,
@@ -257,7 +257,7 @@ export const ADMIN_CONFIG: RoleConfig = {
       { label: 'Add Patient', action: 'add-patient', icon: 'UserPlus', color: 'blue' },
       { label: 'Create Order', action: 'create-order', icon: 'ShoppingBag', color: 'green' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
-      { label: 'View Reports', action: 'view-reports', icon: 'FileBarChart', color: 'purple' },
+      { label: 'View Reports', action: 'view-reports', icon: 'FileBarChart', color: 'brand' },
     ],
   },
   widgets: [
@@ -335,7 +335,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
     quick: [
       { label: 'Start Consultation', action: 'start-consultation', icon: 'Video', color: 'green' },
       { label: 'Write SOAP Note', action: 'create-soap', icon: 'PenTool', color: 'blue' },
-      { label: 'E-Prescribe', action: 'prescribe', icon: 'Pill', color: 'purple' },
+      { label: 'E-Prescribe', action: 'prescribe', icon: 'Pill', color: 'brand' },
       { label: 'Merge Profiles', action: 'merge-profiles', icon: 'GitMerge', color: 'amber' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
     ],
@@ -491,7 +491,7 @@ export const SUPPORT_CONFIG: RoleConfig = {
     quick: [
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Plus', color: 'blue' },
       { label: 'Start Chat', action: 'start-chat', icon: 'MessageCircle', color: 'green' },
-      { label: 'Search KB', action: 'search-kb', icon: 'Search', color: 'purple' },
+      { label: 'Search KB', action: 'search-kb', icon: 'Search', color: 'brand' },
     ],
   },
   widgets: [
@@ -514,7 +514,7 @@ export const PATIENT_CONFIG: RoleConfig = {
     primaryColor: '#3B82F6', // Blue
     secondaryColor: '#2563EB',
     iconColor: '#93C5FD',
-    bgGradient: 'from-blue-500 to-indigo-600',
+    bgGradient: 'from-[var(--brand-primary)] to-[var(--brand-secondary)]',
   },
   features: {
     viewAllPatients: false, // Only themselves
@@ -572,7 +572,7 @@ export const PATIENT_CONFIG: RoleConfig = {
         icon: 'MessageSquare',
         color: 'blue',
       },
-      { label: 'Refill Rx', action: 'refill-rx', icon: 'Pill', color: 'purple' },
+      { label: 'Refill Rx', action: 'refill-rx', icon: 'Pill', color: 'brand' },
     ],
   },
   widgets: [
@@ -603,10 +603,10 @@ export const AFFILIATE_CONFIG: RoleConfig = {
   description: 'Referral partners with aggregated performance metrics',
   defaultPath: '/portal/affiliate',
   theme: {
-    primaryColor: '#8B5CF6', // Violet
-    secondaryColor: '#7C3AED',
-    iconColor: '#C4B5FD',
-    bgGradient: 'from-violet-500 to-purple-600',
+    primaryColor: 'var(--brand-primary, #4fa77e)',
+    secondaryColor: 'var(--brand-secondary, #3B82F6)',
+    iconColor: 'var(--brand-accent, #d3f931)',
+    bgGradient: 'from-[var(--brand-primary)] to-[var(--brand-secondary)]',
   },
   features: {
     viewAllPatients: false,

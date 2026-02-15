@@ -253,7 +253,7 @@ function StatCard({
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-600 border-blue-200',
     green: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+    purple: 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-medium)]',
     orange: 'bg-orange-50 text-orange-600 border-orange-200',
     red: 'bg-red-50 text-red-600 border-red-200',
   };
@@ -803,9 +803,9 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
                 {formatCurrency(metrics.monthlyRecurringRevenue)}
               </p>
             </div>
-            <div className="rounded-lg bg-purple-50 p-4">
-              <p className="text-sm font-medium text-purple-600">Annual Recurring Revenue</p>
-              <p className="text-3xl font-bold text-purple-700">
+            <div className="rounded-lg bg-[var(--brand-primary-light)] p-4">
+              <p className="text-sm font-medium text-[var(--brand-primary)]">Annual Recurring Revenue</p>
+              <p className="text-3xl font-bold text-[var(--brand-primary)]">
                 {formatCurrency(metrics.annualRecurringRevenue)}
               </p>
             </div>
@@ -820,7 +820,7 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
               .map(([month, count]) => (
                 <div key={month} className="flex items-center justify-between py-2">
                   <span className="font-medium">Month {month}</span>
-                  <span className="rounded-full bg-purple-100 px-3 py-1 text-sm font-semibold text-purple-700">
+                  <span className="rounded-full bg-[var(--brand-primary-light)] px-3 py-1 text-sm font-semibold text-[var(--brand-primary)]">
                     {count} patients
                   </span>
                 </div>

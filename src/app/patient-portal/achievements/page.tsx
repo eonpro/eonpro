@@ -83,7 +83,7 @@ const STREAK_INFO: Record<string, { icon: typeof Flame; name: string; color: str
   WEIGHT_LOG: { icon: TrendingUp, name: 'Weight Logging', color: 'text-green-500' },
   WATER_LOG: { icon: Zap, name: 'Hydration', color: 'text-blue-500' },
   EXERCISE_LOG: { icon: Target, name: 'Exercise', color: 'text-orange-500' },
-  DAILY_CHECK_IN: { icon: CheckCircle, name: 'Check-in', color: 'text-purple-500' },
+  DAILY_CHECK_IN: { icon: CheckCircle, name: 'Check-in', color: 'text-[var(--brand-primary)]' },
   MEDICATION_TAKEN: { icon: Medal, name: 'Medication', color: 'text-pink-500' },
 };
 
@@ -332,7 +332,7 @@ export default function AchievementsPage() {
             </div>
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="mb-1 flex items-center gap-2">
-                <Star className="h-5 w-5 text-purple-500" />
+                <Star className="h-5 w-5 text-[var(--brand-primary)]" />
                 <span className="text-sm text-gray-600">Points Earned</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">{totalPoints}</p>
@@ -520,7 +520,7 @@ export default function AchievementsPage() {
                 Use a streak freeze to save your progress if you miss a day
               </li>
               <li className="flex items-start gap-2">
-                <Star className="mt-0.5 h-4 w-4 text-purple-500" />
+                <Star className="mt-0.5 h-4 w-4 text-[var(--brand-primary)]" />
                 Reach 7, 30, and 100 day milestones for bonus points!
               </li>
             </ul>
@@ -588,7 +588,7 @@ export default function AchievementsPage() {
                       <span className="text-sm text-gray-500">
                         {challenge.participantCount} participants
                       </span>
-                      <span className="text-sm font-medium text-purple-600">
+                      <span className="text-sm font-medium text-[var(--brand-primary)]">
                         +{challenge.points} pts
                       </span>
                     </div>

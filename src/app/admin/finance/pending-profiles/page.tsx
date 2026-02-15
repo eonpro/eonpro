@@ -118,7 +118,7 @@ const getClinicBadgeColor = (subdomain?: string) => {
     case 'eonmeds':
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     case 'ot':
-      return 'bg-violet-50 text-violet-700 border-violet-200';
+      return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] border-[var(--brand-primary-medium)]';
     default:
       return 'bg-gray-50 text-gray-600 border-gray-200';
   }

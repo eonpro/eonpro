@@ -146,7 +146,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       {/* Patient-Friendly Header */}
       <header className="border-b border-blue-200 bg-white shadow-sm">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -180,7 +180,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                     <button
                       key={action.action}
                       onClick={() => handleQuickAction(action.action)}
-                      className={`flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${action.color === 'green' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''} ${action.color === 'blue' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''} ${action.color === 'purple' ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : ''} `}
+                      className={`flex items-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${action.color === 'green' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''} ${action.color === 'blue' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : ''} ${action.color === 'brand' || action.color === 'purple' ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] hover:brightness-95' : ''} `}
                     >
                       <Icon className="mr-2 h-4 w-4" />
                       {action.label}
@@ -273,7 +273,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
         </div>
 
         {/* Health Metrics Bar */}
-        <div className="border-t border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
+        <div className="border-t border-blue-100 bg-gradient-to-r from-blue-50 to-blue-50 px-4 py-3">
           <div className="flex items-center justify-between overflow-x-auto">
             <div className="flex items-center space-x-6">
               {healthMetrics.map((metric, index) => (
@@ -286,7 +286,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
                           ? 'text-green-700'
                           : metric.color === 'blue'
                             ? 'text-blue-700'
-                            : 'text-purple-700'
+                            : 'text-[var(--brand-primary)]'
                       }`}
                     >
                       {metric.value}

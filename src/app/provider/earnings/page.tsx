@@ -210,8 +210,8 @@ export default function ProviderEarningsPage() {
               </div>
               <div className="rounded-xl border border-gray-200 bg-white p-6">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-purple-100 p-3">
-                    <CreditCard className="h-6 w-6 text-purple-600" />
+                  <div className="rounded-lg bg-[var(--brand-primary-light)] p-3">
+                    <CreditCard className="h-6 w-6 text-[var(--brand-primary)]" />
                   </div>
                   <div>
                     <p className="text-3xl font-bold text-gray-900">

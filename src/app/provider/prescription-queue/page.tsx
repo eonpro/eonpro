@@ -1172,19 +1172,19 @@ export default function PrescriptionQueuePage() {
                         <div
                           className={`flex-shrink-0 rounded p-1 ${
                             item.treatment.toLowerCase().includes('tirzepatide')
-                              ? 'bg-violet-100'
+                              ? 'bg-[var(--brand-primary-light)]'
                               : item.treatment.toLowerCase().includes('semaglutide')
                                 ? 'bg-teal-100'
-                                : 'bg-purple-100'
+                                : 'bg-[var(--brand-primary-light)]'
                           }`}
                         >
                           <Pill
                             className={`h-3 w-3 ${
                               item.treatment.toLowerCase().includes('tirzepatide')
-                                ? 'text-violet-600'
+                                ? 'text-[var(--brand-primary)]'
                                 : item.treatment.toLowerCase().includes('semaglutide')
                                   ? 'text-teal-600'
-                                  : 'text-purple-600'
+                                  : 'text-[var(--brand-primary)]'
                             }`}
                           />
                         </div>
@@ -1192,7 +1192,7 @@ export default function PrescriptionQueuePage() {
                           {/* Medication type badge */}
                           <div className="mb-0.5 flex items-center gap-1">
                             {item.treatment.toLowerCase().includes('tirzepatide') && (
-                              <span className="inline-flex items-center rounded border border-violet-200 bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-700">
+                              <span className="inline-flex items-center rounded border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--brand-primary)]">
                                 🟣 TIRZ
                               </span>
                             )}
@@ -1428,7 +1428,7 @@ export default function PrescriptionQueuePage() {
                             {patientDetails.soapNote ? (
                               <div className="space-y-3">
                                 {patientDetails.soapNote.generatedByAI && (
-                                  <div className="flex w-fit items-center gap-2 rounded-lg bg-purple-50 px-3 py-1.5 text-xs text-purple-600">
+                                  <div className="flex w-fit items-center gap-2 rounded-lg bg-[var(--brand-primary-light)] px-3 py-1.5 text-xs text-[var(--brand-primary)]">
                                     <Sparkles className="h-3.5 w-3.5" />
                                     AI Generated
                                   </div>
@@ -1459,7 +1459,7 @@ export default function PrescriptionQueuePage() {
                                     </p>
                                   </div>
                                   <div>
-                                    <span className="font-semibold text-purple-600">P - Plan:</span>
+                                    <span className="font-semibold text-[var(--brand-primary)]">P - Plan:</span>
                                     <p className="mt-1 line-clamp-3 text-gray-700">
                                       {patientDetails.soapNote.content.plan}
                                     </p>
@@ -1521,7 +1521,7 @@ export default function PrescriptionQueuePage() {
                                   >
                                     <h5 className="mb-3 flex items-center gap-2 font-medium text-gray-800">
                                       {section.section === 'Treatment' && (
-                                        <Pill className="h-4 w-4 text-purple-500" />
+                                        <Pill className="h-4 w-4 text-[var(--brand-primary)]" />
                                       )}
                                       {section.section === 'Medical History' && (
                                         <Heart className="h-4 w-4 text-red-500" />
@@ -1923,7 +1923,7 @@ export default function PrescriptionQueuePage() {
                           >
                             SOAP note available for this patient.
                             {prescriptionPanel.details.soapNote?.generatedByAI && (
-                              <span className="ml-2 inline-flex items-center gap-1 text-purple-600">
+                              <span className="ml-2 inline-flex items-center gap-1 text-[var(--brand-primary)]">
                                 <Sparkles className="h-3 w-3" /> AI Generated
                               </span>
                             )}
@@ -2000,7 +2000,7 @@ export default function PrescriptionQueuePage() {
                                 </span>
                               </div>
                               <div>
-                                <span className="font-semibold text-purple-600">P:</span>{' '}
+                                <span className="font-semibold text-[var(--brand-primary)]">P:</span>{' '}
                                 <span className="line-clamp-2 text-gray-700">
                                   {prescriptionPanel.details.soapNote?.content.plan}
                                 </span>
@@ -2210,7 +2210,7 @@ export default function PrescriptionQueuePage() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <h3 className="flex items-center gap-2 font-medium text-gray-900">
-                            <Pill className="h-4 w-4 text-purple-500" />
+                            <Pill className="h-4 w-4 text-[var(--brand-primary)]" />
                             Medications ({prescriptionForm.medications.length})
                           </h3>
                           <button
@@ -2254,7 +2254,7 @@ export default function PrescriptionQueuePage() {
                                   {prescriptionPanel.item.treatment
                                     .toLowerCase()
                                     .includes('tirzepatide') && (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-100 px-3 py-1 text-sm font-medium text-violet-800">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--brand-primary)] bg-[var(--brand-primary-light)] px-3 py-1 text-sm font-medium text-[var(--brand-primary)]">
                                       🟣 Expected: Tirzepatide
                                     </span>
                                   )}

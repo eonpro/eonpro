@@ -651,7 +651,7 @@ export default function AdminPatientsPage() {
                         ) : (
                           <>
                             {patient.tags?.includes('peptides') && (
-                              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                              <span className="rounded-full bg-[var(--brand-primary-light)] px-2 py-0.5 text-xs font-medium text-[var(--brand-primary)]">
                                 Peptides
                               </span>
                             )}

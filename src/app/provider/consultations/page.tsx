@@ -150,7 +150,7 @@ export default function ProviderConsultationsPage() {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'VIDEO':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]';
       case 'PHONE':
         return 'bg-green-100 text-green-800';
       default:
@@ -182,11 +182,11 @@ export default function ProviderConsultationsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-indigo-600">{todayCount}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">{todayCount}</div>
           <div className="text-sm text-gray-600">Today&apos;s Consultations</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-purple-600">{videoCount}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">{videoCount}</div>
           <div className="text-sm text-gray-600">Video Calls</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
@@ -209,7 +209,7 @@ export default function ProviderConsultationsPage() {
                 onClick={() => setActiveTab('upcoming')}
                 className={`rounded-lg px-4 py-2 ${
                   activeTab === 'upcoming'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-[var(--brand-primary)] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -219,7 +219,7 @@ export default function ProviderConsultationsPage() {
                 onClick={() => setActiveTab('history')}
                 className={`rounded-lg px-4 py-2 ${
                   activeTab === 'history'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-[var(--brand-primary)] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -230,7 +230,7 @@ export default function ProviderConsultationsPage() {
           <div className="p-6">
             {loading ? (
               <div className="py-8 text-center text-gray-500">
-                <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+                <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-4 border-[var(--brand-primary)] border-t-transparent"></div>
                 Loading consultations...
               </div>
             ) : error ? (
@@ -258,7 +258,7 @@ export default function ProviderConsultationsPage() {
                 {activeTab === 'upcoming' && (
                   <button
                     onClick={handleScheduleConsultation}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
                   >
                     <Plus className="h-4 w-4" />
                     Schedule Consultation
@@ -307,7 +307,7 @@ export default function ProviderConsultationsPage() {
                             e.stopPropagation();
                             handleJoinConsultation(consultation);
                           }}
-                          className="rounded bg-indigo-100 px-3 py-1 text-sm text-indigo-700 hover:bg-indigo-200"
+                          className="rounded bg-[var(--brand-primary-light)] px-3 py-1 text-sm text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
                         >
                           Join
                         </button>
@@ -343,13 +343,13 @@ export default function ProviderConsultationsPage() {
             <div className="space-y-2">
               <button
                 onClick={handleScheduleConsultation}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+                className="w-full rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
               >
                 Schedule Consultation
               </button>
               <button
                 onClick={handleStartVideoCall}
-                className="w-full rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+                className="w-full rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
               >
                 Start Video Call
               </button>
@@ -402,7 +402,7 @@ export default function ProviderConsultationsPage() {
                     onClick={() => {
                       window.location.href = `/provider/patients?patientId=${selectedConsultation.patientId}`;
                     }}
-                    className="block w-full rounded bg-indigo-100 px-3 py-2 text-center text-indigo-700 hover:bg-indigo-200"
+                    className="block w-full rounded bg-[var(--brand-primary-light)] px-3 py-2 text-center text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
                   >
                     View Patient Profile
                   </button>

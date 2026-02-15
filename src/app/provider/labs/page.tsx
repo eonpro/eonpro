@@ -95,7 +95,7 @@ export default function ProviderLabsPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-lg border px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+          className="rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
         >
           <option value="all">All Results</option>
           <option value="completed">Completed</option>
@@ -108,7 +108,7 @@ export default function ProviderLabsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-indigo-600">{labResults.length}</div>
+          <div className="text-2xl font-bold text-[var(--brand-primary)]">{labResults.length}</div>
           <div className="text-sm text-gray-600">Total Orders</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
@@ -156,7 +156,7 @@ export default function ProviderLabsPage() {
                     key={lab.id}
                     onClick={() => setSelectedLab(lab)}
                     className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md ${
-                      selectedLab?.id === lab.id ? 'border-indigo-500 bg-indigo-50' : ''
+                      selectedLab?.id === lab.id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]' : ''
                     }`}
                   >
                     <div className="flex items-start justify-between">
@@ -248,7 +248,7 @@ export default function ProviderLabsPage() {
                     </div>
                   )}
                   <div className="space-y-2 pt-3">
-                    <button className="w-full rounded bg-indigo-100 px-3 py-2 text-indigo-700 hover:bg-indigo-200">
+                    <button className="w-full rounded bg-[var(--brand-primary-light)] px-3 py-2 text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]">
                       Send to Patient
                     </button>
                     <button className="w-full rounded bg-green-100 px-3 py-2 text-green-700 hover:bg-green-200">

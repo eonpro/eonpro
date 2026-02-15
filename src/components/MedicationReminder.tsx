@@ -304,7 +304,7 @@ export default function MedicationReminder({ patientId }: MedicationReminderProp
       )}
 
       {showSuccess && (
-        <div className="fixed left-1/2 top-1/2 z-[3000] -translate-x-1/2 -translate-y-1/2 transform rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 px-10 py-5 text-center text-lg font-medium text-white shadow-lg">
+        <div className="fixed left-1/2 top-1/2 z-[3000] -translate-x-1/2 -translate-y-1/2 transform rounded-2xl bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)] px-10 py-5 text-center text-lg font-medium text-white shadow-lg">
           <div className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5" />
             Reminders added to your calendar!
@@ -325,7 +325,7 @@ export default function MedicationReminder({ patientId }: MedicationReminderProp
                 setShowSuccess(true);
                 setTimeout(() => setShowSuccess(false), 3000);
               }}
-              className="transform rounded-full bg-gradient-to-r from-purple-600 to-pink-600 px-8 py-2.5 text-sm font-medium text-white transition-all hover:scale-105 hover:shadow-lg"
+              className="transform rounded-full bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)] px-8 py-2.5 text-sm font-medium text-white transition-all hover:scale-105 hover:shadow-lg"
             >
               Done
             </button>

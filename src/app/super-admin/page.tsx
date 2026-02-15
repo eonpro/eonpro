@@ -89,7 +89,7 @@ export default function SuperAdminDashboard() {
   const getPlanColor = (plan: string) => {
     switch (plan?.toLowerCase()) {
       case 'enterprise':
-        return 'text-purple-600';
+        return 'text-[var(--brand-primary)]';
       case 'professional':
         return 'text-blue-600';
       case 'starter':
@@ -144,7 +144,7 @@ export default function SuperAdminDashboard() {
                 {stats.totalPatients.toLocaleString()}
               </p>
             </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--brand-primary)]">
               <Users className="h-6 w-6 text-white" />
             </div>
           </div>

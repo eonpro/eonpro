@@ -368,7 +368,7 @@ export default function UserManagementPage() {
     const r = role?.toUpperCase();
     switch (r) {
       case 'SUPER_ADMIN':
-        return 'bg-purple-100 text-purple-800 ring-1 ring-purple-600/20';
+        return 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]';
       case 'ADMIN':
         return 'bg-blue-100 text-blue-800 ring-1 ring-blue-600/20';
       case 'PROVIDER':

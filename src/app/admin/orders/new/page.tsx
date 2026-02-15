@@ -229,7 +229,7 @@ export default function NewOrderPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <Pill className="h-5 w-5 text-purple-600" />
+              <Pill className="h-5 w-5 text-[var(--brand-primary)]" />
               Medications
             </h2>
             <button

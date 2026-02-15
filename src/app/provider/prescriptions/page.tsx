@@ -284,7 +284,7 @@ export default function ProviderPrescriptionsPage() {
             </h1>
             <button
               onClick={() => router.push('/provider/patients?action=new-prescription')}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700"
+              className="flex items-center gap-1.5 rounded-lg bg-[var(--brand-primary)] px-3 py-1.5 text-sm text-white hover:brightness-90"
             >
               <Plus className="h-4 w-4" />
               New Prescription
@@ -300,13 +300,13 @@ export default function ProviderPrescriptionsPage() {
                 placeholder="Search by patient or medication..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border py-1.5 pl-8 pr-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border py-1.5 pl-8 pr-3 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
             </div>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500"
+              className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
             >
               <option value="all">All Prescriptions</option>
               <option value="active">Active</option>
@@ -319,8 +319,8 @@ export default function ProviderPrescriptionsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border-l-4 border-indigo-500 bg-white p-3 shadow-sm">
-            <div className="text-xl font-bold text-indigo-600">{patientGroups.length}</div>
+          <div className="rounded-lg border-l-4 border-[var(--brand-primary)] bg-white p-3 shadow-sm">
+            <div className="text-xl font-bold text-[var(--brand-primary)]">{patientGroups.length}</div>
             <div className="text-xs text-gray-500">Patients (this page)</div>
           </div>
           <div className="rounded-lg border-l-4 border-green-500 bg-white p-3 shadow-sm">
@@ -367,14 +367,14 @@ export default function ProviderPrescriptionsPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={expandAll}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                    className="text-xs font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
                   >
                     Expand All
                   </button>
                   <span className="text-gray-300">|</span>
                   <button
                     onClick={collapseAll}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                    className="text-xs font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
                   >
                     Collapse All
                   </button>
@@ -456,8 +456,8 @@ function PatientRow({
         </div>
 
         {/* Patient Icon */}
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100">
-          <User className="h-5 w-5 text-indigo-600" />
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-light)]">
+          <User className="h-5 w-5 text-[var(--brand-primary)]" />
         </div>
 
         {/* Patient Name */}
@@ -465,7 +465,7 @@ function PatientRow({
           <Link
             href={`/provider/patients/${group.patientId}`}
             onClick={(e) => e.stopPropagation()}
-            className="font-medium text-gray-900 hover:text-indigo-600 hover:underline"
+            className="font-medium text-gray-900 hover:text-[var(--brand-primary)] hover:underline"
           >
             {group.patientName}
           </Link>
@@ -663,7 +663,7 @@ function PaginationControls({
                 disabled={loading}
                 className={`h-8 min-w-[32px] rounded px-2 text-sm font-medium transition-colors ${
                   page === currentPage
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-[var(--brand-primary)] text-white'
                     : 'text-gray-700 hover:bg-gray-200'
                 } disabled:cursor-not-allowed`}
               >
@@ -710,7 +710,7 @@ function PaginationControls({
               onPageChange(page);
             }
           }}
-          className="w-16 rounded border px-2 py-1 text-center text-sm focus:ring-2 focus:ring-indigo-500"
+          className="w-16 rounded border px-2 py-1 text-center text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
           disabled={loading}
         />
         <span className="text-gray-500">of {totalPages}</span>

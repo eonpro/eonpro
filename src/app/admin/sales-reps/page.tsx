@@ -111,7 +111,7 @@ export default function SalesRepsPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-lg p-2" style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)' }}>
-              <Users className="h-5 w-5 text-purple-500" />
+              <Users className="h-5 w-5 text-[var(--brand-primary)]" />
             </div>
             <div>
               <p className="text-sm text-gray-500">Avg Patients per Rep</p>

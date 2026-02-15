@@ -346,8 +346,8 @@ export default function StripeSettingsPage() {
               <ChevronLeft className="h-5 w-5 text-gray-600" />
             </button>
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-2">
-                <CreditCard className="h-6 w-6 text-purple-600" />
+              <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+                <CreditCard className="h-6 w-6 text-[var(--brand-primary)]" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Stripe Connect</h1>
@@ -384,12 +384,12 @@ export default function StripeSettingsPage() {
 
         {/* Platform Account Notice */}
         {stripeStatus?.isPlatformAccount && (
-          <div className="mb-6 rounded-xl border border-purple-200 bg-purple-50 p-6">
+          <div className="mb-6 rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-6">
             <div className="mb-2 flex items-center gap-3">
-              <Building2 className="h-6 w-6 text-purple-600" />
-              <h2 className="text-lg font-semibold text-purple-900">Platform Account</h2>
+              <Building2 className="h-6 w-6 text-[var(--brand-primary)]" />
+              <h2 className="text-lg font-semibold text-[var(--brand-primary)]">Platform Account</h2>
             </div>
-            <p className="text-purple-700">
+            <p className="text-[var(--brand-primary)]">
               This clinic is configured as the platform account. All payments are processed directly
               through the main Stripe account. No additional setup is required.
             </p>
@@ -400,14 +400,14 @@ export default function StripeSettingsPage() {
         {!stripeStatus?.isPlatformAccount && !stripeStatus?.hasConnectedAccount && (
           <div className="space-y-6">
             {/* Hero Section */}
-            <div className="rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 p-8 text-white">
+            <div className="rounded-2xl bg-gradient-to-br from-[var(--brand-primary)] to-[var(--brand-primary)] p-8 text-white">
               <div className="flex items-start gap-4">
                 <div className="rounded-xl bg-white/20 p-3">
                   <CreditCard className="h-8 w-8" />
                 </div>
                 <div className="flex-1">
                   <h2 className="mb-2 text-2xl font-bold">Connect Your Stripe Account</h2>
-                  <p className="mb-6 text-purple-100">
+                  <p className="mb-6 text-white/80">
                     Already have a Stripe account? Just log in and connect it in seconds. Don't have
                     one? We'll help you set one up.
                   </p>
@@ -417,7 +417,7 @@ export default function StripeSettingsPage() {
                     <button
                       onClick={handleConnectWithOAuth}
                       disabled={actionLoading}
-                      className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-purple-700 transition hover:bg-purple-50 disabled:opacity-50"
+                      className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-[var(--brand-primary)] transition hover:bg-[var(--brand-primary-light)] disabled:opacity-50"
                     >
                       {actionLoading ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -441,7 +441,7 @@ export default function StripeSettingsPage() {
                     )}
                   </div>
 
-                  <p className="mt-4 text-sm text-purple-200">
+                  <p className="mt-4 text-sm text-white/70">
                     You'll be redirected to Stripe to securely log in and authorize the connection.
                   </p>
                 </div>
@@ -469,8 +469,8 @@ export default function StripeSettingsPage() {
                 </p>
               </div>
               <div className="rounded-xl border bg-white p-5">
-                <div className="mb-3 w-fit rounded-lg bg-purple-100 p-2">
-                  <Settings className="h-5 w-5 text-purple-600" />
+                <div className="mb-3 w-fit rounded-lg bg-[var(--brand-primary-light)] p-2">
+                  <Settings className="h-5 w-5 text-[var(--brand-primary)]" />
                 </div>
                 <h3 className="mb-1 font-semibold text-gray-900">Full Control</h3>
                 <p className="text-sm text-gray-600">
@@ -484,7 +484,7 @@ export default function StripeSettingsPage() {
               <h3 className="mb-4 font-semibold text-gray-900">How it Works</h3>
               <div className="space-y-4">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-light)] font-bold text-[var(--brand-primary)]">
                     1
                   </div>
                   <div>
@@ -495,7 +495,7 @@ export default function StripeSettingsPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-light)] font-bold text-[var(--brand-primary)]">
                     2
                   </div>
                   <div>
@@ -507,7 +507,7 @@ export default function StripeSettingsPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 font-bold text-purple-600">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary-light)] font-bold text-[var(--brand-primary)]">
                     3
                   </div>
                   <div>
@@ -627,7 +627,7 @@ export default function StripeSettingsPage() {
                   <button
                     onClick={handleOpenDashboard}
                     disabled={actionLoading}
-                    className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition hover:bg-purple-700 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white transition hover:brightness-90 disabled:opacity-50"
                   >
                     <ExternalLink className="h-4 w-4" />
                     Open Stripe Dashboard
@@ -641,39 +641,39 @@ export default function StripeSettingsPage() {
               <div className="grid gap-4 md:grid-cols-3">
                 <a
                   href="/admin/stripe-dashboard"
-                  className="group rounded-xl border bg-white p-5 transition hover:border-purple-300 hover:shadow-md"
+                  className="group rounded-xl border bg-white p-5 transition hover:border-[var(--brand-primary-medium)] hover:shadow-md"
                 >
                   <div className="mb-3 flex items-center justify-between">
                     <div className="rounded-lg bg-emerald-100 p-2">
                       <Wallet className="h-5 w-5 text-emerald-600" />
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400 transition group-hover:text-purple-600" />
+                    <ArrowRight className="h-5 w-5 text-gray-400 transition group-hover:text-[var(--brand-primary)]" />
                   </div>
                   <h3 className="font-semibold text-gray-900">View Balance</h3>
                   <p className="text-sm text-gray-500">Check your current balance and payouts</p>
                 </a>
                 <a
                   href="/admin/stripe-dashboard?tab=transactions"
-                  className="group rounded-xl border bg-white p-5 transition hover:border-purple-300 hover:shadow-md"
+                  className="group rounded-xl border bg-white p-5 transition hover:border-[var(--brand-primary-medium)] hover:shadow-md"
                 >
                   <div className="mb-3 flex items-center justify-between">
                     <div className="rounded-lg bg-blue-100 p-2">
                       <DollarSign className="h-5 w-5 text-blue-600" />
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400 transition group-hover:text-purple-600" />
+                    <ArrowRight className="h-5 w-5 text-gray-400 transition group-hover:text-[var(--brand-primary)]" />
                   </div>
                   <h3 className="font-semibold text-gray-900">Transactions</h3>
                   <p className="text-sm text-gray-500">View all charges and payments</p>
                 </a>
                 <a
                   href="/admin/stripe-dashboard?tab=customers"
-                  className="group rounded-xl border bg-white p-5 transition hover:border-purple-300 hover:shadow-md"
+                  className="group rounded-xl border bg-white p-5 transition hover:border-[var(--brand-primary-medium)] hover:shadow-md"
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="rounded-lg bg-purple-100 p-2">
-                      <Building2 className="h-5 w-5 text-purple-600" />
+                    <div className="rounded-lg bg-[var(--brand-primary-light)] p-2">
+                      <Building2 className="h-5 w-5 text-[var(--brand-primary)]" />
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400 transition group-hover:text-purple-600" />
+                    <ArrowRight className="h-5 w-5 text-gray-400 transition group-hover:text-[var(--brand-primary)]" />
                   </div>
                   <h3 className="font-semibold text-gray-900">Customers</h3>
                   <p className="text-sm text-gray-500">Manage customer payment methods</p>

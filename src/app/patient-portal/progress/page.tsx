@@ -752,7 +752,7 @@ export default function ProgressPage() {
           {/* Sleep Stats Card */}
           <div
             className="rounded-3xl p-6 shadow-lg"
-            style={{ background: `linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)` }}
+            style={{ background: `linear-gradient(135deg, #4fa77e 0%, #3B8C64 100%)` }}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -777,7 +777,7 @@ export default function ProgressPage() {
                   type="time"
                   value={sleepStart}
                   onChange={(e) => setSleepStart(e.target.value)}
-                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-indigo-500 focus:bg-white"
+                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
                 />
               </div>
               <div>
@@ -786,7 +786,7 @@ export default function ProgressPage() {
                   type="time"
                   value={sleepEnd}
                   onChange={(e) => setSleepEnd(e.target.value)}
-                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-indigo-500 focus:bg-white"
+                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
                 />
               </div>
             </div>
@@ -802,7 +802,7 @@ export default function ProgressPage() {
                 max="10"
                 value={sleepQuality}
                 onChange={(e) => setSleepQuality(parseInt(e.target.value))}
-                className="w-full accent-indigo-500"
+                className="w-full accent-emerald-500"
               />
               <div className="mt-1 flex justify-between text-xs text-gray-400">
                 <span>Poor</span>
@@ -813,7 +813,7 @@ export default function ProgressPage() {
             <button
               onClick={handleLogSleep}
               disabled={saving}
-              className="w-full rounded-xl bg-indigo-500 py-4 font-semibold text-white transition-all hover:bg-indigo-600 disabled:opacity-50"
+              className="w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Log Sleep'}
             </button>
@@ -908,7 +908,7 @@ export default function ProgressPage() {
       )}
 
       {/* Tips Card - compact on mobile */}
-      <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 md:mt-6 md:rounded-2xl md:p-5">
+      <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-50 to-emerald-50 p-4 md:mt-6 md:rounded-2xl md:p-5">
         <div className="mb-2 flex items-center gap-2 md:mb-3">
           <Award className="h-4 w-4 text-blue-600 md:h-5 md:w-5" />
           <h3 className="text-sm font-semibold text-gray-900 md:text-base">

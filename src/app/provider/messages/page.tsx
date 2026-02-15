@@ -176,14 +176,14 @@ export default function ProviderMessagesPage() {
                 placeholder="Search patients..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setFilter('all')}
                 className={`rounded px-3 py-1 text-sm ${
-                  filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+                  filter === 'all' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 All
@@ -191,7 +191,7 @@ export default function ProviderMessagesPage() {
               <button
                 onClick={() => setFilter('unread')}
                 className={`rounded px-3 py-1 text-sm ${
-                  filter === 'unread' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+                  filter === 'unread' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 Unread ({unreadCount})
@@ -199,7 +199,7 @@ export default function ProviderMessagesPage() {
               <button
                 onClick={() => setFilter('urgent')}
                 className={`rounded px-3 py-1 text-sm ${
-                  filter === 'urgent' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'
+                  filter === 'urgent' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
                 }`}
               >
                 Urgent
@@ -209,7 +209,7 @@ export default function ProviderMessagesPage() {
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="py-8 text-center text-gray-500">
-                <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+                <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-4 border-[var(--brand-primary)] border-t-transparent"></div>
                 Loading messages...
               </div>
             ) : error ? (
@@ -239,7 +239,7 @@ export default function ProviderMessagesPage() {
                   key={message.id}
                   onClick={() => setSelectedMessage(message)}
                   className={`cursor-pointer border-b p-4 hover:bg-gray-50 ${
-                    selectedMessage?.id === message.id ? 'bg-indigo-50' : ''
+                    selectedMessage?.id === message.id ? 'bg-[var(--brand-primary-light)]' : ''
                   } ${message.unread ? 'bg-blue-50' : ''}`}
                 >
                   <div className="mb-1 flex items-start justify-between">
@@ -305,14 +305,14 @@ export default function ProviderMessagesPage() {
                       <div
                         className={`max-w-[70%] rounded-lg p-3 ${
                           msg.sender === 'provider'
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-[var(--brand-primary)] text-white'
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
                         <p>{msg.content}</p>
                         <p
                           className={`mt-1 text-xs ${
-                            msg.sender === 'provider' ? 'text-indigo-200' : 'text-gray-500'
+                            msg.sender === 'provider' ? 'text-[var(--brand-primary)]' : 'text-gray-500'
                           }`}
                         >
                           {msg.timestamp}
@@ -335,23 +335,23 @@ export default function ProviderMessagesPage() {
                     onChange={(e) => setMessageContent(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Type a message..."
-                    className="flex-1 rounded-lg border px-4 py-2 focus:ring-2 focus:ring-indigo-500"
+                    className="flex-1 rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
                   />
                   <button
                     onClick={handleSendMessage}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
+                    className="rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-white hover:brightness-90"
                   >
                     <Send className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="mt-2 flex gap-2">
-                  <button className="text-sm text-indigo-600 hover:text-indigo-700">
+                  <button className="text-sm text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
                     Quick Reply
                   </button>
-                  <button className="text-sm text-indigo-600 hover:text-indigo-700">
+                  <button className="text-sm text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
                     Templates
                   </button>
-                  <button className="text-sm text-indigo-600 hover:text-indigo-700">
+                  <button className="text-sm text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
                     Schedule Message
                   </button>
                 </div>

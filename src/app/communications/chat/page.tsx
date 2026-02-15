@@ -273,7 +273,7 @@ export default function ChatManagementPage() {
                       <button className="rounded-lg bg-green-50 p-3 text-sm text-green-700 transition-colors hover:bg-green-100">
                         💊 Send Prescription
                       </button>
-                      <button className="rounded-lg bg-purple-50 p-3 text-sm text-purple-700 transition-colors hover:bg-purple-100">
+                      <button className="rounded-lg bg-[var(--brand-primary-light)] p-3 text-sm text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]">
                         📅 Schedule Appointment
                       </button>
                     </div>
@@ -305,7 +305,7 @@ export default function ChatManagementPage() {
                 <div className="text-sm text-gray-600">Avg Response Time</div>
               </div>
               <div className="rounded-lg bg-white p-4 shadow-sm">
-                <div className="text-2xl font-bold text-purple-600">98%</div>
+                <div className="text-2xl font-bold text-[var(--brand-primary)]">98%</div>
                 <div className="text-sm text-gray-600">Satisfaction Rate</div>
               </div>
             </div>

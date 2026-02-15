@@ -366,7 +366,7 @@ export default function ProgressPhotosPage() {
                 });
                 setViewMode('compare');
               }}
-              className="w-full rounded-2xl bg-gradient-to-r from-purple-500 to-blue-500 p-5 text-white shadow-lg transition-all hover:shadow-xl"
+              className="w-full rounded-2xl bg-[var(--brand-primary)] p-5 text-white shadow-lg transition-all hover:shadow-xl"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -535,7 +535,7 @@ export default function ProgressPhotosPage() {
 
       {/* Tips Card */}
       {viewMode === 'gallery' && photos.length > 0 && (
-        <div className="mt-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
+        <div className="mt-6 rounded-2xl bg-[var(--brand-primary-light)] p-5">
           <div className="mb-3 flex items-center gap-2">
             <Clock className="h-5 w-5 text-blue-600" />
             <h3 className="font-semibold text-gray-900">Consistency Tips</h3>

@@ -128,7 +128,7 @@ export default function CommissionsPage() {
   if (loading && !data) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -215,7 +215,7 @@ export default function CommissionsPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
         >
           <option value="all">All Status</option>
           <option value="PENDING">Pending</option>
@@ -268,7 +268,7 @@ export default function CommissionsPage() {
                       {(event.tierName || event.promotionName) && (
                         <div className="mt-0.5 flex gap-1">
                           {event.tierName && (
-                            <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700">
+                            <span className="rounded bg-[var(--brand-primary-light)] px-1.5 py-0.5 text-xs text-[var(--brand-primary)]">
                               {event.tierName}
                             </span>
                           )}
