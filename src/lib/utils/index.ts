@@ -5,16 +5,14 @@
  * Re-exports all utility functions for easy importing.
  *
  * Usage:
- *   import { safeJsonParse, isBrowser, useIsMounted } from '@/lib/utils';
+ *   import { safeParseJsonString, isBrowser, useIsMounted } from '@/lib/utils';
  */
 
 // Safe JSON utilities
 export {
-  safeJsonParse,
-  safeJsonStringify,
-  getStorageJson,
-  setStorageJson,
-  safeResponseJson,
+  safeParseJsonString,
+  safeParseJson,
+  safeParseJsonOr,
 } from './safe-json';
 
 // SSR-safe utilities

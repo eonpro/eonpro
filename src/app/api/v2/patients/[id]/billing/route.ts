@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { createInvoiceManager } from '@/services/billing/InvoiceManager';
+import { getStripeForClinic } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
 
 // GET - Get patient billing summary
@@ -66,7 +67,6 @@ export async function GET(
     let stripePaymentMethods: any[] = [];
     if (patient.stripeCustomerId) {
       try {
-        const { getStripeForClinic } = await import('@/lib/stripe');
         const stripeContext = await getStripeForClinic(patient.clinicId);
         const methods = await stripeContext.stripe.paymentMethods.list({
           customer: patient.stripeCustomerId,

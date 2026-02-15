@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { PaymentMethodService } from '@/services/paymentMethodService';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
+import { getStripeForClinic } from '@/lib/stripe';
+import type Stripe from 'stripe';
 import { Patient, Provider, Order } from '@/types/models';
 
 // Schema for adding a new card
@@ -49,7 +51,6 @@ export async function GET(request: NextRequest) {
     let stripeCards: any[] = [];
     if (patient?.stripeCustomerId) {
       try {
-        const { getStripeForClinic } = await import('@/lib/stripe');
         const stripeContext = await getStripeForClinic(patient.clinicId);
         const methods = await stripeContext.stripe.paymentMethods.list({
           customer: patient.stripeCustomerId,
@@ -64,8 +65,8 @@ export async function GET(request: NextRequest) {
         );
 
         stripeCards = methods.data
-          .filter((m) => !localStripeIds.has(m.id))
-          .map((m) => ({
+          .filter((m: Stripe.PaymentMethod) => !localStripeIds.has(m.id))
+          .map((m: Stripe.PaymentMethod) => ({
             id: `stripe_${m.id}`,
             last4: m.card?.last4 || '????',
             brand: m.card?.brand
