@@ -385,16 +385,39 @@ export function withAuth<T = unknown>(
       // Security: All authenticated requests should have sessionId unless explicitly skipped (enterprise audit P0)
       if (!options.skipSessionValidation) {
         if (!user.sessionId) {
+          // Enhanced diagnostic: log what the token actually contains
+          const tokenForDiag = extractToken(req);
+          let diagClaimKeys: string[] = [];
+          try {
+            if (tokenForDiag) {
+              const parts = tokenForDiag.split('.');
+              if (parts.length === 3) {
+                const raw = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+                diagClaimKeys = Object.keys(raw).sort();
+              }
+            }
+          } catch { /* ignore decode errors */ }
+
           logger.warn('Token missing sessionId - possible old token or manipulation', {
             userId: user.id,
             role: user.role,
             tokenIat: user.iat,
             requestId,
+            claimKeys: diagClaimKeys,
+            tokenExp: user.exp,
           });
           // Production: reject to prevent session timeout bypass; dev: allow for compatibility
           if (process.env.NODE_ENV === 'production') {
             return NextResponse.json(
-              { error: 'Invalid session', code: 'SESSION_INVALID', requestId },
+              {
+                error: 'Invalid session',
+                code: 'SESSION_INVALID',
+                requestId,
+                // Diagnostic: include claim names (no values) to help identify token source
+                _diagClaimKeys: diagClaimKeys,
+                _diagTokenIat: user.iat,
+                _diagTokenExp: user.exp,
+              },
               { status: 401 }
             );
           }
