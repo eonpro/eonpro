@@ -3,10 +3,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { getPatientPoints, getPointsHistory, getLeaderboard } from '@/lib/gamification/points';
-import { logger } from '@/lib/logger';
+import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 
 /**
  * GET /api/patient-portal/gamification/points
@@ -25,30 +25,25 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const action = searchParams.get('action');
 
     if (action === 'history') {
-      const limit = parseInt(searchParams.get('limit') || '50');
+      const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
       const history = await getPointsHistory(user.patientId, limit);
       return NextResponse.json({ history });
     }
 
     if (action === 'leaderboard') {
-      const limit = parseInt(searchParams.get('limit') || '10');
+      const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
       const leaderboard = await getLeaderboard(user.clinicId || undefined, limit);
       return NextResponse.json({ leaderboard });
     }
 
     const points = await getPatientPoints(user.patientId);
 
+    await logPHIAccess(req, user, 'GamificationPoints', String(user.patientId), user.patientId, {
+      action: action || 'overview',
+    });
+
     return NextResponse.json(points);
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[POINTS_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to fetch points', errorId, code: 'POINTS_FETCH_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/gamification/points' } });
   }
-});
+}, { roles: ['patient'] });

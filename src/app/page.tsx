@@ -117,7 +117,7 @@ function HomePageInner() {
         // This prevents redirect loops when session is expired but localStorage persists
         if (role === 'affiliate') {
           try {
-            const res = await fetch('/api/affiliate/auth/me', { credentials: 'include' });
+            const res = await apiFetch('/api/affiliate/auth/me', { credentials: 'include' });
             if (res.ok) {
               router.push('/affiliate');
             } else {
@@ -158,23 +158,54 @@ function HomePageInner() {
     checkAuthAndRedirect();
   }, [router]);
 
-  const loadDashboardData = async () => {
-    try {
-      // Fetch recent patient intakes from last 24 hours (includeContact=true for dashboard display)
-      const intakesResponse = await apiFetch(
-        '/api/patients?limit=100&recent=24h&includeContact=true'
-      );
+  /**
+   * Fetch with retry for transient 503 errors (DB connection pool exhaustion).
+   * Retries up to 2 times with exponential backoff, respecting Retry-After header.
+   */
+  const fetchWithRetry = async (url: string, maxRetries = 2): Promise<Response> => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const response = await apiFetch(url);
 
-      if (intakesResponse.ok) {
-        const intakesData = await intakesResponse.json();
-        const patients = intakesData.patients || [];
-        setRecentIntakes(patients);
-        setStats((prev) => ({ ...prev, newIntakes: patients.length }));
+      if (response.status === 503 && attempt < maxRetries) {
+        // Respect Retry-After header or default to exponential backoff
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
+        const delay = retryAfter > 0 ? retryAfter * 1000 : 1000 * Math.pow(2, attempt);
+        console.warn(`[Dashboard] ${url} returned 503, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
       }
 
-      // Fetch revenue stats for last 7 days from finance metrics (same source as Finance page)
+      return response;
+    }
+
+    // Should never reach here, but return last attempt
+    return apiFetch(url);
+  };
+
+  const loadDashboardData = async () => {
+    try {
+      // Stagger API calls to reduce concurrent DB connection pressure.
+      // Each call needs a DB connection; firing all at once can exhaust the pool.
+
+      // 1. Fetch recent patient intakes (most important for dashboard)
       try {
-        const metricsResponse = await apiFetch('/api/finance/metrics?range=7d');
+        const intakesResponse = await fetchWithRetry(
+          '/api/patients?limit=100&recent=24h&includeContact=true'
+        );
+        if (intakesResponse.ok) {
+          const intakesData = await intakesResponse.json();
+          const patients = intakesData.patients || [];
+          setRecentIntakes(patients);
+          setStats((prev) => ({ ...prev, newIntakes: patients.length }));
+        }
+      } catch (e: any) {
+        if (e.isAuthError) throw e;
+        console.warn('[Dashboard] Patients fetch failed:', e.message);
+      }
+
+      // 2. Fetch revenue stats (staggered after patients)
+      try {
+        const metricsResponse = await fetchWithRetry('/api/finance/metrics?range=7d');
         if (metricsResponse.ok) {
           const metricsData = await metricsResponse.json();
           // grossRevenue is in cents, convert to dollars
@@ -184,25 +215,21 @@ function HomePageInner() {
           setStats((prev) => ({ ...prev, newRevenue, recurringRevenue }));
         }
       } catch (e: any) {
-        // Skip if auth error (already handled by apiFetch)
-        if (!e.isAuthError) {
-          // Revenue fetch failed, use placeholder
-        }
+        if (e.isAuthError) throw e;
+        console.warn('[Dashboard] Finance metrics fetch failed:', e.message);
       }
 
-      // Fetch prescriptions/scripts count from last 24 hours
+      // 3. Fetch prescriptions/scripts count (staggered after metrics)
       try {
-        const ordersResponse = await apiFetch('/api/orders?limit=100&recent=24h');
+        const ordersResponse = await fetchWithRetry('/api/orders?limit=100&recent=24h');
         if (ordersResponse.ok) {
           const ordersData = await ordersResponse.json();
           const orders = ordersData.orders || [];
           setStats((prev) => ({ ...prev, newPrescriptions: orders.length }));
         }
       } catch (e: any) {
-        // Skip if auth error (already handled by apiFetch)
-        if (!e.isAuthError) {
-          // Orders fetch failed
-        }
+        if (e.isAuthError) throw e;
+        console.warn('[Dashboard] Orders fetch failed:', e.message);
       }
 
       setIntakesLoading(false);

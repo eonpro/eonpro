@@ -23,6 +23,7 @@ import {
   Archive,
   ArchiveRestore,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Clinic {
   id: number;
@@ -168,11 +169,8 @@ export default function SuperAdminProvidersPage() {
   };
 
   const fetchClinics = async () => {
-    const token = getAuthToken();
     try {
-      const res = await fetch('/api/super-admin/clinics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch('/api/super-admin/clinics');
       if (res.ok) {
         const data = await res.json();
         setClinics(data.clinics || []);
@@ -183,7 +181,6 @@ export default function SuperAdminProvidersPage() {
   };
 
   const fetchProviders = async () => {
-    const token = getAuthToken();
     setFetchError(null);
 
     try {
@@ -195,9 +192,7 @@ export default function SuperAdminProvidersPage() {
       if (searchQuery) params.set('search', searchQuery);
       params.set('providerStatus', providerStatusFilter);
 
-      const res = await fetch(`/api/super-admin/providers?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/super-admin/providers?${params}`);
 
       const data = await res.json();
 
@@ -227,13 +222,10 @@ export default function SuperAdminProvidersPage() {
     setCreating(true);
     setCreateError(null);
 
-    const token = getAuthToken();
-
     try {
-      const response = await fetch('/api/super-admin/providers', {
+      const response = await apiFetch('/api/super-admin/providers', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -289,11 +281,10 @@ export default function SuperAdminProvidersPage() {
       const ordersCount = deletingProvider._count?.orders ?? 0;
       const appointmentsCount = deletingProvider._count?.appointments ?? 0;
       const hasData = ordersCount > 0 || appointmentsCount > 0;
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/super-admin/providers/${deletingProvider.id}${hasData ? '?force=true' : ''}`,
         {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -328,9 +319,8 @@ export default function SuperAdminProvidersPage() {
 
     try {
       const isArchived = archivingProvider.status === 'ARCHIVED';
-      const response = await fetch(`/api/super-admin/providers/${archivingProvider.id}/archive`, {
+      const response = await apiFetch(`/api/super-admin/providers/${archivingProvider.id}/archive`, {
         method: isArchived ? 'DELETE' : 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -370,7 +360,7 @@ export default function SuperAdminProvidersPage() {
     setNpiVerified(false);
 
     try {
-      const res = await fetch('/api/providers/verify', {
+      const res = await apiFetch('/api/providers/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

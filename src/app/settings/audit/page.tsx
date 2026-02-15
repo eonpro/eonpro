@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Search, RefreshCw, User, Calendar, Filter } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface AuditLog {
   id: number;
@@ -29,7 +30,7 @@ export default function AuditLogsPage() {
         localStorage.getItem('admin-token') ||
         localStorage.getItem('super_admin-token');
 
-      const response = await fetch('/api/admin/audit-logs?limit=100', {
+      const response = await apiFetch('/api/admin/audit-logs?limit=100', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

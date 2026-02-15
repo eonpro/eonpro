@@ -4,10 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { logPHICreate, logPHIDelete, logPHIAccess } from '@/lib/audit/hipaa-audit';
 import { z } from 'zod';
 
 const subscriptionSchema = z.object({
@@ -70,20 +71,13 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       endpoint: subscription.endpoint.slice(0, 50),
     });
 
+    await logPHICreate(req, user, 'PushSubscription', subscription.endpoint.slice(0, 50), patientId);
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[PUSH_SUBSCRIPTION_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to register subscription', errorId, code: 'SUBSCRIPTION_REGISTER_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/push-subscription' } });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * DELETE /api/patient-portal/push-subscription
@@ -101,10 +95,17 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
+    if (!user.patientId) {
+      return NextResponse.json(
+        { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
+        { status: 400 }
+      );
+    }
+
     await prisma.pushSubscription.deleteMany({
       where: {
         endpoint,
-        patientId: user.patientId || undefined,
+        patientId: user.patientId,
       },
     });
 
@@ -113,24 +114,13 @@ export const DELETE = withAuth(async (req: NextRequest, user: AuthUser) => {
       endpoint: endpoint.slice(0, 50),
     });
 
+    await logPHIDelete(req, user, 'PushSubscription', endpoint.slice(0, 50), user.patientId, 'Patient unsubscribed');
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[PUSH_SUBSCRIPTION_DELETE] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      {
-        error: 'Failed to unregister subscription',
-        errorId,
-        code: 'SUBSCRIPTION_UNREGISTER_ERROR',
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'DELETE /api/patient-portal/push-subscription' } });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * GET /api/patient-portal/push-subscription
@@ -156,20 +146,15 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       },
     });
 
+    await logPHIAccess(req, user, 'PushSubscription', String(patientId), patientId, {
+      subscriptionCount: subscriptions.length,
+    });
+
     return NextResponse.json({
       hasSubscription: subscriptions.length > 0,
       count: subscriptions.length,
     });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[PUSH_SUBSCRIPTION_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to check subscription', errorId, code: 'SUBSCRIPTION_CHECK_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/push-subscription' } });
   }
-});
+}, { roles: ['patient'] });

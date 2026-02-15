@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, Building2, AlertCircle, Check, Info } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 export default function NewClinicPage() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function NewClinicPage() {
         supportEmail: formData.supportEmail || formData.adminEmail,
       };
 
-      const response = await fetch('/api/admin/clinics', {
+      const response = await apiFetch('/api/admin/clinics', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cleanedData),

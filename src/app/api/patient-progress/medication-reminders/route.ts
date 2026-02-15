@@ -3,6 +3,10 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { z } from 'zod';
+import { handleApiError } from '@/domains/shared/errors';
+import { logPHIAccess, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
+import { withRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
+import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -44,17 +48,6 @@ const deleteReminderSchema = z.object({
 });
 
 // ============================================================================
-// AUTHORIZATION HELPERS
-// ============================================================================
-
-function canAccessPatient(user: { role: string; patientId?: number }, patientId: number): boolean {
-  if (user.role === 'patient') {
-    return user.patientId === patientId;
-  }
-  return ['provider', 'admin', 'staff', 'super_admin'].includes(user.role);
-}
-
-// ============================================================================
 // POST /api/patient-progress/medication-reminders - Create or update a reminder
 // ============================================================================
 
@@ -72,20 +65,10 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId, medicationName, dayOfWeek, timeOfDay, isActive } = parseResult.data;
 
-    // AUTHORIZATION CHECK FIRST
-    if (!canAccessPatient(user, patientId)) {
+    // AUTHORIZATION CHECK FIRST (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       logger.warn('Unauthorized medication reminder access', { userId: user.id, patientId });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    // Verify patient exists
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      select: { id: true },
-    });
-
-    if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     // Check if reminder already exists
@@ -129,15 +112,18 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       userId: user.id,
     });
 
+    await logPHICreate(request, user, 'PatientMedicationReminder', reminder.id, patientId);
+
     return NextResponse.json(reminder, { status: existing ? 200 : 201 });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to save medication reminder', { error: errorMessage, userId: user.id });
-    return NextResponse.json({ error: 'Failed to save medication reminder' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-progress/medication-reminders',
+      context: { userId: user.id },
+    });
   }
 });
 
-export const POST = postHandler;
+export const POST = withRateLimit(postHandler, RATE_LIMIT_CONFIGS.phiAccess);
 
 // ============================================================================
 // GET /api/patient-progress/medication-reminders?patientId=X
@@ -160,8 +146,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId } = parseResult.data;
 
-    // AUTHORIZATION CHECK FIRST
-    if (!canAccessPatient(user, patientId)) {
+    // AUTHORIZATION CHECK FIRST (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       logger.warn('Unauthorized medication reminder access', { userId: user.id, patientId });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -175,18 +161,21 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       take: 100, // Pagination limit
     });
 
+    await logPHIAccess(request, user, 'PatientMedicationReminder', 'list', patientId);
+
     return NextResponse.json({
       data: reminders,
       meta: { count: reminders.length, patientId },
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to fetch medication reminders', { error: errorMessage, userId: user.id });
-    return NextResponse.json({ error: 'Failed to fetch medication reminders' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-progress/medication-reminders',
+      context: { userId: user.id },
+    });
   }
 });
 
-export const GET = getHandler;
+export const GET = withRateLimit(getHandler, RATE_LIMIT_CONFIGS.phiAccess);
 
 // ============================================================================
 // DELETE /api/patient-progress/medication-reminders?id=X
@@ -216,8 +205,8 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
     }
 
-    // AUTHORIZATION CHECK
-    if (!canAccessPatient(user, reminder.patientId)) {
+    // AUTHORIZATION CHECK (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, reminder.patientId))) {
       logger.warn('Unauthorized medication reminder deletion', { userId: user.id, reminderId: id });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -232,12 +221,15 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
       patientId: reminder.patientId,
     });
 
+    await logPHIDelete(request, user, 'PatientMedicationReminder', id, reminder.patientId, 'user_request');
+
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to delete medication reminder', { error: errorMessage, userId: user.id });
-    return NextResponse.json({ error: 'Failed to delete medication reminder' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'DELETE /api/patient-progress/medication-reminders',
+      context: { userId: user.id },
+    });
   }
 });
 
-export const DELETE = deleteHandler;
+export const DELETE = withRateLimit(deleteHandler, RATE_LIMIT_CONFIGS.phiAccess);

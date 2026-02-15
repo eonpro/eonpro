@@ -121,6 +121,12 @@ function checkForEscalation(message: string): { shouldEscalate: boolean; reason?
 
 /**
  * Get patient context for AI
+ *
+ * TODO: Apply anonymizeForAI from @/lib/security/anonymize to the patient data
+ * before building the context string. Currently, firstName and other PHI fields
+ * are sent directly to OpenAI, which is a HIPAA concern. The anonymization should
+ * replace real names with tokens (e.g., [PATIENT_1]) and be de-anonymized only
+ * in the final response if needed.
  */
 async function getPatientContext(patientId: number): Promise<string> {
   try {
@@ -206,7 +212,10 @@ async function getPatientContext(patientId: number): Promise<string> {
 
     return context.join('\n');
   } catch (error) {
-    logger.error('Failed to get patient context:', error);
+    logger.error('Failed to get patient context', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      patientId,
+    });
     return '';
   }
 }
@@ -287,7 +296,10 @@ export async function processPatientChat(
       relatedActions,
     };
   } catch (error) {
-    logger.error('Failed to process patient chat:', error);
+    logger.error('Failed to process patient chat', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      patientId,
+    });
     return {
       message:
         "I'm having trouble connecting right now. Please try again in a moment, or reach out to your care team directly if you need immediate assistance.",
@@ -552,7 +564,10 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
 
     return insights.slice(0, 5); // Return top 5 insights
   } catch (error) {
-    logger.error('Failed to generate patient insights:', error);
+    logger.error('Failed to generate patient insights', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      patientId,
+    });
     return [];
   }
 }
@@ -639,7 +654,10 @@ export async function generateWeeklySummary(patientId: number): Promise<string> 
 
     return summary.join('\n');
   } catch (error) {
-    logger.error('Failed to generate weekly summary:', error);
+    logger.error('Failed to generate weekly summary', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      patientId,
+    });
     return '';
   }
 }

@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   Search,
   Download,
@@ -116,7 +117,7 @@ export default function SuperAdminCodePerformancePage() {
         ...(search ? { search } : {}),
       });
 
-      const response = await fetch(`/api/admin/affiliates/code-performance?${params}`, {
+      const response = await apiFetch(`/api/admin/affiliates/code-performance?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

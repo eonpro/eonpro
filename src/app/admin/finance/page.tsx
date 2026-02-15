@@ -20,6 +20,7 @@ import {
   Wallet,
   Clock,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface KPIData {
   grossRevenue: number;
@@ -97,11 +98,11 @@ export default function FinanceOverviewPage() {
 
         // Fetch KPIs from the finance metrics endpoint
         const [metricsRes, activityRes] = await Promise.all([
-          fetch(`/api/finance/metrics?range=${dateRange}`, {
+          apiFetch(`/api/finance/metrics?range=${dateRange}`, {
             credentials: 'include',
             headers,
           }),
-          fetch('/api/finance/activity?limit=10', {
+          apiFetch('/api/finance/activity?limit=10', {
             credentials: 'include',
             headers,
           }),
@@ -137,7 +138,7 @@ export default function FinanceOverviewPage() {
         localStorage.getItem('super_admin-token') ||
         localStorage.getItem('admin-token') ||
         localStorage.getItem('token');
-      const res = await fetch('/api/finance/sync-subscriptions', {
+      const res = await apiFetch('/api/finance/sync-subscriptions', {
         method: 'POST',
         credentials: 'include',
         headers: {

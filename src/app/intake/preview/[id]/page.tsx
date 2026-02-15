@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 
@@ -50,7 +51,7 @@ export default function PreviewIntakeFormPage({ params }: { params: Promise<{ id
         return;
       }
 
-      const res = await fetch(`/api/intake-forms/templates/${id}`, {
+      const res = await apiFetch(`/api/intake-forms/templates/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

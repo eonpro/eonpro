@@ -32,9 +32,13 @@ const USER_KEY = 'user';
  */
 export function setPortalUserStorage(payload: MinimalPortalUser | null): void {
   if (typeof window === 'undefined') return;
-  if (payload === null) {
-    window.localStorage.removeItem(USER_KEY);
-    return;
+  try {
+    if (payload === null) {
+      window.localStorage.removeItem(USER_KEY);
+      return;
+    }
+    window.localStorage.setItem(USER_KEY, JSON.stringify(payload));
+  } catch {
+    // localStorage unavailable (private browsing, quota exceeded)
   }
-  window.localStorage.setItem(USER_KEY, JSON.stringify(payload));
 }

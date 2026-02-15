@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
 import {
   requestEarlyRefill,
   getPatientRefillHistory,
@@ -80,14 +81,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       return NextResponse.json({ error: 'Patient ID required' }, { status: 400 });
     }
 
-    // Get patient with clinic ID
+    // Get patient with clinic ID (no PHI - avoid firstName/lastName in response)
     const patient = await prisma.patient.findUnique({
       where: { id: user.patientId },
       select: {
         id: true,
         clinicId: true,
-        firstName: true,
-        lastName: true,
       },
     });
 
@@ -209,10 +208,15 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       trackingNumber: refill.order?.trackingNumber,
     }));
 
+    await logPHIAccess(req, user, 'RefillRequest', String(user.patientId), user.patientId, {
+      subscriptionCount: subscriptions.length,
+      upcomingRefillCount: upcomingRefills.length,
+    });
+
     return NextResponse.json({
       patient: {
         id: patient.id,
-        name: `${patient.firstName} ${patient.lastName}`,
+        name: 'Your refill schedule',
       },
       subscriptions: subscriptions.map((sub: SubscriptionItem) => ({
         id: sub.id,
@@ -233,7 +237,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     logger.error('[Patient Refill Request] Error fetching refills', { error: message });
     return NextResponse.json({ error: 'Failed to fetch refill data' }, { status: 500 });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * POST /api/patient-portal/refill-request
@@ -322,6 +326,11 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       subscriptionId,
     });
 
+    await logPHICreate(req, user, 'RefillRequest', String(refill.id), patient.id, {
+      subscriptionId,
+      isEarlyRequest: true,
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Refill request submitted successfully. Our team will review it shortly.',
@@ -337,7 +346,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     logger.error('[Patient Refill Request] Error requesting early refill', { error: message });
     return NextResponse.json({ error: 'Failed to submit refill request' }, { status: 500 });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * Get human-readable status label

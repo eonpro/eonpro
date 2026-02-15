@@ -3,15 +3,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { z } from 'zod';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import {
   getActiveChallenges,
   joinChallenge,
   leaveChallenge,
   getChallengeLeaderboard,
 } from '@/lib/gamification/challenges';
-import { logger } from '@/lib/logger';
+import { logPHIAccess, logPHIUpdate } from '@/lib/audit/hipaa-audit';
+
+const challengeActionSchema = z.object({
+  action: z.enum(['join', 'leave', 'complete_task']),
+  challengeId: z.number().positive(),
+  taskId: z.number().positive().optional(),
+});
 
 /**
  * GET /api/patient-portal/gamification/challenges
@@ -43,20 +50,15 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     const challenges = await getActiveChallenges(user.patientId, user.clinicId || undefined);
 
+    await logPHIAccess(req, user, 'GamificationChallenges', String(user.patientId), user.patientId, {
+      action: action || 'list',
+    });
+
     return NextResponse.json({ challenges });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[CHALLENGES_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to fetch challenges', errorId, code: 'CHALLENGES_FETCH_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/gamification/challenges' } });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * POST /api/patient-portal/gamification/challenges
@@ -72,36 +74,41 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     const body = await req.json();
-    const { action, challengeId } = body;
+    const parsed = challengeActionSchema.safeParse(body);
 
-    if (!challengeId) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Challenge ID required', code: 'CHALLENGE_ID_REQUIRED' },
+        { error: 'Invalid request data', code: 'VALIDATION_ERROR', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
+    const { action, challengeId } = parsed.data;
+
     if (action === 'join') {
       await joinChallenge(user.patientId, challengeId);
+
+      await logPHIUpdate(req, user, 'GamificationChallenge', String(challengeId), user.patientId, ['membership'], {
+        action: 'join',
+        challengeId,
+      });
+
       return NextResponse.json({ success: true, message: 'Joined challenge' });
     }
 
     if (action === 'leave') {
       await leaveChallenge(user.patientId, challengeId);
+
+      await logPHIUpdate(req, user, 'GamificationChallenge', String(challengeId), user.patientId, ['membership'], {
+        action: 'leave',
+        challengeId,
+      });
+
       return NextResponse.json({ success: true, message: 'Left challenge' });
     }
 
     return NextResponse.json({ error: 'Invalid action', code: 'INVALID_ACTION' }, { status: 400 });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[CHALLENGES_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to update challenge', errorId, code: 'CHALLENGE_UPDATE_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/gamification/challenges' } });
   }
-});
+}, { roles: ['patient'] });

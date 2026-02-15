@@ -157,6 +157,7 @@ const getBrandingHandler = async (request: NextRequest) => {
         // Treatment-specific features
         showProgressPhotos: patientPortalSettings.showProgressPhotos ?? false,
         showLabResults: patientPortalSettings.showLabResults ?? false,
+        showDocuments: patientPortalSettings.showDocuments ?? true,
         showDietaryPlans: patientPortalSettings.showDietaryPlans ?? true,
         showExerciseTracking: patientPortalSettings.showExerciseTracking ?? true,
         showWaterTracking: patientPortalSettings.showWaterTracking ?? true,
@@ -177,24 +178,7 @@ const getBrandingHandler = async (request: NextRequest) => {
       dashboardMessage: patientPortalSettings.dashboardMessage || null,
 
       // Resource videos configurable per clinic
-      resourceVideos: patientPortalSettings.resourceVideos || [
-        {
-          id: 'injection-guide',
-          title: 'How to Self-Inject',
-          description: 'Step-by-step guide for subcutaneous injection',
-          url: 'https://www.youtube.com/watch?v=example1',
-          thumbnail: '/images/injection-thumbnail.jpg',
-          category: 'tutorials',
-        },
-        {
-          id: 'diet-tips',
-          title: 'Diet Tips for Weight Loss',
-          description: 'Nutrition guidelines while on GLP-1 medication',
-          url: 'https://www.youtube.com/watch?v=example2',
-          thumbnail: '/images/diet-thumbnail.jpg',
-          category: 'nutrition',
-        },
-      ],
+      resourceVideos: patientPortalSettings.resourceVideos || [],
 
       // Dietary plans configurable per clinic
       dietaryPlans: patientPortalSettings.dietaryPlans || [],

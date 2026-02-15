@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   DollarSign,
   RefreshCw,
@@ -74,7 +75,7 @@ export default function ProviderEarningsPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/provider/earnings?period=${period}`);
+      const response = await apiFetch(`/api/provider/earnings?period=${period}`);
 
       if (!response.ok) {
         const data = await response.json();

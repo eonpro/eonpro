@@ -29,6 +29,7 @@ import {
   XCircle,
   LogIn,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface StripeStatus {
   hasConnectedAccount: boolean;
@@ -118,7 +119,7 @@ export default function StripeSettingsPage() {
 
   const loadStripeStatus = async (id: number) => {
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${id}`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${id}`);
       if (res.ok) {
         const data = await res.json();
         setClinic(data.clinic);
@@ -145,7 +146,7 @@ export default function StripeSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/stripe/connect/oauth?clinicId=${clinicId}`);
+      const res = await apiFetch(`/api/stripe/connect/oauth?clinicId=${clinicId}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -191,7 +192,7 @@ export default function StripeSettingsPage() {
         }
       }
 
-      const res = await fetch('/api/stripe/connect', {
+      const res = await apiFetch('/api/stripe/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,7 +225,7 @@ export default function StripeSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=onboarding`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=onboarding`);
       const data = await res.json();
 
       if (data.onboardingUrl) {
@@ -246,7 +247,7 @@ export default function StripeSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=dashboard`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=dashboard`);
       const data = await res.json();
 
       if (data.dashboardUrl) {
@@ -268,7 +269,7 @@ export default function StripeSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
       const data = await res.json();
 
       if (res.ok) {
@@ -292,7 +293,7 @@ export default function StripeSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}`, {
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}`, {
         method: 'DELETE',
       });
 

@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isBrowser } from '@/lib/utils/ssr-safe';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface RefCode {
   id: string;
@@ -48,7 +49,7 @@ export default function LinksPage() {
   useEffect(() => {
     const fetchLinks = async () => {
       try {
-        const res = await fetch('/api/affiliate/ref-codes');
+        const res = await apiFetch('/api/affiliate/ref-codes');
         if (res.ok) {
           const linksData = await res.json();
           setData(linksData);
@@ -112,7 +113,7 @@ export default function LinksPage() {
 
     setCreateError(null);
     try {
-      const res = await fetch('/api/affiliate/ref-codes', {
+      const res = await apiFetch('/api/affiliate/ref-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newCodeName.trim() }),

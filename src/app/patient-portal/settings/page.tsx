@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -9,6 +9,7 @@ import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/
 import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
+import { toast } from '@/components/Toast';
 import {
   User,
   Mail,
@@ -73,32 +74,83 @@ export default function SettingsPage() {
     promotionalEmails: false,
     appointmentReminders: true,
   });
+  const [notifLoading, setNotifLoading] = useState(true);
+  const notifSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load notification preferences from server
   useEffect(() => {
-    loadProfile();
+    let cancelled = false;
+    portalFetch('/api/patient-portal/notification-preferences')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (cancelled || !data?.preferences) return;
+        setNotifications(prev => ({ ...prev, ...data.preferences }));
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setNotifLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
-  const loadProfile = () => {
-    const user = localStorage.getItem('user');
-    const userData = safeParseJsonString<{ id?: number; email?: string; firstName?: string; lastName?: string; phone?: string; dateOfBirth?: string; address?: string }>(user);
-    if (userData) {
-      setProfile({
-        id: userData.id || 1,
-        email: userData.email || 'patient@example.com',
-        firstName: userData.firstName || 'Patient',
-        lastName: userData.lastName || 'User',
-        phone: userData.phone || '',
-        dateOfBirth: userData.dateOfBirth,
-        address: userData.address,
-      });
-    } else {
-      router.replace(
-        `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
-      );
-      return;
-    }
-    setLoading(false);
-  };
+  // Debounced save when notifications change (skip while loading)
+  useEffect(() => {
+    if (notifLoading) return;
+    if (notifSaveTimerRef.current) clearTimeout(notifSaveTimerRef.current);
+    notifSaveTimerRef.current = setTimeout(() => {
+      portalFetch('/api/patient-portal/notification-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: notifications }),
+      }).catch(() => {});
+    }, 1000);
+    return () => {
+      if (notifSaveTimerRef.current) clearTimeout(notifSaveTimerRef.current);
+    };
+  }, [notifications, notifLoading]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadProfile = async () => {
+      try {
+        const res = await portalFetch('/api/auth/me');
+        if (cancelled) return;
+        if (!res.ok) {
+          // If unauthorized, redirect to login
+          if (res.status === 401) {
+            router.replace(
+              `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+            );
+            return;
+          }
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        const user = data?.user;
+        if (user) {
+          setProfile({
+            id: user.id || 0,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '',
+            phone: user.phone || '',
+            dateOfBirth: user.dateOfBirth || '',
+            address: user.address,
+          });
+        } else {
+          router.replace(
+            `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+          );
+          return;
+        }
+      } catch {
+        // Fallback gracefully
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadProfile();
+    return () => { cancelled = true; };
+  }, [router]);
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -115,7 +167,7 @@ export default function SettingsPage() {
 
       const sessionErr = getPortalResponseError(response);
       if (sessionErr) {
-        alert(sessionErr);
+        toast.error(sessionErr);
         return;
       }
       if (!response.ok) {
@@ -124,7 +176,7 @@ export default function SettingsPage() {
           data !== null && typeof data === 'object' && 'error' in data
             ? String((data as { error?: unknown }).error)
             : 'Failed to save profile';
-        alert(errMsg);
+        toast.error(errMsg);
         return;
       }
 
@@ -138,7 +190,7 @@ export default function SettingsPage() {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
-      alert('Failed to save profile. Please try again.');
+      toast.error('Failed to save profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -146,11 +198,11 @@ export default function SettingsPage() {
 
   const handlePasswordChange = async () => {
     if (passwords.new !== passwords.confirm) {
-      alert('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
     if (passwords.new.length < 8) {
-      alert('Password must be at least 8 characters');
+      toast.error('Password must be at least 8 characters');
       return;
     }
 
@@ -168,7 +220,7 @@ export default function SettingsPage() {
 
       const sessionErr = getPortalResponseError(response);
       if (sessionErr) {
-        alert(sessionErr);
+        toast.error(sessionErr);
         return;
       }
       const data = await safeParseJson(response);
@@ -177,7 +229,7 @@ export default function SettingsPage() {
           data !== null && typeof data === 'object' && 'error' in data
             ? String((data as { error?: unknown }).error)
             : 'Failed to change password';
-        alert(errMsg);
+        toast.error(errMsg);
         return;
       }
 
@@ -185,7 +237,7 @@ export default function SettingsPage() {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (error) {
-      alert('Failed to change password. Please try again.');
+      toast.error('Failed to change password. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -238,7 +290,7 @@ export default function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-4">
         {/* Sidebar Navigation */}
         <div className="lg:col-span-1">
-          <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+          <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm" role="tablist">
             {[
               { id: 'profile', labelKey: 'settingsProfile', icon: User },
               { id: 'password', labelKey: 'settingsPassword', icon: Lock },
@@ -251,6 +303,8 @@ export default function SettingsPage() {
               return (
                 <button
                   key={item.id}
+                  role="tab"
+                  aria-selected={isActive}
                   onClick={() => setActiveSection(item.id)}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all ${
                     isActive ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
@@ -280,7 +334,7 @@ export default function SettingsPage() {
         <div className="lg:col-span-3">
           {/* Profile Section */}
           {activeSection === 'profile' && profile && (
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('personalInfo')}</h2>
 
               <div className="mb-6 grid gap-4 md:grid-cols-2">
@@ -364,7 +418,7 @@ export default function SettingsPage() {
 
           {/* Language Section */}
           {activeSection === 'language' && (
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">{t('settingsLanguage')}</h2>
               <p className="mb-6 text-sm text-gray-500">{t('settingsLanguageDesc')}</p>
               <div className="flex flex-wrap gap-3">
@@ -398,7 +452,7 @@ export default function SettingsPage() {
 
           {/* Password Section */}
           {activeSection === 'password' && (
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('changePassword')}</h2>
 
               <div className="mb-6 space-y-4">
@@ -500,7 +554,7 @@ export default function SettingsPage() {
 
           {/* Notifications Section */}
           {activeSection === 'notifications' && (
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">
                 {t('notificationPreferences')}
               </h2>
@@ -569,7 +623,7 @@ export default function SettingsPage() {
 
           {/* Privacy Section */}
           {activeSection === 'privacy' && (
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('privacyData')}</h2>
 
               <div className="mb-6 space-y-4">

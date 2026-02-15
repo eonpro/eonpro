@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashboardSkeleton';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface DashboardStats {
   totalIntakes: number;
@@ -76,7 +77,7 @@ export default function ProviderDashboard() {
       const headers = { Authorization: `Bearer ${token}` };
 
       // Fetch intakes (records become patients only when they have prescriptions)
-      const patientsRes = await fetch('/api/patients?limit=5', { headers });
+      const patientsRes = await apiFetch('/api/patients?limit=5', { headers });
       if (patientsRes.ok) {
         const patientsData = await patientsRes.json();
         setRecentPatients(patientsData.patients || []);
@@ -87,7 +88,7 @@ export default function ProviderDashboard() {
       }
 
       // Fetch orders/prescriptions count
-      const ordersRes = await fetch('/api/orders?limit=100', { headers });
+      const ordersRes = await apiFetch('/api/orders?limit=100', { headers });
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
         setStats((prev) => ({
@@ -99,7 +100,7 @@ export default function ProviderDashboard() {
       // Fetch appointments for today
       const today = new Date().toISOString().split('T')[0];
       try {
-        const appointmentsRes = await fetch(`/api/scheduling/appointments?date=${today}`, {
+        const appointmentsRes = await apiFetch(`/api/scheduling/appointments?date=${today}`, {
           headers,
         });
         if (appointmentsRes.ok) {

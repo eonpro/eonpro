@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface StripeStatus {
   connected: boolean;
@@ -62,7 +63,7 @@ export default function FinanceSettingsPage() {
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       // Fetch Stripe status
-      const stripeRes = await fetch('/api/stripe/status', {
+      const stripeRes = await apiFetch('/api/stripe/status', {
         credentials: 'include',
         headers,
       });

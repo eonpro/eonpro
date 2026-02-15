@@ -13,6 +13,7 @@ import {
   Plus,
   Inbox,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Message {
   id: number;
@@ -52,7 +53,7 @@ export default function ProviderMessagesPage() {
           localStorage.getItem('auth-token') ||
           localStorage.getItem('provider-token');
 
-        const response = await fetch('/api/messages/conversations', {
+        const response = await apiFetch('/api/messages/conversations', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -95,7 +96,7 @@ export default function ProviderMessagesPage() {
           localStorage.getItem('auth-token') ||
           localStorage.getItem('provider-token');
 
-        const response = await fetch(`/api/messages/conversations/${selectedMessage?.patientId}`, {
+        const response = await apiFetch(`/api/messages/conversations/${selectedMessage?.patientId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -134,7 +135,7 @@ export default function ProviderMessagesPage() {
         localStorage.getItem('auth-token') ||
         localStorage.getItem('provider-token');
 
-      const response = await fetch(`/api/messages/send`, {
+      const response = await apiFetch(`/api/messages/send`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

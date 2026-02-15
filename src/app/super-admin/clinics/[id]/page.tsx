@@ -38,6 +38,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
+import { apiFetch } from '@/lib/api/fetch';
 import { CheckboxGroup } from '@/components/ui/Checkbox';
 import {
   TREATMENT_PRESETS,
@@ -118,7 +119,7 @@ function PatientPortalPresetBlock({ clinicId }: { clinicId: number }) {
     setApplying(true);
     try {
       const token = localStorage.getItem('auth-token');
-      const getRes = await fetch(`/api/patient-portal/branding?clinicId=${clinicId}`, {
+      const getRes = await apiFetch(`/api/patient-portal/branding?clinicId=${clinicId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const current = getRes.ok ? ((await getRes.json()).features ?? {}) : {};
@@ -126,11 +127,10 @@ function PatientPortalPresetBlock({ clinicId }: { clinicId: number }) {
         current as Record<PortalFeatureFlagKey, boolean>,
         preset
       );
-      const putRes = await fetch('/api/patient-portal/branding', {
+      const putRes = await apiFetch('/api/patient-portal/branding', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ clinicId, features: merged }),
       });
@@ -400,9 +400,7 @@ export default function ClinicDetailPage() {
   const fetchClinic = async () => {
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -469,9 +467,7 @@ export default function ClinicDetailPage() {
     setLoadingUsers(true);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/users`);
 
       if (response.ok) {
         const data = await response.json();
@@ -496,7 +492,7 @@ export default function ClinicDetailPage() {
 
     try {
       // Use our proxy API to avoid CORS issues
-      const response = await fetch(`/api/npi-lookup?npi=${newUser.npi}`);
+      const response = await apiFetch(`/api/npi-lookup?npi=${newUser.npi}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -529,11 +525,10 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(newUser),
       });
@@ -578,9 +573,8 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/users/${userId}`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/users/${userId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -623,7 +617,6 @@ export default function ClinicDetailPage() {
         {
           method: 'PUT',
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(editUserData),
@@ -666,7 +659,6 @@ export default function ClinicDetailPage() {
         {
           method: 'PUT',
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ password: newPassword }),
@@ -707,9 +699,7 @@ export default function ClinicDetailPage() {
     setLoadingInviteCodes(true);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/invite-codes`);
 
       if (response.ok) {
         const data = await response.json();
@@ -728,11 +718,10 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/invite-codes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           code: newInviteCode.code.toUpperCase(),
@@ -762,11 +751,10 @@ export default function ClinicDetailPage() {
   const handleToggleInviteCode = async (codeId: number, isActive: boolean) => {
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ isActive: !isActive }),
       });
@@ -789,9 +777,8 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/invite-codes/${codeId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {
@@ -858,9 +845,7 @@ export default function ClinicDetailPage() {
     try {
       const token = localStorage.getItem('auth-token');
       console.log('[LIFEFILE FETCH] Token exists:', !!token);
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`);
       console.log('[LIFEFILE FETCH] Response status:', response.status);
 
       if (response.ok) {
@@ -1001,11 +986,10 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(savePayload),
       });
@@ -1036,10 +1020,9 @@ export default function ClinicDetailPage() {
     setLifefileMessage(null);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ testType: 'outbound' }),
@@ -1069,10 +1052,9 @@ export default function ClinicDetailPage() {
     setInboundMessage(null);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ testType: 'inbound' }),
@@ -1099,11 +1081,10 @@ export default function ClinicDetailPage() {
     setSaving(true);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: formData.name,
@@ -1147,10 +1128,9 @@ export default function ClinicDetailPage() {
 
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
 

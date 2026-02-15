@@ -86,6 +86,9 @@ export default async function PatientDetailPage({
       redirect('/login?redirect=' + encodeURIComponent('/patients'));
     }
 
+    // Get request headers for audit logging (server components don't have NextRequest)
+    const headersList = await headers();
+
     const resolvedParams = await params;
     const id = Number(resolvedParams.id);
     patientIdForLog = id;
@@ -193,27 +196,24 @@ export default async function PatientDetailPage({
           const salesRepClinicId = isSuperAdmin ? patient.clinicId : clinicId;
           if (salesRepClinicId != null) {
             salesRepAssignments = await runWithClinicContext(salesRepClinicId, async () => {
-              return (
-                (prisma as any).patientSalesRepAssignment?.findMany?.({
-                  where: { patientId: id, isActive: true },
-                  orderBy: { assignedAt: 'desc' },
-                  take: 1,
-                  include: {
-                    salesRep: {
-                      select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                      },
+              return prisma.patientSalesRepAssignment.findMany({
+                where: { patientId: id, isActive: true },
+                orderBy: { assignedAt: 'desc' },
+                take: 1,
+                include: {
+                  salesRep: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
                     },
                   },
-                }) ?? []
-              );
+                },
+              });
             });
           }
         } catch (salesRepError) {
-          // PatientSalesRepAssignment table may not exist yet - this is non-critical
-          logger.warn('Could not fetch sales rep assignments (table may not exist):', {
+          logger.warn('[PATIENT-DETAIL] Could not fetch sales rep assignments:', {
             patientId: id,
             error: salesRepError instanceof Error ? salesRepError.message : String(salesRepError),
           });
@@ -243,7 +243,7 @@ export default async function PatientDetailPage({
 
     if (!patient) {
       // Patient not found or not in user's clinic - log access attempt
-      await auditLog(null, {
+      await auditLog(headersList, {
         userId: user.id,
         userEmail: user.email,
         userRole: user.role,
@@ -277,7 +277,7 @@ export default async function PatientDetailPage({
     }
 
     // HIPAA Audit: Log successful PHI access
-    await auditLog(null, {
+    await auditLog(headersList, {
       userId: user.id,
       userEmail: user.email,
       userRole: user.role,

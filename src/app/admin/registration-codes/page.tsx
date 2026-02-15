@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface RegistrationCode {
   id: number;
@@ -69,7 +70,7 @@ export default function RegistrationCodesPage() {
 
   const loadCodes = async () => {
     try {
-      const response = await fetch('/api/admin/registration-codes');
+      const response = await apiFetch('/api/admin/registration-codes');
       if (response.ok) {
         const data = await response.json();
         setCodes(data.codes || []);
@@ -109,7 +110,7 @@ export default function RegistrationCodesPage() {
   const handleCreateCode = async () => {
     setSaving(true);
     try {
-      const response = await fetch('/api/admin/registration-codes', {
+      const response = await apiFetch('/api/admin/registration-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -142,7 +143,7 @@ export default function RegistrationCodesPage() {
 
     setSaving(true);
     try {
-      const response = await fetch('/api/admin/registration-codes', {
+      const response = await apiFetch('/api/admin/registration-codes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -173,7 +174,7 @@ export default function RegistrationCodesPage() {
 
   const handleToggleActive = async (code: RegistrationCode) => {
     try {
-      const response = await fetch('/api/admin/registration-codes', {
+      const response = await apiFetch('/api/admin/registration-codes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,7 +200,7 @@ export default function RegistrationCodesPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/registration-codes?id=${code.id}`, {
+      const response = await apiFetch(`/api/admin/registration-codes?id=${code.id}`, {
         method: 'DELETE',
       });
 

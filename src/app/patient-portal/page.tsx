@@ -69,6 +69,7 @@ export default function PatientPortalDashboard() {
   const { t, language } = usePatientPortalLanguage();
 
   const [patient, setPatient] = useState<PortalUserMinimal | null>(null);
+  const [displayName, setDisplayName] = useState<string>('Patient');
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
   const [weightChange, setWeightChange] = useState<number | null>(null);
@@ -150,6 +151,20 @@ export default function PatientPortalDashboard() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!patient) return;
+    let cancelled = false;
+    portalFetch('/api/auth/me')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (cancelled || !data?.user) return;
+        const name = `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim();
+        if (name) setDisplayName(name);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [patient?.id]);
 
   const loadPatientData = async (patientId: number) => {
     setDataError(null);
@@ -376,7 +391,7 @@ export default function PatientPortalDashboard() {
       <div className="mb-6">
         <p className="text-sm text-gray-500">{formatDate()}</p>
         <h1 className="text-2xl font-semibold text-gray-900">
-          {t('dashboardHello')}, {patient?.firstName || 'Patient'}
+          {t('dashboardHello')}, {displayName}
         </h1>
         {/* Custom welcome message from clinic settings */}
         {branding?.welcomeMessage && (
@@ -711,35 +726,22 @@ export default function PatientPortalDashboard() {
       </div>
 
       {/* Treatment Card */}
-      <div className="mb-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="p-4" style={{ backgroundColor: primaryColor }}>
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-white">{t('dashboardCurrentTreatment')}</h2>
-            <Pill className="h-5 w-5 text-white/80" />
-          </div>
-        </div>
-        <div className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-lg font-semibold text-gray-900">Semaglutide</p>
-              <p className="text-sm text-gray-500">0.5mg weekly injection</p>
+      <Link href={`${PATIENT_PORTAL_PATH}/medications`} className="mb-6 block">
+        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="p-4" style={{ backgroundColor: primaryColor }}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-white">{t('dashboardCurrentTreatment')}</h2>
+              <Pill className="h-5 w-5 text-white/80" />
             </div>
-            <span
-              className="rounded-full px-3 py-1.5 text-xs font-semibold"
-              style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
-            >
-              {t('dashboardActive')}
-            </span>
           </div>
-          <Link
-            href={`${PATIENT_PORTAL_PATH}/medications`}
-            className="block w-full rounded-xl py-2.5 text-center font-medium text-white"
-            style={{ backgroundColor: primaryColor }}
-          >
-            View Details
-          </Link>
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">{t('dashboardViewMedications')}</p>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </div>
+          </div>
         </div>
-      </div>
+      </Link>
 
       {/* BMI Calculator Preview */}
       {features.showBMICalculator && (
@@ -765,24 +767,21 @@ export default function PatientPortalDashboard() {
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center gap-3">
           <Bell className="h-5 w-5 text-gray-400" />
-          <h2 className="font-semibold text-gray-900">Reminders</h2>
+          <h2 className="font-semibold text-gray-900">{t('dashboardReminders')}</h2>
         </div>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
-            <Clock className="h-5 w-5 text-amber-600" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">Weekly injection due</p>
-              <p className="text-xs text-gray-500">Wednesday at 8:00 AM</p>
+        {nextReminder ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
+              <Clock className="h-5 w-5 text-amber-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900">{nextReminder.medication} — {t('dashboardNextDose')}</p>
+                <p className="text-xs text-gray-500">{nextReminder.nextDose} {t('dashboardAt')} {nextReminder.time}</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3 rounded-xl bg-blue-50 p-3">
-            <Package className="h-5 w-5 text-blue-600" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-900">Shipment arriving soon</p>
-              <p className="text-xs text-gray-500">Expected Jan 22, 2026</p>
-            </div>
-          </div>
-        </div>
+        ) : (
+          <p className="text-sm text-gray-500">{t('dashboardNoReminders')}</p>
+        )}
       </div>
     </div>
   );

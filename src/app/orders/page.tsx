@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { logger } from '@/lib/logger';
 
 export default function OrdersStatusPage() {
@@ -13,7 +14,7 @@ export default function OrdersStatusPage() {
     try {
       setLoading(true);
       setResult(null);
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`);
+      const res = await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`);
       const data = await res.json();
       setResult(data);
     } catch (err: any) {

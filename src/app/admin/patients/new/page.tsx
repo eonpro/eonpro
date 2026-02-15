@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, User, Mail, Phone, Calendar, MapPin, FileText } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // US States for dropdown
 const US_STATES = [
@@ -246,7 +247,7 @@ export default function NewPatientPage() {
         payload.metadata = { notes: formData.notes };
       }
 
-      const response = await fetch('/api/patients', {
+      const response = await apiFetch('/api/patients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

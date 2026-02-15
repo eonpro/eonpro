@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Initialize Stripe (only if key is available)
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -83,7 +84,7 @@ function CheckoutForm({ selectedPlan, customerId, onSuccess, onError }: Checkout
   useEffect(() => {
     // Create subscription on the backend
     if (selectedPlan.priceId) {
-      fetch('/api/v2/stripe/create-subscription', {
+      apiFetch('/api/v2/stripe/create-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

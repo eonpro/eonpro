@@ -26,6 +26,7 @@ import {
   Check,
   ExternalLink,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface CodePerformance {
   code: string;
@@ -114,7 +115,7 @@ export default function CodePerformancePage() {
         ...(search ? { search } : {}),
       });
 
-      const response = await fetch(`/api/admin/affiliates/code-performance?${params}`, {
+      const response = await apiFetch(`/api/admin/affiliates/code-performance?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

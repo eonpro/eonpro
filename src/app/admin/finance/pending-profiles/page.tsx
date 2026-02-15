@@ -25,6 +25,7 @@ import {
   FileText,
   Clock,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // Types
@@ -222,7 +223,7 @@ export default function PendingProfilesPage() {
         ...(searchQuery && { search: searchQuery }),
       });
 
-      const response = await fetch(`/api/finance/pending-profiles?${params}`, {
+      const response = await apiFetch(`/api/finance/pending-profiles?${params}`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
@@ -250,7 +251,7 @@ export default function PendingProfilesPage() {
     setBulkSyncing(true);
     setSyncResults(null);
     try {
-      const response = await fetch('/api/admin/sync-stripe-profiles', {
+      const response = await apiFetch('/api/admin/sync-stripe-profiles', {
         method: 'POST',
         credentials: 'include',
         headers: getAuthHeaders(),
@@ -293,7 +294,7 @@ export default function PendingProfilesPage() {
       if (completeForm.state) updates.state = completeForm.state;
       if (completeForm.zip) updates.zip = completeForm.zip;
 
-      const response = await fetch('/api/finance/pending-profiles', {
+      const response = await apiFetch('/api/finance/pending-profiles', {
         method: 'PATCH',
         credentials: 'include',
         headers: getAuthHeaders(),
@@ -340,7 +341,7 @@ export default function PendingProfilesPage() {
     setProcessing(true);
 
     try {
-      const response = await fetch('/api/finance/pending-profiles', {
+      const response = await apiFetch('/api/finance/pending-profiles', {
         method: 'PATCH',
         credentials: 'include',
         headers: getAuthHeaders(),
@@ -377,7 +378,7 @@ export default function PendingProfilesPage() {
     setProcessing(true);
 
     try {
-      const response = await fetch('/api/finance/pending-profiles', {
+      const response = await apiFetch('/api/finance/pending-profiles', {
         method: 'PATCH',
         credentials: 'include',
         headers: getAuthHeaders(),

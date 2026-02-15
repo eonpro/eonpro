@@ -31,6 +31,7 @@ import {
   EyeOff,
   ExternalLink,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ClinicAssignment {
   id: number;
@@ -216,13 +217,10 @@ export default function SuperAdminProviderDetailPage() {
   };
 
   const fetchProvider = async () => {
-    const token = getAuthToken();
     setError(null);
 
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}`);
 
       const data = await res.json();
 
@@ -250,12 +248,8 @@ export default function SuperAdminProviderDetailPage() {
   };
 
   const fetchClinicAssignments = async () => {
-    const token = getAuthToken();
-
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/clinics`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/clinics`);
 
       const data = await res.json();
 
@@ -286,13 +280,10 @@ export default function SuperAdminProviderDetailPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const token = getAuthToken();
-
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}`, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(editForm),
@@ -320,13 +311,11 @@ export default function SuperAdminProviderDetailPage() {
     if (!addClinicForm.clinicId) return;
 
     setAddingClinic(true);
-    const token = getAuthToken();
 
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/clinics`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/clinics`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -367,14 +356,11 @@ export default function SuperAdminProviderDetailPage() {
   const handleRemoveClinic = async (clinicId: number) => {
     if (!confirm('Are you sure you want to remove this provider from this clinic?')) return;
 
-    const token = getAuthToken();
-
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/super-admin/providers/${providerId}/clinics?clinicId=${clinicId}`,
         {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -393,13 +379,10 @@ export default function SuperAdminProviderDetailPage() {
   };
 
   const handleSetPrimary = async (clinicId: number) => {
-    const token = getAuthToken();
-
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/clinics`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/clinics`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ clinicId, isPrimary: true }),
@@ -434,13 +417,11 @@ export default function SuperAdminProviderDetailPage() {
 
     setCreatingUser(true);
     setError(null);
-    const token = getAuthToken();
 
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/user`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -488,14 +469,10 @@ export default function SuperAdminProviderDetailPage() {
 
     setUnlinkingUser(true);
     setError(null);
-    const token = getAuthToken();
 
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/user`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       const data = await res.json();
@@ -565,13 +542,11 @@ export default function SuperAdminProviderDetailPage() {
 
     setResettingPassword(true);
     setError(null);
-    const token = getAuthToken();
 
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/user`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/user`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -614,7 +589,7 @@ export default function SuperAdminProviderDetailPage() {
     setNpiVerificationResult(null);
 
     try {
-      const res = await fetch('/api/providers/verify', {
+      const res = await apiFetch('/api/providers/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -646,13 +621,10 @@ export default function SuperAdminProviderDetailPage() {
     setNpiError(null);
     setError(null);
 
-    const token = getAuthToken();
-
     try {
-      const res = await fetch(`/api/super-admin/providers/${providerId}/verify-npi`, {
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/verify-npi`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });

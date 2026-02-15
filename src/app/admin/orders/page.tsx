@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface OrderWithTracking {
   id: number;
@@ -47,7 +48,7 @@ export default function AdminOrdersPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/orders/list?hasTrackingNumber=true');
+      const response = await apiFetch('/api/orders/list?hasTrackingNumber=true');
       if (!response.ok) {
         throw new Error('Failed to fetch orders');
       }

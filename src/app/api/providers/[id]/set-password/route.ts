@@ -28,9 +28,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = await request.json();
 
-    // Get actor email from headers
+    // Get actor identifier from headers (email no longer propagated in headers for HIPAA compliance)
     const actorEmail =
-      request.headers.get('x-actor-email') ?? request.headers.get('x-user-email') ?? 'system';
+      request.headers.get('x-actor-email') ?? `user:${request.headers.get('x-user-id') ?? 'system'}`;
 
     const result = await providerService.setPassword(providerId, body, actorEmail);
 

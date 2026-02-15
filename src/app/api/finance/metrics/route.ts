@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
@@ -14,6 +15,26 @@ import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import { startOfYear, subDays, startOfMonth } from 'date-fns';
+
+/**
+ * Check if an error is a database connection error (P2024, P1001, etc.)
+ * Returns 503 instead of 500 for transient DB failures
+ */
+function isDatabaseConnectionError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const connectionErrorCodes = ['P1001', 'P1002', 'P1008', 'P1017', 'P2024'];
+    return connectionErrorCodes.includes(error.code);
+  }
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    return true;
+  }
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    const patterns = ['connection', 'econnrefused', 'econnreset', 'timeout', 'pool', 'too many connections'];
+    return patterns.some((p) => message.includes(p));
+  }
+  return false;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -199,6 +220,22 @@ export async function GET(request: NextRequest) {
       });
     });
   } catch (error) {
+    // Return 503 for transient DB connection issues so clients can retry
+    if (isDatabaseConnectionError(error)) {
+      logger.error('Database connection error in finance metrics', {
+        error: error instanceof Error ? error.message : String(error),
+        errorType: 'DATABASE_CONNECTION',
+      });
+      return NextResponse.json(
+        {
+          error: 'Service temporarily unavailable. Please try again.',
+          code: 'SERVICE_UNAVAILABLE',
+          retryAfter: 5,
+        },
+        { status: 503, headers: { 'Retry-After': '5' } }
+      );
+    }
+
     logger.error('Failed to fetch finance metrics', { error });
     return NextResponse.json({ error: 'Failed to fetch finance metrics' }, { status: 500 });
   }

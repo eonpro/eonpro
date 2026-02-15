@@ -4,13 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-01-28.clover',
 });
 
@@ -46,17 +49,12 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
     });
 
+    await logPHIAccess(req, user, 'BillingPortalSession', String(user.patientId), user.patientId, {
+      stripeCustomerId: patient.stripeCustomerId,
+    });
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[BILLING_PORTAL_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to create portal session', errorId, code: 'PORTAL_SESSION_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/billing/portal' } });
   }
-});
+}, { roles: ['patient'] });

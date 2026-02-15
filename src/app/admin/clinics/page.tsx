@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ClinicData {
   id: number;
@@ -81,7 +82,7 @@ export default function ClinicsAdminPage() {
 
   const fetchClinics = async () => {
     try {
-      const response = await fetch('/api/admin/clinics');
+      const response = await apiFetch('/api/admin/clinics');
       if (response.ok) {
         const data = await response.json();
         // API returns { clinics: [...] }, extract the array
@@ -100,7 +101,7 @@ export default function ClinicsAdminPage() {
     }
 
     try {
-      const response = await fetch(`/api/admin/clinics/${clinicId}`, {
+      const response = await apiFetch(`/api/admin/clinics/${clinicId}`, {
         method: 'DELETE',
       });
 

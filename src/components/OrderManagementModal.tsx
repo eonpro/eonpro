@@ -2,6 +2,7 @@
 
 import { useState, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
+import { apiFetch } from '@/lib/api/fetch';
 
 type Order = {
   id: number;
@@ -93,7 +94,7 @@ export default function OrderManagementModal({
     setSuccess(null);
 
     try {
-      const response = await fetch(`/api/orders/${order.id}/cancel`, {
+      const response = await apiFetch(`/api/orders/${order.id}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +144,7 @@ export default function OrderManagementModal({
     }
 
     try {
-      const response = await fetch(`/api/orders/${order.id}/modify`, {
+      const response = await apiFetch(`/api/orders/${order.id}/modify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

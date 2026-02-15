@@ -20,6 +20,7 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Order {
   id: number;
@@ -90,7 +91,7 @@ export default function ProviderPrescriptionsPage() {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const offset = (page - 1) * PAGE_SIZE;
-      const response = await fetch(`/api/orders?limit=${PAGE_SIZE}&offset=${offset}`, {
+      const response = await apiFetch(`/api/orders?limit=${PAGE_SIZE}&offset=${offset}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

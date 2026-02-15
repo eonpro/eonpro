@@ -113,7 +113,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
     try {
       setLoading(true);
       setListError(null);
-      const res = await fetch(`/api/patients/${patientId}/bloodwork`, {
+      const res = await apiFetch(`/api/patients/${patientId}/bloodwork`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
@@ -146,7 +146,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
     let cancelled = false;
     setDetailLoading(true);
     setReportDetail(null);
-    fetch(`/api/patients/${patientId}/bloodwork/${selectedReportId}`, {
+    apiFetch(`/api/patients/${patientId}/bloodwork/${selectedReportId}`, {
       credentials: 'include',
       headers: getAuthHeaders(),
     })
@@ -213,10 +213,10 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
 
   const openPdf = useCallback(
     (documentId: number) => {
-      fetch(`/api/patients/${patientId}/documents/${documentId}`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      })
+    apiFetch(`/api/patients/${patientId}/documents/${documentId}`, {
+      credentials: 'include',
+      headers: getAuthHeaders(),
+    })
         .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('Failed'))))
         .then((blob) => {
           const url = window.URL.createObjectURL(blob);

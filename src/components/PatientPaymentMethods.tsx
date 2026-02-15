@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 // Using inline SVG icons instead of lucide-react
 import { formatCardNumber, validateCardNumber } from '@/lib/encryption';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Icon components
 const CreditCard = ({ className }: { className?: string }) => (
@@ -71,7 +72,7 @@ const Shield = ({ className }: { className?: string }) => (
 );
 
 interface SavedCard {
-  id: number;
+  id: number | string;
   last4: string;
   brand: string;
   expiryMonth: number;
@@ -79,6 +80,8 @@ interface SavedCard {
   cardholderName: string;
   isDefault: boolean;
   createdAt: Date;
+  source?: 'local' | 'stripe';
+  stripePaymentMethodId?: string;
 }
 
 interface PatientPaymentMethodsProps {
@@ -109,7 +112,7 @@ export default function PatientPaymentMethods({
   // Fetch saved cards
   const fetchCards = async () => {
     try {
-      const response = await fetch(`/api/payment-methods?patientId=${patientId}`);
+      const response = await apiFetch(`/api/payment-methods?patientId=${patientId}`);
       if (!response.ok) throw new Error('Failed to fetch cards');
       const data = await response.json();
       setCards(data.data || []);
@@ -188,7 +191,7 @@ export default function PatientPaymentMethods({
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/payment-methods', {
+      const response = await apiFetch('/api/payment-methods', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -241,7 +244,7 @@ export default function PatientPaymentMethods({
     }
 
     try {
-      const response = await fetch(`/api/payment-methods?id=${cardId}&patientId=${patientId}`, {
+        const response = await apiFetch(`/api/payment-methods?id=${cardId}&patientId=${patientId}`, {
         method: 'DELETE',
       });
 
@@ -262,7 +265,7 @@ export default function PatientPaymentMethods({
   // Set default card
   const handleSetDefault = async (cardId: number) => {
     try {
-      const response = await fetch('/api/payment-methods/default', {
+        const response = await apiFetch('/api/payment-methods/default', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -365,55 +368,70 @@ export default function PatientPaymentMethods({
           </div>
         ) : (
           <div className="space-y-3">
-            {cards.map((card: any) => (
-              <div
-                key={card.id}
-                className={`rounded-lg border p-4 ${
-                  card.isDefault ? 'border-[#4fa77e] bg-green-50' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <span className="text-2xl">{getCardIcon(card.brand)}</span>
-                    <div>
-                      <div className="font-medium">
-                        {card.brand} •••• {card.last4}
-                        {card.isDefault && (
-                          <span className="ml-2 rounded bg-[#4fa77e] px-2 py-0.5 text-xs text-white">
-                            Default
+            {cards.map((card: any) => {
+              const isStripeOnly = card.source === 'stripe';
+              return (
+                <div
+                  key={card.id}
+                  className={`rounded-lg border p-4 ${
+                    card.isDefault ? 'border-[#4fa77e] bg-green-50' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="text-2xl">{getCardIcon(card.brand)}</span>
+                      <div>
+                        <div className="flex items-center gap-2 font-medium">
+                          <span>
+                            {card.brand} •••• {card.last4}
                           </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {card.cardholderName} • Expires {String(card.expiryMonth).padStart(2, '0')}/
-                        {card.expiryYear}
-                        {isExpired(card.expiryMonth, card.expiryYear) && (
-                          <span className="ml-2 font-medium text-red-600">Expired</span>
-                        )}
+                          {card.isDefault && (
+                            <span className="rounded bg-[#4fa77e] px-2 py-0.5 text-xs text-white">
+                              Default
+                            </span>
+                          )}
+                          {isStripeOnly && (
+                            <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                              Stripe
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {card.cardholderName
+                            ? `${card.cardholderName} • `
+                            : ''}
+                          Expires {String(card.expiryMonth).padStart(2, '0')}/
+                          {card.expiryYear}
+                          {isExpired(card.expiryMonth, card.expiryYear) && (
+                            <span className="ml-2 font-medium text-red-600">Expired</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {!card.isDefault && (
-                      <button
-                        onClick={() => handleSetDefault(card.id)}
-                        className="text-sm text-[#4fa77e] hover:underline"
-                      >
-                        Set as default
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleRemoveCard(card.id)}
-                      className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
-                      title="Remove card"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {!isStripeOnly && !card.isDefault && (
+                        <button
+                          onClick={() => handleSetDefault(card.id)}
+                          className="text-sm text-[#4fa77e] hover:underline"
+                        >
+                          Set as default
+                        </button>
+                      )}
+                      {!isStripeOnly && (
+                        <button
+                          onClick={() => handleRemoveCard(card.id)}
+                          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                          title="Remove card"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

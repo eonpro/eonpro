@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { PaymentMethodService } from '@/services/paymentMethodService';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
 import { Patient, Provider, Order } from '@/types/models';
 
 // Schema for adding a new card
@@ -26,11 +27,75 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });
     }
 
-    const cards = await PaymentMethodService.getPaymentMethods(parseInt(patientId));
+    const pid = parseInt(patientId);
+
+    // Fetch local cards from DB
+    const localCards = await PaymentMethodService.getPaymentMethods(pid);
+
+    // Look up patient's Stripe customer ID and clinic for Stripe card fetch
+    const patient = await prisma.patient.findUnique({
+      where: { id: pid },
+      select: {
+        stripeCustomerId: true,
+        clinicId: true,
+        paymentMethods: {
+          where: { isActive: true },
+          select: { stripePaymentMethodId: true },
+        },
+      },
+    });
+
+    // Fetch Stripe cards if patient has a stripeCustomerId
+    let stripeCards: any[] = [];
+    if (patient?.stripeCustomerId) {
+      try {
+        const { getStripeForClinic } = await import('@/lib/stripe');
+        const stripeContext = await getStripeForClinic(patient.clinicId);
+        const methods = await stripeContext.stripe.paymentMethods.list({
+          customer: patient.stripeCustomerId,
+          type: 'card',
+        });
+
+        // Build set of Stripe PM IDs already linked locally (for dedup)
+        const localStripeIds = new Set(
+          (patient.paymentMethods || [])
+            .map((pm) => pm.stripePaymentMethodId)
+            .filter(Boolean)
+        );
+
+        stripeCards = methods.data
+          .filter((m) => !localStripeIds.has(m.id))
+          .map((m) => ({
+            id: `stripe_${m.id}`,
+            last4: m.card?.last4 || '????',
+            brand: m.card?.brand
+              ? m.card.brand.charAt(0).toUpperCase() + m.card.brand.slice(1)
+              : 'Unknown',
+            expiryMonth: m.card?.exp_month || 0,
+            expiryYear: m.card?.exp_year || 0,
+            cardholderName: m.billing_details?.name || '',
+            isDefault: false,
+            createdAt: new Date(m.created * 1000),
+            source: 'stripe' as const,
+            stripePaymentMethodId: m.id,
+          }));
+      } catch (stripeErr) {
+        logger.warn('[PAYMENT_METHODS] Failed to fetch Stripe cards (falling back to local only)', {
+          patientId: pid,
+          error: stripeErr instanceof Error ? stripeErr.message : String(stripeErr),
+        });
+      }
+    }
+
+    // Add source field to local cards
+    const localWithSource = localCards.map((c) => ({ ...c, source: 'local' as const }));
+
+    // Merge: local cards first, then Stripe-only cards
+    const merged = [...localWithSource, ...stripeCards];
 
     return NextResponse.json({
       success: true,
-      data: cards,
+      data: merged,
     });
   } catch (error: any) {
     // @ts-ignore

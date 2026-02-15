@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   FileText,
   ChevronLeft,
@@ -107,7 +108,7 @@ export default function InvoiceDetailPage() {
         return;
       }
 
-      const response = await fetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
+      const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -136,7 +137,7 @@ export default function InvoiceDetailPage() {
     setActionLoading(action);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
+      const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -172,7 +173,7 @@ export default function InvoiceDetailPage() {
     setActionLoading('delete');
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
+      const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

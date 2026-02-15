@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Patient {
   id: number;
@@ -38,7 +39,7 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
   const fetchTemplates = async () => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/intake-forms/templates', {
+      const res = await apiFetch('/api/intake-forms/templates', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
@@ -64,7 +65,7 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/intake-forms/send-link', {
+      const res = await apiFetch('/api/intake-forms/send-link', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

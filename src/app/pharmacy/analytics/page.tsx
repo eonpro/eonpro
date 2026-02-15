@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Analytics {
   totalOrders: number;
@@ -25,7 +26,7 @@ export default function PharmacyAnalyticsPage() {
   const fetchAnalytics = async () => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/pharmacy/analytics', {
+      const res = await apiFetch('/api/pharmacy/analytics', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 

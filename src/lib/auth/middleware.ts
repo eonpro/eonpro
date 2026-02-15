@@ -132,20 +132,6 @@ async function updateSessionActivity(userId: number, ipAddress: string): Promise
  * @security This function ONLY accepts properly signed JWTs - NO demo/test tokens
  */
 async function verifyToken(token: string): Promise<TokenValidationResult> {
-  // Security: Reject any token that looks like a demo/test token
-  if (isDemoToken(token)) {
-    logger.security('Attempted use of demo token in production', {
-      tokenPrefix: token.substring(0, 20),
-      environment: process.env.NODE_ENV,
-    });
-
-    return {
-      valid: false,
-      error: 'Demo tokens are not allowed',
-      errorCode: 'INVALID',
-    };
-  }
-
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET, {
       algorithms: ['HS256'],
@@ -216,17 +202,6 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
 }
 
 /**
- * Check if token appears to be a demo/test token
- * @deprecated This check has been disabled - proper JWT validation handles security
- * The check was causing false positives with valid JWTs
- */
-function isDemoToken(token: string): boolean {
-  // DISABLED: This was causing false positives with valid JWTs
-  // JWT verification via jose library is sufficient for security
-  return false;
-}
-
-/**
  * Validate required JWT claims
  */
 function validateTokenClaims(payload: JWTPayload): string | null {
@@ -250,6 +225,7 @@ function validateTokenClaims(payload: JWTPayload): string | null {
     'patient',
     'staff',
     'support',
+    'sales_rep',
   ];
 
   if (!validRoles.includes(payload.role as UserRole)) {
@@ -392,7 +368,7 @@ export function withAuth<T = unknown>(
         );
 
         // Return specific error for expired tokens (client can refresh)
-        const status = tokenResult.errorCode === 'EXPIRED' ? 401 : 401;
+        const status = 401;
         return NextResponse.json(
           {
             error: tokenResult.error || 'Invalid or expired token',
@@ -569,9 +545,9 @@ export function withAuth<T = unknown>(
       });
 
       // Inject user info into request headers (use effectiveClinicId so routes see subdomain clinic when overridden)
+      // NOTE: Do not propagate PHI (email) in headers — use user ID instead
       const headers = new Headers(req.headers);
       headers.set('x-user-id', user.id.toString());
-      headers.set('x-user-email', user.email);
       headers.set('x-user-role', user.role);
       headers.set('x-request-id', requestId);
       if (effectiveClinicId != null) {
@@ -676,13 +652,12 @@ export function withAuth<T = unknown>(
         return res503;
       }
 
-      // TEMPORARY: Include error detail in response for debugging (remove after fix)
       const diagRes = NextResponse.json(
         {
-          error: errMsg,
+          error: 'Internal server error',
           code: errName,
           requestId,
-          _diag: errStack,
+          ...(process.env.NODE_ENV === 'development' ? { _diag: errStack } : {}),
         },
         { status: 500 }
       );
@@ -1011,20 +986,22 @@ export async function verifyAuth(req: NextRequest): Promise<{
 /**
  * Extract current user from request headers
  * Use after authentication middleware has run
+ *
+ * NOTE: Email is no longer propagated in headers (HIPAA — no PHI in headers).
+ * Use user.id to look up email from the database if needed.
  */
 export function getCurrentUser(req: NextRequest): AuthUser | null {
   const userId = req.headers.get('x-user-id');
-  const userEmail = req.headers.get('x-user-email');
   const userRole = req.headers.get('x-user-role');
   const clinicId = req.headers.get('x-clinic-id');
 
-  if (!userId || !userEmail || !userRole) {
+  if (!userId || !userRole) {
     return null;
   }
 
   return {
     id: parseInt(userId, 10),
-    email: userEmail,
+    email: '', // Email not propagated in headers; use user.id to look up if needed
     role: userRole as UserRole,
     clinicId: clinicId ? parseInt(clinicId, 10) : undefined,
   };

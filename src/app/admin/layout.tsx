@@ -39,6 +39,7 @@ import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Error Boundary to catch and recover from React errors
 interface ErrorBoundaryState {
@@ -160,7 +161,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const fetchUserClinics = async () => {
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch('/api/user/clinics', {
+      const response = await apiFetch('/api/user/clinics', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (response.ok) {
@@ -229,7 +230,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
     try {
       // First verify password
-      const verifyResponse = await fetch('/api/auth/verify-password', {
+      const verifyResponse = await apiFetch('/api/auth/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
@@ -243,7 +244,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       // Then switch clinic
       const token = localStorage.getItem('auth-token');
-      const switchResponse = await fetch('/api/user/clinics', {
+      const switchResponse = await apiFetch('/api/user/clinics', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

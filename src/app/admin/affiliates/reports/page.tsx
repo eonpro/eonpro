@@ -17,6 +17,7 @@ import {
   Medal,
   Crown,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ReportData {
   overview: {
@@ -100,7 +101,7 @@ export default function AffiliateReportsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/reports?period=${period}`, {
+      const response = await apiFetch(`/api/admin/affiliates/reports?period=${period}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -138,7 +139,7 @@ export default function AffiliateReportsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/admin/affiliates/leaderboard?metric=${leaderboardMetric}&period=${period}&limit=10`,
         { headers: { Authorization: `Bearer ${token}` } }
       );

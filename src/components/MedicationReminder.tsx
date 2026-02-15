@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
 
 import { Calendar, Clock, RotateCw, Trash2, CheckCircle, ChevronDown } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Reminder {
   id?: number;
@@ -59,7 +60,7 @@ export default function MedicationReminder({ patientId }: MedicationReminderProp
     const loadReminders = async () => {
       if (patientId) {
         try {
-          const response = await fetch(
+          const response = await apiFetch(
             `/api/patient-progress/medication-reminders?patientId=${patientId}`
           );
           if (response.ok) {
@@ -147,7 +148,7 @@ export default function MedicationReminder({ patientId }: MedicationReminderProp
     try {
       if (patientId) {
         // Save to API for logged-in patients
-        const response = await fetch('/api/patient-progress/medication-reminders', {
+        const response = await apiFetch('/api/patient-progress/medication-reminders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -199,7 +200,7 @@ export default function MedicationReminder({ patientId }: MedicationReminderProp
     try {
       if (patientId && reminder.id) {
         // Delete from API for logged-in patients
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/patient-progress/medication-reminders?id=${reminder.id}`,
           {
             method: 'DELETE',

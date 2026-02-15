@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ProgramSettings {
   // Attribution
@@ -71,7 +72,7 @@ export default function AffiliateSettingsPage() {
     const fetchSettings = async () => {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       try {
-        const response = await fetch('/api/admin/affiliate-settings', {
+        const response = await apiFetch('/api/admin/affiliate-settings', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.ok) {
@@ -94,7 +95,7 @@ export default function AffiliateSettingsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch('/api/admin/affiliate-settings', {
+      const response = await apiFetch('/api/admin/affiliate-settings', {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

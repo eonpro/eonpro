@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   DollarSign,
   Clock,
@@ -83,7 +84,7 @@ export default function CommissionsPage() {
           params.set('status', statusFilter);
         }
 
-        const response = await fetch(`/api/affiliate/commissions?${params}`, {
+        const response = await apiFetch(`/api/affiliate/commissions?${params}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 

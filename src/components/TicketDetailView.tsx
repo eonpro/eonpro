@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 import {
   Clock,
@@ -112,7 +113,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   const fetchTicketDetails = async () => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}`);
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}`);
       if (response.ok) {
         const data = await response.json();
         setTicket(data);
@@ -127,7 +128,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   const fetchWorkLogs = async () => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}/worklog`);
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}/worklog`);
       if (response.ok) {
         const data = await response.json();
         setWorkLogs(data.workLogs);
@@ -140,13 +141,13 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   const fetchSLA = async () => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}/sla`);
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}/sla`);
       if (response.ok) {
         const data = await response.json();
         setSLA(data);
       } else {
         // Create SLA if it doesn't exist
-        const createResponse = await fetch(`/api/internal/tickets/${ticketId}/sla`, {
+        const createResponse = await apiFetch(`/api/internal/tickets/${ticketId}/sla`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -163,7 +164,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   const addWorkLog = async () => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}/worklog`, {
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}/worklog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -192,7 +193,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   const escalateTicket = async () => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}/escalate`, {
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}/escalate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
 
   const takeOwnership = async () => {
     try {
-      await fetch(`/api/internal/tickets/${ticketId}/worklog`, {
+      await apiFetch(`/api/internal/tickets/${ticketId}/worklog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -379,7 +380,7 @@ export default function TicketDetailView({ ticketId, currentUserId }: TicketDeta
         {activeEscalation && (
           <button
             onClick={async () => {
-              await fetch(`/api/internal/tickets/${ticketId}/escalate?userId=${currentUserId}`, {
+              await apiFetch(`/api/internal/tickets/${ticketId}/escalate?userId=${currentUserId}`, {
                 method: 'DELETE',
               });
               fetchTicketDetails();

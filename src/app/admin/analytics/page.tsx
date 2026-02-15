@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { BarChart3, Users, Calendar, TrendingUp, Activity, Clock, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface AnalyticsData {
   totalPatients: number;
@@ -25,7 +26,7 @@ export default function AdminAnalyticsPage() {
         localStorage.getItem('super_admin-token') ||
         localStorage.getItem('admin-token') ||
         localStorage.getItem('token');
-      const response = await fetch('/api/admin/dashboard', {
+      const response = await apiFetch('/api/admin/dashboard', {
         credentials: 'include',
         headers: token
           ? {

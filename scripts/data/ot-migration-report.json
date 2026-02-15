@@ -1,0 +1,488 @@
+{
+  "batchId": "ot-import-2026-02-15T03-42-43-130Z",
+  "csvPath": "/Users/italo/Desktop/lifefile integration/scripts/data/ot mens export.csv",
+  "timestamp": "2026-02-15T03:42:43.172Z",
+  "totalParsed": 4157,
+  "malformedRows": [],
+  "testRecords": [
+    {
+      "intakeqClientId": "2540",
+      "firstName": "Test",
+      "lastName": "Testtt",
+      "email": "sassss@gmail.com"
+    },
+    {
+      "intakeqClientId": "1078",
+      "firstName": "FS",
+      "lastName": "SDFASF",
+      "email": "test@gmail.com"
+    },
+    {
+      "intakeqClientId": "1415",
+      "firstName": "Test",
+      "lastName": "Test",
+      "email": "sara.sandland@gmail.com"
+    },
+    {
+      "intakeqClientId": "1412",
+      "firstName": "Test",
+      "lastName": "Bob",
+      "email": "bob@gmail.com"
+    },
+    {
+      "intakeqClientId": "964",
+      "firstName": "Gallery",
+      "lastName": "Test",
+      "email": "gallerytest@gmail.com"
+    },
+    {
+      "intakeqClientId": "607",
+      "firstName": "John",
+      "lastName": "Sample",
+      "email": "mbart@gmail.com"
+    },
+    {
+      "intakeqClientId": "308",
+      "firstName": "Test",
+      "lastName": "Test",
+      "email": "julianxtv@gmail.com"
+    },
+    {
+      "intakeqClientId": "141",
+      "firstName": "Test",
+      "lastName": "Test",
+      "email": "test@test.com"
+    },
+    {
+      "intakeqClientId": "133",
+      "firstName": "Italo",
+      "lastName": "Pignano",
+      "email": "ytest@test.com"
+    }
+  ],
+  "duplicateGroups": [
+    {
+      "key": "alexrod148@gmail.com",
+      "count": 2,
+      "primaryClientId": "4117",
+      "mergedFromClientIds": [
+        "4108"
+      ]
+    },
+    {
+      "key": "marz915@gmail.com",
+      "count": 2,
+      "primaryClientId": "4109",
+      "mergedFromClientIds": [
+        "4089"
+      ]
+    },
+    {
+      "key": "apttmh1715@gmail.com",
+      "count": 2,
+      "primaryClientId": "4126",
+      "mergedFromClientIds": [
+        "4124"
+      ]
+    },
+    {
+      "key": "jennings.lucas.j@gmail.com",
+      "count": 2,
+      "primaryClientId": "3943",
+      "mergedFromClientIds": [
+        "3942"
+      ]
+    },
+    {
+      "key": "almurayriahmed@gmail.com",
+      "count": 2,
+      "primaryClientId": "3746",
+      "mergedFromClientIds": [
+        "3674"
+      ]
+    },
+    {
+      "key": "sroysten@icloud.com",
+      "count": 2,
+      "primaryClientId": "3636",
+      "mergedFromClientIds": [
+        "3714"
+      ]
+    },
+    {
+      "key": "nate_mccutcheon@yahoo.com",
+      "count": 2,
+      "primaryClientId": "3505",
+      "mergedFromClientIds": [
+        "3542"
+      ]
+    },
+    {
+      "key": "dsmith511.ffl@gmail.com",
+      "count": 2,
+      "primaryClientId": "3198",
+      "mergedFromClientIds": [
+        "3151"
+      ]
+    },
+    {
+      "key": "nickspencer1868@gmail.com",
+      "count": 2,
+      "primaryClientId": "3039",
+      "mergedFromClientIds": [
+        "2880"
+      ]
+    },
+    {
+      "key": "vkrishnan811@gmail.com",
+      "count": 2,
+      "primaryClientId": "2904",
+      "mergedFromClientIds": [
+        "3063"
+      ]
+    },
+    {
+      "key": "ogdendevelopment@msn.com",
+      "count": 2,
+      "primaryClientId": "2580",
+      "mergedFromClientIds": [
+        "2909"
+      ]
+    },
+    {
+      "key": "samgraciglazer@gmail.com",
+      "count": 2,
+      "primaryClientId": "2822",
+      "mergedFromClientIds": [
+        "2821"
+      ]
+    },
+    {
+      "key": "italo@theblackheartgroup.com",
+      "count": 2,
+      "primaryClientId": "2542",
+      "mergedFromClientIds": [
+        "72"
+      ]
+    },
+    {
+      "key": "test@gmail.com",
+      "count": 4,
+      "primaryClientId": "1078",
+      "mergedFromClientIds": [
+        "2503",
+        "1344",
+        "963"
+      ]
+    },
+    {
+      "key": "joseydjewell@gmail.com",
+      "count": 2,
+      "primaryClientId": "2419",
+      "mergedFromClientIds": [
+        "2266"
+      ]
+    },
+    {
+      "key": "insureme@abbottins.net",
+      "count": 2,
+      "primaryClientId": "2161",
+      "mergedFromClientIds": [
+        "1982"
+      ]
+    },
+    {
+      "key": "clayball5@icloud.com",
+      "count": 2,
+      "primaryClientId": "2123",
+      "mergedFromClientIds": [
+        "2033"
+      ]
+    },
+    {
+      "key": "apadley234@gmail.com",
+      "count": 2,
+      "primaryClientId": "2034",
+      "mergedFromClientIds": [
+        "1807"
+      ]
+    },
+    {
+      "key": "dancroninsma@gmail.com",
+      "count": 2,
+      "primaryClientId": "1826",
+      "mergedFromClientIds": [
+        "1992"
+      ]
+    },
+    {
+      "key": "alexjpetersson@gmail.com",
+      "count": 2,
+      "primaryClientId": "1811",
+      "mergedFromClientIds": [
+        "1981"
+      ]
+    },
+    {
+      "key": "dnswx3@outlook.com",
+      "count": 2,
+      "primaryClientId": "1773",
+      "mergedFromClientIds": [
+        "1962"
+      ]
+    },
+    {
+      "key": "ebugak@gmail.com",
+      "count": 2,
+      "primaryClientId": "1578",
+      "mergedFromClientIds": [
+        "1954"
+      ]
+    },
+    {
+      "key": "chris.santoyo87@gmail.com",
+      "count": 2,
+      "primaryClientId": "1732",
+      "mergedFromClientIds": [
+        "1910"
+      ]
+    },
+    {
+      "key": "carr8@hotmail.com",
+      "count": 2,
+      "primaryClientId": "1728",
+      "mergedFromClientIds": [
+        "1908"
+      ]
+    },
+    {
+      "key": "justdool214@gmail.com",
+      "count": 2,
+      "primaryClientId": "1805",
+      "mergedFromClientIds": [
+        "144"
+      ]
+    },
+    {
+      "key": "alroney1217@gmail.com",
+      "count": 2,
+      "primaryClientId": "1794",
+      "mergedFromClientIds": [
+        "1793"
+      ]
+    },
+    {
+      "key": "jimbodolan@gmail.com",
+      "count": 2,
+      "primaryClientId": "1784",
+      "mergedFromClientIds": [
+        "708"
+      ]
+    },
+    {
+      "key": "dejesus.r@outlook.com",
+      "count": 2,
+      "primaryClientId": "1744",
+      "mergedFromClientIds": [
+        "1743"
+      ]
+    },
+    {
+      "key": "ninaspizza@gmail.com",
+      "count": 2,
+      "primaryClientId": "1729",
+      "mergedFromClientIds": [
+        "938"
+      ]
+    },
+    {
+      "key": "tuckdavis31@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1668",
+      "mergedFromClientIds": [
+        "1141"
+      ]
+    },
+    {
+      "key": "creightondehart@gmail.com",
+      "count": 2,
+      "primaryClientId": "1688",
+      "mergedFromClientIds": [
+        "1683"
+      ]
+    },
+    {
+      "key": "dellorcoj@yahoo.com",
+      "count": 2,
+      "primaryClientId": "1440",
+      "mergedFromClientIds": [
+        "1441"
+      ]
+    },
+    {
+      "key": "visualmag@aol.com",
+      "count": 2,
+      "primaryClientId": "1413",
+      "mergedFromClientIds": [
+        "1414"
+      ]
+    },
+    {
+      "key": "thirddaypower@gmail.com",
+      "count": 2,
+      "primaryClientId": "1401",
+      "mergedFromClientIds": [
+        "1400"
+      ]
+    },
+    {
+      "key": "kylemorreale22@gmail.com",
+      "count": 2,
+      "primaryClientId": "93",
+      "mergedFromClientIds": [
+        "1361"
+      ]
+    },
+    {
+      "key": "zephaniahanderson@icloud.com",
+      "count": 2,
+      "primaryClientId": "209",
+      "mergedFromClientIds": [
+        "1358"
+      ]
+    },
+    {
+      "key": "samuelwiles22@gmail.com",
+      "count": 2,
+      "primaryClientId": "339",
+      "mergedFromClientIds": [
+        "1357"
+      ]
+    },
+    {
+      "key": "jacobday15@gmail.com",
+      "count": 2,
+      "primaryClientId": "594",
+      "mergedFromClientIds": [
+        "1351"
+      ]
+    },
+    {
+      "key": "brycehill2299@gmail.com",
+      "count": 2,
+      "primaryClientId": "674",
+      "mergedFromClientIds": [
+        "1349"
+      ]
+    },
+    {
+      "key": "solorioace@gmail.com",
+      "count": 2,
+      "primaryClientId": "1072",
+      "mergedFromClientIds": [
+        "1342"
+      ]
+    },
+    {
+      "key": "chiino1996@gmail.com",
+      "count": 2,
+      "primaryClientId": "1341",
+      "mergedFromClientIds": [
+        "1340"
+      ]
+    },
+    {
+      "key": "jalkes100@gmail.com",
+      "count": 2,
+      "primaryClientId": "1125",
+      "mergedFromClientIds": [
+        "1310"
+      ]
+    },
+    {
+      "key": "svargo25@aol.com",
+      "count": 2,
+      "primaryClientId": "1025",
+      "mergedFromClientIds": [
+        "1188"
+      ]
+    },
+    {
+      "key": "hot@email.com",
+      "count": 3,
+      "primaryClientId": "1170",
+      "mergedFromClientIds": [
+        "1167",
+        "1166"
+      ]
+    },
+    {
+      "key": "rdm2167@gmail.com",
+      "count": 2,
+      "primaryClientId": "906",
+      "mergedFromClientIds": [
+        "905"
+      ]
+    },
+    {
+      "key": "bnbranding@live.com",
+      "count": 2,
+      "primaryClientId": "671",
+      "mergedFromClientIds": [
+        "534"
+      ]
+    },
+    {
+      "key": "charlielacnyfinancial@gmail.com",
+      "count": 2,
+      "primaryClientId": "532",
+      "mergedFromClientIds": [
+        "517"
+      ]
+    },
+    {
+      "key": "lejos.farr@gmail.com",
+      "count": 2,
+      "primaryClientId": "522",
+      "mergedFromClientIds": [
+        "460"
+      ]
+    },
+    {
+      "key": "arthiumsalt@gmail.com",
+      "count": 2,
+      "primaryClientId": "428",
+      "mergedFromClientIds": [
+        "434"
+      ]
+    },
+    {
+      "key": "julianxtv@gmail.com",
+      "count": 2,
+      "primaryClientId": "308",
+      "mergedFromClientIds": [
+        "305"
+      ]
+    },
+    {
+      "key": "raymonkooner@gmail.com",
+      "count": 2,
+      "primaryClientId": "50",
+      "mergedFromClientIds": [
+        "51"
+      ]
+    }
+  ],
+  "readyForImport": 4094,
+  "stripeIdsToVerify": 1014,
+  "recordsWithoutStripe": 3080,
+  "recordsWithStripe": 1014,
+  "summary": {
+    "totalParsed": 4157,
+    "malformed": 0,
+    "testRecords": 9,
+    "duplicatesRemoved": 54,
+    "uniqueAfterDedup": 4103,
+    "readyForImport": 4094
+  }
+}

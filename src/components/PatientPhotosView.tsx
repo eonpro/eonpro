@@ -24,6 +24,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { apiFetch } from '@/lib/api/fetch';
 
 // =============================================================================
 // Types
@@ -141,7 +142,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`, {
+      const response = await apiFetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

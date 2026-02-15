@@ -6,6 +6,7 @@ import { US_STATE_OPTIONS } from '@/lib/usStates';
 import { ChangeEvent, useState } from 'react';
 import { Patient, Provider, Order } from '@/types/models';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 const GENDER_OPTIONS = [
   { value: 'Male', label: 'Male' },
@@ -136,7 +137,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
         return;
       }
 
-      const res = await fetch(`/api/patients/${patient.id}`, {
+      const res = await apiFetch(`/api/patients/${patient.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {
@@ -188,7 +189,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
         localStorage.getItem('staff-token');
       const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const res = await fetch(`/api/patients/${patient.id}/documents`, {
+      const res = await apiFetch(`/api/patients/${patient.id}/documents`, {
         method: 'POST',
         credentials: 'include',
         headers: authHeaders,
@@ -355,7 +356,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
                   onClick={async () => {
                     try {
                       const token = localStorage.getItem('auth-token') || '';
-                      const response = await fetch(
+                      const response = await apiFetch(
                         `/api/patients/${patient.id}/documents/${doc.id}`,
                         {
                           credentials: 'include',

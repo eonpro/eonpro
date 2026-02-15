@@ -12,6 +12,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft as ArrowLeftIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Types
 interface User {
@@ -138,7 +139,7 @@ export default function NewTicketPage() {
         const params = new URLSearchParams({ limit: '100' });
         if (clinicId) params.set('clinicId', clinicId);
         ['staff', 'admin', 'provider', 'support'].forEach((r) => params.append('role', r));
-        const response = await fetch(`/api/users?${params.toString()}`, {
+        const response = await apiFetch(`/api/users?${params.toString()}`, {
           credentials: 'include',
           headers: getAuthHeaders(),
         });
@@ -162,7 +163,7 @@ export default function NewTicketPage() {
 
     const searchPatients = async () => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/patients?search=${encodeURIComponent(patientSearch)}&limit=10`,
           { credentials: 'include', headers: getAuthHeaders() }
         );
@@ -212,7 +213,7 @@ export default function NewTicketPage() {
           : undefined,
       };
 
-      const response = await fetch('/api/tickets', {
+      const response = await apiFetch('/api/tickets', {
         method: 'POST',
         credentials: 'include',
         headers: {

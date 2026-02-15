@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -52,7 +53,7 @@ export default function AccountPage() {
   useEffect(() => {
     const fetchAccount = async () => {
       try {
-        const res = await fetch('/api/affiliate/account');
+        const res = await apiFetch('/api/affiliate/account');
         if (res.ok) {
           const accountData = await res.json();
           setData(accountData);
@@ -141,7 +142,7 @@ export default function AccountPage() {
           : !weeklyReport;
 
     try {
-      const res = await fetch('/api/affiliate/account', {
+      const res = await apiFetch('/api/affiliate/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [preference]: newValue }),
@@ -166,7 +167,7 @@ export default function AccountPage() {
   const handleLeaderboardToggle = async () => {
     setIsSavingLeaderboard(true);
     try {
-      const res = await fetch('/api/affiliate/account', {
+      const res = await apiFetch('/api/affiliate/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leaderboardOptIn: !leaderboardOptIn }),
@@ -184,7 +185,7 @@ export default function AccountPage() {
   const handleAliasChange = async () => {
     setIsSavingLeaderboard(true);
     try {
-      const res = await fetch('/api/affiliate/account', {
+      const res = await apiFetch('/api/affiliate/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leaderboardAlias: leaderboardAlias.trim() || null }),

@@ -16,6 +16,7 @@ import {
   Eye,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PatientIntake {
   id: number;
@@ -91,7 +92,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
       // Fetch recent patient intakes (last 24 hours)
-      const intakesResponse = await fetch('/api/patients?limit=20&recent=24h', {
+      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h', {
         credentials: 'include',
         headers,
       });
@@ -102,7 +103,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       }
 
       // Fetch recent Stripe payments
-      const paymentsResponse = await fetch(
+      const paymentsResponse = await apiFetch(
         '/api/stripe/transactions?limit=10&type=charges&status=succeeded',
         {
           credentials: 'include',

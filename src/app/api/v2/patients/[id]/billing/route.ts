@@ -66,9 +66,9 @@ export async function GET(
     let stripePaymentMethods: any[] = [];
     if (patient.stripeCustomerId) {
       try {
-        const { getStripe } = await import('@/lib/stripe');
-        const stripe = getStripe();
-        const methods = await stripe.paymentMethods.list({
+        const { getStripeForClinic } = await import('@/lib/stripe');
+        const stripeContext = await getStripeForClinic(patient.clinicId);
+        const methods = await stripeContext.stripe.paymentMethods.list({
           customer: patient.stripeCustomerId,
           type: 'card',
         });
@@ -86,7 +86,10 @@ export async function GET(
           isDefault: m.id === (patient as any).defaultPaymentMethodId,
         }));
       } catch (stripeError) {
-        logger.warn('Failed to fetch Stripe payment methods', { error: stripeError });
+        logger.warn('Failed to fetch Stripe payment methods', {
+          patientId,
+          error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+        });
       }
     }
 

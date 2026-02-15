@@ -149,7 +149,10 @@ async function handleGet(
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json({ error: 'Failed to get assignment' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to get assignment', detail: errorMessage },
+      { status: 500 }
+    );
   }
 }
 
@@ -174,7 +177,13 @@ async function handlePost(
       return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
     }
 
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const result = assignSchema.safeParse(body);
 
     if (!result.success) {
@@ -187,7 +196,8 @@ async function handlePost(
     const { salesRepId, note } = result.data;
 
     // Get clinic context for non-super-admin users
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+    const userRole = user.role?.toLowerCase();
+    const clinicId = userRole === 'super_admin' ? undefined : user.clinicId;
 
     // Verify patient exists and user has access
     const patient = await prisma.patient.findUnique({
@@ -213,12 +223,22 @@ async function handlePost(
       return NextResponse.json({ error: 'Sales rep not found' }, { status: 404 });
     }
 
-    if (salesRep.role !== 'SALES_REP') {
-      return NextResponse.json({ error: 'User is not a sales representative' }, { status: 400 });
+    // Role check: Prisma enum uses uppercase SALES_REP, normalize for comparison
+    const salesRepRole = String(salesRep.role).toUpperCase();
+    if (salesRepRole !== 'SALES_REP') {
+      logger.warn('[PATIENT-SALES-REP] User is not a sales rep', {
+        salesRepId,
+        actualRole: salesRep.role,
+        patientId,
+      });
+      return NextResponse.json(
+        { error: `User is not a sales representative (role: ${salesRep.role})` },
+        { status: 400 }
+      );
     }
 
-    // Verify sales rep belongs to the same clinic
-    if (salesRep.clinicId !== patient.clinicId) {
+    // Verify sales rep belongs to the same clinic (allow null clinicId for multi-clinic reps)
+    if (salesRep.clinicId != null && salesRep.clinicId !== patient.clinicId) {
       return NextResponse.json(
         { error: 'Sales rep must belong to the same clinic as the patient' },
         { status: 400 }
@@ -281,7 +301,7 @@ async function handlePost(
           },
         },
       });
-    });
+    }, { timeout: 15000 });
 
     logger.info('[PATIENT-SALES-REP] Patient assigned to sales rep', {
       patientId,
@@ -300,11 +320,17 @@ async function handlePost(
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 3).join(' | ') : '';
     logger.error('[PATIENT-SALES-REP] Error assigning sales rep', {
       error: errorMessage,
+      stack: errorStack,
       userId: user.id,
     });
-    return NextResponse.json({ error: 'Failed to assign sales rep' }, { status: 500 });
+    // Return actual error details to help diagnose issues (no PHI in error messages)
+    return NextResponse.json(
+      { error: 'Failed to assign sales rep', detail: errorMessage },
+      { status: 500 }
+    );
   }
 }
 
@@ -393,7 +419,10 @@ async function handleDelete(
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json({ error: 'Failed to remove assignment' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to remove assignment', detail: errorMessage },
+      { status: 500 }
+    );
   }
 }
 

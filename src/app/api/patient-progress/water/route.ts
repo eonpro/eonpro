@@ -4,6 +4,9 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
+import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 // Validation schemas
 const createWaterLogSchema = z.object({
@@ -31,13 +34,6 @@ const getWaterLogsSchema = z.object({
   date: z.string().optional(), // Filter by specific date
 });
 
-function canAccessPatient(user: { role: string; patientId?: number }, patientId: number): boolean {
-  if (user.role === 'patient') {
-    return user.patientId === patientId;
-  }
-  return ['provider', 'admin', 'staff', 'super_admin'].includes(user.role);
-}
-
 // POST - Create water log
 const postHandler = withAuth(async (request: NextRequest, user) => {
   try {
@@ -53,7 +49,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId, amount, unit, notes, recordedAt } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -69,10 +65,14 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
+    await logPHICreate(request, user, 'PatientWaterLog', waterLog.id, patientId);
+
     return NextResponse.json(waterLog, { status: 201 });
   } catch (error) {
-    logger.error('Failed to create water log', { error });
-    return NextResponse.json({ error: 'Failed to create water log' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-progress/water',
+      context: { userId: user.id },
+    });
   }
 });
 
@@ -97,7 +97,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId, date } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -138,13 +138,17 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     type WaterLog = (typeof todayLogs)[number];
     const todayTotal = todayLogs.reduce((sum: number, log: WaterLog) => sum + log.amount, 0);
 
+    await logPHIAccess(request, user, 'PatientWaterLog', 'list', patientId);
+
     return NextResponse.json({
       data: waterLogs,
       meta: { count: waterLogs.length, todayTotal, patientId },
     });
   } catch (error) {
-    logger.error('Failed to fetch water logs', { error });
-    return NextResponse.json({ error: 'Failed to fetch water logs' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-progress/water',
+      context: { userId: user.id },
+    });
   }
 });
 

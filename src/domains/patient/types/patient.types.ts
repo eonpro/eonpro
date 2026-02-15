@@ -8,6 +8,35 @@
  * @module domains/patient/types
  */
 
+// ============================================================================
+// PHI Fields
+// ============================================================================
+
+/**
+ * PHI fields requiring encryption at rest - single source of truth
+ *
+ * SOC 2 / HIPAA Compliance: All PII/PHI fields must be encrypted at rest.
+ * - Direct identifiers: firstName, lastName, email, phone
+ * - Health information: dob
+ * - Location data: address1, address2, city, state, zip
+ *
+ * @see docs/HIPAA_COMPLIANCE_EVIDENCE.md for compliance documentation
+ */
+export const PHI_FIELDS = [
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'dob',
+  'address1',
+  'address2',
+  'city',
+  'state',
+  'zip',
+] as const;
+
+export type PHIField = (typeof PHI_FIELDS)[number];
+
 /**
  * Patient entity as stored in the database
  * Note: JSON fields (tags, sourceMetadata) use Prisma's JsonValue type for compatibility
@@ -30,7 +59,7 @@ export interface PatientEntity {
   zip: string;
   lifefileId: string | null;
   notes: string | null;
-  tags: unknown; // Prisma JsonValue - typically string[] but stored as JSON
+  tags: string[] | null;
   stripeCustomerId: string | null;
   source: PatientSource;
   sourceMetadata: unknown; // Prisma JsonValue - typically PatientSourceMetadata but stored as JSON
@@ -50,7 +79,7 @@ export interface PatientWithClinic extends PatientEntity {
 /**
  * Patient source types
  */
-export type PatientSource = 'manual' | 'webhook' | 'api' | 'referral' | 'import' | string;
+export type PatientSource = 'manual' | 'webhook' | 'api' | 'referral' | 'import' | 'migration' | 'intakeq' | 'stripe' | 'self_registration' | 'heyflow' | 'lifefile' | 'sms';
 
 /**
  * Metadata about how patient was created
@@ -85,7 +114,7 @@ export interface PatientSummary {
   city: string;
   state: string;
   zip: string;
-  tags: unknown; // Prisma JsonValue - typically string[] but stored as JSON
+  tags: string[] | null;
   source: PatientSource;
   createdAt: Date;
   clinicId: number;
@@ -118,7 +147,6 @@ export interface CreatePatientInput {
   clinicId: number;
   source?: PatientSource;
   sourceMetadata?: PatientSourceMetadata;
-  [key: string]: unknown; // Index signature for Prisma compatibility
 }
 
 /**
@@ -138,7 +166,6 @@ export interface UpdatePatientInput {
   zip?: string;
   notes?: string | null;
   tags?: string[] | null;
-  [key: string]: unknown; // Index signature for Prisma compatibility
 }
 
 /**
@@ -201,5 +228,5 @@ export interface PatientWithCounts extends PatientEntity {
 export interface AuditContext {
   actorEmail: string;
   actorRole: string;
-  actorId?: number;
+  actorId: number;
 }

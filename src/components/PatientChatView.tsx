@@ -13,6 +13,7 @@ import {
   Mail,
   RefreshCw,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Patient {
   id: number;
@@ -88,7 +89,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
 
-      const res = await fetch(`/api/patient-chat?patientId=${patient.id}&limit=100`, {
+      const res = await apiFetch(`/api/patient-chat?patientId=${patient.id}&limit=100`, {
         credentials: 'include',
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),
@@ -144,7 +145,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
 
-      const res = await fetch('/api/patient-chat', {
+      const res = await apiFetch('/api/patient-chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

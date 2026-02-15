@@ -22,6 +22,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Patient {
   id: number;
@@ -94,7 +95,7 @@ export default function AppointmentModal({
 
     setPatientsLoading(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`
       );
       if (response.ok) {
@@ -210,7 +211,7 @@ export default function AppointmentModal({
       let patientId = selectedPatient?.id;
       if (patientMode === 'new' && !selectedPatient) {
         try {
-          const response = await fetch('/api/patients', {
+          const response = await apiFetch('/api/patients', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -270,7 +271,7 @@ export default function AppointmentModal({
         title: `Appointment with ${formData.patientFirstName} ${formData.patientLastName}`,
       };
 
-      const response = await fetch('/api/scheduling/appointments', {
+      const response = await apiFetch('/api/scheduling/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(appointmentPayload),

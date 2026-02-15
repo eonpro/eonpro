@@ -81,6 +81,7 @@ export interface ClinicBranding {
     showChat: boolean;
     showCarePlan: boolean;
     showCareTeam: boolean;
+    showDocuments?: boolean;
   };
 
   // Content customization
@@ -148,6 +149,7 @@ const defaultFeatures = {
   showChat: true,
   showCarePlan: true,
   showCareTeam: true,
+  showDocuments: true,
 };
 
 const defaultBranding: ClinicBranding = {
@@ -246,6 +248,36 @@ function generateCssVariables(branding: ClinicBranding): Record<string, string> 
   };
 }
 
+/**
+ * Sanitize clinic custom CSS to prevent XSS and data exfiltration.
+ * Blocks: @import, url(), expression(), behavior, -moz-binding, javascript:
+ */
+function sanitizeClinicCss(css: string): string {
+  if (!css || typeof css !== 'string') return '';
+
+  // Remove comments that could hide malicious code
+  let sanitized = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // Block dangerous CSS features
+  const dangerousPatterns = [
+    /@import\b/gi,
+    /url\s*\(/gi,
+    /expression\s*\(/gi,
+    /behavior\s*:/gi,
+    /-moz-binding\s*:/gi,
+    /javascript\s*:/gi,
+    /@charset\b/gi,
+    /@namespace\b/gi,
+    /@font-face\b/gi,
+  ];
+
+  for (const pattern of dangerousPatterns) {
+    sanitized = sanitized.replace(pattern, '/* blocked */');
+  }
+
+  return sanitized.trim();
+}
+
 // Helper to convert hex to RGB for opacity support
 function hexToRgb(hex: string): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -263,153 +295,167 @@ export function ClinicBrandingProvider({
   const [branding, setBranding] = useState<ClinicBranding | null>(initialBranding || null);
   const [isLoading, setIsLoading] = useState(!initialBranding);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetchBranding = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  useEffect(() => {
+    if (initialBranding) return;
 
-      // WHITE-LABEL BRANDING LOGIC:
-      // Branding is determined by the DOMAIN, not the user's clinic assignment.
-      // - app.eonpro.io = Always EONPRO branding (native app)
-      // - wellmedr.eonpro.io = Wellmedr branding (white-labeled)
-      // - ot.eonpro.io = OT branding (white-labeled)
-      // This allows users from any clinic to use the main app with EONPRO branding
+    let cancelled = false;
 
-      let cId = clinicId;
+    const fetchBranding = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      // FIRST: Check domain to determine if this is a white-labeled subdomain
-      if (isBrowser) {
-        const domain = window.location.hostname;
-        const isMainAppDomain =
-          domain.includes('app.eonpro.io') ||
-          domain === 'app.eonpro.io' ||
-          domain === 'localhost' ||
-          domain.startsWith('localhost:');
+        // WHITE-LABEL BRANDING LOGIC:
+        // Branding is determined by the DOMAIN, not the user's clinic assignment.
+        // - app.eonpro.io = Always EONPRO branding (native app)
+        // - wellmedr.eonpro.io = Wellmedr branding (white-labeled)
+        // - ot.eonpro.io = OT branding (white-labeled)
+        // This allows users from any clinic to use the main app with EONPRO branding
 
-        // Main app domain always uses EONPRO branding; skip API call to avoid timeouts
-        if (isMainAppDomain) {
-          setBranding(defaultBranding);
+        let cId = clinicId;
+
+        // FIRST: Check domain to determine if this is a white-labeled subdomain
+        if (isBrowser) {
+          const domain = window.location.hostname;
+          const isMainAppDomain =
+            domain.includes('app.eonpro.io') ||
+            domain === 'app.eonpro.io' ||
+            domain === 'localhost' ||
+            domain.startsWith('localhost:');
+
+          // Main app domain always uses EONPRO branding; skip API call to avoid timeouts
+          if (isMainAppDomain) {
+            if (!cancelled) setBranding(defaultBranding);
+            return;
+          }
+
+          try {
+            // Add timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            const resolveResponse = await fetch(
+              `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
+              {
+                signal: controller.signal,
+              }
+            );
+            clearTimeout(timeoutId);
+
+            if (resolveResponse.ok) {
+              const resolveData = await resolveResponse.json();
+
+              // If domain resolves to a specific clinic, use that clinic's branding
+              if (resolveData.clinicId) {
+                cId = resolveData.clinicId;
+              }
+            } else {
+              console.warn('[ClinicBranding] Failed to resolve clinic, using defaults');
+            }
+          } catch (resolveErr) {
+            if ((resolveErr as Error).name === 'AbortError') {
+              console.warn('[ClinicBranding] Timeout resolving clinic domain');
+            } else {
+              console.warn('[ClinicBranding] Could not resolve clinic from domain:', resolveErr);
+            }
+          }
+        }
+
+        if (cancelled) return;
+
+        // FALLBACK: If no domain-based clinic found, check prop or user data
+        // This is for cases like direct clinicId prop or non-standard access patterns
+        if (!cId && clinicId) {
+          cId = clinicId;
+        }
+
+        if (!cId && isBrowser) {
+          const user = getLocalStorageItem('user');
+          if (user) {
+            try {
+              const userData = JSON.parse(user);
+              // Only use user's clinicId if we couldn't resolve from domain
+              // AND we're not on a known main app domain
+              const domain = window.location.hostname;
+              const isMainAppDomain =
+                domain.includes('app.eonpro.io') ||
+                domain === 'app.eonpro.io' ||
+                domain === 'localhost' ||
+                domain.startsWith('localhost:');
+              if (!isMainAppDomain) {
+                cId = userData.clinicId;
+              }
+            } catch {
+              // Invalid JSON in localStorage
+            }
+          }
+        }
+
+        if (!cId) {
+          // Use default branding if no clinic
+          if (!cancelled) setBranding(defaultBranding);
           return;
         }
 
+        // Add timeout to prevent hanging
+        const brandingController = new AbortController();
+        const brandingTimeoutId = setTimeout(() => brandingController.abort(), 5000);
+
         try {
-          // Add timeout to prevent hanging
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`, {
+            signal: brandingController.signal,
+            credentials: 'include', // Send cookies so patient auth can drive per-patient treatment (portal features)
+          });
+          clearTimeout(brandingTimeoutId);
 
-          const resolveResponse = await fetch(
-            `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
-            {
-              signal: controller.signal,
+          if (cancelled) return;
+
+          if (!response.ok) {
+            if (response.status === 404) {
+              console.warn('[ClinicBranding] Clinic not found, using defaults');
+              setBranding(defaultBranding);
+              return;
             }
-          );
-          clearTimeout(timeoutId);
-
-          if (resolveResponse.ok) {
-            const resolveData = await resolveResponse.json();
-
-            // If domain resolves to a specific clinic, use that clinic's branding
-            if (resolveData.clinicId) {
-              cId = resolveData.clinicId;
-            }
-          } else {
-            console.warn('[ClinicBranding] Failed to resolve clinic, using defaults');
-          }
-        } catch (resolveErr) {
-          if ((resolveErr as Error).name === 'AbortError') {
-            console.warn('[ClinicBranding] Timeout resolving clinic domain');
-          } else {
-            console.warn('[ClinicBranding] Could not resolve clinic from domain:', resolveErr);
-          }
-        }
-      }
-
-      // FALLBACK: If no domain-based clinic found, check prop or user data
-      // This is for cases like direct clinicId prop or non-standard access patterns
-      if (!cId && clinicId) {
-        cId = clinicId;
-      }
-
-      if (!cId && isBrowser) {
-        const user = getLocalStorageItem('user');
-        if (user) {
-          try {
-            const userData = JSON.parse(user);
-            // Only use user's clinicId if we couldn't resolve from domain
-            // AND we're not on a known main app domain
-            const domain = window.location.hostname;
-            const isMainAppDomain =
-              domain.includes('app.eonpro.io') ||
-              domain === 'app.eonpro.io' ||
-              domain === 'localhost' ||
-              domain.startsWith('localhost:');
-            if (!isMainAppDomain) {
-              cId = userData.clinicId;
-            }
-          } catch {
-            // Invalid JSON in localStorage
-          }
-        }
-      }
-
-      if (!cId) {
-        // Use default branding if no clinic
-        setBranding(defaultBranding);
-        return;
-      }
-
-      // Add timeout to prevent hanging
-      const brandingController = new AbortController();
-      const brandingTimeoutId = setTimeout(() => brandingController.abort(), 5000);
-
-      try {
-        const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`, {
-          signal: brandingController.signal,
-          credentials: 'include', // Send cookies so patient auth can drive per-patient treatment (portal features)
-        });
-        clearTimeout(brandingTimeoutId);
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            console.warn('[ClinicBranding] Clinic not found, using defaults');
+            console.warn('[ClinicBranding] Failed to fetch branding:', response.status);
             setBranding(defaultBranding);
             return;
           }
-          console.warn('[ClinicBranding] Failed to fetch branding:', response.status);
+
+          const data = await response.json();
+          if (!cancelled) {
+            setBranding({
+              ...defaultBranding,
+              ...data,
+              features: { ...defaultFeatures, ...data.features },
+            });
+          }
+        } catch (brandingErr) {
+          clearTimeout(brandingTimeoutId);
+          if ((brandingErr as Error).name === 'AbortError') {
+            console.warn('[ClinicBranding] Timeout fetching branding');
+          } else {
+            console.warn('[ClinicBranding] Error fetching branding:', brandingErr);
+          }
+          if (!cancelled) setBranding(defaultBranding);
+        }
+      } catch (err) {
+        console.error('Error fetching clinic branding:', err);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Unknown error');
           setBranding(defaultBranding);
-          return;
         }
-
-        const data = await response.json();
-        setBranding({
-          ...defaultBranding,
-          ...data,
-          features: { ...defaultFeatures, ...data.features },
-        });
-      } catch (brandingErr) {
-        clearTimeout(brandingTimeoutId);
-        if ((brandingErr as Error).name === 'AbortError') {
-          console.warn('[ClinicBranding] Timeout fetching branding');
-        } else {
-          console.warn('[ClinicBranding] Error fetching branding:', brandingErr);
-        }
-        setBranding(defaultBranding);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching clinic branding:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setBranding(defaultBranding);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  useEffect(() => {
-    if (!initialBranding) {
-      fetchBranding();
-    }
-  }, [clinicId, initialBranding]);
+    fetchBranding();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicId, initialBranding, refreshKey]);
 
   // Inject CSS variables into document
   useEffect(() => {
@@ -426,15 +472,18 @@ export function ClinicBrandingProvider({
       root.style.setProperty('--brand-secondary-rgb', hexToRgb(branding.secondaryColor));
       root.style.setProperty('--brand-accent-rgb', hexToRgb(branding.accentColor));
 
-      // Inject custom CSS if provided
+      // Inject custom CSS if provided (sanitized to prevent XSS/data exfiltration)
       if (branding.customCss) {
-        let styleEl = document.getElementById('clinic-custom-css');
-        if (!styleEl) {
-          styleEl = document.createElement('style');
-          styleEl.id = 'clinic-custom-css';
-          document.head.appendChild(styleEl);
+        const sanitizedCss = sanitizeClinicCss(branding.customCss);
+        if (sanitizedCss) {
+          let styleEl = document.getElementById('clinic-custom-css');
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'clinic-custom-css';
+            document.head.appendChild(styleEl);
+          }
+          styleEl.textContent = sanitizedCss;
         }
-        styleEl.textContent = branding.customCss;
       }
 
       // Update favicon if provided
@@ -482,7 +531,7 @@ export function ClinicBrandingProvider({
   }, [branding]);
 
   const refreshBranding = async () => {
-    await fetchBranding();
+    setRefreshKey((k) => k + 1);
   };
 
   return (

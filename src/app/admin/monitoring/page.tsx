@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface HealthCheck {
   name: string;
@@ -68,7 +69,7 @@ export default function MonitoringDashboard() {
       setLoading(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
 
-      const response = await fetch('/api/health?full=true', {
+      const response = await apiFetch('/api/health?full=true', {
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),
         },
@@ -99,7 +100,7 @@ export default function MonitoringDashboard() {
         localStorage.getItem('admin-token') ||
         localStorage.getItem('token');
 
-      const response = await fetch('/api/admin/dashboard', {
+      const response = await apiFetch('/api/admin/dashboard', {
         credentials: 'include',
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),

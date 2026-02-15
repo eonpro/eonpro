@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePatientId } from '@/hooks/usePatientId';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
-import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
-import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
+import { useWebSocket, EventType } from '@/hooks/useWebSocket';
 import {
   Send,
   ArrowLeft,
@@ -40,78 +42,39 @@ interface ChatMessage {
 export default function PatientChatPage() {
   const router = useRouter();
   const { branding } = useClinicBranding();
+  const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
+  const { patientId } = usePatientId();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [patientId, setPatientId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const hasMessagesRef = useRef(false);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Resolve patientId like Progress/Documents: localStorage first, then /api/auth/me if patient and missing (never use user.id as patientId)
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!userJson) return;
-      try {
-        const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
-        if (!userData) return;
-        let pid: number | null = userData.patientId ?? null;
-        if (pid == null && userData.role?.toLowerCase() === 'patient') {
-          const meRes = await portalFetch('/api/auth/me', { cache: 'no-store' });
-          if (meRes.ok && !cancelled) {
-            const meData = await safeParseJson(meRes);
-            const fromMe = (meData as { user?: { patientId?: number } } | null)?.user?.patientId;
-            if (typeof fromMe === 'number' && fromMe > 0) {
-              pid = fromMe;
-              setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: fromMe }));
-            }
-          }
-        }
-        if (!cancelled && pid != null) setPatientId(pid);
-      } catch {
-        if (!cancelled) setPatientId(null);
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // --- WebSocket for real-time messages ---
+  const { subscribe, isConnected: wsConnected } = useWebSocket({
+    autoConnect: true,
+    events: [EventType.DATA_UPDATE],
+  });
 
-  useEffect(() => {
-    if (!patientId) return;
+  // Track polling interval with exponential backoff
+  const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backoffRef = useRef(5000); // Start at 5s
+  const MAX_BACKOFF = 30000;
+  const lastMessageCountRef = useRef(0);
 
-    fetchMessages();
-    // Poll more frequently for real-time feel: 5 seconds
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
-  }, [patientId]);
-
-  // Refresh messages when window regains focus
-  useEffect(() => {
-    const handleFocus = () => {
-      if (patientId) fetchMessages();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [patientId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  const fetchMessages = async () => {
+  // Stable fetchMessages wrapped in useCallback
+  const fetchMessages = useCallback(async () => {
     if (!patientId) return;
 
     try {
@@ -122,29 +85,95 @@ export default function PatientChatPage() {
           result !== null && typeof result === 'object' && 'data' in result
             ? (result as { data?: ChatMessage[] }).data
             : undefined;
-        setMessages(Array.isArray(list) ? list : []);
+        const newMessages = Array.isArray(list) ? list : [];
+
+        // Reset backoff if new messages arrived
+        if (newMessages.length !== lastMessageCountRef.current) {
+          backoffRef.current = 5000;
+          lastMessageCountRef.current = newMessages.length;
+        } else {
+          // Exponential backoff when no new messages
+          backoffRef.current = Math.min(backoffRef.current * 1.5, MAX_BACKOFF);
+        }
+
+        setMessages(newMessages);
+        hasMessagesRef.current = newMessages.length > 0;
         setError('');
       } else if (response.status === 401) {
-        // Session expired - redirect to login
-        setError('Session expired. Please log in again.');
+        setError(t('chatSessionExpired'));
         setTimeout(() => {
           router.push('/login');
         }, 2000);
       } else if (response.status === 403) {
-        setError('Access denied. Please contact support.');
+        setError(t('chatAccessDenied'));
       }
     } catch (err) {
       logger.error('Failed to fetch messages', {
         error: err instanceof Error ? err.message : 'Unknown',
       });
-      // Only show error if we haven't loaded messages yet
-      if (messages.length === 0) {
-        setError('Unable to load messages. Please check your connection.');
+      if (!hasMessagesRef.current) {
+        setError(t('chatConnectionError'));
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId, router, t]);
+
+  // WebSocket subscription for real-time messages
+  useEffect(() => {
+    if (!patientId || !wsConnected) return;
+
+    const unsub = subscribe(EventType.DATA_UPDATE, (data: unknown) => {
+      const evt = data as { entity?: string; patientId?: number } | null;
+      if (evt?.entity === 'chat_message' && (!evt.patientId || evt.patientId === patientId)) {
+        fetchMessages();
+      }
+    });
+
+    return unsub;
+  }, [patientId, wsConnected, subscribe, fetchMessages]);
+
+  // Fallback polling with visibility-aware backoff (only when WS disconnected)
+  useEffect(() => {
+    if (!patientId) return;
+
+    // Initial fetch
+    fetchMessages();
+
+    // Don't poll when WebSocket is connected
+    if (wsConnected) return;
+
+    const schedulePoll = () => {
+      pollIntervalRef.current = setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          fetchMessages().then(schedulePoll);
+        } else {
+          // When hidden, check again after max backoff
+          pollIntervalRef.current = setTimeout(schedulePoll, MAX_BACKOFF);
+        }
+      }, backoffRef.current);
+    };
+
+    schedulePoll();
+
+    // Reset backoff and fetch on visibility change
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        backoffRef.current = 5000;
+        fetchMessages();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [patientId, wsConnected, fetchMessages]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !patientId || sending) return;
@@ -190,7 +219,7 @@ export default function PatientChatPage() {
         setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? sentMessage : m)));
       }
     } catch (err) {
-      setError('Failed to send message. Please try again.');
+      setError(t('chatSendFailed'));
       // Mark temp message as failed
       setMessages((prev) =>
         prev.map((m) => (m.id === tempMessage.id ? { ...m, status: 'FAILED' as const } : m))
@@ -223,9 +252,9 @@ export default function PatientChatPage() {
     yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return t('chatToday');
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return t('chatYesterday');
     } else {
       return date.toLocaleDateString('en-US', {
         weekday: 'long',
@@ -282,6 +311,7 @@ export default function PatientChatPage() {
       <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
         <button
           onClick={() => router.back()}
+          aria-label="Go back"
           className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100"
         >
           <ArrowLeft className="h-6 w-6" />
@@ -294,11 +324,11 @@ export default function PatientChatPage() {
             <MessageCircle className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-semibold text-gray-900">Care Team</h1>
-            <p className="text-xs text-gray-500">Usually replies within a few hours</p>
+            <h1 className="font-semibold text-gray-900">{t('chatCareTeam')}</h1>
+            <p className="text-xs text-gray-500">{t('chatUsuallyReplies')}</p>
           </div>
         </div>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100">
+        <button aria-label="More options" className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100">
           <MoreVertical className="h-5 w-5" />
         </button>
       </div>
@@ -313,9 +343,9 @@ export default function PatientChatPage() {
             >
               <MessageCircle className="h-8 w-8" style={{ color: primaryColor }} />
             </div>
-            <h2 className="mb-2 text-lg font-semibold text-gray-900">Start a Conversation</h2>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">{t('chatStartConversation')}</h2>
             <p className="max-w-[280px] text-sm text-gray-500">
-              Send a message to your care team. They'll respond as soon as possible.
+              {t('chatStartDesc')}
             </p>
           </div>
         ) : (
@@ -420,6 +450,7 @@ export default function PatientChatPage() {
         <div className="flex items-end gap-3">
           {/* Attachment Button */}
           <button
+            aria-label="Attach file"
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-gray-400 active:bg-gray-100"
             disabled
           >
@@ -431,14 +462,20 @@ export default function PatientChatPage() {
             <textarea
               ref={inputRef}
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                // Auto-resize textarea
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+              }}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={t('chatTypePlaceholder')}
               rows={1}
               className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] outline-none transition-all focus:border-gray-300 focus:bg-white"
               style={{ maxHeight: '120px' }}
             />
             <button
+              aria-label="Emoji"
               className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full text-gray-400 active:bg-gray-100"
               disabled
             >
@@ -450,6 +487,7 @@ export default function PatientChatPage() {
           <button
             onClick={handleSendMessage}
             disabled={!newMessage.trim() || sending}
+            aria-label="Send message"
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-white transition-all disabled:opacity-50"
             style={{ backgroundColor: primaryColor }}
           >

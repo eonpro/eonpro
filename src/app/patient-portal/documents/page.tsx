@@ -10,6 +10,7 @@ import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { toast } from '@/components/Toast';
 
 interface Document {
   id: number;
@@ -98,7 +99,7 @@ export default function PatientPortalDocuments() {
           setError('Failed to load documents. Please try again.');
         }
       } catch (error) {
-        logger.error('Error fetching documents:', error);
+        logger.error('Error fetching documents', { error: error instanceof Error ? error.message : 'Unknown' });
         setError('Failed to load documents. Please check your connection and try again.');
       } finally {
         setIsLoading(false);
@@ -197,10 +198,10 @@ export default function PatientPortalDocuments() {
     } catch (error) {
       // Always clear the interval on error
       if (progressInterval) clearInterval(progressInterval);
-      logger.error('Upload error:', error);
+      logger.error('Upload error', { error: error instanceof Error ? error.message : 'Unknown' });
       setIsUploading(false);
       setUploadProgress(0);
-      alert('Failed to upload documents. Please try again.');
+      toast.error('Failed to upload documents. Please try again.');
     }
   };
 
@@ -222,8 +223,8 @@ export default function PatientPortalDocuments() {
         throw new Error('Delete failed');
       }
     } catch (error) {
-      logger.error('Delete error:', error);
-      alert('Failed to delete document. Please try again.');
+      logger.error('Delete error', { error: error instanceof Error ? error.message : 'Unknown' });
+      toast.error('Failed to delete document. Please try again.');
     }
   };
 
@@ -244,13 +245,13 @@ export default function PatientPortalDocuments() {
           errBody !== null && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: unknown }).error)
             : 'Unknown error';
-        alert(`Failed to view document: ${errMsg}`);
+        toast.error(`Failed to view document: ${errMsg}`);
       }
     } catch (error: unknown) {
       logger.error('View error', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
-      alert('Failed to view document. Please try again.');
+      toast.error('Failed to view document. Please try again.');
     }
   };
 
@@ -271,8 +272,8 @@ export default function PatientPortalDocuments() {
         document.body.removeChild(a);
       }
     } catch (error) {
-      logger.error('Download error:', error);
-      alert('Failed to download document. Please try again.');
+      logger.error('Download error', { error: error instanceof Error ? error.message : 'Unknown' });
+      toast.error('Failed to download document. Please try again.');
     }
   };
 

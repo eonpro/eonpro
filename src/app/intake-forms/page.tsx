@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Icons
 const CheckIcon = () => (
@@ -158,9 +159,8 @@ export default function IntakeFormsPage() {
         return;
       }
 
-      const res = await fetch('/api/intake-forms/templates', {
+      const res = await apiFetch('/api/intake-forms/templates', {
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -262,10 +262,9 @@ export default function IntakeFormsPage() {
       // Filter out empty questions
       const validQuestions = newTemplate.questions.filter((q: any) => q.questionText.trim());
 
-      const res = await fetch('/api/intake-forms/templates', {
+      const res = await apiFetch('/api/intake-forms/templates', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -326,10 +325,9 @@ export default function IntakeFormsPage() {
         localStorage.getItem('super_admin-token') ||
         localStorage.getItem('admin-token');
 
-      const res = await fetch('/api/intake-forms/send-link', {
+      const res = await apiFetch('/api/intake-forms/send-link', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(sendLinkForm),

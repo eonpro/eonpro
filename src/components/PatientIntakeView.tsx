@@ -22,6 +22,7 @@ import {
   Check,
   Shield,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 import { calculateBMI as calcBMI } from '@/lib/calculators/bmi';
 import { WELLMEDR_INTAKE_SECTIONS, hasCustomIntakeSections } from '@/lib/wellmedr/intakeSections';
 import {
@@ -1144,7 +1145,7 @@ export default function PatientIntakeView({
     setSaveSuccess(false);
 
     try {
-      const response = await fetch(`/api/patients/${patient.id}/intake`, {
+      const response = await apiFetch(`/api/patients/${patient.id}/intake`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers: editedValues }),

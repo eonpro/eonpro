@@ -22,6 +22,7 @@ import {
   Trash,
 } from 'lucide-react';
 import { CONSULTATION_DURATIONS } from '@/lib/integrations/zoom/config';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Meeting {
   id: string;
@@ -112,7 +113,7 @@ export default function TelehealthPage() {
       const scheduledAt = new Date(`${meetingDate}T${meetingTime}`);
 
       // Call API to create meeting
-      const response = await fetch('/api/v2/zoom/meetings', {
+      const response = await apiFetch('/api/v2/zoom/meetings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, UserCheck, Loader2, AlertCircle } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SalesRep {
   id: number;
@@ -54,7 +55,7 @@ export default function SalesRepAssignmentModal({
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      const response = await fetch(`/api/admin/patients/${patient.id}/sales-rep`, {
+      const response = await apiFetch(`/api/admin/patients/${patient.id}/sales-rep`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -64,8 +65,8 @@ export default function SalesRepAssignmentModal({
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to assign sales rep');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || 'Failed to assign sales rep');
       }
 
       onAssigned();
@@ -84,7 +85,7 @@ export default function SalesRepAssignmentModal({
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      const response = await fetch(`/api/admin/patients/${patient.id}/sales-rep`, {
+      const response = await apiFetch(`/api/admin/patients/${patient.id}/sales-rep`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -92,8 +93,8 @@ export default function SalesRepAssignmentModal({
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to remove sales rep');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || 'Failed to remove sales rep');
       }
 
       onAssigned();
@@ -155,7 +156,7 @@ export default function SalesRepAssignmentModal({
                   key={rep.id}
                   className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
                     selectedSalesRepId === rep.id
-                      ? 'border-sky-500 bg-sky-50'
+                      ? 'border-[var(--brand-primary,#4fa77e)] bg-[var(--brand-primary-light,rgba(79,167,126,0.1))]'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -169,11 +170,11 @@ export default function SalesRepAssignmentModal({
                   />
                   <div
                     className={`flex h-4 w-4 items-center justify-center rounded-full border-2 ${
-                      selectedSalesRepId === rep.id ? 'border-sky-500' : 'border-gray-300'
+                      selectedSalesRepId === rep.id ? 'border-[var(--brand-primary,#4fa77e)]' : 'border-gray-300'
                     }`}
                   >
                     {selectedSalesRepId === rep.id && (
-                      <div className="h-2 w-2 rounded-full bg-sky-500" />
+                      <div className="h-2 w-2 rounded-full bg-[var(--brand-primary,#4fa77e)]" />
                     )}
                   </div>
                   <div className="flex-1">

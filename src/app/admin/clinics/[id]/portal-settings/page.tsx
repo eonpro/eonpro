@@ -24,6 +24,7 @@ import {
   applyPresetToFeatures,
 } from '@/lib/patient-portal';
 import type { PortalTreatmentType } from '@/lib/patient-portal';
+import { apiFetch } from '@/lib/api/fetch';
 
 /** All patient portal feature keys (must stay in sync with branding API and registry) */
 type PortalFeatureKey =
@@ -137,7 +138,7 @@ export default function ClinicPortalSettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/patient-portal/branding?clinicId=${clinicId}`);
+      const response = await apiFetch(`/api/patient-portal/branding?clinicId=${clinicId}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -169,7 +170,7 @@ export default function ClinicPortalSettingsPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/patient-portal/branding', {
+      const response = await apiFetch('/api/patient-portal/branding', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

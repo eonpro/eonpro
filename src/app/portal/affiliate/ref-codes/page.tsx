@@ -11,6 +11,7 @@ import {
   Trash2,
   Edit,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface RefCode {
   id: number;
@@ -48,9 +49,7 @@ export default function RefCodesPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
 
     try {
-      const response = await fetch('/api/affiliate/ref-codes', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/affiliate/ref-codes');
 
       if (response.ok) {
         const data = await response.json();
@@ -84,10 +83,9 @@ export default function RefCodesPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
 
     try {
-      const response = await fetch('/api/affiliate/ref-codes', {
+      const response = await apiFetch('/api/affiliate/ref-codes', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(newCode),

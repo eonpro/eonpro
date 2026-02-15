@@ -32,6 +32,7 @@ import { Feature } from '@/components/Feature';
 import { EmailTemplate } from '@/lib/integrations/aws/sesConfig';
 import { AppError, ApiResponse } from '@/types/common';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface EmailLog {
   id: string;
@@ -162,7 +163,7 @@ export default function EmailCommunicationsPage() {
         .map((email: any) => email.trim())
         .filter(Boolean);
 
-      const response = await fetch('/api/v2/aws/ses/send', {
+      const response = await apiFetch('/api/v2/aws/ses/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -216,7 +217,7 @@ export default function EmailCommunicationsPage() {
     if (!template) return;
 
     try {
-      const response = await fetch('/api/v2/aws/ses/preview', {
+      const response = await apiFetch('/api/v2/aws/ses/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

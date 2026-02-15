@@ -25,6 +25,7 @@ import {
   Unlink,
   Link2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ZoomStatus {
   configured: boolean;
@@ -79,7 +80,7 @@ export default function ClinicZoomIntegration() {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/integrations/zoom');
+      const res = await apiFetch('/api/admin/integrations/zoom');
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status);
@@ -101,7 +102,7 @@ export default function ClinicZoomIntegration() {
     setError(null);
 
     try {
-      const res = await fetch('/api/admin/integrations/zoom', {
+      const res = await apiFetch('/api/admin/integrations/zoom', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -137,7 +138,7 @@ export default function ClinicZoomIntegration() {
     setError(null);
 
     try {
-      const res = await fetch('/api/admin/integrations/zoom', {
+      const res = await apiFetch('/api/admin/integrations/zoom', {
         method: 'DELETE',
       });
 
@@ -162,7 +163,7 @@ export default function ClinicZoomIntegration() {
     setError(null);
 
     try {
-      const res = await fetch('/api/admin/integrations/zoom', {
+      const res = await apiFetch('/api/admin/integrations/zoom', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),

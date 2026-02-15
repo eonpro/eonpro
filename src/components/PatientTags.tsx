@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PatientTagsProps {
   patientId: number;
@@ -33,7 +34,7 @@ export default function PatientTags({ patientId, initialTags }: PatientTagsProps
     setError(null);
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/tags`, {
+      const response = await apiFetch(`/api/patients/${patientId}/tags`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag }),
@@ -61,7 +62,7 @@ export default function PatientTags({ patientId, initialTags }: PatientTagsProps
     setError(null);
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/tags`, {
+      const response = await apiFetch(`/api/patients/${patientId}/tags`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tag: newTag.trim() }),

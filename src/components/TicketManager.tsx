@@ -29,6 +29,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import TicketDetailView from './TicketDetailView';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface User {
   id: number;
@@ -135,7 +136,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
       if (filters.priority) queryParams.append('priority', filters.priority);
       if (filters.assignedTo) queryParams.append('assignedToId', filters.assignedTo);
 
-      const response = await fetch(`/api/internal/tickets?${queryParams}`);
+      const response = await apiFetch(`/api/internal/tickets?${queryParams}`);
       if (response.ok) {
         const data = await response.json();
         setTickets(data);
@@ -177,7 +178,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
     setLoadingPatients(true);
     try {
       // Use internal endpoint that doesn't require authentication
-      const response = await fetch('/api/internal/patients');
+      const response = await apiFetch('/api/internal/patients');
 
       if (response.ok) {
         const data = await response.json();
@@ -197,7 +198,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
 
   const fetchTicketComments = async (ticketId: number) => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}/comments`);
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}/comments`);
       if (response.ok) {
         const data = await response.json();
         setTicketComments(data);
@@ -218,7 +219,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
         }
       }
 
-      const response = await fetch('/api/internal/tickets', {
+      const response = await apiFetch('/api/internal/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -251,7 +252,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
 
   const updateTicketStatus = async (ticketId: number, status: string, disposition?: string) => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}`, {
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -276,7 +277,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
 
   const assignTicket = async (ticketId: number, assignedToId: number) => {
     try {
-      const response = await fetch(`/api/internal/tickets/${ticketId}`, {
+      const response = await apiFetch(`/api/internal/tickets/${ticketId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -302,7 +303,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
     if (!selectedTicket || !newComment.trim()) return;
 
     try {
-      const response = await fetch(`/api/internal/tickets/${selectedTicket.id}/comments`, {
+      const response = await apiFetch(`/api/internal/tickets/${selectedTicket.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

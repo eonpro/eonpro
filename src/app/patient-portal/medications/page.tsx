@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
+import { usePatientId } from '@/hooks/usePatientId';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
-import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
+import { MedicationsPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
 import {
   Pill,
   Clock,
@@ -55,11 +57,12 @@ const daysOfWeek = [
 ];
 
 export default function MedicationsPage() {
+  const { t } = usePatientPortalLanguage();
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
-  const [patientId, setPatientId] = useState<number | null>(null);
+  const { patientId } = usePatientId();
   const [medications, setMedications] = useState<Medication[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,37 +74,6 @@ export default function MedicationsPage() {
   const [showSuccess, setShowSuccess] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-      if (!userJson) return;
-      try {
-        const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
-        if (!userData) return;
-        let pid: number | null = userData.patientId ?? null;
-        if (pid == null && userData.role?.toLowerCase() === 'patient') {
-          const meRes = await portalFetch('/api/auth/me');
-          if (meRes.ok && !cancelled) {
-            const meData = await safeParseJson(meRes);
-            const fromMe = (meData as { user?: { patientId?: number } } | null)?.user?.patientId;
-            if (typeof fromMe === 'number' && fromMe > 0) {
-              pid = fromMe;
-              setPortalUserStorage(getMinimalPortalUserPayload({ ...userData, patientId: fromMe }));
-            }
-          }
-        }
-        if (!cancelled && pid != null) setPatientId(pid);
-      } catch {
-        if (!cancelled) setPatientId(null);
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (patientId) {
@@ -173,7 +145,7 @@ export default function MedicationsPage() {
         setShowReminderModal(false);
         setSelectedMed(null);
         setCustomMedicationName('');
-        setShowSuccess('Reminder saved successfully!');
+        setShowSuccess(t('medsReminderSaved'));
         setTimeout(() => setShowSuccess(''), 3000);
       }
     } catch (error) {
@@ -192,7 +164,7 @@ export default function MedicationsPage() {
       });
       if (response.ok) {
         setReminders((prev) => prev.filter((r) => r.id !== id));
-        setShowSuccess('Reminder removed');
+        setShowSuccess(t('medsReminderRemoved'));
         setTimeout(() => setShowSuccess(''), 2000);
       }
     } catch (error) {
@@ -220,9 +192,10 @@ export default function MedicationsPage() {
     const summary = med.dosage ? `${med.name} - ${med.dosage}` : med.name;
     const description = med.instructions || 'Medication reminder';
 
+    const clinicName = branding?.clinicName || 'EONPRO';
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//EONPRO//Medication Reminder//EN
+PRODID:-//${clinicName}//Medication Reminder//EN
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 BEGIN:VEVENT
@@ -242,19 +215,12 @@ END:VCALENDAR`;
     link.click();
     URL.revokeObjectURL(url);
 
-    setShowSuccess('Calendar file downloaded!');
+    setShowSuccess(t('medsCalendarDownloaded'));
     setTimeout(() => setShowSuccess(''), 3000);
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
-      </div>
-    );
+    return <MedicationsPageSkeleton />;
   }
 
   return (
@@ -287,8 +253,8 @@ END:VCALENDAR`;
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900">Medications</h1>
-        <p className="mt-2 text-gray-500">Your prescriptions and dose reminders</p>
+        <h1 className="text-3xl font-semibold text-gray-900">{t('medsTitle')}</h1>
+        <p className="mt-2 text-gray-500">{t('medsSubtitle')}</p>
       </div>
 
       {/* When no medications on file: show reminders only and allow adding by name */}
@@ -298,7 +264,7 @@ END:VCALENDAR`;
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <Bell className="h-5 w-5 text-gray-400" />
-                <span className="text-lg font-semibold text-gray-900">Medication reminders</span>
+                <span className="text-lg font-semibold text-gray-900">{t('medsReminders')}</span>
                 {reminders.length > 0 && (
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
                     {reminders.length}
@@ -315,19 +281,19 @@ END:VCALENDAR`;
                 style={{ backgroundColor: primaryColor }}
               >
                 <Plus className="h-4 w-4" />
-                Add reminder
+                {t('medsAddReminder')}
               </button>
             </div>
             <p className="mt-2 text-sm text-gray-500">
-              No prescriptions on file. You can still add reminders for any medication.
+              {t('medsNoPrescriptions')}
             </p>
           </div>
           <div className="p-6">
             {reminders.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-8 text-center">
                 <Bell className="mx-auto mb-2 h-10 w-10 text-gray-300" />
-                <p className="font-medium text-gray-600">No reminders yet</p>
-                <p className="mt-1 text-sm text-gray-500">Add a reminder to never miss a dose</p>
+                <p className="font-medium text-gray-600">{t('medsNoReminders')}</p>
+                <p className="mt-1 text-sm text-gray-500">{t('medsNoRemindersDesc')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -358,12 +324,14 @@ END:VCALENDAR`;
                         }
                         className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
                         title="Download to calendar"
+                        aria-label="Download to calendar"
                       >
                         <Download className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => removeReminder(reminder.id)}
                         className="rounded-xl p-3 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+                        aria-label="Remove reminder"
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
@@ -424,7 +392,7 @@ END:VCALENDAR`;
                       <div className="mb-1 flex items-center gap-2">
                         <Clock className="h-4 w-4 text-gray-400" />
                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                          Frequency
+                          {t('medsFrequency')}
                         </p>
                       </div>
                       <p className="text-lg font-semibold text-gray-900">{med.frequency}</p>
@@ -433,7 +401,7 @@ END:VCALENDAR`;
                       <div className="mb-1 flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-400" />
                         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                          Started
+                          {t('medsStarted')}
                         </p>
                       </div>
                       <p className="text-lg font-semibold text-gray-900">
@@ -450,7 +418,7 @@ END:VCALENDAR`;
                     <div className="mb-2 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-gray-400" />
                       <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                        Instructions
+                        {t('medsInstructions')}
                       </p>
                     </div>
                     <p className="font-medium text-gray-700">{med.instructions}</p>
@@ -484,9 +452,9 @@ END:VCALENDAR`;
                     {medReminders.length === 0 ? (
                       <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
                         <Bell className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                        <p className="font-medium text-gray-400">No reminders set</p>
+                        <p className="font-medium text-gray-400">{t('medsNoRemindersSet')}</p>
                         <p className="mt-1 text-sm text-gray-400">
-                          Add a reminder to never miss a dose
+                          {t('medsNoRemindersDesc')}
                         </p>
                       </div>
                     ) : (
@@ -515,12 +483,14 @@ END:VCALENDAR`;
                                 onClick={() => generateICS(med, reminder)}
                                 className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
                                 title="Download to calendar"
+                                aria-label="Download to calendar"
                               >
                                 <Download className="h-5 w-5" />
                               </button>
                               <button
                                 onClick={() => removeReminder(reminder.id)}
                                 className="rounded-xl p-3 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+                                aria-label="Remove reminder"
                               >
                                 <Trash2 className="h-5 w-5" />
                               </button>
@@ -539,9 +509,9 @@ END:VCALENDAR`;
                           <AlertCircle className="h-6 w-6 text-amber-600" />
                         </div>
                         <div>
-                          <p className="font-semibold text-amber-900">Refill needed soon</p>
+                          <p className="font-semibold text-amber-900">{t('medsRefillNeeded')}</p>
                           <p className="text-sm text-amber-700">
-                            Due by{' '}
+                            {t('medsDueBy')}{' '}
                             {new Date(med.refillDate).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -571,8 +541,8 @@ END:VCALENDAR`;
                 <Syringe className="h-6 w-6 text-gray-700" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Dose Calculator</h3>
-                <p className="text-sm text-gray-500">Calculate your injection</p>
+                <h3 className="text-lg font-semibold text-gray-900">{t('medsDoseCalculator')}</h3>
+                <p className="text-sm text-gray-500">{t('medsDoseCalculatorDesc')}</p>
               </div>
             </div>
             <ChevronRight className="h-6 w-6 text-gray-300 transition-transform group-hover:translate-x-1" />
@@ -591,8 +561,8 @@ END:VCALENDAR`;
                 <Pill className="h-6 w-6" style={{ color: primaryColor }} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Injection Guide</h3>
-                <p className="text-sm text-gray-500">Watch how-to videos</p>
+                <h3 className="text-lg font-semibold text-gray-900">{t('medsInjectionGuide')}</h3>
+                <p className="text-sm text-gray-500">{t('medsInjectionGuideDesc')}</p>
               </div>
             </div>
             <ChevronRight className="h-6 w-6 text-gray-300 transition-transform group-hover:translate-x-1" />
@@ -622,13 +592,13 @@ END:VCALENDAR`;
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-gray-900">Add Reminder</h2>
+                    <h2 className="text-2xl font-semibold text-gray-900">{t('medsAddReminderTitle')}</h2>
                     {selectedMed ? (
                       <p className="mt-1 text-gray-700">
                         {selectedMed.name} ({selectedMed.dosage})
                       </p>
                     ) : (
-                      <p className="mt-1 text-sm text-gray-600">Enter medication name below</p>
+                      <p className="mt-1 text-sm text-gray-600">{t('medsEnterNameBelow')}</p>
                     )}
                   </div>
                   <button
@@ -649,13 +619,13 @@ END:VCALENDAR`;
                 {!selectedMed && (
                   <div className="mb-6">
                     <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
-                      Medication name
+                      {t('medsMedicationName')}
                     </label>
                     <input
                       type="text"
                       value={customMedicationName}
                       onChange={(e) => setCustomMedicationName(e.target.value)}
-                      placeholder="e.g. Semaglutide 0.5mg"
+                      placeholder={t('medsMedicationPlaceholder')}
                       className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition-all focus:border-gray-900 focus:bg-white"
                     />
                   </div>
@@ -664,7 +634,7 @@ END:VCALENDAR`;
                 {/* Day Selection */}
                 <div className="mb-6">
                   <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
-                    Day of Week
+                    {t('medsDayOfWeek')}
                   </label>
                   <div className="flex gap-2">
                     {daysOfWeek.map((day) => (
@@ -684,7 +654,7 @@ END:VCALENDAR`;
                     ))}
                   </div>
                   <p className="mt-2 text-sm text-gray-500">
-                    Selected:{' '}
+                    {t('medsSelected')}{' '}
                     <span className="font-semibold text-gray-900">
                       {daysOfWeek.find((d) => d.value === newReminder.dayOfWeek)?.full}
                     </span>
@@ -694,7 +664,7 @@ END:VCALENDAR`;
                 {/* Time Selection */}
                 <div className="mb-8">
                   <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
-                    Time
+                    {t('medsTime')}
                   </label>
                   <input
                     type="time"
@@ -710,7 +680,7 @@ END:VCALENDAR`;
                     onClick={() => setShowReminderModal(false)}
                     className="flex-1 rounded-2xl border-2 border-gray-200 px-6 py-4 font-semibold text-gray-700 transition-all hover:bg-gray-50"
                   >
-                    Cancel
+                    {t('medsCancel')}
                   </button>
                   <button
                     onClick={addReminder}
@@ -721,12 +691,12 @@ END:VCALENDAR`;
                     {saving ? (
                       <>
                         <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Saving...
+                        {t('medsSaving')}
                       </>
                     ) : (
                       <>
                         <Check className="h-5 w-5" />
-                        Save Reminder
+                        {t('medsSaveReminder')}
                       </>
                     )}
                   </button>

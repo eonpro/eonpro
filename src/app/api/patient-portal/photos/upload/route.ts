@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
@@ -16,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { STORAGE_CONFIG, isS3Enabled } from '@/lib/integrations/aws/s3Config';
 import { PatientPhotoType } from '@prisma/client';
+import { logPHICreate } from '@/lib/audit/hipaa-audit';
 
 // =============================================================================
 // Constants
@@ -165,6 +167,12 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       requestedBy: user.id,
     });
 
+    await logPHICreate(req, user, 'PatientPhotoUpload', s3Key, patientId, {
+      photoType: parsed.data.type,
+      contentType: parsed.data.contentType,
+      fileSize: parsed.data.fileSize,
+    });
+
     return NextResponse.json({
       uploadUrl,
       s3Key,
@@ -195,4 +203,4 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 // Export
 // =============================================================================
 
-export const POST = withAuth(handlePost);
+export const POST = withRateLimit(withAuth(handlePost), RATE_LIMIT_CONFIGS.upload);

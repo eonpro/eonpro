@@ -5,6 +5,7 @@ import { US_STATE_OPTIONS } from '@/lib/usStates';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 type Provider = {
   id: number;
@@ -223,7 +224,7 @@ export default function ProvidersPage() {
       for (const endpoint of authenticatedEndpoints) {
         if (!token) continue; // Skip auth endpoints if no token
         try {
-          const res = await fetch(endpoint, { headers });
+          const res = await apiFetch(endpoint, { headers });
 
           if (res.ok) {
             const data = await res.json();
@@ -240,7 +241,7 @@ export default function ProvidersPage() {
 
       // Fallback: Try public clinic list (no auth required)
       try {
-        const res = await fetch('/api/clinics');
+        const res = await apiFetch('/api/clinics');
         if (res.ok) {
           const data = await res.json();
           const clinicList = data.clinics || (Array.isArray(data) ? data : []);
@@ -275,7 +276,7 @@ export default function ProvidersPage() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const res = await fetch('/api/providers', { headers });
+      const res = await apiFetch('/api/providers', { headers });
       const data = await res.json();
       setProviders(data.providers ?? []);
     } catch (err: any) {
@@ -325,7 +326,7 @@ export default function ProvidersPage() {
     try {
       setError(null);
       setVerifyingNpi(true);
-      const res = await fetch('/api/providers/verify', {
+      const res = await apiFetch('/api/providers/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ npi }),
@@ -386,7 +387,7 @@ export default function ProvidersPage() {
         clinicId: form.clinicId ? parseInt(form.clinicId) : userClinicId || null,
       };
 
-      const res = await fetch('/api/providers', {
+      const res = await apiFetch('/api/providers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

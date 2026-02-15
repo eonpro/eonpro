@@ -5,6 +5,7 @@ import { US_STATE_OPTIONS } from '@/lib/usStates';
 import { useState, useEffect } from 'react';
 import ProviderPasswordSetup from './ProviderPasswordSetup';
 import { Building2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 type Clinic = {
   id: number;
@@ -56,7 +57,7 @@ export default function EditProviderForm({ provider }: Props) {
   useEffect(() => {
     const fetchClinics = async () => {
       try {
-        const res = await fetch('/api/clinics/list');
+        const res = await apiFetch('/api/clinics/list');
         if (res.ok) {
           const data = await res.json();
           setClinics(Array.isArray(data) ? data : data.clinics || []);
@@ -87,7 +88,7 @@ export default function EditProviderForm({ provider }: Props) {
     try {
       setSaving(true);
       setMessage(null);
-      const res = await fetch(`/api/providers/${provider.id}`, {
+      const res = await apiFetch(`/api/providers/${provider.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

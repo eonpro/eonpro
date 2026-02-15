@@ -16,6 +16,7 @@ import {
   Home,
   Sparkles,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ActiveShipment {
   id: string;
@@ -99,9 +100,8 @@ export default function ActiveShipmentTracker({
   const fetchShipments = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/patient-portal/tracking', {
+      const response = await apiFetch('/api/patient-portal/tracking', {
         headers: getAuthHeaders(),
-        credentials: 'include',
       });
 
       if (!response.ok) {

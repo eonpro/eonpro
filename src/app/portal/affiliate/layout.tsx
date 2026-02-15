@@ -19,6 +19,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Default logo
 const DEFAULT_LOGO =
@@ -93,7 +94,7 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
         setUserData(data);
 
         // Fetch branding
-        const response = await fetch('/api/affiliate/branding', {
+        const response = await apiFetch('/api/affiliate/branding', {
           headers: {
             Authorization: `Bearer ${token}`,
           },

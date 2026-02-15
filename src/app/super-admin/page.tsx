@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
   MoreHorizontal,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Clinic {
   id: number;
@@ -49,10 +50,7 @@ export default function SuperAdminDashboard() {
 
   const fetchClinics = async () => {
     try {
-      const token = localStorage.getItem('auth-token');
-      const response = await fetch('/api/super-admin/clinics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/super-admin/clinics');
 
       if (response.ok) {
         const data = await response.json();

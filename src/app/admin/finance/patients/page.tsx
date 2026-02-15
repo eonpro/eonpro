@@ -30,6 +30,7 @@ import {
   Legend,
   Cell,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PatientMetrics {
   totalPatients: number;
@@ -127,7 +128,7 @@ export default function PatientFinancePage() {
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch('/api/finance/patients', {
+      const response = await apiFetch('/api/finance/patients', {
         credentials: 'include',
         headers,
       });

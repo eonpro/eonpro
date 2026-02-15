@@ -18,6 +18,7 @@ import {
   DollarSign,
   Package,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface RefillPatient {
   id: number;
@@ -215,7 +216,7 @@ export default function AdminRefillQueuePage() {
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`/api/admin/refill-queue?${params}`, {
+      const response = await apiFetch(`/api/admin/refill-queue?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -239,7 +240,7 @@ export default function AdminRefillQueuePage() {
     const token = getToken();
 
     try {
-      const response = await fetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
+      const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -277,7 +278,7 @@ export default function AdminRefillQueuePage() {
     const token = getToken();
 
     try {
-      const response = await fetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
+      const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -310,7 +311,7 @@ export default function AdminRefillQueuePage() {
     const token = getToken();
 
     try {
-      const response = await fetch(`/api/admin/refill-queue/${selectedRefill.id}/approve`, {
+      const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/approve`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -343,7 +344,7 @@ export default function AdminRefillQueuePage() {
     const token = getToken();
 
     try {
-      const response = await fetch(`/api/admin/refill-queue/${selectedRefill.id}/reject`, {
+      const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/reject`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

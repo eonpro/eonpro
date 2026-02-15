@@ -17,6 +17,7 @@ import {
   CheckCircle,
   X,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Clinic {
   id: number;
@@ -98,9 +99,7 @@ export default function SuperAdminCommissionPlansPage() {
 
     try {
       // Fetch clinics first
-      const clinicsRes = await fetch('/api/super-admin/clinics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const clinicsRes = await apiFetch('/api/super-admin/clinics');
 
       if (clinicsRes.ok) {
         const clinicsData = await clinicsRes.json();
@@ -108,9 +107,7 @@ export default function SuperAdminCommissionPlansPage() {
       }
 
       // Fetch all commission plans across all clinics
-      const plansRes = await fetch('/api/super-admin/commission-plans', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const plansRes = await apiFetch('/api/super-admin/commission-plans');
 
       if (plansRes.ok) {
         const data = await plansRes.json();
@@ -202,7 +199,6 @@ export default function SuperAdminCommissionPlansPage() {
       const response = await fetch(url, {
         method: editingPlan ? 'PUT' : 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -227,9 +223,8 @@ export default function SuperAdminCommissionPlansPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch(`/api/super-admin/commission-plans/${planId}`, {
+      const response = await apiFetch(`/api/super-admin/commission-plans/${planId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -249,10 +244,9 @@ export default function SuperAdminCommissionPlansPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch(`/api/super-admin/commission-plans/${plan.id}`, {
+      const response = await apiFetch(`/api/super-admin/commission-plans/${plan.id}`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ isActive: !plan.isActive }),

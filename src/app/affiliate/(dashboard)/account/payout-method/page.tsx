@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,7 +46,7 @@ export default function PayoutMethodPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/affiliate/account');
+        const res = await apiFetch('/api/affiliate/account');
         if (res.ok) {
           const data = await res.json();
           if (data.payoutMethod) {
@@ -74,7 +75,7 @@ export default function PayoutMethodPage() {
           ? { type: 'bank', ...bankForm }
           : { type: 'paypal', email: paypalEmail };
 
-      const res = await fetch('/api/affiliate/account/payout-method', {
+      const res = await apiFetch('/api/affiliate/account/payout-method', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

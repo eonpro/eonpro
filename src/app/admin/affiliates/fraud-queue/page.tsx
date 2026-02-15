@@ -13,6 +13,7 @@ import {
   Clock,
   DollarSign,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface FraudAlert {
   id: number;
@@ -104,7 +105,7 @@ export default function FraudQueuePage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (severityFilter !== 'all') params.set('severity', severityFilter);
 
-      const response = await fetch(`/api/admin/affiliates/fraud-queue?${params}`, {
+      const response = await apiFetch(`/api/admin/affiliates/fraud-queue?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -123,7 +124,7 @@ export default function FraudQueuePage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch('/api/admin/affiliates/fraud-queue', {
+      const response = await apiFetch('/api/admin/affiliates/fraud-queue', {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,

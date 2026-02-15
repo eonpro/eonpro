@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ClinicSettings {
   id: number;
@@ -66,7 +67,7 @@ export default function ClinicSettingsPage({ params }: { params: Promise<{ id: s
 
   const fetchClinic = async () => {
     try {
-      const response = await fetch(`/api/admin/clinics/${resolvedParams.id}`);
+      const response = await apiFetch(`/api/admin/clinics/${resolvedParams.id}`);
       if (response.ok) {
         const data = await response.json();
         setClinic(data);
@@ -84,7 +85,7 @@ export default function ClinicSettingsPage({ params }: { params: Promise<{ id: s
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/clinics/${resolvedParams.id}`, {
+      const response = await apiFetch(`/api/admin/clinics/${resolvedParams.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

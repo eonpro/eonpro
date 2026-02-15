@@ -27,6 +27,7 @@ export type PortalFeatureFlagKey =
   | 'showBilling'
   | 'showProgressPhotos'
   | 'showLabResults'
+  | 'showDocuments'
   | 'showDietaryPlans'
   | 'showExerciseTracking'
   | 'showWaterTracking'

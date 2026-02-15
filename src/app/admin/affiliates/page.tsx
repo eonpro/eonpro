@@ -18,6 +18,7 @@ import {
   MousePointer,
   FileText,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // Landing Page URL Builder
@@ -126,10 +127,10 @@ export default function AdminAffiliatesPage() {
 
     try {
       const [affiliatesRes, plansRes] = await Promise.all([
-        fetch('/api/admin/affiliates', {
+        apiFetch('/api/admin/affiliates', {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch('/api/admin/commission-plans', {
+        apiFetch('/api/admin/commission-plans', {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -158,7 +159,7 @@ export default function AdminAffiliatesPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch('/api/admin/affiliates', {
+      const response = await apiFetch('/api/admin/affiliates', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -20,6 +20,7 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface TelehealthSession {
   id: number;
@@ -66,7 +67,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
     setCalendarError(null);
     try {
       // Fetch calendar status
-      const calRes = await fetch('/api/calendar-sync?action=status');
+      const calRes = await apiFetch('/api/calendar-sync?action=status');
       if (calRes.ok) {
         const data = await calRes.json();
         const integrations = data.integrations || [];
@@ -87,7 +88,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
       }
 
       // Fetch upcoming telehealth sessions
-      const sessionsRes = await fetch('/api/provider/telehealth/upcoming');
+      const sessionsRes = await apiFetch('/api/provider/telehealth/upcoming');
       if (sessionsRes.ok) {
         const data = await sessionsRes.json();
         setUpcomingSessions(data.sessions || []);

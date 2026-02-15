@@ -13,6 +13,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SOAPNote {
   id: number;
@@ -70,7 +71,7 @@ export default function ProviderSOAPNotesPage() {
         localStorage.getItem('token') ||
         localStorage.getItem('auth-token') ||
         localStorage.getItem('provider-token');
-      const response = await fetch(`/api/soap-notes/${noteId}/sign`, {
+      const response = await apiFetch(`/api/soap-notes/${noteId}/sign`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -100,7 +101,7 @@ export default function ProviderSOAPNotesPage() {
         localStorage.getItem('token') ||
         localStorage.getItem('auth-token') ||
         localStorage.getItem('provider-token');
-      const response = await fetch(`/api/soap-notes/${noteId}/export`, {
+      const response = await apiFetch(`/api/soap-notes/${noteId}/export`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -132,7 +133,7 @@ export default function ProviderSOAPNotesPage() {
       setError(null);
 
       // Fetch all SOAP notes for the clinic
-      const response = await fetch('/api/soap-notes/list');
+      const response = await apiFetch('/api/soap-notes/list');
 
       if (!response.ok) {
         if (response.status === 404) {

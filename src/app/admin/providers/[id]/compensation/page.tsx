@@ -24,6 +24,7 @@ import {
   Info,
   Layers,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 type CompensationType = 'FLAT_RATE' | 'PERCENTAGE' | 'HYBRID';
 
@@ -79,7 +80,7 @@ export default function AdminProviderCompensationPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/admin/providers/${providerId}/compensation`);
+      const response = await apiFetch(`/api/admin/providers/${providerId}/compensation`);
 
       if (!response.ok) {
         const data = await response.json();
@@ -132,7 +133,7 @@ export default function AdminProviderCompensationPage() {
         }
       }
 
-      const response = await fetch(`/api/admin/providers/${providerId}/compensation`, {
+      const response = await apiFetch(`/api/admin/providers/${providerId}/compensation`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

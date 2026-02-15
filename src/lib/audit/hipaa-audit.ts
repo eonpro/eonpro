@@ -93,23 +93,45 @@ interface RequestContext {
 }
 
 /**
- * Extract context from HTTP request
+ * Accepted request sources for audit logging.
+ * - NextRequest: full request object (API routes)
+ * - Headers / ReadonlyHeaders: from next/headers in server components
+ * - null: no request context available (falls back to 'system' defaults)
  */
-function extractRequestContext(request: NextRequest): RequestContext {
-  const cookies = 'cookies' in request && typeof (request as { cookies?: { get: (n: string) => { value?: string } } }).cookies?.get === 'function'
-    ? (request as { cookies: { get: (n: string) => { value?: string } } }).cookies.get('session-id')?.value
-    : undefined;
+export type AuditRequestSource = NextRequest | Headers | null;
+
+/**
+ * Extract context from HTTP request or server-component Headers.
+ * Accepts NextRequest (API routes) or Headers (server components via `import { headers } from 'next/headers'`).
+ */
+function extractRequestContext(request: NextRequest | Headers): RequestContext {
+  // Determine if this is a full NextRequest (has method/url) or plain Headers
+  const isFullRequest = 'method' in request && 'url' in request;
+  const hdrs: Headers = isFullRequest ? (request as NextRequest).headers : (request as Headers);
+
+  // Session ID from cookies (only available on NextRequest)
+  let sessionId: string | undefined;
+  if (isFullRequest && 'cookies' in request) {
+    try {
+      sessionId = (request as NextRequest).cookies?.get('session-id')?.value;
+    } catch {
+      // cookies not available in this context
+    }
+  }
+
   return {
     ipAddress:
-      request.headers.get('x-forwarded-for') ||
-      request.headers.get('x-real-ip') ||
-      request.headers.get('cf-connecting-ip') || // Cloudflare
+      hdrs.get('x-forwarded-for') ||
+      hdrs.get('x-real-ip') ||
+      hdrs.get('cf-connecting-ip') || // Cloudflare
       'unknown',
-    userAgent: request.headers.get('user-agent') || 'unknown',
-    sessionId: cookies,
-    requestId: request.headers.get('x-request-id') || crypto.randomUUID(),
-    method: request.method,
-    path: new URL(request.url).pathname,
+    userAgent: hdrs.get('user-agent') || 'unknown',
+    sessionId,
+    requestId: hdrs.get('x-request-id') || crypto.randomUUID(),
+    method: isFullRequest ? (request as NextRequest).method : 'GET',
+    path: isFullRequest
+      ? new URL((request as NextRequest).url).pathname
+      : (hdrs.get('x-invoke-path') || hdrs.get('x-matched-path') || 'server-component'),
     timestamp: new Date(),
   };
 }
@@ -129,9 +151,10 @@ function calculateAuditHash(data: any): string {
 }
 
 /**
- * Main audit logging function
+ * Main audit logging function.
+ * Accepts NextRequest (API routes), Headers (server components), or null.
  */
-export async function auditLog(request: NextRequest | null, context: AuditContext): Promise<void> {
+export async function auditLog(request: AuditRequestSource, context: AuditContext): Promise<void> {
   try {
     const requestContext = request ? extractRequestContext(request) : null;
 
@@ -687,7 +710,7 @@ function eventTypeFromAction(action: string): string {
  * NEVER stores PHI content — only identifiers and metadata (blocklisted keys stripped).
  */
 export async function auditPhiAccess(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   options: AuditPhiAccessOptions
 ): Promise<void> {
   try {
@@ -770,7 +793,7 @@ export async function auditPhiAccess(
  * Extracts ip, requestId, route from request when available.
  */
 export function buildAuditPhiOptions(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   user: { id: number; role: string; clinicId?: number | null },
   action: string,
   opts: { patientId?: number | null; route?: string } = {}
@@ -807,7 +830,7 @@ export interface AuditUserContext {
  * Log PHI view access (read operation)
  */
 export async function logPHIAccess(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   user: AuditUserContext,
   resourceType: string,
   resourceId: string | number,
@@ -833,7 +856,7 @@ export async function logPHIAccess(
  * Log PHI creation
  */
 export async function logPHICreate(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   user: AuditUserContext,
   resourceType: string,
   resourceId: string | number,
@@ -859,7 +882,7 @@ export async function logPHICreate(
  * Log PHI update
  */
 export async function logPHIUpdate(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   user: AuditUserContext,
   resourceType: string,
   resourceId: string | number,
@@ -889,7 +912,7 @@ export async function logPHIUpdate(
  * Log PHI deletion
  */
 export async function logPHIDelete(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   user: AuditUserContext,
   resourceType: string,
   resourceId: string | number,
@@ -917,7 +940,7 @@ export async function logPHIDelete(
  * Log failed PHI access attempt (for security monitoring)
  */
 export async function logPHIAccessDenied(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   user: AuditUserContext,
   resourceType: string,
   resourceId: string | number,
@@ -943,7 +966,7 @@ export async function logPHIAccessDenied(
  * Log security event (login failures, suspicious activity)
  */
 export async function logSecurityEvent(
-  request: NextRequest | null,
+  request: AuditRequestSource,
   eventType: 'LOGIN_FAILED' | 'SECURITY_ALERT' | 'BREAK_GLASS',
   userId: number | string | null,
   reason: string,

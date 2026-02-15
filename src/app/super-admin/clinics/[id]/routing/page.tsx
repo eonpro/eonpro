@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -128,7 +129,7 @@ export default function ClinicRoutingPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/routing-config`);
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/routing-config`);
 
       if (!response.ok) {
         const data = await response.json();
@@ -157,7 +158,7 @@ export default function ClinicRoutingPage() {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch(`/api/super-admin/clinics/${clinicId}/routing-config`, {
+      const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/routing-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

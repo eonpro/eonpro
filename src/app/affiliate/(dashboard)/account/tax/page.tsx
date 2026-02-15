@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -55,7 +56,7 @@ export default function TaxInfoPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/affiliate/account');
+        const res = await apiFetch('/api/affiliate/account');
         if (res.ok) {
           const data = await res.json();
           setTaxStatus(data.taxStatus);
@@ -80,7 +81,7 @@ export default function TaxInfoPage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/affiliate/account/tax', {
+      const res = await apiFetch('/api/affiliate/account/tax', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(w9Form),

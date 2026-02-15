@@ -71,7 +71,8 @@ function getPatientPortalBasePath(): string {
 }
 
 function isPatientPortalRoute(pathname: string): boolean {
-  return pathname === '/patient-portal' || pathname.startsWith('/patient-portal/');
+  const portalBase = getPatientPortalBasePath();
+  return pathname === portalBase || pathname.startsWith(portalBase + '/');
 }
 
 export async function middleware(request: NextRequest) {
@@ -80,7 +81,7 @@ export async function middleware(request: NextRequest) {
   if (isPatientPortalRoute(pathname)) {
     const token =
       request.cookies.get('patient-token')?.value || request.cookies.get('auth-token')?.value;
-    if (!token) {
+    if (!token || token.split('.').length !== 3) {
       const portalPath = getPatientPortalBasePath();
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', portalPath);

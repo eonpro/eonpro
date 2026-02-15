@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Insight {
   id: string;
@@ -98,7 +99,7 @@ export function PatientInsights() {
   const fetchInsights = async () => {
     try {
       setError(null);
-      const res = await fetch('/api/patient-portal/ai/insights');
+      const res = await apiFetch('/api/patient-portal/ai/insights');
       if (res.ok) {
         const data = await res.json();
         setInsights(data.insights || []);
@@ -221,7 +222,7 @@ export function BeccaChatWidget({ onExpand }: BeccaChatWidgetProps) {
     setMessage('');
 
     try {
-      const res = await fetch('/api/patient-portal/ai/chat', {
+      const res = await apiFetch('/api/patient-portal/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, history: [] }),

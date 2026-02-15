@@ -80,7 +80,7 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     labelKey: 'navAchievements',
     featureFlagKey: 'showAchievements',
     navSlot: 'main',
-    defaultOn: true,
+    defaultOn: false,
     treatmentTypes: ACHIEVEMENTS_TREATMENTS,
   },
   {
@@ -105,7 +105,7 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     labelKey: 'navSymptomChecker',
     featureFlagKey: 'showSymptomChecker',
     navSlot: 'main',
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     id: 'calculators',
@@ -127,7 +127,7 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     id: 'documents',
     pathSuffix: '/documents',
     labelKey: 'navDocuments',
-    featureFlagKey: 'showLabResults',
+    featureFlagKey: 'showDocuments',
     navSlot: 'main',
     defaultOn: true,
   },
@@ -199,7 +199,7 @@ export const PROGRESS_TRACKING_MODULES: readonly ProgressTrackingModule[] = [
     tabId: 'nutrition',
     labelKey: 'progressNutrition',
     featureFlagKey: 'showDietaryPlans',
-    defaultOn: true,
+    defaultOn: false,
   },
 ] as const;
 

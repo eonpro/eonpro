@@ -18,20 +18,21 @@ import { Errors } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
-import { encryptPatientPHI, decryptPatientPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
+import { encryptPatientPHI, decryptPHI } from '@/lib/security/phi-encryption';
+import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex } from '@/lib/utils/search';
 
-import type {
-  PatientEntity,
-  PatientSummary,
-  PatientSummaryWithClinic,
-  PatientWithCounts,
-  CreatePatientInput,
-  UpdatePatientInput,
-  PatientFilterOptions,
-  PatientPaginationOptions,
-  PaginatedPatients,
-  AuditContext,
+import {
+  PHI_FIELDS,
+  type PatientEntity,
+  type PatientSummary,
+  type PatientSummaryWithClinic,
+  type PatientWithCounts,
+  type CreatePatientInput,
+  type UpdatePatientInput,
+  type PatientFilterOptions,
+  type PatientPaginationOptions,
+  type PaginatedPatients,
+  type AuditContext,
 } from '../types/patient.types';
 
 // ============================================================================
@@ -65,28 +66,7 @@ const PATIENT_SUMMARY_SELECT = {
   clinicId: true,
 } as const;
 
-/**
- * PHI fields that need encryption/decryption
- *
- * SOC 2 Compliance: All PII/PHI fields must be encrypted at rest
- * - Direct identifiers: firstName, lastName, email, phone
- * - Health information: dob
- * - Location data: address1, address2, city, state, zip
- *
- * @see docs/HIPAA_COMPLIANCE_EVIDENCE.md for compliance documentation
- */
-const PHI_FIELDS = [
-  'firstName',
-  'lastName',
-  'email',
-  'phone',
-  'dob',
-  'address1',
-  'address2',
-  'city',
-  'state',
-  'zip',
-] as const;
+// PHI_FIELDS imported from '../types/patient.types' — single source of truth
 
 // ============================================================================
 // Repository Interface
@@ -117,7 +97,7 @@ export interface PatientRepository {
   /**
    * Find a patient by Stripe customer ID
    */
-  findByStripeCustomerId(stripeCustomerId: string): Promise<PatientEntity | null>;
+  findByStripeCustomerId(stripeCustomerId: string, clinicId?: number): Promise<PatientEntity | null>;
 
   /**
    * List patients with filtering and pagination
@@ -229,9 +209,12 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       return decryptPatient(patient) as PatientEntity;
     },
 
-    async findByStripeCustomerId(stripeCustomerId: string): Promise<PatientEntity | null> {
+    async findByStripeCustomerId(stripeCustomerId: string, clinicId?: number): Promise<PatientEntity | null> {
       const patient = await db.patient.findFirst({
-        where: { stripeCustomerId },
+        where: {
+          stripeCustomerId,
+          ...(clinicId != null ? { clinicId } : {}),
+        },
       });
 
       if (!patient) {
@@ -253,27 +236,31 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       const hasSearch = !!filter.search;
 
       if (hasSearch) {
-        // Fetch more patients for in-memory filtering (up to 2000)
-        const allPatients = await db.patient.findMany({
-          where,
-          select: PATIENT_SUMMARY_SELECT,
-          orderBy: { [orderBy]: orderDir },
-          take: 2000,
-        });
+        // Use searchIndex column with GIN trigram index for efficient search
+        const searchTerm = filter.search!.toLowerCase().trim();
 
-        // Decrypt and filter by search
-        const decryptedAll = allPatients.map((p) => decryptPatientSummary(p));
-        const filtered = filterPatientsBySearch(decryptedAll, filter.search!);
+        const searchWhere = {
+          ...where,
+          searchIndex: { contains: searchTerm, mode: 'insensitive' as const },
+        };
 
-        // Apply pagination to filtered results
-        const paginated = filtered.slice(offset, offset + limit);
+        const [patients, total] = await Promise.all([
+          db.patient.findMany({
+            where: searchWhere,
+            select: PATIENT_SUMMARY_SELECT,
+            orderBy: { [orderBy]: orderDir },
+            skip: offset,
+            take: limit,
+          }),
+          db.patient.count({ where: searchWhere }),
+        ]);
 
         return {
-          data: paginated,
-          total: filtered.length,
+          data: patients.map((p) => decryptPatientSummary(p)),
+          total,
           limit,
           offset,
-          hasMore: offset + paginated.length < filtered.length,
+          hasMore: offset + patients.length < total,
         };
       }
 
@@ -312,33 +299,37 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       const hasSearch = !!filter.search;
 
       if (hasSearch) {
-        // Fetch more patients for in-memory filtering (up to 2000)
-        const allPatients = await db.patient.findMany({
-          where,
-          select: {
-            ...PATIENT_SUMMARY_SELECT,
-            clinic: { select: { name: true } },
-          },
-          orderBy: { [orderBy]: orderDir },
-          take: 2000,
-        });
+        // Use searchIndex column with GIN trigram index for efficient search
+        const searchTerm = filter.search!.toLowerCase().trim();
 
-        // Decrypt and filter by search
-        const decryptedAll = allPatients.map((p) => ({
-          ...decryptPatientSummary(p),
-          clinicName: p.clinic?.name ?? null,
-        }));
-        const filtered = filterPatientsBySearch(decryptedAll, filter.search!);
-
-        // Apply pagination to filtered results
-        const paginated = filtered.slice(offset, offset + limit);
+        const [patients, total] = await Promise.all([
+          db.patient.findMany({
+            where: {
+              ...where,
+              searchIndex: { contains: searchTerm, mode: 'insensitive' },
+            },
+            select: { ...PATIENT_SUMMARY_SELECT, clinic: { select: { name: true } } },
+            orderBy: { [orderBy]: orderDir },
+            skip: offset,
+            take: limit,
+          }),
+          db.patient.count({
+            where: {
+              ...where,
+              searchIndex: { contains: searchTerm, mode: 'insensitive' },
+            },
+          }),
+        ]);
 
         return {
-          data: paginated,
-          total: filtered.length,
+          data: patients.map((p) => ({
+            ...decryptPatientSummary(p),
+            clinicName: p.clinic?.name ?? null,
+          })),
+          total,
           limit,
           offset,
-          hasMore: offset + paginated.length < filtered.length,
+          hasMore: offset + patients.length < total,
         };
       }
 
@@ -408,8 +399,17 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       const patientId = await generatePatientId(input.clinicId);
 
       return db.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Build search index from plain-text BEFORE encryption
+        const searchIndex = buildPatientSearchIndex({
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          phone: input.phone,
+          patientId,
+        });
+
         // Encrypt PHI fields
-        const encryptedData = encryptPatientPHI(input as Record<string, unknown>, [...PHI_FIELDS]);
+        const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [...PHI_FIELDS]);
 
         // Build source metadata
         const sourceMetadata = (input.sourceMetadata ?? {
@@ -428,6 +428,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           tags: (input.tags ?? []) as Prisma.InputJsonValue,
           source: input.source ?? 'api',
           sourceMetadata,
+          searchIndex,
         };
         const patient = await tx.patient.create({
           data: createData as unknown as Prisma.PatientCreateInput,
@@ -448,7 +449,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         });
 
         return decryptPatient(patient) as PatientEntity;
-      });
+      }, { isolationLevel: 'Serializable', timeout: 30000 });
     },
 
     async update(
@@ -463,14 +464,34 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         throw Errors.patientNotFound(id);
       }
 
+      // Rebuild search index if any searchable field changed
+      const searchableFieldsChanged = ['firstName', 'lastName', 'email', 'phone'].some(
+        (f) => (input as Record<string, unknown>)[f] !== undefined
+      );
+
+      let searchIndex: string | undefined;
+      if (searchableFieldsChanged) {
+        // Merge existing (decrypted) values with new values to build complete index
+        searchIndex = buildPatientSearchIndex({
+          firstName: (input.firstName ?? existing.firstName) as string,
+          lastName: (input.lastName ?? existing.lastName) as string,
+          email: (input.email ?? existing.email) as string,
+          phone: (input.phone ?? existing.phone) as string,
+          patientId: existing.patientId as string,
+        });
+      }
+
       // Encrypt PHI fields in update data
-      const encryptedData = encryptPatientPHI(input, [...PHI_FIELDS]);
+      const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [...PHI_FIELDS]);
 
       return db.$transaction(async (tx: Prisma.TransactionClient) => {
         // Update patient
         const patient = await tx.patient.update({
           where: { id },
-          data: encryptedData as Prisma.PatientUpdateInput,
+          data: {
+            ...encryptedData,
+            ...(searchIndex !== undefined && { searchIndex }),
+          } as Prisma.PatientUpdateInput,
         });
 
         // Build change diff for audit
@@ -488,7 +509,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }
 
         return decryptPatient(patient) as PatientEntity;
-      });
+      }, { isolationLevel: 'Serializable', timeout: 30000 });
     },
 
     async delete(id: number, audit: AuditContext, clinicId?: number): Promise<void> {
@@ -500,6 +521,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
       await db.$transaction(async (tx) => {
         // Create audit log BEFORE deletion (will be orphaned but preserved for compliance)
+        // NOTE: Do not store PHI (names, email) in audit diffs — use IDs only
         await tx.patientAudit.create({
           data: {
             patientId: id,
@@ -507,10 +529,8 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
             actorEmail: audit.actorEmail,
             diff: {
               deleted: true,
-              firstName: existing.firstName,
-              lastName: existing.lastName,
+              patientId: existing.patientId,
               relatedData: existing._count,
-              by: audit.actorEmail,
               role: audit.actorRole,
             },
           },
@@ -677,7 +697,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
         // Finally delete the patient
         await tx.patient.delete({ where: { id } });
-      });
+      }, { isolationLevel: 'Serializable', timeout: 30000 });
     },
 
     async exists(id: number, clinicId?: number): Promise<boolean> {
@@ -702,22 +722,41 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 // ============================================================================
 
 /**
- * Decrypt patient entity PHI fields
- * Gracefully handles decryption failures by returning raw data
- * (matches current route behavior during encryption migration period)
+ * Safely decrypt a single PHI field.
+ * Returns the decrypted value on success, '[Encrypted]' on failure, or null/empty as-is.
+ */
+function decryptField(value: unknown, fieldName: string, patientId?: unknown): string | null {
+  if (value == null || value === '') return value as string | null;
+  const strValue = String(value);
+  try {
+    const decrypted = decryptPHI(strValue);
+    return decrypted;
+  } catch (err) {
+    logger.warn('PHI decryption failed', {
+      fieldName,
+      patientId: patientId ?? undefined,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return '[Encrypted]';
+  }
+}
+
+/**
+ * Decrypt patient entity PHI fields.
+ * Handles decryption failures gracefully per-field by returning '[Encrypted]' placeholders
+ * instead of raw encrypted data.
  */
 function decryptPatient<T extends Record<string, unknown>>(patient: T): T {
-  try {
-    return decryptPatientPHI(patient, [...PHI_FIELDS]);
-  } catch (error) {
-    // If decryption fails, return patient data without decryption
-    // This handles cases where data might not be encrypted yet (migration period)
-    logger.warn('Failed to decrypt patient PHI, returning raw data', {
-      patientId: (patient as Record<string, unknown>).id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return patient;
+  const decrypted = { ...patient };
+  const patientId = patient.id;
+
+  for (const field of PHI_FIELDS) {
+    if (field in decrypted) {
+      (decrypted[field] as unknown) = decryptField(decrypted[field], field, patientId);
+    }
   }
+
+  return decrypted;
 }
 
 /**
@@ -728,41 +767,30 @@ function safeStr(v: unknown): string {
 }
 
 /**
- * Decrypt patient summary PHI fields
- * Gracefully handles decryption failures by returning raw data with safe fallbacks
+ * Decrypt patient summary PHI fields.
+ * Handles decryption failures gracefully per-field using decryptField.
  */
 function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary {
-  let decrypted: Record<string, unknown>;
-  try {
-    decrypted = decryptPatientPHI(patient, [...PHI_FIELDS]);
-  } catch (error) {
-    logger.warn('Failed to decrypt patient summary PHI, returning raw data', {
-      patientId: patient.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    decrypted = patient;
-  }
+  const patientId = patient.id;
 
   return {
-    id: (decrypted.id as number) ?? 0,
-    patientId: (decrypted.patientId as string | null) ?? null,
-    firstName: safeStr(decrypted.firstName),
-    lastName: safeStr(decrypted.lastName),
-    email: safeStr(decrypted.email),
-    phone: safeStr(decrypted.phone),
-    dob: safeStr(decrypted.dob),
-    gender: safeStr(decrypted.gender),
-    address1: safeStr(decrypted.address1),
-    address2: (decrypted.address2 != null && typeof decrypted.address2 === 'string'
-      ? decrypted.address2
-      : null) as string | null,
-    city: safeStr(decrypted.city),
-    state: safeStr(decrypted.state),
-    zip: safeStr(decrypted.zip),
-    tags: (decrypted.tags as string[] | null) ?? null,
-    source: (decrypted.source as PatientSummary['source']) ?? null,
-    createdAt: (decrypted.createdAt as Date) ?? new Date(),
-    clinicId: (decrypted.clinicId as number) ?? 0,
+    id: (patient.id as number) ?? 0,
+    patientId: (patient.patientId as string | null) ?? null,
+    firstName: safeStr(decryptField(patient.firstName, 'firstName', patientId)),
+    lastName: safeStr(decryptField(patient.lastName, 'lastName', patientId)),
+    email: safeStr(decryptField(patient.email, 'email', patientId)),
+    phone: safeStr(decryptField(patient.phone, 'phone', patientId)),
+    dob: safeStr(decryptField(patient.dob, 'dob', patientId)),
+    gender: safeStr(patient.gender),
+    address1: safeStr(decryptField(patient.address1, 'address1', patientId)),
+    address2: (decryptField(patient.address2, 'address2', patientId)) as string | null,
+    city: safeStr(decryptField(patient.city, 'city', patientId)),
+    state: safeStr(decryptField(patient.state, 'state', patientId)),
+    zip: safeStr(decryptField(patient.zip, 'zip', patientId)),
+    tags: (patient.tags as string[] | null) ?? null,
+    source: (patient.source as PatientSummary['source']) ?? null,
+    createdAt: (patient.createdAt as Date) ?? new Date(),
+    clinicId: (patient.clinicId as number) ?? 0,
   };
 }
 
@@ -907,7 +935,11 @@ function buildChangeDiff(
     const afterVal = after[field];
 
     if (afterVal !== undefined && beforeVal !== afterVal) {
-      diff[field] = { before: beforeVal, after: afterVal };
+      const isPhiField = (PHI_FIELDS as readonly string[]).includes(field);
+      diff[field] = {
+        before: isPhiField ? '[REDACTED]' : beforeVal,
+        after: isPhiField ? '[REDACTED]' : afterVal,
+      };
     }
   }
 

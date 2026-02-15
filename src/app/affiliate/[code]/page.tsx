@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useParams } from 'next/navigation';
 
 // ============================================================================
@@ -338,7 +339,7 @@ function AffiliateLandingContent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch(`/api/affiliate/landing/${encodeURIComponent(code)}`);
+        const res = await apiFetch(`/api/affiliate/landing/${encodeURIComponent(code)}`);
         const json = await res.json();
         setData(json);
       } catch {

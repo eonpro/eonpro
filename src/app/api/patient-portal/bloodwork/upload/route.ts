@@ -24,7 +24,7 @@ const bloodworkUploadRateLimit = rateLimit({
   message: 'Too many uploads. Please try again in 15 minutes.',
 });
 
-async function postHandler(req: NextRequest, user: { id: number; patientId?: number }) {
+async function postHandler(req: NextRequest, user: { id: number; role: string; patientId?: number }) {
   if (!user.patientId) {
     return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
   }

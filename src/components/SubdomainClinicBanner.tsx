@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 /**
  * When the user is on a clinic subdomain (e.g. ot.eonpro.io) but their session
@@ -34,11 +35,10 @@ export function SubdomainClinicBanner() {
 
       try {
         const [resolveRes, currentRes] = await Promise.all([
-          fetch(`/api/clinic/resolve?domain=${encodeURIComponent(hostname)}`, {
+          apiFetch(`/api/clinic/resolve?domain=${encodeURIComponent(hostname)}`, {
             cache: 'no-store',
-            credentials: 'same-origin',
           }),
-          fetch('/api/clinic/current', { credentials: 'same-origin' }),
+          apiFetch('/api/clinic/current'),
         ]);
 
         if (cancelled) return;
@@ -69,10 +69,9 @@ export function SubdomainClinicBanner() {
     if (!banner || switching) return;
     setSwitching(true);
     try {
-      const res = await fetch('/api/clinic/switch', {
+      const res = await apiFetch('/api/clinic/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
         body: JSON.stringify({ clinicId: banner.subdomainClinicId }),
       });
       if (res.ok) {

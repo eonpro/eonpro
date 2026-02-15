@@ -26,6 +26,7 @@ import {
   RefreshCw as ArrowPathIcon,
   Tag as TagIcon,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Types
 interface TicketDetail {
@@ -238,7 +239,7 @@ export default function TicketDetailPage() {
   // Fetch ticket
   const fetchTicket = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
@@ -259,7 +260,7 @@ export default function TicketDetailPage() {
   // Fetch comments
   const fetchComments = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/comments`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}/comments`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
@@ -274,7 +275,7 @@ export default function TicketDetailPage() {
   // Fetch activity
   const fetchActivity = useCallback(async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/activity`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}/activity`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });
@@ -313,7 +314,7 @@ export default function TicketDetailPage() {
     const params = new URLSearchParams({ limit: '100' });
     if (cid) params.set('clinicId', cid);
     ['staff', 'admin', 'provider', 'support'].forEach((r) => params.append('role', r));
-    fetch(`/api/users?${params.toString()}`, { credentials: 'include', headers: getAuthHeaders() })
+    apiFetch(`/api/users?${params.toString()}`, { credentials: 'include', headers: getAuthHeaders() })
       .then((r) => r.ok ? r.json() : { users: [] })
       .then((data) => setAssignUsers(data.users || []))
       .catch(() => setAssignUsers([]));
@@ -326,7 +327,7 @@ export default function TicketDetailPage() {
 
     setSubmittingComment(true);
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/comments`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}/comments`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -358,7 +359,7 @@ export default function TicketDetailPage() {
     if (!ticket || newStatus === ticket.status) return;
     setUpdatingStatus(true);
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/status`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}/status`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -381,7 +382,7 @@ export default function TicketDetailPage() {
     if (value === (ticket.assignedTo?.id ?? null)) return;
     setUpdatingAssign(true);
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/assign`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}/assign`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -413,7 +414,7 @@ export default function TicketDetailPage() {
     if (!ticket) return;
     setSavingEdit(true);
     try {
-      const response = await fetch(`/api/tickets/${ticketId}`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -445,7 +446,7 @@ export default function TicketDetailPage() {
     setSubmittingResolve(true);
     setResolveError(null);
     try {
-      const response = await fetch(`/api/tickets/${ticketId}/resolve`, {
+      const response = await apiFetch(`/api/tickets/${ticketId}/resolve`, {
         method: 'POST',
         credentials: 'include',
         headers: {

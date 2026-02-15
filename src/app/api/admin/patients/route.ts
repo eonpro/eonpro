@@ -7,6 +7,9 @@
  *
  * For sales_rep role, only shows patients assigned to them.
  *
+ * Search uses the `searchIndex` column (populated on create/update) with a
+ * pg_trgm GIN index for O(1) substring matching at any scale (10M+ records).
+ *
  * @module api/admin/patients
  */
 
@@ -147,25 +150,30 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       whereClause.id = { in: filteredIds.filter((id) => salesRepPatientIds.includes(id)) };
     }
 
-    // NOTE: Patient names and emails are ENCRYPTED in the database.
-    // We cannot use SQL LIKE/CONTAINS on encrypted fields.
-    // For search: fetch all matching patients, decrypt, then filter in memory.
-    // For non-search: use normal pagination.
+    // Add search filter using the searchIndex column (DB-level, scales to 10M+)
+    if (search) {
+      const terms = splitSearchTerms(search);
+      const searchDigitsOnly = search.replace(/\D/g, '');
 
-    // Only add patientId search at DB level (it's not encrypted)
-    if (search && !search.includes('@')) {
-      // Try to match patientId which is NOT encrypted
-      whereClause.OR = [{ patientId: { contains: search, mode: 'insensitive' } }];
+      // For phone-only searches (all digits, 3+ chars), search by digits
+      const isPhoneSearch = searchDigitsOnly.length >= 3 && searchDigitsOnly === search.trim();
+
+      if (isPhoneSearch) {
+        whereClause.searchIndex = { contains: searchDigitsOnly, mode: 'insensitive' };
+      } else if (terms.length === 1) {
+        whereClause.searchIndex = { contains: terms[0], mode: 'insensitive' };
+      } else {
+        // Multi-term: ALL terms must appear in searchIndex
+        whereClause.AND = terms.map((term) => ({
+          searchIndex: { contains: term, mode: 'insensitive' },
+        }));
+      }
     }
 
-    // Query converted patients
-    // When searching, fetch more to filter in memory after decryption
-    const fetchLimit = search ? 2000 : limit; // Fetch more for search filtering
-    const fetchOffset = search ? 0 : offset; // Start from beginning for search
-
-    const [patients, totalWithoutSearch] = await Promise.all([
+    // Execute query with DB-level search + pagination
+    const [patients, total] = await Promise.all([
       prisma.patient.findMany({
-        where: search ? { id: { in: filteredIds }, ...(clinicId && { clinicId }) } : whereClause,
+        where: whereClause,
         include: {
           clinic: {
             select: {
@@ -230,50 +238,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: fetchLimit,
-        skip: fetchOffset,
+        take: limit,
+        skip: offset,
       }),
-      prisma.patient.count({
-        where: search ? { id: { in: filteredIds }, ...(clinicId && { clinicId }) } : whereClause,
-      }),
+      prisma.patient.count({ where: whereClause }),
     ]);
 
-    // For search: decrypt and filter patients in memory
-    let filteredPatients = patients;
-    let total = totalWithoutSearch;
-
-    if (search) {
-      const searchNormalized = normalizeSearch(search);
-      const terms = splitSearchTerms(search);
-
-      filteredPatients = patients.filter((patient: (typeof patients)[number]) => {
-        const decryptedFirst = safeDecrypt(patient.firstName)?.toLowerCase() || '';
-        const decryptedLast = safeDecrypt(patient.lastName)?.toLowerCase() || '';
-        const decryptedEmail = safeDecrypt(patient.email)?.toLowerCase() || '';
-        const patientIdLower = patient.patientId?.toLowerCase() || '';
-
-        // Check if any search term matches
-        return (
-          terms.some(
-            (term) =>
-              decryptedFirst.includes(term) ||
-              decryptedLast.includes(term) ||
-              decryptedEmail.includes(term) ||
-              patientIdLower.includes(term)
-          ) ||
-          // Also check full name match (first + last)
-          (terms.length >= 2 && (decryptedFirst + ' ' + decryptedLast).includes(searchNormalized))
-        );
-      });
-
-      total = filteredPatients.length;
-
-      // Apply pagination to filtered results
-      filteredPatients = filteredPatients.slice(offset, offset + limit);
-    }
-
     // Transform response
-    const patientsData = filteredPatients.map((patient: (typeof patients)[number]) => {
+    const patientsData = patients.map((patient) => {
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
       const salesRepAssignment = patient.salesRepAssignments?.[0];

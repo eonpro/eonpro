@@ -27,6 +27,7 @@ import {
   Legend,
   Cell,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PayoutData {
   balance: {
@@ -103,7 +104,7 @@ export default function PayoutsPage() {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const response = await fetch('/api/finance/payouts', {
+        const response = await apiFetch('/api/finance/payouts', {
           credentials: 'include',
           headers,
         });

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import MergePatientModal from '@/components/MergePatientModal';
 import DeletePatientModal from '@/components/DeletePatientModal';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Patient {
   id: number;
@@ -114,7 +115,7 @@ export default function AdminIntakesPage() {
         params.set('offset', offset.toString());
       }
 
-      const response = await fetch(`/api/admin/intakes?${params.toString()}`, {
+      const response = await apiFetch(`/api/admin/intakes?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -213,7 +214,7 @@ export default function AdminIntakesPage() {
     if (!deletePatient) return;
 
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-    const response = await fetch(`/api/patients/${deletePatient.id}`, {
+    const response = await apiFetch(`/api/patients/${deletePatient.id}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -279,7 +280,7 @@ export default function AdminIntakesPage() {
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, patient ID, or email..."
+              placeholder="Search by name, patient ID, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2"

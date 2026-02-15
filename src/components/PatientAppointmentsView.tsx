@@ -16,6 +16,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Provider {
   id: number;
@@ -133,7 +134,7 @@ export default function PatientAppointmentsView({
         url.searchParams.set('clinicId', clinicId.toString());
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await apiFetch(url.toString(), {
         credentials: 'include',
       });
 
@@ -163,7 +164,7 @@ export default function PatientAppointmentsView({
         url.searchParams.set('clinicId', clinicId.toString());
       }
 
-      const response = await fetch(url.toString(), {
+      const response = await apiFetch(url.toString(), {
         credentials: 'include',
       });
 
@@ -293,7 +294,7 @@ export default function PatientAppointmentsView({
       // Construct the start time from date and time
       const startTime = new Date(`${appointmentForm.date}T${appointmentForm.time}`);
 
-      const response = await fetch('/api/patient-portal/appointments', {
+      const response = await apiFetch('/api/patient-portal/appointments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

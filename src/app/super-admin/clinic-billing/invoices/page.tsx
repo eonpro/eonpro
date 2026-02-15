@@ -17,6 +17,7 @@ import {
   Send,
   Building2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Invoice {
   id: number;
@@ -104,9 +105,7 @@ export default function InvoicesPage() {
       if (statusFilter) params.set('status', statusFilter);
       if (clinicFilter) params.set('clinicId', clinicFilter);
 
-      const response = await fetch(`/api/super-admin/clinic-invoices?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/super-admin/clinic-invoices?${params}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -123,9 +122,7 @@ export default function InvoicesPage() {
   const fetchClinics = async () => {
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch('/api/super-admin/clinic-fees', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/super-admin/clinic-fees');
       if (response.ok) {
         const data = await response.json();
         setClinics(data.clinics?.map((c: { clinic: Clinic }) => c.clinic) || []);
@@ -163,11 +160,10 @@ export default function InvoicesPage() {
     setCreating(true);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch('/api/super-admin/clinic-invoices', {
+      const response = await apiFetch('/api/super-admin/clinic-invoices', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           clinicId: parseInt(createForm.clinicId),

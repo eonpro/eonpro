@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { handleApiError } from '@/domains/shared/errors';
+import { logPHIAccess, logPHICreate, logPHIUpdate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { z } from 'zod';
 import {
   getAvailableSlots,
@@ -54,6 +56,23 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       patientId = searchParams.get('patientId')
         ? parseInt(searchParams.get('patientId')!)
         : undefined;
+    }
+
+    // Verify patient belongs to user's clinic when non-patient provides patientId
+    if (patientId && user.role !== 'patient') {
+      const patientRecord = await prisma.patient.findFirst({
+        where: {
+          id: patientId,
+          ...(user.clinicId ? { clinicId: user.clinicId } : {}),
+        },
+        select: { id: true },
+      });
+      if (!patientRecord) {
+        return NextResponse.json(
+          { error: 'Patient not found or access denied' },
+          { status: 403 }
+        );
+      }
     }
 
     // Get available slots for booking
@@ -162,12 +181,15 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       status: upcoming ? [AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED] : undefined,
     });
 
+    await logPHIAccess(req, user, 'PatientAppointment', String(patientId), patientId, {
+      appointmentCount: appointments.length,
+    });
+
     return NextResponse.json({ appointments });
   } catch (error) {
-    logger.error('Failed to fetch patient appointments', { error });
-    return NextResponse.json({ error: 'Failed to fetch appointments' }, { status: 500 });
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/appointments' } });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
 
 /**
  * POST /api/patient-portal/appointments
@@ -245,12 +267,16 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       bookedBy: user.id,
     });
 
+    await logPHICreate(req, user, 'PatientAppointment', String(result.appointment.id), patientId, {
+      providerId: parsed.data.providerId,
+      appointmentTypeId: parsed.data.appointmentTypeId,
+    });
+
     return NextResponse.json({ appointment: result.appointment }, { status: 201 });
   } catch (error) {
-    logger.error('Failed to book appointment', { error });
-    return NextResponse.json({ error: 'Failed to book appointment' }, { status: 500 });
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/appointments' } });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
 
 /**
  * PATCH /api/patient-portal/appointments
@@ -307,16 +333,20 @@ export const PATCH = withAuth(async (req: NextRequest, user) => {
       rescheduledBy: user.id,
     });
 
+    await logPHIUpdate(req, user, 'PatientAppointment', String(parsed.data.appointmentId), appointment.patientId, ['startTime', 'status'], {
+      newAppointmentId: result.newAppointment.id,
+      reason: parsed.data.reason,
+    });
+
     return NextResponse.json({
       success: true,
       oldAppointment: result.oldAppointment,
       newAppointment: result.newAppointment,
     });
   } catch (error) {
-    logger.error('Failed to reschedule appointment', { error });
-    return NextResponse.json({ error: 'Failed to reschedule appointment' }, { status: 500 });
+    return handleApiError(error, { context: { route: 'PATCH /api/patient-portal/appointments' } });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
 
 /**
  * DELETE /api/patient-portal/appointments
@@ -376,9 +406,10 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
       reason,
     });
 
+    await logPHIDelete(req, user, 'PatientAppointment', appointmentId, appointment.patientId, reason || 'Cancelled by patient');
+
     return NextResponse.json({ success: true, appointment: result.appointment });
   } catch (error) {
-    logger.error('Failed to cancel appointment', { error });
-    return NextResponse.json({ error: 'Failed to cancel appointment' }, { status: 500 });
+    return handleApiError(error, { context: { route: 'DELETE /api/patient-portal/appointments' } });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });

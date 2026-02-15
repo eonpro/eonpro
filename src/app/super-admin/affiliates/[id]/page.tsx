@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   ArrowLeft,
   DollarSign,
@@ -136,7 +137,7 @@ export default function SuperAdminAffiliateDetailPage() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/super-admin/affiliates/${affiliateId}`, {
+      const res = await apiFetch(`/api/super-admin/affiliates/${affiliateId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -171,7 +172,7 @@ export default function SuperAdminAffiliateDetailPage() {
 
     try {
       // Try to fetch stats from the main affiliates endpoint
-      const res = await fetch(`/api/super-admin/affiliates`, {
+      const res = await apiFetch(`/api/super-admin/affiliates`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -197,7 +198,7 @@ export default function SuperAdminAffiliateDetailPage() {
     const token = getAuthToken();
 
     try {
-      const res = await fetch(`/api/super-admin/affiliates`, {
+      const res = await apiFetch(`/api/super-admin/affiliates`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -221,7 +222,7 @@ export default function SuperAdminAffiliateDetailPage() {
     const token = getAuthToken();
 
     try {
-      const res = await fetch(`/api/super-admin/affiliates/${affiliateId}`, {
+      const res = await apiFetch(`/api/super-admin/affiliates/${affiliateId}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

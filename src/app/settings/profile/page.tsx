@@ -9,6 +9,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { EditableAvatar } from '@/components/UserAvatar';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ProfileData {
   id: number;
@@ -45,15 +46,15 @@ export default function ProfileSettingsPage() {
       setError(null);
 
       // Fetch profile picture info
-      const avatarRes = await fetch('/api/user/profile-picture');
+      const avatarRes = await apiFetch('/api/user/profile-picture');
       const avatarData = avatarRes.ok ? await avatarRes.json() : {};
 
       // Fetch user details from settings dashboard
-      const dashboardRes = await fetch('/api/settings/dashboard');
+      const dashboardRes = await apiFetch('/api/settings/dashboard');
       const dashboardData = dashboardRes.ok ? await dashboardRes.json() : {};
 
       // Fetch full user info
-      const userRes = await fetch('/api/auth/me');
+      const userRes = await apiFetch('/api/auth/me');
       const userDataWrapper = userRes.ok ? await userRes.json() : {};
       const userData = userDataWrapper.user || userDataWrapper;
 
@@ -107,7 +108,7 @@ export default function ProfileSettingsPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/user/profile-picture', {
+      const res = await apiFetch('/api/user/profile-picture', {
         method: 'POST',
         body: formData,
       });
@@ -153,7 +154,7 @@ export default function ProfileSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/user/profile-picture', {
+      const res = await apiFetch('/api/user/profile-picture', {
         method: 'DELETE',
       });
 
@@ -186,7 +187,7 @@ export default function ProfileSettingsPage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await apiFetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

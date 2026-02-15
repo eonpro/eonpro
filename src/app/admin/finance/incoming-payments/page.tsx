@@ -15,6 +15,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 const VALID_STATUSES = ['MATCHED', 'CREATED', 'FAILED', 'PENDING', 'SKIPPED'] as const;
 
@@ -123,7 +124,7 @@ export default function IncomingPaymentsPage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/finance/incoming-payments?${params}`, {
+      const res = await apiFetch(`/api/finance/incoming-payments?${params}`, {
         credentials: 'include',
         headers,
       });

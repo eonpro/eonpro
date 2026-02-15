@@ -4,6 +4,9 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
+import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 const createSleepLogSchema = z.object({
   patientId: z.union([z.string(), z.number()]).transform((val) => {
@@ -33,13 +36,6 @@ const getSleepLogsSchema = z.object({
   }),
 });
 
-function canAccessPatient(user: { role: string; patientId?: number }, patientId: number): boolean {
-  if (user.role === 'patient') {
-    return user.patientId === patientId;
-  }
-  return ['provider', 'admin', 'staff', 'super_admin'].includes(user.role);
-}
-
 const postHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const rawData = await request.json();
@@ -54,7 +50,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId, sleepStart, sleepEnd, quality, notes } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -77,10 +73,14 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
+    await logPHICreate(request, user, 'PatientSleepLog', sleepLog.id, patientId);
+
     return NextResponse.json(sleepLog, { status: 201 });
   } catch (error) {
-    logger.error('Failed to create sleep log', { error });
-    return NextResponse.json({ error: 'Failed to create sleep log' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-progress/sleep',
+      context: { userId: user.id },
+    });
   }
 });
 
@@ -103,7 +103,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -133,6 +133,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           logsWithQuality.length
         : null;
 
+    await logPHIAccess(request, user, 'PatientSleepLog', 'list', patientId);
+
     return NextResponse.json({
       data: sleepLogs,
       meta: {
@@ -144,8 +146,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to fetch sleep logs', { error });
-    return NextResponse.json({ error: 'Failed to fetch sleep logs' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-progress/sleep',
+      context: { userId: user.id },
+    });
   }
 });
 

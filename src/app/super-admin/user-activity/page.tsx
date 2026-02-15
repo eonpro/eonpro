@@ -22,6 +22,7 @@ import {
   TrendingUp,
   UserPlus,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface UserActivity {
   id: number;
@@ -106,9 +107,7 @@ export default function UserActivityPage() {
         sortOrder,
       });
 
-      const response = await fetch(`/api/super-admin/user-activity?${params}`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch(`/api/super-admin/user-activity?${params}`);
 
       const data = await response.json();
 
@@ -139,9 +138,8 @@ export default function UserActivityPage() {
     if (!confirm('Are you sure you want to force logout this user?')) return;
 
     try {
-      const response = await fetch('/api/super-admin/user-activity', {
+      const response = await apiFetch('/api/super-admin/user-activity', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'force_logout', userId }),
       });

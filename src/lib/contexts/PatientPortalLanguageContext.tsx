@@ -50,6 +50,8 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const token =
       localStorage.getItem('auth-token') ||
       localStorage.getItem('patient-token') ||
@@ -63,13 +65,18 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
+        if (cancelled) return;
         if (data?.preferredLanguage === 'es' || data?.preferredLanguage === 'en') {
           setLanguageState(data.preferredLanguage);
           setStoredPatientPortalLanguage(data.preferredLanguage);
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, []);
 
   const value: PatientPortalLanguageContextValue = {

@@ -27,6 +27,7 @@ import {
   Flame,
   Target,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface LeaderboardEntry {
   rank: number;
@@ -154,10 +155,8 @@ export default function LeaderboardPage() {
       setLoading(true);
       try {
         const [leaderboardRes, competitionsRes] = await Promise.all([
-          fetch(`/api/affiliate/leaderboard?metric=${selectedMetric}&period=${selectedPeriod}`, {
-            credentials: 'include',
-          }),
-          fetch('/api/affiliate/competitions', { credentials: 'include' }),
+          apiFetch(`/api/affiliate/leaderboard?metric=${selectedMetric}&period=${selectedPeriod}`),
+          apiFetch('/api/affiliate/competitions'),
         ]);
 
         if (leaderboardRes.ok) {

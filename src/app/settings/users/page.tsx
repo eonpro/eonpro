@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PlusIcon } from '@/components/icons/SettingsIcons';
 import { toast } from 'sonner';
 import { getStoredUser } from '@/lib/auth/stored-role';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface User {
   id: number;
@@ -158,7 +159,7 @@ export default function UserManagementPage() {
         return;
       }
 
-      const res = await fetch('/api/users', {
+      const res = await apiFetch('/api/users', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -217,7 +218,7 @@ export default function UserManagementPage() {
         payload.phone = formData.phone;
       }
 
-      const res = await fetch('/api/users/create', {
+      const res = await apiFetch('/api/users/create', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -272,7 +273,7 @@ export default function UserManagementPage() {
         payload.password = formData.password;
       }
 
-      const res = await fetch(`/api/users/${editingUser.id}`, {
+      const res = await apiFetch(`/api/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -311,7 +312,7 @@ export default function UserManagementPage() {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
 
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await apiFetch(`/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

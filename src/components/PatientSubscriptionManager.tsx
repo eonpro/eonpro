@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatPlanPrice } from '@/config/billingPlans';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Subscription {
   id: number;
@@ -47,7 +48,7 @@ export function PatientSubscriptionManager({
   const fetchSubscriptions = async () => {
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/patients/${patientId}/subscriptions`, {
+      const res = await apiFetch(`/api/patients/${patientId}/subscriptions`, {
         credentials: 'include',
         headers,
       });
@@ -70,7 +71,7 @@ export function PatientSubscriptionManager({
     setProcessingId(subscriptionId);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/subscriptions/${subscriptionId}/pause`, {
+      const res = await apiFetch(`/api/subscriptions/${subscriptionId}/pause`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -92,7 +93,7 @@ export function PatientSubscriptionManager({
     setProcessingId(subscriptionId);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/subscriptions/${subscriptionId}/resume`, {
+      const res = await apiFetch(`/api/subscriptions/${subscriptionId}/resume`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -120,7 +121,7 @@ export function PatientSubscriptionManager({
     setProcessingId(subscriptionId);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/subscriptions/${subscriptionId}/cancel`, {
+      const res = await apiFetch(`/api/subscriptions/${subscriptionId}/cancel`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },

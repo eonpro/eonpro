@@ -17,6 +17,7 @@ import {
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface BillingStats {
   totalRevenue: number;
@@ -54,7 +55,7 @@ export default function AdminBillingPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/billing/stats');
+      const res = await apiFetch('/api/admin/billing/stats');
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to fetch billing stats');

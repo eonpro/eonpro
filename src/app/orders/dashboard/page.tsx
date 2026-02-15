@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 type OrderRow = {
   id: number;
@@ -43,7 +44,7 @@ export default function OrdersDashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/orders/list');
+        const res = await apiFetch('/api/orders/list');
         const data = await res.json();
         setOrders(data.orders ?? []);
       } catch (err: any) {

@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { PatientDocumentCategory } from '@prisma/client';
-import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { auditLog, AuditEventType, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 
 const uploadDocumentSchema = z.object({
@@ -73,6 +73,16 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     const where: any = { patientId: patientIdToQuery };
     if (category) {
+      const validCategories: PatientDocumentCategory[] = [
+        'MEDICAL_INTAKE_FORM', 'MEDICAL_RECORDS', 'LAB_RESULTS', 'INSURANCE',
+        'CONSENT_FORMS', 'PRESCRIPTIONS', 'IMAGING', 'ID_PHOTO', 'OTHER',
+      ];
+      if (!validCategories.includes(category as PatientDocumentCategory)) {
+        return NextResponse.json(
+          { error: 'Invalid document category', code: 'INVALID_CATEGORY' },
+          { status: 400 }
+        );
+      }
       where.category = category as PatientDocumentCategory;
     }
 
@@ -119,7 +129,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       context: { userId: user?.id },
     });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
 
 /**
  * POST /api/patient-portal/documents
@@ -193,6 +203,11 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       uploadedBy: user.id,
     });
 
+    await logPHICreate(req, user, 'PatientDocument', String(document.id), patientId, {
+      category: parsed.data.category,
+      filename: parsed.data.filename,
+    });
+
     return NextResponse.json({ document }, { status: 201 });
   } catch (error) {
     return handleApiError(error, {
@@ -200,7 +215,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       context: { userId: user?.id },
     });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });
 
 /**
  * DELETE /api/patient-portal/documents
@@ -247,6 +262,8 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
       deletedBy: user.id,
     });
 
+    await logPHIDelete(req, user, 'PatientDocument', documentId, document.patientId, 'Patient portal deletion');
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return handleApiError(error, {
@@ -254,4 +271,4 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
       context: { userId: user?.id },
     });
   }
-});
+}, { roles: ['patient', 'admin', 'provider', 'staff', 'super_admin'] });

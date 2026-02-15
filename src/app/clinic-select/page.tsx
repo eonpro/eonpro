@@ -5,6 +5,7 @@ import { logger } from '../../lib/logger';
 
 import { Building2, Check, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ClinicOption {
   id: number;
@@ -32,7 +33,7 @@ export default function ClinicSelectPage() {
 
   const loadClinics = async () => {
     try {
-      const response = await fetch('/api/clinic/list');
+      const response = await apiFetch('/api/clinic/list');
       if (response.ok) {
         const data = await response.json();
         setClinics(data);
@@ -54,7 +55,7 @@ export default function ClinicSelectPage() {
     setSwitching(true);
 
     try {
-      const response = await fetch('/api/clinic/switch', {
+      const response = await apiFetch('/api/clinic/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clinicId }),

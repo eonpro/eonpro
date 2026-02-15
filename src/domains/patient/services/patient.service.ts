@@ -561,7 +561,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       const existingEmail = await repo.findByEmail(parsed.data.email, clinicId);
       if (existingEmail) {
         throw new ConflictError(
-          `A patient with email ${parsed.data.email} already exists in this clinic`
+          'A patient with this email already exists in this clinic'
         );
       }
 
@@ -635,7 +635,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
         const emailExists = await this.isEmailRegistered(parsed.data.email, existing.clinicId, id);
         if (emailExists) {
           throw new ConflictError(
-            `A patient with email ${parsed.data.email} already exists in this clinic`
+            'A patient with this email already exists in this clinic'
           );
         }
       }

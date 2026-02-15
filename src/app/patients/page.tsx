@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 type Patient = {
   id: number;
@@ -134,7 +135,7 @@ export default function PatientsPage() {
         localStorage.getItem('SUPER_ADMIN-token') ||
         sessionStorage.getItem('auth-token');
 
-      const res = await fetch('/api/patients', {
+      const res = await apiFetch('/api/patients', {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
@@ -184,7 +185,7 @@ export default function PatientsPage() {
 
       for (const endpoint of endpoints) {
         try {
-          const res = await fetch(endpoint, { headers });
+          const res = await apiFetch(endpoint, { headers });
 
           if (res.ok) {
             const data = await res.json();
@@ -284,7 +285,7 @@ export default function PatientsPage() {
         localStorage.getItem('SUPER_ADMIN-token') ||
         sessionStorage.getItem('auth-token');
 
-      const res = await fetch('/api/patients', {
+      const res = await apiFetch('/api/patients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

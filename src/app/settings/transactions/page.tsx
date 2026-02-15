@@ -21,6 +21,7 @@ import {
   Tag,
   PieChart,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 type TransactionCategory =
   | 'new_patient'
@@ -125,7 +126,7 @@ export default function TransactionsPage() {
           ...(append && lastId && { starting_after: lastId }),
         });
 
-        const response = await fetch(`/api/stripe/transactions?${params}`, {
+        const response = await apiFetch(`/api/stripe/transactions?${params}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

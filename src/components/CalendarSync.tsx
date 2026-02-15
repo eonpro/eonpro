@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, Check, AlertCircle, Loader, Copy, QrCode } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface CalendarSyncProps {
   onClose: () => void;
@@ -62,7 +63,7 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), FETCH_STATUS_TIMEOUT_MS);
 
-      const res = await fetch('/api/calendar-sync?action=status', { signal: controller.signal });
+      const res = await apiFetch('/api/calendar-sync?action=status', { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!res.ok) {
@@ -118,7 +119,7 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
       setIsConnecting('google');
       setError(null);
 
-      const res = await fetch('/api/calendar-sync', {
+      const res = await apiFetch('/api/calendar-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'connect', provider: 'google' }),
@@ -150,7 +151,7 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
       setIsConnecting('apple');
       setError(null);
 
-      const res = await fetch('/api/calendar-sync', {
+      const res = await apiFetch('/api/calendar-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'connect', provider: 'apple' }),
@@ -188,7 +189,7 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
     try {
       setError(null);
 
-      const res = await fetch(`/api/calendar-sync?provider=${provider}`, {
+      const res = await apiFetch(`/api/calendar-sync?provider=${provider}`, {
         method: 'DELETE',
       });
 
@@ -211,7 +212,7 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
       setIsSyncing(true);
       setError(null);
 
-      const res = await fetch('/api/calendar-sync', {
+      const res = await apiFetch('/api/calendar-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'sync' }),
@@ -244,7 +245,7 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
       for (const integration of connectedProviders) {
         if (integration.provider === 'apple') continue; // Apple doesn't have sync settings
 
-        const res = await fetch('/api/calendar-sync', {
+        const res = await apiFetch('/api/calendar-sync', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

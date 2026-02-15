@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 
 // Types
@@ -329,7 +330,7 @@ export default function ReportsPage() {
         params.set('endDate', dateRange.endDate);
       }
 
-      const response = await fetch(`/api/reports?${params}`);
+      const response = await apiFetch(`/api/reports?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch report');
       }

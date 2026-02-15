@@ -17,6 +17,7 @@ import {
   MapPin,
   Calendar,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PrescriptionQueueItem {
   orderId: number;
@@ -68,7 +69,7 @@ export default function AdminRoutingQueuePage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/admin/routing/queue');
+      const response = await apiFetch('/api/admin/routing/queue');
 
       if (!response.ok) {
         const data = await response.json();
@@ -104,7 +105,7 @@ export default function AdminRoutingQueuePage() {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch('/api/admin/routing/assign', {
+      const response = await apiFetch('/api/admin/routing/assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

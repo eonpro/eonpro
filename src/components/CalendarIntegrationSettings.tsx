@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Clock,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface CalendarConnection {
   provider: 'google' | 'outlook' | 'apple';
@@ -83,7 +84,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
     setCalendarError(null);
     try {
       // Fetch calendar integration status
-      const calendarRes = await fetch('/api/calendar-sync?action=status');
+      const calendarRes = await apiFetch('/api/calendar-sync?action=status');
       if (calendarRes.ok) {
         const data = await calendarRes.json();
         setConnections(data.integrations || []);
@@ -100,14 +101,14 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
       }
 
       // Fetch subscriptions
-      const subRes = await fetch('/api/calendar/subscriptions');
+      const subRes = await apiFetch('/api/calendar/subscriptions');
       if (subRes.ok) {
         const data = await subRes.json();
         setSubscriptions(data.subscriptions || []);
       }
 
       // Fetch Zoom status
-      const zoomRes = await fetch('/api/v2/zoom/meetings?action=status');
+      const zoomRes = await apiFetch('/api/v2/zoom/meetings?action=status');
       if (zoomRes.ok) {
         const data = await zoomRes.json();
         setZoomStatus(data);
@@ -123,7 +124,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
     try {
       if (provider === 'apple') {
         // Apple uses subscription setup, not OAuth
-        const res = await fetch('/api/calendar-sync', {
+        const res = await apiFetch('/api/calendar-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'connect', provider: 'apple' }),
@@ -137,7 +138,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
         }
       } else {
         // Google/Outlook use OAuth
-        const res = await fetch('/api/calendar-sync', {
+        const res = await apiFetch('/api/calendar-sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'connect', provider }),
@@ -160,7 +161,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
     }
 
     try {
-      const res = await fetch('/api/calendar-sync', {
+      const res = await apiFetch('/api/calendar-sync', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider }),
@@ -176,7 +177,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
 
   const handleSync = async () => {
     try {
-      const res = await fetch('/api/calendar-sync', {
+      const res = await apiFetch('/api/calendar-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'sync' }),
@@ -191,7 +192,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
 
   const handleCreateSubscription = async () => {
     try {
-      const res = await fetch('/api/calendar/subscriptions', {
+      const res = await apiFetch('/api/calendar/subscriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -215,7 +216,7 @@ export default function CalendarIntegrationSettings({ providerId, onUpdate }: Pr
     }
 
     try {
-      const res = await fetch(`/api/calendar/subscriptions?subscriptionId=${id}`, {
+      const res = await apiFetch(`/api/calendar/subscriptions?subscriptionId=${id}`, {
         method: 'DELETE',
       });
       if (res.ok) {

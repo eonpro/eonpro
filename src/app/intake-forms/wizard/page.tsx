@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Define the steps for creating an intake form
 const FORM_STEPS = [
@@ -90,7 +91,7 @@ export default function IntakeFormWizard() {
       setIsSubmitting(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
 
-      const res = await fetch('/api/intake-forms/templates', {
+      const res = await apiFetch('/api/intake-forms/templates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

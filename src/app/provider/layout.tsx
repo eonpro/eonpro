@@ -30,6 +30,7 @@ import {
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Default EONPRO logos
 const EONPRO_LOGO =
@@ -81,7 +82,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       if (!token) return;
 
-      const response = await fetch('/api/provider/prescription-queue/count', {
+      const response = await apiFetch('/api/provider/prescription-queue/count', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

@@ -18,6 +18,7 @@ import {
   Globe,
   ExternalLink,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SocialProfile {
   platform: string;
@@ -152,7 +153,7 @@ export default function AdminAffiliateApplicationsPage() {
         params.append('status', statusFilter);
       }
 
-      const response = await fetch(`/api/admin/affiliates/applications?${params}`, {
+      const response = await apiFetch(`/api/admin/affiliates/applications?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -172,7 +173,7 @@ export default function AdminAffiliateApplicationsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch('/api/admin/commission-plans', {
+      const response = await apiFetch('/api/admin/commission-plans', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -190,7 +191,7 @@ export default function AdminAffiliateApplicationsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/applications/${id}`, {
+      const response = await apiFetch(`/api/admin/affiliates/applications/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -214,7 +215,7 @@ export default function AdminAffiliateApplicationsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/admin/affiliates/applications/${selectedApplication.id}/approve`,
         {
           method: 'POST',
@@ -257,7 +258,7 @@ export default function AdminAffiliateApplicationsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/admin/affiliates/applications/${selectedApplication.id}/reject`,
         {
           method: 'POST',

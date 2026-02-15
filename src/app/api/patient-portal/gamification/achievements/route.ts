@@ -3,10 +3,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { z } from 'zod';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { getPatientAchievements, markAchievementsSeen } from '@/lib/gamification/achievements';
-import { logger } from '@/lib/logger';
+import { logPHIAccess, logPHIUpdate } from '@/lib/audit/hipaa-audit';
+
+const achievementActionSchema = z.object({
+  action: z.literal('mark_seen'),
+  achievementIds: z.array(z.number().positive()).min(1).max(100),
+});
 
 /**
  * GET /api/patient-portal/gamification/achievements
@@ -23,20 +29,13 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     const achievements = await getPatientAchievements(user.patientId);
 
+    await logPHIAccess(req, user, 'GamificationAchievements', String(user.patientId), user.patientId);
+
     return NextResponse.json({ achievements });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[ACHIEVEMENTS_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to fetch achievements', errorId, code: 'ACHIEVEMENTS_FETCH_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/gamification/achievements' } });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * POST /api/patient-portal/gamification/achievements
@@ -52,24 +51,24 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     const body = await req.json();
-    const { action, achievementIds } = body;
+    const parsed = achievementActionSchema.safeParse(body);
 
-    if (action === 'mark_seen' && Array.isArray(achievementIds)) {
-      await markAchievementsSeen(user.patientId, achievementIds);
-      return NextResponse.json({ success: true });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request data', code: 'VALIDATION_ERROR', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ error: 'Invalid action', code: 'INVALID_ACTION' }, { status: 400 });
-  } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[ACHIEVEMENTS_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
+    const { achievementIds } = parsed.data;
+    await markAchievementsSeen(user.patientId, achievementIds);
+
+    await logPHIUpdate(req, user, 'GamificationAchievements', String(user.patientId), user.patientId, ['seenStatus'], {
+      achievementCount: achievementIds.length,
     });
-    return NextResponse.json(
-      { error: 'Failed to update achievements', errorId, code: 'ACHIEVEMENTS_UPDATE_ERROR' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/gamification/achievements' } });
   }
-});
+}, { roles: ['patient'] });

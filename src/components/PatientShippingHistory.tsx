@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 
 type ShippingUpdate = {
   id: number;
@@ -110,7 +111,7 @@ export default function PatientShippingHistory({
     const fetchShippingUpdates = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/patients/${patientId}/shipping-updates`);
+        const response = await apiFetch(`/api/patients/${patientId}/shipping-updates`);
 
         if (!response.ok) {
           throw new Error('Failed to fetch shipping updates');

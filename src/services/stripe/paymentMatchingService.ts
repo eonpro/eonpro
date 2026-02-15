@@ -20,6 +20,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
 import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 import Stripe from 'stripe';
 import type { Patient, Invoice, InvoiceStatus } from '@prisma/client';
 
@@ -727,6 +728,15 @@ export async function createPatientFromStripePayment(
     zip: address?.postal_code || '',
   };
 
+  // Build search index from plain-text BEFORE encryption
+  const searchIndex = buildPatientSearchIndex({
+    firstName: phiData.firstName,
+    lastName: phiData.lastName,
+    email: phiData.email,
+    phone: phiData.phone,
+    patientId,
+  });
+
   // HIPAA: Encrypt PHI fields before storage (same as patient repository)
   const encryptedPHI = encryptPatientPHI(phiData, [...PHI_FIELDS]);
 
@@ -736,6 +746,7 @@ export async function createPatientFromStripePayment(
       patientId,
       clinicId,
       ...encryptedPHI,
+      searchIndex,
       gender: 'unknown',
       stripeCustomerId: paymentData.customerId,
       source: 'stripe',

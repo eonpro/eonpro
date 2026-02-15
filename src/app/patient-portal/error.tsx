@@ -15,7 +15,7 @@ interface ErrorProps {
 export default function PatientPortalError({ error, reset }: ErrorProps) {
   const { branding } = useClinicBranding();
   const digits = branding?.supportPhone?.replace(/\D/g, '') ?? '';
-  const supportTel = digits.length >= 10 ? `tel:+1${digits.slice(-10)}` : 'tel:+18001234567';
+  const supportTel = digits.length >= 10 ? `tel:+1${digits.slice(-10)}` : null;
 
   useEffect(() => {
     logger.error('Patient portal error:', {
@@ -82,13 +82,15 @@ export default function PatientPortalError({ error, reset }: ErrorProps) {
             <RefreshCw className="h-4 w-4" />
             Try Again
           </button>
-          <a
-            href={supportTel}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-200"
-          >
-            <Phone className="h-4 w-4" />
-            Call Support
-          </a>
+          {supportTel && (
+            <a
+              href={supportTel}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-200"
+            >
+              <Phone className="h-4 w-4" />
+              Call Support
+            </a>
+          )}
         </div>
 
         <p className="mt-6 text-sm text-gray-500">

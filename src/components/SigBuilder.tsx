@@ -14,6 +14,7 @@ import {
 } from '@/lib/medications-enhanced';
 import { MEDS } from '@/lib/medications';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // TYPES
@@ -275,7 +276,7 @@ export default function SigBuilder({
         localStorage.getItem('provider-token') ||
         localStorage.getItem('admin-token');
 
-      const response = await fetch('/api/ai/generate-sig', {
+      const response = await apiFetch('/api/ai/generate-sig', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

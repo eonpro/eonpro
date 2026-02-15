@@ -11,6 +11,7 @@ import {
   Volume2,
   Clock,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface TranscriptionSegment {
   id: string;
@@ -118,7 +119,7 @@ export default function BeccaAIScribe({
       setError(null);
 
       // Start session
-      const sessionRes = await fetch('/api/ai-scribe/transcribe', {
+      const sessionRes = await apiFetch('/api/ai-scribe/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -200,7 +201,7 @@ export default function BeccaAIScribe({
       formData.append('providerId', providerId.toString());
       formData.append('isChunk', 'true');
 
-      const response = await fetch('/api/ai-scribe/transcribe', {
+      const response = await apiFetch('/api/ai-scribe/transcribe', {
         method: 'POST',
         body: formData,
       });
@@ -262,7 +263,7 @@ export default function BeccaAIScribe({
     setError(null);
 
     try {
-      const response = await fetch('/api/ai-scribe/generate-soap', {
+      const response = await apiFetch('/api/ai-scribe/generate-soap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

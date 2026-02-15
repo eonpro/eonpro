@@ -12,6 +12,7 @@ import {
   Calendar,
   Filter,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // Types
@@ -88,7 +89,7 @@ export default function EmailAnalyticsPage() {
     try {
       const token = localStorage.getItem('admin-token') || localStorage.getItem('auth-token');
 
-      const response = await fetch(`/api/admin/email-analytics?days=${days}`, {
+      const response = await apiFetch(`/api/admin/email-analytics?days=${days}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

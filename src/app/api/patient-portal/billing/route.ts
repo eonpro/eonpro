@@ -11,7 +11,10 @@ import Stripe from 'stripe';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-01-28.clover',
 });
 
@@ -202,7 +205,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       context: { userId: user?.id, patientId: user?.patientId },
     });
   }
-});
+}, { roles: ['patient'] });
 
 function mapInvoiceStatus(status: string): 'paid' | 'pending' | 'failed' | 'refunded' {
   switch (status.toUpperCase()) {

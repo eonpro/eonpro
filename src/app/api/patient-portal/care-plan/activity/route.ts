@@ -4,10 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { logPHIUpdate } from '@/lib/audit/hipaa-audit';
 import { z } from 'zod';
 
 const activitySchema = z.object({
@@ -72,6 +73,10 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       action,
     });
 
+    await logPHIUpdate(req, user, 'CarePlanActivity', String(activityId), user.patientId, ['status', 'completedAt'], {
+      action,
+    });
+
     return NextResponse.json({
       success: true,
       activity: {
@@ -81,15 +86,6 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       },
     });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[CARE_PLAN_ACTIVITY_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to update activity', errorId, code: 'ACTIVITY_UPDATE_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/care-plan/activity' } });
   }
-});
+}, { roles: ['patient'] });

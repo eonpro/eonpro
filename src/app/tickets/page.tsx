@@ -24,6 +24,7 @@ import {
   User as UserIcon,
   Tag as TagIcon,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Types
 interface TicketListItem {
@@ -185,7 +186,7 @@ export default function TicketsPage() {
       if (filters.isUnassigned) params.set('isUnassigned', 'true');
       if (filters.hasSlaBreach) params.set('hasSlaBreach', 'true');
 
-      const response = await fetch(`/api/tickets?${params.toString()}`, {
+      const response = await apiFetch(`/api/tickets?${params.toString()}`, {
         credentials: 'include',
         headers: getAuthHeaders(),
       });

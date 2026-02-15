@@ -23,6 +23,7 @@ import {
   LogIn,
   MapPin,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Clinic {
   id: number;
@@ -110,9 +111,7 @@ export default function UserClinicsPage() {
 
   const fetchUserClinics = async () => {
     try {
-      const response = await fetch(`/api/super-admin/users/${userId}/clinics`, {
-        credentials: 'include',
-      });
+      const response = await apiFetch(`/api/super-admin/users/${userId}/clinics`);
 
       if (response.ok) {
         const data = await response.json();
@@ -148,9 +147,7 @@ export default function UserClinicsPage() {
 
   const fetchAllClinics = async () => {
     try {
-      const response = await fetch('/api/super-admin/clinics', {
-        credentials: 'include',
-      });
+      const response = await apiFetch('/api/super-admin/clinics');
 
       if (response.ok) {
         const data = await response.json();
@@ -169,9 +166,8 @@ export default function UserClinicsPage() {
 
     setAdding(true);
     try {
-      const response = await fetch(`/api/super-admin/users/${userId}/clinics`, {
+      const response = await apiFetch(`/api/super-admin/users/${userId}/clinics`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clinicId: selectedClinicId,
@@ -201,11 +197,10 @@ export default function UserClinicsPage() {
     if (!confirm('Are you sure you want to remove this user from this clinic?')) return;
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/super-admin/users/${userId}/clinics?clinicId=${clinicId}`,
         {
           method: 'DELETE',
-          credentials: 'include',
         }
       );
 
@@ -223,9 +218,8 @@ export default function UserClinicsPage() {
 
   const handleSetPrimary = async (clinicId: number) => {
     try {
-      const response = await fetch(`/api/super-admin/users/${userId}/clinics`, {
+      const response = await apiFetch(`/api/super-admin/users/${userId}/clinics`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clinicId,

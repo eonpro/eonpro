@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface DashboardData {
   user: {
@@ -52,7 +53,7 @@ export default function SettingsDashboard() {
       //   return;
       // }
 
-      const response = await fetch('/api/settings/dashboard', {
+      const response = await apiFetch('/api/settings/dashboard', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

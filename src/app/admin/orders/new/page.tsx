@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, User, Pill, Truck, AlertCircle, CheckCircle } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Patient {
   id: number;
@@ -52,8 +53,8 @@ export default function NewOrderPage() {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
       const [patientsRes, providersRes] = await Promise.all([
-        fetch('/api/patients', { headers }),
-        fetch('/api/providers', { headers }),
+        apiFetch('/api/patients', { headers }),
+        apiFetch('/api/providers', { headers }),
       ]);
 
       if (patientsRes.ok) {
@@ -115,7 +116,7 @@ export default function NewOrderPage() {
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
-      const response = await fetch('/api/orders', {
+      const response = await apiFetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

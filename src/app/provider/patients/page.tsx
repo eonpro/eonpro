@@ -218,7 +218,7 @@ export default function ProviderPatientsPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/patients', {
+      const response = await apiFetch('/api/patients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

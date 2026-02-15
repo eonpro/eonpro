@@ -3,20 +3,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { z } from 'zod';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { getPatientStreaks, recordStreakActivity, StreakType } from '@/lib/gamification/streaks';
-import { logger } from '@/lib/logger';
+import { logPHIAccess, logPHIUpdate } from '@/lib/audit/hipaa-audit';
 
-const VALID_STREAK_TYPES: StreakType[] = [
-  'DAILY_CHECK_IN',
-  'WEIGHT_LOG',
-  'WATER_LOG',
-  'EXERCISE_LOG',
-  'MEAL_LOG',
-  'MEDICATION_TAKEN',
-  'SLEEP_LOG',
-];
+const streakSchema = z.object({
+  streakType: z.enum([
+    'DAILY_CHECK_IN',
+    'WEIGHT_LOG',
+    'WATER_LOG',
+    'EXERCISE_LOG',
+    'MEAL_LOG',
+    'MEDICATION_TAKEN',
+    'SLEEP_LOG',
+  ]),
+});
 
 /**
  * GET /api/patient-portal/gamification/streaks
@@ -33,20 +36,13 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     const streaks = await getPatientStreaks(user.patientId);
 
+    await logPHIAccess(req, user, 'GamificationStreaks', String(user.patientId), user.patientId);
+
     return NextResponse.json({ streaks });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[STREAKS_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to fetch streaks', errorId, code: 'STREAKS_FETCH_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/gamification/streaks' } });
   }
-});
+}, { roles: ['patient'] });
 
 /**
  * POST /api/patient-portal/gamification/streaks
@@ -62,31 +58,28 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     const body = await req.json();
-    const { streakType } = body;
+    const parsed = streakSchema.safeParse(body);
 
-    if (!streakType || !VALID_STREAK_TYPES.includes(streakType)) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid streak type', code: 'INVALID_STREAK_TYPE' },
+        { error: 'Invalid streak type', code: 'INVALID_STREAK_TYPE', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+
+    const { streakType } = parsed.data;
 
     const streak = await recordStreakActivity({
       patientId: user.patientId,
       streakType: streakType as StreakType,
     });
 
+    await logPHIUpdate(req, user, 'GamificationStreak', String(user.patientId), user.patientId, ['streakType'], {
+      streakType,
+    });
+
     return NextResponse.json({ streak });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[STREAKS_POST] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to record streak', errorId, code: 'STREAK_RECORD_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'POST /api/patient-portal/gamification/streaks' } });
   }
-});
+}, { roles: ['patient'] });

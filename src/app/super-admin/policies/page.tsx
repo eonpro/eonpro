@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PolicyApproval {
   type: string;
@@ -220,7 +221,7 @@ export default function PoliciesPage() {
     try {
       setLoading(true);
       setSetupRequired(false);
-      const response = await fetch('/api/admin/policies');
+      const response = await apiFetch('/api/admin/policies');
       const data = await response.json();
 
       if (data.setup_required) {
@@ -252,7 +253,7 @@ export default function PoliciesPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/admin/policies', {
+      const response = await apiFetch('/api/admin/policies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

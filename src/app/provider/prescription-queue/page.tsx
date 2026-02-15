@@ -49,6 +49,7 @@ import {
   extractCityState,
 } from '@/lib/address/client';
 import type { ParsedAddress } from '@/lib/address/client';
+import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // ADDRESS PARSING UTILITIES
@@ -368,7 +369,7 @@ export default function PrescriptionQueuePage() {
   useEffect(() => {
     const checkUserRole = async () => {
       try {
-        const response = await fetch('/api/auth/me', {
+        const response = await apiFetch('/api/auth/me', {
           headers: { Authorization: `Bearer ${getAuthToken()}` },
         });
         if (response.ok) {
@@ -389,7 +390,7 @@ export default function PrescriptionQueuePage() {
   const fetchQueue = useCallback(async () => {
     try {
       setError('');
-      const response = await fetch('/api/provider/prescription-queue', {
+      const response = await apiFetch('/api/provider/prescription-queue', {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
 
@@ -416,7 +417,7 @@ export default function PrescriptionQueuePage() {
   const fetchPatientDetails = async (invoiceId: number) => {
     setLoadingDetails(true);
     try {
-      const response = await fetch(`/api/provider/prescription-queue/${invoiceId}`, {
+      const response = await apiFetch(`/api/provider/prescription-queue/${invoiceId}`, {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
 
@@ -449,7 +450,7 @@ export default function PrescriptionQueuePage() {
     setError('');
 
     try {
-      const response = await fetch('/api/soap-notes/generate', {
+      const response = await apiFetch('/api/soap-notes/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -511,7 +512,7 @@ export default function PrescriptionQueuePage() {
     setError('');
 
     try {
-      const response = await fetch(`/api/soap-notes/${soapNoteId}/approve`, {
+      const response = await apiFetch(`/api/soap-notes/${soapNoteId}/approve`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
@@ -572,7 +573,7 @@ export default function PrescriptionQueuePage() {
     setApprovingOrderId(orderId);
     setError('');
     try {
-      const res = await fetch(`/api/orders/${orderId}/approve-and-send`, {
+      const res = await apiFetch(`/api/orders/${orderId}/approve-and-send`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
@@ -844,7 +845,7 @@ export default function PrescriptionQueuePage() {
         patientId: details.patient.id,
       };
 
-      const response = await fetch('/api/prescriptions', {
+      const response = await apiFetch('/api/prescriptions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -903,7 +904,7 @@ export default function PrescriptionQueuePage() {
     if (showMessage) setError('');
 
     try {
-      const response = await fetch('/api/provider/prescription-queue', {
+      const response = await apiFetch('/api/provider/prescription-queue', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -938,7 +939,7 @@ export default function PrescriptionQueuePage() {
     setError('');
 
     try {
-      const response = await fetch('/api/provider/prescription-queue', {
+      const response = await apiFetch('/api/provider/prescription-queue', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

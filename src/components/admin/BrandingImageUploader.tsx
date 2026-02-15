@@ -17,6 +17,7 @@ import {
   Image as ImageIcon,
   Link as LinkIcon,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface BrandingImageUploaderProps {
   label: string;
@@ -101,10 +102,9 @@ export function BrandingImageUploader({
         }, 100);
 
         // Upload to S3
-        const response = await fetch('/api/v2/aws/s3/upload', {
+        const response = await apiFetch('/api/v2/aws/s3/upload', {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${token}`,
           },
           body: formData,
         });

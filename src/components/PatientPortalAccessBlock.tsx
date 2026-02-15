@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { UserCheck, UserX, Loader2, Check, Mail, MessageSquare } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface PatientPortalAccessBlockProps {
   patientId: number;
@@ -24,7 +25,7 @@ export default function PatientPortalAccessBlock({
     setSendingChannel(channel);
     setError(null);
     try {
-      const res = await fetch(`/api/patients/${patientId}/portal-invite`, {
+      const res = await apiFetch(`/api/patients/${patientId}/portal-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ channel }),

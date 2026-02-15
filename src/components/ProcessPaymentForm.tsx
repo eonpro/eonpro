@@ -14,6 +14,7 @@ import {
   getCardBrand,
 } from '@/lib/encryption';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ProcessPaymentFormProps {
   patientId: number;
@@ -187,7 +188,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/stripe/payments/process', {
+      const res = await apiFetch('/api/stripe/payments/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

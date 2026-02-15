@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import BeccaAIChat from './BeccaAIChat';
 import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
 import { getStoredUser } from '@/lib/auth/stored-role';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface BeccaAIGlobalChatProps {
   userEmail?: string;
@@ -151,7 +152,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
       const token = getLocalStorageItem('auth-token');
       if (!token) return;
 
-      const response = await fetch(`/api/patients/${patientId}`, {
+      const response = await apiFetch(`/api/patients/${patientId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
 
@@ -30,7 +31,7 @@ export default function PrescriptionsPage() {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const params = filter !== 'all' ? `?status=${filter}` : '';
 
-      const res = await fetch(`/api/pharmacy/prescriptions${params}`, {
+      const res = await apiFetch(`/api/pharmacy/prescriptions${params}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 

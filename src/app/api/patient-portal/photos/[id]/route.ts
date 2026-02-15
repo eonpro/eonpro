@@ -14,6 +14,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { generateSignedUrl, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
+import { logPHIAccess, logPHIUpdate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 
 // =============================================================================
 // Request Schemas
@@ -104,6 +105,10 @@ async function handleGet(
 
     // Remove internal fields
     const { patient, ...photoData } = photo;
+
+    await logPHIAccess(req, user, 'PatientPhoto', String(photoId), photo.patientId, {
+      photoType: photo.type,
+    });
 
     return NextResponse.json({
       photo: {
@@ -209,6 +214,8 @@ async function handlePatch(
       fields: Object.keys(updateData),
     });
 
+    await logPHIUpdate(req, user, 'PatientPhoto', String(photoId), photo.patientId, Object.keys(updateData));
+
     return NextResponse.json({
       photo: {
         ...updatedPhoto,
@@ -287,6 +294,8 @@ async function handleDelete(
         deletedBy: user.id,
       });
 
+      await logPHIDelete(req, user, 'PatientPhoto', String(photoId), photo.patientId, reason || 'Permanent deletion');
+
       return NextResponse.json({ success: true, permanent: true });
     }
 
@@ -310,6 +319,8 @@ async function handleDelete(
       deletedBy: user.id,
       reason,
     });
+
+    await logPHIDelete(req, user, 'PatientPhoto', String(photoId), photo.patientId, reason || 'Soft deletion');
 
     return NextResponse.json({ success: true, permanent: false });
   } catch (error) {

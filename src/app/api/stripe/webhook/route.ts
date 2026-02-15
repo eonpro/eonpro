@@ -16,7 +16,7 @@ import { headers } from 'next/headers';
 import type Stripe from 'stripe';
 import { WebhookStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 
 // Critical payment event types that trigger prescriptions
 const CRITICAL_PAYMENT_EVENTS = [
@@ -154,18 +154,21 @@ export async function POST(request: NextRequest) {
     });
 
     // Process the event with comprehensive error handling (pass clinicId so payment data gets it for matching)
-    const result = await processWebhookEvent(event, clinicId, {
-      StripeInvoiceService,
-      StripePaymentService,
-      processStripePayment,
-      extractPaymentDataFromCharge,
-      extractPaymentDataFromPaymentIntent,
-      extractPaymentDataFromCheckoutSession,
-      processPaymentForCommission,
-      reverseCommissionForRefund,
-      checkIfFirstPayment,
-      autoMatchPendingRefillsForPatient,
-    });
+    // Wrap in clinic context for tenant-isolated model access (invoice, payment, etc.)
+    const result = await runWithClinicContext(clinicId > 0 ? clinicId : undefined, () =>
+      processWebhookEvent(event, clinicId, {
+        StripeInvoiceService,
+        StripePaymentService,
+        processStripePayment,
+        extractPaymentDataFromCharge,
+        extractPaymentDataFromPaymentIntent,
+        extractPaymentDataFromCheckoutSession,
+        processPaymentForCommission,
+        reverseCommissionForRefund,
+        checkIfFirstPayment,
+        autoMatchPendingRefillsForPatient,
+      })
+    );
 
     const duration = Date.now() - startTime;
 

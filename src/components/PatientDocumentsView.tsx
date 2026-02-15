@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Upload, FileText, Trash2, Download, Eye, Image, File, FileType } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Document {
   id: number;
@@ -38,7 +39,7 @@ export default function PatientDocumentsView({
         setIsLoading(true);
         const token =
           localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-        const response = await fetch(`/api/patients/${patientId}/documents`, {
+        const response = await apiFetch(`/api/patients/${patientId}/documents`, {
           credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -126,7 +127,7 @@ export default function PatientDocumentsView({
       }, 200);
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-      const response = await fetch(`/api/patients/${patientId}/documents`, {
+      const response = await apiFetch(`/api/patients/${patientId}/documents`, {
         method: 'POST',
         credentials: 'include',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -174,7 +175,7 @@ export default function PatientDocumentsView({
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-      const response = await fetch(`/api/patients/${patientId}/documents/${documentId}`, {
+      const response = await apiFetch(`/api/patients/${patientId}/documents/${documentId}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -198,7 +199,7 @@ export default function PatientDocumentsView({
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
-      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}`, {
+      const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}`, {
         credentials: 'include',
         headers: authHeaders,
       });
@@ -218,7 +219,7 @@ export default function PatientDocumentsView({
         );
         if (!shouldRegenerate) return;
 
-        const regenRes = await fetch(
+        const regenRes = await apiFetch(
           `/api/patients/${patientId}/documents/${doc.id}/regenerate`,
           {
             method: 'POST',
@@ -250,7 +251,7 @@ export default function PatientDocumentsView({
   const handleDownload = async (doc: Document) => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-      const response = await fetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
+      const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
         credentials: 'include',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

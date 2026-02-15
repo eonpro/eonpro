@@ -12,6 +12,7 @@ import {
   AlertCircle,
   X,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SalesRep {
   id: number;
@@ -42,7 +43,7 @@ export default function SalesRepsPage() {
         params.set('search', searchTerm);
       }
 
-      const response = await fetch(`/api/admin/sales-reps?${params.toString()}`, {
+      const response = await apiFetch(`/api/admin/sales-reps?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -285,7 +286,7 @@ function BulkReassignModal({
     const fetchPreview = async () => {
       try {
         const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/admin/sales-reps/bulk-reassign?fromSalesRepId=${fromSalesRepId}`,
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -319,7 +320,7 @@ function BulkReassignModal({
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      const response = await fetch('/api/admin/sales-reps/bulk-reassign', {
+      const response = await apiFetch('/api/admin/sales-reps/bulk-reassign', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

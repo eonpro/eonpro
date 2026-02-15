@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import BeccaAILoader from './BeccaAILoader';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SOAPNote {
   id: number;
@@ -78,7 +79,7 @@ export default function PatientSOAPNotesView({
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/soap-notes?patientId=${patientId}&includeRevisions=false`,
         {
           credentials: 'include',
@@ -109,7 +110,7 @@ export default function PatientSOAPNotesView({
       const headers = getAuthHeaders();
       // Use the new /api/soap-notes/generate endpoint which has better logic
       // for handling both intake forms and invoice metadata (Heyflow patients)
-      const response = await fetch('/api/soap-notes/generate', {
+      const response = await apiFetch('/api/soap-notes/generate', {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -124,7 +125,7 @@ export default function PatientSOAPNotesView({
         await fetchSOAPNotes();
         // Find the newly created note to display
         if (data.soapNote?.id) {
-          const notesResponse = await fetch(
+          const notesResponse = await apiFetch(
             `/api/soap-notes?patientId=${patientId}&includeRevisions=false`,
             {
               credentials: 'include',
@@ -171,7 +172,7 @@ export default function PatientSOAPNotesView({
     try {
       const headers = getAuthHeaders();
       // Use the dedicated approve endpoint that properly resolves provider from auth
-      const response = await fetch(`/api/soap-notes/${selectedNote.id}/approve`, {
+      const response = await apiFetch(`/api/soap-notes/${selectedNote.id}/approve`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -212,7 +213,7 @@ export default function PatientSOAPNotesView({
 
     try {
       const headers = getAuthHeaders();
-      const response = await fetch(`/api/soap-notes/${selectedNote.id}`, {
+      const response = await apiFetch(`/api/soap-notes/${selectedNote.id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -247,7 +248,7 @@ export default function PatientSOAPNotesView({
   const handleExport = async (noteId: number) => {
     try {
       const headers = getAuthHeaders();
-      const response = await fetch(`/api/soap-notes/${noteId}?format=text`, {
+      const response = await apiFetch(`/api/soap-notes/${noteId}?format=text`, {
         credentials: 'include',
         headers,
       });

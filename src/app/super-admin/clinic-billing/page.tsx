@@ -14,6 +14,7 @@ import {
   X,
   AlertCircle,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ClinicFeeConfig {
   id: number;
@@ -90,9 +91,7 @@ export default function ClinicBillingPage() {
         return;
       }
 
-      const response = await fetch('/api/super-admin/clinic-fees', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/super-admin/clinic-fees');
 
       if (response.ok) {
         const data = await response.json();
@@ -145,11 +144,10 @@ export default function ClinicBillingPage() {
     setSaving(true);
     try {
       const token = localStorage.getItem('auth-token');
-      const response = await fetch(`/api/super-admin/clinic-fees/${selectedClinic.clinic.id}`, {
+      const response = await apiFetch(`/api/super-admin/clinic-fees/${selectedClinic.clinic.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       });

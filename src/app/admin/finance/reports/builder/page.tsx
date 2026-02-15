@@ -35,6 +35,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Available metrics
 const METRICS = {
@@ -147,7 +148,7 @@ export default function ReportBuilderPage() {
         localStorage.getItem('token') ||
         localStorage.getItem('auth-token') ||
         localStorage.getItem('admin-token');
-      const response = await fetch('/api/admin/reports', {
+      const response = await apiFetch('/api/admin/reports', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

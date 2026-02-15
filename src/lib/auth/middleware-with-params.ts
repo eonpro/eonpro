@@ -294,7 +294,6 @@ export function withAuthParams<T extends { params: any }>(
     // Add user to request headers for downstream use
     const modifiedReq = req.clone();
     modifiedReq.headers.set('x-user-id', user.id.toString());
-    modifiedReq.headers.set('x-user-email', user.email);
     modifiedReq.headers.set('x-user-role', user.role);
     if (effectiveClinicId != null) {
       modifiedReq.headers.set('x-clinic-id', effectiveClinicId.toString());

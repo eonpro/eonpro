@@ -4,6 +4,9 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
+import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 const createExerciseLogSchema = z.object({
   patientId: z.union([z.string(), z.number()]).transform((val) => {
@@ -54,13 +57,6 @@ const getExerciseLogsSchema = z.object({
   }),
 });
 
-function canAccessPatient(user: { role: string; patientId?: number }, patientId: number): boolean {
-  if (user.role === 'patient') {
-    return user.patientId === patientId;
-  }
-  return ['provider', 'admin', 'staff', 'super_admin'].includes(user.role);
-}
-
 const postHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const rawData = await request.json();
@@ -85,7 +81,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       recordedAt,
     } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -105,10 +101,14 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
+    await logPHICreate(request, user, 'PatientExerciseLog', exerciseLog.id, patientId);
+
     return NextResponse.json(exerciseLog, { status: 201 });
   } catch (error) {
-    logger.error('Failed to create exercise log', { error });
-    return NextResponse.json({ error: 'Failed to create exercise log' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-progress/exercise',
+      context: { userId: user.id },
+    });
   }
 });
 
@@ -131,7 +131,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -157,6 +157,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       0
     );
 
+    await logPHIAccess(request, user, 'PatientExerciseLog', 'list', patientId);
+
     return NextResponse.json({
       data: exerciseLogs,
       meta: {
@@ -167,8 +169,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to fetch exercise logs', { error });
-    return NextResponse.json({ error: 'Failed to fetch exercise logs' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-progress/exercise',
+      context: { userId: user.id },
+    });
   }
 });
 

@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Commission {
   id: string;
@@ -95,7 +96,7 @@ export default function EarningsPage() {
   useEffect(() => {
     const fetchEarnings = async () => {
       try {
-        const res = await fetch('/api/affiliate/earnings');
+        const res = await apiFetch('/api/affiliate/earnings');
         if (res.ok) {
           const earningsData = await res.json();
           setData(earningsData);

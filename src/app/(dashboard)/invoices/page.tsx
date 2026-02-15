@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -135,7 +136,7 @@ export default function InvoicesPage() {
         ...(showOverdueOnly && { overdue: 'true' }),
       });
 
-      const response = await fetch(`/api/v2/invoices?${params}`, {
+      const response = await apiFetch(`/api/v2/invoices?${params}`, {
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -154,7 +155,7 @@ export default function InvoicesPage() {
   // Fetch summary
   const fetchSummary = useCallback(async () => {
     try {
-      const response = await fetch(`/api/v2/invoices/summary?range=${dateRange}`, {
+      const response = await apiFetch(`/api/v2/invoices/summary?range=${dateRange}`, {
         headers: { 'Content-Type': 'application/json' },
       });
 
@@ -175,7 +176,7 @@ export default function InvoicesPage() {
   // Invoice actions
   const handleSendInvoice = async (invoiceId: number, channel: 'email' | 'sms' | 'both') => {
     try {
-      const response = await fetch(`/api/v2/invoices/${invoiceId}/actions`, {
+      const response = await apiFetch(`/api/v2/invoices/${invoiceId}/actions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'send', channel }),
@@ -196,7 +197,7 @@ export default function InvoicesPage() {
     if (!confirm('Are you sure you want to void this invoice?')) return;
 
     try {
-      const response = await fetch(`/api/v2/invoices/${invoiceId}?reason=Voided by user`, {
+      const response = await apiFetch(`/api/v2/invoices/${invoiceId}?reason=Voided by user`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -212,7 +213,7 @@ export default function InvoicesPage() {
 
   const handleRecordPayment = async (invoiceId: number, amount: number, method: string) => {
     try {
-      const response = await fetch(`/api/v2/invoices/${invoiceId}/actions`, {
+      const response = await apiFetch(`/api/v2/invoices/${invoiceId}/actions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'pay', amount, paymentMethod: method }),
@@ -714,7 +715,7 @@ function CreateInvoiceModal({
 
   useEffect(() => {
     // Fetch patients for dropdown
-    fetch('/api/patients?limit=100')
+    apiFetch('/api/patients?limit=100')
       .then((res) => res.json())
       .then((data) => setPatients(data.patients || []))
       .catch(console.error);
@@ -754,7 +755,7 @@ function CreateInvoiceModal({
 
     setSubmitting(true);
     try {
-      const response = await fetch('/api/v2/invoices', {
+      const response = await apiFetch('/api/v2/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

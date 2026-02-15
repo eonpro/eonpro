@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
-import { SESSION_EXPIRED_EVENT, clearAuthTokens, redirectToLogin } from '@/lib/api/fetch';
+import { apiFetch, SESSION_EXPIRED_EVENT, clearAuthTokens, redirectToLogin } from '@/lib/api/fetch';
 import { AlertTriangle, LogOut } from 'lucide-react';
 
 /**
@@ -80,7 +80,7 @@ export default function SessionExpirationHandler() {
       if (!hasToken) return;
 
       try {
-        const response = await fetch('/api/auth/verify', {
+        const response = await apiFetch('/api/auth/verify', {
           headers: {
             Authorization: `Bearer ${hasToken}`,
           },

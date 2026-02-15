@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   Menu,
   X,
@@ -125,7 +126,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
     setSwitchingClinic(true);
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/auth/switch-clinic', {
+      const response = await apiFetch('/api/auth/switch-clinic', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

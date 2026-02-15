@@ -381,7 +381,7 @@ export default function PrescriptionForm({
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const res = await fetch('/api/patients', { headers });
+        const res = await apiFetch('/api/patients', { headers });
         const data = await res.json();
         setPatients(data.patients ?? []);
       } catch (err: any) {
@@ -525,7 +525,7 @@ export default function PrescriptionForm({
         patientId: selectedPatientId || null,
         queueForProvider: queueForProvider && isAdminRole,
       };
-      const res = await fetch('/api/prescriptions', {
+      const res = await apiFetch('/api/prescriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submissionData),

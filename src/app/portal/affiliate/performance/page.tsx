@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   TrendingUp,
   TrendingDown,
@@ -63,10 +64,10 @@ export default function PerformancePage() {
 
       try {
         const [summaryRes, trendsRes] = await Promise.all([
-          fetch(`/api/affiliate/summary?period=${period}`, {
+          apiFetch(`/api/affiliate/summary?period=${period}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch(
+          apiFetch(
             `/api/affiliate/trends?granularity=day&days=${period === '7d' ? 7 : period === '30d' ? 30 : 90}`,
             {
               headers: { Authorization: `Bearer ${token}` },

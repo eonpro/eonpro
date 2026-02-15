@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   BarChart3,
   TrendingUp,
@@ -106,7 +107,7 @@ export default function SuperAdminAffiliateReportsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/reports?period=${period}`, {
+      const response = await apiFetch(`/api/admin/affiliates/reports?period=${period}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -143,7 +144,7 @@ export default function SuperAdminAffiliateReportsPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/admin/affiliates/leaderboard?metric=${leaderboardMetric}&period=${period}&limit=10`,
         { headers: { Authorization: `Bearer ${token}` } }
       );

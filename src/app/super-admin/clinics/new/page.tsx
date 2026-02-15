@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { US_STATES } from '@/components/AddressAutocomplete';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Helper function to calculate text color based on background luminance
 function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
@@ -157,12 +158,10 @@ export default function CreateClinicPage() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('auth-token');
-      const response = await fetch('/api/super-admin/clinics', {
+      const response = await apiFetch('/api/super-admin/clinics', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...formData,

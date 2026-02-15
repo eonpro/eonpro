@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, use, useMemo } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import { evaluateConditionalLogic, ConditionalLogic } from '@/lib/intake-forms/conditional-logic';
@@ -58,7 +59,7 @@ export default function IntakeFormPage({ params }: { params: Promise<{ linkId: s
   const fetchForm = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/intake-forms/public/${linkId}`);
+      const res = await apiFetch(`/api/intake-forms/public/${linkId}`);
 
       if (!res.ok) {
         const data = await res.json();
@@ -175,7 +176,7 @@ export default function IntakeFormPage({ params }: { params: Promise<{ linkId: s
         answer: responses[question.id] || '',
       }));
 
-      const res = await fetch(`/api/intake-forms/public/${linkId}`, {
+      const res = await apiFetch(`/api/intake-forms/public/${linkId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

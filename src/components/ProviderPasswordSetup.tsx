@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ProviderPasswordSetupProps {
   providerId: number;
@@ -41,7 +42,7 @@ export default function ProviderPasswordSetup({
 
     try {
       setIsSubmitting(true);
-      const response = await fetch(`/api/providers/${providerId}/set-password`, {
+      const response = await apiFetch(`/api/providers/${providerId}/set-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password, confirmPassword }),

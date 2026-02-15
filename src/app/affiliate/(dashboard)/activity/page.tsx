@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, TrendingUp, ArrowUpRight, Clock } from 'lucide-react';
@@ -52,7 +53,7 @@ export default function AffiliateActivityPage() {
   useEffect(() => {
     const fetchActivity = async () => {
       try {
-        const res = await fetch('/api/affiliate/dashboard');
+        const res = await apiFetch('/api/affiliate/dashboard');
         if (res.ok) {
           const data = await res.json();
           setActivities(data.recentActivity || []);

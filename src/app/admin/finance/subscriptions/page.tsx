@@ -26,6 +26,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SubscriptionMetrics {
   activeSubscriptions: number;
@@ -81,7 +82,7 @@ export default function SubscriptionsPage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(`/api/finance/subscriptions?status=${statusFilter}`, {
+      const response = await apiFetch(`/api/finance/subscriptions?status=${statusFilter}`, {
         credentials: 'include',
         headers,
       });

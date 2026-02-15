@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { isFeatureEnabled } from '@/lib/features';
 import { Send, MessageSquare, AlertCircle, CheckCircle } from 'lucide-react';
 import { Patient, Provider, Order } from '@/types/models';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SMSComposerProps {
   patientPhone?: string;
@@ -116,7 +117,7 @@ export default function SMSComposer({
     setStatusMessage('');
 
     try {
-      const response = await fetch('/api/v2/twilio/send-sms', {
+      const response = await apiFetch('/api/v2/twilio/send-sms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

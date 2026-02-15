@@ -24,6 +24,7 @@ import {
   File,
   Clock,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ChatWidgetProps {
   userId: string;
@@ -221,7 +222,7 @@ export default function ChatWidget({
 
   const fetchChatToken = async (): Promise<any> => {
     try {
-      const response = await fetch('/api/v2/twilio/chat/token', {
+      const response = await apiFetch('/api/v2/twilio/chat/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

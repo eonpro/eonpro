@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { PatientDocumentCategory, Clinic, Patient, Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
@@ -13,6 +13,7 @@ import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQu
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
@@ -176,9 +177,17 @@ export async function POST(req: NextRequest) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // STEP 2.5: IDEMPOTENCY CHECK
+  // All remaining steps require tenant context for clinic-isolated models
+  // (patient, patientDocument, auditLog, etc.)
+  // This is REQUIRED per multi-tenant isolation rules.
   // ═══════════════════════════════════════════════════════════════════
   const rawBody = await req.text();
+
+  return runWithClinicContext(clinicId, async () => {
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 2.5: IDEMPOTENCY CHECK
+  // ═══════════════════════════════════════════════════════════════════
   const idempotencyKey = `weightlossintake_${createHash('sha256').update(rawBody).digest('hex')}`;
 
   const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
@@ -342,6 +351,11 @@ export async function POST(req: NextRequest) {
         logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
       }
 
+      // Rebuild search index with updated data
+      const updateSearchIndex = buildPatientSearchIndex({
+        ...patientData,
+        patientId: existingPatient.patientId,
+      });
       patient = await withRetry(() =>
         prisma.patient.update({
           where: { id: existingPatient.id },
@@ -349,6 +363,7 @@ export async function POST(req: NextRequest) {
             ...patientData,
             tags: updatedTags,
             notes: buildNotes(existingPatient.notes),
+            searchIndex: updateSearchIndex,
           },
         })
       );
@@ -356,6 +371,11 @@ export async function POST(req: NextRequest) {
     } else {
       // Create new - use clinic-specific counter
       const patientNumber = await getNextPatientId(clinicId);
+      // Build search index from plain-text data BEFORE it gets encrypted
+      const searchIndex = buildPatientSearchIndex({
+        ...patientData,
+        patientId: patientNumber,
+      });
       patient = await withRetry(() =>
         prisma.patient.create({
           data: {
@@ -365,6 +385,7 @@ export async function POST(req: NextRequest) {
             tags: submissionTags,
             notes: buildNotes(null),
             source: 'webhook',
+            searchIndex,
             sourceMetadata: {
               type: 'weightlossintake',
               submissionId: normalized.submissionId,
@@ -850,6 +871,8 @@ export async function POST(req: NextRequest) {
     // Legacy field names (for backwards compatibility)
     patientId: patient.id,
   });
+
+  }); // end runWithClinicContext
 }
 
 // ═══════════════════════════════════════════════════════════════════

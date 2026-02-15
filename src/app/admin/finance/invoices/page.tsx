@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Undo2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Invoice {
   id: number;
@@ -94,7 +95,7 @@ export default function InvoicesPage() {
         ...(statusFilter !== 'all' && { status: statusFilter }),
       });
 
-      const response = await fetch(`/api/invoices?${params}`, {
+      const response = await apiFetch(`/api/invoices?${params}`, {
         credentials: 'include',
         headers,
       });
@@ -162,7 +163,7 @@ export default function InvoicesPage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(`/api/invoices/${invoiceId}/sync`, {
+      const response = await apiFetch(`/api/invoices/${invoiceId}/sync`, {
         method: 'POST',
         credentials: 'include',
         headers,

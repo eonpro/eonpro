@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { formatCurrency } from '@/lib/stripe';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface InvoiceMetadata {
   invoiceNumber?: string;
@@ -97,7 +98,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
 
   const fetchInvoice = async () => {
     try {
-      const res = await fetch(`/api/stripe/invoices/${resolvedParams.id}`);
+      const res = await apiFetch(`/api/stripe/invoices/${resolvedParams.id}`);
       const data = await res.json();
 
       if (res.ok) {

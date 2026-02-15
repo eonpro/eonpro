@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Product {
   id: number;
@@ -78,7 +79,7 @@ export default function ProductCatalogPage() {
       if (filterCategory) params.append('category', filterCategory);
       if (filterBillingType) params.append('billingType', filterBillingType);
 
-      const res = await fetch(`/api/products?${params}`, {
+      const res = await apiFetch(`/api/products?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -116,7 +117,7 @@ export default function ProductCatalogPage() {
         isVisible: form.isVisible,
       };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -146,7 +147,7 @@ export default function ProductCatalogPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch(`/api/products/${productId}`, {
+      const res = await apiFetch(`/api/products/${productId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

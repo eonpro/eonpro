@@ -9,7 +9,7 @@ import {
   chatQuerySchema,
   conversationHistorySchema,
 } from '@/services/ai/assistantService';
-import { getCurrentUser } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 
 /**
@@ -20,23 +20,9 @@ import { getClinicIdFromRequest } from '@/lib/clinic/utils';
  * 2. Validates user has access to the clinic
  * 3. All data queries are scoped to the user's clinic
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
   try {
     const body = await request.json();
-
-    // SECURITY: Get user from server-side auth headers (set by middleware)
-    const user = getCurrentUser(request);
-
-    // SECURITY: Require authenticated user — never trust client-sent identity
-    if (!user) {
-      logger.warn('[BeccaAI] Unauthenticated request rejected', {
-        ip: request.headers.get('x-forwarded-for'),
-      });
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
     // SECURITY: Get clinic from authenticated user or server-side context only
     // Priority: 1. User's assigned clinic, 2. Header/cookie (set by middleware)
@@ -73,7 +59,7 @@ export async function POST(request: NextRequest) {
       userEmail: validated.userEmail,
       clinicId: validated.clinicId,
       patientId: validated.patientId,
-      userId: user?.id,
+      userId: user.id,
     });
 
     // Process query with verified clinic context
@@ -145,20 +131,14 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * GET /api/ai/chat - Get conversation history or user conversations
  * SECURITY: All queries filtered by clinic context
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
   try {
-    // SECURITY: Require authenticated user
-    const user = getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
     // SECURITY: Get clinic from server-side auth only — never from query params
     let clinicId: number | undefined = user.clinicId;
 
@@ -217,20 +197,14 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});
 
 /**
  * DELETE /api/ai/chat - End a conversation session
  * SECURITY: Requires clinic context to prevent cross-tenant manipulation
  */
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (request: NextRequest, user: AuthUser) => {
   try {
-    // SECURITY: Require authenticated user
-    const user = getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
     // SECURITY: Get clinic from server-side auth only — never from query params
     let clinicId: number | undefined = user.clinicId;
 
@@ -267,4 +241,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

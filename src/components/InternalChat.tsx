@@ -136,7 +136,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
-      const response = await fetch('/api/internal/users?excludeSelf=true');
+      const response = await apiFetch('/api/internal/users?excludeSelf=true');
       if (response.ok) {
         const data = await response.json();
         const userList = Array.isArray(data) ? data : data.data || [];

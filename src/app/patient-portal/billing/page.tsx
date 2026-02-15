@@ -5,7 +5,7 @@
  * Payment history, invoices, and subscription management
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   CreditCard,
   Receipt,
@@ -20,11 +20,13 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import NextLink from 'next/link';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
+import { BillingPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
 
 interface PaymentMethod {
   id: string;
@@ -75,7 +77,11 @@ const STATUS_CONFIG = {
 
 export default function BillingPage() {
   const { branding } = useClinicBranding();
+  const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
+  // Locale/currency may be added to branding in the future; fall back to defaults
+  const brandLocale = (branding as Record<string, unknown> | null)?.locale as string || 'en-US';
+  const brandCurrency = (branding as Record<string, unknown> | null)?.currency as string || 'USD';
 
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -131,27 +137,38 @@ export default function BillingPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = useCallback((amount: number) => {
+    return new Intl.NumberFormat(brandLocale, {
       style: 'currency',
-      currency: 'USD',
+      currency: brandCurrency,
     }).format(amount / 100);
-  };
+  }, [brandLocale, brandCurrency]);
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+  const formatDate = useCallback((dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString(brandLocale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
-  };
+  }, [brandLocale]);
+
+  const totalPaid = useMemo(() => {
+    return data?.invoices
+      .filter((i) => i.status === 'paid')
+      .reduce((sum, i) => sum + i.amount, 0) || 0;
+  }, [data?.invoices]);
+
+  const memberSince = useMemo(() => {
+    if (!data?.invoices?.length) return 'N/A';
+    return formatDate(data.invoices[data.invoices.length - 1].date);
+  }, [data?.invoices, formatDate]);
+
+  const recentInvoices = useMemo(() => {
+    return data?.invoices?.slice(0, 3) || [];
+  }, [data?.invoices]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
-      </div>
-    );
+    return <BillingPageSkeleton />;
   }
 
   return (
@@ -173,8 +190,8 @@ export default function BillingPage() {
       )}
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-        <p className="mt-1 text-gray-600">Manage your subscription and payment history</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('billingTitle')}</h1>
+        <p className="mt-1 text-gray-600">{t('billingSubtitle')}</p>
       </div>
 
       {/* Subscription Card */}
@@ -185,7 +202,7 @@ export default function BillingPage() {
         >
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-white/80">Current Plan</p>
+              <p className="text-sm text-white/80">{t('billingCurrentPlan')}</p>
               <h2 className="mt-1 text-2xl font-bold">{data.subscription.planName}</h2>
               <p className="mt-2 text-white/90">
                 {formatCurrency(data.subscription.amount)} / {data.subscription.interval}
@@ -198,7 +215,7 @@ export default function BillingPage() {
                   : 'bg-red-500/20 text-red-200'
               }`}
             >
-              {data.subscription.status === 'active' ? 'Active' : data.subscription.status}
+              {data.subscription.status === 'active' ? t('billingActive') : data.subscription.status}
             </div>
           </div>
 
@@ -213,11 +230,11 @@ export default function BillingPage() {
           {data.upcomingInvoice && (
             <div className="mt-4 border-t border-white/20 pt-4">
               <div className="flex justify-between text-sm">
-                <span className="text-white/80">Next billing date</span>
+                <span className="text-white/80">{t('billingNextBillingDate')}</span>
                 <span className="font-medium">{formatDate(data.upcomingInvoice.date)}</span>
               </div>
               <div className="mt-1 flex justify-between text-sm">
-                <span className="text-white/80">Amount</span>
+                <span className="text-white/80">{t('billingAmount')}</span>
                 <span className="font-medium">{formatCurrency(data.upcomingInvoice.amount)}</span>
               </div>
             </div>
@@ -227,21 +244,23 @@ export default function BillingPage() {
             onClick={openCustomerPortal}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/20 py-3 font-medium transition-colors hover:bg-white/30"
           >
-            Manage Subscription
+            {t('billingManageSubscription')}
             <ExternalLink className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2" role="tablist">
         {[
-          { id: 'overview', label: 'Overview' },
-          { id: 'history', label: 'Payment History' },
-          { id: 'methods', label: 'Payment Methods' },
+          { id: 'overview', label: t('billingOverview') },
+          { id: 'history', label: t('billingPaymentHistory') },
+          { id: 'methods', label: t('billingPaymentMethods') },
         ].map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
             className={`whitespace-nowrap rounded-xl px-4 py-2 font-medium transition-colors ${
               activeTab === tab.id ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -261,34 +280,26 @@ export default function BillingPage() {
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="mb-1 flex items-center gap-2">
                 <Receipt className="h-5 w-5 text-blue-500" />
-                <span className="text-sm text-gray-600">Total Paid</span>
+                <span className="text-sm text-gray-600">{t('billingTotalPaid')}</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(
-                  data?.invoices
-                    .filter((i) => i.status === 'paid')
-                    .reduce((sum, i) => sum + i.amount, 0) || 0
-                )}
+                {formatCurrency(totalPaid)}
               </p>
             </div>
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="mb-1 flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-green-500" />
-                <span className="text-sm text-gray-600">Member Since</span>
+                <span className="text-sm text-gray-600">{t('billingMemberSince')}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {data?.invoices.length
-                  ? formatDate(data.invoices[data.invoices.length - 1].date)
-                  : 'N/A'}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{memberSince}</p>
             </div>
           </div>
 
           {/* Recent Invoices */}
           <div>
-            <h3 className="mb-3 font-semibold text-gray-900">Recent Invoices</h3>
+            <h3 className="mb-3 font-semibold text-gray-900">{t('billingRecentInvoices')}</h3>
             <div className="space-y-3">
-              {data?.invoices.slice(0, 3).map((invoice) => {
+              {recentInvoices.map((invoice) => {
                 const status = STATUS_CONFIG[invoice.status];
                 const StatusIcon = status.icon;
 
@@ -322,7 +333,7 @@ export default function BillingPage() {
               {(!data?.invoices || data.invoices.length === 0) && (
                 <div className="rounded-xl bg-gray-50 py-8 text-center">
                   <Receipt className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-                  <p className="text-gray-600">No invoices yet</p>
+                  <p className="text-gray-600">{t('billingNoInvoices')}</p>
                 </div>
               )}
             </div>
@@ -333,10 +344,9 @@ export default function BillingPage() {
             <div className="flex items-start gap-3">
               <Shield className="mt-0.5 h-5 w-5 text-green-600" />
               <div>
-                <h4 className="font-medium text-gray-900">Secure Payments</h4>
+                <h4 className="font-medium text-gray-900">{t('billingSecurePayments')}</h4>
                 <p className="mt-1 text-sm text-gray-600">
-                  Your payment information is securely processed by Stripe. We never store your full
-                  card details.
+                  {t('billingSecureDesc')}
                 </p>
               </div>
             </div>
@@ -392,7 +402,7 @@ export default function BillingPage() {
           {(!data?.invoices || data.invoices.length === 0) && (
             <div className="rounded-xl bg-gray-50 py-12 text-center">
               <Receipt className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-              <p className="text-gray-600">No payment history yet</p>
+              <p className="text-gray-600">{t('billingNoPaymentHistory')}</p>
             </div>
           )}
         </div>
@@ -420,7 +430,7 @@ export default function BillingPage() {
                 </div>
                 {method.isDefault && (
                   <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                    Default
+                    {t('billingDefault')}
                   </span>
                 )}
               </div>
@@ -430,7 +440,7 @@ export default function BillingPage() {
           {(!data?.paymentMethods || data.paymentMethods.length === 0) && (
             <div className="rounded-xl bg-gray-50 py-12 text-center">
               <CreditCard className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-              <p className="text-gray-600">No payment methods on file</p>
+              <p className="text-gray-600">{t('billingNoPaymentMethods')}</p>
             </div>
           )}
 
@@ -440,7 +450,7 @@ export default function BillingPage() {
             style={{ backgroundColor: primaryColor }}
           >
             <CreditCard className="h-5 w-5" />
-            Update Payment Method
+            {t('billingUpdatePayment')}
           </button>
         </div>
       )}

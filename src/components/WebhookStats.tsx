@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Activity, CheckCircle, AlertCircle, Clock, TrendingUp, ExternalLink } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface WebhookStatsData {
   total: number;
@@ -32,7 +33,7 @@ export default function WebhookStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/webhooks/heyflow-intake-v2');
+        const res = await apiFetch('/api/webhooks/heyflow-intake-v2');
         if (!res.ok) {
           throw new Error('Failed to fetch webhook stats');
         }

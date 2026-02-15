@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api/fetch';
 import {
   Settings,
   Building2,
@@ -234,8 +235,8 @@ export default function AdminSettingsPage() {
   const loadMyProfile = async () => {
     try {
       const [profileRes, avatarRes] = await Promise.all([
-        fetch('/api/user/profile'),
-        fetch('/api/user/profile-picture'),
+        apiFetch('/api/user/profile'),
+        apiFetch('/api/user/profile-picture'),
       ]);
 
       if (profileRes.ok) {
@@ -282,7 +283,7 @@ export default function AdminSettingsPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/user/profile-picture', {
+      const res = await apiFetch('/api/user/profile-picture', {
         method: 'POST',
         body: formData,
       });
@@ -307,7 +308,7 @@ export default function AdminSettingsPage() {
 
     setUploadingAvatar(true);
     try {
-      const res = await fetch('/api/user/profile-picture', { method: 'DELETE' });
+      const res = await apiFetch('/api/user/profile-picture', { method: 'DELETE' });
       if (res.ok) {
         setMyProfile((prev) => (prev ? { ...prev, avatarUrl: null } : null));
       }
@@ -321,7 +322,7 @@ export default function AdminSettingsPage() {
   const saveMyProfile = async () => {
     setSavingProfile(true);
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await apiFetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -357,7 +358,7 @@ export default function AdminSettingsPage() {
   const loadClinicInfo = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/admin/clinic/info');
+      const res = await apiFetch('/api/admin/clinic/info');
       if (res.ok) {
         const data = await res.json();
         setClinic(data.clinic);
@@ -383,7 +384,7 @@ export default function AdminSettingsPage() {
 
   const loadSettings = async () => {
     try {
-      const res = await fetch('/api/admin/clinic/settings');
+      const res = await apiFetch('/api/admin/clinic/settings');
       if (res.ok) {
         const data = await res.json();
         setSettings(data.settings);
@@ -396,7 +397,7 @@ export default function AdminSettingsPage() {
 
   const loadStats = async () => {
     try {
-      const res = await fetch('/api/admin/clinic/stats');
+      const res = await apiFetch('/api/admin/clinic/stats');
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -409,7 +410,7 @@ export default function AdminSettingsPage() {
   const loadUsers = async () => {
     try {
       setLoadingUsers(true);
-      const res = await fetch('/api/admin/clinic/users');
+      const res = await apiFetch('/api/admin/clinic/users');
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users);
@@ -430,7 +431,7 @@ export default function AdminSettingsPage() {
       });
       if (logFilter.action) params.append('action', logFilter.action);
 
-      const res = await fetch(`/api/admin/clinic/audit-logs?${params}`);
+      const res = await apiFetch(`/api/admin/clinic/audit-logs?${params}`);
       if (res.ok) {
         const data = await res.json();
         setAuditLogs(data.logs);
@@ -452,7 +453,7 @@ export default function AdminSettingsPage() {
   const saveClinicInfo = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/clinic/info', {
+      const res = await apiFetch('/api/admin/clinic/info', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -479,7 +480,7 @@ export default function AdminSettingsPage() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/clinic/settings', {
+      const res = await apiFetch('/api/admin/clinic/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settingsForm),
@@ -510,7 +511,7 @@ export default function AdminSettingsPage() {
         : '/api/admin/clinic/users';
       const method = editingUser ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -537,7 +538,7 @@ export default function AdminSettingsPage() {
   const handleDeactivateUser = async (userId: number) => {
     if (!confirm('Are you sure you want to deactivate this user?')) return;
     try {
-      const res = await fetch(`/api/admin/clinic/users/${userId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/admin/clinic/users/${userId}`, { method: 'DELETE' });
       if (res.ok) {
         loadUsers();
       } else {

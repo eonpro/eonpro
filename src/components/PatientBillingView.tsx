@@ -11,6 +11,7 @@ import { ProcessPaymentForm } from './ProcessPaymentForm';
 import { PatientSubscriptionManager } from './PatientSubscriptionManager';
 import { logger } from '@/lib/logger';
 import { toast } from '@/components/Toast';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Invoice {
   id: number;
@@ -107,7 +108,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       const headers = getAuthHeaders();
 
       // Fetch invoices
-      const invoicesRes = await fetch(`/api/stripe/invoices?patientId=${patientId}`, {
+      const invoicesRes = await apiFetch(`/api/stripe/invoices?patientId=${patientId}`, {
         credentials: 'include',
         headers,
       });
@@ -117,7 +118,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       }
 
       // Fetch payments
-      const paymentsRes = await fetch(`/api/stripe/payments?patientId=${patientId}`, {
+      const paymentsRes = await apiFetch(`/api/stripe/payments?patientId=${patientId}`, {
         credentials: 'include',
         headers,
       });
@@ -136,7 +137,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
   const handleSendInvoice = async (invoiceId: number) => {
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
+      const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -160,7 +161,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
+      const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -189,7 +190,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
+      const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'DELETE',
         credentials: 'include',
         headers,
@@ -214,7 +215,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/v2/invoices/${invoiceId}/actions`, {
+      const res = await apiFetch(`/api/v2/invoices/${invoiceId}/actions`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -242,7 +243,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
   ) => {
     try {
       const headers = getAuthHeaders();
-      const res = await fetch('/api/stripe/refunds', {
+      const res = await apiFetch('/api/stripe/refunds', {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -288,7 +289,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
   ) => {
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`/api/stripe/invoices/${invoiceId}`, {
+      const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -319,7 +320,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
   const handleOpenCustomerPortal = async () => {
     try {
       const headers = getAuthHeaders();
-      const res = await fetch('/api/stripe/customer-portal', {
+      const res = await apiFetch('/api/stripe/customer-portal', {
         method: 'POST',
         credentials: 'include',
         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -1366,7 +1367,7 @@ function CreateInvoiceForm({
     };
 
     const doFetch = () =>
-      fetch('/api/stripe/invoices', {
+      apiFetch('/api/stripe/invoices', {
         method: 'POST',
         credentials: 'include',
         headers: { ...authHeaders, 'Content-Type': 'application/json' },

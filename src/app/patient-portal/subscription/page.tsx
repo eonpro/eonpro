@@ -7,9 +7,12 @@
 
 import { useState, useEffect } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { toast } from '@/components/Toast';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
+import { SubscriptionPageSkeleton } from '@/components/patient-portal/PortalSkeletons';
 import {
   CreditCard,
   Calendar,
@@ -46,6 +49,7 @@ interface Invoice {
 
 export default function SubscriptionPage() {
   const { branding } = useClinicBranding();
+  const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
@@ -156,39 +160,27 @@ export default function SubscriptionPage() {
             ? (parsed as { url?: string }).url
             : undefined;
         if (url) window.location.href = url;
-        else alert('Billing portal is not configured. Please contact support.');
+        else toast.error('Billing portal is not configured. Please contact support.');
       } else {
         const err = await safeParseJson(response);
         const errMsg =
           err !== null && typeof err === 'object' && 'error' in err
             ? String((err as { error?: unknown }).error)
             : 'Unable to open billing portal. Please contact support.';
-        alert(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
       logger.error('Error opening billing portal', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
-      alert('Unable to open billing portal. Please try again later.');
+      toast.error('Unable to open billing portal. Please try again later.');
     } finally {
       setManagingBilling(false);
     }
   };
 
-  const getCardIcon = (brand: string) => {
-    // Return appropriate card icon based on brand
-    return CreditCard;
-  };
-
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
-      </div>
-    );
+    return <SubscriptionPageSkeleton />;
   }
 
   if (billingError) {
@@ -213,15 +205,14 @@ export default function SubscriptionPage() {
     return (
       <div className="min-h-screen p-4 md:p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">Subscription & Billing</h1>
-          <p className="mt-1 text-gray-500">Manage your subscription and payment details</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('subscriptionTitle')}</h1>
+          <p className="mt-1 text-gray-500">{t('subscriptionSubtitle')}</p>
         </div>
         <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
           <CreditCard className="mx-auto h-12 w-12 text-gray-300" />
-          <h2 className="mt-4 text-lg font-semibold text-gray-900">No active subscription</h2>
+          <h2 className="mt-4 text-lg font-semibold text-gray-900">{t('subscriptionNoActive')}</h2>
           <p className="mt-2 text-sm text-gray-500">
-            You don&apos;t have an active subscription. Contact your clinic or complete checkout to
-            get started.
+            {t('subscriptionNoActiveDesc')}
           </p>
           <button
             onClick={handleManageBilling}
@@ -229,7 +220,7 @@ export default function SubscriptionPage() {
             className="mt-6 rounded-xl px-4 py-2 font-medium text-white disabled:opacity-50"
             style={{ backgroundColor: primaryColor }}
           >
-            {managingBilling ? 'Opening…' : 'Manage billing'}
+            {managingBilling ? t('subscriptionOpening') : t('subscriptionManageBilling')}
           </button>
         </div>
       </div>
@@ -240,8 +231,8 @@ export default function SubscriptionPage() {
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Subscription & Billing</h1>
-        <p className="mt-1 text-gray-500">Manage your subscription and payment details</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('subscriptionTitle')}</h1>
+        <p className="mt-1 text-gray-500">{t('subscriptionSubtitle')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -254,7 +245,7 @@ export default function SubscriptionPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="mb-1 text-sm font-medium" style={{ color: '#555' }}>
-                      Current Plan
+                      {t('subscriptionCurrentPlan')}
                     </p>
                     <h2 className="text-2xl font-semibold" style={{ color: '#1a1a1a' }}>
                       {subscription.planName}
@@ -284,9 +275,9 @@ export default function SubscriptionPage() {
                   <div className="flex items-center gap-3">
                     <Calendar className="h-5 w-5 text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Next billing date</p>
+                      <p className="text-sm text-gray-500">{t('subscriptionNextBilling')}</p>
                       <p className="font-semibold text-gray-900">
-                        {new Date(subscription.nextBillingDate).toLocaleDateString('en-US', {
+                        {new Date(subscription.nextBillingDate).toLocaleDateString(undefined, {
                           month: 'long',
                           day: 'numeric',
                           year: 'numeric',
@@ -298,7 +289,7 @@ export default function SubscriptionPage() {
 
                 {/* Plan Features */}
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Plan includes:</p>
+                  <p className="text-sm font-medium text-gray-700">{t('subscriptionPlanIncludes')}</p>
                   {[
                     'Monthly medication supply',
                     'Provider consultations',
@@ -320,14 +311,14 @@ export default function SubscriptionPage() {
           {subscription?.paymentMethod && (
             <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">Payment Method</h3>
+                <h3 className="font-semibold text-gray-900">{t('subscriptionPaymentMethod')}</h3>
                 <button
                   onClick={handleManageBilling}
                   disabled={managingBilling}
                   className="text-sm font-medium"
                   style={{ color: primaryColor }}
                 >
-                  Update
+                  {t('subscriptionUpdate')}
                 </button>
               </div>
 
@@ -340,8 +331,7 @@ export default function SubscriptionPage() {
                     {subscription.paymentMethod.brand} •••• {subscription.paymentMethod.last4}
                   </p>
                   <p className="text-sm text-gray-500">
-                    Expires {subscription.paymentMethod.expMonth}/
-                    {subscription.paymentMethod.expYear}
+                    {subscription.paymentMethod.expMonth}/{subscription.paymentMethod.expYear}
                   </p>
                 </div>
               </div>
@@ -351,12 +341,12 @@ export default function SubscriptionPage() {
           {/* Billing History */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Billing History</h3>
+              <h3 className="font-semibold text-gray-900">{t('subscriptionBillingHistory')}</h3>
               <History className="h-5 w-5 text-gray-400" />
             </div>
 
             {invoices.length === 0 ? (
-              <p className="py-8 text-center text-gray-500">No billing history yet</p>
+              <p className="py-8 text-center text-gray-500">{t('subscriptionNoBillingHistory')}</p>
             ) : (
               <div className="space-y-3">
                 {invoices.map((invoice) => (
@@ -367,7 +357,7 @@ export default function SubscriptionPage() {
                     <div>
                       <p className="font-medium text-gray-900">{invoice.description}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(invoice.date).toLocaleDateString('en-US', {
+                        {new Date(invoice.date).toLocaleDateString(undefined, {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
@@ -399,7 +389,7 @@ export default function SubscriptionPage() {
         <div className="space-y-6">
           {/* Quick Actions */}
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 font-semibold text-gray-900">Quick Actions</h3>
+            <h3 className="mb-4 font-semibold text-gray-900">{t('subscriptionQuickActions')}</h3>
 
             <div className="space-y-3">
               <button
@@ -409,7 +399,7 @@ export default function SubscriptionPage() {
               >
                 <div className="flex items-center gap-3">
                   <CreditCard className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium text-gray-700">Manage Billing</span>
+                  <span className="font-medium text-gray-700">{t('subscriptionManageBilling')}</span>
                 </div>
                 <ExternalLink className="h-4 w-4 text-gray-400" />
               </button>
@@ -421,7 +411,7 @@ export default function SubscriptionPage() {
               >
                 <div className="flex items-center gap-3">
                   <Package className="h-5 w-5 text-gray-400" />
-                  <span className="font-medium text-gray-700">Change Plan</span>
+                  <span className="font-medium text-gray-700">{t('subscriptionChangePlan')}</span>
                 </div>
                 <ChevronRight className="h-4 w-4 text-gray-400" />
               </button>
@@ -431,20 +421,19 @@ export default function SubscriptionPage() {
           {/* Support Card */}
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
             <AlertCircle className="mb-3 h-6 w-6 text-blue-600" />
-            <h3 className="mb-2 font-semibold text-blue-900">Need Help?</h3>
+            <h3 className="mb-2 font-semibold text-blue-900">{t('subscriptionNeedHelp')}</h3>
             <p className="mb-4 text-sm text-blue-800">
-              Contact our support team for billing questions or subscription changes.
+              {t('subscriptionSupportDesc')}
             </p>
             <button className="w-full rounded-xl bg-blue-600 py-2.5 text-center font-medium text-white transition-colors hover:bg-blue-700">
-              Contact Support
+              {t('subscriptionContactSupport')}
             </button>
           </div>
 
           {/* Cancellation Notice */}
           <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6">
             <p className="text-sm text-gray-600">
-              Need to pause or cancel? You can manage your subscription anytime through the billing
-              portal. Changes take effect at the end of your current billing period.
+              {t('subscriptionCancelNotice')}
             </p>
           </div>
         </div>

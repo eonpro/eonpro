@@ -12,6 +12,7 @@ import {
   Check,
   ExternalLink,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface SummaryData {
   summary: {
@@ -78,12 +79,8 @@ export default function AffiliateDashboard() {
       try {
         // Fetch summary and trends in parallel
         const [summaryRes, trendsRes] = await Promise.all([
-          fetch('/api/affiliate/summary', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch('/api/affiliate/trends?granularity=week', {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+          apiFetch('/api/affiliate/summary'),
+          apiFetch('/api/affiliate/trends?granularity=week'),
         ]);
 
         if (summaryRes.ok) {

@@ -113,6 +113,15 @@ model Patient {
   // BLOODWORK: Parsed lab reports (e.g. Quest PDF upload)
   labReports LabReport[]
 
+  // SEARCH INDEX: Lowercased plain-text of searchable fields for DB-level full-text search.
+  // Contains: "firstname lastname email phone_digits patientid"
+  // Enables SQL LIKE queries via pg_trgm GIN index for O(1) substring matching at any scale.
+  // Original PHI fields remain AES-256-GCM encrypted; DB provides encryption-at-rest.
+  searchIndex String?
+
+  // PATIENT PORTAL: Notification preferences (email reminders, sms, shipments, etc.)
+  portalNotificationPrefs Json?
+
   @@unique([clinicId, patientId])
   @@index([clinicId])
   @@index([profileStatus]) // For efficiently querying pending profiles

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { apiFetch } from '@/lib/api/fetch';
 
 const formatter = new Intl.DateTimeFormat('en-US', {
   dateStyle: 'medium',
@@ -49,7 +50,7 @@ export default function IntakesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/intakes')
+    apiFetch('/api/intakes')
       .then((res) => res.json())
       .then((data) => {
         const intakeData = data.intakes || [];

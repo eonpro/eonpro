@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Info,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface CommissionPlan {
   id: number;
@@ -114,7 +115,7 @@ export default function CommissionPlansPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch('/api/admin/commission-plans', {
+      const response = await apiFetch('/api/admin/commission-plans', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -256,7 +257,7 @@ export default function CommissionPlansPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/commission-plans/${planId}`, {
+      const response = await apiFetch(`/api/admin/commission-plans/${planId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

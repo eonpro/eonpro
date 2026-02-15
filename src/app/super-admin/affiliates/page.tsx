@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   Activity,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Clinic {
   id: number;
@@ -262,9 +263,7 @@ export default function SuperAdminAffiliatesPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch('/api/super-admin/affiliates/diagnostics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/super-admin/affiliates/diagnostics');
 
       if (response.ok) {
         setDiagnostics(await response.json());
@@ -291,9 +290,7 @@ export default function SuperAdminAffiliatesPage() {
 
     try {
       // Fetch clinics first
-      const clinicsRes = await fetch('/api/super-admin/clinics', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const clinicsRes = await apiFetch('/api/super-admin/clinics');
 
       if (clinicsRes.ok) {
         const clinicsData = await clinicsRes.json();
@@ -301,9 +298,7 @@ export default function SuperAdminAffiliatesPage() {
       }
 
       // Fetch all affiliates across all clinics
-      const affiliatesRes = await fetch('/api/super-admin/affiliates', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const affiliatesRes = await apiFetch('/api/super-admin/affiliates');
 
       const data = await affiliatesRes.json();
 
@@ -337,10 +332,9 @@ export default function SuperAdminAffiliatesPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch('/api/super-admin/affiliates', {
+      const response = await apiFetch('/api/super-admin/affiliates', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -414,10 +408,9 @@ export default function SuperAdminAffiliatesPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch(`/api/super-admin/affiliates/${editingAffiliate.id}`, {
+      const response = await apiFetch(`/api/super-admin/affiliates/${editingAffiliate.id}`, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -461,10 +454,9 @@ export default function SuperAdminAffiliatesPage() {
     const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch(`/api/super-admin/affiliates/${deletingAffiliate.id}`, {
+      const response = await apiFetch(`/api/super-admin/affiliates/${deletingAffiliate.id}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
 

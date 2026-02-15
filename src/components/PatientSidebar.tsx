@@ -7,6 +7,7 @@ import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
 import SalesRepDropdown from './SalesRepDropdown';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface AffiliateAttribution {
   affiliateId: number;
@@ -106,7 +107,7 @@ function AffiliateAttributionSection({
     setLoadingOptions(true);
     try {
       const params = query ? `?search=${encodeURIComponent(query)}` : '';
-      const res = await fetch(`/api/admin/affiliates/ref-codes${params}`);
+      const res = await apiFetch(`/api/admin/affiliates/ref-codes${params}`);
       if (res.ok) {
         const data = await res.json();
         setOptions(data.refCodes || []);
@@ -172,7 +173,7 @@ function AffiliateAttributionSection({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/affiliates/attribute', {
+      const res = await apiFetch('/api/admin/affiliates/attribute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId, refCode: code, password: adminPassword }),
@@ -203,7 +204,7 @@ function AffiliateAttributionSection({
     setRemoving(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/affiliates/attribute', {
+      const res = await apiFetch('/api/admin/affiliates/attribute', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ patientId, password: adminPassword }),
@@ -547,7 +548,7 @@ export default function PatientSidebar({
   };
 
   const handleSavePatient = async (data: any) => {
-    const response = await fetch(`/api/patients/${patient.id}`, {
+    const response = await apiFetch(`/api/patients/${patient.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -566,7 +567,7 @@ export default function PatientSidebar({
     // Get auth token from localStorage
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
-    const response = await fetch(`/api/patients/${patient.id}`, {
+    const response = await apiFetch(`/api/patients/${patient.id}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`,

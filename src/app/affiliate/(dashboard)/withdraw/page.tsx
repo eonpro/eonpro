@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface WithdrawData {
   availableBalance: number;
@@ -51,7 +52,7 @@ export default function WithdrawPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/affiliate/withdraw');
+        const res = await apiFetch('/api/affiliate/withdraw');
         if (res.ok) {
           const withdrawData = await res.json();
           setData(withdrawData);
@@ -109,7 +110,7 @@ export default function WithdrawPage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/affiliate/withdraw', {
+      const res = await apiFetch('/api/affiliate/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amountCents }),

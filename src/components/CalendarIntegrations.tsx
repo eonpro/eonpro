@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Cloud,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface CalendarIntegration {
   provider: 'google' | 'outlook';
@@ -42,7 +43,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch('/api/calendar-sync?action=status');
+      const response = await apiFetch('/api/calendar-sync?action=status');
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -66,7 +67,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
 
   const connectCalendar = async (provider: 'google' | 'outlook') => {
     try {
-      const response = await fetch('/api/calendar-sync', {
+      const response = await apiFetch('/api/calendar-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'connect', provider }),
@@ -95,7 +96,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
     }
 
     try {
-      const response = await fetch(`/api/calendar-sync?provider=${provider}`, {
+      const response = await apiFetch(`/api/calendar-sync?provider=${provider}`, {
         method: 'DELETE',
       });
 
@@ -118,7 +119,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
     settings: { syncEnabled?: boolean; syncDirection?: string }
   ) => {
     try {
-      const response = await fetch('/api/calendar-sync', {
+      const response = await apiFetch('/api/calendar-sync', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider, ...settings }),
@@ -143,7 +144,7 @@ export default function CalendarIntegrations({ onUpdate }: CalendarIntegrationsP
       setIsSyncing(true);
       setError(null);
 
-      const response = await fetch('/api/calendar-sync', {
+      const response = await apiFetch('/api/calendar-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'sync', importExternal: true }),

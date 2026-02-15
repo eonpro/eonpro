@@ -4,10 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 
 /**
  * GET /api/patient-portal/health-score
@@ -261,31 +261,23 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       insights.push('Keep up the good work! Consistency is key to success.');
     }
 
-    // Weekly trend (simulated for now)
-    const weeklyTrend = Array.from({ length: 7 }, (_, i) =>
-      Math.max(50, Math.min(100, overallScore - (6 - i) * 1))
-    );
+    // previousScore and weeklyTrend require actual historical health score snapshots.
+    // When a health score history table/snapshots exist, compute from real data.
+    await logPHIAccess(req, user, 'HealthScore', String(user.patientId), user.patientId, {
+      overallScore,
+    });
 
     return NextResponse.json({
       overallScore,
-      previousScore: overallScore - 3, // Simplified
+      previousScore: null, // TODO: compute from historical snapshots when available
       metrics,
       insights,
-      weeklyTrend,
+      weeklyTrend: null, // TODO: compute from historical daily scores when available
     });
   } catch (error) {
-    const errorId = crypto.randomUUID().slice(0, 8);
-    logger.error(`[HEALTH_SCORE_GET] Error ${errorId}:`, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
-      patientId: user.patientId,
-    });
-    return NextResponse.json(
-      { error: 'Failed to calculate health score', errorId, code: 'HEALTH_SCORE_CALC_ERROR' },
-      { status: 500 }
-    );
+    return handleApiError(error, { context: { route: 'GET /api/patient-portal/health-score' } });
   }
-});
+}, { roles: ['patient'] });
 
 function formatLastUpdated(date: Date): string {
   const now = new Date();

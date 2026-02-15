@@ -4,6 +4,9 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
+import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 // Sanitize HTML to prevent XSS
 function sanitizeText(text: string): string {
@@ -75,13 +78,6 @@ const getNutritionLogsSchema = z.object({
   }),
 });
 
-function canAccessPatient(user: { role: string; patientId?: number }, patientId: number): boolean {
-  if (user.role === 'patient') {
-    return user.patientId === patientId;
-  }
-  return ['provider', 'admin', 'staff', 'super_admin'].includes(user.role);
-}
-
 const postHandler = withAuth(async (request: NextRequest, user) => {
   try {
     const rawData = await request.json();
@@ -97,7 +93,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
     const { patientId, mealType, description, calories, protein, carbs, fat, notes, recordedAt } =
       parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -117,10 +113,14 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
+    await logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId);
+
     return NextResponse.json(nutritionLog, { status: 201 });
   } catch (error) {
-    logger.error('Failed to create nutrition log', { error });
-    return NextResponse.json({ error: 'Failed to create nutrition log' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'POST /api/patient-progress/nutrition',
+      context: { userId: user.id },
+    });
   }
 });
 
@@ -143,7 +143,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId } = parseResult.data;
 
-    if (!canAccessPatient(user, patientId)) {
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -179,6 +179,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     );
     const todayFat = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.fat || 0), 0);
 
+    await logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId);
+
     return NextResponse.json({
       data: nutritionLogs,
       meta: {
@@ -191,8 +193,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to fetch nutrition logs', { error });
-    return NextResponse.json({ error: 'Failed to fetch nutrition logs' }, { status: 500 });
+    return handleApiError(error, {
+      route: 'GET /api/patient-progress/nutrition',
+      context: { userId: user.id },
+    });
   }
 });
 

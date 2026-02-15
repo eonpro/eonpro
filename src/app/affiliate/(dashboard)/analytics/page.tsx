@@ -45,6 +45,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Types
 interface TrendData {
@@ -253,22 +254,13 @@ export default function AffiliateAnalyticsPage() {
       try {
         const [trendsRes, summaryRes, dashboardRes, refCodeStatsRes, trafficRes] =
           await Promise.all([
-            fetch(
-              `/api/affiliate/trends?from=${dateRange.from}&to=${dateRange.to}&granularity=day`,
-              {
-                credentials: 'include',
-              }
+            apiFetch(
+              `/api/affiliate/trends?from=${dateRange.from}&to=${dateRange.to}&granularity=day`
             ),
-            fetch(`/api/affiliate/summary?from=${dateRange.from}&to=${dateRange.to}`, {
-              credentials: 'include',
-            }),
-            fetch('/api/affiliate/dashboard', { credentials: 'include' }),
-            fetch(`/api/affiliate/ref-codes/stats?from=${dateRange.from}&to=${dateRange.to}`, {
-              credentials: 'include',
-            }).catch(() => null), // Optional endpoint
-            fetch(`/api/affiliate/traffic-sources?from=${dateRange.from}&to=${dateRange.to}`, {
-              credentials: 'include',
-            }).catch(() => null), // Optional endpoint
+            apiFetch(`/api/affiliate/summary?from=${dateRange.from}&to=${dateRange.to}`),
+            apiFetch('/api/affiliate/dashboard'),
+            apiFetch(`/api/affiliate/ref-codes/stats?from=${dateRange.from}&to=${dateRange.to}`).catch(() => null), // Optional endpoint
+            apiFetch(`/api/affiliate/traffic-sources?from=${dateRange.from}&to=${dateRange.to}`).catch(() => null), // Optional endpoint
           ]);
 
         if (trendsRes.ok) {

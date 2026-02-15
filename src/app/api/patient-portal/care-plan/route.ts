@@ -4,7 +4,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -155,4 +154,4 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       context: { userId: user?.id, patientId: user?.patientId },
     });
   }
-});
+}, { roles: ['patient'] });

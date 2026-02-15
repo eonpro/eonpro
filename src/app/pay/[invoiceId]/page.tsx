@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 import { useParams, useRouter } from 'next/navigation';
 
 interface InvoiceData {
@@ -42,7 +43,7 @@ export default function PaymentPage() {
   useEffect(() => {
     async function fetchInvoice() {
       try {
-        const res = await fetch(`/api/pay/${invoiceId}`);
+        const res = await apiFetch(`/api/pay/${invoiceId}`);
         const data = await res.json();
 
         if (!res.ok) {

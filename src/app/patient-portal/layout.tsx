@@ -87,7 +87,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [userData, setUserData] = useState<{ id?: number; role?: string; patientId?: number; firstName?: string; lastName?: string } | null>(null);
   const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState(3);
+  const [notifications, setNotifications] = useState(0);
 
   // Build nav from registry (single source of truth; clinic features + treatment gate visibility)
   const enabledNavIds = getEnabledNavModuleIds(features, branding?.primaryTreatment);

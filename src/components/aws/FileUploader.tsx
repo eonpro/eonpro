@@ -31,6 +31,7 @@ import {
   S3_ERRORS,
 } from '@/lib/integrations/aws/s3Config';
 import { Feature } from '@/components/Feature';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface UploadedFile {
   id: string;
@@ -112,7 +113,7 @@ export function FileUploader({
           if (providerId) formData.append('providerId', providerId.toString());
 
           // Upload to S3
-          const response = await fetch('/api/v2/aws/s3/upload', {
+          const response = await apiFetch('/api/v2/aws/s3/upload', {
             method: 'POST',
             body: formData,
           });
@@ -220,7 +221,7 @@ export function FileUploader({
     if (!file.key) return;
 
     try {
-      const response = await fetch('/api/v2/aws/s3/delete', {
+      const response = await apiFetch('/api/v2/aws/s3/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: file.key }),

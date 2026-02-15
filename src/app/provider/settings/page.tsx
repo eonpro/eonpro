@@ -16,6 +16,7 @@ import {
   EyeOff,
   Building2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ProviderSettings {
   user: {
@@ -114,7 +115,7 @@ export default function ProviderSettingsPage() {
   const fetchSettings = async () => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/provider/settings', {
+      const response = await apiFetch('/api/provider/settings', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -289,7 +290,7 @@ export default function ProviderSettingsPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/provider/settings', {
+      const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -326,7 +327,7 @@ export default function ProviderSettingsPage() {
       const signatureDataUrl = saveSignature();
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/provider/settings', {
+      const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -369,7 +370,7 @@ export default function ProviderSettingsPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/provider/settings', {
+      const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -446,7 +447,7 @@ export default function ProviderSettingsPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/providers/verify', {
+      const res = await apiFetch('/api/providers/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ npi }),
@@ -498,7 +499,7 @@ export default function ProviderSettingsPage() {
 
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await fetch('/api/provider/settings', {
+      const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

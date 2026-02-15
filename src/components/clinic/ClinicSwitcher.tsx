@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Building2, ChevronDown, Check, RefreshCw, AlertCircle } from 'lucide-react';
 import { isBrowser, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface ClinicOption {
   id: number;
@@ -68,9 +69,8 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
         return;
       }
 
-      const response = await fetch('/api/user/clinics', {
+      const response = await apiFetch('/api/user/clinics', {
         headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -104,11 +104,10 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
     try {
       const token = getAuthToken();
 
-      const response = await fetch('/api/user/clinics', {
+      const response = await apiFetch('/api/user/clinics', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ clinicId }),
       });

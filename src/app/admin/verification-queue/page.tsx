@@ -24,6 +24,7 @@ import {
   Camera,
   Loader2,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // =============================================================================
 // Types
@@ -128,7 +129,7 @@ export default function VerificationQueuePage() {
         params.set('status', statusFilter);
       }
 
-      const response = await fetch(`/api/admin/verification-queue?${params}`, {
+      const response = await apiFetch(`/api/admin/verification-queue?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -154,7 +155,7 @@ export default function VerificationQueuePage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch('/api/admin/verification-queue', {
+      const response = await apiFetch('/api/admin/verification-queue', {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -213,7 +214,7 @@ export default function VerificationQueuePage() {
     for (const photo of verification.photos) {
       if (photo.verificationStatus === 'PENDING' || photo.verificationStatus === 'IN_REVIEW') {
         try {
-          await fetch('/api/admin/verification-queue', {
+          await apiFetch('/api/admin/verification-queue', {
             method: 'PATCH',
             headers: {
               Authorization: `Bearer ${token}`,

@@ -29,6 +29,7 @@ import {
 import { useDropzone } from 'react-dropzone';
 import { PatientPhotoType } from '@prisma/client';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { apiFetch } from '@/lib/api/fetch';
 
 // =============================================================================
 // Types
@@ -96,7 +97,10 @@ function generateId(): string {
 async function compressImage(file: File): Promise<{ blob: Blob; width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       let { width, height } = img;
 
       // Calculate new dimensions
@@ -135,15 +139,21 @@ async function compressImage(file: File): Promise<{ blob: Blob; width: number; h
         COMPRESSION_QUALITY
       );
     };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = objectUrl;
   });
 }
 
 async function createThumbnail(file: File, maxSize: number = 200): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
     img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       let { width, height } = img;
 
       // Calculate thumbnail dimensions
@@ -178,8 +188,11 @@ async function createThumbnail(file: File, maxSize: number = 200): Promise<Blob>
         0.7
       );
     };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image'));
+    };
+    img.src = objectUrl;
   });
 }
 
@@ -227,6 +240,15 @@ export function PhotoUploader({
     };
   }, [cameraStream]);
 
+  // Cleanup preview object URLs on unmount
+  useEffect(() => {
+    return () => {
+      photos.forEach((p) => {
+        if (p.preview) URL.revokeObjectURL(p.preview);
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- cleanup on unmount only
+
   // Upload photo to S3
   const uploadPhoto = useCallback(
     async (photo: UploadingPhoto) => {
@@ -245,10 +267,9 @@ export function PhotoUploader({
         );
 
         // Get presigned URL (auth required so photo is tied to patient)
-        const presignedResponse = await fetch('/api/patient-portal/photos/upload', {
+        const presignedResponse = await apiFetch('/api/patient-portal/photos/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          credentials: 'include',
           body: JSON.stringify({
             type: photoType,
             contentType: 'image/jpeg',
@@ -295,10 +316,9 @@ export function PhotoUploader({
         }
 
         // Create photo record in database (auth required for patientId resolution)
-        const createResponse = await fetch('/api/patient-portal/photos', {
+        const createResponse = await apiFetch('/api/patient-portal/photos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-          credentials: 'include',
           body: JSON.stringify({
             type: photoType,
             category,

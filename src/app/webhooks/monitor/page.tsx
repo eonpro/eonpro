@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { WebhookStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { isBrowser } from '@/lib/utils/ssr-safe';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface WebhookStats {
   total: number;
@@ -87,7 +88,7 @@ export default function WebhookMonitorPage() {
   const fetchStats = async () => {
     try {
       // Use the webhook health endpoint for stats
-      const res = await fetch('/api/webhooks/health');
+      const res = await apiFetch('/api/webhooks/health');
       if (res.ok) {
         const data = await res.json();
         // Map health data to stats format
@@ -127,7 +128,7 @@ export default function WebhookMonitorPage() {
         logger.debug('Adding webhook secret to headers');
       }
 
-      const res = await fetch(`/api/webhooks/${selectedEndpoint}`, {
+      const res = await apiFetch(`/api/webhooks/${selectedEndpoint}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),

@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ReactNode, useEffect, useState } from 'react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface NavItem {
   href: string;
@@ -140,7 +141,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
     const init = async () => {
       // Check auth
       try {
-        const res = await fetch('/api/affiliate/auth/me', {
+        const res = await apiFetch('/api/affiliate/auth/me', {
           credentials: 'include',
         });
         if (res.ok) {
@@ -158,7 +159,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
       if (!isBrowser) return;
       try {
         const domain = window.location.hostname;
-        const brandingRes = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
+        const brandingRes = await apiFetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
         if (brandingRes.ok) {
           const data = await brandingRes.json();
           if (data.isMainApp) {

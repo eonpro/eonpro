@@ -12,6 +12,7 @@ import {
   FileText,
   Settings,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Payout {
   id: number;
@@ -102,12 +103,10 @@ export default function PayoutsPage() {
 
     try {
       const [payoutsRes, methodsRes, taxRes, balanceRes] = await Promise.all([
-        fetch('/api/affiliate/payouts', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/affiliate/account/payout-method', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch('/api/affiliate/tax-documents', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/affiliate/summary', { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch('/api/affiliate/payouts'),
+        apiFetch('/api/affiliate/account/payout-method'),
+        apiFetch('/api/affiliate/tax-documents'),
+        apiFetch('/api/affiliate/summary'),
       ]);
 
       const payoutsData = payoutsRes.ok ? await payoutsRes.json() : { payouts: [] };

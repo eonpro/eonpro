@@ -16,6 +16,7 @@ import {
   Settings,
   Play,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface UnmatchedPayment {
   id: number;
@@ -78,7 +79,7 @@ export default function ReconciliationPage() {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const response = await fetch('/api/finance/reconciliation', {
+        const response = await apiFetch('/api/finance/reconciliation', {
           credentials: 'include',
           headers,
         });

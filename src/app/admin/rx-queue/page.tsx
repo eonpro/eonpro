@@ -16,6 +16,7 @@ import {
   Eye,
   Filter,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface RxQueueItem {
   id: string;
@@ -63,7 +64,7 @@ export default function AdminRxQueuePage() {
         ...(searchTerm && { search: searchTerm }),
       });
 
-      const response = await fetch(`/api/admin/rx-queue?${params.toString()}`, {
+      const response = await apiFetch(`/api/admin/rx-queue?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

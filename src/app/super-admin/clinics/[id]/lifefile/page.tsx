@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 import { logger } from '@/lib/logger';
 import { CheckboxGroup } from '@/components/ui/Checkbox';
 
@@ -90,7 +91,7 @@ export default function ClinicLifefileSettingsPage() {
       setLoading(true);
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
 
-      const res = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+      const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
@@ -144,7 +145,7 @@ export default function ClinicLifefileSettingsPage() {
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
 
-      const res = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+      const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -201,7 +202,7 @@ export default function ClinicLifefileSettingsPage() {
 
       const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
 
-      const res = await fetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
+      const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

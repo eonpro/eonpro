@@ -61,6 +61,13 @@ export const RATE_LIMIT_CONFIGS = {
     blockDuration: 10 * 60 * 1000, // 10 minutes block
   },
 
+  // AI endpoints (patient chat, insights)
+  ai: {
+    windowMs: 60 * 1000, // 1 minute
+    maxAttempts: 10, // 10 requests per minute
+    blockDuration: 60 * 1000, // 1 minute block
+  },
+
   // API general
   api: {
     windowMs: 60 * 1000, // 1 minute

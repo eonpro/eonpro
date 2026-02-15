@@ -18,6 +18,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface GlobalSettings {
   sessionTimeout: number;
@@ -64,7 +65,7 @@ export default function GlobalSettingsPage() {
   const fetchPolicySummary = async () => {
     setLoadingPolicies(true);
     try {
-      const response = await fetch('/api/admin/policies?format=report');
+      const response = await apiFetch('/api/admin/policies?format=report');
       if (response.ok) {
         const data = await response.json();
         setPolicySummary(data.summary);
@@ -105,15 +106,10 @@ export default function GlobalSettingsPage() {
     setError('');
 
     try {
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token');
-      const response = await fetch('/api/super-admin/settings', {
+      const response = await apiFetch('/api/super-admin/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(settings),
       });

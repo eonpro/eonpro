@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
 import {
   ArrowLeft,
   User,
@@ -23,6 +22,7 @@ import {
   CreditCard,
   FileText,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
 // Landing Page URL Builder
@@ -129,7 +129,7 @@ export default function AffiliateDetailPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/${affiliateId}`, {
+      const response = await apiFetch(`/api/admin/affiliates/${affiliateId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -189,7 +189,7 @@ export default function AffiliateDetailPage() {
     const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await fetch(`/api/admin/affiliates/${affiliateId}/ref-codes`, {
+      const response = await apiFetch(`/api/admin/affiliates/${affiliateId}/ref-codes`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -237,13 +237,13 @@ export default function AffiliateDetailPage() {
       <div className="p-6">
         <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
           <p className="text-red-600">{error || 'Affiliate not found'}</p>
-          <Link
-            href="/admin/affiliates"
+          <button
+            onClick={() => (window.location.href = '/admin/affiliates')}
             className="mt-4 inline-flex items-center gap-2 text-[var(--brand-primary)] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Affiliates
-          </Link>
+          </button>
         </div>
       </div>
     );
@@ -253,13 +253,13 @@ export default function AffiliateDetailPage() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <Link
-          href="/admin/affiliates"
+        <button
+          onClick={() => (window.location.href = '/admin/affiliates')}
           className="mb-4 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Affiliates
-        </Link>
+        </button>
 
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">

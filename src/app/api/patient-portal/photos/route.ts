@@ -15,7 +15,7 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import crypto from 'crypto';
-import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { auditLog, AuditEventType, logPHICreate } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 
 // =============================================================================
@@ -426,6 +426,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       patientId,
       type: parsed.data.type,
       uploadedBy: user.id,
+    });
+
+    await logPHICreate(req, user, 'PatientPhoto', String(photo.id), patientId, {
+      photoType: parsed.data.type,
     });
 
     return NextResponse.json(

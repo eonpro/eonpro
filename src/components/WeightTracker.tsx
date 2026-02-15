@@ -21,6 +21,7 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { TrendingDown, TrendingUp, Scale, Target, Sparkles, Check } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Register Chart.js components
 ChartJS.register(
@@ -129,7 +130,7 @@ export default function WeightTracker({
             ? await portalFetch(`/api/patient-progress/weight?patientId=${patientId}`, {
                 cache: 'no-store',
               })
-            : await fetch(`/api/patient-progress/weight?patientId=${patientId}`, {
+            : await apiFetch(`/api/patient-progress/weight?patientId=${patientId}`, {
                 headers: getAuthHeaders(),
                 credentials: 'include',
                 cache: 'no-store',
@@ -189,7 +190,7 @@ export default function WeightTracker({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),
             })
-          : await fetch('/api/patient-progress/weight', {
+          : await apiFetch('/api/patient-progress/weight', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
               credentials: 'include',

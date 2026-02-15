@@ -4,6 +4,9 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
+import { logPHIAccess, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
+import { withRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
+import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -51,23 +54,6 @@ const deleteWeightLogSchema = z.object({
 });
 
 // ============================================================================
-// AUTHORIZATION HELPERS
-// ============================================================================
-
-/**
- * Check if user has access to a patient's data
- * - Patients can only access their own data
- * - Providers, admins, staff can access any patient in their clinic
- */
-function canAccessPatient(user: { role: string; patientId?: number }, patientId: number): boolean {
-  if (user.role === 'patient') {
-    return user.patientId === patientId;
-  }
-  // Providers, admins, staff, super_admin can access any patient
-  return ['provider', 'admin', 'staff', 'super_admin'].includes(user.role);
-}
-
-// ============================================================================
 // POST /api/patient-progress/weight - Log a weight entry
 // ============================================================================
 
@@ -86,23 +72,13 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId, weight, unit, notes, recordedAt } = parseResult.data;
 
-    // AUTHORIZATION CHECK FIRST - before any data access
-    if (!canAccessPatient(user, patientId)) {
+    // AUTHORIZATION CHECK FIRST - before any data access (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       logger.warn('Unauthorized weight log access attempt', {
         userId: user.id,
         attemptedPatientId: patientId,
       });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    // Verify patient exists (and is in user's clinic via Prisma middleware)
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      select: { id: true },
-    });
-
-    if (!patient) {
-      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
     const resolvedRecordedAt = recordedAt ? new Date(recordedAt) : new Date();
@@ -146,6 +122,8 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       userId: user.id,
     });
 
+    await logPHICreate(request, user, 'PatientWeightLog', weightLog.id, patientId);
+
     return NextResponse.json(weightLog, { status: 201 });
   } catch (error) {
     return handleApiError(error, {
@@ -155,7 +133,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const POST = postHandler;
+export const POST = withRateLimit(postHandler, RATE_LIMIT_CONFIGS.phiAccess);
 
 // ============================================================================
 // GET /api/patient-progress/weight?patientId=X - Get weight logs for a patient
@@ -332,8 +310,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const { patientId, limit } = parseResult.data;
 
-    // AUTHORIZATION CHECK FIRST - before any data access
-    if (!canAccessPatient(user, patientId)) {
+    // AUTHORIZATION CHECK FIRST - before any data access (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, patientId))) {
       logger.warn('Unauthorized weight log access attempt', {
         userId: user.id,
         attemptedPatientId: patientId,
@@ -387,6 +365,8 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       }
     }
 
+    await logPHIAccess(request, user, 'PatientWeightLog', 'list', patientId);
+
     return NextResponse.json({
       data: allLogs,
       meta: {
@@ -404,7 +384,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const GET = getHandler;
+export const GET = withRateLimit(getHandler, RATE_LIMIT_CONFIGS.phiAccess);
 
 // ============================================================================
 // DELETE /api/patient-progress/weight?id=X - Delete a weight log
@@ -435,8 +415,8 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: 'Weight log not found' }, { status: 404 });
     }
 
-    // AUTHORIZATION CHECK - verify user can access this patient's data
-    if (!canAccessPatient(user, log.patientId)) {
+    // AUTHORIZATION CHECK - verify user can access this patient's data (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
       logger.warn('Unauthorized weight log deletion attempt', {
         userId: user.id,
         logId: id,
@@ -451,6 +431,8 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
 
     logger.info('Weight log deleted', { id, userId: user.id, patientId: log.patientId });
 
+    await logPHIDelete(request, user, 'PatientWeightLog', id, log.patientId, 'user_request');
+
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {
     return handleApiError(error, {
@@ -460,4 +442,4 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
   }
 });
 
-export const DELETE = deleteHandler;
+export const DELETE = withRateLimit(deleteHandler, RATE_LIMIT_CONFIGS.phiAccess);

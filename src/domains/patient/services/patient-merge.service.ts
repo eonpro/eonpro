@@ -19,9 +19,10 @@ import {
 import type { UserContext } from '@/domains/shared/types';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
-import type { PatientEntity, AuditContext } from '../types';
+import { PHI_FIELDS, type PatientEntity, type AuditContext } from '../types';
 
 // ============================================================================
 // Types
@@ -132,26 +133,7 @@ export interface MergeResult {
   auditId: number;
 }
 
-// ============================================================================
-// PHI Fields for decryption
-// ============================================================================
-
-/**
- * PHI fields that need encryption/decryption
- * Must match patient.repository.ts PHI_FIELDS
- */
-const PHI_FIELDS = [
-  'firstName',
-  'lastName',
-  'email',
-  'phone',
-  'dob',
-  'address1',
-  'address2',
-  'city',
-  'state',
-  'zip',
-] as const;
+// PHI_FIELDS imported from '../types' — single source of truth
 
 // ============================================================================
 // Service Interface
@@ -549,27 +531,34 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
             ? preview.source.createdAt
             : preview.target.createdAt;
 
-        // Update target patient with merged data
+        // Encrypt PHI fields before writing to database
+        const encryptedMergedFields = encryptPatientPHI(
+          mergedFields as Record<string, unknown>,
+          [...PHI_FIELDS]
+        );
+
+        // Rebuild search index from plain-text BEFORE encryption
+        const searchIndex = buildPatientSearchIndex({
+          firstName: mergedFields.firstName,
+          lastName: mergedFields.lastName,
+          email: mergedFields.email,
+          phone: mergedFields.phone,
+          patientId: preview.target.patientId,
+        });
+
+        // Update target patient with merged data (encrypted)
         const updatedPatient = await tx.patient.update({
           where: { id: targetPatientId },
           data: {
-            firstName: mergedFields.firstName,
-            lastName: mergedFields.lastName,
-            dob: mergedFields.dob,
+            ...encryptedMergedFields,
             gender: mergedFields.gender,
-            phone: mergedFields.phone,
-            email: mergedFields.email,
-            address1: mergedFields.address1,
-            address2: mergedFields.address2,
-            city: mergedFields.city,
-            state: mergedFields.state,
-            zip: mergedFields.zip,
             notes: mergedFields.notes,
             tags: mergedTags as Prisma.InputJsonValue,
             sourceMetadata: mergedSourceMetadata as Prisma.InputJsonValue,
             stripeCustomerId,
             lifefileId,
             createdAt: earliestCreatedAt,
+            searchIndex,
           },
         });
 
@@ -577,21 +566,17 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
         // 4. CREATE AUDIT ENTRIES
         // =====================================================================
 
-        // Create audit entry for the merge
+        // Create audit entry for the merge (no PHI in audit diffs)
         const auditDiff = {
           type: 'PATIENT_MERGE',
           sourcePatientId,
           targetPatientId,
           sourcePatientData: {
             id: preview.source.id,
-            firstName: preview.source.firstName,
-            lastName: preview.source.lastName,
-            email: preview.source.email,
             patientId: preview.source.patientId,
           },
           recordsMoved: preview.totalRecordsToMove,
-          mergedFields,
-          performedBy: audit.actorEmail,
+          mergedFieldNames: Object.keys(mergedFields),
           performedByRole: audit.actorRole,
           performedByProviderId: performedBy.providerId ?? null,
           performedAt: new Date().toISOString(),
@@ -646,7 +631,7 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           recordsMoved: preview.totalRecordsToMove,
           auditId: auditEntry.id,
         };
-      });
+      }, { isolationLevel: 'Serializable', timeout: 30000 });
     },
   };
 }

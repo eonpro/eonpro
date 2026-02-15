@@ -30,6 +30,7 @@ import {
   ChevronRight,
   Filter,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 // Date range options
 const DATE_RANGES = [
@@ -370,7 +371,7 @@ export default function StripeDashboard() {
   // Check if a clinic has Stripe connected
   const checkClinicStripeStatus = async (clinicId: number) => {
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}`);
       if (res.ok) {
         const data = await res.json();
         const stripe = data.stripe || {};
@@ -391,7 +392,7 @@ export default function StripeDashboard() {
   // Load available clinics
   const loadClinics = async () => {
     try {
-      const res = await fetch('/api/admin/clinics');
+      const res = await apiFetch('/api/admin/clinics');
       if (res.ok) {
         const data = await res.json();
         setClinics(data.clinics || []);
@@ -432,19 +433,19 @@ export default function StripeDashboard() {
       // Fetch all data in parallel
       const [balanceRes, reportRes, disputesRes, payoutsRes, productsRes, customersRes] =
         await Promise.all([
-          fetch(`/api/stripe/balance?includeTransactions=false${clinicParam}`),
-          fetch(`/api/stripe/reports?type=summary${clinicParam}${dateQuery}`),
-          fetch(`/api/stripe/disputes?limit=${pageSize}${clinicParam}${dateQuery}`),
-          fetch(`/api/stripe/payouts?limit=${pageSize}${clinicParam}${dateQuery}`),
-          fetch(`/api/stripe/products?limit=50${clinicParam}`),
-          fetch(
+          apiFetch(`/api/stripe/balance?includeTransactions=false${clinicParam}`),
+          apiFetch(`/api/stripe/reports?type=summary${clinicParam}${dateQuery}`),
+          apiFetch(`/api/stripe/disputes?limit=${pageSize}${clinicParam}${dateQuery}`),
+          apiFetch(`/api/stripe/payouts?limit=${pageSize}${clinicParam}${dateQuery}`),
+          apiFetch(`/api/stripe/products?limit=50${clinicParam}`),
+          apiFetch(
             `/api/stripe/customers?limit=${pageSize}&includeCharges=true&includeSubscriptions=false${clinicParam}`
           ),
         ]);
 
       // Also fetch connect status if a clinic is selected
       if (selectedClinicId) {
-        const connectRes = await fetch(`/api/stripe/connect?clinicId=${selectedClinicId}`);
+        const connectRes = await apiFetch(`/api/stripe/connect?clinicId=${selectedClinicId}`);
         if (connectRes.ok) {
           const connectData = await connectRes.json();
           setConnectStatus(connectData);
@@ -550,7 +551,7 @@ export default function StripeDashboard() {
     if (endDate) params.set('endDate', endDate);
     if (disputes.length > 0) params.set('starting_after', disputes[disputes.length - 1].id);
 
-    const res = await fetch(`/api/stripe/disputes?${params}`);
+    const res = await apiFetch(`/api/stripe/disputes?${params}`);
     if (res.ok) {
       const data = await res.json();
       setDisputes([...disputes, ...(data.disputes || [])]);
@@ -567,7 +568,7 @@ export default function StripeDashboard() {
     if (endDate) params.set('endDate', endDate);
     if (payouts.length > 0) params.set('starting_after', payouts[payouts.length - 1].id);
 
-    const res = await fetch(`/api/stripe/payouts?${params}`);
+    const res = await apiFetch(`/api/stripe/payouts?${params}`);
     if (res.ok) {
       const data = await res.json();
       setPayouts([...payouts, ...(data.payouts || [])]);
@@ -582,7 +583,7 @@ export default function StripeDashboard() {
     params.set('includeCharges', 'true');
     if (customers.length > 0) params.set('starting_after', customers[customers.length - 1].id);
 
-    const res = await fetch(`/api/stripe/customers?${params}`);
+    const res = await apiFetch(`/api/stripe/customers?${params}`);
     if (res.ok) {
       const data = await res.json();
       setCustomers([...customers, ...(data.customers || [])]);
@@ -1421,7 +1422,7 @@ function ConnectTab({
     setError(null);
 
     try {
-      const res = await fetch('/api/stripe/connect', {
+      const res = await apiFetch('/api/stripe/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clinicId, email }),
@@ -1446,7 +1447,7 @@ function ConnectTab({
   const handleContinueOnboarding = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=onboarding`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=onboarding`);
       const data = await res.json();
       if (data.onboardingUrl) {
         window.open(data.onboardingUrl, '_blank');
@@ -1461,7 +1462,7 @@ function ConnectTab({
   const handleOpenDashboard = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=dashboard`);
+      const res = await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=dashboard`);
       const data = await res.json();
       if (data.dashboardUrl) {
         window.open(data.dashboardUrl, '_blank');
@@ -1478,7 +1479,7 @@ function ConnectTab({
   const handleSyncStatus = async () => {
     setLoading(true);
     try {
-      await fetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
+      await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
       onRefresh();
     } catch (err: any) {
       setError(err.message);

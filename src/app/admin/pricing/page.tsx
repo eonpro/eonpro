@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiFetch } from '@/lib/api/fetch';
 
 type TabType = 'discounts' | 'promotions' | 'bundles' | 'rules';
 
@@ -120,9 +121,9 @@ export default function PricingManagementPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [discountsRes, promotionsRes, bundlesRes] = await Promise.all([
-        fetch('/api/discounts', { headers }),
-        fetch('/api/promotions', { headers }),
-        fetch('/api/bundles', { headers }),
+        apiFetch('/api/discounts', { headers }),
+        apiFetch('/api/promotions', { headers }),
+        apiFetch('/api/bundles', { headers }),
       ]);
 
       if (discountsRes.ok) {
@@ -147,7 +148,7 @@ export default function PricingManagementPage() {
   const loadProducts = async () => {
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/products?activeOnly=true', {
+      const res = await apiFetch('/api/products?activeOnly=true', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -176,7 +177,7 @@ export default function PricingManagementPage() {
     setError('');
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/discounts', {
+      const res = await apiFetch('/api/discounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -228,7 +229,7 @@ export default function PricingManagementPage() {
     setError('');
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/promotions', {
+      const res = await apiFetch('/api/promotions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -257,7 +258,7 @@ export default function PricingManagementPage() {
     setError('');
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await fetch('/api/bundles', {
+      const res = await apiFetch('/api/bundles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

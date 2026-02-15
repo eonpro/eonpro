@@ -44,10 +44,10 @@ interface HealthMetric {
 
 interface HealthScoreData {
   overallScore: number;
-  previousScore: number;
+  previousScore: number | null; // From historical snapshots when available
   metrics: HealthMetric[];
   insights: string[];
-  weeklyTrend: number[];
+  weeklyTrend: number[] | null; // From historical daily scores when available
 }
 
 export default function HealthScorePage() {
@@ -89,7 +89,8 @@ export default function HealthScorePage() {
   };
 
   const displayData = data;
-  const scoreDiff = displayData ? displayData.overallScore - displayData.previousScore : 0;
+  const scoreDiff =
+    displayData?.previousScore != null ? displayData.overallScore - displayData.previousScore : null;
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return '#22c55e';
@@ -166,21 +167,23 @@ export default function HealthScorePage() {
               <span className="text-6xl font-bold">{displayData.overallScore}</span>
               <span className="text-2xl text-gray-400">/100</span>
             </div>
-            <div
-              className={`mt-2 flex items-center gap-1 ${
-                scoreDiff >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}
-            >
-              {scoreDiff >= 0 ? (
-                <TrendingUp className="h-4 w-4" />
-              ) : (
-                <TrendingDown className="h-4 w-4" />
-              )}
-              <span className="text-sm font-medium">
-                {scoreDiff >= 0 ? '+' : ''}
-                {scoreDiff} from last week
-              </span>
-            </div>
+            {scoreDiff != null && (
+              <div
+                className={`mt-2 flex items-center gap-1 ${
+                  scoreDiff >= 0 ? 'text-green-400' : 'text-red-400'
+                }`}
+              >
+                {scoreDiff >= 0 ? (
+                  <TrendingUp className="h-4 w-4" />
+                ) : (
+                  <TrendingDown className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">
+                  {scoreDiff >= 0 ? '+' : ''}
+                  {scoreDiff} from last week
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Score Ring */}
@@ -218,29 +221,31 @@ export default function HealthScorePage() {
           </div>
         </div>
 
-        {/* Weekly Trend Mini Chart */}
-        <div className="mt-6 border-t border-gray-700 pt-4">
-          <p className="mb-2 text-sm text-gray-400">This Week</p>
-          <div className="flex h-12 items-end gap-1">
-            {displayData.weeklyTrend.map((score, i) => (
-              <div
-                key={i}
-                className="flex-1 rounded-t transition-all"
-                style={{
-                  height: `${(score / 100) * 100}%`,
-                  backgroundColor:
-                    i === displayData.weeklyTrend.length - 1
-                      ? getScoreColor(score)
-                      : 'rgba(255,255,255,0.2)',
-                }}
-              />
-            ))}
+        {/* Weekly Trend Mini Chart - only shown when historical data is available */}
+        {displayData.weeklyTrend && displayData.weeklyTrend.length > 0 ? (
+          <div className="mt-6 border-t border-gray-700 pt-4">
+            <p className="mb-2 text-sm text-gray-400">This Week</p>
+            <div className="flex h-12 items-end gap-1">
+              {displayData.weeklyTrend?.map((score, i) => (
+                <div
+                  key={i}
+                  className="flex-1 rounded-t transition-all"
+                  style={{
+                    height: `${(score / 100) * 100}%`,
+                    backgroundColor:
+                      i === (displayData.weeklyTrend?.length ?? 0) - 1
+                        ? getScoreColor(score)
+                        : 'rgba(255,255,255,0.2)',
+                  }}
+                />
+              ))}
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-gray-500">
+              <span>Mon</span>
+              <span>Today</span>
+            </div>
           </div>
-          <div className="mt-1 flex justify-between text-xs text-gray-500">
-            <span>Mon</span>
-            <span>Today</span>
-          </div>
-        </div>
+        ) : null}
       </div>
 
       {/* Metrics Grid */}

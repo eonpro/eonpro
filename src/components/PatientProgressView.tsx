@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { logger } from '../lib/logger';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { Line } from 'react-chartjs-2';
@@ -17,6 +17,8 @@ import {
   ChartOptions,
 } from 'chart.js';
 import { format } from 'date-fns';
+import { apiFetch } from '@/lib/api/fetch';
+import { toast } from '@/components/Toast';
 import {
   TrendingUp,
   TrendingDown,
@@ -28,6 +30,13 @@ import {
   Scale,
   Check,
   X,
+  Droplets,
+  Moon,
+  Dumbbell,
+  Utensils,
+  Clock,
+  Flame,
+  Footprints,
 } from 'lucide-react';
 
 ChartJS.register(
@@ -41,6 +50,10 @@ ChartJS.register(
   Filler
 );
 
+// =============================================================================
+// Types
+// =============================================================================
+
 interface PatientProgressViewProps {
   patient: {
     id: number;
@@ -50,10 +63,113 @@ interface PatientProgressViewProps {
   };
 }
 
+interface WeightEntry {
+  date: Date;
+  weight: number;
+  id: number;
+  notes: string | null;
+  source: string;
+}
+
+interface WaterLog {
+  id: number;
+  amount: number;
+  unit: string;
+  recordedAt: string;
+  notes: string | null;
+}
+
+interface SleepLog {
+  id: number;
+  sleepStart: string;
+  sleepEnd: string;
+  duration: number;
+  quality: number | null;
+  recordedAt: string;
+  notes: string | null;
+}
+
+interface ExerciseLog {
+  id: number;
+  activityType: string;
+  duration: number;
+  intensity: string;
+  calories: number | null;
+  steps: number | null;
+  distance: number | null;
+  recordedAt: string;
+  notes: string | null;
+}
+
+interface NutritionLog {
+  id: number;
+  mealType: string;
+  description: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  recordedAt: string;
+  notes: string | null;
+}
+
+// =============================================================================
+// Helper: safe API fetch for progress data
+// =============================================================================
+
+async function fetchProgressData<T>(
+  url: string,
+  label: string
+): Promise<T[]> {
+  try {
+    const response = await apiFetch(url, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+    if (response.ok) {
+      const result = await response.json();
+      const list = result.data || result || [];
+      return Array.isArray(list) ? list : [];
+    }
+    return [];
+  } catch (error) {
+    logger.error(`Failed to fetch ${label}`, {
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+    return [];
+  }
+}
+
+// =============================================================================
+// Component
+// =============================================================================
+
 export default function PatientProgressView({ patient }: PatientProgressViewProps) {
-  const [weightData, setWeightData] = useState<any[]>([]);
+  // Existing state
+  const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [medicationReminders, setMedicationReminders] = useState<any[]>([]);
   const [hasActiveTreatment, setHasActiveTreatment] = useState(false);
+
+  // New tracking states
+  const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
+  const [waterMeta, setWaterMeta] = useState<{ todayTotal: number } | null>(null);
+  const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([]);
+  const [sleepMeta, setSleepMeta] = useState<{
+    avgSleepHours: number;
+    avgQuality: number | null;
+  } | null>(null);
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([]);
+  const [exerciseMeta, setExerciseMeta] = useState<{
+    weeklyMinutes: number;
+    weeklyCalories: number;
+  } | null>(null);
+  const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
+  const [nutritionMeta, setNutritionMeta] = useState<{
+    todayCalories: number;
+    todayProtein: number;
+    todayCarbs: number;
+    todayFat: number;
+  } | null>(null);
 
   // Weight entry form state
   const [showWeightForm, setShowWeightForm] = useState(false);
@@ -72,40 +188,107 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   }, [patient.orders]);
 
   // Fetch weight data from API (same source as patient portal)
-  const fetchWeightData = async () => {
-    if (patient.id) {
-      try {
-        const response = await fetch(
-          `/api/patient-progress/weight?patientId=${patient.id}&limit=100`,
-          { headers: getAuthHeaders(), credentials: 'include' }
-        );
-        if (response.ok) {
-          const result = await response.json();
-          // API returns { data: [...], meta: {...} }
-          const logs = result.data || result || [];
-          const formattedData = (Array.isArray(logs) ? logs : []).map((log: any) => ({
-            date: new Date(log.recordedAt),
-            weight: log.weight,
-            id: log.id,
-            notes: log.notes,
-            source: log.source,
-          }));
-          setWeightData(formattedData);
-          // If patient has weight data, consider them having active treatment
-          if (formattedData.length > 0) {
-            setHasActiveTreatment(true);
-          }
+  const fetchWeightData = useCallback(async () => {
+    if (!patient.id) return;
+    try {
+      const response = await apiFetch(
+        `/api/patient-progress/weight?patientId=${patient.id}&limit=100`,
+        { headers: getAuthHeaders(), credentials: 'include' }
+      );
+      if (response.ok) {
+        const result = await response.json();
+        const logs = result.data || result || [];
+        const formattedData: WeightEntry[] = (Array.isArray(logs) ? logs : []).map((log: any) => ({
+          date: new Date(log.recordedAt),
+          weight: log.weight,
+          id: log.id,
+          notes: log.notes,
+          source: log.source,
+        }));
+        setWeightData(formattedData);
+        if (formattedData.length > 0) {
+          setHasActiveTreatment(true);
         }
-      } catch (error) {
-        logger.error('Failed to fetch weight data:', error);
       }
+    } catch (error) {
+      logger.error('Failed to fetch weight data', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
-  };
-
-  // Fetch weight data on mount
-  useEffect(() => {
-    fetchWeightData();
   }, [patient.id]);
+
+  // Fetch all tracking data on mount
+  useEffect(() => {
+    if (!patient.id) return;
+
+    fetchWeightData();
+
+    // Medication reminders
+    fetchProgressData<any>(
+      `/api/patient-progress/medication-reminders?patientId=${patient.id}`,
+      'medication reminders'
+    ).then(setMedicationReminders);
+
+    // Water logs
+    apiFetch(`/api/patient-progress/water?patientId=${patient.id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const result = await res.json();
+          setWaterLogs(Array.isArray(result.data) ? result.data : []);
+          setWaterMeta(result.meta || null);
+          if (result.data?.length > 0) setHasActiveTreatment(true);
+        }
+      })
+      .catch(() => {});
+
+    // Sleep logs
+    apiFetch(`/api/patient-progress/sleep?patientId=${patient.id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const result = await res.json();
+          setSleepLogs(Array.isArray(result.data) ? result.data : []);
+          setSleepMeta(result.meta || null);
+          if (result.data?.length > 0) setHasActiveTreatment(true);
+        }
+      })
+      .catch(() => {});
+
+    // Exercise logs
+    apiFetch(`/api/patient-progress/exercise?patientId=${patient.id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const result = await res.json();
+          setExerciseLogs(Array.isArray(result.data) ? result.data : []);
+          setExerciseMeta(result.meta || null);
+          if (result.data?.length > 0) setHasActiveTreatment(true);
+        }
+      })
+      .catch(() => {});
+
+    // Nutrition logs
+    apiFetch(`/api/patient-progress/nutrition?patientId=${patient.id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const result = await res.json();
+          setNutritionLogs(Array.isArray(result.data) ? result.data : []);
+          setNutritionMeta(result.meta || null);
+          if (result.data?.length > 0) setHasActiveTreatment(true);
+        }
+      })
+      .catch(() => {});
+  }, [patient.id, fetchWeightData]);
 
   // Handle adding new weight entry
   const handleAddWeight = async () => {
@@ -113,7 +296,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
     setSavingWeight(true);
     try {
-      const response = await fetch('/api/patient-progress/weight', {
+      const response = await apiFetch('/api/patient-progress/weight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         credentials: 'include',
@@ -121,68 +304,51 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           patientId: patient.id,
           weight: parseFloat(newWeight),
           unit: 'lbs',
-          notes: weightNotes || `Entered by provider`,
+          notes: weightNotes || 'Entered by provider',
           recordedAt: new Date(weightDate).toISOString(),
         }),
       });
 
       if (response.ok) {
-        // Refresh weight data
         await fetchWeightData();
-        // Reset form
         setNewWeight('');
         setWeightNotes('');
         setWeightDate(format(new Date(), 'yyyy-MM-dd'));
         setShowWeightForm(false);
-        // Show success briefly
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
-        const error = await response.json();
-        logger.error('Failed to save weight:', error);
-        alert('Failed to save weight. Please try again.');
+        toast.error('Failed to save weight. Please try again.');
       }
     } catch (error) {
-      logger.error('Failed to save weight:', error);
-      alert('Failed to save weight. Please try again.');
+      logger.error('Failed to save weight', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      toast.error('Failed to save weight. Please try again.');
     } finally {
       setSavingWeight(false);
     }
   };
 
-  // Fetch medication reminders from API
-  useEffect(() => {
-    const fetchReminders = async () => {
-      if (patient.id) {
-        try {
-          const response = await fetch(
-            `/api/patient-progress/medication-reminders?patientId=${patient.id}`,
-            { headers: getAuthHeaders(), credentials: 'include' }
-          );
-          if (response.ok) {
-            const result = await response.json();
-            // API returns { data: [...], meta: {...} }
-            setMedicationReminders(result.data || result || []);
-          }
-        } catch (error) {
-          logger.error('Failed to fetch medication reminders:', error);
-        }
-      }
-    };
-
-    fetchReminders();
-  }, [patient.id]);
-
   const calculateProgress = () => {
     if (weightData.length < 2) return null;
     const initial = weightData[0].weight;
     const current = weightData[weightData.length - 1].weight;
-    const change = current - initial;
+    const change = Math.round((current - initial) * 10) / 10;
     const percentage = ((Math.abs(change) / initial) * 100).toFixed(1);
     return { change, percentage, trend: change < 0 ? 'down' : 'up' };
   };
 
   const progress = calculateProgress();
+
+  // Compute total activity count for summary
+  const totalActivities =
+    weightData.length +
+    medicationReminders.length +
+    waterLogs.length +
+    sleepLogs.length +
+    exerciseLogs.length +
+    nutritionLogs.length;
 
   if (!hasActiveTreatment) {
     return (
@@ -199,8 +365,11 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
   return (
     <div className="space-y-6">
-      {/* Progress Overview Cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* ================================================================== */}
+      {/* Progress Overview Cards                                            */}
+      {/* ================================================================== */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        {/* Current Weight */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-600">Current Weight</h3>
@@ -223,32 +392,50 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           )}
         </div>
 
+        {/* Today's Water */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-600">Treatment Start</h3>
-            <Calendar className="h-5 w-5 text-blue-500" />
+            <h3 className="text-sm font-medium text-gray-600">Today&apos;s Water</h3>
+            <Droplets className="h-5 w-5 text-blue-500" />
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            {format(new Date(2024, 5, 18), 'MMM d, yyyy')}
-          </p>
-          <p className="mt-1 text-sm text-gray-500">Week 12 of treatment</p>
-        </div>
-
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-600">Activity Tracking</h3>
-            <Activity className="h-5 w-5 text-[var(--brand-primary)]" />
-          </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {weightData.length + medicationReminders.length}
+            {waterMeta?.todayTotal || 0} oz
           </p>
           <p className="mt-1 text-sm text-gray-500">
-            {weightData.length} weight logs, {medicationReminders.length} reminders
+            {waterLogs.length} total logs
+          </p>
+        </div>
+
+        {/* Weekly Exercise */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-600">Weekly Exercise</h3>
+            <Dumbbell className="h-5 w-5 text-orange-500" />
+          </div>
+          <p className="text-2xl font-bold text-gray-900">
+            {exerciseMeta?.weeklyMinutes || 0} min
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            {exerciseMeta?.weeklyCalories || 0} cal burned
+          </p>
+        </div>
+
+        {/* Activity Summary */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-600">Total Activities</h3>
+            <Activity className="h-5 w-5 text-[var(--brand-primary,#4fa77e)]" />
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{totalActivities}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            across all tracking
           </p>
         </div>
       </div>
 
-      {/* Weight Tracker Widget - entire container #faffac, border dark variant */}
+      {/* ================================================================== */}
+      {/* Weight Tracker                                                     */}
+      {/* ================================================================== */}
       <div
         className="rounded-xl border p-6"
         style={{ backgroundColor: '#faffac', borderColor: '#a8ac40' }}
@@ -256,7 +443,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Weight Tracker</h2>
-            <p className="mt-1 text-sm text-gray-600">Track patient's weight loss journey</p>
+            <p className="mt-1 text-sm text-gray-600">Track patient&apos;s weight loss journey</p>
           </div>
           <div className="flex items-center gap-2">
             {saveSuccess && (
@@ -355,12 +542,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               </button>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              This weight entry will appear in the patient's portal dashboard.
+              This weight entry will appear in the patient&apos;s portal dashboard.
             </p>
           </div>
         )}
 
-        {/* Chart Container - transparent chart on #faffac background */}
+        {/* Chart */}
         <div
           className="relative h-64 overflow-hidden rounded-lg border p-4 shadow-sm"
           style={{ backgroundColor: '#faffac', borderColor: '#a8ac40' }}
@@ -418,7 +605,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           )}
         </div>
 
-        {/* Recent Entries */}
+        {/* Recent Weight Entries */}
         <div className="mt-6">
           <h3 className="mb-3 text-sm font-medium text-gray-700">Recent Weight Logs</h3>
           <div className="space-y-2">
@@ -445,7 +632,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
                         entry.source === 'intake'
-                          ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                          ? 'bg-[var(--brand-primary-light,#e0f2f1)] text-[var(--brand-primary,#4fa77e)]'
                           : entry.source === 'provider'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-600'
@@ -476,7 +663,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               <div className="rounded-lg py-4 text-center" style={{ backgroundColor: '#faffac' }}>
                 <p className="text-sm text-gray-600">No weight data logged yet</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  Click "Add Weight" above or patient can log from their dashboard
+                  Click &quot;Add Weight&quot; above or patient can log from their dashboard
                 </p>
               </div>
             )}
@@ -484,7 +671,332 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
       </div>
 
-      {/* Medication Reminders */}
+      {/* ================================================================== */}
+      {/* Water Intake + Sleep – side by side                                */}
+      {/* ================================================================== */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* Water Intake Panel */}
+        <div className="rounded-xl border border-blue-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-blue-50 p-2">
+                <Droplets className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Water Intake</h2>
+                <p className="text-xs text-gray-500">Patient-logged hydration</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+              {waterLogs.length} logs
+            </span>
+          </div>
+
+          {waterLogs.length > 0 ? (
+            <>
+              {/* Today's summary */}
+              <div className="mb-4 rounded-lg bg-blue-50 p-4">
+                <p className="text-sm text-blue-700">Today&apos;s Total</p>
+                <p className="text-3xl font-bold text-blue-900">{waterMeta?.todayTotal || 0} oz</p>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-blue-200">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all"
+                    style={{ width: `${Math.min(((waterMeta?.todayTotal || 0) / 64) * 100, 100)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-blue-600">Goal: 64 oz</p>
+              </div>
+
+              {/* Recent logs */}
+              <div className="space-y-2">
+                {waterLogs.slice(0, 5).map((log) => (
+                  <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                    <div className="flex items-center gap-2">
+                      <Droplets className="h-4 w-4 text-blue-400" />
+                      <span className="text-sm text-gray-700">
+                        {format(new Date(log.recordedAt), 'MMM d, h:mm a')}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {log.amount} {log.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg bg-gray-50 py-8 text-center">
+              <Droplets className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <p className="text-sm text-gray-500">No water intake logged</p>
+              <p className="mt-1 text-xs text-gray-400">Patient can log from their portal</p>
+            </div>
+          )}
+        </div>
+
+        {/* Sleep Panel */}
+        <div className="rounded-xl border border-indigo-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-indigo-50 p-2">
+                <Moon className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Sleep</h2>
+                <p className="text-xs text-gray-500">Patient-logged sleep data</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+              {sleepLogs.length} logs
+            </span>
+          </div>
+
+          {sleepLogs.length > 0 ? (
+            <>
+              {/* Weekly average */}
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-indigo-50 p-4">
+                  <p className="text-xs text-indigo-600">Avg Sleep</p>
+                  <p className="text-2xl font-bold text-indigo-900">
+                    {sleepMeta?.avgSleepHours || 0}h
+                  </p>
+                  <p className="text-xs text-indigo-500">per night (7d)</p>
+                </div>
+                <div className="rounded-lg bg-indigo-50 p-4">
+                  <p className="text-xs text-indigo-600">Avg Quality</p>
+                  <p className="text-2xl font-bold text-indigo-900">
+                    {sleepMeta?.avgQuality != null ? `${sleepMeta.avgQuality}/10` : '--'}
+                  </p>
+                  <p className="text-xs text-indigo-500">self-reported</p>
+                </div>
+              </div>
+
+              {/* Recent sleep logs */}
+              <div className="space-y-2">
+                {sleepLogs.slice(0, 5).map((log) => {
+                  const hrs = Math.floor(log.duration / 60);
+                  const mins = log.duration % 60;
+                  return (
+                    <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <Moon className="h-4 w-4 text-indigo-400" />
+                        <span className="text-sm text-gray-700">
+                          {format(new Date(log.recordedAt), 'MMM d')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {hrs}h {mins > 0 ? `${mins}m` : ''}
+                        </span>
+                        {log.quality != null && (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">
+                            {log.quality}/10
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg bg-gray-50 py-8 text-center">
+              <Moon className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <p className="text-sm text-gray-500">No sleep data logged</p>
+              <p className="mt-1 text-xs text-gray-400">Patient can log from their portal</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ================================================================== */}
+      {/* Exercise + Nutrition – side by side                                */}
+      {/* ================================================================== */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* Exercise Panel */}
+        <div className="rounded-xl border border-orange-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-orange-50 p-2">
+                <Dumbbell className="h-5 w-5 text-orange-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Exercise</h2>
+                <p className="text-xs text-gray-500">Patient-logged activity</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+              {exerciseLogs.length} logs
+            </span>
+          </div>
+
+          {exerciseLogs.length > 0 ? (
+            <>
+              {/* Weekly stats */}
+              <div className="mb-4 grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-orange-50 p-4">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-orange-500" />
+                    <p className="text-xs text-orange-600">This Week</p>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-900">
+                    {exerciseMeta?.weeklyMinutes || 0}
+                  </p>
+                  <p className="text-xs text-orange-500">minutes</p>
+                </div>
+                <div className="rounded-lg bg-orange-50 p-4">
+                  <div className="flex items-center gap-1">
+                    <Flame className="h-3 w-3 text-orange-500" />
+                    <p className="text-xs text-orange-600">Calories</p>
+                  </div>
+                  <p className="text-2xl font-bold text-orange-900">
+                    {exerciseMeta?.weeklyCalories || 0}
+                  </p>
+                  <p className="text-xs text-orange-500">burned (7d)</p>
+                </div>
+              </div>
+
+              {/* Recent exercise logs */}
+              <div className="space-y-2">
+                {exerciseLogs.slice(0, 5).map((log) => (
+                  <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell className="h-4 w-4 text-orange-400" />
+                      <div>
+                        <span className="text-sm font-medium text-gray-900 capitalize">
+                          {log.activityType}
+                        </span>
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(log.recordedAt), 'MMM d')} · {log.duration} min ·{' '}
+                          <span className="capitalize">{log.intensity}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {log.calories != null && (
+                        <span className="text-xs text-gray-500">{log.calories} cal</span>
+                      )}
+                      {log.steps != null && (
+                        <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                          <Footprints className="h-3 w-3" />
+                          {log.steps.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg bg-gray-50 py-8 text-center">
+              <Dumbbell className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <p className="text-sm text-gray-500">No exercise logged</p>
+              <p className="mt-1 text-xs text-gray-400">Patient can log from their portal</p>
+            </div>
+          )}
+        </div>
+
+        {/* Nutrition Panel */}
+        <div className="rounded-xl border border-emerald-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-emerald-50 p-2">
+                <Utensils className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Nutrition</h2>
+                <p className="text-xs text-gray-500">Patient-logged meals</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+              {nutritionLogs.length} logs
+            </span>
+          </div>
+
+          {nutritionLogs.length > 0 ? (
+            <>
+              {/* Today's macros */}
+              <div className="mb-4 rounded-lg bg-emerald-50 p-4">
+                <p className="mb-2 text-xs font-medium text-emerald-600">Today&apos;s Intake</p>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div>
+                    <p className="text-lg font-bold text-emerald-900">
+                      {nutritionMeta?.todayCalories || 0}
+                    </p>
+                    <p className="text-xs text-emerald-600">cal</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-emerald-900">
+                      {nutritionMeta?.todayProtein || 0}g
+                    </p>
+                    <p className="text-xs text-emerald-600">protein</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-emerald-900">
+                      {nutritionMeta?.todayCarbs || 0}g
+                    </p>
+                    <p className="text-xs text-emerald-600">carbs</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-emerald-900">
+                      {nutritionMeta?.todayFat || 0}g
+                    </p>
+                    <p className="text-xs text-emerald-600">fat</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent meals */}
+              <div className="space-y-2">
+                {nutritionLogs.slice(0, 5).map((log) => {
+                  const mealIcons: Record<string, string> = {
+                    breakfast: '🌅',
+                    lunch: '☀️',
+                    dinner: '🌙',
+                    snack: '🍎',
+                  };
+                  return (
+                    <div key={log.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{mealIcons[log.mealType] || '🍽️'}</span>
+                        <div>
+                          <span className="text-sm font-medium capitalize text-gray-900">
+                            {log.mealType}
+                          </span>
+                          {log.description && (
+                            <p className="max-w-[180px] truncate text-xs text-gray-500">
+                              {log.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {log.calories != null && (
+                          <span className="text-sm font-semibold text-gray-900">
+                            {log.calories} cal
+                          </span>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(log.recordedAt), 'MMM d')}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg bg-gray-50 py-8 text-center">
+              <Utensils className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+              <p className="text-sm text-gray-500">No nutrition logged</p>
+              <p className="mt-1 text-xs text-gray-400">Patient can log from their portal</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ================================================================== */}
+      {/* Medication Reminders                                               */}
+      {/* ================================================================== */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Medication Reminders</h2>
@@ -539,7 +1051,9 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         )}
       </div>
 
-      {/* Educational Resources */}
+      {/* ================================================================== */}
+      {/* Educational Resources                                              */}
+      {/* ================================================================== */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Dietary Plans */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">

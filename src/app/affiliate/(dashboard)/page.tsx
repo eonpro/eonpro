@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { AffiliateDashboardSkeleton } from '@/components/dashboards/AffiliateDashboardSkeleton';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface DashboardData {
   affiliate: {
@@ -102,9 +103,7 @@ export default function AffiliateDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await fetch('/api/affiliate/dashboard', {
-          credentials: 'include',
-        });
+        const res = await apiFetch('/api/affiliate/dashboard');
         if (res.ok) {
           const dashboardData = await res.json();
           setData(dashboardData);
