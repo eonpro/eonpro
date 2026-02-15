@@ -15,6 +15,8 @@ import {
   ExternalLink,
   Globe,
   CheckCircle,
+  MousePointer,
+  FileText,
 } from 'lucide-react';
 
 // ============================================================================
@@ -56,7 +58,9 @@ interface Affiliate {
     recurringFlatAmountCents?: number | null;
   } | null;
   stats: {
-    totalConversions: number;
+    totalClicks: number;
+    totalIntakes: number;
+    totalPaymentConversions: number;
     totalRevenueCents: number;
     totalCommissionCents: number;
   };
@@ -243,7 +247,7 @@ export default function AdminAffiliatesPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -280,14 +284,14 @@ export default function AdminAffiliatesPage() {
           </a>
           <a
             href="/admin/affiliates/applications"
-            className="inline-flex items-center gap-2 rounded-lg border border-violet-600 px-4 py-2 font-medium text-violet-600 hover:bg-violet-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--brand-primary)] px-4 py-2 font-medium text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
           >
             <Users className="h-5 w-5" />
             Applications
           </a>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 font-medium text-white hover:brightness-90"
           >
             <Plus className="h-5 w-5" />
             Add Affiliate
@@ -296,15 +300,41 @@ export default function AdminAffiliatesPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+            <div className="rounded-lg bg-gray-100 p-2 text-gray-600">
               <Users className="h-5 w-5" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{affiliates.length}</p>
-              <p className="text-sm text-gray-500">Total Affiliates</p>
+              <p className="text-sm text-gray-500">Affiliates</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+              <MousePointer className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {affiliates.reduce((sum, a) => sum + (a.stats.totalClicks ?? 0), 0)}
+              </p>
+              <p className="text-sm text-gray-500">Total Clicks</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {affiliates.reduce((sum, a) => sum + (a.stats.totalIntakes ?? 0), 0)}
+              </p>
+              <p className="text-sm text-gray-500">Total Intakes</p>
             </div>
           </div>
         </div>
@@ -315,15 +345,15 @@ export default function AdminAffiliatesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {affiliates.reduce((sum, a) => sum + a.stats.totalConversions, 0)}
+                {affiliates.reduce((sum, a) => sum + (a.stats.totalPaymentConversions ?? 0), 0)}
               </p>
-              <p className="text-sm text-gray-500">Total Conversions</p>
+              <p className="text-sm text-gray-500">Conversions</p>
             </div>
           </div>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
+            <div className="rounded-lg bg-emerald-100 p-2 text-emerald-600">
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
@@ -332,7 +362,7 @@ export default function AdminAffiliatesPage() {
                   affiliates.reduce((sum, a) => sum + a.stats.totalCommissionCents, 0)
                 )}
               </p>
-              <p className="text-sm text-gray-500">Total Commissions</p>
+              <p className="text-sm text-gray-500">Commission</p>
             </div>
           </div>
         </div>
@@ -347,7 +377,7 @@ export default function AdminAffiliatesPage() {
             placeholder="Search by name, email, or ref code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
           />
         </div>
       </div>
@@ -406,7 +436,7 @@ export default function AdminAffiliatesPage() {
                           href={buildLandingPageUrl(ref.refCode)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-violet-600"
+                          className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-[var(--brand-primary)]"
                           title="Preview landing page"
                         >
                           <ExternalLink className="h-3 w-3" />
@@ -470,8 +500,12 @@ export default function AdminAffiliatesPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="text-sm">
-                    <p className="text-gray-900">{affiliate.stats.totalConversions} conversions</p>
-                    <p className="text-gray-500">
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-500" title="Clicks">{affiliate.stats.totalClicks ?? 0} <span className="text-xs">clicks</span></span>
+                      <span className="text-violet-600" title="Intakes">{affiliate.stats.totalIntakes ?? 0} <span className="text-xs">intakes</span></span>
+                      <span className="text-green-600" title="Conversions">{affiliate.stats.totalPaymentConversions ?? 0} <span className="text-xs">conv</span></span>
+                    </div>
+                    <p className="mt-0.5 text-gray-500">
                       {formatCurrency(affiliate.stats.totalCommissionCents)} earned
                     </p>
                   </div>
@@ -528,13 +562,13 @@ export default function AdminAffiliatesPage() {
                     Landing Page URL
                   </label>
                   <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <Globe className="h-4 w-4 flex-shrink-0 text-violet-500" />
+                    <Globe className="h-4 w-4 flex-shrink-0 text-[var(--brand-primary)]" />
                     <span className="flex-1 truncate font-mono text-sm text-gray-800">
                       {buildLandingPageUrl(createSuccess.refCode)}
                     </span>
                     <button
                       onClick={() => handleCopyUrl(createSuccess.refCode)}
-                      className="flex-shrink-0 rounded-md bg-violet-600 px-3 py-1 text-xs font-medium text-white hover:bg-violet-700"
+                      className="flex-shrink-0 rounded-md bg-[var(--brand-primary)] px-3 py-1 text-xs font-medium text-white hover:brightness-90"
                     >
                       {copiedCode === createSuccess.refCode ? 'Copied!' : 'Copy'}
                     </button>
@@ -543,7 +577,7 @@ export default function AdminAffiliatesPage() {
                     href={buildLandingPageUrl(createSuccess.refCode)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-violet-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-sm text-[var(--brand-primary)] hover:underline"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Preview landing page
@@ -565,7 +599,7 @@ export default function AdminAffiliatesPage() {
                       setShowCreateModal(false);
                       setCreateSuccess(null);
                     }}
-                    className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700"
+                    className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90"
                   >
                     Done
                   </button>
@@ -584,7 +618,7 @@ export default function AdminAffiliatesPage() {
                       required
                       value={createForm.email}
                       onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                     />
                   </div>
 
@@ -595,7 +629,7 @@ export default function AdminAffiliatesPage() {
                       required
                       value={createForm.password}
                       onChange={(e) => setCreateForm((f) => ({ ...f, password: e.target.value }))}
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                     />
                   </div>
 
@@ -610,7 +644,7 @@ export default function AdminAffiliatesPage() {
                       onChange={(e) =>
                         setCreateForm((f) => ({ ...f, displayName: e.target.value }))
                       }
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                     />
                   </div>
 
@@ -623,7 +657,7 @@ export default function AdminAffiliatesPage() {
                         onChange={(e) =>
                           setCreateForm((f) => ({ ...f, firstName: e.target.value }))
                         }
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                       />
                     </div>
                     <div>
@@ -634,7 +668,7 @@ export default function AdminAffiliatesPage() {
                         onChange={(e) =>
                           setCreateForm((f) => ({ ...f, lastName: e.target.value }))
                         }
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                       />
                     </div>
                   </div>
@@ -644,7 +678,7 @@ export default function AdminAffiliatesPage() {
                     <label className="block text-sm font-medium text-gray-700">
                       Landing Page URL Slug
                     </label>
-                    <div className="mt-1 flex items-center rounded-lg border border-gray-300 focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500">
+                    <div className="mt-1 flex items-center rounded-lg border border-gray-300 focus-within:border-[var(--brand-primary)] focus-within:ring-1 focus-within:ring-[var(--brand-primary)]">
                       <span className="flex-shrink-0 pl-3 text-sm text-gray-400">
                         /affiliate/
                       </span>
@@ -662,9 +696,9 @@ export default function AdminAffiliatesPage() {
                       />
                     </div>
                     {createForm.initialRefCode && (
-                      <div className="mt-2 flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2">
-                        <Globe className="h-3.5 w-3.5 flex-shrink-0 text-violet-500" />
-                        <span className="truncate font-mono text-xs text-violet-700">
+                      <div className="mt-2 flex items-center gap-2 rounded-md bg-[var(--brand-primary-light)] px-3 py-2">
+                        <Globe className="h-3.5 w-3.5 flex-shrink-0 text-[var(--brand-primary)]" />
+                        <span className="truncate font-mono text-xs text-[var(--brand-primary)]">
                           {buildLandingPageUrl(createForm.initialRefCode)}
                         </span>
                       </div>
@@ -683,7 +717,7 @@ export default function AdminAffiliatesPage() {
                       onChange={(e) =>
                         setCreateForm((f) => ({ ...f, commissionPlanId: e.target.value }))
                       }
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                     >
                       <option value="">Select a plan...</option>
                       {plans.map((plan) => {
@@ -746,7 +780,7 @@ export default function AdminAffiliatesPage() {
                     <button
                       type="submit"
                       disabled={creating}
-                      className="flex-1 rounded-lg bg-violet-600 py-2 font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                      className="flex-1 rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90 disabled:opacity-50"
                     >
                       {creating ? 'Creating...' : 'Create'}
                     </button>

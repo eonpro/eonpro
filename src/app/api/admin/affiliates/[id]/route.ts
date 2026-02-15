@@ -45,7 +45,12 @@ interface AffiliateDetail {
   } | null;
   stats: {
     totalClicks: number;
+    /** Patients who completed intake via this affiliate (USE) */
+    totalIntakes: number;
+    /** Touches where convertedAt is set (legacy metric, kept for compat) */
     totalConversions: number;
+    /** Actual payment conversions (AffiliateCommissionEvent count) */
+    totalPaymentConversions: number;
     conversionRate: number;
     totalRevenueCents: number;
     totalCommissionCents: number;
@@ -57,6 +62,12 @@ interface AffiliateDetail {
     description: string;
     amountCents?: number;
     createdAt: string;
+  }>;
+  /** Recent patients attributed to this affiliate (HIPAA-safe: IDs and dates only) */
+  recentAttributedPatients: Array<{
+    patientId: number;
+    refCode: string | null;
+    attributedAt: string;
   }>;
 }
 
@@ -125,13 +136,43 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         },
       });
 
-      // Get conversions (touches with convertedAt set)
+      // Get conversions (touches with convertedAt set — represents intake completions / "uses")
       const totalConversions = await prisma.affiliateTouch.count({
         where: {
           refCode: { in: refCodeStrings },
           convertedAt: { not: null },
           ...clinicFilter,
         },
+      });
+
+      // Get intake count: patients attributed to this affiliate
+      const totalIntakes = await prisma.patient.count({
+        where: {
+          attributionAffiliateId: modernAffiliate.id,
+        },
+      });
+
+      // Get payment conversion count from commission events
+      const totalPaymentConversions = await prisma.affiliateCommissionEvent.count({
+        where: {
+          affiliateId: modernAffiliate.id,
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        },
+      });
+
+      // Get recent attributed patients (HIPAA-safe: IDs and dates only)
+      const recentPatients = await prisma.patient.findMany({
+        where: {
+          attributionAffiliateId: modernAffiliate.id,
+        },
+        select: {
+          id: true,
+          attributionRefCode: true,
+          attributionFirstTouchAt: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
       });
 
       // Get revenue and commission totals
@@ -217,13 +258,20 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
           : null,
         stats: {
           totalClicks,
+          totalIntakes,
           totalConversions,
+          totalPaymentConversions,
           conversionRate,
           totalRevenueCents: commissionAgg._sum.eventAmountCents || 0,
           totalCommissionCents: commissionAgg._sum.commissionAmountCents || 0,
           pendingCommissionCents: pendingAgg._sum.commissionAmountCents || 0,
         },
         recentActivity,
+        recentAttributedPatients: recentPatients.map((p) => ({
+          patientId: p.id,
+          refCode: p.attributionRefCode,
+          attributedAt: (p.attributionFirstTouchAt || p.createdAt).toISOString(),
+        })),
       };
 
       return NextResponse.json(response);
@@ -294,13 +342,16 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         },
         stats: {
           totalClicks,
+          totalIntakes: totalConversions,
           totalConversions,
+          totalPaymentConversions: 0,
           conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
-          totalRevenueCents: 0, // Legacy doesn't track revenue
+          totalRevenueCents: 0,
           totalCommissionCents: 0,
           pendingCommissionCents: 0,
         },
         recentActivity,
+        recentAttributedPatients: [],
       };
 
       return NextResponse.json(response);

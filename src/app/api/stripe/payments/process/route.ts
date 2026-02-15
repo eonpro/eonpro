@@ -164,9 +164,50 @@ export async function POST(request: Request) {
 
     const { payment, paymentMethodId, subscriptionId } = result;
 
-    // TODO: Process commission for influencer referrals if there's an associated invoice
-    // This should be handled when creating invoices through the proper flow
+    // Process affiliate commission if this patient was referred by an affiliate
     let commissionProcessed = false;
+    try {
+      // Determine if this is the patient's first succeeded payment
+      const priorPaymentCount = await prisma.payment.count({
+        where: {
+          patientId: patient.id,
+          status: PaymentStatus.SUCCEEDED,
+          id: { not: payment.id }, // Exclude the payment we just created
+        },
+      });
+      const isFirstPayment = priorPaymentCount === 0;
+
+      const commissionResult = await processPaymentForCommission({
+        clinicId: patient.clinicId,
+        patientId: patient.id,
+        stripeEventId: `payment-${payment.id}`, // Idempotency key
+        stripeObjectId: payment.id.toString(),
+        stripeEventType: 'payment.succeeded',
+        amountCents: Math.round(amount * 100), // Convert dollars to cents if needed
+        occurredAt: new Date(),
+        isFirstPayment,
+        isRecurring: !!subscription,
+        recurringMonth: isFirstPayment ? undefined : undefined,
+        productSku: subscription?.planId,
+        productCategory: subscription?.planName,
+      });
+
+      commissionProcessed = commissionResult.success && !commissionResult.skipped;
+      if (commissionProcessed) {
+        logger.info('[PaymentProcess] Affiliate commission created', {
+          paymentId: payment.id,
+          patientId: patient.id,
+          commissionEventId: commissionResult.commissionEventId,
+        });
+      }
+    } catch (commissionError) {
+      // Commission failure should never block the payment response
+      logger.warn('[PaymentProcess] Affiliate commission processing failed (non-blocking)', {
+        paymentId: payment.id,
+        patientId: patient.id,
+        error: commissionError instanceof Error ? commissionError.message : 'Unknown',
+      });
+    }
 
     return NextResponse.json({
       success: true,

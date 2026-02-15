@@ -104,17 +104,33 @@ export const GET = withAuth(
         orderBy: { createdAt: 'desc' },
       });
 
-      // Get aggregated stats for each affiliate
+      // Get aggregated stats for each affiliate (clicks, intakes, conversions, revenue)
       const affiliatesWithStats = await Promise.all(
         affiliates.map(async (affiliate: (typeof affiliates)[number]) => {
-          const stats = await prisma.affiliateCommissionEvent.aggregate({
-            where: { affiliateId: affiliate.id },
-            _sum: {
-              commissionAmountCents: true,
-              eventAmountCents: true,
-            },
-            _count: true,
-          });
+          const refCodeStrings = affiliate.refCodes.map((rc) => rc.refCode);
+
+          // Run all stat queries in parallel
+          const [commissionStats, intakeCount, clickCount] = await Promise.all([
+            prisma.affiliateCommissionEvent.aggregate({
+              where: { affiliateId: affiliate.id, status: { in: ['PENDING', 'APPROVED', 'PAID'] } },
+              _sum: {
+                commissionAmountCents: true,
+                eventAmountCents: true,
+              },
+              _count: true,
+            }),
+            prisma.patient.count({
+              where: { attributionAffiliateId: affiliate.id },
+            }),
+            refCodeStrings.length > 0
+              ? prisma.affiliateTouch.count({
+                  where: {
+                    refCode: { in: refCodeStrings },
+                    touchType: 'CLICK',
+                  },
+                })
+              : Promise.resolve(0),
+          ]);
 
           return {
             id: affiliate.id,
@@ -125,9 +141,11 @@ export const GET = withAuth(
             refCodes: affiliate.refCodes,
             currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
             stats: {
-              totalConversions: stats._count,
-              totalRevenueCents: stats._sum.eventAmountCents || 0,
-              totalCommissionCents: stats._sum.commissionAmountCents || 0,
+              totalClicks: clickCount,
+              totalIntakes: intakeCount,
+              totalPaymentConversions: commissionStats._count,
+              totalRevenueCents: commissionStats._sum.eventAmountCents || 0,
+              totalCommissionCents: commissionStats._sum.commissionAmountCents || 0,
             },
           };
         })

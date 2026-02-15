@@ -8,6 +8,12 @@ import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
 import SalesRepDropdown from './SalesRepDropdown';
 
+interface AffiliateAttribution {
+  affiliateId: number;
+  refCode?: string;
+  affiliateName?: string;
+}
+
 interface PatientSidebarProps {
   patient: {
     id: number;
@@ -26,6 +32,8 @@ interface PatientSidebarProps {
   };
   currentTab: string;
   affiliateCode?: string | null;
+  /** Structured attribution data from the patient record (attributionAffiliateId) */
+  affiliateAttribution?: AffiliateAttribution;
   currentSalesRep?: {
     id: number;
     firstName: string;
@@ -56,6 +64,7 @@ export default function PatientSidebar({
   patient,
   currentTab,
   affiliateCode,
+  affiliateAttribution,
   currentSalesRep,
   userRole,
   showLabsTab = true,
@@ -265,22 +274,32 @@ export default function PatientSidebar({
           ID #{patient.patientId || String(patient.id).padStart(6, '0')}
         </p>
 
-        {/* Affiliate Code Badge */}
-        {affiliateCode && (
-          <div className="mb-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-100 px-3 py-1.5 text-sm font-semibold text-purple-700">
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"
-                />
-              </svg>
-              #{affiliateCode}
-            </span>
-          </div>
-        )}
+        {/* Affiliate Attribution Banner — prominent, impossible to miss */}
+        {(affiliateAttribution || affiliateCode) && (() => {
+          const name = affiliateAttribution?.affiliateName;
+          const code = affiliateAttribution?.refCode || affiliateCode;
+          const affId = affiliateAttribution?.affiliateId;
+          const inner = (
+            <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Affiliate Referral</p>
+                <p className="truncate text-sm font-bold text-violet-900">
+                  {name ? `${name}` : ''}{name && code ? ' ' : ''}{code ? <span className="font-semibold text-violet-600">({code})</span> : ''}
+                </p>
+              </div>
+            </div>
+          );
+          return affId ? (
+            <a href={`/admin/affiliates/${affId}`} className="block transition-opacity hover:opacity-80">
+              {inner}
+            </a>
+          ) : inner;
+        })()}
 
         {/* Address */}
         <a

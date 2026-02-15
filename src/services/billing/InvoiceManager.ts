@@ -879,6 +879,49 @@ export class InvoiceManager {
       isPaid,
     });
 
+    // Process affiliate commission (non-blocking)
+    try {
+      const { processPaymentForCommission } = await import(
+        '@/services/affiliate/affiliateCommissionService'
+      );
+
+      // Determine if this is the patient's first succeeded payment
+      const priorPaymentCount = await prisma.payment.count({
+        where: {
+          patientId: invoice.patientId,
+          status: 'SUCCEEDED',
+          id: { not: payment.id },
+        },
+      });
+
+      const commissionResult = await processPaymentForCommission({
+        clinicId: invoice.clinicId ?? 0,
+        patientId: invoice.patientId,
+        stripeEventId: options.stripePaymentIntentId || `invoice-payment-${payment.id}`,
+        stripeObjectId: payment.id.toString(),
+        stripeEventType: 'invoice.payment_succeeded',
+        amountCents: Math.round(options.amount * 100),
+        occurredAt: new Date(),
+        isFirstPayment: priorPaymentCount === 0,
+        isRecurring: false,
+      });
+
+      if (commissionResult.success && !commissionResult.skipped) {
+        logger.info('[InvoiceManager] Affiliate commission created', {
+          invoiceId,
+          paymentId: payment.id,
+          commissionEventId: commissionResult.commissionEventId,
+        });
+      }
+    } catch (commissionError) {
+      // Commission failure should never block the payment response
+      logger.warn('[InvoiceManager] Affiliate commission processing failed (non-blocking)', {
+        invoiceId,
+        paymentId: payment.id,
+        error: commissionError instanceof Error ? commissionError.message : 'Unknown',
+      });
+    }
+
     return {
       invoice: updatedInvoice,
       payment,

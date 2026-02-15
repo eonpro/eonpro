@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   User,
+  Users,
   Mail,
   Phone,
   Calendar,
@@ -19,6 +20,8 @@ import {
   Globe,
   ExternalLink,
   Plus,
+  CreditCard,
+  FileText,
 } from 'lucide-react';
 
 // ============================================================================
@@ -60,7 +63,9 @@ interface AffiliateDetail {
   } | null;
   stats: {
     totalClicks: number;
+    totalIntakes: number;
     totalConversions: number;
+    totalPaymentConversions: number;
     conversionRate: number;
     totalRevenueCents: number;
     totalCommissionCents: number;
@@ -72,6 +77,11 @@ interface AffiliateDetail {
     description: string;
     amountCents?: number;
     createdAt: string;
+  }>;
+  recentAttributedPatients: Array<{
+    patientId: number;
+    refCode: string | null;
+    attributedAt: string;
   }>;
 }
 
@@ -217,7 +227,7 @@ export default function AffiliateDetailPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -229,7 +239,7 @@ export default function AffiliateDetailPage() {
           <p className="text-red-600">{error || 'Affiliate not found'}</p>
           <Link
             href="/admin/affiliates"
-            className="mt-4 inline-flex items-center gap-2 text-violet-600 hover:underline"
+            className="mt-4 inline-flex items-center gap-2 text-[var(--brand-primary)] hover:underline"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Affiliates
@@ -253,7 +263,7 @@ export default function AffiliateDetailPage() {
 
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-100 text-2xl font-bold text-violet-600">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--brand-primary-light)] text-2xl font-bold text-[var(--brand-primary)]">
               {affiliate.displayName.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -286,8 +296,8 @@ export default function AffiliateDetailPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Stats Grid — Full funnel: Clicks → Intakes → Conversions → Revenue → Commission */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-xl bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-blue-100 p-2 text-blue-600">
@@ -295,19 +305,7 @@ export default function AffiliateDetailPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{affiliate.stats.totalClicks}</p>
-              <p className="text-sm text-gray-500">Total Clicks</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2 text-green-600">
-              <TrendingUp className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{affiliate.stats.totalConversions}</p>
-              <p className="text-sm text-gray-500">Conversions</p>
+              <p className="text-sm text-gray-500">Clicks</p>
             </div>
           </div>
         </div>
@@ -315,13 +313,53 @@ export default function AffiliateDetailPage() {
         <div className="rounded-xl bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-violet-100 p-2 text-violet-600">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{affiliate.stats.totalIntakes ?? 0}</p>
+              <p className="text-sm text-gray-500">Intakes</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-100 p-2 text-green-600">
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{affiliate.stats.totalPaymentConversions ?? 0}</p>
+              <p className="text-sm text-gray-500">Conversions</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-amber-100 p-2 text-amber-600">
               <Target className="h-5 w-5" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {affiliate.stats.conversionRate.toFixed(1)}%
+                {(affiliate.stats.totalIntakes ?? 0) > 0
+                  ? (((affiliate.stats.totalPaymentConversions ?? 0) / affiliate.stats.totalIntakes) * 100).toFixed(1)
+                  : '0.0'}%
               </p>
               <p className="text-sm text-gray-500">Conv. Rate</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-cyan-100 p-2 text-cyan-600">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(affiliate.stats.totalRevenueCents)}
+              </p>
+              <p className="text-sm text-gray-500">Revenue</p>
             </div>
           </div>
         </div>
@@ -335,7 +373,7 @@ export default function AffiliateDetailPage() {
               <p className="text-2xl font-bold text-gray-900">
                 {formatCurrency(affiliate.stats.totalCommissionCents)}
               </p>
-              <p className="text-sm text-gray-500">Total Earned</p>
+              <p className="text-sm text-gray-500">Earned</p>
             </div>
           </div>
         </div>
@@ -350,7 +388,7 @@ export default function AffiliateDetailPage() {
               <h2 className="text-lg font-semibold text-gray-900">Landing Page URLs</h2>
               <button
                 onClick={() => setShowAddCode(!showAddCode)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 px-3 py-1.5 text-sm font-medium text-violet-600 hover:bg-violet-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--brand-primary)] px-3 py-1.5 text-sm font-medium text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
               >
                 <Plus className="h-4 w-4" />
                 Add URL
@@ -361,13 +399,13 @@ export default function AffiliateDetailPage() {
             {showAddCode && (
               <form
                 onSubmit={handleAddRefCode}
-                className="mb-5 rounded-lg border border-violet-200 bg-violet-50/50 p-4"
+                className="mb-5 rounded-lg border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4"
               >
                 <p className="mb-3 text-sm font-medium text-gray-700">Create New Landing Page URL</p>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600">URL Slug *</label>
-                    <div className="mt-1 flex items-center rounded-lg border border-gray-300 bg-white focus-within:border-violet-500 focus-within:ring-1 focus-within:ring-violet-500">
+                    <div className="mt-1 flex items-center rounded-lg border border-gray-300 bg-white focus-within:border-[var(--brand-primary)] focus-within:ring-1 focus-within:ring-[var(--brand-primary)]">
                       <span className="flex-shrink-0 pl-3 text-sm text-gray-400">/affiliate/</span>
                       <input
                         type="text"
@@ -382,8 +420,8 @@ export default function AffiliateDetailPage() {
                     </div>
                     {newRefCode && (
                       <div className="mt-1.5 flex items-center gap-1.5 rounded bg-white px-2 py-1">
-                        <Globe className="h-3 w-3 text-violet-500" />
-                        <span className="truncate font-mono text-xs text-violet-700">
+                        <Globe className="h-3 w-3 text-[var(--brand-primary)]" />
+                        <span className="truncate font-mono text-xs text-[var(--brand-primary)]">
                           {buildLandingPageUrl(newRefCode)}
                         </span>
                       </div>
@@ -398,7 +436,7 @@ export default function AffiliateDetailPage() {
                       value={newRefDescription}
                       onChange={(e) => setNewRefDescription(e.target.value)}
                       placeholder="e.g., Instagram campaign"
-                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                     />
                   </div>
                   {addCodeError && (
@@ -422,7 +460,7 @@ export default function AffiliateDetailPage() {
                     <button
                       type="submit"
                       disabled={addingCode || !newRefCode.trim()}
-                      className="rounded-lg bg-violet-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                      className="rounded-lg bg-[var(--brand-primary)] px-4 py-1.5 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50"
                     >
                       {addingCode ? 'Creating...' : 'Create URL'}
                     </button>
@@ -438,7 +476,7 @@ export default function AffiliateDetailPage() {
                 <p className="mt-2 text-sm text-gray-500">No landing page URLs yet</p>
                 <button
                   onClick={() => setShowAddCode(true)}
-                  className="mt-3 text-sm font-medium text-violet-600 hover:underline"
+                  className="mt-3 text-sm font-medium text-[var(--brand-primary)] hover:underline"
                 >
                   Create the first one
                 </button>
@@ -455,8 +493,8 @@ export default function AffiliateDetailPage() {
                       {/* Top row: code + status + actions */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100">
-                            <Globe className="h-4 w-4 text-violet-600" />
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-primary-light)]">
+                            <Globe className="h-4 w-4 text-[var(--brand-primary)]" />
                           </div>
                           <div>
                             <p className="font-mono text-sm font-semibold text-gray-900">
@@ -507,7 +545,7 @@ export default function AffiliateDetailPage() {
                           href={url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50"
+                          className="flex-shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-[var(--brand-primary)] hover:bg-[var(--brand-primary-light)]"
                           title="Preview landing page"
                         >
                           <span className="flex items-center gap-1">
@@ -522,11 +560,50 @@ export default function AffiliateDetailPage() {
             )}
           </div>
 
-          {/* Recent Activity */}
+          {/* Attributed Patients */}
           <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent Activity</h2>
+            <div className="mb-4 flex items-center gap-2">
+              <Users className="h-5 w-5 text-violet-500" />
+              <h2 className="text-lg font-semibold text-gray-900">Attributed Patients</h2>
+              <span className="ml-auto rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
+                {affiliate.stats.totalIntakes ?? 0}
+              </span>
+            </div>
+            {(!affiliate.recentAttributedPatients || affiliate.recentAttributedPatients.length === 0) ? (
+              <p className="text-gray-500">No patients attributed yet</p>
+            ) : (
+              <div className="space-y-3">
+                {affiliate.recentAttributedPatients.map((p) => (
+                  <a
+                    key={p.patientId}
+                    href={`/patients/${p.patientId}`}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-600">
+                        #{p.patientId}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Patient #{p.patientId}</p>
+                        <p className="text-xs text-gray-500">{formatDate(p.attributedAt)}</p>
+                      </div>
+                    </div>
+                    {p.refCode && (
+                      <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">
+                        {p.refCode}
+                      </span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Commission Activity */}
+          <div className="rounded-xl bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent Commission Activity</h2>
             {affiliate.recentActivity.length === 0 ? (
-              <p className="text-gray-500">No recent activity</p>
+              <p className="text-gray-500">No commission activity yet</p>
             ) : (
               <div className="space-y-4">
                 {affiliate.recentActivity.map((activity) => (
@@ -595,12 +672,12 @@ export default function AffiliateDetailPage() {
                 <p className="font-medium text-gray-900">{affiliate.currentPlan.name}</p>
                 <p className="text-sm text-gray-500">{affiliate.currentPlan.planType}</p>
                 {affiliate.currentPlan.percentBps && (
-                  <p className="text-lg font-bold text-violet-600">
+                  <p className="text-lg font-bold text-[var(--brand-primary)]">
                     {formatPercent(affiliate.currentPlan.percentBps)} commission
                   </p>
                 )}
                 {affiliate.currentPlan.flatAmountCents && (
-                  <p className="text-lg font-bold text-violet-600">
+                  <p className="text-lg font-bold text-[var(--brand-primary)]">
                     {formatCurrency(affiliate.currentPlan.flatAmountCents)} per sale
                   </p>
                 )}

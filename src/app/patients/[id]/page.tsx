@@ -164,6 +164,9 @@ export default async function PatientDetailPage({
         orderBy: { createdAt: 'desc' } as const,
         take: 10,
       },
+      attributionAffiliate: {
+        select: { id: true, displayName: true, status: true },
+      },
     };
 
     let patient;
@@ -386,9 +389,9 @@ export default async function PatientDetailPage({
     const getTagColor = (tag: string) => {
       const colors = [
         { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-        { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700' },
+        { bg: 'bg-[var(--brand-primary-light)]', border: 'border-[var(--brand-primary-medium)]', text: 'text-[var(--brand-primary)]' },
         { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
-        { bg: 'bg-indigo-50', border: 'border-indigo-200', text: 'text-indigo-700' },
+        { bg: 'bg-[var(--brand-secondary-light)]', border: 'border-[var(--brand-secondary)]', text: 'text-[var(--brand-secondary)]' },
         { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
         { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
         { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' },
@@ -863,6 +866,15 @@ export default async function PatientDetailPage({
             patient={patientWithDecryptedPHI}
             currentTab={currentTab}
             affiliateCode={affiliateCode}
+            affiliateAttribution={
+              patientWithDecryptedPHI.attributionAffiliateId
+                ? {
+                    affiliateId: patientWithDecryptedPHI.attributionAffiliateId,
+                    refCode: patientWithDecryptedPHI.attributionRefCode || undefined,
+                    affiliateName: patientWithDecryptedPHI.attributionAffiliate?.displayName || undefined,
+                  }
+                : undefined
+            }
             currentSalesRep={patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null}
             userRole={user.role}
             showLabsTab={showLabsTab}
