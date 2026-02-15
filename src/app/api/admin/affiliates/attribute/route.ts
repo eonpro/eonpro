@@ -4,7 +4,13 @@
  * Manually attribute a patient to an affiliate ref code.
  * Used for data reconciliation when automatic attribution was missed.
  *
- * Body: { patientId: number, refCode: string }
+ * Body: { patientId: number, refCode: string, force?: boolean }
+ *
+ * DELETE /api/admin/affiliates/attribute
+ *
+ * Remove affiliate attribution from a patient.
+ *
+ * Body: { patientId: number }
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/auth/middleware';
@@ -13,13 +19,16 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { badRequest, notFound, serverError } from '@/lib/api/error-response';
 
-async function handler(req: NextRequest) {
+// ---------------------------------------------------------------------------
+// POST — attribute patient to affiliate
+// ---------------------------------------------------------------------------
+async function handlePost(req: NextRequest) {
   try {
     const body = await req.json();
     const { patientId, refCode, force } = body as {
       patientId?: number;
       refCode?: string;
-      force?: boolean; // If true, overwrite existing attribution
+      force?: boolean;
     };
 
     if (!patientId || !refCode) {
@@ -28,7 +37,6 @@ async function handler(req: NextRequest) {
 
     const normalizedCode = refCode.trim().toUpperCase();
 
-    // Look up the patient
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       select: {
@@ -98,7 +106,6 @@ async function handler(req: NextRequest) {
       });
     }
 
-    // If attributeFromIntake returned null, the ref code likely doesn't exist
     return NextResponse.json(
       {
         success: false,
@@ -114,4 +121,67 @@ async function handler(req: NextRequest) {
   }
 }
 
-export const POST = withAdminAuth(handler);
+// ---------------------------------------------------------------------------
+// DELETE — remove affiliate attribution from patient
+// ---------------------------------------------------------------------------
+async function handleDelete(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { patientId } = body as { patientId?: number };
+
+    if (!patientId) {
+      return badRequest('patientId is required');
+    }
+
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: {
+        id: true,
+        attributionAffiliateId: true,
+        attributionRefCode: true,
+        tags: true,
+      },
+    });
+
+    if (!patient) {
+      return notFound('Patient not found');
+    }
+
+    if (!patient.attributionAffiliateId && !patient.attributionRefCode) {
+      return NextResponse.json({ success: true, message: 'No attribution to remove' });
+    }
+
+    // Remove affiliate tags
+    const existingTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
+    const filteredTags = existingTags.filter((t) => !t.startsWith('affiliate:'));
+
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: {
+        attributionAffiliateId: null,
+        attributionRefCode: null,
+        attributionFirstTouchAt: null,
+        tags: filteredTags,
+      },
+    });
+
+    logger.info('[ManualAttribution] Removed attribution from patient', {
+      patientId,
+      previousAffiliateId: patient.attributionAffiliateId,
+      previousRefCode: patient.attributionRefCode,
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Attribution removed (was: affiliate ${patient.attributionAffiliateId}, code ${patient.attributionRefCode})`,
+    });
+  } catch (error) {
+    logger.error('[ManualAttribution] Remove failed', {
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+    return serverError('Failed to remove attribution');
+  }
+}
+
+export const POST = withAdminAuth(handlePost);
+export const DELETE = withAdminAuth(handleDelete);

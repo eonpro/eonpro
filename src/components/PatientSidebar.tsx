@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, GitMerge } from 'lucide-react';
+import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
@@ -59,6 +59,193 @@ const navItems = [
   { id: 'documents', label: 'Documents', icon: 'Dc' },
   { id: 'appointments', label: 'Appointments', icon: 'Ap' },
 ];
+
+// ---------------------------------------------------------------------------
+// Affiliate Attribution Section — shows existing banner or manual link form
+// ---------------------------------------------------------------------------
+function AffiliateAttributionSection({
+  patientId,
+  affiliateAttribution,
+  affiliateCode,
+  isAdmin,
+}: {
+  patientId: number;
+  affiliateAttribution?: AffiliateAttribution;
+  affiliateCode?: string | null;
+  isAdmin: boolean;
+}) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [refCodeInput, setRefCodeInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  const hasAttribution = !!(affiliateAttribution || affiliateCode);
+
+  const handleSubmit = useCallback(async () => {
+    const code = refCodeInput.trim().toUpperCase();
+    if (!code) {
+      setError('Enter a ref code');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/affiliates/attribute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId, refCode: code }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccess(true);
+        setTimeout(() => {
+          router.refresh();
+          window.location.reload();
+        }, 600);
+      } else {
+        setError(data.message || 'Attribution failed');
+      }
+    } catch {
+      setError('Network error — try again');
+    } finally {
+      setLoading(false);
+    }
+  }, [patientId, refCodeInput, router]);
+
+  const handleRemove = useCallback(async () => {
+    if (!confirm('Remove affiliate attribution from this patient?')) return;
+    setRemoving(true);
+    try {
+      await fetch('/api/admin/affiliates/attribute', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId }),
+      });
+      router.refresh();
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    } finally {
+      setRemoving(false);
+    }
+  }, [patientId, router]);
+
+  // --- Existing attribution: show banner ---
+  if (hasAttribution) {
+    const name = affiliateAttribution?.affiliateName;
+    const code = affiliateAttribution?.refCode || affiliateCode;
+    const affId = affiliateAttribution?.affiliateId;
+
+    return (
+      <div className="mb-3">
+        {/* Banner */}
+        {affId ? (
+          <a href={`/admin/affiliates/${affId}`} className="block transition-opacity hover:opacity-80">
+            <AffiliateTag name={name} code={code} />
+          </a>
+        ) : (
+          <AffiliateTag name={name} code={code} />
+        )}
+        {/* Remove button for admins */}
+        {isAdmin && (
+          <button
+            onClick={handleRemove}
+            disabled={removing}
+            className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg py-1 text-xs text-gray-400 transition-colors hover:text-red-500"
+          >
+            {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+            Remove attribution
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // --- No attribution: show "Link" button or form ---
+  if (!isAdmin) return null; // Only admins can manually attribute
+
+  if (!showForm) {
+    return (
+      <button
+        onClick={() => setShowForm(true)}
+        className="mb-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-violet-300 bg-violet-50/50 px-3.5 py-2.5 text-sm font-medium text-violet-600 transition-all hover:border-violet-400 hover:bg-violet-50"
+      >
+        <Link2 className="h-4 w-4" />
+        Link to Affiliate
+      </button>
+    );
+  }
+
+  // --- Inline form ---
+  return (
+    <div className="mb-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Link to Affiliate</p>
+        <button
+          onClick={() => { setShowForm(false); setError(null); setRefCodeInput(''); }}
+          className="rounded p-0.5 text-gray-400 hover:text-gray-600"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={refCodeInput}
+          onChange={(e) => { setRefCodeInput(e.target.value.toUpperCase()); setError(null); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+          placeholder="REF CODE"
+          className="min-w-0 flex-1 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium uppercase text-violet-900 placeholder-violet-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
+          autoFocus
+          disabled={loading || success}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={loading || success || !refCodeInput.trim()}
+          className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+        >
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : success ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            'Link'
+          )}
+        </button>
+      </div>
+
+      {error && (
+        <p className="mt-1.5 text-xs text-red-600">{error}</p>
+      )}
+      {success && (
+        <p className="mt-1.5 text-xs font-medium text-green-600">Attributed! Refreshing...</p>
+      )}
+    </div>
+  );
+}
+
+// Reusable affiliate tag display
+function AffiliateTag({ name, code }: { name?: string; code?: string | null }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5">
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Affiliate Referral</p>
+        <p className="truncate text-sm font-bold text-violet-900">
+          {name ? `${name}` : ''}{name && code ? ' ' : ''}{code ? <span className="font-semibold text-violet-600">({code})</span> : ''}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function PatientSidebar({
   patient,
@@ -274,32 +461,13 @@ export default function PatientSidebar({
           ID #{patient.patientId || String(patient.id).padStart(6, '0')}
         </p>
 
-        {/* Affiliate Attribution Banner — prominent, impossible to miss */}
-        {(affiliateAttribution || affiliateCode) && (() => {
-          const name = affiliateAttribution?.affiliateName;
-          const code = affiliateAttribution?.refCode || affiliateCode;
-          const affId = affiliateAttribution?.affiliateId;
-          const inner = (
-            <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50 px-3.5 py-2.5">
-              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Affiliate Referral</p>
-                <p className="truncate text-sm font-bold text-violet-900">
-                  {name ? `${name}` : ''}{name && code ? ' ' : ''}{code ? <span className="font-semibold text-violet-600">({code})</span> : ''}
-                </p>
-              </div>
-            </div>
-          );
-          return affId ? (
-            <a href={`/admin/affiliates/${affId}`} className="block transition-opacity hover:opacity-80">
-              {inner}
-            </a>
-          ) : inner;
-        })()}
+        {/* Affiliate Attribution — banner or manual link button */}
+        <AffiliateAttributionSection
+          patientId={patient.id}
+          affiliateAttribution={affiliateAttribution}
+          affiliateCode={affiliateCode}
+          isAdmin={userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'}
+        />
 
         {/* Address */}
         <a
