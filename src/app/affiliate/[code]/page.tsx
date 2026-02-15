@@ -405,33 +405,37 @@ function AffiliateLandingContent() {
       </header>
 
       {/* ================================================================ */}
-      {/* Hero Section */}
+      {/* Hero Section — left-aligned, matching header width */}
       {/* ================================================================ */}
       <section className="relative overflow-hidden">
-        <div className="relative mx-auto max-w-4xl px-6 pb-16 pt-16 text-center md:pb-20 md:pt-24">
+        <div className="relative mx-auto max-w-6xl px-6 pb-12 pt-12 md:pb-16 md:pt-20">
+
+          {/* Affiliate name as prominent heading */}
+          {isValid && affiliateName && (
+            <p
+              className="mb-1 text-3xl font-bold leading-tight md:text-4xl lg:text-5xl"
+              style={{ color: BRAND.accent }}
+            >
+              {affiliateName}&apos;s Pick
+            </p>
+          )}
 
           {/* Headline */}
-          <h1 className="mb-5 text-4xl font-bold leading-[1.1] tracking-tight md:text-5xl lg:text-6xl">
-            for today&apos;s{' '}
-            <span style={{ color: BRAND.accent }}>men</span>
+          <h1 className="mb-6 text-3xl font-bold leading-tight tracking-tight md:text-4xl lg:text-5xl">
+            for today&apos;s men
           </h1>
 
-          {/* Trust indicators — Google reviews + affiliate name */}
-          <div className="mb-8 flex flex-col items-center gap-3">
-            {isValid && affiliateName && (
-              <p className="text-sm font-semibold tracking-wide" style={{ color: BRAND.textSecondary }}>
-                Recommended by {affiliateName}
-              </p>
-            )}
-            <GoogleStarRating />
+          {/* Trust indicators — left-aligned */}
+          <div className="mb-6 flex flex-col items-start gap-2">
             <p className="text-sm font-medium" style={{ color: BRAND.textMuted }}>
-              Trusted by 10,000+ men nationwide
+              Trusted by 10,000+ men nationwide 🇺🇸
             </p>
+            <GoogleStarRating />
           </div>
 
           {/* Subheadline */}
           <p
-            className="mx-auto mb-8 max-w-xl text-base leading-relaxed md:text-lg"
+            className="mb-8 max-w-xl text-base leading-relaxed md:text-lg"
             style={{ color: BRAND.textSecondary }}
           >
             Personalized treatments from board-certified providers.
@@ -439,7 +443,7 @@ function AffiliateLandingContent() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <a
               href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
               className="w-full rounded-full px-8 py-3.5 text-center text-sm font-semibold transition-all hover:opacity-90 sm:w-auto"
@@ -459,10 +463,10 @@ function AffiliateLandingContent() {
       </section>
 
       {/* ================================================================ */}
-      {/* Treatment Cards — otmens.com style grid */}
+      {/* Treatment Cards — matching header width (max-w-6xl) */}
       {/* ================================================================ */}
       <section id="treatments" className="pb-16 pt-4 md:pb-24">
-        <div className="mx-auto max-w-5xl px-6">
+        <div className="mx-auto max-w-6xl px-6">
 
           {/* Top row: 3 cards */}
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
