@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { PatientDocumentCategory, Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import {
   normalizeOvertimePayload,
   extractPromoCode,
@@ -389,6 +389,12 @@ export async function POST(req: NextRequest) {
   const isPartialSubmission = !isComplete;
 
   logger.info(`[OVERTIME-INTAKE ${requestId}] Type: ${isComplete ? 'COMPLETE' : 'PARTIAL'}`);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TENANT CONTEXT: All DB operations below MUST run with clinic context
+  // set so the multi-tenant Prisma middleware knows the active clinic.
+  // ═══════════════════════════════════════════════════════════════════
+  return runWithClinicContext(clinicId, async () => {
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 7: UPSERT PATIENT
@@ -1026,6 +1032,8 @@ export async function POST(req: NextRequest) {
     // Legacy field names
     patientId: patient.id,
   });
+
+  }); // end runWithClinicContext
 }
 
 // ═══════════════════════════════════════════════════════════════════
