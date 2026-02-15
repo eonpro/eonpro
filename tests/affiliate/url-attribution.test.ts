@@ -235,9 +235,9 @@ describe('extractPromoCode — plain text promo codes (regression)', () => {
 describe('extractPromoCode — edge cases', () => {
   it('handles malformed URL in Referrer gracefully (not a URL)', () => {
     const payload = { Referrer: 'not-a-url' };
-    // 'not-a-url' is not a URL (no http/https), so it's treated as plain text
-    // It's not in genericSources, so it gets returned uppercased
-    expect(extractPromoCode(payload)).toBe('NOT-A-URL');
+    // 'not-a-url' is not a valid URL and Referrer is now in the URL-only phase,
+    // so non-URL text in Referrer is correctly ignored (it's not an affiliate code).
+    expect(extractPromoCode(payload)).toBeNull();
   });
 
   it('handles URL with empty ref param', () => {
