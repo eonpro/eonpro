@@ -107,11 +107,13 @@ async function refreshAuthToken(): Promise<boolean> {
 
       const data = await response.json();
 
-      // Store new tokens
+      // Store new tokens in localStorage for cross-origin requests
+      // NOTE: Do NOT set document.cookie here — the refresh endpoint now returns
+      // proper Set-Cookie headers with the correct domain (.eonpro.io). Setting
+      // cookies client-side creates duplicates on the hostname domain (e.g.
+      // ot.eonpro.io) which take priority and cause "Invalid session" errors.
       if (data.token) {
         localStorage.setItem('auth-token', data.token);
-        // Set cookie for server-side auth
-        document.cookie = `auth-token=${data.token}; path=/; secure; samesite=strict`;
       }
       if (data.refreshToken) {
         localStorage.setItem('refresh-token', data.refreshToken);
@@ -182,17 +184,25 @@ export function clearAuthTokens() {
 
   tokenKeys.forEach((key) => localStorage.removeItem(key));
 
-  // Clear cookies
+  // Clear cookies on BOTH the current hostname and the shared .eonpro.io domain.
+  // Cookies are identified by (name, domain, path) — clearing without domain only
+  // removes hostname-scoped cookies, leaving .eonpro.io ones intact.
   const cookieNames = [
     'auth-token',
     'admin-token',
+    'super_admin-token',
     'provider-token',
     'affiliate-token',
     'patient-token',
+    'staff-token',
+    'support-token',
   ];
 
   cookieNames.forEach((name) => {
+    // Clear on current hostname (e.g. ot.eonpro.io)
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    // Clear on shared parent domain (.eonpro.io)
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
   });
 }
 

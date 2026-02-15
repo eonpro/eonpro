@@ -14,7 +14,12 @@ import {
   handleRefreshTokenReuse,
   rotateSessionRefreshToken,
 } from '@/lib/auth/refresh-token-rotation';
+import { createSessionRecord } from '@/lib/auth/session-manager';
 import { withApiHandler } from '@/domains/shared/errors';
+import {
+  getRequestHostWithUrlFallback,
+  shouldUseEonproCookieDomain,
+} from '@/lib/request-host';
 
 async function refreshTokenHandler(req: NextRequest) {
   try {
@@ -65,15 +70,24 @@ async function refreshTokenHandler(req: NextRequest) {
     });
 
     if (providerUser) {
-      const payload: Record<string, unknown> = {
+      // Create session record so production auth (validateSession) can find it
+      const { sessionId } = await createSessionRecord(
+        String(providerUser.id),
+        'provider',
+        providerUser.clinicId ?? undefined,
+        req
+      );
+
+      const tokenPayload: Record<string, unknown> = {
         id: providerUser.id,
         email: providerUser.email || '',
         name: `${providerUser.firstName} ${providerUser.lastName}`,
         role: 'provider',
+        sessionId,
       };
-      if (providerUser.clinicId != null) payload.clinicId = providerUser.clinicId;
+      if (providerUser.clinicId != null) tokenPayload.clinicId = providerUser.clinicId;
 
-      const newAccessToken = await new SignJWT(payload)
+      const newAccessToken = await new SignJWT(tokenPayload)
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(AUTH_CONFIG.tokenExpiry.provider)
@@ -91,7 +105,7 @@ async function refreshTokenHandler(req: NextRequest) {
 
       logger.info('Token refreshed for provider', { userId: providerUser.id });
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         token: newAccessToken,
         refreshToken: newRefreshToken,
         user: {
@@ -101,6 +115,26 @@ async function refreshTokenHandler(req: NextRequest) {
           role: 'provider',
         },
       });
+
+      // Set httpOnly cookies so the browser uses the refreshed token on next request
+      const host = getRequestHostWithUrlFallback(req);
+      const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
+      response.cookies.set({
+        name: 'auth-token',
+        value: newAccessToken,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24,
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
+      response.cookies.set({
+        name: 'provider-token',
+        value: newAccessToken,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24,
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
+
+      return response;
     }
 
     // User table: session-backed rotation + reuse detection (when session has refreshTokenHash)
@@ -109,66 +143,98 @@ async function refreshTokenHandler(req: NextRequest) {
 
     if (session) {
       const appUser = session.user;
-    if (appUser) {
-      const expiry =
-        String(appUser.role).toUpperCase() === 'PATIENT'
-          ? AUTH_CONFIG.tokenExpiry.patient
-          : AUTH_CONFIG.tokenExpiry.access;
-      const payload: Record<string, unknown> = {
-        id: appUser.id,
-        email: appUser.email,
-        name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || appUser.email,
-        role: appUser.role,
-      };
-      if (appUser.clinicId != null) payload.clinicId = appUser.clinicId;
-      if ((appUser as { providerId?: number }).providerId != null)
-        payload.providerId = (appUser as { providerId?: number }).providerId;
-      if ((appUser as { patientId?: number }).patientId != null)
-        payload.patientId = (appUser as { patientId?: number }).patientId;
-      const perms = (appUser as { permissions?: unknown }).permissions;
-      const feats = (appUser as { features?: unknown }).features;
-      if (Array.isArray(perms)) payload.permissions = perms;
-      if (Array.isArray(feats)) payload.features = feats;
+      if (appUser) {
+        // Create session record so production auth (validateSession) can find it
+        const userRole = String(appUser.role).toLowerCase();
+        const userClinicId = (appUser as { clinicId?: number }).clinicId;
+        const { sessionId } = await createSessionRecord(
+          String(appUser.id),
+          userRole,
+          userClinicId ?? undefined,
+          req
+        );
 
-      const newAccessToken = await new SignJWT(payload)
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(expiry)
-        .sign(JWT_SECRET);
-
-      const newRefreshToken = await new SignJWT({
-        id: appUser.id,
-        type: 'refresh',
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_REFRESH_SECRET);
-
-      await rotateSessionRefreshToken(session.id, newRefreshToken);
-
-      logger.info('Token refreshed for user', {
-        userId: appUser.id,
-        role: appUser.role,
-        clinicId: (appUser as { clinicId?: number }).clinicId ?? undefined,
-      });
-
-      return NextResponse.json({
-        token: newAccessToken,
-        refreshToken: newRefreshToken,
-        user: {
+        const expiry =
+          userRole === 'patient'
+            ? AUTH_CONFIG.tokenExpiry.patient
+            : AUTH_CONFIG.tokenExpiry.access;
+        const tokenPayload: Record<string, unknown> = {
           id: appUser.id,
           email: appUser.email,
-          firstName: appUser.firstName,
-          lastName: appUser.lastName,
           name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || appUser.email,
           role: appUser.role,
-          clinicId: (appUser as { clinicId?: number }).clinicId ?? undefined,
-          providerId: (appUser as { providerId?: number }).providerId ?? undefined,
-          patientId: (appUser as { patientId?: number }).patientId ?? undefined,
-        },
-      });
-    }
+          sessionId,
+        };
+        if (userClinicId != null) tokenPayload.clinicId = userClinicId;
+        if ((appUser as { providerId?: number }).providerId != null)
+          tokenPayload.providerId = (appUser as { providerId?: number }).providerId;
+        if ((appUser as { patientId?: number }).patientId != null)
+          tokenPayload.patientId = (appUser as { patientId?: number }).patientId;
+        const perms = (appUser as { permissions?: unknown }).permissions;
+        const feats = (appUser as { features?: unknown }).features;
+        if (Array.isArray(perms)) tokenPayload.permissions = perms;
+        if (Array.isArray(feats)) tokenPayload.features = feats;
+
+        const newAccessToken = await new SignJWT(tokenPayload)
+          .setProtectedHeader({ alg: 'HS256' })
+          .setIssuedAt()
+          .setExpirationTime(expiry)
+          .sign(JWT_SECRET);
+
+        const newRefreshToken = await new SignJWT({
+          id: appUser.id,
+          type: 'refresh',
+        })
+          .setProtectedHeader({ alg: 'HS256' })
+          .setIssuedAt()
+          .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
+          .sign(JWT_REFRESH_SECRET);
+
+        await rotateSessionRefreshToken(session.id, newRefreshToken);
+
+        logger.info('Token refreshed for user', {
+          userId: appUser.id,
+          role: appUser.role,
+          clinicId: userClinicId ?? undefined,
+        });
+
+        const response = NextResponse.json({
+          token: newAccessToken,
+          refreshToken: newRefreshToken,
+          user: {
+            id: appUser.id,
+            email: appUser.email,
+            firstName: appUser.firstName,
+            lastName: appUser.lastName,
+            name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || appUser.email,
+            role: appUser.role,
+            clinicId: userClinicId ?? undefined,
+            providerId: (appUser as { providerId?: number }).providerId ?? undefined,
+            patientId: (appUser as { patientId?: number }).patientId ?? undefined,
+          },
+        });
+
+        // Set httpOnly cookies so the browser uses the refreshed token on next request
+        const host = getRequestHostWithUrlFallback(req);
+        const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
+        const roleCookieName = `${userRole}-token`;
+        response.cookies.set({
+          name: 'auth-token',
+          value: newAccessToken,
+          ...AUTH_CONFIG.cookie,
+          maxAge: 60 * 60 * 24,
+          ...(cookieDomain && { domain: cookieDomain }),
+        });
+        response.cookies.set({
+          name: roleCookieName,
+          value: newAccessToken,
+          ...AUTH_CONFIG.cookie,
+          maxAge: 60 * 60 * 24,
+          ...(cookieDomain && { domain: cookieDomain }),
+        });
+
+        return response;
+      }
     }
 
     // No session with this hash: differentiate legacy (REAUTH) vs reuse (TOKEN_REUSE)
@@ -192,11 +258,20 @@ async function refreshTokenHandler(req: NextRequest) {
 
     // Check for admin (special case)
     if (userId === 0 && process.env.ADMIN_EMAIL) {
+      // Create session record so production auth (validateSession) can find it
+      const { sessionId } = await createSessionRecord(
+        '0',
+        'admin',
+        undefined,
+        req
+      );
+
       const newAccessToken = await new SignJWT({
         id: 0,
         email: process.env.ADMIN_EMAIL,
         name: 'Admin',
         role: 'admin',
+        sessionId,
       })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
@@ -214,7 +289,7 @@ async function refreshTokenHandler(req: NextRequest) {
 
       logger.info(`Token refreshed for admin`);
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         token: newAccessToken,
         refreshToken: newRefreshToken,
         user: {
@@ -224,6 +299,26 @@ async function refreshTokenHandler(req: NextRequest) {
           role: 'admin',
         },
       });
+
+      // Set httpOnly cookies so the browser uses the refreshed token on next request
+      const host = getRequestHostWithUrlFallback(req);
+      const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
+      response.cookies.set({
+        name: 'auth-token',
+        value: newAccessToken,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24,
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
+      response.cookies.set({
+        name: 'admin-token',
+        value: newAccessToken,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24,
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
+
+      return response;
     }
 
     // No user found

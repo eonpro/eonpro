@@ -152,6 +152,24 @@ export default function LoginPage() {
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Proactively clear stale auth cookies when the login page loads.
+  // Cookies from a previous session (especially hostname-scoped ones created by
+  // client-side token refresh) can shadow the new server-set cookies and cause
+  // "Invalid session" 401 errors immediately after login.
+  useEffect(() => {
+    if (!isBrowser) return;
+    const staleCookieNames = [
+      'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
+      'patient-token', 'staff-token', 'support-token', 'affiliate-token',
+    ];
+    staleCookieNames.forEach((name) => {
+      // Clear on current hostname (e.g. ot.eonpro.io)
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      // Clear on shared parent domain (.eonpro.io)
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
+    });
+  }, []);
+
   // Pre-login health check (fail-open: only block when /api/ready explicitly returns 503)
   useEffect(() => {
     if (!isBrowser) return;

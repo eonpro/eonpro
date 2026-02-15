@@ -308,7 +308,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       'support-token',
       'affiliate-token',
     ].forEach((name) => {
+      // Clear on current hostname (e.g. ot.eonpro.io)
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      // Clear on shared parent domain (.eonpro.io)
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
     });
     window.location.href = '/login';
   };
