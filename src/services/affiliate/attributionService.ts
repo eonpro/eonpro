@@ -571,6 +571,109 @@ export async function tagPatientWithReferralCodeOnly(
 }
 
 /**
+ * Fallback attribution: match a patient to a recent AffiliateTouch CLICK
+ * by looking at the referrer URL or recent clicks for a ref code.
+ *
+ * This captures patients who clicked through /affiliate/CODE landing pages
+ * but whose intake forms didn't include a promo code field.
+ *
+ * Strategy: Look for the most recent AffiliateTouch CLICK in the last 30 days
+ * whose refCode matches an active AffiliateRefCode, and the patient is not
+ * already attributed.
+ *
+ * @param patientId   The patient to attribute
+ * @param referrerUrl The referrer URL from the intake (e.g. "https://ot.eonpro.io/")
+ * @param clinicId    The clinic ID for ref code lookup
+ */
+export async function attributeByRecentTouch(
+  patientId: number,
+  referrerUrl: string | null,
+  clinicId: number
+): Promise<AttributionResult | null> {
+  try {
+    // Check if patient already has attribution (first-wins)
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { id: true, attributionAffiliateId: true, email: true, phone: true },
+    });
+    if (!patient || patient.attributionAffiliateId) {
+      return null; // Already attributed or not found
+    }
+
+    // Try to extract ref code from referrer URL
+    let refCodeFromUrl: string | null = null;
+    if (referrerUrl) {
+      try {
+        const parsed = new URL(referrerUrl);
+        // Check path: /affiliate/CODE
+        const pathMatch = parsed.pathname.match(/\/affiliate\/([A-Za-z0-9_-]+)/);
+        if (pathMatch?.[1]) {
+          refCodeFromUrl = pathMatch[1].toUpperCase();
+        }
+        // Check query param: ?ref=CODE
+        if (!refCodeFromUrl) {
+          const refParam = parsed.searchParams.get('ref');
+          if (refParam) refCodeFromUrl = refParam.trim().toUpperCase();
+        }
+      } catch {
+        // Not a valid URL
+      }
+    }
+
+    // If we extracted a ref code from the URL, use direct attribution
+    if (refCodeFromUrl) {
+      const result = await attributeFromIntake(patientId, refCodeFromUrl, clinicId, 'referrer-url');
+      return result;
+    }
+
+    // Last resort: look for a recent AffiliateTouch CLICK (last 7 days)
+    // that hasn't been converted yet — match by clinic
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentTouch = await prisma.affiliateTouch.findFirst({
+      where: {
+        clinicId,
+        touchType: 'CLICK',
+        convertedPatientId: null,
+        createdAt: { gte: sevenDaysAgo },
+        affiliate: { status: 'ACTIVE' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        refCode: true,
+        affiliateId: true,
+      },
+    });
+
+    if (recentTouch && recentTouch.affiliateId > 0) {
+      // Attribute using this touch
+      const result = await attributeFromIntake(
+        patientId,
+        recentTouch.refCode,
+        clinicId,
+        'recent-touch-fallback'
+      );
+      if (result) {
+        logger.info('[Attribution] Fallback attribution via recent touch', {
+          patientId,
+          touchId: recentTouch.id,
+          refCode: recentTouch.refCode,
+        });
+      }
+      return result;
+    }
+
+    return null;
+  } catch (err) {
+    logger.warn('[Attribution] attributeByRecentTouch failed', {
+      patientId,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+    return null;
+  }
+}
+
+/**
  * Extended version of attributeFromIntake with detailed error reporting
  *
  * Returns structured information about why attribution failed, which is

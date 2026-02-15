@@ -15,6 +15,7 @@ import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import {
   attributeFromIntake,
   tagPatientWithReferralCodeOnly,
+  attributeByRecentTouch,
 } from '@/services/affiliate/attributionService';
 import { notificationService } from '@/services/notification';
 import { logger } from '@/lib/logger';
@@ -795,6 +796,22 @@ export async function POST(req: NextRequest) {
         promoCode,
       });
       errors.push(`Affiliate tracking failed: ${promoCode}`);
+    }
+  } else {
+    // No promo code found — try fallback attribution via referrer URL or recent touch
+    try {
+      const referrerUrl = (payload['Referrer'] || payload['referrer'] || '') as string;
+      const fallback = await attributeByRecentTouch(patient.id, referrerUrl || null, clinicId);
+      if (fallback) {
+        referralTracked = true;
+        modernAffiliateTracked = true;
+        logger.info(
+          `[OVERTIME-INTAKE ${requestId}] ✓ Fallback affiliate attribution: ${fallback.refCode} -> affiliateId=${fallback.affiliateId}`
+        );
+      }
+    } catch (fallbackErr) {
+      const errMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown error';
+      logger.warn(`[OVERTIME-INTAKE ${requestId}] Fallback attribution failed:`, { error: errMsg });
     }
   }
 

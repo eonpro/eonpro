@@ -1549,8 +1549,50 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
 }
 
 /**
- * Extract promo/influencer/affiliate code from payload
- * Checks multiple field names used by different intake forms
+ * Try to extract an affiliate ref code from a URL.
+ * Handles:
+ *  - Path-based:  https://ot.eonpro.io/affiliate/TEAMSAV  -> TEAMSAV
+ *  - Query-based: https://trt.otmens.com/?ref=TEAMSAV      -> TEAMSAV
+ *  - Hash-based:  https://example.com/#ref=TEAMSAV          -> TEAMSAV
+ * Returns null if the URL doesn't contain an affiliate code.
+ */
+function extractRefCodeFromUrl(urlStr: string): string | null {
+  try {
+    const parsed = new URL(urlStr);
+
+    // Check path: /affiliate/CODE
+    const pathMatch = parsed.pathname.match(/\/affiliate\/([A-Za-z0-9_-]+)/);
+    if (pathMatch?.[1]) {
+      return pathMatch[1].toUpperCase();
+    }
+
+    // Check query param: ?ref=CODE
+    const refParam = parsed.searchParams.get('ref');
+    if (refParam && refParam.trim().length > 0) {
+      return refParam.trim().toUpperCase();
+    }
+
+    // Check hash: #ref=CODE  (some forms pass via hash fragment)
+    if (parsed.hash) {
+      const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+      const hashRef = hashParams.get('ref');
+      if (hashRef && hashRef.trim().length > 0) {
+        return hashRef.trim().toUpperCase();
+      }
+    }
+  } catch {
+    // Not a valid URL — that's fine, will be handled as regular text
+  }
+  return null;
+}
+
+/**
+ * Extract promo/influencer/affiliate code from payload.
+ * Checks multiple field names used by different intake forms.
+ *
+ * IMPORTANT: If a field value is a URL (e.g. referrer URL from the intake page),
+ * we try to parse the affiliate ref code from the URL path or query params.
+ * This captures visitors who clicked through /affiliate/CODE landing pages.
  */
 export function extractPromoCode(payload: Record<string, unknown>): string | null {
   const promoFields = [
@@ -1595,27 +1637,50 @@ export function extractPromoCode(payload: Record<string, unknown>): string | nul
     'Partner Code',
   ];
 
+  // Skip generic answers like "Instagram", "Facebook", "Google", etc.
+  const genericSources = [
+    'instagram',
+    'facebook',
+    'google',
+    'tiktok',
+    'youtube',
+    'twitter',
+    'friend',
+    'family',
+    'other',
+    'n/a',
+    'none',
+    '-',
+  ];
+
   for (const field of promoFields) {
     const value = payload[field];
     if (value && typeof value === 'string' && value.trim()) {
       const trimmed = value.trim();
-      // Skip generic answers like "Instagram", "Facebook", "Google", etc.
-      const genericSources = [
-        'instagram',
-        'facebook',
-        'google',
-        'tiktok',
-        'youtube',
-        'twitter',
-        'friend',
-        'family',
-        'other',
-        'n/a',
-        'none',
-        '-',
-      ];
+
+      // If the value looks like a URL, try to extract an affiliate ref code from it
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        const refCodeFromUrl = extractRefCodeFromUrl(trimmed);
+        if (refCodeFromUrl) {
+          return refCodeFromUrl;
+        }
+        // URL without affiliate code — skip it (e.g. "https://ot.eonpro.io/")
+        continue;
+      }
+
       if (!genericSources.includes(trimmed.toLowerCase())) {
         return trimmed.toUpperCase();
+      }
+    }
+  }
+
+  // Fallback: scan ALL payload fields for a URL containing an affiliate ref code.
+  // This catches cases where the referrer URL is in a non-standard field name.
+  for (const [, value] of Object.entries(payload)) {
+    if (typeof value === 'string' && (value.includes('/affiliate/') || value.includes('ref='))) {
+      const refCode = extractRefCodeFromUrl(value.trim());
+      if (refCode) {
+        return refCode;
       }
     }
   }

@@ -7,7 +7,7 @@ import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logWebhookAttempt } from '@/lib/webhookLogger';
-import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
+import { attributeFromIntake, tagPatientWithReferralCodeOnly, attributeByRecentTouch } from '@/services/affiliate/attributionService';
 import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
@@ -294,6 +294,23 @@ export async function POST(req: NextRequest) {
           }
         } catch (trackError: any) {
           logger.warn(`[HEYFLOW V2] Affiliate tracking failed: ${trackError.message}`);
+        }
+      } else {
+        // No promo code found — try fallback attribution via referrer URL or recent touch
+        try {
+          const patientRecord = await prisma.patient.findUnique({
+            where: { id: patient.id },
+            select: { clinicId: true, attributionAffiliateId: true },
+          });
+          if (patientRecord?.clinicId && !patientRecord.attributionAffiliateId) {
+            const referrerUrl = (payload['Referrer'] || payload['referrer'] || '') as string;
+            const fallback = await attributeByRecentTouch(patient.id, referrerUrl || null, patientRecord.clinicId);
+            if (fallback) {
+              logger.info(`[HEYFLOW V2] Fallback affiliate attribution: ${fallback.refCode}`);
+            }
+          }
+        } catch (fallbackErr: any) {
+          logger.warn(`[HEYFLOW V2] Fallback attribution failed: ${fallbackErr.message}`);
         }
       }
 
