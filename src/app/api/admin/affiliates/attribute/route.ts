@@ -4,6 +4,8 @@
  * Manually attribute a patient to an affiliate ref code.
  * Used for data reconciliation when automatic attribution was missed.
  *
+ * CRITICAL: All queries scoped to user's clinicId for multi-tenant isolation.
+ *
  * Body: { patientId: number, refCode: string, force?: boolean }
  *
  * DELETE /api/admin/affiliates/attribute
@@ -13,7 +15,7 @@
  * Body: { patientId: number }
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/auth/middleware';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { attributeFromIntake } from '@/services/affiliate/attributionService';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -22,7 +24,7 @@ import { badRequest, notFound, serverError } from '@/lib/api/error-response';
 // ---------------------------------------------------------------------------
 // POST — attribute patient to affiliate
 // ---------------------------------------------------------------------------
-async function handlePost(req: NextRequest) {
+async function handlePost(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
     const { patientId, refCode, force } = body as {
@@ -37,6 +39,7 @@ async function handlePost(req: NextRequest) {
 
     const normalizedCode = refCode.trim().toUpperCase();
 
+    // Look up patient — clinic isolation enforced by Prisma middleware AND explicit check
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       select: {
@@ -51,6 +54,17 @@ async function handlePost(req: NextRequest) {
       return notFound('Patient not found');
     }
 
+    // Defense-in-depth: verify patient belongs to user's clinic
+    if (user.clinicId && patient.clinicId !== user.clinicId) {
+      logger.warn('[ManualAttribution] Cross-clinic attribution attempt blocked', {
+        patientId,
+        patientClinicId: patient.clinicId,
+        userClinicId: user.clinicId,
+        userId: user.id,
+      });
+      return notFound('Patient not found');
+    }
+
     // Check if already attributed
     if (patient.attributionAffiliateId && !force) {
       return NextResponse.json(
@@ -62,7 +76,7 @@ async function handlePost(req: NextRequest) {
       );
     }
 
-    // If force is true and patient already attributed, clear existing attribution first
+    // If force, clear existing attribution first
     if (force && patient.attributionAffiliateId) {
       await prisma.patient.update({
         where: { id: patientId },
@@ -76,10 +90,11 @@ async function handlePost(req: NextRequest) {
         patientId,
         previousAffiliateId: patient.attributionAffiliateId,
         previousRefCode: patient.attributionRefCode,
+        userId: user.id,
       });
     }
 
-    // Attempt attribution
+    // Attempt attribution — uses patient.clinicId for ref code lookup
     const result = await attributeFromIntake(
       patientId,
       normalizedCode,
@@ -92,6 +107,7 @@ async function handlePost(req: NextRequest) {
         patientId,
         refCode: normalizedCode,
         affiliateId: result.affiliateId,
+        userId: user.id,
       });
 
       return NextResponse.json({
@@ -116,6 +132,7 @@ async function handlePost(req: NextRequest) {
   } catch (error) {
     logger.error('[ManualAttribution] Failed', {
       error: error instanceof Error ? error.message : 'Unknown',
+      userId: user.id,
     });
     return serverError('Manual attribution failed');
   }
@@ -124,7 +141,7 @@ async function handlePost(req: NextRequest) {
 // ---------------------------------------------------------------------------
 // DELETE — remove affiliate attribution from patient
 // ---------------------------------------------------------------------------
-async function handleDelete(req: NextRequest) {
+async function handleDelete(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
     const { patientId } = body as { patientId?: number };
@@ -137,6 +154,7 @@ async function handleDelete(req: NextRequest) {
       where: { id: patientId },
       select: {
         id: true,
+        clinicId: true,
         attributionAffiliateId: true,
         attributionRefCode: true,
         tags: true,
@@ -144,6 +162,17 @@ async function handleDelete(req: NextRequest) {
     });
 
     if (!patient) {
+      return notFound('Patient not found');
+    }
+
+    // Defense-in-depth: verify patient belongs to user's clinic
+    if (user.clinicId && patient.clinicId !== user.clinicId) {
+      logger.warn('[ManualAttribution] Cross-clinic remove attempt blocked', {
+        patientId,
+        patientClinicId: patient.clinicId,
+        userClinicId: user.clinicId,
+        userId: user.id,
+      });
       return notFound('Patient not found');
     }
 
@@ -169,6 +198,7 @@ async function handleDelete(req: NextRequest) {
       patientId,
       previousAffiliateId: patient.attributionAffiliateId,
       previousRefCode: patient.attributionRefCode,
+      userId: user.id,
     });
 
     return NextResponse.json({
@@ -178,6 +208,7 @@ async function handleDelete(req: NextRequest) {
   } catch (error) {
     logger.error('[ManualAttribution] Remove failed', {
       error: error instanceof Error ? error.message : 'Unknown',
+      userId: user.id,
     });
     return serverError('Failed to remove attribution');
   }
