@@ -626,18 +626,24 @@ export async function attributeByRecentTouch(
       return result;
     }
 
-    // Last resort: look for a recent AffiliateTouch CLICK (last 7 days)
-    // that hasn't been converted yet — match by clinic
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentTouch = await prisma.affiliateTouch.findFirst({
+    // Last resort: look for a recent AffiliateTouch CLICK (last 2 hours)
+    // that hasn't been converted yet — match by clinic.
+    //
+    // SAFETY: We use a tight 2-hour window AND require there be exactly ONE
+    // matching unconverted click to avoid misattribution when multiple
+    // affiliates are sending traffic simultaneously.
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const recentTouches = await prisma.affiliateTouch.findMany({
       where: {
         clinicId,
         touchType: 'CLICK',
         convertedPatientId: null,
-        createdAt: { gte: sevenDaysAgo },
+        createdAt: { gte: twoHoursAgo },
+        affiliateId: { gt: 0 },
         affiliate: { status: 'ACTIVE' },
       },
       orderBy: { createdAt: 'desc' },
+      take: 2, // Only need to know if there's more than one
       select: {
         id: true,
         refCode: true,
@@ -645,22 +651,32 @@ export async function attributeByRecentTouch(
       },
     });
 
-    if (recentTouch && recentTouch.affiliateId > 0) {
-      // Attribute using this touch
+    // Only attribute if exactly ONE unconverted click in the window
+    // Multiple clicks = ambiguous, skip to avoid misattribution
+    if (recentTouches.length === 1) {
+      const touch = recentTouches[0];
       const result = await attributeFromIntake(
         patientId,
-        recentTouch.refCode,
+        touch.refCode,
         clinicId,
         'recent-touch-fallback'
       );
       if (result) {
-        logger.info('[Attribution] Fallback attribution via recent touch', {
+        logger.info('[Attribution] Fallback attribution via recent touch (2h window, single click)', {
           patientId,
-          touchId: recentTouch.id,
-          refCode: recentTouch.refCode,
+          touchId: touch.id,
+          refCode: touch.refCode,
         });
       }
       return result;
+    }
+
+    if (recentTouches.length > 1) {
+      logger.debug('[Attribution] Skipping recent-touch fallback: multiple unconverted clicks in window', {
+        patientId,
+        clinicId,
+        clickCount: recentTouches.length,
+      });
     }
 
     return null;
