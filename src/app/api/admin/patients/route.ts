@@ -10,18 +10,20 @@
  * Search uses the `searchIndex` column (populated on create/update) with a
  * pg_trgm GIN index for O(1) substring matching at any scale (10M+ records).
  *
+ * Performance: Uses Prisma `some` relation filters to generate efficient
+ * EXISTS subqueries instead of fetching IDs separately.
+ *
  * @module api/admin/patients
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { AGGREGATION_TAKE_UI, parseTakeFromParams } from '@/lib/pagination';
-import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
-
-const PAGE_SIZE = 25;
+import { parseTakeFromParams } from '@/lib/pagination';
+import { splitSearchTerms } from '@/lib/utils/search';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 // Roles that can access this endpoint
 const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep'] as const;
@@ -46,6 +48,11 @@ const safeDecrypt = (value: string | null): string | null => {
  * GET /api/admin/patients
  * List patients who are converted (have payment or order)
  * For sales_rep role, only shows patients assigned to them
+ *
+ * Uses Prisma `some` relation filters for converted-patient detection,
+ * which generates efficient EXISTS subqueries (indexed, stops at first match).
+ * This replaces the prior 3-phase "fetch all IDs → IN clause" pattern that
+ * generated 100+ queries and caused 500s on serverless (connection_limit=1).
  */
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
@@ -54,108 +61,53 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
     const search = (searchParams.get('search') || '').trim();
     const includeContact = searchParams.get('includeContact') === 'true';
-    const salesRepId = searchParams.get('salesRepId'); // Filter by specific sales rep (admin only)
+    const salesRepId = searchParams.get('salesRepId');
 
-    // Get clinic context for non-super-admin users
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-    // For sales_rep role, get only their assigned patient IDs
-    let assignedPatientIds: number[] | null = null;
-    if (user.role === 'sales_rep') {
-      const assignments = await prisma.patientSalesRepAssignment.findMany({
-        where: {
-          salesRepId: user.id,
-          clinicId: user.clinicId!,
-          isActive: true,
-        },
-        select: { patientId: true },
-        take: AGGREGATION_TAKE_UI,
-      });
-      const mappedIds = assignments.map((a: { patientId: number }) => a.patientId);
-      assignedPatientIds = mappedIds;
+    // Super admin has no clinic context set by middleware, so the clinic-filtered
+    // `prisma` wrapper throws TenantContextRequiredError for clinic-isolated models.
+    // Use basePrisma for super_admin (patient is in BASE_PRISMA_ALLOWLIST; nested
+    // includes are resolved internally by Prisma, bypassing the guarded proxy).
+    const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
 
-      // If sales rep has no assigned patients, return empty result
-      if (mappedIds.length === 0) {
-        return NextResponse.json({
-          patients: [],
-          meta: {
-            count: 0,
-            total: 0,
-            hasMore: false,
-            type: 'patients',
-          },
-        });
-      }
-    }
-
-    // Get all patient IDs that have successful payments or orders (converted patients); capped for scale
-    const [patientsWithPayments, patientsWithOrders] = await Promise.all([
-      prisma.payment.findMany({
-        where: {
-          status: 'SUCCEEDED',
-          ...(clinicId && { patient: { clinicId } }),
-        },
-        select: { patientId: true },
-        distinct: ['patientId'],
-        take: AGGREGATION_TAKE_UI,
-      }),
-      prisma.order.findMany({
-        where: {
-          ...(clinicId && { patient: { clinicId } }),
-        },
-        select: { patientId: true },
-        distinct: ['patientId'],
-        take: AGGREGATION_TAKE_UI,
-      }),
-    ]);
-
-    // Combine to get all converted patient IDs
-    const convertedIds = new Set<number>();
-    for (const p of patientsWithPayments) {
-      convertedIds.add(p.patientId);
-    }
-    for (const o of patientsWithOrders) {
-      convertedIds.add(o.patientId);
-    }
-
-    // For sales rep, intersect with assigned patients
-    let filteredIds = Array.from(convertedIds);
-    if (assignedPatientIds !== null) {
-      const assignedSet = new Set(assignedPatientIds);
-      filteredIds = filteredIds.filter((id) => assignedSet.has(id));
-    }
-
-    // Build where clause for converted patients only
-    const whereClause: Record<string, unknown> = {
-      id: { in: filteredIds },
+    // Build WHERE using Prisma `some` relation filters → EXISTS subqueries.
+    // All top-level keys are ANDed together by Prisma.
+    const whereClause: Prisma.PatientWhereInput = {
+      OR: [
+        { payments: { some: { status: 'SUCCEEDED' } } },
+        { orders: { some: {} } },
+      ],
     };
 
-    // Add clinic filter for non-super-admin
+    // Clinic filter (explicit for basePrisma; redundant but harmless for wrapped prisma)
     if (clinicId) {
       whereClause.clinicId = clinicId;
     }
 
-    // Admin can filter by specific sales rep
-    if (salesRepId && (user.role === 'admin' || user.role === 'super_admin')) {
-      const salesRepAssignments = await prisma.patientSalesRepAssignment.findMany({
-        where: {
+    // Sales rep: use relation filter instead of separate ID-fetch query
+    if (user.role === 'sales_rep') {
+      whereClause.salesRepAssignments = {
+        some: {
+          salesRepId: user.id,
+          isActive: true,
+          ...(clinicId ? { clinicId } : {}),
+        },
+      };
+    } else if (salesRepId && (user.role === 'admin' || user.role === 'super_admin')) {
+      whereClause.salesRepAssignments = {
+        some: {
           salesRepId: parseInt(salesRepId, 10),
           isActive: true,
-          ...(clinicId && { clinicId }),
+          ...(clinicId ? { clinicId } : {}),
         },
-        select: { patientId: true },
-        take: AGGREGATION_TAKE_UI,
-      });
-      const salesRepPatientIds = salesRepAssignments.map((a: { patientId: number }) => a.patientId);
-      whereClause.id = { in: filteredIds.filter((id) => salesRepPatientIds.includes(id)) };
+      };
     }
 
-    // Add search filter using the searchIndex column (DB-level, scales to 10M+)
+    // Search filter using the searchIndex column (DB-level, scales to 10M+)
     if (search) {
       const terms = splitSearchTerms(search);
       const searchDigitsOnly = search.replace(/\D/g, '');
-
-      // For phone-only searches (all digits, 3+ chars), search by digits
       const isPhoneSearch = searchDigitsOnly.length >= 3 && searchDigitsOnly === search.trim();
 
       if (isPhoneSearch) {
@@ -165,28 +117,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       } else {
         // Multi-term: ALL terms must appear in searchIndex
         whereClause.AND = terms.map((term) => ({
-          searchIndex: { contains: term, mode: 'insensitive' },
+          searchIndex: { contains: term, mode: 'insensitive' as const },
         }));
       }
     }
 
-    // Execute query with DB-level search + pagination
+    // Single efficient query with pagination (replaces 3-phase fetch + massive IN clause)
     const [patients, total] = await Promise.all([
-      prisma.patient.findMany({
+      db.patient.findMany({
         where: whereClause,
         include: {
           clinic: {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-            },
+            select: { id: true, name: true, subdomain: true },
           },
-          // Include payments (for display + invoice items for medication names)
           payments: {
             where: { status: 'SUCCEEDED' },
             orderBy: { paidAt: 'desc' },
-            take: 5,
+            take: 3,
             select: {
               paidAt: true,
               amount: true,
@@ -203,10 +150,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               },
             },
           },
-          // Include recent orders with rx/medication info for Treatment column
           orders: {
             orderBy: { createdAt: 'desc' },
-            take: 5,
+            take: 3,
             select: {
               createdAt: true,
               status: true,
@@ -218,7 +164,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               },
             },
           },
-          // Include active sales rep assignment
           salesRepAssignments: {
             where: { isActive: true },
             take: 1,
@@ -227,12 +172,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               salesRepId: true,
               assignedAt: true,
               salesRep: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
+                select: { id: true, firstName: true, lastName: true, email: true },
               },
             },
           },
@@ -241,7 +181,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         take: limit,
         skip: offset,
       }),
-      prisma.patient.count({ where: whereClause }),
+      db.patient.count({ where: whereClause }),
     ]);
 
     // Transform response
