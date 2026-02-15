@@ -61,7 +61,18 @@ const navItems = [
 ];
 
 // ---------------------------------------------------------------------------
-// Affiliate Attribution Section — shows existing banner or manual link form
+// Types for ref code dropdown
+// ---------------------------------------------------------------------------
+interface RefCodeOption {
+  id: number;
+  code: string;
+  affiliateId: number;
+  affiliateName: string;
+  affiliateStatus: string;
+}
+
+// ---------------------------------------------------------------------------
+// Affiliate Attribution Section — shows existing banner or searchable dropdown
 // ---------------------------------------------------------------------------
 function AffiliateAttributionSection({
   patientId,
@@ -76,18 +87,63 @@ function AffiliateAttributionSection({
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
-  const [refCodeInput, setRefCodeInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [options, setOptions] = useState<RefCodeOption[]>([]);
+  const [selectedCode, setSelectedCode] = useState<RefCodeOption | null>(null);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const hasAttribution = !!(affiliateAttribution || affiliateCode);
 
+  // Fetch ref codes when form opens or search changes
+  const fetchOptions = useCallback(async (query: string) => {
+    setLoadingOptions(true);
+    try {
+      const params = query ? `?search=${encodeURIComponent(query)}` : '';
+      const res = await fetch(`/api/admin/affiliates/ref-codes${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOptions(data.refCodes || []);
+      }
+    } catch {
+      // Silently fail — user can still type
+    } finally {
+      setLoadingOptions(false);
+    }
+  }, []);
+
+  // Load all codes when form opens
+  const handleOpenForm = useCallback(() => {
+    setShowForm(true);
+    fetchOptions('');
+  }, [fetchOptions]);
+
+  // Debounced search
+  const handleSearch = useCallback((value: string) => {
+    setSearchQuery(value);
+    setSelectedCode(null);
+    setShowDropdown(true);
+    setError(null);
+    // Debounce via timeout
+    const timer = setTimeout(() => fetchOptions(value), 200);
+    return () => clearTimeout(timer);
+  }, [fetchOptions]);
+
+  const handleSelect = useCallback((option: RefCodeOption) => {
+    setSelectedCode(option);
+    setSearchQuery(`${option.code} — ${option.affiliateName}`);
+    setShowDropdown(false);
+    setError(null);
+  }, []);
+
   const handleSubmit = useCallback(async () => {
-    const code = refCodeInput.trim().toUpperCase();
+    const code = selectedCode?.code;
     if (!code) {
-      setError('Enter a ref code');
+      setError('Select an affiliate code from the list');
       return;
     }
     setLoading(true);
@@ -113,7 +169,7 @@ function AffiliateAttributionSection({
     } finally {
       setLoading(false);
     }
-  }, [patientId, refCodeInput, router]);
+  }, [patientId, selectedCode, router]);
 
   const handleRemove = useCallback(async () => {
     if (!confirm('Remove affiliate attribution from this patient?')) return;
@@ -133,6 +189,15 @@ function AffiliateAttributionSection({
     }
   }, [patientId, router]);
 
+  const handleClose = useCallback(() => {
+    setShowForm(false);
+    setError(null);
+    setSearchQuery('');
+    setSelectedCode(null);
+    setShowDropdown(false);
+    setOptions([]);
+  }, []);
+
   // --- Existing attribution: show banner ---
   if (hasAttribution) {
     const name = affiliateAttribution?.affiliateName;
@@ -141,7 +206,6 @@ function AffiliateAttributionSection({
 
     return (
       <div className="mb-3">
-        {/* Banner */}
         {affId ? (
           <a href={`/admin/affiliates/${affId}`} className="block transition-opacity hover:opacity-80">
             <AffiliateTag name={name} code={code} />
@@ -149,7 +213,6 @@ function AffiliateAttributionSection({
         ) : (
           <AffiliateTag name={name} code={code} />
         )}
-        {/* Remove button for admins */}
         {isAdmin && (
           <button
             onClick={handleRemove}
@@ -164,13 +227,13 @@ function AffiliateAttributionSection({
     );
   }
 
-  // --- No attribution: show "Link" button or form ---
-  if (!isAdmin) return null; // Only admins can manually attribute
+  // --- No attribution: show "Link" button or dropdown form ---
+  if (!isAdmin) return null;
 
   if (!showForm) {
     return (
       <button
-        onClick={() => setShowForm(true)}
+        onClick={handleOpenForm}
         className="mb-3 flex w-full items-center gap-2 rounded-xl border border-dashed border-violet-300 bg-violet-50/50 px-3.5 py-2.5 text-sm font-medium text-violet-600 transition-all hover:border-violet-400 hover:bg-violet-50"
       >
         <Link2 className="h-4 w-4" />
@@ -179,51 +242,82 @@ function AffiliateAttributionSection({
     );
   }
 
-  // --- Inline form ---
+  // --- Searchable dropdown form ---
   return (
     <div className="mb-3 rounded-xl border border-violet-200 bg-violet-50 p-3">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-violet-500">Link to Affiliate</p>
-        <button
-          onClick={() => { setShowForm(false); setError(null); setRefCodeInput(''); }}
-          className="rounded p-0.5 text-gray-400 hover:text-gray-600"
-        >
+        <button onClick={handleClose} className="rounded p-0.5 text-gray-400 hover:text-gray-600">
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={refCodeInput}
-          onChange={(e) => { setRefCodeInput(e.target.value.toUpperCase()); setError(null); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
-          placeholder="REF CODE"
-          className="min-w-0 flex-1 rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm font-medium uppercase text-violet-900 placeholder-violet-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
-          autoFocus
-          disabled={loading || success}
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={loading || success || !refCodeInput.trim()}
-          className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : success ? (
-            <Check className="h-3.5 w-3.5" />
-          ) : (
-            'Link'
-          )}
-        </button>
+      {/* Search input + dropdown */}
+      <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              onFocus={() => { if (!selectedCode) setShowDropdown(true); }}
+              placeholder="Search affiliate code or name..."
+              className="w-full rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-sm text-violet-900 placeholder-violet-300 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
+              autoFocus
+              disabled={loading || success}
+            />
+            {loadingOptions && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleSubmit}
+            disabled={loading || success || !selectedCode}
+            className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : success ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              'Link'
+            )}
+          </button>
+        </div>
+
+        {/* Dropdown list */}
+        {showDropdown && !selectedCode && options.length > 0 && (
+          <div className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-lg border border-violet-200 bg-white shadow-lg">
+            {options.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => handleSelect(opt)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-violet-50"
+              >
+                <span className="font-semibold text-violet-700">{opt.code}</span>
+                <span className="truncate text-gray-500">— {opt.affiliateName}</span>
+                {opt.affiliateStatus !== 'ACTIVE' && (
+                  <span className="ml-auto rounded bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium text-yellow-700">
+                    {opt.affiliateStatus}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* No results */}
+        {showDropdown && !selectedCode && !loadingOptions && options.length === 0 && searchQuery && (
+          <div className="absolute left-0 right-0 z-50 mt-1 rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-400 shadow-lg">
+            No affiliate codes found
+          </div>
+        )}
       </div>
 
-      {error && (
-        <p className="mt-1.5 text-xs text-red-600">{error}</p>
-      )}
-      {success && (
-        <p className="mt-1.5 text-xs font-medium text-green-600">Attributed! Refreshing...</p>
-      )}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+      {success && <p className="mt-1.5 text-xs font-medium text-green-600">Attributed! Refreshing...</p>}
     </div>
   );
 }
