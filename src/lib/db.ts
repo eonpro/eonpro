@@ -236,7 +236,7 @@ function createPrismaClient() {
   // Register with drain manager for serverless cleanup
   drainManager.register(client);
 
-  // Add query timing middleware for monitoring + query budget tracking
+  // Add query timing middleware for monitoring + query budget tracking + Sentry metrics
   if (isProd || process.env.ENABLE_QUERY_LOGGING === 'true') {
     // @ts-ignore - Prisma v5 middleware
     client.$use?.(async (params, next) => {
@@ -258,6 +258,18 @@ function createPrismaClient() {
         // Record metrics for connection pool monitoring
         connectionPool.recordQuery(duration, true);
 
+        // Emit structured Sentry metrics for dashboards
+        try {
+          const { emitQueryMetric } = require('@/lib/observability/metrics');
+          emitQueryMetric({
+            operation: params.action || 'unknown',
+            table: params.model || 'unknown',
+            durationMs: duration,
+          });
+        } catch {
+          // Metrics module not available
+        }
+
         // Track per-request query budget (N+1 and fan-out detection)
         try {
           const { recordQuery } = require('@/lib/database/query-budget');
@@ -270,6 +282,18 @@ function createPrismaClient() {
       } catch (error) {
         const duration = Date.now() - start;
         connectionPool.recordQuery(duration, false);
+
+        // Emit error metrics
+        try {
+          const { emitQueryMetric } = require('@/lib/observability/metrics');
+          emitQueryMetric({
+            operation: params.action || 'unknown',
+            table: params.model || 'unknown',
+            durationMs: duration,
+          });
+        } catch {
+          // Metrics module not available
+        }
 
         try {
           const { recordQuery } = require('@/lib/database/query-budget');
@@ -1156,13 +1180,13 @@ class PrismaWithClinicFilter {
     return this.client.$disconnect();
   }
   $executeRaw(query: TemplateStringsArray, ...values: unknown[]) {
-    return this.client.$executeRaw(query, ...values);
+    return this.client.$executeRaw(Prisma.sql(query, ...values));
   }
   $executeRawUnsafe(query: string, ...values: unknown[]) {
     return this.client.$executeRawUnsafe(query, ...values);
   }
   $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): Promise<T> {
-    return this.client.$queryRaw(query, ...values) as Promise<T>;
+    return this.client.$queryRaw<T>(Prisma.sql(query, ...values));
   }
   $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> {
     return this.client.$queryRawUnsafe(query, ...values) as Promise<T>;
