@@ -34,15 +34,27 @@ async function processCommissionHandler(req: NextRequest) {
 
     // Process commission if invoice is paid
     if (invoice.status === 'PAID') {
+      const patientId = (invoice.patient?.id || invoice.patientId) as number;
+
+      // Use amountPaid (cents) from the invoice — this is the actual paid amount
+      const amountCents = invoice.amountPaid || invoice.amount || 0;
+
+      const priorPaymentCount = await prisma.payment.count({
+        where: {
+          patientId,
+          status: 'SUCCEEDED',
+        },
+      });
+
       const result = await processPaymentForCommission({
         clinicId: (invoice.patient?.clinicId || invoice.clinicId) as number,
-        patientId: (invoice.patient?.id || invoice.patientId) as number,
-        stripeEventId: `invoice-${invoice.id}`,
+        patientId,
+        stripeEventId: `manual-commission-invoice-${invoice.id}`,
         stripeObjectId: invoice.stripeInvoiceId || `inv-${invoice.id}`,
         stripeEventType: 'invoice.paid',
-        amountCents: (invoice as any).totalCents || Math.round(((invoice as any).total || 0) * 100),
-        occurredAt: new Date(),
-        isFirstPayment: true,
+        amountCents,
+        occurredAt: invoice.paidAt || new Date(),
+        isFirstPayment: priorPaymentCount <= 1,
       });
 
       if (result) {

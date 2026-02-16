@@ -894,13 +894,14 @@ export class InvoiceManager {
         },
       });
 
+      // options.amount is already in cents (same unit as invoice.amountPaid)
       const commissionResult = await processPaymentForCommission({
         clinicId: invoice.clinicId ?? 0,
         patientId: invoice.patientId,
         stripeEventId: options.stripePaymentIntentId || `invoice-payment-${payment.id}`,
         stripeObjectId: payment.id.toString(),
         stripeEventType: 'invoice.payment_succeeded',
-        amountCents: Math.round(options.amount * 100),
+        amountCents: options.amount,
         occurredAt: new Date(),
         isFirstPayment: priorPaymentCount === 0,
         isRecurring: false,

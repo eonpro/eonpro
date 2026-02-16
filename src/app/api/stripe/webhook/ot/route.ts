@@ -601,7 +601,107 @@ async function processOTWebhookEvent(
       // ================================================================
       // Invoice Events
       // ================================================================
-      case 'invoice.payment_succeeded':
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+
+        // Find the matching invoice in our database to get the patient
+        const dbInvoice = await prisma.invoice.findUnique({
+          where: { stripeInvoiceId: invoice.id },
+          select: { id: true, patientId: true, clinicId: true, status: true },
+        });
+
+        if (!dbInvoice) {
+          logger.warn('[OT STRIPE WEBHOOK] Invoice not found in database for commission', {
+            stripeInvoiceId: invoice.id,
+            clinicId,
+          });
+          return {
+            success: true,
+            details: { invoiceId: invoice.id, status: invoice.status, clinicId, skipped: true, reason: 'Invoice not in DB' },
+          };
+        }
+
+        // Update invoice status
+        const wasPaid = invoice.status === 'paid';
+        const wasNotPaidBefore = dbInvoice.status !== 'PAID';
+
+        if (wasPaid) {
+          await prisma.invoice.update({
+            where: { id: dbInvoice.id },
+            data: {
+              status: 'PAID',
+              amountDue: invoice.amount_due,
+              amountPaid: invoice.amount_paid,
+              stripeInvoiceUrl: invoice.hosted_invoice_url || undefined,
+              stripePdfUrl: invoice.invoice_pdf || undefined,
+              paidAt: invoice.status_transitions?.paid_at
+                ? new Date(invoice.status_transitions.paid_at * 1000)
+                : new Date(),
+            },
+          });
+        }
+
+        // Process affiliate commission if invoice just became paid
+        let commissionResult = null;
+        if (wasPaid && wasNotPaidBefore && dbInvoice.patientId && processPaymentForCommission) {
+          try {
+            const amountPaidCents = invoice.amount_paid || 0;
+
+            if (amountPaidCents > 0) {
+              const paymentIntentId =
+                typeof invoice.payment_intent === 'string'
+                  ? invoice.payment_intent
+                  : (invoice.payment_intent as any)?.id;
+
+              const isFirstPayment = checkIfFirstPayment
+                ? await checkIfFirstPayment(dbInvoice.patientId, paymentIntentId || undefined)
+                : true;
+
+              commissionResult = await processPaymentForCommission({
+                clinicId,
+                patientId: dbInvoice.patientId,
+                stripeEventId: event.id,
+                stripeObjectId: invoice.id,
+                stripeEventType: event.type,
+                amountCents: amountPaidCents,
+                occurredAt: invoice.status_transitions?.paid_at
+                  ? new Date(invoice.status_transitions.paid_at * 1000)
+                  : new Date(),
+                isFirstPayment,
+                isRecurring: false,
+              });
+
+              if (commissionResult?.commissionEventId) {
+                logger.info('[OT STRIPE WEBHOOK] Affiliate commission created from invoice', {
+                  invoiceId: dbInvoice.id,
+                  patientId: dbInvoice.patientId,
+                  commissionEventId: commissionResult.commissionEventId,
+                  commissionAmountCents: commissionResult.commissionAmountCents,
+                  amountPaidCents,
+                });
+              }
+            }
+          } catch (e) {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to process affiliate commission for invoice', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              invoiceId: dbInvoice.id,
+              patientId: dbInvoice.patientId,
+            });
+          }
+        }
+
+        return {
+          success: true,
+          details: {
+            invoiceId: invoice.id,
+            dbInvoiceId: dbInvoice.id,
+            status: invoice.status,
+            clinicId,
+            commissionCreated: !!commissionResult?.commissionEventId,
+          },
+        };
+      }
+
       case 'invoice.payment_failed':
       case 'invoice.finalized':
       case 'invoice.sent': {

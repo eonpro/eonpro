@@ -319,6 +319,113 @@ export class StripeInvoiceService {
           error: soapError.message,
         });
       }
+
+      // Process affiliate commission for invoice payments (non-blocking)
+      // This is critical because payment_intent.succeeded skips invoice-linked payments,
+      // expecting this handler to process commissions.
+      try {
+        await this.processInvoiceCommission(
+          invoice,
+          stripeInvoice,
+        );
+      } catch (commissionError) {
+        // Commission failure must never block the invoice update
+        logger.warn('[STRIPE] Affiliate commission processing failed for invoice (non-blocking)', {
+          invoiceId: invoice.id,
+          patientId: invoice.patientId,
+          error: commissionError instanceof Error ? commissionError.message : 'Unknown',
+        });
+      }
+    }
+  }
+
+  /**
+   * Process affiliate commission when an invoice is paid.
+   * Matches the invoice payment amount to the attributed affiliate's commission plan.
+   * HIPAA-COMPLIANT: Only passes IDs and amounts, never patient data.
+   */
+  private static async processInvoiceCommission(
+    invoice: { id: number; patientId: number; clinicId: number | null; stripeInvoiceId: string | null },
+    stripeInvoice: Stripe.Invoice,
+  ): Promise<void> {
+    const clinicId = invoice.clinicId;
+    if (!clinicId) {
+      logger.debug('[STRIPE] Skipping commission - invoice has no clinicId', {
+        invoiceId: invoice.id,
+      });
+      return;
+    }
+
+    // Check if patient has affiliate attribution
+    const patient = await prisma.patient.findUnique({
+      where: { id: invoice.patientId },
+      select: {
+        id: true,
+        attributionAffiliateId: true,
+      },
+    });
+
+    if (!patient?.attributionAffiliateId) {
+      logger.debug('[STRIPE] Skipping commission - patient has no affiliate attribution', {
+        invoiceId: invoice.id,
+        patientId: invoice.patientId,
+      });
+      return;
+    }
+
+    const amountPaidCents = stripeInvoice.amount_paid || 0;
+    if (amountPaidCents <= 0) {
+      logger.debug('[STRIPE] Skipping commission - zero amount paid', {
+        invoiceId: invoice.id,
+      });
+      return;
+    }
+
+    // Determine if this is the patient's first successful payment
+    const { processPaymentForCommission, checkIfFirstPayment } = await import(
+      '@/services/affiliate/affiliateCommissionService'
+    );
+
+    const paymentIntentId =
+      typeof stripeInvoice.payment_intent === 'string'
+        ? stripeInvoice.payment_intent
+        : stripeInvoice.payment_intent?.id;
+
+    const isFirstPayment = await checkIfFirstPayment(
+      invoice.patientId,
+      paymentIntentId || undefined,
+    );
+
+    // Use the Stripe event ID derived from the invoice for idempotency
+    const stripeEventId = `invoice_paid_${stripeInvoice.id}`;
+
+    const commissionResult = await processPaymentForCommission({
+      clinicId,
+      patientId: invoice.patientId,
+      stripeEventId,
+      stripeObjectId: stripeInvoice.id,
+      stripeEventType: 'invoice.payment_succeeded',
+      amountCents: amountPaidCents,
+      occurredAt: stripeInvoice.status_transitions?.paid_at
+        ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
+        : new Date(),
+      isFirstPayment,
+      isRecurring: false,
+    });
+
+    if (commissionResult.success && !commissionResult.skipped) {
+      logger.info('[STRIPE] Affiliate commission created from invoice payment', {
+        invoiceId: invoice.id,
+        patientId: invoice.patientId,
+        commissionEventId: commissionResult.commissionEventId,
+        commissionAmountCents: commissionResult.commissionAmountCents,
+        amountPaidCents,
+      });
+    } else if (commissionResult.skipped) {
+      logger.debug('[STRIPE] Affiliate commission skipped for invoice', {
+        invoiceId: invoice.id,
+        reason: commissionResult.skipReason,
+      });
     }
   }
 
