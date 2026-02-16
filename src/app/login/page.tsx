@@ -373,11 +373,17 @@ export default function LoginPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: trimmedIdentifier }),
           });
-          const data = (await res.json()) as { isProvider?: boolean };
-          if (data.isProvider) {
-            sessionStorage.setItem('login_provider_prefill', trimmedIdentifier);
-            router.replace(`/login?redirect=${encodeURIComponent('/provider')}`);
-            return;
+
+          // 503 = service busy (pool exhausted). Skip provider check silently and continue.
+          if (res.status === 503) {
+            // Don't block the login flow; just skip provider detection
+          } else {
+            const data = (await res.json()) as { isProvider?: boolean };
+            if (data.isProvider) {
+              sessionStorage.setItem('login_provider_prefill', trimmedIdentifier);
+              router.replace(`/login?redirect=${encodeURIComponent('/provider')}`);
+              return;
+            }
           }
         } catch {
           // On error, continue to password step (don't block login)
