@@ -34,6 +34,7 @@ export interface QueuedSubmission {
   source:
     | 'weightlossintake'
     | 'wellmedr-intake'
+    | 'wellmedr-invoice'
     | 'heyflow'
     | 'medlink'
     | 'direct'

@@ -251,6 +251,32 @@ interface PatientDetails {
       questions: Array<{ question: string; answer: string }>;
     }>;
   };
+  // Clinical context for prescribing decisions
+  clinicalContext?: {
+    healthConditions: string[];
+    contraindications: string[];
+    currentMedications: string | null;
+    allergies: string | null;
+    vitals: { heightFt: string | null; heightIn: string | null; weightLbs: string | null; bmi: string | null };
+    reproductiveStatus: string | null;
+    glp1History: { used: boolean; type: string | null; dose: string | null; sideEffects: string | null };
+    preferredMedication: string | null;
+    thyroidIssues: string | null;
+    alcoholUse: string | null;
+    exerciseFrequency: string | null;
+    weightGoal: string | null;
+  };
+  // Shipment schedule for multi-month plans
+  shipmentSchedule?: {
+    totalShipments: number;
+    planName: string | null;
+    shipments: Array<{
+      shipmentNumber: number;
+      date: string;
+      status: string;
+      medication: string | null;
+    }>;
+  } | null;
   // SOAP Note for clinical documentation
   hasSoapNote: boolean;
   soapNoteStatus: string;
@@ -1409,6 +1435,149 @@ export default function PrescriptionQueuePage() {
                             </div>
                           </div>
 
+                          {/* Clinical Context (from intake) */}
+                          {patientDetails.clinicalContext && (
+                            <div className="space-y-4">
+                              <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                                <Stethoscope className="h-4 w-4 text-rose-500" />
+                                Clinical Summary
+                              </h4>
+                              <div className="space-y-3 text-sm">
+                                {/* Contraindications — RED alert */}
+                                {patientDetails.clinicalContext.contraindications.length > 0 && (
+                                  <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                                    <div className="flex items-center gap-2 font-semibold text-red-700 mb-1">
+                                      <ShieldAlert className="h-4 w-4" />
+                                      Contraindications
+                                    </div>
+                                    {patientDetails.clinicalContext.contraindications.map((c, i) => (
+                                      <div key={i} className="text-red-600">• {c}</div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Vitals */}
+                                {(patientDetails.clinicalContext.vitals.heightFt || patientDetails.clinicalContext.vitals.weightLbs) && (
+                                  <div className="flex flex-wrap gap-3">
+                                    {patientDetails.clinicalContext.vitals.heightFt && (
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-blue-700">
+                                        <Ruler className="h-3.5 w-3.5" />
+                                        {patientDetails.clinicalContext.vitals.heightFt}&apos;{patientDetails.clinicalContext.vitals.heightIn || '0'}&quot;
+                                      </span>
+                                    )}
+                                    {patientDetails.clinicalContext.vitals.weightLbs && (
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-blue-700">
+                                        <Scale className="h-3.5 w-3.5" />
+                                        {patientDetails.clinicalContext.vitals.weightLbs} lbs
+                                      </span>
+                                    )}
+                                    {patientDetails.clinicalContext.vitals.bmi && (
+                                      <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${
+                                        parseFloat(patientDetails.clinicalContext.vitals.bmi) >= 30
+                                          ? 'bg-amber-50 text-amber-700'
+                                          : 'bg-green-50 text-green-700'
+                                      }`}>
+                                        BMI: {patientDetails.clinicalContext.vitals.bmi}
+                                      </span>
+                                    )}
+                                    {patientDetails.clinicalContext.weightGoal && (
+                                      <span className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-gray-600">
+                                        Goal: {patientDetails.clinicalContext.weightGoal} lbs
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* GLP-1 History */}
+                                <div className="rounded-lg bg-purple-50 border border-purple-100 p-3">
+                                  <div className="flex items-center gap-2 font-medium text-purple-700 mb-1">
+                                    <Pill className="h-4 w-4" />
+                                    GLP-1 History
+                                  </div>
+                                  {patientDetails.clinicalContext.glp1History.used ? (
+                                    <div className="space-y-1 text-purple-600">
+                                      <div>Used in last 30 days: <span className="font-medium">Yes</span></div>
+                                      {patientDetails.clinicalContext.glp1History.type && (
+                                        <div>Type: <span className="font-medium">{patientDetails.clinicalContext.glp1History.type}</span></div>
+                                      )}
+                                      {patientDetails.clinicalContext.glp1History.dose && (
+                                        <div>Last Dose: <span className="font-medium">{patientDetails.clinicalContext.glp1History.dose}mg</span></div>
+                                      )}
+                                      {patientDetails.clinicalContext.glp1History.sideEffects && (
+                                        <div>Side Effects: <span className="font-medium">{patientDetails.clinicalContext.glp1History.sideEffects}</span></div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="text-purple-600">No prior GLP-1 use (new patient)</div>
+                                  )}
+                                  {patientDetails.clinicalContext.preferredMedication && (
+                                    <div className="mt-1 text-purple-600">
+                                      Preferred: <span className="font-medium">{patientDetails.clinicalContext.preferredMedication}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Health Conditions */}
+                                {patientDetails.clinicalContext.healthConditions.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Health Conditions:</span>
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                      {patientDetails.clinicalContext.healthConditions.map((cond, i) => (
+                                        <span key={i} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700">
+                                          {cond}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Current Meds & Allergies */}
+                                {patientDetails.clinicalContext.currentMedications && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Current Medications:</span>
+                                    <span className="ml-1 text-gray-600">{patientDetails.clinicalContext.currentMedications}</span>
+                                  </div>
+                                )}
+                                {patientDetails.clinicalContext.allergies && (
+                                  <div className="rounded-lg bg-red-50 p-2 text-red-600">
+                                    <span className="font-medium">Allergies:</span> {patientDetails.clinicalContext.allergies}
+                                  </div>
+                                )}
+
+                                {/* Reproductive Status */}
+                                {patientDetails.clinicalContext.reproductiveStatus && patientDetails.clinicalContext.reproductiveStatus.toLowerCase() !== 'no' && (
+                                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-amber-700 font-medium">
+                                    ⚠ Pregnant/Nursing: {patientDetails.clinicalContext.reproductiveStatus}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Shipment Schedule */}
+                              {patientDetails.shipmentSchedule && patientDetails.shipmentSchedule.totalShipments > 1 && (
+                                <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3 mt-3">
+                                  <div className="flex items-center gap-2 font-medium text-indigo-700 mb-2">
+                                    <Clock className="h-4 w-4" />
+                                    Shipment Schedule ({patientDetails.shipmentSchedule.totalShipments} shipments)
+                                  </div>
+                                  <div className="space-y-1 text-sm">
+                                    {patientDetails.shipmentSchedule.shipments.map((s) => (
+                                      <div key={s.shipmentNumber} className="flex items-center justify-between text-indigo-600">
+                                        <span>Shipment {s.shipmentNumber}: {new Date(s.date).toLocaleDateString()}</span>
+                                        <span className={`rounded-full px-2 py-0.5 text-xs ${
+                                          s.status === 'COMPLETED' || s.status === 'PRESCRIBED' ? 'bg-green-100 text-green-700'
+                                          : s.status === 'PENDING_PROVIDER' ? 'bg-amber-100 text-amber-700'
+                                          : 'bg-indigo-100 text-indigo-600'
+                                        }`}>
+                                          {s.status.replace(/_/g, ' ')}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {/* SOAP Note Section */}
                           <div className="space-y-4">
                             <h4 className="flex items-center gap-2 font-semibold text-gray-900">
@@ -1508,7 +1677,7 @@ export default function PrescriptionQueuePage() {
                           </div>
 
                           {/* Intake Data */}
-                          <div className="space-y-4 lg:col-span-2">
+                          <div className="space-y-4">
                             <h4 className="flex items-center gap-2 font-semibold text-gray-900">
                               <FileText className="h-4 w-4 text-rose-500" />
                               Intake Information

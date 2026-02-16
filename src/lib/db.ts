@@ -236,7 +236,7 @@ function createPrismaClient() {
   // Register with drain manager for serverless cleanup
   drainManager.register(client);
 
-  // Add query timing middleware for monitoring
+  // Add query timing middleware for monitoring + query budget tracking
   if (isProd || process.env.ENABLE_QUERY_LOGGING === 'true') {
     // @ts-ignore - Prisma v5 middleware
     client.$use?.(async (params, next) => {
@@ -258,10 +258,26 @@ function createPrismaClient() {
         // Record metrics for connection pool monitoring
         connectionPool.recordQuery(duration, true);
 
+        // Track per-request query budget (N+1 and fan-out detection)
+        try {
+          const { recordQuery } = require('@/lib/database/query-budget');
+          recordQuery(params.model, params.action, duration);
+        } catch {
+          // query-budget module not available (e.g., during migrations)
+        }
+
         return result;
       } catch (error) {
         const duration = Date.now() - start;
         connectionPool.recordQuery(duration, false);
+
+        try {
+          const { recordQuery } = require('@/lib/database/query-budget');
+          recordQuery(params.model, params.action, duration);
+        } catch {
+          // query-budget module not available
+        }
+
         throw error;
       }
     });

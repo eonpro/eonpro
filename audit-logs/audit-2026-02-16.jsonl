@@ -1,0 +1,3 @@
+{"eventType":"PHI_CREATE","userId":10,"userRole":"patient","resourceType":"PatientWeightLog","resourceId":1,"patientId":1,"action":"create_patientweightlog","outcome":"SUCCESS","timestamp":"2026-02-16T05:09:46.835Z","fallback":true}
+{"eventType":"PHI_CREATE","userId":10,"userRole":"patient","resourceType":"PatientWeightLog","resourceId":1,"patientId":1,"action":"create_patientweightlog","outcome":"SUCCESS","timestamp":"2026-02-16T05:09:46.875Z","fallback":true}
+{"eventType":"PHI_CREATE","userId":10,"userRole":"patient","resourceType":"PatientWeightLog","resourceId":1,"patientId":1,"action":"create_patientweightlog","outcome":"SUCCESS","timestamp":"2026-02-16T05:09:46.875Z","fallback":true}

@@ -21,6 +21,17 @@ interface Subscription {
   resumeAt: string | null;
 }
 
+interface ShipmentEntry {
+  id: number;
+  shipmentNumber: number;
+  totalShipments: number;
+  nextRefillDate: string;
+  status: string;
+  medicationName: string | null;
+  planName: string | null;
+  parentRefillId: number | null;
+}
+
 interface PatientSubscriptionManagerProps {
   patientId: number;
   patientName: string;
@@ -31,30 +42,31 @@ export function PatientSubscriptionManager({
   patientName,
 }: PatientSubscriptionManagerProps) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [shipmentSchedules, setShipmentSchedules] = useState<ShipmentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
 
-  // Helper to get auth headers for API calls
-  const getAuthHeaders = (): HeadersInit => {
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('admin-token') ||
-      localStorage.getItem('provider-token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
+  // IMPORTANT: Do NOT send explicit Authorization headers from localStorage.
+  // For same-origin requests, apiFetch relies on httpOnly cookies set by the server.
+  // Sending a localStorage token overrides the valid cookie with a potentially stale
+  // value, causing 401 → session expiration even though the user is authenticated.
 
   const fetchSubscriptions = async () => {
     try {
-      const headers = getAuthHeaders();
-      const res = await apiFetch(`/api/patients/${patientId}/subscriptions`, {
-        credentials: 'include',
-        headers,
-      });
-      if (!res.ok) throw new Error('Failed to fetch subscriptions');
-      const data = await res.json();
-      setSubscriptions(data);
+      const [subRes, shipRes] = await Promise.all([
+        apiFetch(`/api/patients/${patientId}/subscriptions`),
+        apiFetch(`/api/patients/${patientId}/shipment-schedule`).catch(() => null),
+      ]);
+
+      if (!subRes.ok) throw new Error('Failed to fetch subscriptions');
+      const subData = await subRes.json();
+      setSubscriptions(subData);
+
+      if (shipRes && shipRes.ok) {
+        const shipData = await shipRes.json();
+        setShipmentSchedules(shipData.shipments || []);
+      }
     } catch (err: any) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
@@ -70,11 +82,8 @@ export function PatientSubscriptionManager({
   const handlePause = async (subscriptionId: number) => {
     setProcessingId(subscriptionId);
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/subscriptions/${subscriptionId}/pause`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
       });
 
       if (!res.ok) throw new Error('Failed to pause subscription');
@@ -92,11 +101,8 @@ export function PatientSubscriptionManager({
   const handleResume = async (subscriptionId: number) => {
     setProcessingId(subscriptionId);
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/subscriptions/${subscriptionId}/resume`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
       });
 
       if (!res.ok) throw new Error('Failed to resume subscription');
@@ -120,11 +126,8 @@ export function PatientSubscriptionManager({
 
     setProcessingId(subscriptionId);
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/subscriptions/${subscriptionId}/cancel`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
       });
 
       if (!res.ok) throw new Error('Failed to cancel subscription');
@@ -185,11 +188,39 @@ export function PatientSubscriptionManager({
     );
   }
 
-  if (subscriptions.length === 0) {
+  // Group shipments by parent (series)
+  const shipmentSeries = shipmentSchedules.reduce<Record<number, ShipmentEntry[]>>((acc, s) => {
+    const key = s.parentRefillId || s.id;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(s);
+    return acc;
+  }, {});
+
+  const shipmentStatusColor = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+      case 'PRESCRIBED':
+        return 'bg-green-100 text-green-700 border-green-200';
+      case 'PENDING_PROVIDER':
+        return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'APPROVED':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'SCHEDULED':
+        return 'bg-indigo-50 text-indigo-600 border-indigo-200';
+      case 'CANCELLED':
+        return 'bg-red-50 text-red-600 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
+  const hasShipments = Object.keys(shipmentSeries).length > 0;
+
+  if (subscriptions.length === 0 && !hasShipments) {
     return (
       <div className="rounded-lg bg-white p-6 shadow">
-        <h3 className="mb-4 text-lg font-semibold">Recurring Subscriptions</h3>
-        <p className="text-gray-500">No active subscriptions</p>
+        <h3 className="mb-4 text-lg font-semibold">Subscriptions & Treatment Plans</h3>
+        <p className="text-gray-500">No active subscriptions or prepaid treatment plans</p>
       </div>
     );
   }
@@ -197,8 +228,76 @@ export function PatientSubscriptionManager({
   return (
     <div className="rounded-lg bg-white shadow">
       <div className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">Recurring Subscriptions</h3>
+        <h3 className="mb-4 text-lg font-semibold">Subscriptions & Treatment Plans</h3>
 
+        {/* Prepaid Shipment Schedules (WellMedR multi-month plans) */}
+        {hasShipments && (
+          <div className="mb-6">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-indigo-700 uppercase tracking-wider">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              Prepaid Shipment Plans
+            </h4>
+            <div className="space-y-4">
+              {Object.values(shipmentSeries).map((series) => {
+                const first = series[0];
+                const sorted = [...series].sort((a, b) => a.shipmentNumber - b.shipmentNumber);
+                const completed = sorted.filter((s) => s.status === 'COMPLETED' || s.status === 'PRESCRIBED').length;
+                const total = first.totalShipments;
+                const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+                return (
+                  <div key={first.id} className="rounded-lg border border-indigo-100 bg-indigo-50/30 p-4">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <h5 className="font-medium text-gray-900">
+                          {first.medicationName || 'GLP-1 Treatment'}
+                        </h5>
+                        <p className="text-sm text-gray-500">
+                          {first.planName || `${total}-shipment plan`} — {completed}/{total} shipped
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                        {progressPct}%
+                      </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-indigo-100">
+                      <div
+                        className="h-full rounded-full bg-indigo-500 transition-all"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+
+                    {/* Timeline */}
+                    <div className="space-y-2">
+                      {sorted.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2.5 w-2.5 rounded-full border ${shipmentStatusColor(s.status)}`} />
+                            <span className="text-gray-700">
+                              Shipment {s.shipmentNumber} — {new Date(s.nextRefillDate).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${shipmentStatusColor(s.status)}`}>
+                            {s.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Recurring Stripe Subscriptions */}
+        {subscriptions.length > 0 && (
+        <div>
+        <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-wider">
+          Recurring Subscriptions
+        </h4>
         <div className="space-y-4">
           {subscriptions.map((subscription: any) => (
             <div key={subscription.id} className="rounded-lg border p-4">
@@ -297,6 +396,8 @@ export function PatientSubscriptionManager({
             </div>
           ))}
         </div>
+        </div>
+        )}
       </div>
     </div>
   );

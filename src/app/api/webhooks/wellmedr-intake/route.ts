@@ -535,12 +535,13 @@ export async function POST(req: NextRequest) {
 
     if (existingPatient) {
       // ═══════════════════════════════════════════════════════════════════
-      // UPDATE EXISTING PATIENT
+      // UPDATE EXISTING PATIENT (or merge into stub from invoice webhook)
       // ═══════════════════════════════════════════════════════════════════
       const existingTags = Array.isArray(existingPatient.tags)
         ? (existingPatient.tags as string[])
         : [];
       const wasPartial = existingTags.includes('partial-lead');
+      const wasStub = existingTags.includes('stub-from-invoice');
       const upgradedFromPartial = wasPartial && !isPartialSubmission;
 
       let updatedTags = mergeTags(existingPatient.tags, submissionTags);
@@ -549,6 +550,17 @@ export async function POST(req: NextRequest) {
           (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
         );
         logger.info(`[WELLMEDR-INTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
+      }
+
+      // Merge stub patient: remove stub tags, add merge note
+      if (wasStub) {
+        updatedTags = updatedTags.filter(
+          (t: string) => t !== 'stub-from-invoice' && t !== 'needs-intake-merge'
+        );
+        updatedTags.push('merged-from-stub');
+        logger.info(
+          `[WELLMEDR-INTAKE ${requestId}] ⬆ MERGING stub patient (created by invoice webhook) with full intake data`
+        );
       }
 
       const updateSearchIndex = buildPatientSearchIndex({
@@ -567,7 +579,7 @@ export async function POST(req: NextRequest) {
         })
       );
       logger.info(
-        `[WELLMEDR-INTAKE ${requestId}] ✓ Updated patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
+        `[WELLMEDR-INTAKE ${requestId}] ✓ ${wasStub ? 'Merged stub → full' : 'Updated'} patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
       );
     } else {
       // ═══════════════════════════════════════════════════════════════════

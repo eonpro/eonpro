@@ -94,22 +94,48 @@ export function requiresMultiShipment(
 }
 
 /**
- * Calculate shipment dates based on package duration and BUD
- * @param startDate - Initial shipment date
+ * Calculate shipment dates using same-day-of-month logic.
+ *
+ * Each refill lands on the same calendar day as the original purchase,
+ * spaced 3 months apart (matching the pharmacy's max 3-month supply).
+ *
+ * Edge cases:
+ * - Jan 31 → Apr 30 (clamped to last day), Jul 31, Oct 31
+ * - Jan 29 → Apr 29, Jul 29, Oct 29
+ * - Feb 28 (non-leap) → May 28, Aug 28, Nov 28
+ *
+ * @param startDate - Initial shipment/purchase date
  * @param totalShipments - Total number of shipments
- * @param budDays - Beyond Use Date in days
+ * @param _budDays - Beyond Use Date in days (kept for backward compatibility, not used for date calc)
  * @returns Array of dates for each shipment
  */
 export function calculateShipmentDates(
   startDate: Date,
   totalShipments: number,
-  budDays: number = DEFAULT_BUD_DAYS
+  _budDays: number = DEFAULT_BUD_DAYS
 ): Date[] {
   const dates: Date[] = [];
+  const originDay = startDate.getDate();
 
   for (let i = 0; i < totalShipments; i++) {
-    const shipmentDate = new Date(startDate);
-    shipmentDate.setDate(shipmentDate.getDate() + i * budDays);
+    if (i === 0) {
+      dates.push(new Date(startDate));
+      continue;
+    }
+
+    // Advance by (i * 3) months from the start date, keeping the same day-of-month
+    const monthsToAdd = i * 3;
+    const targetMonth = startDate.getMonth() + monthsToAdd;
+    const targetYear = startDate.getFullYear() + Math.floor(targetMonth / 12);
+    const targetMonthNormalized = targetMonth % 12;
+
+    // Get the last day of the target month to handle clamping (e.g., Jan 31 → Apr 30)
+    const lastDayOfTargetMonth = new Date(targetYear, targetMonthNormalized + 1, 0).getDate();
+    const clampedDay = Math.min(originDay, lastDayOfTargetMonth);
+
+    const shipmentDate = new Date(targetYear, targetMonthNormalized, clampedDay);
+    // Preserve the time-of-day from the original date
+    shipmentDate.setHours(startDate.getHours(), startDate.getMinutes(), startDate.getSeconds(), startDate.getMilliseconds());
     dates.push(shipmentDate);
   }
 
@@ -370,12 +396,16 @@ export interface ScheduleRefillsFromInvoiceInput {
 }
 
 /**
- * Schedule future RefillQueue entries for 6-month and 12-month packages paid via invoice (e.g. Airtable).
+ * Schedule ALL RefillQueue entries for 6-month and 12-month packages paid via invoice (e.g. Airtable).
  * Pharmacy can only ship 3 months at a time (90-day BUD), so:
- * - 6-month package: 1 future refill at 90 days
- * - 12-month package: 3 future refills at 90, 180, 270 days
+ * - 6-month package: 2 shipments (initial + month 3)
+ * - 12-month package: 4 shipments (initial + months 3, 6, 9)
  *
- * The initial prescription is handled by the Invoice → Rx Queue flow. This creates only the FUTURE refills.
+ * Creates an initial "COMPLETED" entry for the first shipment (handled by Invoice → Rx Queue)
+ * plus SCHEDULED entries for future shipments. All are linked via parentRefillId.
+ *
+ * Refill dates use same-day-of-month logic:
+ *   Purchase Jan 15 → refills Apr 15, Jul 15, Oct 15
  */
 export async function scheduleFutureRefillsFromInvoice(
   input: ScheduleRefillsFromInvoiceInput
@@ -398,15 +428,43 @@ export async function scheduleFutureRefillsFromInvoice(
   }
 
   const totalShipments = calculateShipmentsNeeded(packageMonths, budDays);
-  const futureShipmentsCount = totalShipments - 1; // Skip initial (handled by invoice)
-  if (futureShipmentsCount <= 0) return [];
+  if (totalShipments <= 1) return [];
 
+  // Calculate dates using same-day-of-month logic (3-month intervals)
   const shipmentDates = calculateShipmentDates(prescriptionDate, totalShipments, budDays);
 
   const refills = await prisma.$transaction(async (tx) => {
     const created: RefillQueue[] = [];
-    let parentRefillId: number | null = null;
 
+    // Create the initial shipment entry (shipment 1) as the parent
+    // Status: PENDING_PROVIDER since the invoice is already PAID and Rx queue will process it
+    const initialRefill: any = await tx.refillQueue.create({
+      data: {
+        clinicId,
+        patientId,
+        invoiceId,
+        vialCount: 3,
+        refillIntervalDays: budDays,
+        nextRefillDate: shipmentDates[0],
+        status: 'PENDING_PROVIDER',
+        medicationName,
+        medicationStrength,
+        medicationForm,
+        planName,
+        shipmentNumber: 1,
+        totalShipments,
+        parentRefillId: null, // This IS the parent
+        budDays,
+        paymentVerified: true,
+        paymentVerifiedAt: new Date(),
+        paymentMethod: 'invoice-prepaid',
+      },
+    });
+
+    const parentRefillId = initialRefill.id;
+    created.push(initialRefill);
+
+    // Create future shipments (shipments 2, 3, 4)
     for (let i = 1; i < totalShipments; i++) {
       const shipmentNumber = i + 1;
 
@@ -427,23 +485,26 @@ export async function scheduleFutureRefillsFromInvoice(
           totalShipments,
           parentRefillId,
           budDays,
+          paymentVerified: true,
+          paymentVerifiedAt: new Date(),
+          paymentMethod: 'invoice-prepaid',
         },
       });
 
-      if (!parentRefillId) parentRefillId = refill.id;
       created.push(refill);
     }
 
     return created;
   });
 
-  logger.info('[ShipmentSchedule] Scheduled future refills from invoice', {
+  logger.info('[ShipmentSchedule] Scheduled complete shipment series from invoice', {
     clinicId,
     patientId,
     invoiceId,
     packageMonths,
-    futureRefills: refills.length,
-    dates: refills.map((r) => r.nextRefillDate),
+    totalShipments: refills.length,
+    parentRefillId: refills[0]?.id,
+    dates: refills.map((r) => ({ shipment: (r as any).shipmentNumber, date: r.nextRefillDate })),
   });
 
   return refills;

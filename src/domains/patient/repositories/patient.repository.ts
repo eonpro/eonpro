@@ -228,40 +228,73 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       filter: PatientFilterOptions,
       pagination: PatientPaginationOptions = {}
     ): Promise<PaginatedPatients<PatientSummary>> {
-      // NOTE: Patient PHI (firstName, lastName, email) is ENCRYPTED in the database.
-      // SQL-level search on encrypted fields won't work.
-      // For search: fetch all, decrypt, filter in memory, then paginate.
       const where = buildWhereClause(filter);
       const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
       const hasSearch = !!filter.search;
 
       if (hasSearch) {
-        // Use searchIndex column with GIN trigram index for efficient search
         const searchTerm = filter.search!.toLowerCase().trim();
 
-        const searchWhere = {
+        // Strategy 1: DB-level search via searchIndex + patientId (fast path)
+        const dbSearchWhere = {
           ...where,
-          searchIndex: { contains: searchTerm, mode: 'insensitive' as const },
+          OR: [
+            { searchIndex: { contains: searchTerm, mode: 'insensitive' as const } },
+            { patientId: { contains: searchTerm, mode: 'insensitive' as const } },
+          ],
         };
 
-        const [patients, total] = await Promise.all([
+        const [dbPatients, dbTotal] = await Promise.all([
           db.patient.findMany({
-            where: searchWhere,
+            where: dbSearchWhere,
             select: PATIENT_SUMMARY_SELECT,
             orderBy: { [orderBy]: orderDir },
             skip: offset,
             take: limit,
           }),
-          db.patient.count({ where: searchWhere }),
+          db.patient.count({ where: dbSearchWhere }),
         ]);
 
-        return {
-          data: patients.map((p) => decryptPatientSummary(p)),
-          total,
-          limit,
-          offset,
-          hasMore: offset + patients.length < total,
-        };
+        if (dbTotal > 0) {
+          return {
+            data: dbPatients.map((p) => decryptPatientSummary(p)),
+            total: dbTotal,
+            limit,
+            offset,
+            hasMore: offset + dbPatients.length < dbTotal,
+          };
+        }
+
+        // Strategy 2: Fallback to in-memory search for patients without searchIndex
+        // This handles patients created before searchIndex was populated
+        const nullIndexCount = await db.patient.count({
+          where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+        });
+
+        if (nullIndexCount > 0) {
+          // Fetch patients without searchIndex, decrypt, and filter in-memory
+          // Use batched approach for memory efficiency
+          const allUnindexed = await db.patient.findMany({
+            where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+            select: PATIENT_SUMMARY_SELECT,
+            orderBy: { [orderBy]: orderDir },
+          });
+
+          const decrypted = allUnindexed.map((p) => decryptPatientSummary(p));
+          const filtered = filterPatientsBySearch(decrypted, searchTerm);
+          const paged = filtered.slice(offset, offset + limit);
+
+          return {
+            data: paged,
+            total: filtered.length,
+            limit,
+            offset,
+            hasMore: offset + paged.length < filtered.length,
+          };
+        }
+
+        // No matches found anywhere
+        return { data: [], total: 0, limit, offset, hasMore: false };
       }
 
       // No search: use normal DB pagination
@@ -291,58 +324,83 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       filter: PatientFilterOptions,
       pagination: PatientPaginationOptions = {}
     ): Promise<PaginatedPatients<PatientSummaryWithClinic>> {
-      // NOTE: Patient PHI (firstName, lastName, email) is ENCRYPTED in the database.
-      // SQL-level search on encrypted fields won't work.
-      // For search: fetch all, decrypt, filter in memory, then paginate.
       const where = buildWhereClause(filter);
       const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
       const hasSearch = !!filter.search;
+      const clinicSelect = { ...PATIENT_SUMMARY_SELECT, clinic: { select: { name: true } } };
 
       if (hasSearch) {
-        // Use searchIndex column with GIN trigram index for efficient search
         const searchTerm = filter.search!.toLowerCase().trim();
 
-        const [patients, total] = await Promise.all([
+        // Strategy 1: DB-level search via searchIndex + patientId
+        const dbSearchWhere = {
+          ...where,
+          OR: [
+            { searchIndex: { contains: searchTerm, mode: 'insensitive' as const } },
+            { patientId: { contains: searchTerm, mode: 'insensitive' as const } },
+          ],
+        };
+
+        const [dbPatients, dbTotal] = await Promise.all([
           db.patient.findMany({
-            where: {
-              ...where,
-              searchIndex: { contains: searchTerm, mode: 'insensitive' },
-            },
-            select: { ...PATIENT_SUMMARY_SELECT, clinic: { select: { name: true } } },
+            where: dbSearchWhere,
+            select: clinicSelect,
             orderBy: { [orderBy]: orderDir },
             skip: offset,
             take: limit,
           }),
-          db.patient.count({
-            where: {
-              ...where,
-              searchIndex: { contains: searchTerm, mode: 'insensitive' },
-            },
-          }),
+          db.patient.count({ where: dbSearchWhere }),
         ]);
 
-        return {
-          data: patients.map((p) => ({
+        if (dbTotal > 0) {
+          return {
+            data: dbPatients.map((p) => ({
+              ...decryptPatientSummary(p),
+              clinicName: p.clinic?.name ?? null,
+            })),
+            total: dbTotal,
+            limit,
+            offset,
+            hasMore: offset + dbPatients.length < dbTotal,
+          };
+        }
+
+        // Strategy 2: Fallback in-memory search for unindexed patients
+        const nullIndexCount = await db.patient.count({
+          where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+        });
+
+        if (nullIndexCount > 0) {
+          const allUnindexed = await db.patient.findMany({
+            where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+            select: clinicSelect,
+            orderBy: { [orderBy]: orderDir },
+          });
+
+          const decrypted = allUnindexed.map((p) => ({
             ...decryptPatientSummary(p),
             clinicName: p.clinic?.name ?? null,
-          })),
-          total,
-          limit,
-          offset,
-          hasMore: offset + patients.length < total,
-        };
+          }));
+          const filtered = filterPatientsBySearch(decrypted, searchTerm);
+          const paged = filtered.slice(offset, offset + limit);
+
+          return {
+            data: paged,
+            total: filtered.length,
+            limit,
+            offset,
+            hasMore: offset + paged.length < filtered.length,
+          };
+        }
+
+        return { data: [], total: 0, limit, offset, hasMore: false };
       }
 
       // No search: use normal DB pagination
       const [patients, total] = await Promise.all([
         db.patient.findMany({
           where,
-          select: {
-            ...PATIENT_SUMMARY_SELECT,
-            clinic: {
-              select: { name: true },
-            },
-          },
+          select: clinicSelect,
           orderBy: { [orderBy]: orderDir },
           take: limit,
           skip: offset,

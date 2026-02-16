@@ -363,8 +363,27 @@ export async function apiFetch(
       logger.info('[Auth] Got 401, attempting token refresh');
       const refreshed = await refreshAuthToken();
       if (refreshed) {
-        // Retry the request with the new token
-        return apiFetch(url, options, retryCount + 1);
+        // Retry the request with fresh credentials.
+        // IMPORTANT: Strip any explicit Authorization header from the original options
+        // so the retry uses the fresh httpOnly cookie (set by the refresh endpoint's
+        // Set-Cookie header) instead of a potentially stale localStorage token.
+        // Without this, the retry sends the same expired token that caused the 401.
+        const retryOptions = { ...options };
+        if (retryOptions.headers) {
+          const h = retryOptions.headers;
+          if (h instanceof Headers) {
+            h.delete('Authorization');
+            h.delete('authorization');
+          } else if (Array.isArray(h)) {
+            retryOptions.headers = h.filter(
+              ([k]) => k.toLowerCase() !== 'authorization'
+            );
+          } else {
+            const { Authorization, authorization, ...rest } = h as Record<string, string>;
+            retryOptions.headers = rest;
+          }
+        }
+        return apiFetch(url, retryOptions, retryCount + 1);
       }
     }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { superAdminRateLimit } from '@/lib/rateLimit';
 
 /**
  * Middleware to check for Super Admin role
@@ -14,63 +15,63 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
  * GET /api/super-admin/clinics
  * Get all clinics with stats
  */
-export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
     logger.info('Super-admin clinics list', { userId: user.id, role: user.role });
 
-    // Note: Explicitly selecting fields for backwards compatibility
-    // (buttonTextColor may not exist in production DB if migration hasn't run)
-    const clinics = await prisma.clinic.findMany({
-      select: {
-        id: true,
-        name: true,
-        subdomain: true,
-        customDomain: true,
-        status: true,
-        adminEmail: true,
-        billingPlan: true,
-        primaryColor: true,
-        secondaryColor: true,
-        accentColor: true,
-        logoUrl: true,
-        iconUrl: true,
-        faviconUrl: true,
-        createdAt: true,
-        _count: {
-          select: {
-            patients: true,
-            users: true,
+    // Fetch clinics with counts in a single query (eliminates N+1 pattern).
+    // Previously this was N+3 queries (1 findMany + N provider counts + 2 global counts).
+    // Now it's 3 queries total: 1 findMany with _count, 1 patient count, 1 provider count.
+    const [clinics, totalPatients, totalProviders] = await Promise.all([
+      prisma.clinic.findMany({
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+          customDomain: true,
+          status: true,
+          adminEmail: true,
+          billingPlan: true,
+          primaryColor: true,
+          secondaryColor: true,
+          accentColor: true,
+          logoUrl: true,
+          iconUrl: true,
+          faviconUrl: true,
+          createdAt: true,
+          _count: {
+            select: {
+              patients: true,
+              users: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.patient.count(),
+      prisma.user.count({ where: { role: 'PROVIDER' } }),
+    ]);
 
     logger.debug('Super-admin clinics fetched', { count: clinics.length });
 
-    // Count providers per clinic - users with PROVIDER role (matches Users tab display)
-    const clinicsWithProviderCount = await Promise.all(
-      clinics.map(async (clinic: (typeof clinics)[number]) => {
-        const providerCount = await prisma.user.count({
-          where: {
-            clinicId: clinic.id,
-            role: 'PROVIDER',
-          },
-        });
-        return {
-          ...clinic,
-          _count: {
-            ...clinic._count,
-            providers: providerCount,
-          },
-        };
-      })
+    // Provider count per clinic via a single groupBy query (replaces N+1 Promise.all loop)
+    const providerCounts = await prisma.user.groupBy({
+      by: ['clinicId'],
+      where: { role: 'PROVIDER' },
+      _count: true,
+    });
+
+    const providerCountMap = new Map(
+      providerCounts.map((pc) => [pc.clinicId, pc._count])
     );
 
-    // Get total stats
-    const totalPatients = await prisma.patient.count();
-    // Count total providers - users with PROVIDER role (matches Users tab display)
-    const totalProviders = await prisma.user.count({ where: { role: 'PROVIDER' } });
+    const clinicsWithProviderCount = clinics.map((clinic) => ({
+      ...clinic,
+      _count: {
+        ...clinic._count,
+        providers: providerCountMap.get(clinic.id) || 0,
+      },
+    }));
 
     return NextResponse.json({
       clinics: clinicsWithProviderCount,
@@ -91,7 +92,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       { status: 500 }
     );
   }
-});
+}));
 
 /**
  * POST /api/super-admin/clinics

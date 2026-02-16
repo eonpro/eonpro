@@ -10,6 +10,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
+import { superAdminRateLimit } from '@/lib/rateLimit';
 
 /**
  * Middleware to check for Super Admin role
@@ -21,91 +22,127 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
 /**
  * GET /api/super-admin/affiliates
  */
-export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    // Get all affiliates with their clinic, user, ref codes, and stats
-    const affiliates = await basePrisma.affiliate.findMany({
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
-          },
-        },
-        user: {
-          select: {
-            email: true,
-            firstName: true,
-            lastName: true,
-            lastLogin: true,
-            status: true,
-          },
-        },
-        refCodes: {
-          where: { isActive: true },
-          select: {
-            id: true,
-            refCode: true,
-            isActive: true,
-          },
-        },
-        planAssignments: {
-          where: { effectiveTo: null },
-          include: {
-            commissionPlan: {
-              select: {
-                id: true,
-                name: true,
-                planType: true,
-                flatAmountCents: true,
-                percentBps: true,
-                // Separate initial/recurring rates
-                initialPercentBps: true,
-                initialFlatAmountCents: true,
-                recurringPercentBps: true,
-                recurringFlatAmountCents: true,
-              },
+    // Parse pagination params
+    const searchParams = req.nextUrl.searchParams;
+    const take = Math.min(parseInt(searchParams.get('limit') || '100', 10), 200);
+    const skip = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Fetch affiliates WITHOUT the unbounded commissionEvents include.
+    // Previously: commissionEvents loaded ALL events per affiliate (could be 1000s each).
+    // Now: We use a separate groupBy aggregation for stats (1 query instead of N×M rows).
+    const [affiliates, plans, totalCount] = await Promise.all([
+      basePrisma.affiliate.findMany({
+        select: {
+          id: true,
+          displayName: true,
+          status: true,
+          createdAt: true,
+          clinicId: true,
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
             },
           },
-          take: 1,
-        },
-        commissionEvents: {
-          select: {
-            eventAmountCents: true,
-            commissionAmountCents: true,
-            status: true,
+          user: {
+            select: {
+              email: true,
+              firstName: true,
+              lastName: true,
+              lastLogin: true,
+              status: true,
+            },
+          },
+          refCodes: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              refCode: true,
+              isActive: true,
+            },
+          },
+          planAssignments: {
+            where: { effectiveTo: null },
+            include: {
+              commissionPlan: {
+                select: {
+                  id: true,
+                  name: true,
+                  planType: true,
+                  flatAmountCents: true,
+                  percentBps: true,
+                  initialPercentBps: true,
+                  initialFlatAmountCents: true,
+                  recurringPercentBps: true,
+                  recurringFlatAmountCents: true,
+                },
+              },
+            },
+            take: 1,
+          },
+          _count: {
+            select: { commissionEvents: true },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+      basePrisma.affiliateCommissionPlan.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          planType: true,
+          flatAmountCents: true,
+          percentBps: true,
+          initialPercentBps: true,
+          initialFlatAmountCents: true,
+          recurringPercentBps: true,
+          recurringFlatAmountCents: true,
+          recurringEnabled: true,
+          isActive: true,
+          clinicId: true,
+        },
+      }),
+      basePrisma.affiliate.count(),
+    ]);
 
-    // Get all commission plans
-    const plans = await basePrisma.affiliateCommissionPlan.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        planType: true,
-        flatAmountCents: true,
-        percentBps: true,
-        // Separate initial/recurring rates
-        initialPercentBps: true,
-        initialFlatAmountCents: true,
-        recurringPercentBps: true,
-        recurringFlatAmountCents: true,
-        recurringEnabled: true,
-        isActive: true,
-        clinicId: true,
-      },
-    });
+    // Get aggregated commission stats per affiliate in a single query
+    const affiliateIds = affiliates.map(a => a.id);
+    const commissionStats = affiliateIds.length > 0
+      ? await basePrisma.affiliateCommissionEvent.groupBy({
+          by: ['affiliateId'],
+          where: { affiliateId: { in: affiliateIds } },
+          _sum: {
+            eventAmountCents: true,
+            commissionAmountCents: true,
+          },
+          _count: true,
+        })
+      : [];
 
-    // Transform data
+    // Also get paid/approved commission totals
+    const paidCommissionStats = affiliateIds.length > 0
+      ? await basePrisma.affiliateCommissionEvent.groupBy({
+          by: ['affiliateId'],
+          where: {
+            affiliateId: { in: affiliateIds },
+            status: { in: ['PAID', 'APPROVED'] },
+          },
+          _sum: { commissionAmountCents: true },
+        })
+      : [];
+
+    const statsMap = new Map(commissionStats.map(s => [s.affiliateId, s]));
+    const paidMap = new Map(paidCommissionStats.map(s => [s.affiliateId, s._sum.commissionAmountCents || 0]));
+
+    // Transform data using aggregated stats
     const transformedAffiliates = affiliates.map((affiliate) => {
-      const events = affiliate.commissionEvents || [];
-      const paidEvents = events.filter((e) => e.status === 'PAID' || e.status === 'APPROVED');
-
+      const aggStats = statsMap.get(affiliate.id);
       return {
         id: affiliate.id,
         displayName: affiliate.displayName,
@@ -117,12 +154,9 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         refCodes: affiliate.refCodes,
         currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
         stats: {
-          totalConversions: events.length,
-          totalRevenueCents: events.reduce((sum, e) => sum + (e.eventAmountCents || 0), 0),
-          totalCommissionCents: paidEvents.reduce(
-            (sum, e) => sum + (e.commissionAmountCents || 0),
-            0
-          ),
+          totalConversions: aggStats?._count || 0,
+          totalRevenueCents: aggStats?._sum.eventAmountCents || 0,
+          totalCommissionCents: paidMap.get(affiliate.id) || 0,
         },
       };
     });
@@ -130,6 +164,12 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     return NextResponse.json({
       affiliates: transformedAffiliates,
       plans,
+      pagination: {
+        total: totalCount,
+        limit: take,
+        offset: skip,
+        hasMore: skip + affiliates.length < totalCount,
+      },
     });
   } catch (error) {
     logger.error('Failed to fetch affiliates', { error: error instanceof Error ? error.message : String(error) });
@@ -160,7 +200,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       { status: 500 }
     );
   }
-});
+}));
 
 /**
  * POST /api/super-admin/affiliates

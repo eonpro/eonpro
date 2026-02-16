@@ -216,6 +216,16 @@ export const relaxedRateLimit = rateLimit({
 });
 
 /**
+ * Rate limit for super-admin endpoints (analytics, global queries).
+ * These are expensive cross-tenant queries that should be called infrequently.
+ */
+export const superAdminRateLimit = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 requests per minute
+  message: 'Too many admin requests. Please try again shortly.',
+});
+
+/**
  * Rate limit by API key for external integrations
  */
 export function apiKeyRateLimit(config: Omit<RateLimitConfig, 'keyGenerator'> = {}) {

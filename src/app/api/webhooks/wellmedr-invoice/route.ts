@@ -22,6 +22,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
@@ -34,6 +35,9 @@ import {
 import { scheduleFutureRefillsFromInvoice } from '@/lib/shipment-schedule';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { PHISearchService } from '@/lib/security/phi-search';
+import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
+import { generatePatientId } from '@/lib/patients';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
@@ -210,10 +214,12 @@ export async function POST(req: NextRequest) {
   // ═══════════════════════════════════════════════════════════════════
   return runWithClinicContext(clinicId, async () => {
 
-  // STEP 3: Parse payload
+  // STEP 3: Parse payload (read raw body for idempotency hash)
   let payload: WellmedrInvoicePayload;
+  let rawBody: string;
   try {
-    payload = await req.json();
+    rawBody = await req.text();
+    payload = JSON.parse(rawBody);
     logger.info(`[WELLMEDR-INVOICE ${requestId}] Payload:`, {
       customer_email: payload.customer_email,
       product: payload.product,
@@ -225,6 +231,32 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to parse JSON payload`);
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+  }
+
+  // STEP 3b: Idempotency check — SHA-256 hash of full request body
+  const idempotencyKey = `wellmedr-invoice_${createHash('sha256').update(rawBody).digest('hex')}`;
+
+  const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
+    where: { key: idempotencyKey },
+  }).catch((err) => {
+    logger.warn(`[WELLMEDR-INVOICE ${requestId}] Idempotency lookup failed, proceeding`, {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  });
+
+  if (existingIdempotencyRecord) {
+    logger.info(`[WELLMEDR-INVOICE ${requestId}] Duplicate request detected, returning cached result`, {
+      idempotencyKey: idempotencyKey.substring(0, 40) + '...',
+      originalRequestId: existingIdempotencyRecord.response ? 'exists' : 'none',
+    });
+    const cachedResponse = existingIdempotencyRecord.response as Record<string, unknown> | null;
+    return NextResponse.json({
+      success: true,
+      duplicate: true,
+      message: 'Request already processed (idempotency)',
+      ...(cachedResponse || {}),
+    });
   }
 
   // STEP 4: Validate required fields
@@ -241,7 +273,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Validate payment method format (starts with pm_)
   if (!payload.method_payment_id.startsWith('pm_')) {
     logger.warn(
       `[WELLMEDR-INVOICE ${requestId}] Invalid payment method format: ${payload.method_payment_id}`
@@ -252,8 +283,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // STEP 5: Find patient by email (PHI-safe), then by name if email fails
-  // Patients come from WellMedR intake Airtable script - email/name must match
+  // STEP 5: Find patient by email (PHI-safe), then by name, then by submission_id
+  // If no patient found, AUTO-CREATE a stub patient to prevent lost prescriptions
   const email = payload.customer_email.toLowerCase().trim();
   const patientName =
     (payload.patient_name || payload.customer_name || payload.cardholder_name || '').trim();
@@ -266,14 +297,15 @@ export async function POST(req: NextRequest) {
     email: string | null;
   };
   let patient: WellMedRPatient | null = null;
+  let wasAutoCreated = false;
 
   try {
-    // Try email first - use PHISearchService because email is encrypted at rest
+    // Strategy 1: Match by email — use PHISearchService because email is encrypted at rest
     const emailResults = await PHISearchService.searchPatients({
       baseQuery: { clinicId, profileStatus: 'ACTIVE' },
       search: email,
       searchFields: ['email'],
-      pagination: { limit: 1, offset: 0 },
+      pagination: { limit: 5, offset: 0 },
       select: {
         id: true,
         patientId: true,
@@ -284,16 +316,18 @@ export async function POST(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (emailResults.data.length >= 1) {
-      // Verify exact email match (search does includes(); we need exact for security)
-      const candidate = emailResults.data[0] as { email?: string | null };
-      const decryptedEmail = safeDecrypt(candidate.email)?.toLowerCase().trim();
-      if (decryptedEmail === email) {
-        patient = emailResults.data[0] as WellMedRPatient;
+    for (const candidate of emailResults.data) {
+      const candEmail = safeDecrypt((candidate as { email?: string | null }).email)?.toLowerCase().trim();
+      if (candEmail === email) {
+        patient = candidate as WellMedRPatient;
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by email`, {
+          patientId: patient.id,
+        });
+        break;
       }
     }
 
-    // Fallback: try name-based match when email fails
+    // Strategy 2: Match by name when email fails
     if (!patient && patientName) {
       logger.info(
         `[WELLMEDR-INVOICE ${requestId}] Email match failed, trying name match: "${patientName}"`
@@ -315,51 +349,152 @@ export async function POST(req: NextRequest) {
 
       if (nameResults.data.length === 1) {
         patient = nameResults.data[0] as WellMedRPatient;
-        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found by name`, {
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by name`, {
           patientId: patient.id,
           matchedName: patientName,
         });
       } else if (nameResults.data.length > 1) {
         logger.warn(
-          `[WELLMEDR-INVOICE ${requestId}] Multiple patients match name "${patientName}" - cannot disambiguate without email match`
+          `[WELLMEDR-INVOICE ${requestId}] Multiple patients match name "${patientName}" — cannot disambiguate`
         );
       }
     }
 
+    // Strategy 3: Match by submission_id stored in patient sourceMetadata
+    if (!patient && payload.submission_id) {
+      logger.info(
+        `[WELLMEDR-INVOICE ${requestId}] Name match failed, trying submission_id: "${payload.submission_id}"`
+      );
+      const submissionPatient = await prisma.patient.findFirst({
+        where: {
+          clinicId,
+          profileStatus: 'ACTIVE',
+          sourceMetadata: {
+            path: ['submissionId'],
+            equals: payload.submission_id,
+          },
+        },
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      });
+      if (submissionPatient) {
+        patient = submissionPatient as WellMedRPatient;
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by submission_id`, {
+          patientId: patient.id,
+          submissionId: payload.submission_id,
+        });
+      }
+    }
+
+    // FALLBACK: Auto-create stub patient to prevent lost prescriptions
     if (!patient) {
-      logger.warn(`[WELLMEDR-INVOICE ${requestId}] Patient not found`, {
+      logger.warn(`[WELLMEDR-INVOICE ${requestId}] Patient NOT found — auto-creating stub patient`, {
         searchedEmail: email,
         searchedName: patientName || '(not provided)',
         clinicId,
       });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Patient not found',
-          message: `No patient found with email ${email}${patientName ? ` or name "${patientName}"` : ''} in WellMedR clinic. Ensure the patient is registered via the intake webhook first, and that customer_email or patient_name matches the intake record.`,
-          searchedEmail: email,
-          searchedName: patientName || undefined,
-          clinicId,
-        },
-        { status: 404 }
-      );
-    }
 
-    logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient found`, {
-      patientId: patient.id,
-      clinicId,
-    });
+      const nameParts = patientName.split(/\s+/);
+      const stubFirstName = nameParts[0] || 'Unknown';
+      const stubLastName = nameParts.slice(1).join(' ') || 'Checkout';
+
+      const stubPatientId = await generatePatientId(clinicId);
+      const searchIndex = buildPatientSearchIndex({
+        firstName: stubFirstName,
+        lastName: stubLastName,
+        email: email,
+        patientId: stubPatientId,
+      });
+
+      const stubPatient = await prisma.patient.create({
+        data: {
+          patientId: stubPatientId,
+          clinicId,
+          firstName: stubFirstName,
+          lastName: stubLastName,
+          email: email,
+          phone: '0000000000',
+          dob: '1900-01-01',
+          gender: 'm',
+          profileStatus: 'ACTIVE',
+          source: 'webhook',
+          tags: ['wellmedr', 'stub-from-invoice', 'needs-intake-merge'],
+          notes: `[${new Date().toISOString()}] Auto-created from invoice webhook — intake form not yet received or matched. Payment: ${payload.method_payment_id?.substring(0, 15)}...`,
+          searchIndex,
+          sourceMetadata: {
+            type: 'wellmedr-invoice-stub',
+            submissionId: payload.submission_id || '',
+            paymentMethodId: payload.method_payment_id,
+            createdByInvoiceWebhook: true,
+            originalEmail: email,
+            originalName: patientName,
+            timestamp: new Date().toISOString(),
+            clinicId,
+            clinicName: 'Wellmedr',
+          },
+        },
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      });
+
+      patient = stubPatient as WellMedRPatient;
+      wasAutoCreated = true;
+
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Stub patient created`, {
+        patientId: patient.id,
+        patientIdStr: patient.patientId,
+        email: email,
+        tags: ['stub-from-invoice', 'needs-intake-merge'],
+      });
+    }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error(`[WELLMEDR-INVOICE ${requestId}] Error finding patient:`, { error: errMsg });
+    logger.error(`[WELLMEDR-INVOICE ${requestId}] Error finding/creating patient:`, { error: errMsg });
+
+    // Queue to DLQ instead of losing the invoice
+    if (isDLQConfigured()) {
+      try {
+        const dlqId = await queueFailedSubmission(
+          payload as Record<string, unknown>,
+          'wellmedr-invoice',
+          `Patient lookup/creation failed: ${errMsg}`,
+          {
+            patientEmail: email,
+            submissionId: payload.submission_id,
+            treatmentType: payload.product || payload.medication_type || 'GLP-1',
+          }
+        );
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] Queued to DLQ: ${dlqId}`);
+        return NextResponse.json({
+          success: false,
+          queued: true,
+          message: 'Patient lookup failed — queued for retry',
+          dlqId,
+          requestId,
+        }, { status: 202 });
+      } catch (dlqErr) {
+        logger.error(`[WELLMEDR-INVOICE ${requestId}] DLQ queueing also failed`, {
+          error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+        });
+      }
+    }
+
     return NextResponse.json(
       { error: 'Database error finding patient', message: errMsg },
       { status: 500 }
     );
   }
 
-  // TypeScript can't track narrowing across try-catch, so use non-null assertion.
-  // Both try and catch paths return on failure, so patient is guaranteed non-null here.
   const verifiedPatient = patient!;
 
   // STEP 6: Check for duplicate invoice
@@ -653,7 +788,7 @@ export async function POST(req: NextRequest) {
     // STEP 7b: Schedule future refills for 6-month and 12-month packages
     // Pharmacy ships 3 months at a time (90-day BUD). For longer plans, queue refills at 90, 180, 270 days.
     const planLower = (plan || '').toLowerCase();
-    if (/6\s*month|6month|12\s*month|12month|annual|yearly/.test(planLower)) {
+    if (/6[\s-]*month|6month|12[\s-]*month|12month|annual|yearly|semi[\s-]*annual/.test(planLower)) {
       try {
         const medicationName =
           product && medicationType
@@ -872,14 +1007,17 @@ export async function POST(req: NextRequest) {
       status: 'PAID',
       note: 'Internal EONPRO invoice only - no Stripe invoice created',
       addressUpdated: !!hasAddressData,
+      wasAutoCreated,
       soapNoteId,
       soapNoteAction,
     });
 
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       requestId,
-      message: 'Internal invoice created and marked as paid (no Stripe)',
+      message: wasAutoCreated
+        ? 'Invoice created with auto-generated stub patient (intake pending merge)'
+        : 'Internal invoice created and marked as paid (no Stripe)',
       invoice: {
         id: invoice.id,
         invoiceNumber,
@@ -893,6 +1031,7 @@ export async function POST(req: NextRequest) {
         patientId: verifiedPatient.patientId,
         name: patientDisplayName,
         email: decryptedEmail,
+        wasAutoCreated,
       },
       product: productName,
       medicationType: medicationType,
@@ -903,10 +1042,64 @@ export async function POST(req: NextRequest) {
         id: soapNoteId,
         action: soapNoteAction,
       },
-    });
+    };
+
+    // Record idempotency so duplicate requests get the cached response
+    try {
+      await prisma.idempotencyRecord.create({
+        data: {
+          key: idempotencyKey,
+          response: responsePayload as any,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day TTL
+        },
+      });
+    } catch (idemErr) {
+      // Non-fatal — duplicate key (P2002) means another request beat us, which is fine
+      const code = (idemErr as any)?.code;
+      if (code !== 'P2002') {
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Idempotency record creation failed`, {
+          error: idemErr instanceof Error ? idemErr.message : String(idemErr),
+        });
+      }
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to create invoice:`, { error: errMsg });
+
+    // Queue to DLQ for retry instead of losing the prescription
+    if (isDLQConfigured()) {
+      try {
+        const dlqId = await queueFailedSubmission(
+          payload as Record<string, unknown>,
+          'wellmedr-invoice',
+          `Invoice creation failed: ${errMsg}`,
+          {
+            patientEmail: email,
+            submissionId: payload.submission_id,
+            treatmentType: payload.product || payload.medication_type || 'GLP-1',
+          }
+        );
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] Queued to DLQ for retry: ${dlqId}`);
+        return NextResponse.json(
+          {
+            success: false,
+            queued: true,
+            message: 'Invoice creation failed — queued for retry',
+            dlqId,
+            requestId,
+            patientId: verifiedPatient.id,
+          },
+          { status: 202 }
+        );
+      } catch (dlqErr) {
+        logger.error(`[WELLMEDR-INVOICE ${requestId}] DLQ queueing also failed`, {
+          error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+        });
+      }
+    }
+
     return NextResponse.json(
       {
         success: false,

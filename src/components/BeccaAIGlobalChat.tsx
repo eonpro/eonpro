@@ -146,15 +146,14 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
     }
   }, [pathname]);
 
-  // Fetch patient name
+  // Fetch patient name (non-critical background request).
+  // IMPORTANT: Do NOT send an explicit Authorization header here. For same-origin
+  // requests, apiFetch relies on httpOnly cookies set by the server. Sending a
+  // localStorage token can override the valid cookie with a stale value, causing
+  // 401 → session expiration even though the user is still authenticated.
   const fetchPatientName = async (patientId: number) => {
     try {
-      const token = getLocalStorageItem('auth-token');
-      if (!token) return;
-
-      const response = await apiFetch(`/api/patients/${patientId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/patients/${patientId}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -167,6 +166,9 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
         setPatientInfo({ id: patientId, name: '' });
       }
     } catch (e) {
+      // Silently handle errors — this is a non-critical background fetch for the
+      // AI chat context. Auth errors are already handled by apiFetch's global
+      // session expiration flow; we just need to set a fallback here.
       setPatientInfo({ id: patientId, name: '' });
     }
   };

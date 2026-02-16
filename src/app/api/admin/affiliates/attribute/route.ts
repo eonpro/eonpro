@@ -55,7 +55,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     // Require admin password for manual attribution
     if (!password) {
       return NextResponse.json(
-        { success: false, message: 'Admin password is required' },
+        { success: false, message: 'Admin password is required', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
@@ -67,7 +67,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         patientId,
       });
       return NextResponse.json(
-        { success: false, message: 'Invalid admin password' },
+        { success: false, message: 'Invalid admin password', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
@@ -188,7 +188,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
     // Require admin password for attribution removal
     if (!password) {
       return NextResponse.json(
-        { success: false, message: 'Admin password is required' },
+        { success: false, message: 'Admin password is required', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }
@@ -200,7 +200,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
         patientId,
       });
       return NextResponse.json(
-        { success: false, message: 'Invalid admin password' },
+        { success: false, message: 'Invalid admin password', code: 'FORBIDDEN' },
         { status: 403 }
       );
     }

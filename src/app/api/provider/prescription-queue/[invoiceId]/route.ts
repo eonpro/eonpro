@@ -198,6 +198,201 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       }
     };
 
+    // ═══════════════════════════════════════════════════════════════════
+    // ENRICHMENT: Extract comprehensive clinical context from PatientDocument
+    // This allows providers to prescribe without navigating to the patient profile
+    // ═══════════════════════════════════════════════════════════════════
+    let clinicalContext: {
+      healthConditions: string[];
+      contraindications: string[];
+      currentMedications: string | null;
+      allergies: string | null;
+      vitals: { heightFt: string | null; heightIn: string | null; weightLbs: string | null; bmi: string | null };
+      reproductiveStatus: string | null;
+      glp1History: { used: boolean; type: string | null; dose: string | null; sideEffects: string | null };
+      preferredMedication: string | null;
+      thyroidIssues: string | null;
+      alcoholUse: string | null;
+      exerciseFrequency: string | null;
+      weightGoal: string | null;
+    } = {
+      healthConditions: [],
+      contraindications: [],
+      currentMedications: null,
+      allergies: null,
+      vitals: { heightFt: null, heightIn: null, weightLbs: null, bmi: null },
+      reproductiveStatus: null,
+      glp1History: { used: false, type: null, dose: null, sideEffects: null },
+      preferredMedication: null,
+      thyroidIssues: null,
+      alcoholUse: null,
+      exerciseFrequency: null,
+      weightGoal: null,
+    };
+
+    // Also fetch PatientDocument for WellMedR/external intake data
+    let patientDocumentSections: typeof intakeSections = [];
+    try {
+      const intakeDoc = await prisma.patientDocument.findFirst({
+        where: {
+          patientId: invoice.patient.id,
+          category: 'MEDICAL_INTAKE_FORM',
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { data: true },
+      });
+
+      if (intakeDoc?.data) {
+        let rawData: string;
+        const docData = intakeDoc.data;
+        if (Buffer.isBuffer(docData)) {
+          rawData = docData.toString('utf8');
+        } else if (docData instanceof Uint8Array) {
+          rawData = new TextDecoder().decode(docData);
+        } else if (
+          typeof docData === 'object' &&
+          (docData as any).type === 'Buffer' &&
+          Array.isArray((docData as any).data)
+        ) {
+          rawData = new TextDecoder().decode(new Uint8Array((docData as any).data));
+        } else {
+          rawData = String(docData);
+        }
+
+        const docJson = JSON.parse(rawData);
+        const getField = (keys: string[]): string | null => {
+          for (const k of keys) {
+            const v = docJson[k];
+            if (v !== undefined && v !== null && String(v).trim()) return String(v).trim();
+          }
+          return null;
+        };
+
+        // Extract clinical fields from WellMedR Airtable intake
+        const healthCond1 = getField(['health-conditions', 'healthConditions', 'health_conditions']);
+        const healthCond2 = getField(['health-conditions-2', 'healthConditions2', 'health_conditions_2']);
+        if (healthCond1) clinicalContext.healthConditions.push(...healthCond1.split(',').map((s: string) => s.trim()).filter(Boolean));
+        if (healthCond2) clinicalContext.healthConditions.push(...healthCond2.split(',').map((s: string) => s.trim()).filter(Boolean));
+
+        // Contraindications
+        const pancreatitis = getField(['pancreatitis-history', 'pancreatitisHistory']);
+        const men2 = getField(['men2-history', 'men2History', 'MEN2-history']);
+        const thyroid = getField(['thyroid-issues', 'thyroidIssues']);
+        if (pancreatitis && pancreatitis.toLowerCase() === 'yes') clinicalContext.contraindications.push('History of Pancreatitis');
+        if (men2 && men2.toLowerCase() === 'yes') clinicalContext.contraindications.push('MEN2 / Medullary Thyroid Cancer History');
+        if (thyroid) clinicalContext.thyroidIssues = thyroid;
+        if (thyroid && /cancer|medullary|men2/i.test(thyroid)) clinicalContext.contraindications.push(`Thyroid: ${thyroid}`);
+
+        // Medications & Allergies
+        clinicalContext.currentMedications = getField(['current-medication', 'currentMedication', 'current_medication', 'medications']);
+        clinicalContext.allergies = getField(['allergies', 'drug-allergies', 'drugAllergies', 'medication-allergies']);
+
+        // Vitals
+        clinicalContext.vitals.heightFt = getField(['height-ft', 'heightFt', 'height_ft']);
+        clinicalContext.vitals.heightIn = getField(['height-in', 'heightIn', 'height_in']);
+        clinicalContext.vitals.weightLbs = getField(['current-weight-lbs', 'currentWeightLbs', 'current_weight_lbs', 'weight']);
+        // Calculate BMI if height and weight available
+        const ft = parseFloat(clinicalContext.vitals.heightFt || '');
+        const inch = parseFloat(clinicalContext.vitals.heightIn || '0');
+        const wt = parseFloat(clinicalContext.vitals.weightLbs || '');
+        if (!isNaN(ft) && !isNaN(wt) && ft > 0 && wt > 0) {
+          const totalInches = ft * 12 + (isNaN(inch) ? 0 : inch);
+          const bmi = (wt / (totalInches * totalInches)) * 703;
+          clinicalContext.vitals.bmi = bmi.toFixed(1);
+        }
+
+        // Reproductive status
+        clinicalContext.reproductiveStatus = getField(['pregnant-or-nursing', 'pregnantOrNursing', 'pregnant_or_nursing']);
+
+        // GLP-1 history
+        const glp1Used = getField(['glp1-last-30', 'glp1Last30', 'glp1_last_30']);
+        clinicalContext.glp1History.used = glp1Used?.toLowerCase() === 'yes';
+        clinicalContext.glp1History.type = getField(['glp1-last-30-medication-type', 'glp1Last30MedicationType']);
+        clinicalContext.glp1History.dose = getField(['glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg']);
+        clinicalContext.glp1History.sideEffects = getField(['glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects']);
+
+        // Preference
+        clinicalContext.preferredMedication = getField(['preferred-meds', 'preferredMedication', 'preferredMeds', 'medication-preference']);
+
+        // Lifestyle
+        clinicalContext.alcoholUse = getField(['alcohol-use', 'alcoholUse', 'alcohol_use']);
+        clinicalContext.exerciseFrequency = getField(['exercise-frequency', 'exerciseFrequency', 'exercise_frequency']);
+        clinicalContext.weightGoal = getField(['desired-weight-lbs', 'desiredWeightLbs', 'weight-goal', 'weightGoal']);
+
+        // Build enriched intake sections from PatientDocument (WellMedR format)
+        // These supplement or replace the sparse invoice metadata sections
+        if (docJson.sections && Array.isArray(docJson.sections)) {
+          patientDocumentSections = docJson.sections.map((sec: any) => ({
+            section: sec.section || sec.title || 'General',
+            questions: (sec.questions || sec.entries || sec.fields || []).map((q: any) => ({
+              question: q.question || q.label || q.field || 'Unknown',
+              answer: q.answer || q.value || '',
+            })),
+          }));
+        } else {
+          // Flat key-value format — group by topic
+          const clinicalSections: Record<string, Array<{ question: string; answer: string }>> = {
+            'Treatment & Medication': [],
+            'Medical History': [],
+            'GLP-1 History': [],
+            Vitals: [],
+            'Personal Information': [],
+          };
+
+          const clinicalMappings: Record<string, { section: string; label: string }> = {
+            'preferred-meds': { section: 'Treatment & Medication', label: 'Preferred Medication' },
+            'health-conditions': { section: 'Medical History', label: 'Health Conditions' },
+            'health-conditions-2': { section: 'Medical History', label: 'Additional Health Conditions' },
+            'current-medication': { section: 'Medical History', label: 'Current Medications' },
+            'allergies': { section: 'Medical History', label: 'Allergies' },
+            'pancreatitis-history': { section: 'Medical History', label: 'Pancreatitis History' },
+            'men2-history': { section: 'Medical History', label: 'MEN2/Thyroid Cancer History' },
+            'thyroid-issues': { section: 'Medical History', label: 'Thyroid Issues' },
+            'pregnant-or-nursing': { section: 'Medical History', label: 'Pregnant or Nursing' },
+            'glp1-last-30': { section: 'GLP-1 History', label: 'GLP-1 Used in Last 30 Days' },
+            'glp1-last-30-medication-type': { section: 'GLP-1 History', label: 'GLP-1 Type' },
+            'glp1-last-30-medication-dose-mg': { section: 'GLP-1 History', label: 'GLP-1 Last Dose (mg)' },
+            'glp1-side-effects': { section: 'GLP-1 History', label: 'GLP-1 Side Effects' },
+            'height-ft': { section: 'Vitals', label: 'Height (ft)' },
+            'height-in': { section: 'Vitals', label: 'Height (in)' },
+            'current-weight-lbs': { section: 'Vitals', label: 'Current Weight (lbs)' },
+            'desired-weight-lbs': { section: 'Vitals', label: 'Desired Weight (lbs)' },
+            'exercise-frequency': { section: 'Personal Information', label: 'Exercise Frequency' },
+            'alcohol-use': { section: 'Personal Information', label: 'Alcohol Use' },
+            'state': { section: 'Personal Information', label: 'State' },
+            'gender': { section: 'Personal Information', label: 'Gender' },
+          };
+
+          for (const [key, mapping] of Object.entries(clinicalMappings)) {
+            const value = docJson[key];
+            if (value !== undefined && value !== null && String(value).trim()) {
+              if (!clinicalSections[mapping.section]) {
+                clinicalSections[mapping.section] = [];
+              }
+              clinicalSections[mapping.section].push({
+                question: mapping.label,
+                answer: String(value).trim(),
+              });
+            }
+          }
+
+          patientDocumentSections = Object.entries(clinicalSections)
+            .filter(([, questions]) => questions.length > 0)
+            .map(([section, questions]) => ({ section, questions }));
+        }
+      }
+    } catch (docErr) {
+      logger.warn('[PRESCRIPTION-QUEUE] Failed to extract clinical context from PatientDocument', {
+        patientId: invoice.patient.id,
+        error: docErr instanceof Error ? docErr.message : String(docErr),
+      });
+    }
+
+    // Merge: prefer PatientDocument sections (richer) over invoice metadata sections
+    if (patientDocumentSections.length > 0) {
+      intakeSections = patientDocumentSections;
+    }
+
     // CRITICAL: Get SOAP note for clinical documentation compliance
     const soapNote = await getPatientSoapNote(invoice.patient.id);
     let fullSoapNote = null;
@@ -264,6 +459,8 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         data: intakeData,
         sections: intakeSections,
       },
+      // Comprehensive clinical context for prescribing decisions
+      clinicalContext,
       // CRITICAL: SOAP note for clinical documentation
       soapNote: fullSoapNote
         ? {
@@ -286,7 +483,47 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         : null,
       hasSoapNote: fullSoapNote !== null,
       soapNoteStatus: fullSoapNote?.status || 'MISSING',
+      // Shipment schedule for multi-month plans
+      shipmentSchedule: null as any,
     };
+
+    // Fetch shipment schedule if this invoice has associated refills
+    try {
+      const refillEntries = await prisma.refillQueue.findMany({
+        where: {
+          invoiceId: invoice.id,
+          patientId: invoice.patient.id,
+        },
+        orderBy: { shipmentNumber: 'asc' },
+        select: {
+          id: true,
+          shipmentNumber: true,
+          totalShipments: true,
+          nextRefillDate: true,
+          status: true,
+          medicationName: true,
+          planName: true,
+        },
+      });
+
+      if (refillEntries.length > 0) {
+        response.shipmentSchedule = {
+          totalShipments: refillEntries[0].totalShipments,
+          planName: refillEntries[0].planName,
+          shipments: refillEntries.map((r) => ({
+            shipmentNumber: r.shipmentNumber,
+            date: r.nextRefillDate,
+            status: r.status,
+            medication: r.medicationName,
+          })),
+        };
+      }
+    } catch (schedErr) {
+      logger.warn('[PRESCRIPTION-QUEUE] Failed to fetch shipment schedule', {
+        invoiceId: invoice.id,
+        error: schedErr instanceof Error ? schedErr.message : String(schedErr),
+      });
+    }
 
     return NextResponse.json(response);
   } catch (error: unknown) {

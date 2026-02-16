@@ -238,7 +238,13 @@ function validateTokenClaims(payload: JWTPayload): string | null {
 
 /**
  * Extract authentication token from request
- * Checks multiple sources in priority order
+ * Checks multiple sources in priority order.
+ *
+ * IMPORTANT: Cookie order is route-aware to prevent cross-portal token
+ * collisions. Affiliate cookies are only prioritised on affiliate routes;
+ * otherwise `auth-token` and role-specific cookies come first so that a
+ * stale `affiliate_session` cookie cannot shadow the admin/provider token
+ * and cause 403s on non-affiliate endpoints.
  */
 function extractToken(req: NextRequest): string | null {
   // Priority 1: Authorization header (most secure)
@@ -247,19 +253,37 @@ function extractToken(req: NextRequest): string | null {
     return authHeader.slice(7).trim();
   }
 
-  // Priority 2: HTTP-only cookies (secure for browser clients)
-  // Note: Order matters! More specific cookies should be checked first
-  const cookieTokenNames = [
-    'affiliate_session', // Affiliate portal - check first for affiliate routes
-    'affiliate-token',
-    'auth-token',
-    'super_admin-token',
-    'admin-token',
-    'provider-token',
-    'patient-token',
-    'staff-token',
-    'support-token',
-  ];
+  // Priority 2: HTTP-only cookies — order depends on the route being accessed
+  const pathname = new URL(req.url).pathname;
+  const isAffiliateRoute =
+    pathname.startsWith('/api/affiliate') || pathname.startsWith('/affiliate');
+
+  const cookieTokenNames = isAffiliateRoute
+    ? [
+        // Affiliate routes: prefer affiliate-specific cookies
+        'affiliate_session',
+        'affiliate-token',
+        'auth-token',
+        'super_admin-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'staff-token',
+        'support-token',
+      ]
+    : [
+        // All other routes: prefer general auth / role-specific cookies
+        'auth-token',
+        'super_admin-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'staff-token',
+        'support-token',
+        // Affiliate cookies last — only used as fallback for non-affiliate routes
+        'affiliate_session',
+        'affiliate-token',
+      ];
 
   for (const cookieName of cookieTokenNames) {
     const token = req.cookies.get(cookieName)?.value;
@@ -934,20 +958,35 @@ export async function verifyAuth(req: NextRequest): Promise<{
     token = authHeader.slice(7).trim();
   }
 
-  // Check cookies as fallback
-  // Note: Order matters! More specific cookies should be checked first
+  // Check cookies as fallback — route-aware ordering (see extractToken)
   if (!token) {
-    const cookieTokenNames = [
-      'affiliate_session', // Affiliate portal - check first for affiliate routes
-      'affiliate-token',
-      'auth-token',
-      'super_admin-token',
-      'admin-token',
-      'provider-token',
-      'patient-token',
-      'staff-token',
-      'support-token',
-    ];
+    const pathname = new URL(req.url).pathname;
+    const isAffiliateRoute =
+      pathname.startsWith('/api/affiliate') || pathname.startsWith('/affiliate');
+
+    const cookieTokenNames = isAffiliateRoute
+      ? [
+          'affiliate_session',
+          'affiliate-token',
+          'auth-token',
+          'super_admin-token',
+          'admin-token',
+          'provider-token',
+          'patient-token',
+          'staff-token',
+          'support-token',
+        ]
+      : [
+          'auth-token',
+          'super_admin-token',
+          'admin-token',
+          'provider-token',
+          'patient-token',
+          'staff-token',
+          'support-token',
+          'affiliate_session',
+          'affiliate-token',
+        ];
 
     for (const cookieName of cookieTokenNames) {
       const cookieToken = req.cookies.get(cookieName)?.value;

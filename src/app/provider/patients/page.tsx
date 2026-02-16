@@ -354,6 +354,7 @@ export default function ProviderPatientsPage() {
               totalFound={searchQuery ? meta.total : undefined}
               recentSearches={recent}
               onRecentSelect={handleRecentSelect}
+              onClear={() => setSearchQuery('')}
             />
           </div>
           <select
@@ -420,14 +421,27 @@ export default function ProviderPatientsPage() {
                   ? 'Try searching by email, phone number, or patient ID. You can also clear the search to see all patients.'
                   : 'Add your first patient to get started.'}
               </p>
-              <button
-                onClick={() => {
-                  setShowAddModal(true);
-                }}
-                className="mt-6 rounded-lg bg-green-600 px-5 py-2.5 text-white hover:bg-green-700"
-              >
-                {searchQuery ? 'Add New Patient' : 'Add Your First Patient'}
-              </button>
+              <div className="mt-6 flex items-center justify-center gap-3">
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSearchQuery('');
+                    }}
+                    className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-gray-700 hover:bg-gray-50"
+                  >
+                    Clear Search
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowAddModal(true);
+                  }}
+                  className="rounded-lg bg-green-600 px-5 py-2.5 text-white hover:bg-green-700"
+                >
+                  {searchQuery ? 'Add New Patient' : 'Add Your First Patient'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
