@@ -51,6 +51,22 @@ interface EarningsData {
 type TabType = 'commissions' | 'payouts';
 type FilterType = 'all' | 'pending' | 'approved' | 'paid';
 
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const csvContent = [
+    headers.join(','),
+    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+  ].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 const formatCurrency = (cents: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -128,6 +144,32 @@ export default function EarningsPage() {
     return c.status === filter;
   });
 
+  const exportCommissions = () => {
+    const headers = ['Date', 'Amount', 'Order Amount', 'Status', 'Ref Code', 'Hold Until'];
+    const rows = filteredCommissions.map((c) => [
+      formatDate(c.createdAt),
+      (c.amount / 100).toFixed(2),
+      (c.orderAmount / 100).toFixed(2),
+      c.status,
+      c.refCode,
+      c.holdUntil ? formatDate(c.holdUntil) : '',
+    ]);
+    downloadCsv(`commissions-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+  };
+
+  const exportPayouts = () => {
+    const headers = ['Date', 'Amount', 'Fee', 'Net Amount', 'Status', 'Method'];
+    const rows = displayData.payouts.map((p) => [
+      formatDate(p.createdAt),
+      (p.amount / 100).toFixed(2),
+      (p.fee / 100).toFixed(2),
+      (p.netAmount / 100).toFixed(2),
+      p.status,
+      p.method,
+    ]);
+    downloadCsv(`payouts-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -140,8 +182,22 @@ export default function EarningsPage() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto flex max-w-3xl items-center justify-between">
           <h1 className="text-xl font-semibold text-gray-900">Earnings</h1>
+          <button
+            onClick={activeTab === 'commissions' ? exportCommissions : exportPayouts}
+            disabled={
+              activeTab === 'commissions'
+                ? filteredCommissions.length === 0
+                : displayData.payouts.length === 0
+            }
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </button>
         </div>
       </header>
 

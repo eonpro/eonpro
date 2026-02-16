@@ -15,6 +15,9 @@ import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { formatMetricValue } from '@/services/affiliate/leaderboardService';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 type CompetitionMetric = 'CLICKS' | 'CONVERSIONS' | 'REVENUE' | 'CONVERSION_RATE' | 'NEW_CUSTOMERS';
 
 export const GET = withAffiliateAuth(

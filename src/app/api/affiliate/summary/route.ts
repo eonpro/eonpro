@@ -16,6 +16,9 @@ import { logger } from '@/lib/logger';
 import { ACTIVE_COMMISSION_STATUSES } from '@/services/affiliate/reportingConstants';
 import { notFound, forbidden, serverError } from '@/lib/api/error-response';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {

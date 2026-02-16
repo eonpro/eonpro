@@ -10,6 +10,9 @@ import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface CommissionEvent {
   id: string;
   date: string;

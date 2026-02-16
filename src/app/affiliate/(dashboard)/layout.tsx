@@ -131,6 +131,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
   const [branding, setBranding] = useState<AffiliateBranding | null>(null);
+  const [refLink, setRefLink] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,8 +193,20 @@ export default function AffiliateDashboardLayout({ children }: { children: React
       }
 
       // Strategy B: authenticated affiliate branding endpoint (richer data)
+      // Pass the Bearer token explicitly from localStorage -- the original portal
+      // did this and it worked. The cookie-only approach fails because apiFetch
+      // skips the Authorization header for same-origin requests, and the clinic
+      // middleware skips /api/affiliate routes (PUBLIC_ROUTES), so x-clinic-id
+      // is never set and the tenant-scoped Prisma query returns null.
       try {
+        const token =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('auth-token') ||
+              localStorage.getItem('affiliate-token') ||
+              localStorage.getItem('access_token')
+            : null;
         const brandingRes = await apiFetch('/api/affiliate/branding', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           credentials: 'include',
         });
         if (brandingRes.ok && !cancelled) {
@@ -203,6 +217,22 @@ export default function AffiliateDashboardLayout({ children }: { children: React
         }
       } catch (err) {
         console.warn('[Affiliate Layout] /api/affiliate/branding error:', err);
+      }
+
+      // 3. Fetch default ref code for quick-copy link in sidebar
+      try {
+        const refRes = await apiFetch('/api/affiliate/ref-codes', { credentials: 'include' });
+        if (refRes.ok && !cancelled) {
+          const refData = await refRes.json();
+          const defaultCode =
+            refData.refCodes?.find((c: { isDefault: boolean }) => c.isDefault) ||
+            refData.refCodes?.[0];
+          if (defaultCode && refData.baseUrl) {
+            setRefLink(`${refData.baseUrl}/affiliate/${defaultCode.code}`);
+          }
+        }
+      } catch {
+        // Non-critical -- sidebar link just won't show
       }
 
       // Apply whichever branding we have
@@ -267,6 +297,24 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   const primaryColor = branding?.primaryColor || '#111827';
   const portalName = branding?.clinicName ? `${branding.clinicName} Partners` : 'Partner Portal';
 
+  const copyRefLink = async () => {
+    if (!refLink) return;
+    try {
+      await navigator.clipboard.writeText(refLink);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = refLink;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    }
+  };
+
   return (
     <BrandingProvider branding={branding}>
       <div
@@ -304,6 +352,29 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               );
             })}
           </nav>
+
+          {/* Quick-copy referral link */}
+          {refLink && (
+            <div className="border-t border-gray-100 px-4 py-3">
+              <button
+                onClick={copyRefLink}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors"
+                style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+              >
+                {copiedLink ? (
+                  <svg className="h-5 w-5 flex-shrink-0 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                )}
+                <span className="truncate">{copiedLink ? 'Copied!' : 'Copy Referral Link'}</span>
+              </button>
+            </div>
+          )}
+
           <div className="border-t border-gray-100 p-4">
             <a
               href="/affiliate/help"

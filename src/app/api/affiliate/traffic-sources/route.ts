@@ -17,6 +17,9 @@ import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface TrafficSource {
   source: string;
   clicks: number;

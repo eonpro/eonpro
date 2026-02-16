@@ -14,6 +14,9 @@ import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { standardRateLimiter } from '@/lib/security/rate-limiter-redis';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const MIN_WITHDRAWAL_CENTS = 5000; // $50 minimum
 
 const withdrawSchema = z.object({

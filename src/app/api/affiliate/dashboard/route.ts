@@ -13,6 +13,9 @@ import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
     const affiliateId = user.affiliateId;

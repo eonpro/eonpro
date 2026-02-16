@@ -12,6 +12,9 @@ import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const accountPatchSchema = z.object({
   emailNotifications: z.boolean().optional(),
   smsNotifications: z.boolean().optional(),

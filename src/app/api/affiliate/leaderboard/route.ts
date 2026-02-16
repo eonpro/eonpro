@@ -20,6 +20,9 @@ import {
   type LeaderboardEntry,
 } from '@/services/affiliate/leaderboardService';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 type LeaderboardMetric = 'CLICKS' | 'CONVERSIONS' | 'REVENUE' | 'CONVERSION_RATE' | 'NEW_CUSTOMERS';
 type LeaderboardPeriod = 'week' | 'month' | 'all_time';
 
