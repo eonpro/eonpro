@@ -541,13 +541,15 @@ export function withAuth<T = unknown>(
       }
 
       // Determine clinic context for multi-tenant queries
-      // Super admins should NOT have clinic context so they can access all data
+      // For non-super-admin: start with JWT clinicId
+      // For super_admin: start undefined, but allow subdomain/header override below
       let effectiveClinicId =
         user.clinicId && user.role !== 'super_admin' ? user.clinicId : undefined;
 
       // Fallback: if JWT has no clinicId, use the x-clinic-id header set by the edge
       // clinic middleware. This ensures clinic context is always available even when
       // the JWT was minted without clinicId (avoids "No clinic associated" 403s).
+      // NOTE: super_admin gets clinic context from subdomain override below instead.
       if (effectiveClinicId == null && user.role !== 'super_admin') {
         const headerClinicId = req.headers.get('x-clinic-id');
         if (headerClinicId) {
@@ -564,11 +566,12 @@ export function withAuth<T = unknown>(
       }
 
       // When on a clinic subdomain (e.g. ot.eonpro.io), use that clinic if the user has access
-      // so that "changes" and data shown are for the subdomain's clinic, not the JWT's original clinic
+      // so that data shown is scoped to the subdomain's clinic.
+      // Super admins also get subdomain clinic context — tenant isolation requires it
+      // and they have implicit access to all clinics.
       const subdomain = req.headers.get('x-clinic-subdomain');
       if (
         subdomain &&
-        user.role !== 'super_admin' &&
         !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
       ) {
         try {
@@ -587,7 +590,9 @@ export function withAuth<T = unknown>(
             }
           }
           if (subdomainClinicId != null && subdomainClinicId !== effectiveClinicId) {
+            // Super admin has implicit access to all clinics
             const hasAccess =
+              user.role === 'super_admin' ||
               user.clinicId === subdomainClinicId ||
               (await userHasAccessToClinic(user, subdomainClinicId));
             if (hasAccess) {

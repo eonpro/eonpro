@@ -123,69 +123,95 @@ export function rateLimit(config: RateLimitConfig = {}) {
 
   return function rateLimitMiddleware(handler: (req: NextRequest) => Promise<Response>) {
     return async (req: NextRequest) => {
-      const key = keyGenerator(req);
-      const now = Date.now();
+      try {
+        const key = keyGenerator(req);
+        const now = Date.now();
 
-      // Get current rate limit entry (from Redis or local cache)
-      let entry = await getRateLimitEntry(key, tier);
+        // Get current rate limit entry (from Redis or local cache)
+        let entry = await getRateLimitEntry(key, tier);
 
-      // Initialize or reset if window expired
-      if (!entry || now > entry.resetTime) {
-        entry = {
-          count: 0,
-          resetTime: now + windowMs,
-        };
-      }
+        // Initialize or reset if window expired
+        if (!entry || now > entry.resetTime) {
+          entry = {
+            count: 0,
+            resetTime: now + windowMs,
+          };
+        }
 
-      // Check if limit exceeded
-      if (entry.count >= max) {
-        const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+        // Check if limit exceeded
+        if (entry.count >= max) {
+          const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
 
-        logger.warn('Rate limit exceeded', {
-          key,
-          count: entry.count,
-          max,
-          retryAfter,
+          logger.warn('Rate limit exceeded', {
+            key,
+            count: entry.count,
+            max,
+            retryAfter,
+          });
+
+          return NextResponse.json(
+            { error: message },
+            {
+              status: 429,
+              headers: {
+                'X-RateLimit-Limit': max.toString(),
+                'X-RateLimit-Remaining': '0',
+                'X-RateLimit-Reset': new Date(entry.resetTime).toISOString(),
+                'Retry-After': retryAfter.toString(),
+              },
+            }
+          );
+        }
+
+        // Increment counter before processing
+        entry.count++;
+        await setRateLimitEntry(key, entry, tier, ttlSeconds);
+
+        // Process request
+        const response = await handler(req);
+
+        // Optionally skip counting based on response
+        if (
+          (skipSuccessfulRequests && response.status < 400) ||
+          (skipFailedRequests && response.status >= 400)
+        ) {
+          entry.count--;
+          await setRateLimitEntry(key, entry, tier, ttlSeconds);
+        }
+
+        // Add rate limit headers to response.
+        // Clone the response to safely append headers without disturbing the body stream.
+        // Using `new Response(response.body, response)` can fail when the body has already
+        // been transferred through another Response wrapper (e.g. addSecurityHeaders in auth
+        // middleware), leaving the stream locked/disturbed.
+        const remaining = Math.max(0, max - entry.count);
+        const clonedHeaders = new Headers(response.headers);
+        clonedHeaders.set('X-RateLimit-Limit', max.toString());
+        clonedHeaders.set('X-RateLimit-Remaining', remaining.toString());
+        clonedHeaders.set('X-RateLimit-Reset', new Date(entry.resetTime).toISOString());
+
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: clonedHeaders,
+        });
+      } catch (error) {
+        // Rate limiter should never cause a route to fail — log and passthrough
+        logger.error('[RateLimit] Unhandled error in rate limit middleware', {
+          error: error instanceof Error ? error.message : String(error),
         });
 
-        return NextResponse.json(
-          { error: message },
-          {
-            status: 429,
-            headers: {
-              'X-RateLimit-Limit': max.toString(),
-              'X-RateLimit-Remaining': '0',
-              'X-RateLimit-Reset': new Date(entry.resetTime).toISOString(),
-              'Retry-After': retryAfter.toString(),
-            },
-          }
-        );
+        // Attempt to call handler without rate limiting as fallback
+        try {
+          return await handler(req);
+        } catch (innerError) {
+          // Handler itself failed — return a generic 500
+          return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+          );
+        }
       }
-
-      // Increment counter before processing
-      entry.count++;
-      await setRateLimitEntry(key, entry, tier, ttlSeconds);
-
-      // Process request
-      const response = await handler(req);
-
-      // Optionally skip counting based on response
-      if (
-        (skipSuccessfulRequests && response.status < 400) ||
-        (skipFailedRequests && response.status >= 400)
-      ) {
-        entry.count--;
-        await setRateLimitEntry(key, entry, tier, ttlSeconds);
-      }
-
-      // Add rate limit headers to response
-      const remaining = Math.max(0, max - entry.count);
-      const modifiedResponse = new Response(response.body, response);
-      modifiedResponse.headers.set('X-RateLimit-Limit', max.toString());
-      modifiedResponse.headers.set('X-RateLimit-Remaining', remaining.toString());
-      modifiedResponse.headers.set('X-RateLimit-Reset', new Date(entry.resetTime).toISOString());
-
-      return modifiedResponse;
     };
   };
 }

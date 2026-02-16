@@ -34,10 +34,10 @@ async function getUnreadCountHandler(req: NextRequest, user: AuthUser): Promise<
   try {
     const clinicId = getClinicContext();
     if (clinicId == null) {
-      return NextResponse.json(
-        { error: 'Clinic context required for notifications count' },
-        { status: 400 }
-      );
+      // Super admins have no clinic context by design — return 0 instead of 400
+      const res = NextResponse.json({ count: 0 });
+      res.headers.set('Cache-Control', 'private, max-age=60');
+      return res;
     }
     const cacheKey = tenantCacheKey(clinicId, 'notifications', 'count', user.id);
 
