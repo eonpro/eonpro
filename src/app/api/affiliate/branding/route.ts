@@ -14,6 +14,9 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {

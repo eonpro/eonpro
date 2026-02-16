@@ -71,38 +71,44 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
   const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuthAndLoadBranding = async () => {
       const user = localStorage.getItem('user');
       const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
 
       if (!user || !token) {
-        router.push('/login?redirect=/portal/affiliate&reason=no_session');
+        window.location.href = '/login?redirect=/portal/affiliate&reason=no_session';
         return;
       }
 
+      let data: any;
       try {
-        const data = JSON.parse(user);
+        data = JSON.parse(user);
+      } catch {
+        window.location.href = '/login?redirect=/portal/affiliate&reason=invalid_session';
+        return;
+      }
 
-        // Verify user has affiliate role
-        if (data.role?.toLowerCase() !== 'affiliate') {
-          router.push('/login?redirect=/portal/affiliate&reason=invalid_role');
-          return;
-        }
+      if (data.role?.toLowerCase() !== 'affiliate') {
+        window.location.href = '/login?redirect=/portal/affiliate&reason=invalid_role';
+        return;
+      }
 
-        setUserData(data);
+      if (cancelled) return;
+      setUserData(data);
 
-        // Fetch branding
-        const response = await apiFetch('/api/affiliate/branding', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+      // Fetch branding (non-blocking -- portal works without it)
+      try {
+        const response = await fetch('/api/affiliate/branding', {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         });
 
-        if (response.ok) {
+        if (response.ok && !cancelled) {
           const brandingData = await response.json();
           setBranding(brandingData);
 
-          // Apply branding to document
           if (brandingData.customCss) {
             let styleEl = document.getElementById('affiliate-custom-css');
             if (!styleEl) {
@@ -113,27 +119,21 @@ export default function AffiliatePortalLayout({ children }: { children: React.Re
             styleEl.textContent = brandingData.customCss;
           }
 
-          // Update favicon
           if (brandingData.faviconUrl) {
             const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
-            if (favicon) {
-              favicon.href = brandingData.faviconUrl;
-            }
+            if (favicon) favicon.href = brandingData.faviconUrl;
           }
         }
-      } catch (e) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('auth-token');
-        localStorage.removeItem('affiliate-token');
-        router.push('/login?redirect=/portal/affiliate&reason=invalid_session');
-        return;
+      } catch {
+        // Branding fetch failed -- continue with defaults
       }
 
-      setIsLoading(false);
+      if (!cancelled) setIsLoading(false);
     };
 
     checkAuthAndLoadBranding();
-  }, [router]);
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setMobileMenuOpen(false);

@@ -14,6 +14,9 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Small number threshold for HIPAA compliance
 const SMALL_NUMBER_THRESHOLD = 5;
 
