@@ -130,201 +130,199 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // IMPORTANT: Exclude patients with PENDING_COMPLETION profileStatus.
     // These are auto-created from Stripe payments and need admin profile completion
     // before they can be prescribed. They are visible in /api/finance/pending-profiles.
-    const [invoices, invoiceCount, refills, refillCount, queuedOrders, queuedOrderCount] =
-      await Promise.all([
-        prisma.invoice.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'PAID',
-            prescriptionProcessed: false,
-            // Only show invoices for patients with complete profiles
-            patient: {
-              profileStatus: { not: 'PENDING_COMPLETION' },
+    // Phase 1: Load data (3 queries in parallel — lighter than 6)
+    const [invoices, refills, queuedOrders] = await Promise.all([
+      prisma.invoice.findMany({
+        where: {
+          clinicId: { in: clinicIds },
+          status: 'PAID',
+          prescriptionProcessed: false,
+          patient: {
+            profileStatus: { not: 'PENDING_COMPLETION' },
+          },
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
             },
           },
-          include: {
-            // CRITICAL: Include clinic for prescription context (Lifefile API, PDF branding)
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true, // Patient's clinic for validation
-                intakeSubmissions: {
-                  where: { status: 'completed' },
-                  orderBy: { completedAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    completedAt: true,
-                  },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              intakeSubmissions: {
+                where: { status: 'completed' },
+                orderBy: { completedAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  completedAt: true,
                 },
-                // CRITICAL: Include SOAP notes for clinical documentation compliance
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
-                },
-                // Documents loaded separately via patientDocsMap (removed from include to reduce query weight)
               },
-            },
-          },
-          orderBy: {
-            paidAt: 'asc', // Oldest paid first (FIFO queue)
-          },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.invoice.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'PAID',
-            prescriptionProcessed: false,
-            patient: {
-              profileStatus: { not: 'PENDING_COMPLETION' },
-            },
-          },
-        }),
-        // Query approved refills from RefillQueue (all provider's clinics)
-        prisma.refillQueue.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
-          },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                intakeSubmissions: {
-                  where: { status: 'completed' },
-                  orderBy: { completedAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    completedAt: true,
-                  },
-                },
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
-                },
-                // Documents loaded separately via patientDocsMap (removed from include to reduce query weight)
-              },
-            },
-            subscription: {
-              select: {
-                id: true,
-                planName: true,
-                status: true,
-              },
-            },
-          },
-          orderBy: {
-            providerQueuedAt: 'asc', // Oldest queued first (FIFO)
-          },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.refillQueue.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
-          },
-        }),
-        prisma.order.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'queued_for_provider',
-          },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
                 },
               },
             },
-            provider: { select: { id: true, firstName: true, lastName: true, email: true } },
-            rxs: true,
           },
-          orderBy: { queuedForProviderAt: 'asc' },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.order.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'queued_for_provider',
+        },
+        orderBy: {
+          paidAt: 'asc',
+        },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.refillQueue.findMany({
+        where: {
+          clinicId: { in: clinicIds },
+          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
+            },
           },
-        }),
-      ]);
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              intakeSubmissions: {
+                where: { status: 'completed' },
+                orderBy: { completedAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  completedAt: true,
+                },
+              },
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
+                },
+              },
+            },
+          },
+          subscription: {
+            select: {
+              id: true,
+              planName: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          providerQueuedAt: 'asc',
+        },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.order.findMany({
+        where: {
+          clinicId: { in: clinicIds },
+          status: 'queued_for_provider',
+        },
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
+            },
+          },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
+                },
+              },
+            },
+          },
+          provider: { select: { id: true, firstName: true, lastName: true, email: true } },
+          rxs: true,
+        },
+        orderBy: { queuedForProviderAt: 'asc' },
+        take: limit,
+        skip: offset,
+      }),
+    ]);
+
+    // Phase 2: Lightweight count queries (run after data queries to reduce connection pool pressure)
+    const [invoiceCount, refillCount, queuedOrderCount] = await Promise.all([
+      prisma.invoice.count({
+        where: {
+          clinicId: { in: clinicIds },
+          status: 'PAID',
+          prescriptionProcessed: false,
+          patient: {
+            profileStatus: { not: 'PENDING_COMPLETION' },
+          },
+        },
+      }),
+      prisma.refillQueue.count({
+        where: {
+          clinicId: { in: clinicIds },
+          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          clinicId: { in: clinicIds },
+          status: 'queued_for_provider',
+        },
+      }),
+    ]);
 
     const totalCount = invoiceCount + refillCount + queuedOrderCount;
 
@@ -510,40 +508,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
           const docJson = JSON.parse(rawData);
 
-          // Debug logging - show document structure and GLP-1 related fields
-          const answersPreview = docJson.answers
-            ?.slice?.(0, 3)
-            ?.map((a: Record<string, unknown>) => ({
-              id: a.id || a.field || a.question,
-              label: a.label,
-              value: a.value || a.answer,
-            }));
-          const sectionsPreview = docJson.sections?.map?.((s: Record<string, unknown>) => ({
-            name: s.name || s.title,
-            hasEntries: !!(s.entries || s.questions || s.fields),
-            entryCount:
-              ((s.entries || s.questions || s.fields) as unknown[] | undefined)?.length || 0,
-          }));
-          logger.info('[PRESCRIPTION-QUEUE] Parsing document data', {
-            patientName,
-            hasGlp1History: !!docJson.glp1History,
-            glp1History: docJson.glp1History,
-            hasAnswers: !!docJson.answers,
-            answersCount: docJson.answers?.length || 0,
-            answersPreview,
-            hasSections: !!docJson.sections,
-            sectionsCount: docJson.sections?.length || 0,
-            sectionsPreview,
-            docKeys: Object.keys(docJson).slice(0, 20),
-          });
-
           // FIRST: Check for exact Airtable field names at root level
           const exactMatch = checkExactAirtableFields(docJson);
           if (exactMatch) {
-            logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from exact Airtable fields', {
-              patientName,
-              glp1Info: exactMatch,
-            });
             return exactMatch;
           }
 
@@ -555,12 +522,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             const doseMg = history.doseMg;
 
             if (usedLast30 && (String(usedLast30).toLowerCase() === 'yes' || usedLast30 === true)) {
-              logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from glp1History structure', {
-                patientName,
-                usedLast30,
-                medType,
-                doseMg,
-              });
               return {
                 usedGlp1: true,
                 glp1Type: medType || null,
@@ -634,12 +595,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             }
 
             if (usedGlp1) {
-              logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from answers array', {
-                patientName,
-                usedGlp1,
-                glp1Type,
-                lastDose,
-              });
               return { usedGlp1, glp1Type, lastDose };
             }
           }
@@ -713,12 +668,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             }
 
             if (sectionUsedGlp1) {
-              logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from sections array', {
-                patientName,
-                usedGlp1: sectionUsedGlp1,
-                glp1Type: sectionGlp1Type,
-                lastDose: sectionLastDose,
-              });
               return {
                 usedGlp1: sectionUsedGlp1,
                 glp1Type: sectionGlp1Type,
@@ -726,12 +675,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
               };
             }
           }
-        } catch (e) {
+        } catch {
           // Document data not JSON or malformed, fall through to metadata check
-          logger.debug('[PRESCRIPTION-QUEUE] Document parse failed', {
-            patientName,
-            error: e instanceof Error ? e.message : 'Unknown',
-          });
         }
       }
 
@@ -741,10 +686,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // Check exact Airtable field names in metadata first
       const exactMetadataMatch = checkExactAirtableFields(metadata);
       if (exactMetadataMatch) {
-        logger.info('[PRESCRIPTION-QUEUE] Found GLP-1 from metadata exact fields', {
-          patientName,
-          glp1Info: exactMetadataMatch,
-        });
         return exactMetadataMatch;
       }
 
@@ -894,7 +835,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           patientId: invoice.patient.id,
           patientClinicId,
           patientDisplayId: invoice.patient.patientId,
-          patientEmail: invoice.patient.email, // For investigation
         });
         // We still return the item but flag it so UI can highlight the issue
       }
@@ -912,47 +852,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const intakeDoc = patientDocs[0] || null; // Most recent intake doc
       const documentData = intakeDoc?.data || null;
 
-      // Debug: Log document info
-      logger.info('[PRESCRIPTION-QUEUE] Patient document lookup', {
-        patientId: invoice.patient.id,
-        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-        docsFromRelation: invoice.patient.documents?.length || 0,
-        docsFromQuery: patientDocs.length,
-        hasIntakeDoc: !!intakeDoc,
-        hasData: !!documentData,
-        dataLength: documentData ? (documentData as Buffer).length : 0,
-      });
-
-      // DEBUG: Log metadata keys to understand what data we have
-      const metadataKeys = metadata ? Object.keys(metadata) : [];
-      const hasGlp1InMetadata = metadataKeys.some(
-        (k) => k.toLowerCase().includes('glp1') || k.toLowerCase().includes('glp-1')
-      );
-
-      logger.info('[PRESCRIPTION-QUEUE] GLP-1 data sources', {
-        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-        patientId: invoice.patient.id,
-        hasDocumentData: !!documentData,
-        documentDataLength: documentData ? (documentData as Buffer).length : 0,
-        hasMetadata: !!metadata,
-        metadataKeys: metadataKeys.slice(0, 20),
-        hasGlp1InMetadata,
-        // Check for specific Airtable fields in metadata
-        'glp1-last-30': metadata?.['glp1-last-30'],
-        glp1_last_30: metadata?.['glp1_last_30'],
-      });
-
       const glp1Info = extractGlp1Info(
         metadata,
         documentData,
         `${invoice.patient.firstName} ${invoice.patient.lastName}`
       );
-
-      // DEBUG: Log extraction result
-      logger.info('[PRESCRIPTION-QUEUE] GLP-1 extraction result', {
-        patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-        glp1Info,
-      });
 
       if (metadata) {
         treatment = (metadata.product as string) || treatment;
@@ -1000,12 +904,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const docMed = extractMedicationFromDocument(documentData);
         if (docMed) {
           derivedMedFromDoc = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
-          logger.info('[PRESCRIPTION-QUEUE] Derived medication from intake (plan-only invoice)', {
-            patientId: invoice.patient.id,
-            patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-            originalProduct: cleanTreatment,
-            derivedMedication: derivedMedFromDoc,
-          });
         }
       }
 
@@ -1048,11 +946,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const medName =
           glp1Info.glp1Type.charAt(0).toUpperCase() + glp1Info.glp1Type.slice(1).toLowerCase();
         treatmentDisplay = `${medName} ${cleanTreatment}`;
-        logger.info('[PRESCRIPTION-QUEUE] Used glp1Type from intake for display', {
-          patientId: invoice.patient.id,
-          glp1Type: glp1Info.glp1Type,
-          originalProduct: cleanTreatment,
-        });
       }
       // Fallback: when Airtable sends plan-only (e.g. "1mo Injections") and no med from intake,
       // show "Semaglutide or Tirzepatide - 1mo Injections" so provider knows to verify (WellMedR is GLP-1 clinic)
@@ -1063,10 +956,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         (metadata?.source as string) === 'wellmedr-airtable'
       ) {
         treatmentDisplay = `Semaglutide or Tirzepatide - ${cleanTreatment}`;
-        logger.info('[PRESCRIPTION-QUEUE] Applied GLP-1 fallback (plan-only, no intake med)', {
-          patientId: invoice.patient.id,
-          originalProduct: cleanTreatment,
-        });
       }
 
       // Get intake completion date if available
@@ -1347,6 +1236,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return dateA - dateB;
     });
 
+    logger.info('[PRESCRIPTION-QUEUE] Queue loaded successfully', {
+      userId: user.id,
+      invoiceCount,
+      refillCount,
+      queuedOrderCount,
+      totalItems: queueItems.length,
+    });
+
     return NextResponse.json({
       items: queueItems,
       total: totalCount,
@@ -1359,12 +1256,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
+    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : undefined;
     logger.error('[PRESCRIPTION-QUEUE] Error fetching queue', {
       error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { stack: errorStack }),
+      errorType: errorName,
+      stack: errorStack,
       userId: user.id,
       providerId: user.providerId,
+      clinicId: user.clinicId,
     });
     return NextResponse.json(
       { error: 'Failed to fetch prescription queue', details: errorMessage },
