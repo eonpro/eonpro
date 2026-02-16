@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { AdminDashboardSkeleton } from '@/components/dashboards/AdminDashboardSkeleton';
+import { USMapChart } from '@/components/dashboards/USMapChart';
 
 // Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
 const isEncryptedData = (value: string | null | undefined): boolean => {
@@ -73,6 +74,11 @@ export default function AdminPage() {
   const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [geoData, setGeoData] = useState<{
+    stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
+    clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
+  } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(true);
 
   // Hydration-safe: set currentTime only on client
   useEffect(() => {
@@ -127,6 +133,26 @@ export default function AdminPage() {
         if ((e as { isAuthError?: boolean }).isAuthError) return;
         setError('Failed to connect');
         setStats(defaultStats());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch geographic data for the map
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/admin/dashboard/geo');
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setGeoData(data);
+        }
+      } catch {
+        // Non-critical - map just won't show data
+      } finally {
+        if (!cancelled) setGeoLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -334,6 +360,15 @@ export default function AdminPage() {
             <p className="text-sm text-gray-500">Revenue (24h)</p>
           </div>
         </div>
+      </div>
+
+      {/* US Map - Client Distribution */}
+      <div className="mb-8">
+        <USMapChart
+          stateData={geoData?.stateData ?? {}}
+          clinics={geoData?.clinics ?? []}
+          isLoading={geoLoading}
+        />
       </div>
 
       {/* Patient Intakes Card */}
