@@ -20,10 +20,11 @@ import {
   setClinicBySubdomainCache,
 } from '@/lib/cache/request-scoped';
 import { handleApiError } from '@/domains/shared/errors';
+import cache from '@/lib/cache/redis';
 
-// Track last activity update to avoid too frequent DB writes
-const lastActivityUpdates = new Map<number, number>();
-const ACTIVITY_UPDATE_INTERVAL_MS = 60000; // Update at most once per minute per user
+// Throttle session activity updates to once per 60s per user via Redis
+// In-memory map is unreliable in serverless (each cold start resets it)
+const ACTIVITY_UPDATE_INTERVAL_S = 60; // seconds
 
 // ============================================================================
 // Types & Interfaces
@@ -83,43 +84,39 @@ interface TokenValidationResult {
  * This is fire-and-forget to not block the request
  */
 async function updateSessionActivity(userId: number, ipAddress: string): Promise<void> {
-  // Check if we've recently updated this user (throttle to avoid DB spam)
-  const lastUpdate = lastActivityUpdates.get(userId);
-  const now = Date.now();
+  // Use Redis SET NX to throttle: only one invocation per user per interval
+  // This works correctly in serverless where in-memory maps reset on cold starts
+  const throttleKey = `session_activity:${userId}`;
 
-  if (lastUpdate && now - lastUpdate < ACTIVITY_UPDATE_INTERVAL_MS) {
-    return; // Skip update, too recent
-  }
-
-  // Update the timestamp in memory immediately
-  lastActivityUpdates.set(userId, now);
-
-  // Cleanup old entries periodically (prevent memory leak)
-  if (lastActivityUpdates.size > 1000) {
-    const cutoff = now - ACTIVITY_UPDATE_INTERVAL_MS * 2;
-    for (const [uid, timestamp] of lastActivityUpdates) {
-      if (timestamp < cutoff) {
-        lastActivityUpdates.delete(uid);
-      }
-    }
-  }
-
-  // Update the database asynchronously
   try {
-    // Update the most recent active session for this user
-    await prisma.userSession.updateMany({
-      where: {
-        userId,
-        expiresAt: { gt: new Date() },
-      },
-      data: {
-        lastActivity: new Date(),
-        ipAddress: ipAddress || undefined,
-      },
+    // Check if Redis has a recent throttle marker for this user
+    const alreadyUpdated = await cache.exists(throttleKey, { namespace: 'throttle' });
+    if (alreadyUpdated) {
+      return; // Another invocation already updated recently
+    }
+
+    // Set throttle marker immediately (with TTL so it auto-expires)
+    await cache.set(throttleKey, Date.now(), {
+      ttl: ACTIVITY_UPDATE_INTERVAL_S,
+      namespace: 'throttle',
     });
+  } catch {
+    // Redis unavailable — fall through and update DB anyway (better than silent stale data)
+  }
+
+  // Update the database with a short timeout to prevent lock cascading
+  try {
+    await prisma.$executeRaw`
+      UPDATE "UserSession"
+      SET "lastActivity" = NOW(),
+          "ipAddress" = COALESCE(${ipAddress || null}, "ipAddress")
+      WHERE "userId" = ${userId}
+        AND "expiresAt" > NOW()
+        AND ("lastActivity" IS NULL OR "lastActivity" < NOW() - INTERVAL '30 seconds')
+    `;
   } catch (error) {
-    // Log but don't throw - this is non-critical
-    logger.debug('Failed to update session activity', { userId, error });
+    // Non-critical — log and move on
+    logger.debug('Failed to update session activity', { userId });
   }
 }
 

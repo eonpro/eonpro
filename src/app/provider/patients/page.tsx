@@ -65,9 +65,16 @@ export default function ProviderPatientsPage() {
   });
 
   // Open add modal when ?create=1 (e.g. from quick search "Create patient")
+  // Initialize search from ?search= URL param (e.g. from dashboard search)
   useEffect(() => {
     if (searchParams.get('create') === '1') {
       setShowAddModal(true);
+      router.replace('/provider/patients', { scroll: false });
+    }
+    const urlSearch = searchParams.get('search');
+    if (urlSearch) {
+      setSearchTerm(urlSearch);
+      setSearchQuery(urlSearch);
       router.replace('/provider/patients', { scroll: false });
     }
   }, [searchParams, router]);

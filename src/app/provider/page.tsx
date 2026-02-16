@@ -1,17 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   Users,
   Calendar,
   Clock,
   FileText,
-  TestTube,
   Pill,
-  MessageSquare,
-  AlertCircle,
+  Search,
+  Loader2,
+  X,
 } from 'lucide-react';
 import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashboardSkeleton';
 import { apiFetch } from '@/lib/api/fetch';
@@ -49,6 +48,12 @@ export default function ProviderDashboard() {
   });
   const [recentPatients, setRecentPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTotal, setSearchTotal] = useState<number | undefined>(undefined);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -122,6 +127,69 @@ export default function ProviderDashboard() {
     }
   };
 
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchTerm(value);
+
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+      if (!value.trim()) {
+        setSearchResults([]);
+        setSearchTotal(undefined);
+        setIsSearching(false);
+        if (searchAbortRef.current) searchAbortRef.current.abort();
+        return;
+      }
+
+      setIsSearching(true);
+      searchDebounceRef.current = setTimeout(async () => {
+        if (searchAbortRef.current) searchAbortRef.current.abort();
+        searchAbortRef.current = new AbortController();
+
+        try {
+          const params = new URLSearchParams({
+            search: value.trim(),
+            limit: '8',
+            includeContact: 'true',
+          });
+          const response = await apiFetch(`/api/patients?${params.toString()}`, {
+            signal: searchAbortRef.current.signal,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults(data.patients || []);
+            setSearchTotal(data.meta?.total ?? data.patients?.length ?? 0);
+          }
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') return;
+        } finally {
+          setIsSearching(false);
+        }
+      }, 200);
+    },
+    []
+  );
+
+  const handleSearchClear = useCallback(() => {
+    setSearchTerm('');
+    setSearchResults([]);
+    setSearchTotal(undefined);
+    setIsSearching(false);
+    if (searchAbortRef.current) searchAbortRef.current.abort();
+  }, []);
+
+  const navigateToPatient = (patientId: number) => {
+    window.location.href = `/provider/patients/${patientId}`;
+  };
+
+  const navigateToPatients = (search?: string) => {
+    const url = search
+      ? `/provider/patients?search=${encodeURIComponent(search)}`
+      : '/provider/patients';
+    window.location.href = url;
+  };
+
   if (loading) {
     return <ProviderDashboardSkeleton />;
   }
@@ -142,11 +210,96 @@ export default function ProviderDashboard() {
         </p>
       </div>
 
+      {/* Intake Search */}
+      <div className="relative mb-8">
+        <div className="relative">
+          {isSearching ? (
+            <Loader2 className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-[#4fa77e]" />
+          ) : (
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          )}
+          <input
+            type="text"
+            placeholder="Search intakes by name, email, phone, or patient ID…"
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') handleSearchClear();
+              if (e.key === 'Enter' && searchTerm.trim()) {
+                navigateToPatients(searchTerm.trim());
+              }
+            }}
+            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-12 pr-12 text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            autoComplete="off"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={handleSearchClear}
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Search Results Dropdown */}
+        {searchTerm.trim() && (
+          <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg">
+            {isSearching ? (
+              <div className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Searching intakes…
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-gray-500">
+                No intakes found for &quot;{searchTerm}&quot;
+              </div>
+            ) : (
+              <>
+                <div className="max-h-80 overflow-y-auto">
+                  {searchResults.map((patient) => (
+                    <button
+                      key={patient.id}
+                      onClick={() => navigateToPatient(patient.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                    >
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#4fa77e]/10">
+                        <span className="text-sm font-medium text-[#4fa77e]">
+                          {patient.firstName?.[0]}
+                          {patient.lastName?.[0]}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {patient.firstName} {patient.lastName}
+                        </p>
+                        <p className="truncate text-xs text-gray-500">
+                          Added {new Date(patient.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {searchTotal !== undefined && searchTotal > searchResults.length && (
+                  <button
+                    onClick={() => navigateToPatients(searchTerm.trim())}
+                    className="w-full border-t border-gray-100 px-4 py-3 text-center text-sm font-medium text-[#4fa77e] transition-colors hover:bg-gray-50"
+                  >
+                    View all {searchTotal} results
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Quick Stats */}
       <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-4">
-        <Link
-          href="/provider/patients"
-          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-green-200"
+        <button
+          onClick={() => navigateToPatients()}
+          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-green-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -157,11 +310,11 @@ export default function ProviderDashboard() {
               <Users className="h-6 w-6 text-white" />
             </div>
           </div>
-        </Link>
+        </button>
 
-        <Link
-          href="/provider/soap-notes"
-          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-blue-200"
+        <button
+          onClick={() => { window.location.href = '/provider/soap-notes'; }}
+          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-blue-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -172,11 +325,11 @@ export default function ProviderDashboard() {
               <FileText className="h-6 w-6 text-white" />
             </div>
           </div>
-        </Link>
+        </button>
 
-        <Link
-          href="/provider/prescriptions"
-          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-[var(--brand-primary-medium)]"
+        <button
+          onClick={() => { window.location.href = '/provider/prescriptions'; }}
+          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-[var(--brand-primary-medium)]"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -187,11 +340,11 @@ export default function ProviderDashboard() {
               <Pill className="h-6 w-6 text-white" />
             </div>
           </div>
-        </Link>
+        </button>
 
-        <Link
-          href="/provider/calendar"
-          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-cyan-200"
+        <button
+          onClick={() => { window.location.href = '/provider/calendar'; }}
+          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-cyan-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -202,7 +355,7 @@ export default function ProviderDashboard() {
               <Calendar className="h-6 w-6 text-white" />
             </div>
           </div>
-        </Link>
+        </button>
       </div>
 
       {/* Today's Schedule & Recent Patients */}
@@ -210,21 +363,24 @@ export default function ProviderDashboard() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Today's Schedule</h2>
-            <Link href="/provider/calendar" className="text-sm text-[#4fa77e] hover:underline">
+            <button
+              onClick={() => { window.location.href = '/provider/calendar'; }}
+              className="text-sm text-[#4fa77e] hover:underline"
+            >
               View all
-            </Link>
+            </button>
           </div>
           <div className="p-4">
             {appointments.length === 0 ? (
               <div className="py-8 text-center">
                 <Calendar className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No appointments scheduled for today</p>
-                <Link
-                  href="/provider/calendar"
+                <button
+                  onClick={() => { window.location.href = '/provider/calendar'; }}
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
                 >
                   Schedule an appointment
-                </Link>
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -258,47 +414,48 @@ export default function ProviderDashboard() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Recent Intakes</h2>
-            <Link href="/provider/patients" className="text-sm text-[#4fa77e] hover:underline">
+            <button
+              onClick={() => navigateToPatients()}
+              className="text-sm text-[#4fa77e] hover:underline"
+            >
               View all
-            </Link>
+            </button>
           </div>
           <div className="p-4">
             {recentPatients.length === 0 ? (
               <div className="py-8 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No intakes yet</p>
-                <Link
-                  href="/provider/patients"
+                <button
+                  onClick={() => navigateToPatients()}
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
                 >
                   Add your first intake
-                </Link>
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
                 {recentPatients.map((patient) => (
-                  <Link
+                  <button
                     key={patient.id}
-                    href={`/provider/patients/${patient.id}`}
-                    className="flex items-center justify-between rounded-xl bg-gray-50/80 p-3 transition-colors hover:bg-gray-100"
+                    onClick={() => navigateToPatient(patient.id)}
+                    className="flex w-full items-center rounded-xl bg-gray-50/80 p-3 text-left transition-colors hover:bg-gray-100"
                   >
-                    <div className="flex items-center">
-                      <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-[#4fa77e]/10">
-                        <span className="text-sm font-medium text-[#4fa77e]">
-                          {patient.firstName?.[0]}
-                          {patient.lastName?.[0]}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {patient.firstName} {patient.lastName}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Added {new Date(patient.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
+                    <div className="mr-3 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#4fa77e]/10">
+                      <span className="text-sm font-medium text-[#4fa77e]">
+                        {patient.firstName?.[0]}
+                        {patient.lastName?.[0]}
+                      </span>
                     </div>
-                  </Link>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {patient.firstName} {patient.lastName}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Added {new Date(patient.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </button>
                 ))}
               </div>
             )}
