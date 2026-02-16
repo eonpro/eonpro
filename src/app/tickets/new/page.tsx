@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft as ArrowLeftIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 // Types
 interface User {
@@ -414,9 +415,7 @@ export default function NewTicketPage() {
                       className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                     >
                       {patient.firstName} {patient.lastName}
-                      {patient.patientId && (
-                        <span className="text-gray-400"> ({patient.patientId})</span>
-                      )}
+                      <span className="text-gray-400"> ({formatPatientDisplayId(patient.patientId, patient.id)})</span>
                     </button>
                   ))}
                 </div>

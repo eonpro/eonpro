@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 const formatter = new Intl.DateTimeFormat('en-US', {
   dateStyle: 'medium',
@@ -173,7 +174,7 @@ export default function IntakesPage() {
                   </td>
                   <td className="px-4 py-4">
                     <p className="text-sm font-semibold">
-                      #{patient?.patientId || patient?.id || '—'}
+                      #{patient ? formatPatientDisplayId(patient.patientId, patient.id) : '—'}
                     </p>
                     <p className="text-xs text-gray-500">
                       {doc.sourceSubmissionId

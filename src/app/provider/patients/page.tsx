@@ -8,6 +8,7 @@ import { Users, UserPlus, X, Loader2, ChevronDown } from 'lucide-react';
 
 import { PatientSearchBar, useRecentSearches } from '@/components/PatientSearchBar';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 interface Patient {
   id: number;
@@ -455,7 +456,7 @@ export default function ProviderPatientsPage() {
                           {patient.firstName} {patient.lastName}
                         </div>
                         <div className="text-sm text-gray-500">
-                          ID: {patient.patientId || patient.id}
+                          ID: {formatPatientDisplayId(patient.patientId, patient.id)}
                         </div>
                       </td>
                       <td className="px-4 py-3">

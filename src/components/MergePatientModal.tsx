@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, GitMerge, Loader2, AlertTriangle, Check, ArrowRight, Search, User } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 // Types for the merge preview
 interface RelationCounts {
@@ -362,7 +363,7 @@ export default function MergePatientModal({
                   {patient.firstName} {patient.lastName}
                 </p>
                 <p className="truncate text-sm text-gray-500">
-                  {formatValue(patient.email)} | ID: {patient.patientId || patient.id}
+                  {formatValue(patient.email)} | ID: {formatPatientDisplayId(patient.patientId, patient.id)}
                 </p>
               </div>
               {selectedTarget?.id === patient.id && (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 import {
   Ticket,
@@ -41,6 +42,7 @@ interface User {
 
 interface Patient {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -683,7 +685,7 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
                           .map((patient) => (
                             <option key={patient.id} value={patient.id}>
                               {patient.firstName} {patient.lastName} - {patient.email} (ID: #
-                              {String(patient.id).padStart(6, '0')})
+                              {formatPatientDisplayId(patient.patientId, patient.id)})
                             </option>
                           ))
                       )}

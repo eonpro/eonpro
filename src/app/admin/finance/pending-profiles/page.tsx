@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   UserPlus,
   AlertTriangle,
@@ -645,7 +646,7 @@ export default function PendingProfilesPage() {
                           )}
                         </div>
                         <p className="text-sm text-gray-500">
-                          ID: {profile.patientId || `#${profile.id}`}
+                          ID: {formatPatientDisplayId(profile.patientId, profile.id)}
                         </p>
                       </div>
                     </div>

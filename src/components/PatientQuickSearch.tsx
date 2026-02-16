@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, X, User, Loader2, UserPlus } from 'lucide-react';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 interface PatientResult {
   id: number;
@@ -237,7 +238,7 @@ export default function PatientQuickSearch({
                       {patient.firstName} {patient.lastName}
                     </p>
                     <p className="truncate text-xs text-gray-500">
-                      {patient.patientId ? `#${patient.patientId}` : `ID ${patient.id}`}
+                      #{formatPatientDisplayId(patient.patientId, patient.id)}
                       {patient.email && ` · ${patient.email}`}
                     </p>
                   </div>

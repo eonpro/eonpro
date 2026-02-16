@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Home,
   Users,
@@ -36,6 +37,7 @@ const EONPRO_ICON =
 
 interface PatientIntake {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email?: string;
@@ -609,7 +611,7 @@ function HomePageInner() {
                                   {patient.firstName} {patient.lastName}
                                 </Link>
                                 <p className="text-xs text-gray-400">
-                                  #{String(patient.id).padStart(6, '0')}
+                                  #{formatPatientDisplayId(patient.patientId, patient.id)}
                                 </p>
                               </div>
                             </div>

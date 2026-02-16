@@ -27,6 +27,7 @@ import {
   Tag as TagIcon,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 // Types
 interface TicketDetail {
@@ -947,9 +948,7 @@ export default function TicketDetailPage() {
                         className="text-sm text-blue-600 hover:text-blue-700"
                       >
                         {ticket.patient.firstName} {ticket.patient.lastName}
-                        {ticket.patient.patientId && (
-                          <span className="text-gray-400"> ({ticket.patient.patientId})</span>
-                        )}
+                        <span className="text-gray-400"> ({formatPatientDisplayId(ticket.patient.patientId, ticket.patient.id)})</span>
                       </a>
                     </dd>
                   </div>

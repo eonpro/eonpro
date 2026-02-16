@@ -28,6 +28,7 @@ export interface DashboardStats {
 
 export interface RecentIntake {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email?: string;
@@ -179,6 +180,7 @@ export async function getAdminDashboard(
 
   const recentIntakes: RecentIntake[] = listResult.data.map((p) => ({
     id: p.id,
+    patientId: p.patientId ?? null,
     firstName: p.firstName ?? '',
     lastName: p.lastName ?? '',
     email: p.email,

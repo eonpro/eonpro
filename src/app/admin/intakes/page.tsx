@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Search,
   Plus,
@@ -440,7 +441,7 @@ export default function AdminIntakesPage() {
                             {patient.firstName} {patient.lastName}
                           </div>
                           <div className="text-sm text-gray-500">
-                            ID: {patient.patientId || patient.id}
+                            ID: {formatPatientDisplayId(patient.patientId, patient.id)}
                           </div>
                         </div>
                       </div>

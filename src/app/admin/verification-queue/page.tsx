@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Shield,
   CheckCircle,
@@ -355,7 +356,7 @@ export default function VerificationQueuePage() {
                         {verification.patient.firstName} {verification.patient.lastName}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {verification.patient.email} • ID: {verification.patient.patientId}
+                        {verification.patient.email} • ID: {formatPatientDisplayId(verification.patient.patientId, verification.patient.id)}
                       </p>
                       <p className="text-xs text-gray-400">{verification.clinic.name}</p>
                     </div>

@@ -18,6 +18,7 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import type {
   Invoice,
   Clinic,
@@ -973,7 +974,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         refillId: null,
         // Patient info
         patientId: invoice.patient.id,
-        patientDisplayId: invoice.patient.patientId,
+        patientDisplayId: formatPatientDisplayId(invoice.patient.patientId, invoice.patient.id),
         patientName: `${safeDecrypt(invoice.patient.firstName) || invoice.patient.firstName} ${safeDecrypt(invoice.patient.lastName) || invoice.patient.lastName}`,
         // Decrypt PHI fields before returning
         patientEmail: safeDecrypt(invoice.patient.email),
@@ -1094,7 +1095,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         refillId: refill.id,
         // Patient info
         patientId: refill.patient.id,
-        patientDisplayId: refill.patient.patientId,
+        patientDisplayId: formatPatientDisplayId(refill.patient.patientId, refill.patient.id),
         patientName: `${safeDecrypt(refill.patient.firstName) || refill.patient.firstName} ${safeDecrypt(refill.patient.lastName) || refill.patient.lastName}`,
         patientEmail: safeDecrypt(refill.patient.email),
         patientPhone: safeDecrypt(refill.patient.phone),
@@ -1179,7 +1180,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         invoiceId: null,
         refillId: null,
         patientId: order.patient.id,
-        patientDisplayId: order.patient.patientId,
+        patientDisplayId: formatPatientDisplayId(order.patient.patientId, order.patient.id),
         patientName: `${safeDecrypt(order.patient.firstName) || order.patient.firstName} ${safeDecrypt(order.patient.lastName) || order.patient.lastName}`,
         patientEmail: safeDecrypt(order.patient.email),
         patientPhone: safeDecrypt(order.patient.phone),

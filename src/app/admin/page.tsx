@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Search,
   Clock,
@@ -34,6 +35,7 @@ const displayContact = (value: string | null | undefined): string => {
 
 interface PatientIntake {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -412,7 +414,7 @@ export default function AdminPage() {
                               {patient.firstName} {patient.lastName}
                             </Link>
                             <p className="text-xs text-gray-400">
-                              #{String(patient.id).padStart(6, '0')}
+                              #{formatPatientDisplayId(patient.patientId, patient.id)}
                             </p>
                           </div>
                         </div>

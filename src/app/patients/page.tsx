@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 type Patient = {
   id: number;
@@ -530,7 +531,7 @@ export default function PatientsPage() {
                           {patient.firstName} {patient.lastName}
                         </div>
                         <div className="text-xs text-gray-500">
-                          #{patient.patientId ?? String(patient.id).padStart(6, '0')}
+                          #{formatPatientDisplayId(patient.patientId, patient.id)}
                         </div>
                       </div>
                     </div>

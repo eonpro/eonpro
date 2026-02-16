@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Search,
   Clock,
@@ -20,6 +21,7 @@ import { apiFetch } from '@/lib/api/fetch';
 
 interface PatientIntake {
   id: number;
+  patientId?: string | null;
   firstName: string;
   lastName: string;
   email: string;
@@ -298,7 +300,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
                             {patient.firstName} {patient.lastName}
                           </p>
                           <p className="text-xs text-gray-400">
-                            #{String(patient.id).padStart(6, '0')}
+                            #{formatPatientDisplayId(patient.patientId, patient.id)}
                           </p>
                         </div>
                       </div>

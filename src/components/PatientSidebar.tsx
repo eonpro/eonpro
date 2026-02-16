@@ -8,6 +8,7 @@ import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
 import SalesRepDropdown from './SalesRepDropdown';
 import { apiFetch } from '@/lib/api/fetch';
+import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 interface AffiliateAttribution {
   affiliateId: number;
@@ -187,7 +188,7 @@ function AffiliateAttributionSection({
           window.location.reload();
         }, 600);
       } else {
-        setError(data.message || 'Attribution failed');
+        setError(data.message || data.error || 'Attribution failed');
       }
     } catch {
       setError('Network error — try again');
@@ -215,7 +216,7 @@ function AffiliateAttributionSection({
         router.refresh();
         window.location.reload();
       } else {
-        setError(data.message || 'Failed to remove');
+        setError(data.message || data.error || 'Failed to remove');
       }
     } catch {
       setError('Network error — try again');
@@ -646,7 +647,7 @@ export default function PatientSidebar({
 
         {/* ID */}
         <p className="mb-3 text-sm font-medium text-gray-900">
-          ID #{patient.patientId || String(patient.id).padStart(6, '0')}
+          ID #{formatPatientDisplayId(patient.patientId, patient.id)}
         </p>
 
         {/* Affiliate Attribution — banner or manual link button */}
