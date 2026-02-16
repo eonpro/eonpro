@@ -6,16 +6,19 @@ import {
   TrendingUp,
   Users,
   Clock,
+  MousePointerClick,
+  ClipboardCheck,
   ArrowUpRight,
-  ArrowDownRight,
   Copy,
   Check,
-  ExternalLink,
+  ArrowRight,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface SummaryData {
   summary: {
+    clicksCount: number;
+    intakesCount: number;
     conversionsCount: number;
     revenueTotalCents: number;
     commissionPendingCents: number;
@@ -66,6 +69,11 @@ function formatPercent(bps: number): string {
   return `${(bps / 100).toFixed(1)}%`;
 }
 
+function calcRate(numerator: number, denominator: number): string {
+  if (denominator === 0) return '0%';
+  return `${((numerator / denominator) * 100).toFixed(1)}%`;
+}
+
 export default function AffiliateDashboard() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [trends, setTrends] = useState<TrendData | null>(null);
@@ -74,26 +82,20 @@ export default function AffiliateDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('affiliate-token');
-
       try {
-        // Fetch summary and trends in parallel
         const [summaryRes, trendsRes] = await Promise.all([
           apiFetch('/api/affiliate/summary'),
           apiFetch('/api/affiliate/trends?granularity=week'),
         ]);
 
         if (summaryRes.ok) {
-          const summaryData = await summaryRes.json();
-          setSummary(summaryData);
+          setSummary(await summaryRes.json());
         }
-
         if (trendsRes.ok) {
-          const trendsData = await trendsRes.json();
-          setTrends(trendsData);
+          setTrends(await trendsRes.json());
         }
       } catch (error) {
-        console.error('Failed to fetch affiliate data:', error);
+        // Non-critical: dashboard still renders with null state
       } finally {
         setLoading(false);
       }
@@ -105,13 +107,12 @@ export default function AffiliateDashboard() {
   const handleCopyCode = async (code: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}?ref=${code}`;
-
     try {
       await navigator.clipboard.writeText(link);
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
-    } catch (e) {
-      console.error('Failed to copy');
+    } catch {
+      // Clipboard API not available
     }
   };
 
@@ -123,11 +124,14 @@ export default function AffiliateDashboard() {
     );
   }
 
-  const totalEarnings = summary
-    ? summary.summary.commissionPendingCents +
-      summary.summary.commissionApprovedCents +
-      summary.summary.commissionPaidCents
+  const s = summary?.summary;
+  const totalEarnings = s
+    ? s.commissionPendingCents + s.commissionApprovedCents + s.commissionPaidCents
     : 0;
+
+  const clicks = s?.clicksCount ?? 0;
+  const intakes = s?.intakesCount ?? 0;
+  const conversions = s?.conversionsCount ?? 0;
 
   return (
     <div className="p-4 lg:p-8">
@@ -137,10 +141,65 @@ export default function AffiliateDashboard() {
         <p className="mt-1 text-gray-500">Track your performance and earnings</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Funnel Stats - Clicks → Intakes → Conversions */}
+      <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">
+          Referral Funnel
+        </h2>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-0">
+          {/* Clicks */}
+          <div className="flex flex-1 items-center gap-3 rounded-xl bg-purple-50 px-4 py-4">
+            <div className="rounded-lg bg-purple-100 p-2">
+              <MousePointerClick className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{clicks.toLocaleString()}</p>
+              <p className="text-xs font-medium text-gray-500">Clicks</p>
+            </div>
+          </div>
+          <div className="hidden items-center px-2 text-gray-300 sm:flex">
+            <ArrowRight className="h-5 w-5" />
+          </div>
+          {/* Intakes */}
+          <div className="flex flex-1 items-center gap-3 rounded-xl bg-blue-50 px-4 py-4">
+            <div className="rounded-lg bg-blue-100 p-2">
+              <ClipboardCheck className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{intakes.toLocaleString()}</p>
+              <p className="text-xs font-medium text-gray-500">Intakes</p>
+            </div>
+            {clicks > 0 && (
+              <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                {calcRate(intakes, clicks)}
+              </span>
+            )}
+          </div>
+          <div className="hidden items-center px-2 text-gray-300 sm:flex">
+            <ArrowRight className="h-5 w-5" />
+          </div>
+          {/* Conversions (Paid) */}
+          <div className="flex flex-1 items-center gap-3 rounded-xl bg-green-50 px-4 py-4">
+            <div className="rounded-lg bg-green-100 p-2">
+              <Users className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{conversions.toLocaleString()}</p>
+              <p className="text-xs font-medium text-gray-500">Conversions</p>
+            </div>
+            {intakes > 0 && (
+              <span className="ml-auto rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
+                {calcRate(conversions, intakes)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Earnings Grid */}
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Total Earnings */}
-        <div className="rounded-2xl bg-gradient-to-br from-[var(--brand-primary-light)]0 to-[var(--brand-primary)] p-6 text-white">
+        <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-white/20 p-2">
               <DollarSign className="h-6 w-6" />
@@ -153,40 +212,21 @@ export default function AffiliateDashboard() {
           </div>
         </div>
 
-        {/* Conversions */}
-        <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="rounded-xl bg-green-100 p-2 text-green-600">
-              <Users className="h-6 w-6" />
-            </div>
-            <div className="flex items-center gap-1 text-sm font-medium text-green-600">
-              <ArrowUpRight className="h-4 w-4" />
-              Active
-            </div>
-          </div>
-          <div className="mt-4">
-            <p className="text-3xl font-bold text-gray-900">
-              {summary?.summary.conversionsCount || 0}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">Total Conversions</p>
-          </div>
-        </div>
-
         {/* Pending */}
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="rounded-xl bg-yellow-100 p-2 text-yellow-600">
               <Clock className="h-6 w-6" />
             </div>
-            <span className="text-sm font-medium text-gray-400">Pending</span>
+            <span className="text-sm font-medium text-gray-400">
+              {s?.pendingCount || 0} pending
+            </span>
           </div>
           <div className="mt-4">
             <p className="text-3xl font-bold text-gray-900">
-              {formatCurrency(summary?.summary.commissionPendingCents || 0)}
+              {formatCurrency(s?.commissionPendingCents || 0)}
             </p>
-            <p className="mt-1 text-sm text-gray-500">
-              {summary?.summary.pendingCount || 0} pending
-            </p>
+            <p className="mt-1 text-sm text-gray-500">Pending Commissions</p>
           </div>
         </div>
 
@@ -200,7 +240,7 @@ export default function AffiliateDashboard() {
           </div>
           <div className="mt-4">
             <p className="text-3xl font-bold text-gray-900">
-              {formatCurrency(summary?.summary.commissionApprovedCents || 0)}
+              {formatCurrency(s?.commissionApprovedCents || 0)}
             </p>
             <p className="mt-1 text-sm text-gray-500">Ready for payout</p>
           </div>
@@ -214,7 +254,7 @@ export default function AffiliateDashboard() {
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Weekly Performance</h2>
           {trends && trends.trends.length > 0 ? (
             <div className="space-y-3">
-              {trends.trends.slice(0, 8).map((week, i) => (
+              {trends.trends.slice(0, 8).map((week) => (
                 <div
                   key={week.date}
                   className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3"
@@ -258,7 +298,7 @@ export default function AffiliateDashboard() {
             <h2 className="text-lg font-semibold text-gray-900">Your Referral Links</h2>
             <a
               href="/portal/affiliate/ref-codes"
-              className="text-sm font-medium text-[var(--brand-primary)] hover:text-[var(--brand-primary)]"
+              className="text-sm font-medium text-[var(--brand-primary)] hover:underline"
             >
               Manage
             </a>
@@ -278,12 +318,12 @@ export default function AffiliateDashboard() {
                   </div>
                   <button
                     onClick={() => handleCopyCode(ref.refCode)}
-                    className="ml-4 flex items-center gap-2 rounded-lg bg-[var(--brand-primary-light)] px-3 py-2 text-sm font-medium text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
+                    className="ml-4 flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
                   >
                     {copiedCode === ref.refCode ? (
                       <>
-                        <Check className="h-4 w-4" />
-                        Copied!
+                        <Check className="h-4 w-4 text-green-600" />
+                        <span className="text-green-600">Copied!</span>
                       </>
                     ) : (
                       <>
@@ -305,12 +345,12 @@ export default function AffiliateDashboard() {
 
       {/* Commission Plan Info */}
       {summary?.currentPlan && (
-        <div className="mt-6 rounded-2xl bg-gradient-to-r from-[var(--brand-primary-light)] to-[var(--brand-primary-light)] p-6">
+        <div className="mt-6 rounded-2xl bg-gradient-to-r from-gray-50 to-gray-100 p-6">
           <h3 className="mb-2 font-semibold text-gray-900">
             Your Commission Plan: {summary.currentPlan.name}
           </h3>
           <div className="flex flex-wrap gap-4 text-sm">
-            <div className="rounded-lg bg-white px-3 py-1.5">
+            <div className="rounded-lg bg-white px-3 py-1.5 shadow-sm">
               <span className="text-gray-500">Rate:</span>{' '}
               <span className="font-medium text-gray-900">
                 {summary.currentPlan.planType === 'PERCENT' && summary.currentPlan.percentBps
@@ -320,7 +360,7 @@ export default function AffiliateDashboard() {
                     : 'N/A'}
               </span>
             </div>
-            <div className="rounded-lg bg-white px-3 py-1.5">
+            <div className="rounded-lg bg-white px-3 py-1.5 shadow-sm">
               <span className="text-gray-500">Applies to:</span>{' '}
               <span className="font-medium text-gray-900">
                 {summary.currentPlan.appliesTo === 'FIRST_PAYMENT_ONLY'
@@ -335,9 +375,9 @@ export default function AffiliateDashboard() {
       {/* Privacy Note */}
       <div className="mt-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700">
         <p>
-          <strong>Privacy Note:</strong> For your privacy and compliance, we only show aggregated
-          metrics. Individual conversion details with fewer than 5 entries are displayed as "&lt;5"
-          to protect customer privacy.
+          <strong>Privacy Note:</strong> For compliance, we only show aggregated metrics. Individual
+          conversion details with fewer than 5 entries are displayed as &quot;&lt;5&quot; to protect
+          customer privacy.
         </p>
       </div>
     </div>
