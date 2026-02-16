@@ -437,7 +437,7 @@ function AffiliateLandingContent() {
       {/* Header — white with 50px radius, black behind for contrast */}
       {/* ================================================================ */}
       <div style={{ backgroundColor: '#000000' }}>
-        <header style={{ backgroundColor: BRAND.white, borderRadius: '50px' }}>
+        <header style={{ backgroundColor: BRAND.white, borderTopLeftRadius: '35px', borderTopRightRadius: '35px' }}>
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
             <a
@@ -460,12 +460,12 @@ function AffiliateLandingContent() {
           {/* Headline */}
           <h1 className="mb-6 leading-tight tracking-tight">
             <span
-              className="block text-4xl font-light md:text-5xl lg:text-6xl"
+              className="block text-4xl font-normal md:text-5xl lg:text-6xl"
               style={{ color: BRAND.accent }}
             >
               Overtime
             </span>
-            <span className="block text-4xl font-light md:text-5xl lg:text-6xl">
+            <span className="block text-4xl font-normal md:text-5xl lg:text-6xl">
               for {isValid && affiliateName ? <>{affiliateName}&apos;s</> : 'your'} Community
             </span>
           </h1>
@@ -765,7 +765,7 @@ function TreatmentCard({
         className="font-medium leading-tight"
         style={{
           fontSize: hovered ? 'calc(1.125rem + 2px)' : '1.125rem',
-          transform: hovered ? 'translateX(-4px)' : 'translateX(0)',
+          transform: hovered ? 'translateX(20px)' : 'translateX(0)',
           transition: 'font-size 0.35s ease-in-out, transform 0.35s ease-in-out',
         }}
       >
