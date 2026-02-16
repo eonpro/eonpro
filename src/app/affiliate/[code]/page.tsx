@@ -447,7 +447,7 @@ function AffiliateLandingContent() {
       {/* ================================================================ */}
       {/* Hero Section — left-aligned, matching header width */}
       {/* ================================================================ */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden" style={{ backgroundColor: BRAND.white }}>
         <div className="relative mx-auto max-w-6xl px-6 pb-12 pt-12 md:pb-16 md:pt-20">
 
           {/* Affiliate name as prominent heading */}
