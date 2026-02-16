@@ -72,6 +72,7 @@ const TREATMENTS = [
     image: 'https://static.wixstatic.com/media/c49a9b_45dbc9caf94447b587c2e999b7a8027c~mv2.png',
     keywordColor: '#771911',
     hoverBg: '#ea3942',
+    hoverBgDark: '#c52a32',
     url: 'https://bettersex.otmens.com/',
   },
   {
@@ -81,6 +82,7 @@ const TREATMENTS = [
     image: 'https://static.wixstatic.com/media/c49a9b_87a5fa7b71ea4594939f319dcbaefd49~mv2.webp',
     keywordColor: '#b76e32',
     hoverBg: '#f1994e',
+    hoverBgDark: '#d47830',
     url: 'https://optimize.otmens.com/',
   },
   {
@@ -90,6 +92,7 @@ const TREATMENTS = [
     image: 'https://static.wixstatic.com/media/c49a9b_7b4f8183a2d448af835cc73702cb8c55~mv2.png',
     keywordColor: '#3e83f7',
     hoverBg: '#204ac5',
+    hoverBgDark: '#152d8a',
     url: 'https://optimize.otmens.com/#logo',
   },
   {
@@ -99,6 +102,7 @@ const TREATMENTS = [
     image: 'https://static.wixstatic.com/media/c49a9b_c12e882be1064a3da6a50fad86c7f5bc~mv2.webp',
     keywordColor: '#295f3d',
     hoverBg: '#59c27b',
+    hoverBgDark: '#3a9957',
     url: 'https://trt.otmens.com/',
   },
   {
@@ -108,6 +112,7 @@ const TREATMENTS = [
     image: 'https://static.wixstatic.com/media/c49a9b_5b411cd2f37741709bb33a1bf383232b~mv2.webp',
     keywordColor: '#b39231',
     hoverBg: '#f7cc49',
+    hoverBgDark: '#d4a825',
     url: 'https://weightloss.otmens.com/',
   },
 ];
@@ -744,8 +749,10 @@ function TreatmentCard({
       href={href}
       className="flex items-center justify-between rounded-2xl px-5 py-4 sm:px-6 sm:py-5"
       style={{
-        backgroundColor: hovered ? treatment.hoverBg : '#f9f7f2',
-        transition: 'background-color 0.35s ease-in-out, box-shadow 0.35s ease-in-out',
+        background: hovered
+          ? `linear-gradient(135deg, ${treatment.hoverBg} 0%, ${treatment.hoverBgDark} 100%)`
+          : '#f9f7f2',
+        transition: 'background 0.35s ease-in-out, box-shadow 0.35s ease-in-out',
         boxShadow: hovered
           ? '0 8px 24px rgba(0,0,0,0.12)'
           : 'none',
@@ -754,7 +761,14 @@ function TreatmentCard({
       onMouseLeave={() => setHovered(false)}
     >
       {/* Title */}
-      <h3 className="text-lg font-medium leading-tight md:text-xl">
+      <h3
+        className="font-medium leading-tight"
+        style={{
+          fontSize: hovered ? 'calc(1.125rem + 2px)' : '1.125rem',
+          transform: hovered ? 'translateX(-4px)' : 'translateX(0)',
+          transition: 'font-size 0.35s ease-in-out, transform 0.35s ease-in-out',
+        }}
+      >
         <span
           style={{
             color: hovered ? '#FFFFFF' : BRAND.text,
