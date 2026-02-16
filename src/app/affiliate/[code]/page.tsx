@@ -218,7 +218,7 @@ function GoogleStarRating() {
     <img
       src={ASSETS.googleStars}
       alt="Rated 4.9/5 on Google - based on 434 verified reviews"
-      className="h-10 w-auto object-contain md:h-12"
+      className="h-14 w-auto object-contain md:h-16"
     />
   );
 }
@@ -405,12 +405,12 @@ function AffiliateLandingContent() {
       {/* Top Promo Banner — black bar with affiliate CTA */}
       {/* ================================================================ */}
       <div
-        className="w-full py-2.5 text-center text-xs font-medium tracking-wide sm:text-sm"
+        className="w-full py-2.5 text-center text-xs font-light tracking-wide sm:text-sm"
         style={{ backgroundColor: '#000000', color: '#FFFFFF' }}
       >
         {isValid && affiliateName ? (
           <span>
-            Referred by <strong>{affiliateName}</strong> &mdash; Start your personalized intake today.{' '}
+            Referred by <span className="font-normal">{affiliateName}</span> &mdash; Start your personalized intake today.{' '}
             <a
               href={buildCtaUrl('/trt', refCode)}
               className="underline underline-offset-2 transition-opacity hover:opacity-80"
@@ -434,20 +434,22 @@ function AffiliateLandingContent() {
       </div>
 
       {/* ================================================================ */}
-      {/* Header */}
+      {/* Header — white with 50px radius, black behind for contrast */}
       {/* ================================================================ */}
-      <header style={{ backgroundColor: BRAND.white }}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
-          <a
-            href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
-            className="rounded-full px-6 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
-            style={{ backgroundColor: BRAND.text, color: BRAND.white }}
-          >
-            Get Started
-          </a>
-        </div>
-      </header>
+      <div style={{ backgroundColor: '#000000' }}>
+        <header style={{ backgroundColor: BRAND.white, borderRadius: '50px' }}>
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+            <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
+            <a
+              href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
+              className="rounded-full px-6 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+              style={{ backgroundColor: BRAND.text, color: BRAND.white }}
+            >
+              Get Started
+            </a>
+          </div>
+        </header>
+      </div>
 
       {/* ================================================================ */}
       {/* Hero Section — left-aligned, matching header width */}
@@ -455,19 +457,17 @@ function AffiliateLandingContent() {
       <section className="relative overflow-hidden" style={{ backgroundColor: BRAND.white }}>
         <div className="relative mx-auto max-w-6xl px-6 pb-12 pt-12 md:pb-16 md:pt-20">
 
-          {/* Affiliate name as prominent heading */}
-          {isValid && affiliateName && (
-            <p
-              className="mb-1 text-3xl font-bold leading-tight md:text-4xl lg:text-5xl"
+          {/* Headline */}
+          <h1 className="mb-6 leading-tight tracking-tight">
+            <span
+              className="block text-4xl font-light md:text-5xl lg:text-6xl"
               style={{ color: BRAND.accent }}
             >
-              {affiliateName}&apos;s Pick
-            </p>
-          )}
-
-          {/* Headline */}
-          <h1 className="mb-6 text-3xl font-bold leading-tight tracking-tight md:text-4xl lg:text-5xl">
-            for today&apos;s men
+              Overtime
+            </span>
+            <span className="block text-4xl font-light md:text-5xl lg:text-6xl">
+              for {isValid && affiliateName ? <>{affiliateName}&apos;s</> : 'your'} Community
+            </span>
           </h1>
 
           {/* Trust indicators — left-aligned */}
