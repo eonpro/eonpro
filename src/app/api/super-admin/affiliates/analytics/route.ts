@@ -292,7 +292,7 @@ async function handler(req: NextRequest): Promise<Response> {
     ]);
 
     // Build a date-keyed map for O(1) lookup
-    const conversionMap = new Map(conversionTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.count]));
+    const conversionTrendMap = new Map(conversionTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.count]));
     const revenueMap = new Map(revenueTrends.map(t => [new Date(t.date).toISOString().slice(0, 10), t.revenue]));
 
     const trends: Array<{ date: string; conversions: number; revenue: number }> = [];
@@ -303,7 +303,7 @@ async function handler(req: NextRequest): Promise<Response> {
       const key = dayStart.toISOString().slice(0, 10);
       trends.push({
         date: dayStart.toISOString(),
-        conversions: conversionMap.get(key) || 0,
+        conversions: conversionTrendMap.get(key) || 0,
         revenue: revenueMap.get(key) || 0,
       });
     }
