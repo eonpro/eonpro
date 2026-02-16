@@ -46,10 +46,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const clinicFilter = clinicId ? { clinicId } : {};
 
     // Fetch patients with state info, grouped by state + clinic
+    // state is a required String field (not nullable), so filter for non-empty values
     const patients = await prisma.patient.findMany({
       where: {
         ...clinicFilter,
-        state: { not: null },
+        state: { not: '' },
       },
       select: {
         state: true,
