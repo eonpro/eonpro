@@ -66,6 +66,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       lastMonthEarnings,
       monthlyClicks,
       monthlyConversions,
+      monthlyPaidConversions,
       recentCommissions,
       recentPayouts,
       lifetimeCommissions,
@@ -126,6 +127,15 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         where: {
           attributionAffiliateId: affiliateId,
           createdAt: { gte: startOfMonth },
+        },
+      }),
+
+      // This month conversions (attributed patients with a paid invoice)
+      prisma.patient.count({
+        where: {
+          attributionAffiliateId: affiliateId,
+          createdAt: { gte: startOfMonth },
+          invoices: { some: { status: 'PAID' } },
         },
       }),
 
@@ -305,6 +315,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       performance: {
         clicks: monthlyClicks,
         intakes: intakesThisMonth,
+        conversions: monthlyPaidConversions,
         intakeRate: Math.round(intakeRate * 10) / 10,
         avgOrderValue: intakesThisMonth > 0 ? Math.round(thisMonth / intakesThisMonth) : 0,
         lifetimeIntakes: taggedProfilesCount,

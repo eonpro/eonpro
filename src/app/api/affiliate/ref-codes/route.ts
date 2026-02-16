@@ -64,44 +64,42 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     // Get stats for each ref code
     const refCodeStats = await Promise.all(
       refCodes.map(async (code: (typeof refCodes)[number]) => {
-        // Get click count and last click from touches
-        const [clickCount, lastClick] = await Promise.all([
+        // Get click count (CLICK type only -- excludes POSTBACK attribution touches)
+        // and intake count (patients attributed via this ref code)
+        const [clickCount, lastClick, intakeCount] = await Promise.all([
           prisma.affiliateTouch.count({
             where: {
               affiliateId,
               refCode: code.refCode,
+              touchType: 'CLICK',
             },
           }),
           prisma.affiliateTouch.findFirst({
             where: {
               affiliateId,
               refCode: code.refCode,
+              touchType: 'CLICK',
             },
             orderBy: { createdAt: 'desc' },
             select: { createdAt: true },
           }),
+          // Intakes: patients attributed to this affiliate via this specific ref code
+          prisma.patient.count({
+            where: {
+              attributionAffiliateId: affiliateId,
+              attributionRefCode: code.refCode,
+            },
+          }),
         ]);
 
-        // Get conversion count by finding touches with this refCode that have commission events
-        // Note: This is an approximation since touchId links are optional
-        const touchesWithRefCode = await prisma.affiliateTouch.findMany({
+        // Conversions: attributed patients with this ref code who have a paid invoice
+        const conversions = await prisma.patient.count({
           where: {
-            affiliateId,
-            refCode: code.refCode,
+            attributionAffiliateId: affiliateId,
+            attributionRefCode: code.refCode,
+            invoices: { some: { status: 'PAID' } },
           },
-          select: { id: true },
-          take: AGGREGATION_TAKE,
         });
-
-        const conversions =
-          touchesWithRefCode.length > 0
-            ? await prisma.affiliateCommissionEvent.count({
-                where: {
-                  affiliateId,
-                  touchId: { in: touchesWithRefCode.map((t: { id: number }) => t.id) },
-                },
-              })
-            : 0;
 
         return {
           id: code.id.toString(),
@@ -109,6 +107,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
           name: code.description || code.refCode,
           isDefault: refCodes.indexOf(code) === 0, // First code is default
           clickCount,
+          intakeCount,
           conversionCount: conversions,
           lastClickAt: lastClick?.createdAt.toISOString(),
           createdAt: code.createdAt.toISOString(),

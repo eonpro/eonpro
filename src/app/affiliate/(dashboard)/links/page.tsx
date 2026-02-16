@@ -18,6 +18,7 @@ interface RefCode {
   name: string;
   isDefault: boolean;
   clickCount: number;
+  intakeCount: number;
   conversionCount: number;
   lastClickAt?: string;
   createdAt: string;
@@ -378,18 +379,15 @@ export default function LinksPage() {
                     </div>
                     <div>
                       <p className="text-lg font-semibold text-gray-900">
-                        {formatNumber(refCode.conversionCount)}
+                        {formatNumber(refCode.intakeCount || 0)}
                       </p>
-                      <p className="text-xs text-gray-500">Conversions</p>
+                      <p className="text-xs text-gray-500">Intakes</p>
                     </div>
                     <div>
                       <p className="text-lg font-semibold text-gray-900">
-                        {refCode.clickCount > 0
-                          ? ((refCode.conversionCount / refCode.clickCount) * 100).toFixed(1)
-                          : '0'}
-                        %
+                        {formatNumber(refCode.conversionCount)}
                       </p>
-                      <p className="text-xs text-gray-500">Conv. Rate</p>
+                      <p className="text-xs text-gray-500">Conversions</p>
                     </div>
                   </div>
                 </div>

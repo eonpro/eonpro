@@ -114,8 +114,8 @@ export const GET = withAffiliateAuth(
           }),
         ]);
 
-      // Get click and intake counts (funnel metrics)
-      const [clickStats, intakeCount] = await Promise.all([
+      // Get click, intake, and conversion counts (funnel metrics)
+      const [clickStats, intakeCount, conversionCount] = await Promise.all([
         // Total clicks (AffiliateTouch where touchType = CLICK)
         prisma.affiliateTouch.aggregate({
           where: {
@@ -129,11 +129,18 @@ export const GET = withAffiliateAuth(
         // Total intakes (patients attributed to this affiliate)
         prisma.patient.count({
           where: {
-            affiliateId: affiliate.id,
+            attributionAffiliateId: affiliate.id,
             clinicId: affiliate.clinicId,
-            ...(hasDateFilter
-              ? { createdAt: dateFilter }
-              : {}),
+            ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+          },
+        }),
+        // Conversions: attributed patients with at least one paid invoice
+        prisma.patient.count({
+          where: {
+            attributionAffiliateId: affiliate.id,
+            clinicId: affiliate.clinicId,
+            ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+            invoices: { some: { status: 'PAID' } },
           },
         }),
       ]);
@@ -177,6 +184,7 @@ export const GET = withAffiliateAuth(
         summary: {
           clicksCount: clickStats._count,
           intakesCount: intakeCount,
+          paidConversionsCount: conversionCount,
           conversionsCount: totalRevenue._count,
           revenueTotalCents: totalRevenue._sum.eventAmountCents || 0,
           commissionPendingCents: pendingStats._sum.commissionAmountCents || 0,

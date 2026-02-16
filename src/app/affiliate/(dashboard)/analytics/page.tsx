@@ -50,6 +50,8 @@ import { apiFetch } from '@/lib/api/fetch';
 // Types
 interface TrendData {
   date: string;
+  clicks: number;
+  intakes: number;
   conversions: number;
   revenueCents: number;
   commissionCents: number;
@@ -57,6 +59,9 @@ interface TrendData {
 
 interface SummaryData {
   summary: {
+    clicksCount: number;
+    intakesCount: number;
+    paidConversionsCount: number;
     conversionsCount: number;
     revenueTotalCents: number;
     commissionPendingCents: number;
@@ -75,6 +80,7 @@ interface DashboardData {
   performance: {
     clicks: number;
     intakes: number;
+    conversions: number;
     intakeRate: number;
     avgOrderValue: number;
     lifetimeIntakes: number;
@@ -219,8 +225,8 @@ export default function AffiliateAnalyticsPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [refCodeStats, setRefCodeStats] = useState<RefCodeStats[]>([]);
   const [trafficSources, setTrafficSources] = useState<TrafficSource[]>([]);
-  const [activeChart, setActiveChart] = useState<'conversions' | 'revenue' | 'commission'>(
-    'conversions'
+  const [activeChart, setActiveChart] = useState<'clicks' | 'intakes' | 'conversions' | 'revenue' | 'commission'>(
+    'clicks'
   );
 
   // Calculate date range based on preset
@@ -303,22 +309,28 @@ export default function AffiliateAnalyticsPage() {
   const chartData = useMemo(() => {
     return trends.map((t) => ({
       date: t.date,
+      clicks: t.clicks || 0,
+      intakes: t.intakes || 0,
       conversions: t.conversions,
       revenue: t.revenueCents / 100,
       commission: t.commissionCents / 100,
     }));
   }, [trends]);
 
-  // Calculate period totals
+  // Calculate period totals from summary (respects selected date range)
   const periodTotals = useMemo(() => {
     if (!summary) return null;
     const s = summary.summary;
+    const clicks = s.clicksCount ?? dashboard?.performance.clicks ?? 0;
+    const intakes = s.intakesCount ?? dashboard?.performance.intakes ?? 0;
+    const conversions = s.paidConversionsCount ?? dashboard?.performance.conversions ?? 0;
     return {
-      clicks: dashboard?.performance.clicks || 0,
-      intakes: dashboard?.performance.intakes || s.conversionsCount,
+      clicks,
+      intakes,
+      conversions,
       revenue: s.revenueTotalCents,
       commission: s.commissionPendingCents + s.commissionApprovedCents + s.commissionPaidCents,
-      intakeRate: dashboard?.performance.intakeRate || 0,
+      intakeRate: clicks > 0 ? Math.round((intakes / clicks) * 1000) / 10 : 0,
     };
   }, [summary, dashboard]);
 
@@ -405,8 +417,8 @@ export default function AffiliateAnalyticsPage() {
             iconColor="text-green-500"
           />
           <StatCard
-            title="Revenue"
-            value={formatCurrency(periodTotals?.revenue || 0)}
+            title="Conversions"
+            value={formatNumber(periodTotals?.conversions || 0)}
             icon={DollarSign}
             iconBg="bg-emerald-50"
             iconColor="text-emerald-500"
@@ -438,8 +450,8 @@ export default function AffiliateAnalyticsPage() {
         >
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Performance Trends</h2>
-            <div className="flex gap-2">
-              {(['conversions', 'revenue', 'commission'] as const).map((chart) => (
+            <div className="flex flex-wrap gap-2">
+              {(['clicks', 'intakes', 'conversions', 'revenue', 'commission'] as const).map((chart) => (
                 <button
                   key={chart}
                   onClick={() => setActiveChart(chart)}
@@ -458,16 +470,42 @@ export default function AffiliateAnalyticsPage() {
 
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              {activeChart === 'conversions' ? (
+              {activeChart === 'clicks' ? (
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar
+                    dataKey="clicks"
+                    name="Clicks"
+                    fill="#3B82F6"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              ) : activeChart === 'intakes' ? (
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar
+                    dataKey="intakes"
+                    name="Intakes"
+                    fill="#10B981"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              ) : activeChart === 'conversions' ? (
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar
                     dataKey="conversions"
                     name="Conversions"
-                    fill="#10B981"
+                    fill="#8B5CF6"
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>

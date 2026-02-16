@@ -19,6 +19,8 @@ export const runtime = 'nodejs';
 
 interface TrendData {
   date: string;
+  clicks: number;
+  intakes: number;
   conversions: number;
   revenueCents: number;
   commissionCents: number;
@@ -56,48 +58,104 @@ export const GET = withAffiliateAuth(
       // Determine truncation function based on granularity
       const truncateInterval = granularity === 'week' ? 'week' : 'day';
 
-      // Get aggregated trends using raw query for date truncation
-      const rawTrends = await prisma.$queryRaw<
-        Array<{
-          period: Date;
-          conversions: bigint;
-          revenue_cents: bigint | null;
-          commission_cents: bigint | null;
-        }>
-      >`
-      SELECT 
-        DATE_TRUNC(${truncateInterval}, "occurredAt") as period,
-        COUNT(*) as conversions,
-        SUM("eventAmountCents") as revenue_cents,
-        SUM("commissionAmountCents") as commission_cents
-      FROM "AffiliateCommissionEvent"
-      WHERE "affiliateId" = ${affiliate.id}
-        AND "clinicId" = ${affiliate.clinicId}
-        AND "status" != 'REVERSED'
-        AND "occurredAt" >= ${fromDate}
-        AND "occurredAt" <= ${toDate}
-      GROUP BY DATE_TRUNC(${truncateInterval}, "occurredAt")
-      ORDER BY period ASC
-    `;
+      // Run all three trend queries in parallel
+      const [rawClickTrends, rawIntakeTrends, rawCommissionTrends] = await Promise.all([
+        // Clicks per period (touchType = CLICK only)
+        prisma.$queryRaw<Array<{ period: Date; count: bigint }>>`
+          SELECT
+            DATE_TRUNC(${truncateInterval}, "createdAt") as period,
+            COUNT(*) as count
+          FROM "AffiliateTouch"
+          WHERE "affiliateId" = ${affiliate.id}
+            AND "touchType" = 'CLICK'
+            AND "createdAt" >= ${fromDate}
+            AND "createdAt" <= ${toDate}
+          GROUP BY DATE_TRUNC(${truncateInterval}, "createdAt")
+          ORDER BY period ASC
+        `,
 
-      const trends: TrendData[] = rawTrends.map(
-        (row: {
-          period: Date;
-          conversions: bigint;
-          revenue_cents: bigint | null;
-          commission_cents: bigint | null;
-        }) => ({
-          date: row.period.toISOString().split('T')[0],
-          conversions: Number(row.conversions),
-          revenueCents: Number(row.revenue_cents) || 0,
-          commissionCents: Number(row.commission_cents) || 0,
-        })
+        // Intakes per period (patients attributed to this affiliate)
+        prisma.$queryRaw<Array<{ period: Date; count: bigint }>>`
+          SELECT
+            DATE_TRUNC(${truncateInterval}, "createdAt") as period,
+            COUNT(*) as count
+          FROM "Patient"
+          WHERE "attributionAffiliateId" = ${affiliate.id}
+            AND "clinicId" = ${affiliate.clinicId}
+            AND "createdAt" >= ${fromDate}
+            AND "createdAt" <= ${toDate}
+          GROUP BY DATE_TRUNC(${truncateInterval}, "createdAt")
+          ORDER BY period ASC
+        `,
+
+        // Commission events per period (revenue / commissions)
+        prisma.$queryRaw<
+          Array<{
+            period: Date;
+            conversions: bigint;
+            revenue_cents: bigint | null;
+            commission_cents: bigint | null;
+          }>
+        >`
+          SELECT
+            DATE_TRUNC(${truncateInterval}, "occurredAt") as period,
+            COUNT(*) as conversions,
+            SUM("eventAmountCents") as revenue_cents,
+            SUM("commissionAmountCents") as commission_cents
+          FROM "AffiliateCommissionEvent"
+          WHERE "affiliateId" = ${affiliate.id}
+            AND "clinicId" = ${affiliate.clinicId}
+            AND "status" != 'REVERSED'
+            AND "occurredAt" >= ${fromDate}
+            AND "occurredAt" <= ${toDate}
+          GROUP BY DATE_TRUNC(${truncateInterval}, "occurredAt")
+          ORDER BY period ASC
+        `,
+      ]);
+
+      // Index results by date string for efficient merging
+      const clickMap = new Map(
+        rawClickTrends.map((r) => [r.period.toISOString().split('T')[0], Number(r.count)])
       );
+      const intakeMap = new Map(
+        rawIntakeTrends.map((r) => [r.period.toISOString().split('T')[0], Number(r.count)])
+      );
+      const commissionMap = new Map(
+        rawCommissionTrends.map((r) => [
+          r.period.toISOString().split('T')[0],
+          {
+            conversions: Number(r.conversions),
+            revenueCents: Number(r.revenue_cents) || 0,
+            commissionCents: Number(r.commission_cents) || 0,
+          },
+        ])
+      );
+
+      // Collect all unique dates from all three datasets
+      const allDates = new Set<string>();
+      clickMap.forEach((_, d) => allDates.add(d));
+      intakeMap.forEach((_, d) => allDates.add(d));
+      commissionMap.forEach((_, d) => allDates.add(d));
+
+      // Merge into unified trend data
+      const mergedTrends: TrendData[] = Array.from(allDates)
+        .sort()
+        .map((date) => {
+          const commission = commissionMap.get(date);
+          return {
+            date,
+            clicks: clickMap.get(date) || 0,
+            intakes: intakeMap.get(date) || 0,
+            conversions: commission?.conversions || 0,
+            revenueCents: commission?.revenueCents || 0,
+            commissionCents: commission?.commissionCents || 0,
+          };
+        });
 
       // Fill in missing dates with zeros (only for daily granularity)
       const filledTrends: TrendData[] = [];
       if (granularity === 'day') {
-        const trendMap = new Map(trends.map((t) => [t.date, t]));
+        const trendMap = new Map(mergedTrends.map((t) => [t.date, t]));
         const currentDate = new Date(fromDate);
 
         while (currentDate <= toDate) {
@@ -105,6 +163,8 @@ export const GET = withAffiliateAuth(
           filledTrends.push(
             trendMap.get(dateStr) || {
               date: dateStr,
+              clicks: 0,
+              intakes: 0,
               conversions: 0,
               revenueCents: 0,
               commissionCents: 0,
@@ -113,20 +173,24 @@ export const GET = withAffiliateAuth(
           currentDate.setDate(currentDate.getDate() + 1);
         }
       } else {
-        filledTrends.push(...trends);
+        filledTrends.push(...mergedTrends);
       }
 
-      const totals = trends.reduce(
+      const finalTrends = granularity === 'day' ? filledTrends : mergedTrends;
+
+      const totals = finalTrends.reduce(
         (acc, t) => ({
+          clicks: acc.clicks + t.clicks,
+          intakes: acc.intakes + t.intakes,
           conversions: acc.conversions + t.conversions,
           revenueCents: acc.revenueCents + t.revenueCents,
           commissionCents: acc.commissionCents + t.commissionCents,
         }),
-        { conversions: 0, revenueCents: 0, commissionCents: 0 }
+        { clicks: 0, intakes: 0, conversions: 0, revenueCents: 0, commissionCents: 0 }
       );
 
       return NextResponse.json({
-        trends: granularity === 'day' ? filledTrends : trends,
+        trends: finalTrends,
         totals,
         granularity,
         dateRange: {
