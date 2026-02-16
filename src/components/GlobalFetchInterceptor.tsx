@@ -80,9 +80,13 @@ export default function GlobalFetchInterceptor() {
               errorCode === 'PROVIDER_NOT_FOUND' ||
               errorCode === 'ACCESS_DENIED' ||
               errorCode === 'PERMISSION_DENIED' ||
+              errorCode === 'FORBIDDEN' ||
               errorMessage.toLowerCase().includes('access denied') ||
               errorMessage.toLowerCase().includes('permission denied') ||
               errorMessage.toLowerCase().includes('not authorized') ||
+              errorMessage.toLowerCase().includes('forbidden') ||
+              errorMessage.toLowerCase().includes('no clinic') ||
+              errorMessage.toLowerCase().includes('insufficient permissions') ||
               (response.status === 403 && errorMessage.toLowerCase().includes('only providers'));
 
             if (isPermissionError) {

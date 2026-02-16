@@ -499,12 +499,29 @@ export function withAuth<T = unknown>(
       let effectiveClinicId =
         user.clinicId && user.role !== 'super_admin' ? user.clinicId : undefined;
 
+      // Fallback: if JWT has no clinicId, use the x-clinic-id header set by the edge
+      // clinic middleware. This ensures clinic context is always available even when
+      // the JWT was minted without clinicId (avoids "No clinic associated" 403s).
+      if (effectiveClinicId == null && user.role !== 'super_admin') {
+        const headerClinicId = req.headers.get('x-clinic-id');
+        if (headerClinicId) {
+          const parsed = parseInt(headerClinicId, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            effectiveClinicId = parsed;
+            logger.info('[Auth] Using x-clinic-id header as clinicId fallback', {
+              userId: user.id,
+              clinicId: parsed,
+              jwtClinicId: user.clinicId ?? null,
+            });
+          }
+        }
+      }
+
       // When on a clinic subdomain (e.g. ot.eonpro.io), use that clinic if the user has access
       // so that "changes" and data shown are for the subdomain's clinic, not the JWT's original clinic
       const subdomain = req.headers.get('x-clinic-subdomain');
       if (
         subdomain &&
-        effectiveClinicId != null &&
         user.role !== 'super_admin' &&
         !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
       ) {

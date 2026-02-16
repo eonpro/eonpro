@@ -101,15 +101,16 @@ export function hasPermission(
   permission: Permission,
   resource?: { clinicId?: number | null; patientId?: number | null; ownerId?: number | null }
 ): boolean {
-  const rolePerms = ROLE_PERMISSIONS[ctx.role] ?? [];
+  const normalizedRole = ctx.role.toLowerCase();
+  const rolePerms = ROLE_PERMISSIONS[normalizedRole] ?? [];
   if (!rolePerms.includes(permission)) return false;
-  if (ctx.role === 'super_admin') return true;
+  if (normalizedRole === 'super_admin') return true;
   if (resource?.clinicId != null && ctx.clinicId != null && resource.clinicId !== ctx.clinicId)
     return false;
   if (permission === 'patient:view' || permission === 'patient:edit') {
-    if (ctx.role === 'patient' && resource?.patientId != null && ctx.patientId !== resource.patientId)
+    if (normalizedRole === 'patient' && resource?.patientId != null && ctx.patientId !== resource.patientId)
       return false;
-    if (ctx.role === 'provider' && resource?.ownerId != null && ctx.providerId !== resource.ownerId)
+    if (normalizedRole === 'provider' && resource?.ownerId != null && ctx.providerId !== resource.ownerId)
       return false; // provider can only see own patients when resource has ownerId
   }
   return true;
@@ -139,7 +140,7 @@ export function toPermissionContext(user: {
   providerId?: number | null;
 }): PermissionContext {
   return {
-    role: user.role,
+    role: user.role.toLowerCase(),
     clinicId: user.clinicId ?? null,
     patientId: user.patientId ?? null,
     providerId: user.providerId ?? null,

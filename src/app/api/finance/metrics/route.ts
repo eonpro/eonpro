@@ -220,6 +220,11 @@ export async function GET(request: NextRequest) {
       });
     });
   } catch (error) {
+    // Handle permission errors from requirePermission (thrown as Error with statusCode)
+    if (error instanceof Error && (error as Error & { statusCode?: number }).statusCode === 403) {
+      return NextResponse.json({ error: 'Insufficient permissions', code: 'FORBIDDEN' }, { status: 403 });
+    }
+
     // Return 503 for transient DB connection issues so clients can retry
     if (isDatabaseConnectionError(error)) {
       logger.error('Database connection error in finance metrics', {
