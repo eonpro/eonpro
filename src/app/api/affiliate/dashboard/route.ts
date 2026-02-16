@@ -12,7 +12,6 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { suppressSmallNumber } from '@/services/affiliate/reportingConstants';
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
@@ -119,11 +118,11 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         },
       }),
 
-      // This month conversions (from AffiliateTouch.convertedAt - standardized source of truth)
-      prisma.affiliateTouch.count({
+      // This month intakes completed (patients attributed to this affiliate this month)
+      prisma.patient.count({
         where: {
-          affiliateId,
-          convertedAt: { gte: startOfMonth },
+          attributionAffiliateId: affiliateId,
+          createdAt: { gte: startOfMonth },
         },
       }),
 
@@ -224,16 +223,14 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const pendingBalance = pendingCommissions._sum.commissionAmountCents || 0;
     const thisMonth = thisMonthEarnings._sum.commissionAmountCents || 0;
     const lastMonth = lastMonthEarnings._sum.commissionAmountCents || 0;
-    // Conversions use AffiliateTouch.convertedAt as source of truth (consistent with ref-code stats)
-    // HIPAA: suppress small conversion counts in the response
-    const conversionsThisMonth = monthlyConversions;
-    const suppressedConversions = suppressSmallNumber(conversionsThisMonth);
-    const isConversionsSuppressed = typeof suppressedConversions === 'string';
+    // Intakes completed: patients attributed to this affiliate this month
+    // No HIPAA suppression needed — affiliates view their own business metrics
+    const intakesThisMonth = monthlyConversions;
 
     const monthOverMonthChange =
       lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : thisMonth > 0 ? 100 : 0;
 
-    const conversionRate = monthlyClicks > 0 ? (conversionsThisMonth / monthlyClicks) * 100 : 0;
+    const intakeRate = monthlyClicks > 0 ? (intakesThisMonth / monthlyClicks) * 100 : 0;
 
     // Calculate tier progress
     let tierProgress = 0;
@@ -304,27 +301,23 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       },
       performance: {
         clicks: monthlyClicks,
-        conversions: suppressedConversions,
-        conversionRate: isConversionsSuppressed ? null : Math.round(conversionRate * 10) / 10,
-        avgOrderValue: isConversionsSuppressed ? null : (conversionsThisMonth > 0 ? Math.round(thisMonth / conversionsThisMonth) : 0),
+        intakes: intakesThisMonth,
+        intakeRate: Math.round(intakeRate * 10) / 10,
+        avgOrderValue: intakesThisMonth > 0 ? Math.round(thisMonth / intakesThisMonth) : 0,
+        lifetimeIntakes: taggedProfilesCount,
       },
-      // Enhanced traffic metrics - critical for affiliate satisfaction
       traffic: {
         lifetimeClicks,
         clicksThisMonth: monthlyClicks,
         uniqueVisitorsThisMonth,
         taggedProfiles: taggedProfilesCount,
-        // Click-to-conversion funnel
         funnel: {
           clicks: monthlyClicks,
           taggedProfiles: taggedProfilesCount,
-          conversions: suppressedConversions,
-          clickToTagRate: monthlyClicks > 0
-            ? Math.round((taggedProfilesCount / monthlyClicks) * 1000) / 10
+          intakes: intakesThisMonth,
+          clickToIntakeRate: monthlyClicks > 0
+            ? Math.round((intakesThisMonth / monthlyClicks) * 1000) / 10
             : 0,
-          tagToConversionRate: isConversionsSuppressed ? null : (taggedProfilesCount > 0
-            ? Math.round((conversionsThisMonth / taggedProfilesCount) * 1000) / 10
-            : 0),
         },
         topCodesByClicks: topCodesFormatted,
         dailyTrend: dailyTrendFormatted,

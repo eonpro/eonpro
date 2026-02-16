@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { suppressSmallNumber } from '@/services/affiliate/reportingConstants';
+// No HIPAA small-number suppression needed — affiliates view their own business metrics
 
 async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
   const searchParams = req.nextUrl.searchParams;
@@ -223,10 +223,6 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
             ? 100
             : 0;
 
-      // HIPAA: suppress small conversion counts to prevent patient re-identification
-      const suppressedConversions = suppressSmallNumber(conversions);
-      const isSuppressed = typeof suppressedConversions === 'string';
-
       return {
         refCode: code.refCode,
         description: code.description,
@@ -234,11 +230,11 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         clicks,
         impressions,
         uniqueVisitors,
-        conversions: suppressedConversions,
-        conversionRate: isSuppressed ? null : conversionRate,
+        conversions,
+        conversionRate,
         clickThroughRate,
-        revenueCents: isSuppressed ? null : commission.revenueCents,
-        commissionCents: isSuppressed ? null : commission.commissionCents,
+        revenueCents: commission.revenueCents,
+        commissionCents: commission.commissionCents,
         trend,
         isNew: new Date(code.createdAt) > sevenDaysAgo,
         dailyBreakdown: dailyMap.get(code.refCode) || [],

@@ -30,9 +30,10 @@ interface DashboardData {
   };
   performance: {
     clicks: number;
-    conversions: number;
-    conversionRate: number;
+    intakes: number;
+    intakeRate: number;
     avgOrderValue: number;
+    lifetimeIntakes: number;
   };
   recentActivity: Array<{
     id: string;
@@ -143,9 +144,10 @@ export default function AffiliateDashboard() {
     },
     performance: {
       clicks: 0,
-      conversions: 0,
-      conversionRate: 0,
+      intakes: 0,
+      intakeRate: 0,
       avgOrderValue: 0,
+      lifetimeIntakes: 0,
     },
     recentActivity: [],
   };
@@ -254,15 +256,17 @@ export default function AffiliateDashboard() {
             </div>
             <div className="text-center">
               <p className="text-2xl font-semibold text-gray-900">
-                {displayData.performance.conversions}
+                {displayData.performance.intakes.toLocaleString()}
               </p>
-              <p className="mt-1 text-sm text-gray-500">Conversions</p>
+              <p className="mt-1 text-sm text-gray-500">Intakes</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-semibold text-gray-900">
-                {displayData.performance.conversionRate}%
+                {displayData.performance.intakeRate > 0
+                  ? `${displayData.performance.intakeRate}%`
+                  : '—'}
               </p>
-              <p className="mt-1 text-sm text-gray-500">Conv. Rate</p>
+              <p className="mt-1 text-sm text-gray-500">Intake Rate</p>
             </div>
           </div>
         </motion.div>

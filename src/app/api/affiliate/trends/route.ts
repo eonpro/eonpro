@@ -4,7 +4,7 @@
  * GET /api/affiliate/trends?from=YYYY-MM-DD&to=YYYY-MM-DD&granularity=day|week
  *
  * Returns aggregated time-series data for the authenticated affiliate.
- * HIPAA-COMPLIANT: Applies small-number suppression (< 5 = "<5")
+ * Affiliates view their own business metrics — no small-number suppression.
  *
  * @security Affiliate role only (derived from auth session)
  */
@@ -17,14 +17,11 @@ import { logger } from '@/lib/logger';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Small number threshold for HIPAA compliance
-const SMALL_NUMBER_THRESHOLD = 5;
-
 interface TrendData {
   date: string;
-  conversions: number | string;
-  revenueCents: number | null;
-  commissionCents: number | null;
+  conversions: number;
+  revenueCents: number;
+  commissionCents: number;
 }
 
 export const GET = withAffiliateAuth(
@@ -83,24 +80,18 @@ export const GET = withAffiliateAuth(
       ORDER BY period ASC
     `;
 
-      // Apply small-number suppression for HIPAA compliance
       const trends: TrendData[] = rawTrends.map(
         (row: {
           period: Date;
           conversions: bigint;
           revenue_cents: bigint | null;
           commission_cents: bigint | null;
-        }) => {
-          const conversionCount = Number(row.conversions);
-          const isSuppressed = conversionCount < SMALL_NUMBER_THRESHOLD && conversionCount > 0;
-
-          return {
-            date: row.period.toISOString().split('T')[0],
-            conversions: isSuppressed ? '<5' : conversionCount,
-            revenueCents: isSuppressed ? null : Number(row.revenue_cents) || 0,
-            commissionCents: isSuppressed ? null : Number(row.commission_cents) || 0,
-          };
-        }
+        }) => ({
+          date: row.period.toISOString().split('T')[0],
+          conversions: Number(row.conversions),
+          revenueCents: Number(row.revenue_cents) || 0,
+          commissionCents: Number(row.commission_cents) || 0,
+        })
       );
 
       // Fill in missing dates with zeros (only for daily granularity)
@@ -125,16 +116,12 @@ export const GET = withAffiliateAuth(
         filledTrends.push(...trends);
       }
 
-      // Calculate totals (excluding suppressed values)
       const totals = trends.reduce(
-        (acc, t) => {
-          if (typeof t.conversions === 'number') {
-            acc.conversions += t.conversions;
-            acc.revenueCents += t.revenueCents || 0;
-            acc.commissionCents += t.commissionCents || 0;
-          }
-          return acc;
-        },
+        (acc, t) => ({
+          conversions: acc.conversions + t.conversions,
+          revenueCents: acc.revenueCents + t.revenueCents,
+          commissionCents: acc.commissionCents + t.commissionCents,
+        }),
         { conversions: 0, revenueCents: 0, commissionCents: 0 }
       );
 
@@ -146,8 +133,6 @@ export const GET = withAffiliateAuth(
           from: fromDate.toISOString(),
           to: toDate.toISOString(),
         },
-        suppressionNote:
-          'Values with fewer than 5 conversions are displayed as "<5" for privacy protection.',
       });
     } catch (error) {
       logger.error('[Affiliate Trends] Error fetching trends', error);

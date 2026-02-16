@@ -50,9 +50,9 @@ import { apiFetch } from '@/lib/api/fetch';
 // Types
 interface TrendData {
   date: string;
-  conversions: number | string;
-  revenueCents: number | null;
-  commissionCents: number | null;
+  conversions: number;
+  revenueCents: number;
+  commissionCents: number;
 }
 
 interface SummaryData {
@@ -74,9 +74,10 @@ interface SummaryData {
 interface DashboardData {
   performance: {
     clicks: number;
-    conversions: number;
-    conversionRate: number;
+    intakes: number;
+    intakeRate: number;
     avgOrderValue: number;
+    lifetimeIntakes: number;
   };
   earnings: {
     thisMonth: number;
@@ -302,9 +303,9 @@ export default function AffiliateAnalyticsPage() {
   const chartData = useMemo(() => {
     return trends.map((t) => ({
       date: t.date,
-      conversions: typeof t.conversions === 'number' ? t.conversions : 0,
-      revenue: (t.revenueCents || 0) / 100,
-      commission: (t.commissionCents || 0) / 100,
+      conversions: t.conversions,
+      revenue: t.revenueCents / 100,
+      commission: t.commissionCents / 100,
     }));
   }, [trends]);
 
@@ -314,10 +315,10 @@ export default function AffiliateAnalyticsPage() {
     const s = summary.summary;
     return {
       clicks: dashboard?.performance.clicks || 0,
-      conversions: s.conversionsCount,
+      intakes: dashboard?.performance.intakes || s.conversionsCount,
       revenue: s.revenueTotalCents,
       commission: s.commissionPendingCents + s.commissionApprovedCents + s.commissionPaidCents,
-      conversionRate: dashboard?.performance.conversionRate || 0,
+      intakeRate: dashboard?.performance.intakeRate || 0,
     };
   }, [summary, dashboard]);
 
@@ -397,8 +398,8 @@ export default function AffiliateAnalyticsPage() {
             iconColor="text-blue-500"
           />
           <StatCard
-            title="Conversions"
-            value={formatNumber(periodTotals?.conversions || 0)}
+            title="Intakes"
+            value={formatNumber(periodTotals?.intakes || 0)}
             icon={ShoppingCart}
             iconBg="bg-green-50"
             iconColor="text-green-500"
@@ -420,8 +421,8 @@ export default function AffiliateAnalyticsPage() {
             iconColor="text-amber-500"
           />
           <StatCard
-            title="Conv. Rate"
-            value={`${(periodTotals?.conversionRate || 0).toFixed(1)}%`}
+            title="Intake Rate"
+            value={periodTotals?.intakeRate ? `${periodTotals.intakeRate.toFixed(1)}%` : '—'}
             icon={Percent}
             iconBg="bg-pink-50"
             iconColor="text-pink-500"
