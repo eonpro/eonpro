@@ -158,7 +158,9 @@ export default function AdminPatientsPage() {
     }
   }, []);
 
-  // Fetch converted patients with server-side search and pagination
+  // Fetch patients with server-side search and pagination
+  // When searching, queries BOTH /admin/patients AND /admin/intakes in parallel
+  // so users find everyone regardless of conversion status.
   const fetchPatients = useCallback(
     async (page: number, searchQuery: string, salesRepIdFilter?: string) => {
       try {
@@ -167,45 +169,84 @@ export default function AdminPatientsPage() {
         setLoading(true);
 
         const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+        const headers = { Authorization: `Bearer ${token}` };
 
-        // Build query params
-        const params = new URLSearchParams({
-          includeContact: 'true',
-        });
-
-        // When searching, fetch more results to show all matches
-        // When not searching, use pagination
         if (isSearch) {
-          // For search: fetch up to 500 results to show all matches
-          params.set('limit', '500');
-          params.set('search', searchQuery.trim());
-        } else {
-          // For browsing: use pagination
-          const offset = (page - 1) * PAGE_SIZE;
-          params.set('limit', PAGE_SIZE.toString());
-          params.set('offset', offset.toString());
-        }
-
-        // Add sales rep filter
-        if (salesRepIdFilter && salesRepIdFilter !== 'all') {
-          params.set('salesRepId', salesRepIdFilter);
-        }
-
-        // Use the new admin patients API for converted patients only
-        const response = await apiFetch(`/api/admin/patients?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setPatients(data.patients || []);
-          setMeta({
-            count: data.meta?.count || 0,
-            total: data.meta?.total || 0,
-            hasMore: data.meta?.hasMore || false,
+          // UNIFIED SEARCH: query both patients and intakes in parallel
+          const patientParams = new URLSearchParams({
+            includeContact: 'true',
+            limit: '500',
+            search: searchQuery.trim(),
           });
+          if (salesRepIdFilter && salesRepIdFilter !== 'all') {
+            patientParams.set('salesRepId', salesRepIdFilter);
+          }
+
+          const intakeParams = new URLSearchParams({
+            includeContact: 'true',
+            limit: '200',
+            search: searchQuery.trim(),
+          });
+
+          const [patientsRes, intakesRes] = await Promise.all([
+            apiFetch(`/api/admin/patients?${patientParams.toString()}`, { headers }),
+            apiFetch(`/api/admin/intakes?${intakeParams.toString()}`, { headers }),
+          ]);
+
+          let combined: Patient[] = [];
+          let totalCount = 0;
+
+          if (patientsRes.ok) {
+            const data = await patientsRes.json();
+            combined = [...(data.patients || [])];
+            totalCount += data.meta?.total || 0;
+          }
+
+          if (intakesRes.ok) {
+            const intakeData = await intakesRes.json();
+            const intakePatients = (intakeData.patients || []).map((p: Patient) => ({
+              ...p,
+              status: p.status || 'intake',
+            }));
+            // Deduplicate by ID (shouldn't overlap, but safety first)
+            const existingIds = new Set(combined.map((p) => p.id));
+            const uniqueIntakes = intakePatients.filter((p: Patient) => !existingIds.has(p.id));
+            combined = [...combined, ...uniqueIntakes];
+            totalCount += uniqueIntakes.length;
+          }
+
+          // Sort combined results: converted patients first, then intakes, both by date desc
+          combined.sort((a, b) => {
+            if (a.status === 'patient' && b.status !== 'patient') return -1;
+            if (a.status !== 'patient' && b.status === 'patient') return 1;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+
+          setPatients(combined);
+          setMeta({ count: combined.length, total: totalCount, hasMore: false });
+        } else {
+          // BROWSE MODE: paginated converted patients only
+          const params = new URLSearchParams({
+            includeContact: 'true',
+            limit: PAGE_SIZE.toString(),
+            offset: ((page - 1) * PAGE_SIZE).toString(),
+          });
+
+          if (salesRepIdFilter && salesRepIdFilter !== 'all') {
+            params.set('salesRepId', salesRepIdFilter);
+          }
+
+          const response = await apiFetch(`/api/admin/patients?${params.toString()}`, { headers });
+
+          if (response.ok) {
+            const data = await response.json();
+            setPatients(data.patients || []);
+            setMeta({
+              count: data.meta?.count || 0,
+              total: data.meta?.total || 0,
+              hasMore: data.meta?.hasMore || false,
+            });
+          }
         }
       } catch (error) {
         console.error('Failed to fetch patients:', error);
@@ -238,13 +279,27 @@ export default function AdminPatientsPage() {
   }, []);
 
   // Apply client-side status filter to loaded patients
+  // When searching, 'all' includes both patients and intakes
   const filteredPatients = patients.filter((patient) => {
-    const matchesStatus = statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
+    const status = patient.status?.toLowerCase();
+    const matchesStatus =
+      statusFilter === 'all' ||
+      status === statusFilter ||
+      (statusFilter === 'intake' && status === 'intake') ||
+      (statusFilter === 'patient' && status === 'patient');
     const matchesTreatment =
       treatmentFilter === 'all' ||
       (patient.tags && patient.tags.some((tag) => tag === treatmentFilter));
     return matchesStatus && matchesTreatment;
   });
+
+  // Count patients vs intakes in search results for summary
+  const patientCount = isSearching
+    ? filteredPatients.filter((p) => p.status === 'patient').length
+    : 0;
+  const intakeCount = isSearching
+    ? filteredPatients.filter((p) => p.status === 'intake').length
+    : 0;
 
   // Pagination calculations
   const totalPages = isSearching
@@ -359,10 +414,14 @@ export default function AdminPatientsPage() {
           <Users className="mt-0.5 h-5 w-5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
           <div>
             <p className="text-sm font-medium text-gray-800">
-              This list shows converted patients with payment or prescription history
+              {isSearching
+                ? 'Search finds everyone — patients and intakes across the entire system'
+                : 'This list shows converted patients with payment or prescription history'}
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
-              New intakes without payment or prescription are shown in the Intakes tab
+              {isSearching
+                ? 'Results show status badges so you can tell patients from intakes at a glance'
+                : 'New intakes without payment or prescription are shown in the Intakes tab'}
             </p>
           </div>
         </div>
@@ -375,7 +434,7 @@ export default function AdminPatientsPage() {
             <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, patient ID, email, or phone..."
+              placeholder="Search all patients and intakes by name, ID, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
@@ -399,6 +458,8 @@ export default function AdminPatientsPage() {
               style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             >
               <option value="all">All Status</option>
+              {isSearching && <option value="patient">Patients Only</option>}
+              {isSearching && <option value="intake">Intakes Only</option>}
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
               <option value="pending">Pending</option>
@@ -497,8 +558,15 @@ export default function AdminPatientsPage() {
           <p className="text-sm text-gray-600">
             {isSearching ? (
               <>
-                Found <span className="font-medium">{filteredPatients.length}</span> patient
+                Found <span className="font-medium">{filteredPatients.length}</span> result
                 {filteredPatients.length !== 1 ? 's' : ''} matching &quot;{debouncedSearch}&quot;
+                {filteredPatients.length > 0 && (
+                  <span className="ml-1 text-gray-400">
+                    ({patientCount > 0 && `${patientCount} patient${patientCount !== 1 ? 's' : ''}`}
+                    {patientCount > 0 && intakeCount > 0 && ', '}
+                    {intakeCount > 0 && `${intakeCount} intake${intakeCount !== 1 ? 's' : ''}`})
+                  </span>
+                )}
                 {statusFilter !== 'all' && ` (${statusFilter})`}
               </>
             ) : (
@@ -526,17 +594,32 @@ export default function AdminPatientsPage() {
           </div>
         ) : displayedPatients.length === 0 ? (
           <div className="p-12 text-center">
-            <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-            <h3 className="mb-2 text-lg font-medium text-gray-900">No patients found</h3>
-            <p className="mb-4 text-gray-600">
-              {searchTerm
-                ? 'Try adjusting your search criteria'
-                : 'No intakes have been converted to patients yet'}
-            </p>
-            {!searchTerm && (
-              <p className="text-sm text-gray-500">
-                Intakes become patients when they make a payment or receive a prescription
-              </p>
+            <Search className="mx-auto mb-4 h-12 w-12 text-gray-300" />
+            <h3 className="mb-2 text-lg font-medium text-gray-900">
+              {searchTerm ? 'No results found' : 'No patients yet'}
+            </h3>
+            {searchTerm ? (
+              <div className="space-y-2">
+                <p className="text-gray-600">
+                  No patients or intakes match &quot;{searchTerm}&quot;
+                </p>
+                <p className="text-sm text-gray-500">
+                  Try searching by first name, last name, email, phone, or patient ID
+                </p>
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Clear search
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-gray-600">No intakes have been converted to patients yet</p>
+                <p className="text-sm text-gray-500">
+                  Intakes become patients when they make a payment or receive a prescription
+                </p>
+              </div>
             )}
           </div>
         ) : (
@@ -582,14 +665,27 @@ export default function AdminPatientsPage() {
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center">
                         <div
-                          className="flex h-10 w-10 items-center justify-center rounded-full"
-                          style={{
-                            backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
-                          }}
+                          className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                            patient.status === 'intake' ? 'bg-amber-100' : ''
+                          }`}
+                          style={
+                            patient.status !== 'intake'
+                              ? {
+                                  backgroundColor:
+                                    'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                                }
+                              : undefined
+                          }
                         >
                           <span
-                            className="font-medium"
-                            style={{ color: 'var(--brand-primary, #4fa77e)' }}
+                            className={`font-medium ${
+                              patient.status === 'intake' ? 'text-amber-700' : ''
+                            }`}
+                            style={
+                              patient.status !== 'intake'
+                                ? { color: 'var(--brand-primary, #4fa77e)' }
+                                : undefined
+                            }
                           >
                             {patient.firstName?.[0]}
                             {patient.lastName?.[0]}
@@ -723,31 +819,40 @@ export default function AdminPatientsPage() {
                     )}
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center gap-2">
-                        {patient.hasPayment && (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
-                            style={{
-                              backgroundColor:
-                                'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
-                              color: 'var(--brand-primary, #4fa77e)',
-                            }}
-                          >
-                            <DollarSign className="h-3 w-3" />
-                            Rx
+                        {patient.status === 'intake' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                            <Users className="h-3 w-3" />
+                            Intake
                           </span>
-                        )}
-                        {patient.hasOrder && (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
-                            style={{
-                              backgroundColor:
-                                'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
-                              color: 'var(--brand-primary, #4fa77e)',
-                            }}
-                          >
-                            <ShoppingCart className="h-3 w-3" />
-                            Rx
-                          </span>
+                        ) : (
+                          <>
+                            {patient.hasPayment && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
+                                style={{
+                                  backgroundColor:
+                                    'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                                  color: 'var(--brand-primary, #4fa77e)',
+                                }}
+                              >
+                                <DollarSign className="h-3 w-3" />
+                                Paid
+                              </span>
+                            )}
+                            {patient.hasOrder && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
+                                style={{
+                                  backgroundColor:
+                                    'var(--brand-primary-light, rgba(79, 167, 126, 0.15))',
+                                  color: 'var(--brand-primary, #4fa77e)',
+                                }}
+                              >
+                                <ShoppingCart className="h-3 w-3" />
+                                Rx
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
