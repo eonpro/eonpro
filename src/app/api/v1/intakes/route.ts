@@ -15,6 +15,7 @@ import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logger } from '@/lib/logger';
 import { PatientDocumentCategory } from '@prisma/client';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 export async function POST(req: NextRequest) {
   const requestId = `v1-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -90,6 +91,13 @@ export async function POST(req: NextRequest) {
         ? existingTags
         : [...existingTags, 'v1-intake'];
 
+      const updateSearchIndex = buildPatientSearchIndex({
+        firstName: patientData.firstName || patient.firstName,
+        lastName: patientData.lastName || patient.lastName,
+        email: patient.email,
+        phone: patientData.phone || patient.phone,
+        patientId: patient.patientId,
+      });
       patient = await prisma.patient.update({
         where: { id: patient.id },
         data: {
@@ -104,11 +112,19 @@ export async function POST(req: NextRequest) {
           zip: patientData.zip || patient.zip,
           clinicId,
           tags: updatedTags,
+          searchIndex: updateSearchIndex,
         },
       });
     } else {
       const patientCount = await prisma.patient.count();
       const patientId = String(patientCount + 1).padStart(6, '0');
+      const searchIndex = buildPatientSearchIndex({
+        firstName: patientData.firstName || 'Unknown',
+        lastName: patientData.lastName || 'Patient',
+        email: patientData.email,
+        phone: patientData.phone,
+        patientId,
+      });
 
       patient = await prisma.patient.create({
         data: {
@@ -125,6 +141,7 @@ export async function POST(req: NextRequest) {
           zip: patientData.zip || '',
           clinicId,
           source: 'api',
+          searchIndex,
           tags: ['v1-intake', 'complete-intake'],
         },
       });

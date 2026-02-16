@@ -16,6 +16,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { markPrescribed, queueForProvider } from '@/services/refill';
 import { providerCompensationService } from '@/services/provider';
 import { platformFeeService } from '@/services/billing';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -602,6 +603,12 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
 
               // Create new patient if not found
               if (!patientRecord) {
+                const searchIndex = buildPatientSearchIndex({
+                  firstName: p.patient.firstName,
+                  lastName: p.patient.lastName,
+                  email: p.patient.email,
+                  phone: p.patient.phone,
+                });
                 patientRecord = await tx.patient.create({
                   data: {
                     firstName: p.patient.firstName,
@@ -616,6 +623,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
                     state: p.patient.state,
                     zip: p.patient.zip,
                     clinicId: activeClinicId,
+                    searchIndex,
                   },
                 });
                 patientClinicId = activeClinicId;

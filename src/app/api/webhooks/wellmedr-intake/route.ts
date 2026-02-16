@@ -16,6 +16,7 @@ import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
@@ -550,6 +551,10 @@ export async function POST(req: NextRequest) {
         logger.info(`[WELLMEDR-INTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
       }
 
+      const updateSearchIndex = buildPatientSearchIndex({
+        ...patientData,
+        patientId: existingPatient!.patientId,
+      });
       patient = await withRetry(() =>
         prisma.patient.update({
           where: { id: existingPatient!.id },
@@ -557,6 +562,7 @@ export async function POST(req: NextRequest) {
             ...patientData,
             tags: updatedTags,
             notes: buildNotes(existingPatient!.notes),
+            searchIndex: updateSearchIndex,
           },
         })
       );
@@ -574,6 +580,10 @@ export async function POST(req: NextRequest) {
       while (!created && retryCount < MAX_RETRIES) {
         try {
           const patientNumber = await getNextPatientId(clinicId);
+          const searchIndex = buildPatientSearchIndex({
+            ...patientData,
+            patientId: patientNumber,
+          });
           patient = await prisma.patient.create({
             data: {
               ...patientData,
@@ -582,6 +592,7 @@ export async function POST(req: NextRequest) {
               tags: submissionTags,
               notes: buildNotes(null),
               source: 'webhook',
+              searchIndex,
               sourceMetadata: {
                 type: 'wellmedr-intake',
                 submissionId: normalized.submissionId,
@@ -620,12 +631,17 @@ export async function POST(req: NextRequest) {
 
               if (refetchPatient) {
                 // Found the patient on re-check - update instead
+                const retrySearchIndex = buildPatientSearchIndex({
+                  ...patientData,
+                  patientId: refetchPatient.patientId,
+                });
                 patient = await prisma.patient.update({
                   where: { id: refetchPatient.id },
                   data: {
                     ...patientData,
                     tags: mergeTags(refetchPatient.tags, submissionTags),
                     notes: buildNotes(refetchPatient.notes),
+                    searchIndex: retrySearchIndex,
                   },
                 });
                 created = true;

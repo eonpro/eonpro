@@ -16,6 +16,7 @@ import { generateIntakePdf } from '@/services/intakePdfService';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
 import { generatePatientId } from '@/lib/patients';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
@@ -254,12 +255,17 @@ export class IntakeProcessor {
         : [];
       const mergedTags = [...new Set([...existingTags, ...allTags])];
 
+      const updateSearchIndex = buildPatientSearchIndex({
+        ...patientData,
+        patientId: existingPatient.patientId,
+      });
       const patient = await prisma.patient.update({
         where: { id: existingPatient.id },
         data: {
           ...patientData,
           tags: mergedTags,
           notes: this.appendNotes(existingPatient.notes, normalized.submissionId),
+          searchIndex: updateSearchIndex,
         },
       });
 
@@ -268,6 +274,10 @@ export class IntakeProcessor {
     } else {
       // Create new patient - use clinic-specific counter
       const patientNumber = await this.getNextPatientId(clinicId ?? undefined);
+      const searchIndex = buildPatientSearchIndex({
+        ...patientData,
+        patientId: patientNumber,
+      });
 
       const patient = await prisma.patient.create({
         data: {
@@ -277,6 +287,7 @@ export class IntakeProcessor {
           tags: allTags,
           notes: `Created via ${this.source} intake ${normalized.submissionId}`,
           source: 'webhook',
+          searchIndex,
           sourceMetadata: {
             type: this.source,
             submissionId: normalized.submissionId,

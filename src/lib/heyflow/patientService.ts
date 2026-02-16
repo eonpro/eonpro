@@ -2,6 +2,7 @@ import type { Patient, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { generatePatientId } from '@/lib/patients';
 import { logger } from '@/lib/logger';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 import type { NormalizedIntake, NormalizedPatient } from './types';
 
 type NormalizedPatientForCreate = {
@@ -77,12 +78,17 @@ export async function upsertPatientFromIntake(
       submissionId: intake.submissionId,
     });
 
+    const updateSearchIndex = buildPatientSearchIndex({
+      ...normalized,
+      patientId: existing.patientId,
+    });
     const updated = await prisma.patient.update({
       where: { id: existing.id },
       data: {
         ...normalized,
         tags: mergeTags(existing.tags, hashtags),
         notes: appendNotes(existing.notes, intake.submissionId),
+        searchIndex: updateSearchIndex,
       },
     });
     return updated;
@@ -90,6 +96,10 @@ export async function upsertPatientFromIntake(
 
   // Generate patient ID using the shared utility (handles clinic prefixes)
   const patientId = await generatePatientId(clinicId);
+  const searchIndex = buildPatientSearchIndex({
+    ...normalized,
+    patientId,
+  });
 
   logger.info('[HeyflowPatientService] Creating new patient', {
     generatedPatientId: patientId,
@@ -105,6 +115,7 @@ export async function upsertPatientFromIntake(
       tags: hashtags,
       notes: `Created via MedLink submission ${intake.submissionId}`,
       source: 'webhook',
+      searchIndex,
       sourceMetadata: {
         type: 'heyflow',
         submissionId: intake.submissionId,

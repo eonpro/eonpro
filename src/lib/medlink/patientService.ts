@@ -2,6 +2,7 @@ import type { Patient, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { generatePatientId } from '@/lib/patients';
 import { logger } from '@/lib/logger';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 import type { NormalizedIntake, NormalizedPatient } from './types';
 
 type NormalizedPatientForCreate = {
@@ -86,6 +87,10 @@ export async function upsertPatientFromIntake(
       submissionId: intake.submissionId,
     });
 
+    const updateSearchIndex = buildPatientSearchIndex({
+      ...normalized,
+      patientId: existing.patientId,
+    });
     const updated = await prisma.patient.update({
       where: { id: existing.id },
       data: {
@@ -94,6 +99,7 @@ export async function upsertPatientFromIntake(
         // Patients should only be moved between clinics via explicit admin action
         tags: mergeTags(existing.tags, allTags),
         notes: appendNotes(existing.notes, intake.submissionId),
+        searchIndex: updateSearchIndex,
       },
     });
     return updated;
@@ -102,6 +108,10 @@ export async function upsertPatientFromIntake(
   // Generate patient ID using the shared utility (handles clinic prefixes)
   const clinicIdForCounter = options?.clinicId || 1;
   const patientId = await generatePatientId(clinicIdForCounter);
+  const searchIndex = buildPatientSearchIndex({
+    ...normalized,
+    patientId,
+  });
 
   logger.info('[MedLinkPatientService] Creating new patient', {
     generatedPatientId: patientId,
@@ -117,6 +127,7 @@ export async function upsertPatientFromIntake(
       tags: allTags,
       notes: `Created via MedLink submission ${intake.submissionId}`,
       source: 'webhook',
+      searchIndex,
       sourceMetadata: {
         type: 'heyflow',
         submissionId: intake.submissionId,

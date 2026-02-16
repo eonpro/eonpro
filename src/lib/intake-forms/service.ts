@@ -3,6 +3,7 @@ import { IntakeFormTemplate, IntakeFormQuestion, IntakeFormLink, Prisma } from '
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import { addDays } from 'date-fns';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 // Types
 export interface CreateFormTemplateInput {
@@ -470,6 +471,12 @@ export async function submitFormResponses(
           });
         }
 
+        const searchIndex = buildPatientSearchIndex({
+          firstName: patientInfo.firstName || '',
+          lastName: patientInfo.lastName || '',
+          email: patientInfo.email,
+          phone: patientInfo.phone || undefined,
+        });
         patient = await prisma.patient.create({
           data: {
             email: patientInfo.email.toLowerCase(),
@@ -483,16 +490,25 @@ export async function submitFormResponses(
             state: '',
             zip: '',
             clinicId: templateClinicId, // Inherit from template
+            searchIndex,
           },
         });
       } else {
-        // Update existing patient
+        // Update existing patient with refreshed search index
+        const updateSearchIndex = buildPatientSearchIndex({
+          firstName: patientInfo.firstName || patient.firstName,
+          lastName: patientInfo.lastName || patient.lastName,
+          email: patient.email,
+          phone: patientInfo.phone || patient.phone,
+          patientId: patient.patientId,
+        });
         patient = await prisma.patient.update({
           where: { id: patient.id },
           data: {
             firstName: patientInfo.firstName || patient.firstName,
             lastName: patientInfo.lastName || patient.lastName,
             phone: patientInfo.phone || patient.phone,
+            searchIndex: updateSearchIndex,
           },
         });
       }

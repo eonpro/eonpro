@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 // Configuration
 const VERIFICATION_TOKEN_LENGTH = 32;
@@ -371,6 +372,12 @@ export async function registerPatient(
         });
       } else {
         // Create new patient record (self-registration without prior intake)
+        const searchIndex = buildPatientSearchIndex({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: normalizedEmail,
+          phone: normalizedPhone,
+        });
         patient = await tx.patient.create({
           data: {
             clinicId: inviteCode.clinicId,
@@ -385,6 +392,7 @@ export async function registerPatient(
             state: '',
             zip: '',
             source: 'self_registration',
+            searchIndex,
             sourceMetadata: { clinicCode: normalizedCode, ipAddress },
           },
         });

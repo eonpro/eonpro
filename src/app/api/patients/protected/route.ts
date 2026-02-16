@@ -9,6 +9,7 @@ import { withProviderAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
  * GET /api/patients/protected
@@ -74,10 +75,19 @@ export const POST = withProviderAuth(async (req, user) => {
     // Create patient with audit trail
     // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
     const patient = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Build search index from plain-text data before create
+      const searchIndex = buildPatientSearchIndex({
+        firstName: body.firstName,
+        lastName: body.lastName,
+        email: body.email,
+        phone: body.phone,
+      });
+
       // Create patient
       const newPatient = await tx.patient.create({
         data: {
           ...body,
+          searchIndex,
           createdById: user.id,
           providerId:
             user.role === 'provider' && user.providerId ? user.providerId : body.providerId,
