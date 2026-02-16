@@ -64,14 +64,17 @@ const nextConfig = {
     ],
   },
 
-  // Patient portal at /portal (eonmeds.eonpro.io/portal, wellmedr.eonpro.io/portal, etc.)
-  // beforeFiles so /portal is rewritten before filesystem (avoids 404 when app/portal/ exists).
-  // /portal/affiliate is unchanged (affiliate portal).
+  // Portal rewrites (beforeFiles so they run before filesystem resolution).
+  // Affiliate portal: /portal/affiliate → /affiliate-portal (real rewrite).
+  // Patient portal:   /portal           → /patient-portal.
+  // Previously, identity rewrites for /portal/affiliate did NOT stop the
+  // catch-all /portal/:path* from also matching, which sent affiliates to
+  // /patient-portal/affiliate (404). Using a distinct internal path fixes this.
   async rewrites() {
     return {
       beforeFiles: [
-        { source: '/portal/affiliate', destination: '/portal/affiliate' },
-        { source: '/portal/affiliate/:path*', destination: '/portal/affiliate/:path*' },
+        { source: '/portal/affiliate', destination: '/affiliate-portal' },
+        { source: '/portal/affiliate/:path*', destination: '/affiliate-portal/:path*' },
         { source: '/portal', destination: '/patient-portal' },
         { source: '/portal/:path*', destination: '/patient-portal/:path*' },
       ],
