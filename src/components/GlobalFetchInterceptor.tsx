@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { dispatchSessionExpired, clearAuthTokens } from '@/lib/api/fetch';
+import { dispatchSessionExpired, clearAuthTokens, refreshAuthToken } from '@/lib/api/fetch';
 import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 
 /** Public routes where fetch interception for session expiry should be skipped */
@@ -59,6 +59,10 @@ function clearStaleSubdomainCookies(): void {
  * and trigger the session expiration flow. This ensures that ALL fetch calls
  * (not just those using apiFetch) properly handle expired sessions.
  *
+ * IMPORTANT: On 401, the interceptor first attempts a token refresh before
+ * clearing tokens and showing the session expired modal. This prevents
+ * premature logouts when the access token simply expired and can be refreshed.
+ *
  * Also performs one-time cleanup of stale hostname-scoped auth cookies on
  * clinic subdomains to prevent 403 loops from legacy duplicate cookies.
  */
@@ -66,6 +70,8 @@ export default function GlobalFetchInterceptor() {
   const pathname = usePathname();
   const isPublicPage = PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
   const cookieCleanupDone = useRef(false);
+  // Deduplicate: only one session-expiration flow runs at a time
+  const sessionExpirationInProgress = useRef(false);
 
   // One-time stale cookie cleanup on mount
   useEffect(() => {
@@ -151,18 +157,47 @@ export default function GlobalFetchInterceptor() {
                 status: response.status,
                 errorCode,
               });
-              // Don't clear tokens or dispatch session expired - just return the response
               return response;
             }
 
-            // Clear tokens and dispatch expiration event for actual session issues
-            clearAuthTokens();
-            dispatchSessionExpired(errorMessage);
+            // Deduplicate: if another 401 handler is already running, skip
+            if (sessionExpirationInProgress.current) {
+              return response;
+            }
 
-            console.warn('[GlobalFetchInterceptor] Session expired, redirecting to login', {
-              url,
-              status: response.status,
-            });
+            // Attempt a token refresh BEFORE clearing tokens.
+            // This prevents premature logouts when the access token simply expired
+            // but the refresh token is still valid (the normal case).
+            //
+            // Uses the shared refreshAuthToken with originalFetch to:
+            //   1. Avoid infinite recursion (originalFetch bypasses this interceptor)
+            //   2. Share the global dedup lock so concurrent 401s don't race
+            sessionExpirationInProgress.current = true;
+            try {
+              const refreshed = await refreshAuthToken(originalFetch);
+
+              if (refreshed) {
+                // Refresh succeeded — retry the original request with the new cookie/token.
+                // The server set new httpOnly cookies via Set-Cookie, so the retry will
+                // automatically pick them up via credentials: 'include'.
+                console.info('[GlobalFetchInterceptor] Token refreshed, retrying request', { url });
+                sessionExpirationInProgress.current = false;
+
+                const retryResponse = await originalFetch(input, init);
+                return retryResponse;
+              }
+
+              // Refresh failed — session is truly expired. Clear tokens and notify.
+              clearAuthTokens();
+              dispatchSessionExpired(errorMessage);
+
+              console.warn('[GlobalFetchInterceptor] Session expired (refresh failed), redirecting to login', {
+                url,
+                status: response.status,
+              });
+            } finally {
+              sessionExpirationInProgress.current = false;
+            }
           }
         }
 

@@ -13,7 +13,8 @@ import { logger } from '@/lib/logger';
 // Custom event for session expiration
 export const SESSION_EXPIRED_EVENT = 'eonpro:session:expired';
 
-// Token refresh state
+// Token refresh state — shared globally to prevent concurrent refresh attempts
+// from different call sites (apiFetch, GlobalFetchInterceptor, etc.)
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
@@ -77,9 +78,18 @@ function isTokenExpiringSoon(token: string): boolean {
 }
 
 /**
- * Refresh the auth token
+ * Refresh the auth token.
+ *
+ * Exported so that GlobalFetchInterceptor can share the same dedup lock,
+ * preventing concurrent refresh attempts from racing and triggering
+ * token-reuse revocation on the server.
+ *
+ * Optionally accepts a custom fetch function to bypass the patched
+ * window.fetch (used by the interceptor to avoid infinite recursion).
  */
-async function refreshAuthToken(): Promise<boolean> {
+export async function refreshAuthToken(
+  fetchFn?: typeof window.fetch
+): Promise<boolean> {
   // If already refreshing, wait for that to complete
   if (isRefreshing && refreshPromise) {
     return refreshPromise;
@@ -91,14 +101,16 @@ async function refreshAuthToken(): Promise<boolean> {
   }
 
   isRefreshing = true;
+  const doFetch = fetchFn || fetch;
   refreshPromise = (async () => {
     try {
-      const response = await fetch('/api/auth/refresh-token', {
+      const response = await doFetch('/api/auth/refresh-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${refreshToken}`,
         },
+        credentials: 'include',
       });
 
       if (!response.ok) {
