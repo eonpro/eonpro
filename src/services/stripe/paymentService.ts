@@ -1,4 +1,4 @@
-import { stripe, getStripe, STRIPE_CONFIG } from '@/lib/stripe';
+import { requireStripeClient } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
 import { StripeCustomerService } from './customerService';
 import type Stripe from 'stripe';
@@ -35,7 +35,7 @@ export class StripePaymentService {
     payment: any;
     clientSecret: string;
   }> {
-    const stripeClient = getStripe();
+    const stripeClient = requireStripeClient();
 
     // ENTERPRISE: Generate idempotency key for deduplication
     // SOC 2 Compliance: Use crypto.randomUUID() to prevent collision under high concurrency
@@ -45,7 +45,7 @@ export class StripePaymentService {
     const payment = await prisma.payment.create({
       data: {
         amount: options.amount,
-        currency: STRIPE_CONFIG.currency,
+        currency: 'usd',
         status: 'PENDING',
         patientId: options.patientId,
         invoiceId: options.invoiceId,
@@ -70,7 +70,7 @@ export class StripePaymentService {
         stripeClient.paymentIntents.create(
           {
             amount: options.amount,
-            currency: STRIPE_CONFIG.currency,
+            currency: 'usd',
             customer: customer.id,
             description: options.description,
             payment_method: options.paymentMethodId,
@@ -138,7 +138,7 @@ export class StripePaymentService {
    * Process a payment with a saved payment method
    */
   static async processPayment(options: ProcessPaymentOptions): Promise<any> {
-    const stripeClient = getStripe();
+    const stripeClient = requireStripeClient();
 
     if (!options.paymentMethodId) {
       throw new Error('Payment method ID is required');
@@ -217,7 +217,7 @@ export class StripePaymentService {
     amount?: number,
     reason?: string
   ): Promise<Stripe.Refund> {
-    const stripeClient = getStripe();
+    const stripeClient = requireStripeClient();
 
     // Get payment from database
     const payment = await prisma.payment.findUnique({
@@ -321,7 +321,7 @@ export class StripePaymentService {
    * Get payment methods for a patient
    */
   static async getPaymentMethods(patientId: number): Promise<Stripe.PaymentMethod[]> {
-    const stripeClient = getStripe();
+    const stripeClient = requireStripeClient();
 
     // Get or create customer
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
@@ -342,7 +342,7 @@ export class StripePaymentService {
     patientId: number,
     paymentMethodId: string
   ): Promise<Stripe.PaymentMethod> {
-    const stripeClient = getStripe();
+    const stripeClient = requireStripeClient();
 
     // Get or create customer
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
@@ -361,7 +361,7 @@ export class StripePaymentService {
    * Remove a payment method
    */
   static async detachPaymentMethod(paymentMethodId: string): Promise<Stripe.PaymentMethod> {
-    const stripeClient = getStripe();
+    const stripeClient = requireStripeClient();
 
     const paymentMethod = await stripeClient.paymentMethods.detach(paymentMethodId);
 

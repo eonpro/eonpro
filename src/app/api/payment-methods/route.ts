@@ -5,9 +5,8 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { getStripeForClinic } from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
-import { Patient, Provider, Order } from '@/types/models';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-// Schema for adding a new card
 const AddCardSchema = z.object({
   patientId: z.number(),
   cardNumber: z.string().min(13).max(19),
@@ -19,8 +18,7 @@ const AddCardSchema = z.object({
   setAsDefault: z.boolean().optional().default(false),
 });
 
-// GET /api/payment-methods?patientId=123
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest, _user: AuthUser) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const patientId = searchParams.get('patientId');
@@ -31,10 +29,8 @@ export async function GET(request: NextRequest) {
 
     const pid = parseInt(patientId);
 
-    // Fetch local cards from DB
     const localCards = await PaymentMethodService.getPaymentMethods(pid);
 
-    // Look up patient's Stripe customer ID and clinic for Stripe card fetch
     const patient = await prisma.patient.findUnique({
       where: { id: pid },
       select: {
@@ -47,7 +43,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch Stripe cards if patient has a stripeCustomerId
     let stripeCards: any[] = [];
     if (patient?.stripeCustomerId) {
       try {
@@ -57,7 +52,6 @@ export async function GET(request: NextRequest) {
           type: 'card',
         });
 
-        // Build set of Stripe PM IDs already linked locally (for dedup)
         const localStripeIds = new Set(
           (patient.paymentMethods || [])
             .map((pm) => pm.stripePaymentMethodId)
@@ -88,10 +82,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Add source field to local cards
     const localWithSource = localCards.map((c) => ({ ...c, source: 'local' as const }));
-
-    // Merge: local cards first, then Stripe-only cards
     const merged = [...localWithSource, ...stripeCards];
 
     return NextResponse.json({
@@ -99,19 +90,15 @@ export async function GET(request: NextRequest) {
       data: merged,
     });
   } catch (error: any) {
-    // @ts-ignore
-
     logger.error('[PAYMENT_METHODS] GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch payment methods' }, { status: 500 });
   }
 }
 
-// POST /api/payment-methods
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
     const body = await request.json();
 
-    // Validate input
     const validationResult = AddCardSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
@@ -125,11 +112,10 @@ export async function POST(request: NextRequest) {
 
     const data = validationResult.data;
 
-    // Add the payment method
     const paymentMethod = await PaymentMethodService.addPaymentMethod(
       data.patientId,
       {
-        cardNumber: data.cardNumber.replace(/\s/g, ''), // Remove spaces
+        cardNumber: data.cardNumber.replace(/\s/g, ''),
         expiryMonth: data.expiryMonth,
         expiryYear: data.expiryYear,
         cvv: data.cvv,
@@ -139,7 +125,6 @@ export async function POST(request: NextRequest) {
       data.setAsDefault
     );
 
-    // Return safe data only
     return NextResponse.json({
       success: true,
       data: {
@@ -153,12 +138,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    // @ts-ignore
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PAYMENT_METHODS] POST error:', error);
 
-    // Handle specific errors
     if (errorMessage === 'Invalid card number') {
       return NextResponse.json({ error: 'Invalid card number' }, { status: 400 });
     }
@@ -175,8 +157,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/payment-methods?id=123&patientId=456
-export async function DELETE(request: NextRequest) {
+async function handleDelete(request: NextRequest, _user: AuthUser) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
@@ -193,8 +174,6 @@ export async function DELETE(request: NextRequest) {
       message: 'Payment method removed successfully',
     });
   } catch (error: any) {
-    // @ts-ignore
-
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PAYMENT_METHODS] DELETE error:', error);
 
@@ -205,3 +184,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to remove payment method' }, { status: 500 });
   }
 }
+
+export const GET = withAuth(handleGet);
+export const POST = withAuth(handlePost);
+export const DELETE = withAuth(handleDelete);

@@ -1,28 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-// Schema for creating a payment
 const createPaymentSchema = z.object({
   patientId: z.number().positive('Patient ID must be positive'),
-  amount: z.number().min(50, 'Minimum amount is 50 cents'), // Minimum 50 cents
+  amount: z.number().min(50, 'Minimum amount is 50 cents'),
   description: z.string().max(500).optional(),
   invoiceId: z.number().positive().optional(),
   paymentMethodId: z.string().min(1).optional(),
   metadata: z.record(z.string()).optional(),
 });
 
-// Type for validated payment data
 type CreatePaymentData = z.infer<typeof createPaymentSchema>;
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
-    // Dynamic import to avoid build-time errors
     const { StripePaymentService } = await import('@/services/stripe/paymentService');
 
     const body = await request.json();
 
-    // Validate request body with safeParse for better error handling
     const validationResult = createPaymentSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -34,9 +31,7 @@ export async function POST(request: NextRequest) {
 
     const validatedData: CreatePaymentData = validationResult.data;
 
-    // Create payment intent or process payment
     if (validatedData.paymentMethodId) {
-      // Process payment immediately with saved payment method
       const payment = await StripePaymentService.processPayment(validatedData);
 
       return NextResponse.json({
@@ -44,7 +39,6 @@ export async function POST(request: NextRequest) {
         payment,
       });
     } else {
-      // Create payment intent for client-side confirmation
       const result = await StripePaymentService.createPaymentIntent(validatedData);
 
       return NextResponse.json({
@@ -67,9 +61,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest, _user: AuthUser) {
   try {
-    // Dynamic import to avoid build-time errors
     const { StripePaymentService } = await import('@/services/stripe/paymentService');
 
     const { searchParams } = new URL(request.url);
@@ -79,7 +72,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Patient ID is required' }, { status: 400 });
     }
 
-    // Get patient payments
     const payments = await StripePaymentService.getPatientPayments(parseInt(patientId, 10));
 
     return NextResponse.json({
@@ -95,3 +87,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
   }
 }
+
+export const POST = withAuth(handlePost);
+export const GET = withAuth(handleGet);
