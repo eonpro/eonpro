@@ -359,6 +359,7 @@ export default function PrescriptionQueuePage() {
 
   // Expanded patient details
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [patientDetails, setPatientDetails] = useState<PatientDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
@@ -466,7 +467,18 @@ export default function PrescriptionQueuePage() {
       setPatientDetails(null);
     } else {
       setExpandedItem(invoiceId);
+      setExpandedOrderId(null);
       await fetchPatientDetails(invoiceId);
+    }
+  };
+
+  const handleExpandOrderItem = (orderId: number) => {
+    if (expandedOrderId === orderId) {
+      setExpandedOrderId(null);
+    } else {
+      setExpandedOrderId(orderId);
+      setExpandedItem(null);
+      setPatientDetails(null);
     }
   };
 
@@ -620,8 +632,40 @@ export default function PrescriptionQueuePage() {
     }
   };
 
+  // Decline an admin-queued order
+  const handleDeclineOrder = async (orderId: number, patientName: string, reason: string) => {
+    setDeclining(true);
+    setError('');
+    try {
+      const res = await apiFetch(`/api/orders/${orderId}/decline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
+        setTotal((prev) => Math.max(0, prev - 1));
+        setDeclineModal(null);
+        setDeclineReason('');
+        setExpandedOrderId(null);
+        setSuccessMessage(`Prescription for ${patientName} declined.`);
+        setTimeout(() => setSuccessMessage(''), 5000);
+      } else {
+        setError(data.error || 'Failed to decline order');
+      }
+    } catch {
+      setError('Failed to decline prescription. Please try again.');
+    } finally {
+      setDeclining(false);
+    }
+  };
+
   const handleOpenPrescriptionPanel = async (item: QueueItem) => {
-    if (item.queueType === 'queued_order') return; // Queued orders use Approve & Send from list (no panel)
+    if (item.queueType === 'queued_order') return;
     const details = await fetchPatientDetails(item.invoiceId!);
     if (details) {
       setPrescriptionPanel({ item, details });
@@ -961,6 +1005,13 @@ export default function PrescriptionQueuePage() {
   const handleDecline = async () => {
     if (!declineModal || !declineReason.trim()) return;
 
+    const isOrderDecline = declineModal.item.queueType === 'queued_order' && declineModal.item.orderId;
+
+    if (isOrderDecline) {
+      await handleDeclineOrder(declineModal.item.orderId!, declineModal.item.patientName, declineReason.trim());
+      return;
+    }
+
     setDeclining(true);
     setError('');
 
@@ -1164,21 +1215,35 @@ export default function PrescriptionQueuePage() {
               return (
                 <div
                   key={itemKey}
-                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md"
+                  className={`overflow-hidden rounded-2xl border shadow-sm transition-all hover:shadow-md ${
+                    isQueuedOrder
+                      ? 'border-amber-200 bg-amber-50/30'
+                      : 'border-gray-100 bg-white'
+                  }`}
                 >
                   {/* Main Card Content - Grid for alignment */}
                   <div className="p-3 sm:p-4">
                     <div className="grid grid-cols-[200px_180px_100px_100px_100px_auto] items-center gap-2">
                       {/* Patient Info - Col 1 */}
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-100 to-rose-200">
-                          <User className="h-4 w-4 text-rose-600" />
+                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+                          isQueuedOrder
+                            ? 'bg-gradient-to-br from-amber-100 to-amber-200'
+                            : 'bg-gradient-to-br from-rose-100 to-rose-200'
+                        }`}>
+                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-rose-600'}`} />
                         </div>
                         <div className="min-w-0 overflow-hidden">
                           <div className="flex flex-wrap items-center gap-1">
                             <h3 className="truncate text-xs font-semibold text-gray-900">
                               {item.patientName}
                             </h3>
+                            {isQueuedOrder && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700">
+                                <ClipboardCheck className="h-2.5 w-2.5" />
+                                Admin Queued
+                              </span>
+                            )}
                             <span
                               className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600"
                               title="Clinic"
@@ -1354,30 +1419,50 @@ export default function PrescriptionQueuePage() {
                           </>
                         )}
                         {isQueuedOrder && (
-                          <button
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Approve and send this prescription for ${item.patientName} to the pharmacy? This will be logged for compliance.`
-                                )
-                              ) {
-                                item.orderId &&
-                                  handleApproveAndSendOrder(item.orderId, item.patientName);
+                          <>
+                            <button
+                              onClick={() => item.orderId && handleExpandOrderItem(item.orderId)}
+                              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                              title="View prescription details"
+                            >
+                              {expandedOrderId === item.orderId ? (
+                                <ChevronUp className="h-5 w-5" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `Approve and send this prescription for ${item.patientName} to the pharmacy? This will be logged for compliance.`
+                                  )
+                                ) {
+                                  item.orderId &&
+                                    handleApproveAndSendOrder(item.orderId, item.patientName);
+                                }
+                              }}
+                              disabled={
+                                !item.clinic?.lifefileEnabled || approvingOrderId === item.orderId
                               }
-                            }}
-                            disabled={
-                              !item.clinic?.lifefileEnabled || approvingOrderId === item.orderId
-                            }
-                            className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-amber-600 hover:to-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Approve and send to pharmacy (queued by admin)"
-                          >
-                            {approvingOrderId === item.orderId ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <ClipboardCheck className="h-4 w-4" />
-                            )}
-                            <span className="hidden 2xl:inline">Approve & Send</span>
-                          </button>
+                              className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-amber-600 hover:to-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              title="Approve and send to pharmacy (queued by admin)"
+                            >
+                              {approvingOrderId === item.orderId ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ClipboardCheck className="h-4 w-4" />
+                              )}
+                              <span className="hidden 2xl:inline">Approve & Send</span>
+                            </button>
+                            <button
+                              onClick={() => setDeclineModal({ item })}
+                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              title="Decline this queued prescription"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1730,6 +1815,119 @@ export default function PrescriptionQueuePage() {
                           Unable to load patient details
                         </p>
                       )}
+                    </div>
+                  )}
+
+                  {/* Expanded Details for Admin-Queued Orders */}
+                  {isQueuedOrder && expandedOrderId === item.orderId && (
+                    <div className="border-t border-amber-200 bg-amber-50/50 p-5">
+                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        {/* Patient Contact Info */}
+                        <div className="space-y-3">
+                          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                            <User className="h-4 w-4 text-amber-600" />
+                            Patient Information
+                          </h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Mail className="h-3.5 w-3.5 text-gray-400" />
+                              {item.patientEmail || 'No email'}
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Phone className="h-3.5 w-3.5 text-gray-400" />
+                              {item.patientPhone || 'No phone'}
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                              {item.patientDob ? formatDob(item.patientDob) : 'No DOB'}
+                            </div>
+                          </div>
+                          {/* SOAP Note status */}
+                          <div className="mt-3 pt-3 border-t border-amber-200">
+                            <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2">
+                              <FileText className="h-4 w-4 text-amber-600" />
+                              SOAP Note
+                            </h4>
+                            {item.hasSoapNote && item.soapNote ? (
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                                item.soapNote.isApproved
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {item.soapNote.isApproved ? (
+                                  <><CheckCircle2 className="h-3 w-3" /> Approved</>
+                                ) : (
+                                  <><Clock className="h-3 w-3" /> {item.soapNote.status}</>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500">
+                                <FileWarning className="h-3 w-3" /> No SOAP note
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Queued Prescription Details (Rx items) */}
+                        <div className="lg:col-span-2 space-y-3">
+                          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                            <Pill className="h-4 w-4 text-amber-600" />
+                            Queued Prescription
+                            <span className="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 border border-amber-300">
+                              Queued by Admin
+                            </span>
+                          </h4>
+
+                          {item.rxs && item.rxs.length > 0 ? (
+                            <div className="space-y-2">
+                              {item.rxs.map((rx, rxIdx) => (
+                                <div
+                                  key={rxIdx}
+                                  className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-semibold text-gray-900">
+                                          {rx.medName}
+                                        </span>
+                                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                                          {rx.strength}
+                                        </span>
+                                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+                                          {rx.form}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1.5 text-sm text-gray-600">
+                                        <span className="font-medium text-gray-700">Sig:</span>{' '}
+                                        {rx.sig || 'Not specified'}
+                                      </p>
+                                    </div>
+                                    <div className="text-right text-xs text-gray-500">
+                                      <p>Qty: <span className="font-semibold text-gray-700">{rx.quantity}</span></p>
+                                      <p>Refills: <span className="font-semibold text-gray-700">{rx.refills}</span></p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-amber-200 bg-white p-4 text-center text-sm text-gray-500">
+                              No Rx items found for this order
+                            </div>
+                          )}
+
+                          {/* Action reminder */}
+                          <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <p className="text-xs text-amber-800">
+                              Review the prescription details above carefully before approving.
+                              Once approved, the prescription will be sent directly to the pharmacy
+                              via Lifefile and cannot be reversed.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
