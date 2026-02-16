@@ -18,7 +18,6 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 import type {
   Invoice,
   Clinic,
@@ -28,6 +27,9 @@ import type {
   RefillQueue,
   Subscription,
 } from '@prisma/client';
+
+// Vercel serverless: allow up to 60s for this heavy query endpoint
+export const maxDuration = 60;
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -68,7 +70,6 @@ type InvoiceWithRelations = Invoice & {
   > & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
-    documents: PatientDocumentWithData[];
   };
 };
 
@@ -84,7 +85,6 @@ type RefillWithRelations = RefillQueue & {
   > & {
     intakeSubmissions: Pick<IntakeFormSubmission, 'id' | 'completedAt'>[];
     soapNotes: Pick<SOAPNote, 'id' | 'status' | 'createdAt' | 'approvedAt' | 'approvedBy'>[];
-    documents: PatientDocumentWithData[];
   };
   subscription: Pick<Subscription, 'id' | 'planName' | 'status'> | null;
 };
@@ -184,16 +184,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                     approvedBy: true,
                   },
                 },
-                // Document metadata only (data blobs loaded separately via patientDocsMap)
-                documents: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 5,
-                  select: {
-                    id: true,
-                    sourceSubmissionId: true,
-                    category: true,
-                  },
-                },
+                // Documents loaded separately via patientDocsMap (removed from include to reduce query weight)
               },
             },
           },
@@ -259,16 +250,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                     approvedBy: true,
                   },
                 },
-                // Document metadata only (data blobs loaded separately via patientDocsMap)
-                documents: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 5,
-                  select: {
-                    id: true,
-                    sourceSubmissionId: true,
-                    category: true,
-                  },
-                },
+                // Documents loaded separately via patientDocsMap (removed from include to reduce query weight)
               },
             },
             subscription: {
