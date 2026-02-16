@@ -2,14 +2,19 @@
  * SERVERLESS DATABASE CONNECTION POOL
  * ====================================
  *
- * Optimized for Vercel serverless to avoid P2024 (connection pool timeout):
- * - connection_limit=1 per function instance on Vercel (set via URL params)
- * - Use PgBouncer or RDS Proxy in production so many instances share a small DB connection pool
+ * Optimized for Vercel serverless with RDS Proxy connection pooling:
+ * - Without external pooler: connection_limit=1 per function instance (prevents P2024)
+ * - With RDS Proxy/PgBouncer: connection_limit=5 per instance (proxy handles multiplexing)
+ *
+ * Architecture (production):
+ *   Vercel Functions (100s of instances, 5 conns each)
+ *     → RDS Proxy (pools to ~900 real connections)
+ *       → RDS PostgreSQL db.t4g.xlarge (~1800 max_connections)
  *
  * If you see "Timed out fetching a new connection from the connection pool" (P2024):
- * 1. Ensure DATABASE_URL is used with ?connection_limit=1 (this module sets it when not in URL)
- * 2. Do not set DATABASE_CONNECTION_LIMIT > 1 on Vercel
- * 3. Use a connection pooler: PgBouncer (e.g. Supabase pooler) or AWS RDS Proxy
+ * 1. Verify DATABASE_URL points to RDS Proxy (hostname contains .proxy-)
+ * 2. Verify USE_RDS_PROXY=true in environment
+ * 3. Check RDS Proxy target group health in AWS Console
  *
  * @module ServerlessPool
  */
@@ -24,17 +29,15 @@ import { logger } from '@/lib/logger';
 /**
  * Serverless-optimized connection settings
  *
- * CRITICAL: In serverless environments, each function instance creates its own
- * connection pool. With Vercel's auto-scaling, you can have 100+ concurrent
- * instances, each holding connections. This quickly exhausts RDS limits.
+ * With RDS Proxy: Each function instance can safely open up to 5 connections.
+ * The proxy multiplexes hundreds of instance connections into ~900 real PG connections.
+ * This enables true parallel queries via Promise.all() within a single request.
  *
- * Solution: Use minimal connections per instance and rely on:
- * 1. RDS Proxy for connection pooling (recommended)
- * 2. Prisma Accelerate for managed pooling
- * 3. Very aggressive connection limits
+ * Without external pooler: Capped at 1 connection per instance to prevent
+ * exhausting PostgreSQL's max_connections when Vercel auto-scales.
  */
 export interface ServerlessPoolConfig {
-  /** Maximum connections per serverless function (keep LOW: 1-2) */
+  /** Maximum connections per serverless function (1 without pooler, up to 10 with pooler) */
   connectionLimit: number;
   /** Pool timeout in seconds (how long to wait for a connection) */
   poolTimeout: number;
@@ -61,24 +64,28 @@ export function getServerlessConfig(): ServerlessPoolConfig {
   const usePgBouncer =
     !!process.env.DATABASE_URL?.includes('pgbouncer=true') || process.env.USE_PGBOUNCER === 'true';
 
-  // Explicit environment variable override takes priority (but capped on Vercel)
+  const hasExternalPooler = useRdsProxy || usePgBouncer;
+
+  // Explicit environment variable override takes priority
   const explicitLimit = process.env.DATABASE_CONNECTION_LIMIT;
 
   let connectionLimit: number;
 
   if (explicitLimit) {
-    // Explicit override - cap strictly on Vercel to prevent pool exhaustion (P2024)
     const requested = parseInt(explicitLimit, 10) || 5;
-    const cap = isVercel ? 1 : 10; // Vercel: always 1 unless using external pooler
+    // With external pooler: allow up to 10 per instance (proxy handles multiplexing)
+    // Without external pooler: cap at 1 on Vercel to prevent P2024 exhaustion
+    const cap = hasExternalPooler ? 10 : (isVercel ? 1 : 10);
     connectionLimit = Math.min(requested, cap);
-  } else if (useRdsProxy || usePgBouncer) {
-    // With proxy/pooler, one connection per instance is enough
-    connectionLimit = isVercel ? 1 : 5;
-  } else if (isVercel && isProduction) {
-    // CRITICAL: Avoid P2024 "Timed out fetching a new connection from the connection pool"
-    // Each serverless instance = one Prisma client. Limit 1 = one connection per instance.
-    connectionLimit = 1;
+  } else if (hasExternalPooler) {
+    // RDS Proxy or PgBouncer handles connection multiplexing.
+    // 5 connections per instance enables true parallel queries (Promise.all).
+    // With ~200 concurrent Vercel instances × 5 = 1000 proxy connections,
+    // pooled down to ~900 real PG connections (well within db.t4g.xlarge's ~1800 limit).
+    connectionLimit = isVercel ? 5 : 10;
   } else if (isVercel) {
+    // No external pooler: MUST stay at 1 to prevent P2024.
+    // Each Vercel instance opens a direct connection to PostgreSQL.
     connectionLimit = 1;
   } else {
     // Local development or non-serverless
@@ -87,9 +94,9 @@ export function getServerlessConfig(): ServerlessPoolConfig {
 
   return {
     connectionLimit,
-    poolTimeout: isVercel ? 15 : 30, // Match Prisma default 15s so we don't fail before pool
+    poolTimeout: hasExternalPooler ? 30 : (isVercel ? 15 : 30), // Proxy borrow timeout is 120s; 30s is safe
     connectTimeout: 10,
-    idleTimeout: isVercel ? 10 : 60, // Release idle connections quickly
+    idleTimeout: isVercel ? 10 : 60, // Release idle connections quickly on serverless
     statementTimeout: 30000, // 30s statement timeout
     useRdsProxy,
     usePgBouncer,
