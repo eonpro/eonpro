@@ -23,9 +23,13 @@ type CompetitionMetric = 'CLICKS' | 'CONVERSIONS' | 'REVENUE' | 'CONVERSION_RATE
 export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
-      // Get affiliate from user
+      const affiliateId = user.affiliateId;
+      if (!affiliateId) {
+        return NextResponse.json({ error: 'Not an affiliate', code: 'NOT_AFFILIATE' }, { status: 403 });
+      }
+
       const affiliate = await prisma.affiliate.findUnique({
-        where: { userId: user.id },
+        where: { id: affiliateId },
         select: { id: true, clinicId: true, status: true },
       });
 

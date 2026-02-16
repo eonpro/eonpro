@@ -57,9 +57,13 @@ function getDeviceType(userAgent: string | null): string {
 export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
-      // Get affiliate from user
+      const affiliateId = user.affiliateId;
+      if (!affiliateId) {
+        return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
+      }
+
       const affiliate = await prisma.affiliate.findUnique({
-        where: { userId: user.id },
+        where: { id: affiliateId },
         select: { id: true, clinicId: true, status: true },
       });
 

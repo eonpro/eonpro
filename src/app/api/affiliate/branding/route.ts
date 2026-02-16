@@ -27,13 +27,13 @@ export const GET = withAffiliateAuth(
         affiliateId: user.affiliateId,
       });
 
-      // Use basePrisma to bypass clinic-scoped filtering -- the affiliate model
-      // is in CLINIC_ISOLATED_MODELS but the auth middleware may not always set
-      // the correct clinic context (e.g. when the JWT clinicId differs from the
-      // subdomain clinic).  Since this endpoint is already auth-gated to the
-      // affiliate role, using basePrisma is safe.
+      const affiliateId = user.affiliateId;
+      if (!affiliateId) {
+        return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
+      }
+
       const affiliate = await basePrisma.affiliate.findUnique({
-        where: { userId: user.id },
+        where: { id: affiliateId },
         select: {
           id: true,
           clinicId: true,
