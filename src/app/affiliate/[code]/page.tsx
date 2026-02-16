@@ -196,7 +196,7 @@ const ASSETS = {
 
 function OTLogo({ logoUrl, clinicName, size = 'default' }: { logoUrl?: string | null; clinicName?: string; size?: 'default' | 'small' }) {
   const src = logoUrl || ASSETS.logo;
-  const height = size === 'small' ? 'h-7' : 'h-14';
+  const height = size === 'small' ? 'h-7' : 'h-8 sm:h-14';
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -437,12 +437,12 @@ function AffiliateLandingContent() {
       {/* Header — white with 50px radius, black behind for contrast */}
       {/* ================================================================ */}
       <div style={{ backgroundColor: '#000000' }}>
-        <header style={{ backgroundColor: BRAND.white, borderTopLeftRadius: '35px', borderTopRightRadius: '35px' }}>
+        <header style={{ backgroundColor: BRAND.white, borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
             <a
               href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
-              className="rounded-full px-6 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+              className="hidden rounded-full px-6 py-2.5 text-sm font-semibold transition-all hover:opacity-90 sm:inline-block"
               style={{ backgroundColor: BRAND.text, color: BRAND.white }}
             >
               Get Started
