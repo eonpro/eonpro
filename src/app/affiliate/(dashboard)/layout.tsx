@@ -272,6 +272,16 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   // Compute CSS custom properties from branding
   const cssVars = useMemo(() => brandingToCssVars(branding), [branding]);
 
+  // Set body background to match layout so no white edges bleed through
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = '#F9FAFB';
+    document.body.style.backgroundColor = '#F9FAFB';
+    return () => {
+      document.documentElement.style.backgroundColor = '';
+      document.body.style.backgroundColor = '';
+    };
+  }, []);
+
   // Filter nav items based on feature flags
   const navItems = useMemo(() => {
     if (!branding) return allNavItems;
@@ -314,16 +324,6 @@ export default function AffiliateDashboardLayout({ children }: { children: React
       setTimeout(() => setCopiedLink(false), 2000);
     }
   };
-
-  // Set body background to match layout so no white edges bleed through
-  useEffect(() => {
-    document.documentElement.style.backgroundColor = '#F9FAFB';
-    document.body.style.backgroundColor = '#F9FAFB';
-    return () => {
-      document.documentElement.style.backgroundColor = '';
-      document.body.style.backgroundColor = '';
-    };
-  }, []);
 
   return (
     <BrandingProvider branding={branding}>
