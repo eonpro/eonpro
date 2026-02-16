@@ -151,49 +151,87 @@ export default function AffiliateDashboardLayout({ children }: { children: React
         return;
       }
 
-      // 2. Fetch clinic branding (non-blocking; portal works with defaults)
+      // 2. Fetch clinic branding -- two strategies for resilience
+      let brandingData: AffiliateBranding | null = null;
+
+      // Strategy A: public clinic/resolve endpoint (always works, no auth needed)
+      try {
+        const domain = window.location.hostname;
+        const resolveRes = await fetch(
+          `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
+          { cache: 'no-store' }
+        );
+        if (resolveRes.ok && !cancelled) {
+          const clinic = await resolveRes.json();
+          if (clinic.clinicId) {
+            brandingData = {
+              clinicId: clinic.clinicId,
+              clinicName: clinic.name || '',
+              affiliateName: 'Partner',
+              logoUrl: clinic.branding?.logoUrl || null,
+              faviconUrl: clinic.branding?.faviconUrl || null,
+              primaryColor: clinic.branding?.primaryColor || '#4fa77e',
+              secondaryColor: clinic.branding?.secondaryColor || '#3B82F6',
+              accentColor: clinic.branding?.accentColor || '#d3f931',
+              customCss: null,
+              features: {
+                showPerformanceChart: true,
+                showRefCodeManager: true,
+                showPayoutHistory: true,
+                showResources: true,
+              },
+              supportEmail: clinic.contact?.supportEmail || null,
+              supportPhone: clinic.contact?.phone || null,
+              resources: [],
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('[Affiliate Layout] clinic/resolve fallback failed:', err);
+      }
+
+      // Strategy B: authenticated affiliate branding endpoint (richer data)
       try {
         const brandingRes = await apiFetch('/api/affiliate/branding', {
           credentials: 'include',
         });
-        if (!brandingRes.ok) {
-          const errText = await brandingRes.text().catch(() => 'unknown');
-          console.error('[Affiliate Layout] Branding API failed:', brandingRes.status, errText);
-        }
         if (brandingRes.ok && !cancelled) {
           const data = await brandingRes.json();
-          console.log('[Affiliate Layout] Branding loaded:', data.clinicName, data.primaryColor);
-          setBranding(data);
-
-          // Apply custom CSS if provided
-          if (data.customCss) {
-            let styleEl = document.getElementById('affiliate-custom-css');
-            if (!styleEl) {
-              styleEl = document.createElement('style');
-              styleEl.id = 'affiliate-custom-css';
-              document.head.appendChild(styleEl);
-            }
-            styleEl.textContent = data.customCss;
-          }
-
-          // Update favicon
-          if (data.faviconUrl) {
-            const link =
-              (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
-              document.createElement('link');
-            link.type = 'image/x-icon';
-            link.rel = 'shortcut icon';
-            link.href = data.faviconUrl;
-            document.head.appendChild(link);
-          }
-
-          // Update page title
-          if (data.clinicName) {
-            document.title = `Partner Portal | ${data.clinicName}`;
-          }
+          brandingData = data;
+        } else {
+          console.warn('[Affiliate Layout] /api/affiliate/branding returned', brandingRes.status);
         }
       } catch (err) {
-        console.error('[Affiliate Layout] Branding fetch error:', err);
+        console.warn('[Affiliate Layout] /api/affiliate/branding error:', err);
+      }
+
+      // Apply whichever branding we have
+      if (brandingData && !cancelled) {
+        setBranding(brandingData);
+
+        if (brandingData.customCss) {
+          let styleEl = document.getElementById('affiliate-custom-css');
+          if (!styleEl) {
+            styleEl = document.createElement('style');
+            styleEl.id = 'affiliate-custom-css';
+            document.head.appendChild(styleEl);
+          }
+          styleEl.textContent = brandingData.customCss;
+        }
+
+        if (brandingData.faviconUrl) {
+          const link =
+            (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
+            document.createElement('link');
+          link.type = 'image/x-icon';
+          link.rel = 'shortcut icon';
+          link.href = brandingData.faviconUrl;
+          document.head.appendChild(link);
+        }
+
+        if (brandingData.clinicName) {
+          document.title = `Partner Portal | ${brandingData.clinicName}`;
+        }
       }
     };
 
