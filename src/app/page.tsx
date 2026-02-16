@@ -28,6 +28,7 @@ import {
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { USMapChart } from '@/components/dashboards/USMapChart';
 
 // Default EONPRO logos
 const EONPRO_LOGO =
@@ -90,6 +91,11 @@ function HomePageInner() {
     recurringRevenue: 0,
     newPrescriptions: 0,
   });
+  const [geoData, setGeoData] = useState<{
+    stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
+    clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
+  } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(true);
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -234,6 +240,20 @@ function HomePageInner() {
         console.warn('[Dashboard] Orders fetch failed:', e.message);
       }
 
+      // 4. Fetch geographic data for the map (non-blocking)
+      try {
+        const geoResponse = await fetchWithRetry('/api/admin/dashboard/geo');
+        if (geoResponse.ok) {
+          const geoPayload = await geoResponse.json();
+          setGeoData(geoPayload);
+        }
+      } catch (e: any) {
+        if (e.isAuthError) throw e;
+        console.warn('[Dashboard] Geo data fetch failed:', e.message);
+      } finally {
+        setGeoLoading(false);
+      }
+
       setIntakesLoading(false);
     } catch (error: any) {
       // If auth error, the SessionExpirationHandler will show the modal
@@ -242,6 +262,7 @@ function HomePageInner() {
       }
       console.error('Failed to load dashboard data:', error);
       setIntakesLoading(false);
+      setGeoLoading(false);
     }
   };
 
@@ -509,6 +530,15 @@ function HomePageInner() {
                 <p className="text-sm text-gray-500">Scripts (24h)</p>
               </div>
             </div>
+          </div>
+
+          {/* US Map - Client Distribution */}
+          <div className="mb-8">
+            <USMapChart
+              stateData={geoData?.stateData ?? {}}
+              clinics={geoData?.clinics ?? []}
+              isLoading={geoLoading}
+            />
           </div>
 
           {/* Patient Intakes Card */}
