@@ -184,13 +184,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                     approvedBy: true,
                   },
                 },
-                // Include ALL documents for GLP-1 history (filter by category in code)
+                // Document metadata only (data blobs loaded separately via patientDocsMap)
                 documents: {
                   orderBy: { createdAt: 'desc' },
                   take: 5,
                   select: {
                     id: true,
-                    data: true,
                     sourceSubmissionId: true,
                     category: true,
                   },
@@ -260,13 +259,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                     approvedBy: true,
                   },
                 },
-                // Include ALL documents for GLP-1 history (filter by category in code)
+                // Document metadata only (data blobs loaded separately via patientDocsMap)
                 documents: {
                   orderBy: { createdAt: 'desc' },
                   take: 5,
                   select: {
                     id: true,
-                    data: true,
                     sourceSubmissionId: true,
                     category: true,
                   },
@@ -859,34 +857,45 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const patientDocsMap = new Map<number, PatientDocumentWithData[]>();
 
     if (allPatientIds.length > 0) {
-      const allPatientDocs = await prisma.patientDocument.findMany({
-        where: {
-          patientId: { in: allPatientIds },
-          category: 'MEDICAL_INTAKE_FORM',
-        },
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          patientId: true,
-          data: true,
-          sourceSubmissionId: true,
-          category: true,
-        },
-      });
+      try {
+        // Load only the MOST RECENT intake form per patient (not all docs with full binary data).
+        // The data blobs can be large (JSON intake forms) so we limit to 1 per patient.
+        const allPatientDocs = await prisma.patientDocument.findMany({
+          where: {
+            patientId: { in: allPatientIds },
+            category: 'MEDICAL_INTAKE_FORM',
+          },
+          orderBy: { createdAt: 'desc' },
+          // Distinct by patientId so we get at most 1 per patient
+          distinct: ['patientId'],
+          select: {
+            id: true,
+            patientId: true,
+            data: true,
+            sourceSubmissionId: true,
+            category: true,
+          },
+        });
 
-      // Group docs by patientId
-      for (const doc of allPatientDocs) {
-        if (!patientDocsMap.has(doc.patientId)) {
-          patientDocsMap.set(doc.patientId, []);
+        for (const doc of allPatientDocs) {
+          if (!patientDocsMap.has(doc.patientId)) {
+            patientDocsMap.set(doc.patientId, []);
+          }
+          patientDocsMap.get(doc.patientId)!.push(doc as PatientDocumentWithData);
         }
-        patientDocsMap.get(doc.patientId)!.push(doc as PatientDocumentWithData);
-      }
 
-      logger.info('[PRESCRIPTION-QUEUE] Fetched intake documents', {
-        patientCount: allPatientIds.length,
-        docsFound: allPatientDocs.length,
-        patientsWithDocs: patientDocsMap.size,
-      });
+        logger.info('[PRESCRIPTION-QUEUE] Fetched intake documents', {
+          patientCount: allPatientIds.length,
+          docsFound: allPatientDocs.length,
+          patientsWithDocs: patientDocsMap.size,
+        });
+      } catch (docError) {
+        // Non-fatal: document data is used for GLP-1 extraction, not critical for the queue listing
+        logger.warn('[PRESCRIPTION-QUEUE] Failed to load intake documents, continuing without GLP-1 data', {
+          error: docError instanceof Error ? docError.message : String(docError),
+          patientCount: allPatientIds.length,
+        });
+      }
     }
 
     // Transform invoice data for frontend

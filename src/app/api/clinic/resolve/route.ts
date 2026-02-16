@@ -47,7 +47,9 @@ function isMainAppDomain(domain: string): boolean {
     normalized.includes('app.eonpro.io') ||
     normalized === 'app.eonpro.io' ||
     normalized === 'localhost' ||
-    normalized.startsWith('localhost:')
+    normalized.startsWith('localhost:') ||
+    // Vercel preview deployments (not clinic-specific)
+    normalized.endsWith('.vercel.app')
   );
 }
 

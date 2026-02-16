@@ -323,42 +323,67 @@ export function ClinicBrandingProvider({
             domain.includes('app.eonpro.io') ||
             domain === 'app.eonpro.io' ||
             domain === 'localhost' ||
-            domain.startsWith('localhost:');
+            domain.startsWith('localhost:') ||
+            // Vercel preview deployments (not clinic-specific)
+            domain.endsWith('.vercel.app');
 
-          // Main app domain always uses EONPRO branding; skip API call to avoid timeouts
+          // Main app domain or preview deployment always uses EONPRO branding; skip API call
           if (isMainAppDomain) {
             if (!cancelled) setBranding(defaultBranding);
             return;
           }
 
-          try {
-            // Add timeout to prevent hanging
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const resolveResponse = await fetch(
-              `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
-              {
-                signal: controller.signal,
+          // Try localStorage cache first to avoid slow /api/clinic/resolve calls
+          // (the resolve endpoint does a DB query that can timeout on cold starts)
+          const cacheKey = `clinic-resolve:${domain}`;
+          const cached = getLocalStorageItem(cacheKey);
+          if (cached) {
+            try {
+              const cachedData = JSON.parse(cached);
+              // Cache entries expire after 1 hour
+              if (cachedData.clinicId && cachedData.ts && Date.now() - cachedData.ts < 3600_000) {
+                cId = cachedData.clinicId;
               }
-            );
-            clearTimeout(timeoutId);
-
-            if (resolveResponse.ok) {
-              const resolveData = await resolveResponse.json();
-
-              // If domain resolves to a specific clinic, use that clinic's branding
-              if (resolveData.clinicId) {
-                cId = resolveData.clinicId;
-              }
-            } else {
-              console.warn('[ClinicBranding] Failed to resolve clinic, using defaults');
+            } catch {
+              // Invalid cache entry, will re-fetch
             }
-          } catch (resolveErr) {
-            if ((resolveErr as Error).name === 'AbortError') {
-              console.warn('[ClinicBranding] Timeout resolving clinic domain');
-            } else {
-              console.warn('[ClinicBranding] Could not resolve clinic from domain:', resolveErr);
+          }
+
+          // If no cached clinicId, call the resolve API
+          if (!cId) {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+              const resolveResponse = await fetch(
+                `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
+                {
+                  signal: controller.signal,
+                }
+              );
+              clearTimeout(timeoutId);
+
+              if (resolveResponse.ok) {
+                const resolveData = await resolveResponse.json();
+
+                if (resolveData.clinicId) {
+                  cId = resolveData.clinicId;
+                  // Cache for future loads
+                  try {
+                    localStorage.setItem(cacheKey, JSON.stringify({ clinicId: cId, ts: Date.now() }));
+                  } catch {
+                    // localStorage may be full or disabled
+                  }
+                }
+              } else {
+                console.warn('[ClinicBranding] Failed to resolve clinic, using defaults');
+              }
+            } catch (resolveErr) {
+              if ((resolveErr as Error).name === 'AbortError') {
+                console.warn('[ClinicBranding] Timeout resolving clinic domain');
+              } else {
+                console.warn('[ClinicBranding] Could not resolve clinic from domain:', resolveErr);
+              }
             }
           }
         }
@@ -383,7 +408,8 @@ export function ClinicBrandingProvider({
                 domain.includes('app.eonpro.io') ||
                 domain === 'app.eonpro.io' ||
                 domain === 'localhost' ||
-                domain.startsWith('localhost:');
+                domain.startsWith('localhost:') ||
+                domain.endsWith('.vercel.app');
               if (!isMainAppDomain) {
                 cId = userData.clinicId;
               }

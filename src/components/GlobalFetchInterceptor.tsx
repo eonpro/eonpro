@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { dispatchSessionExpired, clearAuthTokens } from '@/lib/api/fetch';
 import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
@@ -8,16 +8,72 @@ import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 /** Public routes where fetch interception for session expiry should be skipped */
 const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/register', '/reset-password', '/verify-email'];
 
+/** Auth cookie names that may have stale hostname-scoped duplicates */
+const AUTH_COOKIE_NAMES = [
+  'auth-token',
+  'admin-token',
+  'super_admin-token',
+  'provider-token',
+  'staff-token',
+  'patient-token',
+  'affiliate-token',
+  'support-token',
+];
+
+/** Subdomains that are NOT clinic-specific (don't need cookie cleanup) */
+const NON_CLINIC_SUBDOMAINS = ['www', 'app', 'api', 'admin', 'staging'];
+
+/**
+ * On clinic subdomains (e.g. ot.eonpro.io), clear hostname-scoped auth cookies
+ * so only the server-set .eonpro.io parent-domain cookies are used.
+ *
+ * Background: a past bug set auth cookies on the hostname (ot.eonpro.io) via
+ * document.cookie. Browsers send hostname cookies before parent-domain cookies,
+ * so stale hostname tokens override valid .eonpro.io tokens → 403 loops.
+ * The code bug is fixed, but users who haven't cleared cookies still have stale
+ * hostname cookies. This cleanup runs once on app init to remove them.
+ */
+function clearStaleSubdomainCookies(): void {
+  if (typeof document === 'undefined') return;
+
+  const hostname = window.location.hostname;
+
+  // Only run on clinic subdomains of eonpro.io (e.g. ot.eonpro.io)
+  if (!hostname.endsWith('.eonpro.io')) return;
+  const subdomain = hostname.split('.')[0];
+  if (!subdomain || NON_CLINIC_SUBDOMAINS.includes(subdomain)) return;
+
+  // Clear hostname-scoped auth cookies (no domain = current hostname only).
+  // The .eonpro.io parent-domain cookies set by the server are unaffected.
+  AUTH_COOKIE_NAMES.forEach((name) => {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  });
+
+  console.info('[CookieCleanup] Cleared hostname-scoped auth cookies on', hostname);
+}
+
 /**
  * Global Fetch Interceptor
  *
  * This component patches the global fetch to intercept 401/403 responses
  * and trigger the session expiration flow. This ensures that ALL fetch calls
  * (not just those using apiFetch) properly handle expired sessions.
+ *
+ * Also performs one-time cleanup of stale hostname-scoped auth cookies on
+ * clinic subdomains to prevent 403 loops from legacy duplicate cookies.
  */
 export default function GlobalFetchInterceptor() {
   const pathname = usePathname();
   const isPublicPage = PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
+  const cookieCleanupDone = useRef(false);
+
+  // One-time stale cookie cleanup on mount
+  useEffect(() => {
+    if (!isBrowser || !safeWindow) return;
+    if (cookieCleanupDone.current) return;
+    cookieCleanupDone.current = true;
+    clearStaleSubdomainCookies();
+  }, []);
 
   useEffect(() => {
     // SSR guard - only run on client
