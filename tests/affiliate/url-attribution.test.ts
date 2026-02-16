@@ -48,9 +48,8 @@
  *
  * G. attributeByRecentTouch — fallback attribution
  *    - Already attributed patients
- *    - URL-based fallback
- *    - Recent touch matching
- *    - Ambiguity handling
+ *    - URL-based fallback (referrer URL with ref code)
+ *    - No clinic-wide fallback (prevents false attribution)
  *    - Error resilience
  */
 
@@ -807,7 +806,7 @@ describe('G. attributeByRecentTouch', () => {
     expect(mockPrisma.affiliateRefCode.findFirst).toHaveBeenCalled();
   });
 
-  it('handles null referrer URL and falls back to recent touch (single click)', async () => {
+  it('returns null when referrer URL has no ref code (no clinic-wide fallback)', async () => {
     mockPrisma.patient.findUnique.mockResolvedValue({
       id: 9843,
       attributionAffiliateId: null,
@@ -815,113 +814,27 @@ describe('G. attributeByRecentTouch', () => {
       phone: null,
     });
 
-    mockPrisma.affiliateTouch.findMany.mockResolvedValueOnce([
-      { id: 55, refCode: 'TEAMSAV', affiliateId: 3 },
-    ]);
-
-    mockPrisma.affiliateRefCode.findFirst.mockResolvedValue({
-      id: 10, refCode: 'TEAMSAV', affiliateId: 3, clinicId: 1, status: 'ACTIVE',
-    });
-    mockPrisma.affiliateTouch.findMany.mockResolvedValue([]);
-    mockPrisma.affiliateAttributionConfig.findUnique.mockResolvedValue(null);
-    mockPrisma.affiliate.findUnique.mockResolvedValue({
-      id: 3, status: 'ACTIVE', lifetimeConversions: 0,
-    });
-    mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-      if (typeof fn === 'function') return fn(mockPrisma);
-      return Promise.all(fn);
-    });
-    mockPrisma.patient.update.mockResolvedValue({ id: 9843 });
-    mockPrisma.affiliateTouch.create.mockResolvedValue({ id: 100 });
-    mockPrisma.affiliate.update.mockResolvedValue({ id: 3 });
-
-    const result = await attributeByRecentTouch(9843, null, 1);
-
-    expect(mockPrisma.affiliateTouch.findMany).toHaveBeenCalled();
-  });
-
-  it('returns null when no recent touches found', async () => {
-    mockPrisma.patient.findUnique.mockResolvedValue({
-      id: 9843,
-      attributionAffiliateId: null,
-      email: 'jones@test.com',
-      phone: null,
-    });
-    mockPrisma.affiliateTouch.findMany.mockResolvedValueOnce([]);
-
-    const result = await attributeByRecentTouch(9843, null, 1);
-    expect(result).toBeNull();
-  });
-
-  it('attributes when multiple recent touches all have the SAME refCode', async () => {
-    // First call: patient lookup in attributeByRecentTouch
-    mockPrisma.patient.findUnique.mockResolvedValueOnce({
-      id: 9843,
-      attributionAffiliateId: null,
-      email: 'jones@test.com',
-      phone: null,
-    });
-
-    // Recent touches: all TEAMSAV
-    mockPrisma.affiliateTouch.findMany.mockResolvedValueOnce([
-      { id: 55, refCode: 'TEAMSAV', affiliateId: 3 },
-      { id: 56, refCode: 'TEAMSAV', affiliateId: 3 },
-      { id: 57, refCode: 'TEAMSAV', affiliateId: 3 },
-    ]);
-
-    // Second call: patient lookup in attributeFromIntakeExtended
-    mockPrisma.patient.findUnique.mockResolvedValueOnce({
-      id: 9843,
-      clinicId: 1,
-      attributionAffiliateId: null,
-      tags: [],
-    });
-
-    // Mock the attributeFromIntake chain: look up ref code
-    mockPrisma.affiliateRefCode.findFirst
-      .mockResolvedValueOnce({
-        refCode: 'TEAMSAV',
-        clinicId: 1,
-        affiliateId: 3,
-        isActive: true,
-        affiliate: { id: 3, status: 'ACTIVE', displayName: 'Savannah' },
-        clinic: { id: 1, name: 'Overtime' },
-      });
-
-    // Mock the transaction
-    mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-      const txClient = {
-        $queryRaw: async () => [{ attributionAffiliateId: null, tags: [] }],
-        affiliateTouch: { create: async () => ({ id: 100 }) },
-        patient: { update: async () => ({ id: 9843 }) },
-        affiliate: { update: async () => ({ id: 3 }) },
-      };
-      return fn(txClient);
-    });
-
-    const result = await attributeByRecentTouch(9843, null, 1);
-    expect(result).not.toBeNull();
-    expect(result?.refCode).toBe('TEAMSAV');
-  });
-
-  it('returns null when multiple recent touches with DIFFERENT refCodes (ambiguous)', async () => {
-    mockPrisma.patient.findUnique.mockResolvedValue({
-      id: 9843,
-      attributionAffiliateId: null,
-      email: 'jones@test.com',
-      phone: null,
-    });
-    mockPrisma.affiliateTouch.findMany.mockResolvedValueOnce([
-      { id: 55, refCode: 'TEAMSAV', affiliateId: 3 },
-      { id: 56, refCode: 'DRJONES', affiliateId: 7 },
-    ]);
-
+    // Even though there are recent clicks, the function should NOT use them
+    // because clinic-wide matching has no visitor-level correlation and
+    // causes false attributions.
     const result = await attributeByRecentTouch(9843, null, 1);
     expect(result).toBeNull();
     expect(mockLogger.debug).toHaveBeenCalledWith(
-      '[Attribution] Skipping recent-touch fallback: mixed ref codes in window',
-      expect.objectContaining({ patientId: 9843, clickCount: 2 })
+      '[Attribution] No referrer-based ref code found, skipping attribution (no visitor-level match available)',
+      expect.objectContaining({ patientId: 9843, clinicId: 1 })
     );
+  });
+
+  it('returns null when referrer URL is a plain domain without ref code', async () => {
+    mockPrisma.patient.findUnique.mockResolvedValue({
+      id: 9843,
+      attributionAffiliateId: null,
+      email: 'jones@test.com',
+      phone: null,
+    });
+
+    const result = await attributeByRecentTouch(9843, 'https://ot.eonpro.io/', 1);
+    expect(result).toBeNull();
   });
 
   it('handles errors gracefully and returns null (never crashes)', async () => {
@@ -935,16 +848,16 @@ describe('G. attributeByRecentTouch', () => {
     );
   });
 
-  it('skips touches with affiliateId 0 (filtered at query level)', async () => {
+  it('returns null for non-affiliate referrer URL (no false attribution)', async () => {
     mockPrisma.patient.findUnique.mockResolvedValue({
       id: 9843,
       attributionAffiliateId: null,
       email: 'test@test.com',
       phone: null,
     });
-    mockPrisma.affiliateTouch.findMany.mockResolvedValueOnce([]);
 
-    const result = await attributeByRecentTouch(9843, null, 1);
+    // Referrer is a plain page, not an affiliate URL — should not attribute
+    const result = await attributeByRecentTouch(9843, 'https://www.google.com/search?q=otmens', 1);
     expect(result).toBeNull();
   });
 });
