@@ -191,7 +191,7 @@ const ASSETS = {
 
 function OTLogo({ logoUrl, clinicName, size = 'default' }: { logoUrl?: string | null; clinicName?: string; size?: 'default' | 'small' }) {
   const src = logoUrl || ASSETS.logo;
-  const height = size === 'small' ? 'h-7' : 'h-9';
+  const height = size === 'small' ? 'h-7' : 'h-14';
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -482,30 +482,13 @@ function AffiliateLandingContent() {
             Consultations, prescriptions, and ongoing support &mdash; all from home.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <a
-              href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
-              className="w-full rounded-full px-8 py-3.5 text-center text-sm font-semibold transition-all hover:opacity-90 sm:w-auto"
-              style={{ backgroundColor: BRAND.text, color: BRAND.white }}
-            >
-              Start Your Free Consultation
-            </a>
-            <a
-              href="#treatments"
-              className="w-full rounded-full border px-8 py-3.5 text-center text-sm font-semibold transition-all hover:bg-white/60 sm:w-auto"
-              style={{ borderColor: BRAND.border, color: BRAND.text }}
-            >
-              Browse Treatments
-            </a>
-          </div>
         </div>
       </section>
 
       {/* ================================================================ */}
       {/* Treatment Cards — matching header width (max-w-6xl) */}
       {/* ================================================================ */}
-      <section id="treatments" className="pb-16 pt-4 md:pb-24">
+      <section id="treatments" className="pb-16 pt-4 md:pb-24" style={{ backgroundColor: BRAND.white }}>
         <div className="mx-auto max-w-6xl px-6">
 
           {/* Top row: 3 cards */}
@@ -759,19 +742,19 @@ function TreatmentCard({
   return (
     <a
       href={href}
-      className="flex items-center justify-between rounded-2xl px-5 py-4 shadow-sm sm:px-6 sm:py-5"
+      className="flex items-center justify-between rounded-2xl px-5 py-4 sm:px-6 sm:py-5"
       style={{
-        backgroundColor: hovered ? treatment.hoverBg : BRAND.white,
+        backgroundColor: hovered ? treatment.hoverBg : '#f9f7f2',
         transition: 'background-color 0.35s ease-in-out, box-shadow 0.35s ease-in-out',
         boxShadow: hovered
           ? '0 8px 24px rgba(0,0,0,0.12)'
-          : '0 1px 3px rgba(0,0,0,0.06)',
+          : 'none',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Title */}
-      <h3 className="text-lg font-bold leading-tight md:text-xl">
+      <h3 className="text-lg font-medium leading-tight md:text-xl">
         <span
           style={{
             color: hovered ? '#FFFFFF' : BRAND.text,
