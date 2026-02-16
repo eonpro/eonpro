@@ -96,9 +96,11 @@ interface RefCodeStats {
   refCode: string;
   description: string | null;
   clicks: number;
+  intakes: number;
   conversions: number;
   revenueCents: number;
   commissionCents: number;
+  intakeRate: number;
   conversionRate: number;
   trend: number;
   isNew: boolean;
@@ -343,27 +345,28 @@ export default function AffiliateAnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white px-4 py-3 sm:px-6 sm:py-4">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center justify-between">
             <div>
               <Link
                 href="/affiliate"
-                className="mb-2 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+                className="mb-1 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 sm:mb-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
+                <span className="hidden sm:inline">Back to Dashboard</span>
+                <span className="sm:hidden">Back</span>
               </Link>
-              <h1 className="text-2xl font-semibold text-gray-900">Analytics</h1>
+              <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">Analytics</h1>
             </div>
 
             {/* Date Range Selector */}
             <div className="relative">
               <button
                 onClick={() => setShowDatePicker(!showDatePicker)}
-                className="flex items-center gap-2 rounded-xl bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                className="flex items-center gap-1.5 rounded-xl bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200 sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <Calendar className="h-4 w-4" />
                 {DATE_PRESETS[selectedPreset].label}
@@ -395,13 +398,13 @@ export default function AffiliateAnalyticsPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl space-y-6 px-6 py-6">
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-4 sm:space-y-6 sm:px-6 sm:py-6">
         {error && (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           <StatCard
             title="Clicks"
             value={formatNumber(periodTotals?.clicks || 0)}
@@ -448,14 +451,16 @@ export default function AffiliateAnalyticsPage() {
           transition={{ delay: 0.1 }}
           className="rounded-2xl bg-white p-6"
         >
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Performance Trends</h2>
-            <div className="flex flex-wrap gap-2">
+          <div className="mb-4 sm:mb-6">
+            <div className="mb-3 flex items-center justify-between sm:mb-4">
+              <h2 className="text-base font-semibold text-gray-900 sm:text-lg">Performance Trends</h2>
+            </div>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
               {(['clicks', 'intakes', 'conversions', 'revenue', 'commission'] as const).map((chart) => (
                 <button
                   key={chart}
                   onClick={() => setActiveChart(chart)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
                     activeChart === chart
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -468,7 +473,7 @@ export default function AffiliateAnalyticsPage() {
             </div>
           </div>
 
-          <div className="h-80">
+          <div className="h-60 sm:h-80">
             <ResponsiveContainer width="100%" height="100%">
               {activeChart === 'clicks' ? (
                 <BarChart data={chartData}>
@@ -545,7 +550,7 @@ export default function AffiliateAnalyticsPage() {
         </motion.div>
 
         {/* Two Column Layout */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Ref Code Performance - Enhanced */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -622,18 +627,18 @@ export default function AffiliateAnalyticsPage() {
                       </div>
                       <div className="relative text-center">
                         <p className="text-lg font-semibold text-green-600">
-                          {formatNumber(ref.conversions)}
+                          {formatNumber(ref.intakes || 0)}
                         </p>
-                        <p className="text-xs text-gray-500">Conversions</p>
+                        <p className="text-xs text-gray-500">Intakes</p>
                         <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-gray-300">
                           →
                         </span>
                       </div>
                       <div className="relative text-center">
                         <p className="text-lg font-semibold text-emerald-600">
-                          {ref.conversionRate.toFixed(1)}%
+                          {formatNumber(ref.conversions || 0)}
                         </p>
-                        <p className="text-xs text-gray-500">Conv. Rate</p>
+                        <p className="text-xs text-gray-500">Conversions</p>
                         <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-gray-300">
                           →
                         </span>
@@ -740,7 +745,7 @@ export default function AffiliateAnalyticsPage() {
         >
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Commission Breakdown</h2>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <div className="rounded-xl bg-amber-50 p-4">
               <p className="mb-1 text-sm font-medium text-amber-700">Pending</p>
               <p className="text-2xl font-semibold text-amber-900">

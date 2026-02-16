@@ -315,6 +315,16 @@ export default function AffiliateDashboardLayout({ children }: { children: React
     }
   };
 
+  // Set body background to match layout so no white edges bleed through
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = '#F9FAFB';
+    document.body.style.backgroundColor = '#F9FAFB';
+    return () => {
+      document.documentElement.style.backgroundColor = '';
+      document.body.style.backgroundColor = '';
+    };
+  }, []);
+
   return (
     <BrandingProvider branding={branding}>
       <div

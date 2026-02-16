@@ -13,7 +13,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-// No HIPAA small-number suppression needed — affiliates view their own business metrics
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
   const searchParams = req.nextUrl.searchParams;
@@ -77,6 +79,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     const [
       clicksByCode,
       impressionsByCode,
+      intakesByCode,
       conversionsByCode,
       commissionsByCode,
       uniqueVisitorsByCode,
@@ -107,16 +110,32 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         _count: true,
       }),
 
-      // Batch: conversions per code (convertedAt in range)
-      prisma.affiliateTouch.groupBy({
-        by: ['refCode'],
-        where: {
-          affiliateId,
-          refCode: { in: codeList },
-          convertedAt: { gte: dateFrom, lte: dateTo },
-        },
-        _count: true,
-      }),
+      // Batch: intakes per code (patients attributed via this ref code)
+      prisma.$queryRaw<Array<{ refCode: string; count: number }>>`
+        SELECT
+          "attributionRefCode" as "refCode",
+          COUNT(*)::int as count
+        FROM "Patient"
+        WHERE "attributionAffiliateId" = ${affiliateId}
+          AND "attributionRefCode" = ANY(${codeList})
+          AND "createdAt" >= ${dateFrom}
+          AND "createdAt" <= ${dateTo}
+        GROUP BY "attributionRefCode"
+      `,
+
+      // Batch: conversions per code (attributed patients with a paid invoice)
+      prisma.$queryRaw<Array<{ refCode: string; count: number }>>`
+        SELECT
+          p."attributionRefCode" as "refCode",
+          COUNT(DISTINCT p.id)::int as count
+        FROM "Patient" p
+        INNER JOIN "Invoice" i ON i."patientId" = p.id AND i."status" = 'PAID'
+        WHERE p."attributionAffiliateId" = ${affiliateId}
+          AND p."attributionRefCode" = ANY(${codeList})
+          AND p."createdAt" >= ${dateFrom}
+          AND p."createdAt" <= ${dateTo}
+        GROUP BY p."attributionRefCode"
+      `,
 
       // Batch: revenue and commission per code (via raw SQL for JSONB metadata filtering)
       prisma.$queryRaw<
@@ -157,12 +176,13 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         where: {
           affiliateId,
           refCode: { in: codeList },
+          touchType: 'CLICK',
           createdAt: { gte: fourteenDaysAgo, lt: sevenDaysAgo },
         },
         _count: true,
       }),
 
-      // Batch: daily click breakdown per code
+      // Batch: daily click breakdown per code (CLICK type only)
       prisma.$queryRaw<
         Array<{ refCode: string; date: Date; clicks: number }>
       >`
@@ -173,6 +193,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         FROM "AffiliateTouch"
         WHERE "affiliateId" = ${affiliateId}
           AND "refCode" = ANY(${codeList})
+          AND "touchType" = 'CLICK'
           AND "createdAt" >= ${dateFrom}
           AND "createdAt" <= ${dateTo}
         GROUP BY "refCode", DATE("createdAt")
@@ -183,7 +204,12 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     // Build lookup maps for O(1) per-code access
     const clicksMap = new Map(clicksByCode.map((r) => [r.refCode, r._count]));
     const impressionsMap = new Map(impressionsByCode.map((r) => [r.refCode, r._count]));
-    const conversionsMap = new Map(conversionsByCode.map((r) => [r.refCode, r._count]));
+    const intakesMap = new Map(
+      (intakesByCode || []).map((r) => [r.refCode, r.count])
+    );
+    const conversionsMap = new Map(
+      (conversionsByCode || []).map((r) => [r.refCode, r.count])
+    );
     const commissionsMap = new Map(
       (commissionsByCode || []).map((r) => [r.refCode, { revenueCents: r.revenueCents, commissionCents: r.commissionCents }])
     );
@@ -207,11 +233,13 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       const clicks = clicksMap.get(code.refCode) || 0;
       const impressions = impressionsMap.get(code.refCode) || 0;
       const uniqueVisitors = uniqueVisitorsMap.get(code.refCode) || 0;
+      const intakes = intakesMap.get(code.refCode) || 0;
       const conversions = conversionsMap.get(code.refCode) || 0;
       const commission = commissionsMap.get(code.refCode) || { revenueCents: 0, commissionCents: 0 };
       const prevPeriodClicks = prevClicksMap.get(code.refCode) || 0;
 
       const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+      const intakeRate = clicks > 0 ? (intakes / clicks) * 100 : 0;
       const clickThroughRate = impressions > 0
         ? ((clicks - impressions) / impressions) * 100
         : 0;
@@ -230,7 +258,9 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
         clicks,
         impressions,
         uniqueVisitors,
+        intakes,
         conversions,
+        intakeRate,
         conversionRate,
         clickThroughRate,
         revenueCents: commission.revenueCents,
@@ -241,22 +271,25 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       };
     });
 
-    // Sort by conversions (highest first)
-    refCodeStats.sort((a, b) => Number(b.conversions) - Number(a.conversions));
+    // Sort by clicks (highest first)
+    refCodeStats.sort((a, b) => b.clicks - a.clicks);
 
-    // Calculate totals with weighted average conversion rate
+    // Calculate totals
     const totalClicks = refCodeStats.reduce((sum, c) => sum + c.clicks, 0);
     const totalImpressions = refCodeStats.reduce((sum, c) => sum + c.impressions, 0);
     const totalUniqueVisitors = refCodeStats.reduce((sum, c) => sum + c.uniqueVisitors, 0);
-    const totalConversions = refCodeStats.reduce((sum, c) => sum + Number(c.conversions), 0);
+    const totalIntakes = refCodeStats.reduce((sum, c) => sum + c.intakes, 0);
+    const totalConversions = refCodeStats.reduce((sum, c) => sum + c.conversions, 0);
     const totals = {
       totalCodes: refCodeStats.length,
       totalClicks,
       totalImpressions,
       totalUniqueVisitors,
+      totalIntakes,
       totalConversions,
       totalRevenueCents: refCodeStats.reduce((sum, c) => sum + (c.revenueCents ?? 0), 0),
       totalCommissionCents: refCodeStats.reduce((sum, c) => sum + (c.commissionCents ?? 0), 0),
+      avgIntakeRate: totalClicks > 0 ? (totalIntakes / totalClicks) * 100 : 0,
       avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
       avgClickThroughRate: totalImpressions > 0 ? ((totalClicks - totalImpressions) / totalImpressions) * 100 : 0,
     };

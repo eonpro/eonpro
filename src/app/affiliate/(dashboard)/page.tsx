@@ -157,52 +157,52 @@ export default function AffiliateDashboard() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="px-6 py-6">
+      <header className="px-4 py-4 sm:px-6 sm:py-6">
         <div className="mx-auto max-w-3xl">
           <p className="mb-1 text-sm text-gray-500">{greeting}</p>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-gray-900 sm:text-2xl">
             {displayData.affiliate.displayName || branding.affiliateName}
           </h1>
         </div>
       </header>
 
-      <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
+      <div className="mx-auto max-w-3xl space-y-4 px-4 sm:space-y-6 sm:px-6 sm:py-6">
         {/* Balance Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl p-6 text-white"
+          className="rounded-2xl p-5 text-white sm:p-6"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          <div className="mb-6 flex items-start justify-between">
+          <div className="mb-4 flex items-start justify-between sm:mb-6">
             <div>
               <p className="mb-1 text-sm text-gray-400">Available Balance</p>
-              <p className="text-4xl font-semibold tracking-tight">
+              <p className="text-3xl font-semibold tracking-tight sm:text-4xl">
                 {formatCurrency(displayData.earnings.availableBalance)}
               </p>
             </div>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-medium">
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium sm:text-sm">
               {displayData.affiliate.tier}
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/affiliate/withdraw"
-              className="flex-1 rounded-xl bg-white py-3 text-center font-medium text-gray-900 transition-colors hover:bg-gray-100"
+              className="flex-1 rounded-xl bg-white py-2.5 text-center text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100 sm:py-3 sm:text-base"
             >
               Withdraw
             </Link>
             <Link
               href="/affiliate/earnings"
-              className="flex-1 rounded-xl bg-white/10 py-3 text-center font-medium transition-colors hover:bg-white/20"
+              className="flex-1 rounded-xl bg-white/10 py-2.5 text-center text-sm font-medium transition-colors hover:bg-white/20 sm:py-3 sm:text-base"
             >
               View Details
             </Link>
           </div>
 
           {displayData.earnings.pendingBalance > 0 && (
-            <p className="mt-4 text-center text-sm text-gray-400">
+            <p className="mt-3 text-center text-sm text-gray-400 sm:mt-4">
               {formatCurrency(displayData.earnings.pendingBalance)} pending
             </p>
           )}
@@ -213,25 +213,25 @@ export default function AffiliateDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-2 gap-4"
+          className="grid grid-cols-2 gap-3 sm:gap-4"
         >
-          <div className="rounded-2xl bg-white p-5">
-            <p className="mb-1 text-sm text-gray-500">This Month</p>
-            <p className="text-2xl font-semibold text-gray-900">
+          <div className="rounded-2xl bg-white p-4 sm:p-5">
+            <p className="mb-1 text-xs text-gray-500 sm:text-sm">This Month</p>
+            <p className="text-xl font-semibold text-gray-900 sm:text-2xl">
               {formatCurrency(displayData.earnings.thisMonth)}
             </p>
             <p
-              className={`mt-1 text-sm ${displayData.earnings.monthOverMonthChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
+              className={`mt-1 text-xs sm:text-sm ${displayData.earnings.monthOverMonthChange >= 0 ? 'text-green-600' : 'text-red-600'}`}
             >
               {formatPercent(displayData.earnings.monthOverMonthChange)} vs last month
             </p>
           </div>
-          <div className="rounded-2xl bg-white p-5">
-            <p className="mb-1 text-sm text-gray-500">Lifetime</p>
-            <p className="text-2xl font-semibold text-gray-900">
+          <div className="rounded-2xl bg-white p-4 sm:p-5">
+            <p className="mb-1 text-xs text-gray-500 sm:text-sm">Lifetime</p>
+            <p className="text-xl font-semibold text-gray-900 sm:text-2xl">
               {formatCompactCurrency(displayData.earnings.lifetimeEarnings)}
             </p>
-            <p className="mt-1 text-sm text-gray-400">Total earned</p>
+            <p className="mt-1 text-xs text-gray-400 sm:text-sm">Total earned</p>
           </div>
         </motion.div>
 
@@ -240,33 +240,33 @@ export default function AffiliateDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-2xl bg-white p-6"
+          className="rounded-2xl bg-white p-5 sm:p-6"
         >
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">This Month</h2>
-            <Link href="/affiliate/analytics" className="text-sm text-gray-500 hover:text-gray-700">
+          <div className="mb-4 flex items-center justify-between sm:mb-6">
+            <h2 className="text-sm font-semibold text-gray-900 sm:text-base">This Month</h2>
+            <Link href="/affiliate/analytics" className="text-xs text-gray-500 hover:text-gray-700 sm:text-sm">
               View all
             </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-3 sm:gap-6">
             <div className="text-center">
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-xl font-semibold text-gray-900 sm:text-2xl">
                 {displayData.performance.clicks.toLocaleString()}
               </p>
-              <p className="mt-1 text-sm text-gray-500">Clicks</p>
+              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Clicks</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-xl font-semibold text-gray-900 sm:text-2xl">
                 {displayData.performance.intakes.toLocaleString()}
               </p>
-              <p className="mt-1 text-sm text-gray-500">Intakes</p>
+              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Intakes</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-xl font-semibold text-gray-900 sm:text-2xl">
                 {(displayData.performance.conversions || 0).toLocaleString()}
               </p>
-              <p className="mt-1 text-sm text-gray-500">Conversions</p>
+              <p className="mt-1 text-xs text-gray-500 sm:text-sm">Conversions</p>
             </div>
           </div>
         </motion.div>
@@ -485,6 +485,9 @@ export default function AffiliateDashboard() {
             </div>
           </motion.div>
         )}
+
+        {/* Spacer for mobile bottom nav */}
+        <div className="h-4 sm:h-0" />
       </div>
     </div>
   );
