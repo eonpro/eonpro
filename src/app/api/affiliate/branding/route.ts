@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { withAffiliateAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
@@ -20,8 +20,19 @@ export const runtime = 'nodejs';
 export const GET = withAffiliateAuth(
   async (req: NextRequest, user: AuthUser) => {
     try {
-      // Get affiliate's clinic
-      const affiliate = await prisma.affiliate.findUnique({
+      logger.info('[Affiliate Branding] Fetching branding', {
+        userId: user.id,
+        clinicId: user.clinicId,
+        role: user.role,
+        affiliateId: user.affiliateId,
+      });
+
+      // Use basePrisma to bypass clinic-scoped filtering -- the affiliate model
+      // is in CLINIC_ISOLATED_MODELS but the auth middleware may not always set
+      // the correct clinic context (e.g. when the JWT clinicId differs from the
+      // subdomain clinic).  Since this endpoint is already auth-gated to the
+      // affiliate role, using basePrisma is safe.
+      const affiliate = await basePrisma.affiliate.findUnique({
         where: { userId: user.id },
         select: {
           id: true,
@@ -32,11 +43,15 @@ export const GET = withAffiliateAuth(
       });
 
       if (!affiliate) {
+        logger.warn('[Affiliate Branding] Affiliate not found for user', {
+          userId: user.id,
+          clinicId: user.clinicId,
+        });
         return NextResponse.json({ error: 'Affiliate profile not found' }, { status: 404 });
       }
 
-      // Get clinic branding
-      const clinic = await prisma.clinic.findUnique({
+      // Get clinic branding using basePrisma (Clinic is also clinic-isolated)
+      const clinic = await basePrisma.clinic.findUnique({
         where: { id: affiliate.clinicId },
         select: {
           id: true,
@@ -45,6 +60,7 @@ export const GET = withAffiliateAuth(
           faviconUrl: true,
           primaryColor: true,
           secondaryColor: true,
+          accentColor: true,
           customCss: true,
           settings: true,
           adminEmail: true,
@@ -54,6 +70,9 @@ export const GET = withAffiliateAuth(
       });
 
       if (!clinic) {
+        logger.warn('[Affiliate Branding] Clinic not found', {
+          clinicId: affiliate.clinicId,
+        });
         return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
       }
 
@@ -69,7 +88,7 @@ export const GET = withAffiliateAuth(
         faviconUrl: clinic.faviconUrl,
         primaryColor: clinic.primaryColor || '#4fa77e',
         secondaryColor: clinic.secondaryColor || '#3B82F6',
-        accentColor: affiliateSettings.accentColor || '#d3f931',
+        accentColor: affiliateSettings.accentColor || clinic.accentColor || '#d3f931',
         customCss: clinic.customCss,
         features: {
           showPerformanceChart: affiliateSettings.showPerformanceChart ?? true,
@@ -100,7 +119,12 @@ export const GET = withAffiliateAuth(
 
       return NextResponse.json(branding);
     } catch (error) {
-      logger.error('[Affiliate Branding] Error fetching branding', error);
+      logger.error('[Affiliate Branding] Error fetching branding', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '',
+        userId: user.id,
+        clinicId: user.clinicId,
+      });
       return NextResponse.json({ error: 'Failed to fetch branding' }, { status: 500 });
     }
   }

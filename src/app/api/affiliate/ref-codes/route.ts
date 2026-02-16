@@ -113,12 +113,17 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       })
     );
 
-    // Determine base URL - prefer custom domain, then subdomain
-    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
-    if (affiliate.clinic.customDomain) {
-      baseUrl = `https://${affiliate.clinic.customDomain}`;
+    // Determine base URL - use the request origin (where the affiliate is logged in)
+    // This ensures the referral link matches the domain serving the affiliate landing pages
+    const requestHost = request.headers.get('host') || request.headers.get('x-forwarded-host');
+    const protocol = request.headers.get('x-forwarded-proto') || 'https';
+    let baseUrl: string;
+    if (requestHost) {
+      baseUrl = `${protocol}://${requestHost}`;
     } else if (affiliate.clinic.subdomain) {
       baseUrl = `https://${affiliate.clinic.subdomain}.eonpro.io`;
+    } else {
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
     }
 
     return NextResponse.json({

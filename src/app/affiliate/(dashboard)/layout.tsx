@@ -156,8 +156,13 @@ export default function AffiliateDashboardLayout({ children }: { children: React
         const brandingRes = await apiFetch('/api/affiliate/branding', {
           credentials: 'include',
         });
+        if (!brandingRes.ok) {
+          const errText = await brandingRes.text().catch(() => 'unknown');
+          console.error('[Affiliate Layout] Branding API failed:', brandingRes.status, errText);
+        }
         if (brandingRes.ok && !cancelled) {
           const data = await brandingRes.json();
+          console.log('[Affiliate Layout] Branding loaded:', data.clinicName, data.primaryColor);
           setBranding(data);
 
           // Apply custom CSS if provided
@@ -187,8 +192,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
             document.title = `Partner Portal | ${data.clinicName}`;
           }
         }
-      } catch {
-        // Branding fetch failed -- continue with defaults
+      } catch (err) {
+        console.error('[Affiliate Layout] Branding fetch error:', err);
       }
     };
 
