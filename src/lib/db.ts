@@ -806,6 +806,11 @@ class PrismaWithClinicFilter {
     return this.createModelProxy('refillQueue');
   }
 
+  // Sales rep patient assignments (clinic-isolated)
+  get patientSalesRepAssignment() {
+    return this.createModelProxy('patientSalesRepAssignment');
+  }
+
   // ============================================================================
   // NON-ISOLATED MODELS (global or user-scoped, not clinic-scoped)
   // ============================================================================
