@@ -201,8 +201,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
       try {
         const token =
           typeof window !== 'undefined'
-            ? localStorage.getItem('auth-token') ||
-              localStorage.getItem('affiliate-token') ||
+            ? localStorage.getItem('affiliate-token') ||
+              localStorage.getItem('auth-token') ||
               localStorage.getItem('access_token')
             : null;
         const brandingRes = await apiFetch('/api/affiliate/branding', {

@@ -242,26 +242,12 @@ export default function AffiliateWelcomePage() {
         throw new Error(json.error || 'Failed to complete setup');
       }
 
-      // Store auth tokens for auto-login
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('super_admin-token');
-      localStorage.removeItem('admin-token');
-      localStorage.removeItem('provider-token');
-      localStorage.removeItem('staff-token');
-
+      // Store affiliate-specific token only.
+      // IMPORTANT: Do NOT write to the generic 'auth-token' or 'user' localStorage
+      // keys — those belong to the admin/provider session. Overwriting them causes
+      // the root page (/) to redirect ALL users to /affiliate on clinic subdomains.
       if (json.token) {
         localStorage.setItem('affiliate-token', json.token);
-        localStorage.setItem('auth-token', json.token);
-        localStorage.setItem(
-          'user',
-          JSON.stringify({
-            id: json.affiliate?.id,
-            email: json.affiliate?.email,
-            name: json.affiliate?.displayName,
-            role: 'affiliate',
-          })
-        );
       }
 
       setStep('success');

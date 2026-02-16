@@ -21,6 +21,11 @@ import {
 } from '@/lib/cache/request-scoped';
 import { handleApiError } from '@/domains/shared/errors';
 import cache from '@/lib/cache/redis';
+import {
+  isAuthBlocked,
+  recordAuthFailure,
+  clearAuthFailures,
+} from '@/lib/auth/auth-rate-limiter';
 
 // Throttle session activity updates to once per 60s per user via Redis
 // In-memory map is unreliable in serverless (each cold start resets it)
@@ -353,6 +358,21 @@ export function withAuth<T = unknown>(
     const requestId = crypto.randomUUID();
 
     try {
+      const clientIP = getClientIP(req);
+
+      // Check if IP is blocked from repeated auth failures (brute force protection)
+      const blocked = await isAuthBlocked(clientIP);
+      if (blocked && !options.optional) {
+        return NextResponse.json(
+          {
+            error: 'Too many authentication failures. Please try again later.',
+            code: 'AUTH_RATE_LIMITED',
+            requestId,
+          },
+          { status: 429, headers: { 'Retry-After': '300' } }
+        );
+      }
+
       // Extract token
       const token = extractToken(req);
 
@@ -362,6 +382,7 @@ export function withAuth<T = unknown>(
         }
 
         await logAuthFailure(req, requestId, 'NO_TOKEN', 'No authentication token provided');
+        await recordAuthFailure(clientIP);
 
         return NextResponse.json(
           {
@@ -387,6 +408,7 @@ export function withAuth<T = unknown>(
           tokenResult.errorCode || 'INVALID',
           tokenResult.error || 'Token verification failed'
         );
+        await recordAuthFailure(clientIP);
 
         // Return specific error for expired tokens (client can refresh)
         const status = 401;
@@ -399,6 +421,9 @@ export function withAuth<T = unknown>(
           { status }
         );
       }
+
+      // Auth succeeded — clear any failure records for this IP
+      clearAuthFailures(clientIP).catch(() => {});
 
       const user = tokenResult.user;
 

@@ -312,9 +312,20 @@ export const circuitBreakers = {
     errorThreshold: 80,
     volumeThreshold: 5,
     sleepWindow: 30000,
-    fallback: async () => {
-      // Queue for retry later
-      logger.warn('Email service down, queuing for retry');
+    fallback: async (...args: any[]) => {
+      // Queue for retry instead of dropping
+      try {
+        const { queueFailedMessage } = require('@/lib/resilience/message-queue');
+        const payload = args[0] && typeof args[0] === 'object' ? args[0] : { args };
+        await queueFailedMessage({
+          service: 'email' as const,
+          operation: 'send',
+          payload,
+          error: 'Email circuit breaker open',
+        });
+      } catch {
+        logger.warn('Email service down and queue unavailable, message lost');
+      }
       return { queued: true };
     },
   }),
@@ -325,9 +336,20 @@ export const circuitBreakers = {
     errorThreshold: 70,
     volumeThreshold: 5,
     sleepWindow: 30000,
-    fallback: async () => {
-      // Queue for retry later
-      logger.warn('SMS service down, queuing for retry');
+    fallback: async (...args: any[]) => {
+      // Queue for retry instead of dropping
+      try {
+        const { queueFailedMessage } = require('@/lib/resilience/message-queue');
+        const payload = args[0] && typeof args[0] === 'object' ? args[0] : { args };
+        await queueFailedMessage({
+          service: 'sms' as const,
+          operation: 'send',
+          payload,
+          error: 'SMS circuit breaker open',
+        });
+      } catch {
+        logger.warn('SMS service down and queue unavailable, message lost');
+      }
       return { queued: true };
     },
   }),

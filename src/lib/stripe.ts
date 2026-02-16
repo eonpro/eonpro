@@ -44,6 +44,7 @@ export const stripe = stripeApiKey
       apiVersion: '2026-01-28.clover',
       typescript: true,
       maxNetworkRetries: 3,
+      timeout: 30000,
     })
   : null;
 

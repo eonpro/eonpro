@@ -111,6 +111,43 @@ function HomePageInner() {
 
   useEffect(() => {
     const checkAuthAndRedirect = async () => {
+      // Step 1: Try the server-side session first (cookie auth).
+      // This is the source of truth and prevents stale localStorage data
+      // (e.g. an old affiliate session) from hijacking the redirect.
+      try {
+        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          const serverRole = meData.user?.role?.toLowerCase();
+
+          if (serverRole === 'affiliate') {
+            router.push('/affiliate');
+            return;
+          }
+          if (serverRole === 'patient') {
+            router.push(PATIENT_PORTAL_PATH);
+            return;
+          }
+          if (serverRole === 'provider') {
+            router.push('/provider');
+            return;
+          }
+          if (serverRole === 'staff') {
+            router.push('/staff');
+            return;
+          }
+
+          // Admin / super_admin — show dashboard
+          setUserData(meData.user);
+          setLoading(false);
+          loadDashboardData();
+          return;
+        }
+      } catch {
+        // /api/auth/me failed (network error, etc.) — fall through to localStorage
+      }
+
+      // Step 2: Fallback to localStorage when cookie session is absent
       const user = localStorage.getItem('user');
       if (!user) {
         router.push('/login');
@@ -121,15 +158,13 @@ function HomePageInner() {
         const parsedUser = JSON.parse(user);
         const role = parsedUser.role?.toLowerCase();
 
-        // For affiliate roles, verify auth is still valid before redirecting
-        // This prevents redirect loops when session is expired but localStorage persists
         if (role === 'affiliate') {
+          // Verify affiliate session is still valid
           try {
             const res = await apiFetch('/api/affiliate/auth/me', { credentials: 'include' });
             if (res.ok) {
               router.push('/affiliate');
             } else {
-              // Session expired - clear localStorage and go to main login
               localStorage.removeItem('user');
               localStorage.removeItem('auth-token');
               router.push('/login');

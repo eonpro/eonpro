@@ -34,6 +34,20 @@ interface SystemMetric {
   trend?: 'up' | 'down' | 'stable';
 }
 
+interface FeatureFlagItem {
+  flag: string;
+  enabled: boolean;
+  description: string;
+  category: string;
+  impactLevel: 'low' | 'medium' | 'high';
+}
+
+interface FeatureFlagResponse {
+  flags: FeatureFlagItem[];
+  totalFlags: number;
+  disabledCount: number;
+}
+
 export default function MonitoringDashboard() {
   const router = useRouter();
   const [healthReport, setHealthReport] = useState<HealthReport | null>(null);
@@ -43,6 +57,8 @@ export default function MonitoringDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [metrics, setMetrics] = useState<SystemMetric[]>([]);
   const [accessAllowed, setAccessAllowed] = useState<boolean | null>(null);
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlagItem[]>([]);
+  const [disabledFlagCount, setDisabledFlagCount] = useState(0);
 
   // Control Center is super_admin only
   useEffect(() => {
@@ -141,11 +157,25 @@ export default function MonitoringDashboard() {
     }
   }, []);
 
+  const fetchFeatureFlags = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/admin/feature-flags');
+      if (response.ok) {
+        const data: FeatureFlagResponse = await response.json();
+        setFeatureFlags(data.flags || []);
+        setDisabledFlagCount(data.disabledCount || 0);
+      }
+    } catch {
+      // Feature flags API may not be available yet
+    }
+  }, []);
+
   useEffect(() => {
     if (accessAllowed !== true) return;
     fetchHealth();
     fetchMetrics();
-  }, [accessAllowed, fetchHealth, fetchMetrics]);
+    fetchFeatureFlags();
+  }, [accessAllowed, fetchHealth, fetchMetrics, fetchFeatureFlags]);
 
   useEffect(() => {
     if (accessAllowed !== true || !autoRefresh) return;
@@ -430,6 +460,49 @@ export default function MonitoringDashboard() {
           ))}
         </div>
 
+        {/* Feature Flags Status */}
+        {featureFlags.length > 0 && (
+          <div className="mb-8 rounded-xl border border-gray-700 bg-gray-800 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Feature Flags</h3>
+              <div className="flex items-center gap-3">
+                {disabledFlagCount > 0 && (
+                  <span className="rounded-full bg-red-900/50 px-3 py-1 text-xs text-red-400">
+                    {disabledFlagCount} disabled
+                  </span>
+                )}
+                <a
+                  href="/admin/feature-flags"
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  Manage Flags
+                </a>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
+              {featureFlags.map((flag) => (
+                <div
+                  key={flag.flag}
+                  className={`rounded-lg p-3 ${
+                    flag.enabled
+                      ? 'bg-gray-700/50 border border-gray-600'
+                      : 'bg-red-900/30 border border-red-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        flag.enabled ? 'bg-emerald-400' : 'bg-red-400'
+                      }`}
+                    />
+                    <span className="text-xs text-gray-300 truncate">{flag.flag}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="rounded-xl border border-gray-700 bg-gray-800 p-6">
           <h3 className="mb-4 text-lg font-semibold text-white">Quick Actions</h3>
@@ -501,8 +574,8 @@ export default function MonitoringDashboard() {
               </svg>
               System Settings
             </a>
-            <button
-              onClick={() => window.location.reload()}
+            <a
+              href="/admin/feature-flags"
               className="flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-3 text-sm transition hover:bg-gray-600"
             >
               <svg
@@ -515,11 +588,11 @@ export default function MonitoringDashboard() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
                 />
               </svg>
-              Hard Refresh
-            </button>
+              Feature Flags
+            </a>
           </div>
         </div>
 

@@ -458,6 +458,7 @@ export function withErrorHandler<T extends unknown[]>(
 /**
  * Global API handler wrapper - use for ALL API routes.
  * Catches errors, adds requestId, returns structured response via handleApiError.
+ * Automatically adds Sentry tracing and emits request-level metrics.
  *
  * Use with or without auth:
  *   export const GET = withApiHandler(handler);
@@ -475,12 +476,55 @@ export function withApiHandler<
   return async (...args: T): Promise<Response> => {
     const req = args[0] as NextRequest;
     const requestId = req?.headers?.get?.('x-request-id') ?? crypto.randomUUID();
+    const route = req ? `${req.method} ${new URL(req.url).pathname}` : 'unknown';
+    const startTime = Date.now();
+
     try {
-      return await handler(...args);
+      // Lazy-load Sentry to avoid circular deps and keep this file lightweight
+      const Sentry = await import('@sentry/nextjs');
+
+      return await Sentry.startSpan(
+        {
+          name: route,
+          op: 'http.server',
+          attributes: {
+            'http.method': req?.method || 'UNKNOWN',
+            'http.url': req ? new URL(req.url).pathname : 'unknown',
+            'http.request_id': requestId,
+          },
+        },
+        async () => {
+          try {
+            const response = await handler(...args);
+            const durationMs = Date.now() - startTime;
+
+            // Emit request metrics for Sentry dashboards
+            try {
+              const { emitRequestMetrics } = await import('@/lib/observability/metrics');
+              const statusCode = response instanceof Response ? response.status : 200;
+              emitRequestMetrics({
+                route: req ? new URL(req.url).pathname : 'unknown',
+                method: req?.method || 'UNKNOWN',
+                statusCode,
+                durationMs,
+                queryCount: 0,
+                dbTimeMs: 0,
+              });
+            } catch {
+              // Metrics module not available
+            }
+
+            return response;
+          } catch (error) {
+            Sentry.captureException(error);
+            throw error;
+          }
+        }
+      );
     } catch (error) {
       return handleApiError(error, {
         requestId,
-        route: req ? `${req.method} ${new URL(req.url).pathname}` : 'unknown',
+        route,
       });
     }
   };
