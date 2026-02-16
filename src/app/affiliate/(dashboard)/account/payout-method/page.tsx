@@ -182,7 +182,7 @@ export default function PayoutMethodPage() {
                     />
                   </svg>
                 ) : (
-                  <svg className="h-6 w-6 text-[#cab172]" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="h-6 w-6" style={{ color: 'var(--brand-accent)' }} viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}
@@ -255,7 +255,8 @@ export default function PayoutMethodPage() {
                   }`}
                 >
                   <svg
-                    className="mx-auto mb-2 h-8 w-8 text-[#cab172]"
+                    className="mx-auto mb-2 h-8 w-8"
+                    style={{ color: 'var(--brand-accent)' }}
                     viewBox="0 0 24 24"
                     fill="currentColor"
                   >
@@ -364,9 +365,9 @@ export default function PayoutMethodPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl bg-[#fdf6e3] p-4 text-sm text-[#6b5c2e]">
+                  <div className="rounded-xl p-4 text-sm text-gray-800" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
                     <p className="mb-1 font-medium">Your information is secure</p>
-                    <p className="text-[#8b7a42]">
+                    <p className="text-gray-600">
                       Bank details are encrypted and stored securely. We use bank-level security.
                     </p>
                   </div>
@@ -400,9 +401,9 @@ export default function PayoutMethodPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-[#fdf6e3] p-4 text-sm text-[#6b5c2e]">
+                  <div className="rounded-xl p-4 text-sm text-gray-800" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
                     <p className="mb-1 font-medium">Instant Payouts</p>
-                    <p className="text-[#8b7a42]">
+                    <p className="text-gray-600">
                       PayPal payouts are typically processed instantly once approved.
                     </p>
                   </div>
@@ -424,7 +425,8 @@ export default function PayoutMethodPage() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="flex flex-1 items-center justify-center rounded-xl bg-gray-900 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400"
+                className="flex flex-1 items-center justify-center rounded-xl py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
               >
                 {isSaving ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

@@ -188,7 +188,8 @@ export default function EditProfilePage() {
             <button
               type="submit"
               disabled={isSaving}
-              className="flex flex-1 items-center justify-center rounded-xl bg-gray-900 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400"
+              className="flex flex-1 items-center justify-center rounded-xl py-3 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               {isSaving ? (
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

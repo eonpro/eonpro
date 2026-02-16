@@ -298,7 +298,7 @@ async function main() {
   console.log(`   Password: ${affiliatePassword}`);
   console.log('\n🔗 Ref Codes:');
   refCodes.forEach(code => console.log(`   - ${code}`));
-  console.log('\n📍 Portal URL: /portal/affiliate');
+  console.log('\n📍 Portal URL: /affiliate');
   console.log('📍 Admin URL:  /admin/affiliates');
   console.log('\n');
 }

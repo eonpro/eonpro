@@ -444,9 +444,10 @@ export default function AffiliateAnalyticsPage() {
                   onClick={() => setActiveChart(chart)}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     activeChart === chart
-                      ? 'bg-gray-900 text-white'
+                      ? 'text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
+                  style={activeChart === chart ? { backgroundColor: 'var(--brand-primary)' } : undefined}
                 >
                   {chart.charAt(0).toUpperCase() + chart.slice(1)}
                 </button>

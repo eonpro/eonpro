@@ -46,7 +46,7 @@ function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string
 export default function AffiliateLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/portal/affiliate';
+  const redirectTo = searchParams.get('redirect') || '/affiliate';
 
   const [step, setStep] = useState<LoginStep>('email');
   const [email, setEmail] = useState('');

@@ -312,7 +312,7 @@ export default function AccountPage() {
                     />
                   </svg>
                 ) : (
-                  <svg className="h-5 w-5 text-[#cab172]" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5" style={{ color: 'var(--brand-accent)' }} fill="currentColor" viewBox="0 0 24 24">
                     <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
                   </svg>
                 )}
@@ -435,8 +435,9 @@ export default function AccountPage() {
                 onClick={() => handlePreferenceToggle('emailNotifications')}
                 disabled={isSavingPreferences}
                 className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
-                  emailNotifications ? 'bg-gray-900' : 'bg-gray-200'
+                  emailNotifications ? '' : 'bg-gray-200'
                 }`}
+                style={emailNotifications ? { backgroundColor: 'var(--brand-primary)' } : undefined}
               >
                 <span
                   className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
@@ -458,8 +459,9 @@ export default function AccountPage() {
                 onClick={() => handlePreferenceToggle('smsNotifications')}
                 disabled={isSavingPreferences}
                 className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
-                  smsNotifications ? 'bg-gray-900' : 'bg-gray-200'
+                  smsNotifications ? '' : 'bg-gray-200'
                 }`}
+                style={smsNotifications ? { backgroundColor: 'var(--brand-primary)' } : undefined}
               >
                 <span
                   className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform`}
@@ -479,8 +481,9 @@ export default function AccountPage() {
                 onClick={() => handlePreferenceToggle('weeklyReport')}
                 disabled={isSavingPreferences}
                 className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-50 ${
-                  weeklyReport ? 'bg-gray-900' : 'bg-gray-200'
+                  weeklyReport ? '' : 'bg-gray-200'
                 }`}
+                style={weeklyReport ? { backgroundColor: 'var(--brand-primary)' } : undefined}
               >
                 <span
                   className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform`}
@@ -564,7 +567,8 @@ export default function AccountPage() {
                   <button
                     onClick={handleAliasChange}
                     disabled={isSavingLeaderboard}
-                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
                   >
                     Save
                   </button>

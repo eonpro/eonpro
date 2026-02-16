@@ -64,17 +64,18 @@ const nextConfig = {
     ],
   },
 
-  // Portal rewrites (beforeFiles so they run before filesystem resolution).
-  // Affiliate portal: /portal/affiliate → /affiliate-portal (real rewrite).
-  // Patient portal:   /portal           → /patient-portal.
-  // Previously, identity rewrites for /portal/affiliate did NOT stop the
-  // catch-all /portal/:path* from also matching, which sent affiliates to
-  // /patient-portal/affiliate (404). Using a distinct internal path fixes this.
+  // Redirect legacy /portal/affiliate to the canonical /affiliate portal.
+  async redirects() {
+    return [
+      { source: '/portal/affiliate', destination: '/affiliate', permanent: true },
+      { source: '/portal/affiliate/:path*', destination: '/affiliate/:path*', permanent: true },
+    ];
+  },
+
+  // Patient portal rewrites (beforeFiles so they run before filesystem resolution).
   async rewrites() {
     return {
       beforeFiles: [
-        { source: '/portal/affiliate', destination: '/affiliate-portal' },
-        { source: '/portal/affiliate/:path*', destination: '/affiliate-portal/:path*' },
         { source: '/portal', destination: '/patient-portal' },
         { source: '/portal/:path*', destination: '/patient-portal/:path*' },
       ],

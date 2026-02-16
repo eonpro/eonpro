@@ -70,6 +70,31 @@ function getPatientPortalBasePath(): string {
   return process.env.NEXT_PUBLIC_PATIENT_PORTAL_PATH || '/portal';
 }
 
+/**
+ * Known affiliate dashboard sub-paths that require authentication.
+ * Landing pages (/affiliate/[code]) and public pages (login, apply, etc.) are excluded.
+ */
+const AFFILIATE_DASHBOARD_PATHS = [
+  '/affiliate/earnings',
+  '/affiliate/links',
+  '/affiliate/leaderboard',
+  '/affiliate/account',
+  '/affiliate/activity',
+  '/affiliate/analytics',
+  '/affiliate/withdraw',
+  '/affiliate/resources',
+  '/affiliate/help',
+];
+
+function isAffiliateDashboardRoute(pathname: string): boolean {
+  // Exact match: /affiliate root is the dashboard home
+  if (pathname === '/affiliate') return true;
+  // Known dashboard sub-paths (exact or prefix match for nested routes like /account/edit)
+  return AFFILIATE_DASHBOARD_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  );
+}
+
 function isAffiliatePortalRoute(pathname: string): boolean {
   const portalBase = getPatientPortalBasePath();
   return (
@@ -87,13 +112,27 @@ function isPatientPortalRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isAffiliatePortalRoute(pathname)) {
+  // Protect /affiliate dashboard routes (not public pages like login, apply, landing pages)
+  if (isAffiliateDashboardRoute(pathname)) {
     const token =
       request.cookies.get('affiliate_session')?.value ||
       request.cookies.get('auth-token')?.value;
     if (!token || token.split('.').length !== 3) {
       const loginUrl = new URL('/affiliate/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
+      loginUrl.searchParams.set('reason', 'no_session');
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
+  // Legacy /portal/affiliate routes (redirected in next.config.js, but protect as fallback)
+  if (isAffiliatePortalRoute(pathname)) {
+    const token =
+      request.cookies.get('affiliate_session')?.value ||
+      request.cookies.get('auth-token')?.value;
+    if (!token || token.split('.').length !== 3) {
+      const loginUrl = new URL('/affiliate/login', request.url);
+      loginUrl.searchParams.set('redirect', '/affiliate');
       loginUrl.searchParams.set('reason', 'no_session');
       return NextResponse.redirect(loginUrl);
     }

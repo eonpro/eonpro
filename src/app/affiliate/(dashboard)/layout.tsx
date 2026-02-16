@@ -4,34 +4,29 @@
  * Affiliate Dashboard Layout
  *
  * Mobile-first bottom navigation with elegant transitions.
- * Supports clinic branding (logo, colors).
+ * Fetches clinic branding from /api/affiliate/branding and applies it
+ * via CSS custom properties (colors) and React Context (non-CSS data).
  */
 
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ReactNode, useEffect, useState } from 'react';
-import { isBrowser } from '@/lib/utils/ssr-safe';
+import { ReactNode, useEffect, useState, useMemo } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
+import {
+  AffiliateBranding,
+  BrandingProvider,
+  brandingToCssVars,
+} from './branding-context';
 
 interface NavItem {
   href: string;
   label: string;
+  /** Feature flag key -- if set, item is hidden when that flag is false */
+  featureFlag?: keyof AffiliateBranding['features'];
   icon: (active: boolean) => ReactNode;
 }
 
-interface ClinicBranding {
-  clinicId: number;
-  name: string;
-  logoUrl: string | null;
-  iconUrl: string | null;
-  faviconUrl: string | null;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  backgroundColor: string;
-}
-
-const navItems: NavItem[] = [
+const allNavItems: NavItem[] = [
   {
     href: '/affiliate',
     label: 'Home',
@@ -54,6 +49,7 @@ const navItems: NavItem[] = [
   {
     href: '/affiliate/earnings',
     label: 'Earnings',
+    featureFlag: 'showPayoutHistory',
     icon: (active) => (
       <svg
         className="h-6 w-6"
@@ -73,6 +69,7 @@ const navItems: NavItem[] = [
   {
     href: '/affiliate/links',
     label: 'Links',
+    featureFlag: 'showRefCodeManager',
     icon: (active) => (
       <svg
         className="h-6 w-6"
@@ -133,71 +130,83 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   const pathname = usePathname();
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
-  const [branding, setBranding] = useState<ClinicBranding | null>(null);
-  const [isMainApp, setIsMainApp] = useState(false);
+  const [branding, setBranding] = useState<AffiliateBranding | null>(null);
 
-  // Check auth and load branding on mount
   useEffect(() => {
+    let cancelled = false;
+
     const init = async () => {
-      // Check auth
+      // 1. Check auth
       try {
         const res = await apiFetch('/api/affiliate/auth/me', {
           credentials: 'include',
         });
-        if (res.ok) {
-          setIsAuthed(true);
-        } else {
+        if (!res.ok) {
           router.push(`/affiliate/login?redirect=${encodeURIComponent(pathname)}`);
           return;
         }
+        if (!cancelled) setIsAuthed(true);
       } catch {
         router.push('/affiliate/login');
         return;
       }
 
-      // Load clinic branding (with SSR guard)
-      if (!isBrowser) return;
+      // 2. Fetch clinic branding (non-blocking; portal works with defaults)
       try {
-        const domain = window.location.hostname;
-        const brandingRes = await apiFetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
-        if (brandingRes.ok) {
+        const brandingRes = await apiFetch('/api/affiliate/branding', {
+          credentials: 'include',
+        });
+        if (brandingRes.ok && !cancelled) {
           const data = await brandingRes.json();
-          if (data.isMainApp) {
-            setIsMainApp(true);
-          } else {
-            setBranding({
-              clinicId: data.clinicId,
-              name: data.name,
-              logoUrl: data.branding?.logoUrl,
-              iconUrl: data.branding?.iconUrl,
-              faviconUrl: data.branding?.faviconUrl,
-              primaryColor: data.branding?.primaryColor || '#111827',
-              secondaryColor: data.branding?.secondaryColor || '#6B7280',
-              accentColor: data.branding?.accentColor || '#10B981',
-              backgroundColor: data.branding?.backgroundColor || '#F9FAFB',
-            });
+          setBranding(data);
 
-            // Update favicon if clinic has one
-            if (data.branding?.faviconUrl) {
-              const link =
-                (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
-                document.createElement('link');
-              link.type = 'image/x-icon';
-              link.rel = 'shortcut icon';
-              link.href = data.branding.faviconUrl;
-              document.head.appendChild(link);
+          // Apply custom CSS if provided
+          if (data.customCss) {
+            let styleEl = document.getElementById('affiliate-custom-css');
+            if (!styleEl) {
+              styleEl = document.createElement('style');
+              styleEl.id = 'affiliate-custom-css';
+              document.head.appendChild(styleEl);
             }
+            styleEl.textContent = data.customCss;
+          }
 
-            // Update page title
-            document.title = `Partner Portal | ${data.name}`;
+          // Update favicon
+          if (data.faviconUrl) {
+            const link =
+              (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
+              document.createElement('link');
+            link.type = 'image/x-icon';
+            link.rel = 'shortcut icon';
+            link.href = data.faviconUrl;
+            document.head.appendChild(link);
+          }
+
+          // Update page title
+          if (data.clinicName) {
+            document.title = `Partner Portal | ${data.clinicName}`;
           }
         }
       } catch {
-        // Silently fail - use default branding
+        // Branding fetch failed -- continue with defaults
       }
     };
+
     init();
-  }, [pathname, router]);
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compute CSS custom properties from branding
+  const cssVars = useMemo(() => brandingToCssVars(branding), [branding]);
+
+  // Filter nav items based on feature flags
+  const navItems = useMemo(() => {
+    if (!branding) return allNavItems;
+    return allNavItems.filter((item) => {
+      if (!item.featureFlag) return true;
+      return branding.features[item.featureFlag] !== false;
+    });
+  }, [branding]);
 
   if (isAuthed === null) {
     return (
@@ -212,111 +221,114 @@ export default function AffiliateDashboardLayout({ children }: { children: React
     return pathname.startsWith(href);
   };
 
-  // Get colors from branding or use defaults
   const primaryColor = branding?.primaryColor || '#111827';
-  const backgroundColor = branding?.backgroundColor || '#F9FAFB';
-  const portalName = branding?.name ? `${branding.name} Partners` : 'Partner Portal';
+  const portalName = branding?.clinicName ? `${branding.clinicName} Partners` : 'Partner Portal';
 
   return (
-    <div className="min-h-screen pb-20 md:pb-0 md:pl-64" style={{ backgroundColor }}>
-      {/* Desktop Sidebar */}
-      <aside className="fixed bottom-0 left-0 top-0 hidden w-64 flex-col border-r border-gray-100 bg-white md:flex">
-        <div className="border-b border-gray-100 p-6">
-          {branding?.logoUrl ? (
-            <img
-              src={branding.logoUrl}
-              alt={branding.name}
-              className="h-8 max-w-[180px] object-contain"
-            />
-          ) : (
-            <h1 className="text-xl font-semibold text-gray-900">{portalName}</h1>
-          )}
-        </div>
-        <nav className="flex-1 space-y-1 p-4">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
-                  active ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                style={active ? { backgroundColor: primaryColor } : undefined}
-              >
-                {item.icon(active)}
-                <span className="font-medium">{item.label}</span>
-              </a>
-            );
-          })}
-        </nav>
-        <div className="border-t border-gray-100 p-4">
-          <a
-            href="/affiliate/help"
-            className="flex items-center gap-3 px-4 py-3 text-gray-500 transition-colors hover:text-gray-700"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <span>Help & Support</span>
-          </a>
-          {branding && !isMainApp && (
-            <p className="mt-4 flex items-center gap-1.5 px-4 text-xs text-gray-400">
-              Powered by{' '}
+    <BrandingProvider branding={branding}>
+      <div
+        className="min-h-screen pb-20 md:pb-0 md:pl-64"
+        style={{ backgroundColor: 'var(--brand-bg)', ...cssVars } as React.CSSProperties}
+      >
+        {/* Desktop Sidebar */}
+        <aside className="fixed bottom-0 left-0 top-0 hidden w-64 flex-col border-r border-gray-100 bg-white md:flex">
+          <div className="border-b border-gray-100 p-6">
+            {branding?.logoUrl ? (
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
-                alt="EONPRO"
-                className="h-[21px] w-auto"
+                src={branding.logoUrl}
+                alt={branding.clinicName}
+                className="h-8 max-w-[180px] object-contain"
               />
-            </p>
-          )}
-        </div>
-      </aside>
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100 bg-white px-2 md:hidden">
-        <div className="flex h-16 items-center justify-around">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                className="relative flex flex-1 flex-col items-center justify-center py-2"
-              >
-                <span
-                  className="transition-colors duration-200"
-                  style={{ color: active ? primaryColor : '#9CA3AF' }}
+            ) : (
+              <h1 className="text-xl font-semibold text-gray-900">{portalName}</h1>
+            )}
+          </div>
+          <nav className="flex-1 space-y-1 p-4">
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
+                    active ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                  style={active ? { backgroundColor: primaryColor } : undefined}
                 >
                   {item.icon(active)}
-                </span>
-                <span
-                  className={`mt-1 text-xs transition-colors duration-200 ${active ? 'font-medium' : ''}`}
-                  style={{ color: active ? primaryColor : '#9CA3AF' }}
-                >
-                  {item.label}
-                </span>
-                {active && (
-                  <motion.div
-                    layoutId="bottomNavIndicator"
-                    className="absolute -top-0.5 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
-                    style={{ backgroundColor: primaryColor }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-              </a>
-            );
-          })}
-        </div>
-      </nav>
+                  <span className="font-medium">{item.label}</span>
+                </a>
+              );
+            })}
+          </nav>
+          <div className="border-t border-gray-100 p-4">
+            <a
+              href="/affiliate/help"
+              className="flex items-center gap-3 px-4 py-3 text-gray-500 transition-colors hover:text-gray-700"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span>Help & Support</span>
+            </a>
+            {branding && (
+              <p className="mt-4 flex items-center gap-1.5 px-4 text-xs text-gray-400">
+                Powered by{' '}
+                <img
+                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  alt="EONPRO"
+                  className="h-[21px] w-auto"
+                />
+              </p>
+            )}
+          </div>
+        </aside>
 
-      {/* Page Content */}
-      <main className="min-h-screen">{children}</main>
-    </div>
+        {/* Mobile Bottom Navigation */}
+        <nav className="pb-safe fixed bottom-0 left-0 right-0 z-50 border-t border-gray-100 bg-white px-2 md:hidden">
+          <div className="flex h-16 items-center justify-around">
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="relative flex flex-1 flex-col items-center justify-center py-2"
+                >
+                  <span
+                    className="transition-colors duration-200"
+                    style={{ color: active ? primaryColor : '#9CA3AF' }}
+                  >
+                    {item.icon(active)}
+                  </span>
+                  <span
+                    className={`mt-1 text-xs transition-colors duration-200 ${active ? 'font-medium' : ''}`}
+                    style={{ color: active ? primaryColor : '#9CA3AF' }}
+                  >
+                    {item.label}
+                  </span>
+                  {active && (
+                    <motion.div
+                      layoutId="bottomNavIndicator"
+                      className="absolute -top-0.5 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full"
+                      style={{ backgroundColor: primaryColor }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                </a>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* Page Content */}
+        <main className="min-h-screen">{children}</main>
+      </div>
+    </BrandingProvider>
   );
 }

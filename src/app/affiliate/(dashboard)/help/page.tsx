@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { HelpCircle, MessageCircle, Mail, ArrowLeft, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { useBranding } from '../branding-context';
 
 const faqs = [
   {
@@ -40,7 +41,9 @@ const faqs = [
 ];
 
 export default function AffiliateHelpPage() {
+  const branding = useBranding();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const supportEmail = branding.supportEmail || 'affiliates@eonpro.com';
 
   return (
     <div className="min-h-screen">
@@ -113,15 +116,15 @@ export default function AffiliateHelpPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <a
-              href="mailto:affiliates@eonpro.com"
+              href={`mailto:${supportEmail}`}
               className="flex items-center gap-4 rounded-xl border border-gray-200 p-4 transition-colors hover:border-gray-300 hover:bg-gray-50"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fdf6e3]">
-                <Mail className="h-5 w-5 text-[#cab172]" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
+                <Mail className="h-5 w-5" style={{ color: 'var(--brand-accent)' }} />
               </div>
               <div>
                 <p className="font-medium text-gray-900">Email Support</p>
-                <p className="text-sm text-gray-500">affiliates@eonpro.com</p>
+                <p className="text-sm text-gray-500">{supportEmail}</p>
               </div>
             </a>
 

@@ -106,11 +106,11 @@ export default function ConditionalHeader() {
     '/super-admin',
     '/patients',
     '/intake-forms',
+    '/affiliate',
   ];
 
   const isNoHeaderPage =
-    noHeaderPages.some((page) => pathname?.startsWith(page)) &&
-    !pathname?.startsWith('/portal/affiliate');
+    noHeaderPages.some((page) => pathname?.startsWith(page));
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
 
   if (isNoHeaderPage) {

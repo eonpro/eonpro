@@ -181,7 +181,8 @@ export default function WithdrawPage() {
           </p>
           <Link
             href="/affiliate/account/payout-method"
-            className="inline-block rounded-xl bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
+            className="inline-block rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             Add Payout Method
           </Link>
@@ -363,7 +364,8 @@ export default function WithdrawPage() {
               <button
                 onClick={handleContinue}
                 disabled={!amount || parseFloat(amount) <= 0}
-                className="w-full rounded-xl bg-gray-900 py-4 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400"
+                className="w-full rounded-xl py-4 font-medium text-white transition-opacity hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
               >
                 Continue
               </button>
@@ -414,7 +416,8 @@ export default function WithdrawPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="flex w-full items-center justify-center rounded-xl bg-gray-900 py-4 font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400"
+                className="flex w-full items-center justify-center rounded-xl py-4 font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
               >
                 {isSubmitting ? (
                   <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -469,7 +472,8 @@ export default function WithdrawPage() {
               <div className="space-y-3">
                 <Link
                   href="/affiliate/earnings"
-                  className="block w-full rounded-xl bg-gray-900 py-3 font-medium text-white transition-colors hover:bg-gray-800"
+                  className="block w-full rounded-xl py-3 font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
                   View Payout Status
                 </Link>

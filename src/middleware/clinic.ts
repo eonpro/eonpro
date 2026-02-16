@@ -11,7 +11,8 @@ const PUBLIC_ROUTES = [
   '/api/webhooks', '/api/webhooks/ping', '/api/clinic/resolve', '/api/clinic/list',
   '/api/monitoring', '/api/assets', '/_next', '/favicon.ico', '/clinic-select', '/login',
   '/register', '/api/affiliate/auth', '/api/affiliate/apply', '/affiliate/login', '/affiliate/apply',
-  '/portal/affiliate', '/api/affiliate',
+  '/affiliate/welcome', '/affiliate/forgot-password', '/affiliate/reset-password', '/affiliate/terms',
+  '/affiliate/demo', '/affiliate', '/portal/affiliate', '/api/affiliate',
   '/api/tickets', '/status', '/',
 ];
 

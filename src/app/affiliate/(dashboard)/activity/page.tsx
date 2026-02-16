@@ -108,7 +108,8 @@ export default function AffiliateActivityPage() {
             </p>
             <Link
               href="/affiliate/links"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               Get Your Links
             </Link>
@@ -133,16 +134,17 @@ export default function AffiliateActivityPage() {
                       className={`flex h-10 w-10 items-center justify-center rounded-full ${
                         activity.type === 'conversion'
                           ? 'bg-green-50'
-                          : activity.type === 'payout'
-                            ? 'bg-[#fdf6e3]'
-                            : 'bg-gray-50'
+                          : activity.type === 'click'
+                            ? 'bg-gray-50'
+                            : ''
                       }`}
+                      style={activity.type === 'payout' ? { backgroundColor: 'var(--brand-accent-light)' } : undefined}
                     >
                       {activity.type === 'conversion' && (
                         <TrendingUp className="h-5 w-5 text-green-600" />
                       )}
                       {activity.type === 'payout' && (
-                        <ArrowUpRight className="h-5 w-5 text-[#cab172]" />
+                        <ArrowUpRight className="h-5 w-5" style={{ color: 'var(--brand-accent)' }} />
                       )}
                       {activity.type === 'click' && <Clock className="h-5 w-5 text-gray-600" />}
                     </div>

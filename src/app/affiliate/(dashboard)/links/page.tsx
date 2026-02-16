@@ -64,7 +64,7 @@ export default function LinksPage() {
   }, []);
 
   const copyLink = async (code: string, id: string) => {
-    const url = `${data?.baseUrl || 'https://app.example.com'}?ref=${code}`;
+    const url = `${data?.baseUrl || 'https://app.example.com'}/affiliate/${code}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(id);
@@ -88,7 +88,7 @@ export default function LinksPage() {
   };
 
   const shareLink = async (code: string, name: string) => {
-    const url = `${data?.baseUrl || 'https://app.example.com'}?ref=${code}`;
+    const url = `${data?.baseUrl || 'https://app.example.com'}/affiliate/${code}`;
 
     if (navigator.share) {
       try {
@@ -200,7 +200,8 @@ export default function LinksPage() {
             <p className="mb-6 text-gray-500">Create your first referral link to start earning</p>
             <button
               onClick={() => setIsCreating(true)}
-              className="rounded-xl bg-gray-900 px-6 py-3 font-medium text-white transition-colors hover:bg-gray-800"
+              className="rounded-xl px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               Create Your First Link
             </button>
@@ -212,12 +213,13 @@ export default function LinksPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl bg-gray-900 p-6 text-white"
+            className="rounded-2xl p-6 text-white"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             <p className="mb-3 text-sm text-gray-400">Your main link</p>
             <div className="mb-4 flex items-center gap-3 rounded-xl bg-white/10 p-4">
               <span className="flex-1 truncate font-mono text-sm">
-                {displayData.baseUrl}?ref=
+                {displayData.baseUrl}/affiliate/
                 {displayData.refCodes.find((c) => c.isDefault)?.code ||
                   displayData.refCodes[0]?.code}
               </span>
@@ -308,7 +310,7 @@ export default function LinksPage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 font-mono text-sm text-gray-500">?ref={refCode.code}</p>
+                      <p className="mt-1 font-mono text-sm text-gray-500">/affiliate/{refCode.code}</p>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -434,12 +436,13 @@ export default function LinksPage() {
         )}
 
         {/* Tips */}
-        <div className="rounded-2xl bg-gradient-to-br from-[#fdf6e3] to-[#f5edd6] p-5">
+        <div className="rounded-2xl p-5" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
           <h3 className="mb-2 font-medium text-gray-900">Tips for success</h3>
           <ul className="space-y-2 text-sm text-gray-600">
             <li className="flex items-start gap-2">
               <svg
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#cab172]"
+                className="mt-0.5 h-4 w-4 flex-shrink-0"
+                style={{ color: 'var(--brand-accent)' }}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -453,7 +456,8 @@ export default function LinksPage() {
             </li>
             <li className="flex items-start gap-2">
               <svg
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#cab172]"
+                className="mt-0.5 h-4 w-4 flex-shrink-0"
+                style={{ color: 'var(--brand-accent)' }}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -467,7 +471,8 @@ export default function LinksPage() {
             </li>
             <li className="flex items-start gap-2">
               <svg
-                className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#cab172]"
+                className="mt-0.5 h-4 w-4 flex-shrink-0"
+                style={{ color: 'var(--brand-accent)' }}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -534,7 +539,8 @@ export default function LinksPage() {
 
                 <button
                   onClick={handleCreateCode}
-                  className="w-full rounded-xl bg-gray-900 py-3 font-medium text-white transition-colors hover:bg-gray-800"
+                  className="w-full rounded-xl py-3 font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
                 >
                   Create Link
                 </button>

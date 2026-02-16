@@ -601,7 +601,7 @@ export const AFFILIATE_CONFIG: RoleConfig = {
   role: 'affiliate',
   displayName: 'Affiliate Partner',
   description: 'Referral partners with aggregated performance metrics',
-  defaultPath: '/portal/affiliate',
+  defaultPath: '/affiliate',
   theme: {
     primaryColor: 'var(--brand-primary, #4fa77e)',
     secondaryColor: 'var(--brand-secondary, #3B82F6)',
@@ -640,12 +640,11 @@ export const AFFILIATE_CONFIG: RoleConfig = {
   },
   navigation: {
     primary: [
-      { label: 'Dashboard', path: '/portal/affiliate', icon: 'Home' },
-      { label: 'Performance', path: '/portal/affiliate/performance', icon: 'TrendingUp' },
-      { label: 'Commissions', path: '/portal/affiliate/commissions', icon: 'DollarSign' },
-      { label: 'Ref Codes', path: '/portal/affiliate/ref-codes', icon: 'Link' },
-      { label: 'Resources', path: '/portal/affiliate/resources', icon: 'Download' },
-      { label: 'Support', path: '/portal/affiliate/support', icon: 'HelpCircle' },
+      { label: 'Dashboard', path: '/affiliate', icon: 'Home' },
+      { label: 'Earnings', path: '/affiliate/earnings', icon: 'DollarSign' },
+      { label: 'Links', path: '/affiliate/links', icon: 'Link' },
+      { label: 'Rank', path: '/affiliate/leaderboard', icon: 'TrendingUp' },
+      { label: 'Account', path: '/affiliate/account', icon: 'User' },
     ],
     quick: [
       { label: 'Copy Link', action: 'copy-ref-link', icon: 'Copy', color: 'blue' },

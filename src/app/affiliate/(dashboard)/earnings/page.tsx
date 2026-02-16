@@ -70,7 +70,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   const styles: Record<string, string> = {
     pending: 'bg-yellow-50 text-yellow-700',
     approved: 'bg-green-50 text-green-700',
-    paid: 'bg-[#fdf6e3] text-[#8b7a42]',
+    paid: 'bg-green-50 text-green-700',
     reversed: 'bg-red-50 text-red-700',
     processing: 'bg-yellow-50 text-yellow-700',
     completed: 'bg-green-50 text-green-700',
@@ -170,7 +170,8 @@ export default function EarningsPage() {
           {displayData.summary.availableBalance >= 5000 && (
             <Link
               href="/affiliate/withdraw"
-              className="mt-6 block w-full rounded-xl bg-gray-900 py-3 text-center font-medium text-white transition-colors hover:bg-gray-800"
+              className="mt-6 block w-full rounded-xl py-3 text-center font-medium text-white transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               Withdraw Funds
             </Link>
@@ -220,7 +221,8 @@ export default function EarningsPage() {
                 {activeTab === tab && (
                   <motion.div
                     layoutId="earningsTabIndicator"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"
+                    className="absolute bottom-0 left-0 right-0 h-0.5"
+                    style={{ backgroundColor: 'var(--brand-primary)' }}
                   />
                 )}
               </button>
@@ -245,9 +247,10 @@ export default function EarningsPage() {
                         onClick={() => setFilter(f)}
                         className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors ${
                           filter === f
-                            ? 'bg-gray-900 text-white'
+                            ? 'text-white'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
+                        style={filter === f ? { backgroundColor: 'var(--brand-primary)' } : undefined}
                       >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
                       </button>
@@ -328,10 +331,11 @@ export default function EarningsPage() {
         </div>
 
         {/* Info Card */}
-        <div className="rounded-2xl bg-[#fdf6e3] p-4">
+        <div className="rounded-2xl p-4" style={{ backgroundColor: 'var(--brand-accent-light)' }}>
           <div className="flex gap-3">
             <svg
-              className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#cab172]"
+              className="mt-0.5 h-5 w-5 flex-shrink-0"
+              style={{ color: 'var(--brand-accent)' }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -344,8 +348,8 @@ export default function EarningsPage() {
               />
             </svg>
             <div className="text-sm">
-              <p className="mb-1 font-medium text-[#6b5c2e]">How commissions work</p>
-              <p className="text-[#8b7a42]">
+              <p className="mb-1 font-medium text-gray-800">How commissions work</p>
+              <p className="text-gray-600">
                 Commissions are held for 14 days to account for refunds, then automatically become
                 available for withdrawal. Payouts are processed weekly.
               </p>
