@@ -161,8 +161,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         select: { id: true, name: true, subdomain: true },
       },
       payments: {
-        where: { status: 'SUCCEEDED' },
-        orderBy: { paidAt: 'desc' },
+        where: { status: 'SUCCEEDED' as const },
+        orderBy: { paidAt: 'desc' as const },
         take: 3,
         select: {
           paidAt: true,
@@ -181,7 +181,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
       },
       orders: {
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: 'desc' as const },
         take: 3,
         select: {
           createdAt: true,
@@ -206,7 +206,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
       },
-    };
+    } as const;
 
     // Phase 1: Main query using searchIndex (fast path for indexed patients)
     const [indexedPatients, indexedTotal] = await Promise.all([

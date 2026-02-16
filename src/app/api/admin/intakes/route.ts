@@ -125,7 +125,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       clinic: {
         select: { id: true, name: true, subdomain: true },
       },
-    };
+    } as const;
 
     // Phase 1: Main query using searchIndex (fast path for indexed patients)
     const [indexedIntakes, indexedTotal] = await Promise.all([
