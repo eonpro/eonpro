@@ -33,4 +33,4 @@ if (skipMigrate) {
   run('node scripts/pre-migrate.js && npx prisma migrate deploy', 'Migrations');
 }
 console.log('[vercel-build] Building with Webpack (Turbopack disabled)');
-run('rm -rf node_modules/.prisma && npx prisma generate && npx next build --webpack', 'Build');
+run('rm -rf .next node_modules/.prisma && npx prisma generate && npx next build --webpack', 'Build');
