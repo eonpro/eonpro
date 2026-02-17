@@ -44,7 +44,7 @@ export default function PatientPortalError({ error, reset }: ErrorProps) {
             information.
           </p>
           <Link
-            href={`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}`}
+            href="/patient-login?reason=session_expired"
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-emerald-700"
           >
             Log In Again

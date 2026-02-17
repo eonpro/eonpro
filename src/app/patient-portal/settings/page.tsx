@@ -257,7 +257,7 @@ export default function SettingsPage() {
     localStorage.removeItem('patient-token');
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    window.location.href = '/login';
+    window.location.href = '/patient-login';
   };
 
   if (loading) {

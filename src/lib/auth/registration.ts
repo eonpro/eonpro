@@ -567,6 +567,9 @@ export async function registerWithInviteToken(
       select: { name: true },
     });
 
+    // Invite-based registration: the invite link was sent to the patient's email,
+    // so the email is already verified by possessing the invite token.
+    // Auto-verify so patients can log in immediately after signup.
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const user = await tx.user.create({
         data: {
@@ -578,14 +581,8 @@ export async function registerWithInviteToken(
           role: 'PATIENT',
           status: 'ACTIVE',
           patientId: invite.patientId,
-          emailVerified: false,
-        },
-      });
-      await tx.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          token: hashedToken,
-          expiresAt: tokenExpiresAt,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
         },
       });
       return { user };
@@ -593,10 +590,7 @@ export async function registerWithInviteToken(
 
     await markInviteTokenUsed(inviteToken);
 
-    const baseUrl = getAppBaseUrl();
-    const verificationUrl = baseUrl
-      ? `${baseUrl}/api/auth/verify-email?token=${verificationToken}`
-      : '';
+    // Send welcome email (informational, not verification-gated)
     try {
       await sendTemplatedEmail({
         to: normalizedEmail,
@@ -604,8 +598,8 @@ export async function registerWithInviteToken(
         data: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          verificationLink: verificationUrl,
-          expiresIn: '24 hours',
+          verificationLink: '', // No verification needed - invite already validated
+          expiresIn: '',
           clinicName: clinic?.name || 'Your Clinic',
         },
       });
@@ -625,7 +619,7 @@ export async function registerWithInviteToken(
 
     return {
       success: true,
-      message: 'Account created. Please check your email to verify your account.',
+      message: 'Account created successfully! You can now log in.',
       userId: result.user.id,
       patientId: invite.patientId,
     };

@@ -668,7 +668,9 @@ export default function LoginPage() {
       if (!response.ok) {
         // Handle unverified email specially
         if (data.code === 'EMAIL_NOT_VERIFIED') {
-          setError(`${data.error} Check your email or request a new verification link.`);
+          setError(
+            `${data.error} Check your email for the verification link, or use the "Resend verification" option below.`
+          );
           setLoading(false);
           return;
         }
@@ -1033,9 +1035,27 @@ export default function LoginPage() {
           <h1 className="mb-4 text-5xl font-light tracking-tight text-gray-900 md:text-6xl">
             Welcome
           </h1>
-          <p className="mb-12 text-lg text-gray-600">
-            {branding && !isMainApp ? `Sign in to ${branding.name}` : 'Sign in to EONPRO'}
+          <p className="mb-8 text-lg text-gray-600">
+            {isProviderLogin
+              ? 'Provider sign in'
+              : branding && !isMainApp
+                ? `Sign in to ${branding.name}`
+                : 'Sign in to EONPRO'}
           </p>
+
+          {/* Patient login redirect banner on clinic subdomains */}
+          {branding && !isMainApp && !isProviderLogin && step === 'identifier' && (
+            <a
+              href="/patient-login"
+              className="mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border border-gray-200 bg-white/80 p-4 transition-all hover:bg-white hover:shadow-md"
+            >
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Are you a patient?</p>
+                <p className="text-xs text-gray-500">Use the Patient Portal login instead</p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-gray-400" />
+            </a>
+          )}
 
           {/* Login Form */}
           <div className="w-full max-w-md">
@@ -1100,8 +1120,20 @@ export default function LoginPage() {
                   )}
                 </button>
 
-                {/* New Patient Registration Link */}
-                <div className="pt-4">
+                {/* Patient Portal Link */}
+                <div className="space-y-2 pt-4">
+                  {!isProviderLogin && (
+                    <p className="text-center text-sm text-gray-600">
+                      Patient?{' '}
+                      <a
+                        href="/patient-login"
+                        className="font-medium hover:opacity-80"
+                        style={{ color: primaryColor }}
+                      >
+                        Use Patient Portal Login
+                      </a>
+                    </p>
+                  )}
                   <p className="text-center text-sm text-gray-600">
                     New patient?{' '}
                     <a
@@ -1160,6 +1192,39 @@ export default function LoginPage() {
                 {error && (
                   <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
                     <p className="text-center text-sm text-red-600">{error}</p>
+                    {/* Resend verification email button for unverified accounts */}
+                    {error.includes('verify your email') && (
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              setLoading(true);
+                              const res = await fetch('/api/auth/register', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: identifier, action: 'resend' }),
+                              });
+                              if (res.ok) {
+                                setError('Verification email sent! Please check your inbox and spam folder.');
+                              } else {
+                                setError('Failed to resend verification email. Please try again.');
+                              }
+                            } catch {
+                              setError('Failed to resend verification email. Please try again.');
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                        >
+                          <Mail className="h-4 w-4" />
+                          Resend verification email
+                        </button>
+                      </div>
+                    )}
                     {retryAfterCountdown > 0 && (
                       <p className="text-center text-sm text-red-600">
                         You can try again in {retryAfterCountdown} second{retryAfterCountdown !== 1 ? 's' : ''}.

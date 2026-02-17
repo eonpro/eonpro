@@ -211,6 +211,12 @@ export default function RegisterPage() {
         throw new Error(data.error || 'Registration failed');
       }
 
+      // Invite-based signups are auto-verified, redirect to login immediately
+      if (inviteToken) {
+        router.push('/patient-login?registered=true');
+        return;
+      }
+
       setStep('success');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
@@ -574,30 +580,40 @@ export default function RegisterPage() {
                   )}
                 </div>
 
-                {/* Terms Agreement */}
+                {/* Terms Agreement - Mobile-optimized with 44px touch targets */}
                 <div className="flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAgreedToTerms(!agreedToTerms)}
-                    className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition-all ${
-                      agreedToTerms
-                        ? 'border-emerald-600 bg-emerald-600'
-                        : 'border-gray-300 bg-white hover:border-emerald-400'
-                    }`}
-                    aria-checked={agreedToTerms}
-                    role="checkbox"
-                  >
-                    {agreedToTerms && <Check className="h-3.5 w-3.5 text-white" />}
-                  </button>
                   <label
-                    onClick={() => setAgreedToTerms(!agreedToTerms)}
-                    className="cursor-pointer select-none text-sm text-gray-600"
+                    htmlFor="terms-checkbox"
+                    className="flex min-h-[44px] min-w-[44px] flex-shrink-0 cursor-pointer items-center justify-center"
+                  >
+                    <input
+                      id="terms-checkbox"
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={() => setAgreedToTerms(!agreedToTerms)}
+                      className="sr-only"
+                      aria-label="I agree to the Terms of Service and Privacy Policy"
+                    />
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-all ${
+                        agreedToTerms
+                          ? 'border-emerald-600 bg-emerald-600'
+                          : 'border-gray-300 bg-white'
+                      }`}
+                    >
+                      {agreedToTerms && <Check className="h-4 w-4 text-white" />}
+                    </span>
+                  </label>
+                  <label
+                    htmlFor="terms-checkbox"
+                    className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-gray-600"
                   >
                     I agree to the{' '}
                     <a
                       href="/terms"
                       target="_blank"
-                      className="text-emerald-600 hover:underline"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 underline"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Terms of Service
@@ -606,7 +622,8 @@ export default function RegisterPage() {
                     <a
                       href="/privacy"
                       target="_blank"
-                      className="text-emerald-600 hover:underline"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 underline"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Privacy Policy

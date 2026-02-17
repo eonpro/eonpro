@@ -142,9 +142,7 @@ export async function middleware(request: NextRequest) {
     const token =
       request.cookies.get('patient-token')?.value || request.cookies.get('auth-token')?.value;
     if (!token || token.split('.').length !== 3) {
-      const portalPath = getPatientPortalBasePath();
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', portalPath);
+      const loginUrl = new URL('/patient-login', request.url);
       loginUrl.searchParams.set('reason', 'no_session');
       return NextResponse.redirect(loginUrl);
     }
