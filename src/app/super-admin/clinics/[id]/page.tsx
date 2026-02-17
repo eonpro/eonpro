@@ -3879,6 +3879,152 @@ export default function ClinicDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ===== Delete Clinic Confirmation Modal ===== */}
+      {deleteModal.open && clinic && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center gap-3 border-b border-red-100 bg-red-50 px-6 py-4 rounded-t-2xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-red-900">Delete Clinic</h2>
+                <p className="text-sm text-red-600">This action is permanent and irreversible</p>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteModal.deleting}
+                className="ml-auto rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-100 hover:text-red-600 disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              {deleteModal.step === 1 && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-700">
+                    You are about to permanently delete{' '}
+                    <span className="font-bold text-gray-900">{clinic.name}</span> and all associated
+                    data. This includes:
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+                      <p className="text-2xl font-bold text-red-700">{clinic.stats.patients}</p>
+                      <p className="text-xs font-medium text-red-600">Patients</p>
+                    </div>
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+                      <p className="text-2xl font-bold text-red-700">{clinic.stats.providers}</p>
+                      <p className="text-xs font-medium text-red-600">Providers</p>
+                    </div>
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+                      <p className="text-2xl font-bold text-red-700">{clinicUsers.length}</p>
+                      <p className="text-xs font-medium text-red-600">Users</p>
+                    </div>
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+                      <p className="text-2xl font-bold text-red-700">{clinic.stats.appointments}</p>
+                      <p className="text-xs font-medium text-red-600">Appointments</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-medium text-amber-800">
+                      <strong>Warning:</strong> All patient records, orders, prescriptions,
+                      subscriptions, payments, documents, messages, and configuration will be
+                      permanently erased. This cannot be undone.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={closeDeleteModal}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => setDeleteModal((prev) => ({ ...prev, step: 2 }))}
+                      className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                    >
+                      I understand, continue
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {deleteModal.step === 2 && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm font-medium text-red-800">
+                      Final confirmation: Type the clinic name below to confirm deletion.
+                    </p>
+                    <p className="mt-1 text-xs text-red-600">
+                      Please type{' '}
+                      <span className="rounded bg-red-100 px-1.5 py-0.5 font-mono font-bold text-red-800">
+                        {clinic.name}
+                      </span>{' '}
+                      to proceed.
+                    </p>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={deleteModal.confirmName}
+                    onChange={(e) =>
+                      setDeleteModal((prev) => ({ ...prev, confirmName: e.target.value }))
+                    }
+                    placeholder={`Type "${clinic.name}" to confirm`}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                    disabled={deleteModal.deleting}
+                    autoFocus
+                  />
+
+                  {deleteModal.error && (
+                    <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+                      <p className="flex items-center gap-2 text-sm text-red-700">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        {deleteModal.error}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() =>
+                        setDeleteModal((prev) => ({ ...prev, step: 1, confirmName: '', error: null }))
+                      }
+                      disabled={deleteModal.deleting}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleDeleteConfirm}
+                      disabled={deleteModal.confirmName !== clinic.name || deleteModal.deleting}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deleteModal.deleting ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4" />
+                          Permanently Delete Clinic
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
