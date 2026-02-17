@@ -194,6 +194,7 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'hipaaauditentry',
   'affiliate',
   'affiliateapplication',
+  'affiliatecommissionevent', // super-admin cross-tenant commission aggregation (guarded by withSuperAdminAuth)
   'affiliatecommissionplan',
   'affiliateplanassignment',
   'platformfeeevent',
