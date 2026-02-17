@@ -347,28 +347,47 @@ export const DELETE = withSuperAdminAuth(
 
       // Delete all related records in a transaction
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // 1. Delete sessions
+        // ── Affiliate portal cleanup (must happen before user delete) ──
+        const affiliate = await (tx as any).affiliate?.findUnique?.({ where: { userId }, select: { id: true } });
+        if (affiliate) {
+          const affId = affiliate.id;
+          // Affiliate child records (order matters for FK constraints)
+          await safeDeleteMany(tx, 'affiliateOtpCode', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliateCompetitionEntry', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliateCommissionEvent', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliatePlanAssignment', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliateRefCode', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliateTouch', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliateFraudAlert', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliateTaxDocument', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliatePayoutItem', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliatePayout', { affiliateId: affId });
+          await safeDeleteMany(tx, 'affiliatePayoutMethod', { affiliateId: affId });
+          // Unlink patients attributed to this affiliate
+          await safeUpdateMany(tx, 'patient', { attributionAffiliateId: affId }, { attributionAffiliateId: null });
+          // Unlink application if exists
+          await safeUpdateMany(tx, 'affiliateApplication', { affiliateId: affId }, { affiliateId: null });
+          // Delete the affiliate record itself
+          await safeDeleteMany(tx, 'affiliate', { id: affId });
+        }
+
+        // ── Sessions & auth tokens ──
         await safeDeleteMany(tx, 'userSession', { userId });
-
-        // 2. Delete audit logs
-        await safeDeleteMany(tx, 'userAuditLog', { userId });
-
-        // 3. Delete password reset tokens
         await safeDeleteMany(tx, 'passwordResetToken', { userId });
-
-        // 4. Delete email verification tokens
         await safeDeleteMany(tx, 'emailVerificationToken', { userId });
 
-        // 5. Delete user clinic assignments
+        // ── Audit logs ──
+        await safeDeleteMany(tx, 'userAuditLog', { userId });
+        await safeDeleteMany(tx, 'clinicAuditLog', { userId });
+        await safeDeleteMany(tx, 'auditLog', { userId });
+        await safeUpdateMany(tx, 'loginAudit', { userId }, { userId: null });
+
+        // ── User clinic assignments ──
         await safeDeleteMany(tx, 'userClinic', { userId });
 
-        // 6. Delete API keys and usage logs
+        // ── API keys and usage logs ──
         try {
-          const apiKeys =
-            (await tx.apiKey?.findMany?.({
-              where: { userId },
-              select: { id: true },
-            })) || [];
+          const apiKeys = (await (tx as any).apiKey?.findMany?.({ where: { userId }, select: { id: true } })) || [];
           for (const key of apiKeys) {
             await safeDeleteMany(tx, 'apiUsageLog', { apiKeyId: key.id });
           }
@@ -377,14 +396,17 @@ export const DELETE = withSuperAdminAuth(
           logger.warn('Could not delete API keys', { message: (e as Error).message });
         }
 
-        // 7. Update tickets to remove user references (set to null instead of delete)
+        // ── Ticket references (set to null to preserve ticket history) ──
         await safeUpdateMany(tx, 'ticket', { createdById: userId }, { createdById: null });
         await safeUpdateMany(tx, 'ticket', { assignedToId: userId }, { assignedToId: null });
         await safeUpdateMany(tx, 'ticket', { resolvedById: userId }, { resolvedById: null });
         await safeUpdateMany(tx, 'ticket', { ownerId: userId }, { ownerId: null });
         await safeUpdateMany(tx, 'ticket', { lastWorkedById: userId }, { lastWorkedById: null });
+        await safeUpdateMany(tx, 'ticket', { lastReopenedById: userId }, { lastReopenedById: null });
+        await safeUpdateMany(tx, 'ticket', { lockedById: userId }, { lockedById: null });
+        await safeUpdateMany(tx, 'ticket', { closedById: userId }, { closedById: null });
 
-        // 8. Delete ticket-related records
+        // ── Ticket child records ──
         await safeDeleteMany(tx, 'ticketAssignment', { assignedById: userId });
         await safeDeleteMany(tx, 'ticketAssignment', { assignedToId: userId });
         await safeDeleteMany(tx, 'ticketComment', { userId });
@@ -392,41 +414,90 @@ export const DELETE = withSuperAdminAuth(
         await safeDeleteMany(tx, 'ticketWorkLog', { userId });
         await safeDeleteMany(tx, 'ticketEscalation', { escalatedById: userId });
         await safeDeleteMany(tx, 'ticketEscalation', { escalatedToId: userId });
+        await safeDeleteMany(tx, 'ticketTeamMember', { userId });
+        await safeDeleteMany(tx, 'ticketWatcher', { userId });
+        await safeDeleteMany(tx, 'ticketWatcher', { addedById: userId });
+        await safeDeleteMany(tx, 'ticketRelation', { createdById: userId });
+        await safeDeleteMany(tx, 'ticketAttachment', { uploadedById: userId });
+        await safeDeleteMany(tx, 'ticketActivity', { userId });
+        await safeDeleteMany(tx, 'ticketMerge', { mergedById: userId });
+        await safeDeleteMany(tx, 'ticketMacro', { createdById: userId });
+        await safeDeleteMany(tx, 'ticketTemplate', { createdById: userId });
+        await safeDeleteMany(tx, 'ticketAutomationRule', { createdById: userId });
+        await safeDeleteMany(tx, 'ticketSavedView', { userId });
 
-        // 9. Delete clinic audit logs
-        await safeDeleteMany(tx, 'clinicAuditLog', { userId });
-
-        // 10. Update appointments to remove creator reference
-        await safeUpdateMany(tx, 'appointment', { createdById: userId }, { createdById: null });
-
-        // 11. Delete care plan progress
-        await safeDeleteMany(tx, 'carePlanProgress', { recordedById: userId });
-
-        // 12. Delete internal messages
+        // ── Messaging ──
+        await safeDeleteMany(tx, 'messageReaction', { userId });
         await safeDeleteMany(tx, 'internalMessage', { senderId: userId });
         await safeDeleteMany(tx, 'internalMessage', { recipientId: userId });
 
-        // 13. Handle provider relationship (Provider doesn't have userId - User has providerId)
-        // First unlink the provider from the user, then optionally delete the provider
+        // ── Notifications & email ──
+        await safeDeleteMany(tx, 'notification', { userId });
+        await safeDeleteMany(tx, 'userNotificationPreference', { userId });
+        await safeDeleteMany(tx, 'emailLog', { userId });
+        await safeDeleteMany(tx, 'scheduledEmail', { userId });
+
+        // ── Appointments & care plans ──
+        await safeUpdateMany(tx, 'appointment', { createdById: userId }, { createdById: null });
+        await safeDeleteMany(tx, 'carePlanProgress', { recordedById: userId });
+        await safeDeleteMany(tx, 'carePlanTemplate', { createdById: userId });
+
+        // ── Sales rep assignments ──
+        await safeDeleteMany(tx, 'patientSalesRepAssignment', { salesRepId: userId });
+        await safeUpdateMany(tx, 'patientSalesRepAssignment', { assignedById: userId }, { assignedById: null });
+        await safeUpdateMany(tx, 'patientSalesRepAssignment', { removedById: userId }, { removedById: null });
+
+        // ── Financial reports ──
+        await safeDeleteMany(tx, 'savedReport', { userId });
+        await safeDeleteMany(tx, 'reportExport', { userId });
+
+        // ── SOC 2 policy management ──
+        await safeDeleteMany(tx, 'policyApproval', { userId });
+        await safeDeleteMany(tx, 'policyAcknowledgment', { userId });
+
+        // ── Settings & integrations (set to null) ──
+        await safeUpdateMany(tx, 'systemSettings', { updatedById: userId }, { updatedById: null });
+        await safeUpdateMany(tx, 'integration', { createdById: userId }, { createdById: null });
+
+        // ── Intake templates ──
+        await safeUpdateMany(tx, 'intakeFormTemplate', { createdById: userId }, { createdById: null });
+
+        // ── Patient portal invites ──
+        await safeUpdateMany(tx, 'patientPortalInvite', { createdById: userId }, { createdById: null });
+
+        // ── Clinic invite codes ──
+        await safeUpdateMany(tx, 'clinicInviteCode', { createdById: userId }, { createdById: null });
+
+        // ── Provider relationship (unlink, keep record for audit) ──
         if (existingUser.providerId) {
-          // Unlink provider from user first
           await tx.user.update({
             where: { id: userId },
             data: { providerId: null },
           });
-
-          // Note: We keep the Provider record for audit/historical purposes
-          // If you want to delete it, uncomment the following:
-          // await safeDeleteMany(tx, 'providerAudit', { providerId: existingUser.providerId });
-          // await tx.provider.delete({ where: { id: existingUser.providerId } });
         }
 
-        // 14. Update createdBy references to null for users created by this user
+        // ── Influencer relationship (unlink) ──
+        if ((existingUser as any).influencerId) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { influencerId: null },
+          });
+        }
+
+        // ── Patient relationship (unlink) ──
+        if ((existingUser as any).patientId) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { patientId: null },
+          });
+        }
+
+        // ── Users created by this user (set to null) ──
         await safeUpdateMany(tx, 'user', { createdById: userId }, { createdById: null });
 
         // Finally delete the user
         await tx.user.delete({ where: { id: userId } });
-      });
+      }, { timeout: 30000 });
 
       return NextResponse.json({
         message: 'User removed successfully',
