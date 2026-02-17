@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0', 10);
     const status = searchParams.get('status'); // DRAFT, OPEN, PAID, VOID, etc.
     const patientId = searchParams.get('patientId');
+    const search = searchParams.get('search');
 
     // Build where clause
     const where: any = {};
@@ -40,6 +41,17 @@ export async function GET(req: NextRequest) {
 
     if (patientId) {
       where.patientId = parseInt(patientId, 10);
+    }
+
+    // Server-side search: patient name (via searchIndex), description, or invoice number
+    if (search && search.trim().length > 0) {
+      const term = search.trim().toLowerCase();
+      where.OR = [
+        { patient: { searchIndex: { contains: term, mode: 'insensitive' } } },
+        { description: { contains: term, mode: 'insensitive' } },
+        { stripeInvoiceId: { contains: term, mode: 'insensitive' } },
+        { invoiceNumber: { contains: term, mode: 'insensitive' } },
+      ];
     }
 
     // Fetch invoices with patient info

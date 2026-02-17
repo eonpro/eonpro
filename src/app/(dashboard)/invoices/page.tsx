@@ -6,7 +6,7 @@
  * Full invoice management with Stripe-level capabilities
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 import {
@@ -109,9 +109,11 @@ export default function InvoicesPage() {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState('this_month');
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -125,6 +127,20 @@ export default function InvoicesPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
 
+  // Debounce search input
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, []);
+
   // Fetch invoices
   const fetchInvoices = useCallback(async () => {
     try {
@@ -135,6 +151,9 @@ export default function InvoicesPage() {
         ...(statusFilter !== 'all' && { status: statusFilter }),
         ...(showOverdueOnly && { overdue: 'true' }),
       });
+      if (debouncedSearch.trim()) {
+        params.set('search', debouncedSearch.trim());
+      }
 
       const response = await apiFetch(`/api/v2/invoices?${params}`, {
         headers: { 'Content-Type': 'application/json' },
@@ -150,7 +169,7 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, showOverdueOnly]);
+  }, [page, statusFilter, showOverdueOnly, debouncedSearch]);
 
   // Fetch summary
   const fetchSummary = useCallback(async () => {
@@ -254,18 +273,8 @@ export default function InvoicesPage() {
     });
   };
 
-  // Filter invoices by search
-  const filteredInvoices = invoices.filter((inv) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      inv.patient.firstName.toLowerCase().includes(search) ||
-      inv.patient.lastName.toLowerCase().includes(search) ||
-      inv.patient.email.toLowerCase().includes(search) ||
-      inv.description?.toLowerCase().includes(search) ||
-      inv.id.toString().includes(search)
-    );
-  });
+  // Search is now server-side; use invoices directly
+  const filteredInvoices = invoices;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
@@ -365,7 +374,7 @@ export default function InvoicesPage() {
                   type="text"
                   placeholder="Search invoices..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 py-2 pl-10 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>

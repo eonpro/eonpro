@@ -5,7 +5,7 @@ import { formatDobInput } from '@/lib/format';
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
@@ -117,17 +117,26 @@ export default function PatientsPage() {
   const [form, setForm] = useState(initialForm);
   const [addressLocked, setAddressLocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+  }, []);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userClinicId, setUserClinicId] = useState<number | null>(null);
 
   const updateForm = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
 
-  const fetchPatients = async () => {
+  const fetchPatients = async (search?: string) => {
     try {
       setLoading(true);
-      // Get token from localStorage or cookies (check all possible token storage locations)
       const token =
         localStorage.getItem('auth-token') ||
         localStorage.getItem('super_admin-token') ||
@@ -136,7 +145,13 @@ export default function PatientsPage() {
         localStorage.getItem('SUPER_ADMIN-token') ||
         sessionStorage.getItem('auth-token');
 
-      const res = await apiFetch('/api/patients', {
+      const params = new URLSearchParams();
+      if (search && search.trim()) {
+        params.set('search', search.trim());
+      }
+      const url = params.toString() ? `/api/patients?${params.toString()}` : '/api/patients';
+
+      const res = await apiFetch(url, {
         headers: token
           ? {
               Authorization: `Bearer ${token}`,
@@ -147,8 +162,6 @@ export default function PatientsPage() {
       if (!res.ok) {
         if (res.status === 401) {
           setError('Please log in to view patients');
-          // Optionally redirect to login
-          // router.push('/login');
           return;
         }
         throw new Error('Failed to fetch patients');
@@ -159,8 +172,6 @@ export default function PatientsPage() {
       setPatients(patientData);
       setFilteredPatients(patientData);
     } catch (err: any) {
-      // @ts-ignore
-
       logger.error(err);
       setError('Failed to load patients');
     } finally {
@@ -211,7 +222,6 @@ export default function PatientsPage() {
   };
 
   useEffect(() => {
-    // Get user info from localStorage
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
@@ -224,33 +234,13 @@ export default function PatientsPage() {
     }
     fetchPatients();
     fetchClinics();
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, []);
 
+  // Re-fetch with server-side search when debounced search changes
   useEffect(() => {
-    if (!searchQuery) {
-      setFilteredPatients(patients);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = patients.filter((patient: any) => {
-        const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
-        const email = patient.email.toLowerCase();
-        const phone = patient.phone.toLowerCase();
-        const id = patient.patientId?.toLowerCase() || '';
-        const tags = toTagArray(patient.tags).join(' ').toLowerCase();
-        const address = formatPatientAddress(patient).toLowerCase();
-
-        return (
-          fullName.includes(query) ||
-          email.includes(query) ||
-          phone.includes(query) ||
-          id.includes(query) ||
-          tags.includes(query) ||
-          address.includes(query)
-        );
-      });
-      setFilteredPatients(filtered);
-    }
-  }, [searchQuery, patients]);
+    fetchPatients(debouncedSearch);
+  }, [debouncedSearch]);
 
   const submit = async () => {
     try {
@@ -487,7 +477,7 @@ export default function PatientsPage() {
               type="text"
               placeholder="Search patients by name, email, phone, ID, tags, or address..."
               value={searchQuery}
-              onChange={(e: any) => setSearchQuery(e.target.value)}
+              onChange={(e: any) => handleSearchChange(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
             />
           </div>

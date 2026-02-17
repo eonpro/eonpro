@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Package,
@@ -39,16 +39,34 @@ interface OrderWithTracking {
 
 export default function AdminOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [orders, setOrders] = useState<OrderWithTracking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiFetch('/api/orders/list?hasTrackingNumber=true');
+      const params = new URLSearchParams({ hasTrackingNumber: 'true' });
+      if (debouncedSearch.trim()) {
+        params.set('search', debouncedSearch.trim());
+      }
+      const response = await apiFetch(`/api/orders/list?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch orders');
       }
@@ -59,7 +77,7 @@ export default function AdminOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     fetchOrders();
@@ -114,16 +132,10 @@ export default function AdminOrdersPage() {
     });
   };
 
+  // Search is now server-side; only filter by status client-side
   const filteredOrders = orders.filter((order) => {
-    const patientName = `${order.patient.firstName} ${order.patient.lastName}`.toLowerCase();
-    const matchesSearch =
-      patientName.includes(searchTerm.toLowerCase()) ||
-      order.id.toString().includes(searchTerm) ||
-      (order.trackingNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const orderStatus = order.shippingStatus || order.status || '';
-    const matchesStatus =
-      statusFilter === 'all' || orderStatus.toLowerCase() === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
+    return statusFilter === 'all' || orderStatus.toLowerCase() === statusFilter.toLowerCase();
   });
 
   return (
@@ -151,7 +163,7 @@ export default function AdminOrdersPage() {
               type="text"
               placeholder="Search orders..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>

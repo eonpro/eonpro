@@ -52,12 +52,14 @@ export async function GET(request: NextRequest) {
     // Parse query params
     const { searchParams } = new URL(request.url);
     const hasTrackingNumber = searchParams.get('hasTrackingNumber');
+    const search = searchParams.get('search') || undefined;
 
     // Use order service for proper access control
     const result = await orderService.listOrders(userContext, {
       limit: 100,
       hasTrackingNumber:
         hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
+      search,
     });
 
     // Fetch events for each order (for backward compatibility)

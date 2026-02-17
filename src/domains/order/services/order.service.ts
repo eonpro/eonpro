@@ -119,13 +119,14 @@ export const orderService = {
       patientId?: number;
       providerId?: number;
       hasTrackingNumber?: boolean;
+      search?: string;
     } = {}
   ): Promise<ListOrdersResult> {
     logger.info('[OrderService] listOrders', {
       userId: userContext.id,
       role: userContext.role,
       clinicId: userContext.clinicId,
-      options,
+      options: { ...options, search: options.search ? '[PRESENT]' : undefined },
     });
 
     // Build filters
@@ -181,6 +182,11 @@ export const orderService = {
     // Tracking number filter
     if (options.hasTrackingNumber !== undefined) {
       filters.hasTrackingNumber = options.hasTrackingNumber;
+    }
+
+    // Search filter (patient name via searchIndex, medication name)
+    if (options.search && options.search.trim().length > 0) {
+      filters.search = options.search.trim();
     }
 
     const result = await orderRepository.list(filters);

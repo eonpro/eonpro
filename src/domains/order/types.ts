@@ -220,6 +220,8 @@ export interface OrderListFilters {
   limit?: number;
   offset?: number;
   hasTrackingNumber?: boolean;
+  /** Server-side search by patient name (via searchIndex) or medication name */
+  search?: string;
 }
 
 /**

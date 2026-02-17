@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   FileText,
@@ -72,10 +72,25 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<InvoiceStats | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, []);
 
   const loadInvoices = useCallback(async () => {
     setLoading(true);
@@ -94,6 +109,9 @@ export default function InvoicesPage() {
         offset: ((page - 1) * 20).toString(),
         ...(statusFilter !== 'all' && { status: statusFilter }),
       });
+      if (debouncedSearch.trim()) {
+        params.set('search', debouncedSearch.trim());
+      }
 
       const response = await apiFetch(`/api/invoices?${params}`, {
         credentials: 'include',
@@ -145,7 +163,7 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, debouncedSearch]);
 
   useEffect(() => {
     loadInvoices();
@@ -201,27 +219,8 @@ export default function InvoicesPage() {
     }
   };
 
-  // Filter invoices by search query
-  const filteredInvoices =
-    searchQuery.trim() === ''
-      ? invoices
-      : invoices.filter((inv) => {
-          const query = searchQuery.toLowerCase();
-          const patientName = inv.patient
-            ? `${inv.patient.firstName} ${inv.patient.lastName}`.toLowerCase()
-            : '';
-          const patientEmail = inv.patient?.email?.toLowerCase() || '';
-          const invoiceNumber =
-            inv.invoiceNumber?.toLowerCase() || inv.stripeInvoiceId?.toLowerCase() || '';
-          const description = inv.description?.toLowerCase() || '';
-
-          return (
-            patientName.includes(query) ||
-            patientEmail.includes(query) ||
-            invoiceNumber.includes(query) ||
-            description.includes(query)
-          );
-        });
+  // Search is now server-side; use invoices directly
+  const filteredInvoices = invoices;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -296,7 +295,7 @@ export default function InvoicesPage() {
                 type="text"
                 placeholder="Search invoices..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-64 rounded-lg border border-gray-200 py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>

@@ -74,6 +74,7 @@ async function listOrdersHandler(request: NextRequest, user: AuthUser) {
     const recent = searchParams.get('recent') || undefined;
     const status = searchParams.get('status') || undefined;
     const patientId = searchParams.get('patientId');
+    const search = searchParams.get('search') || undefined;
 
     // Convert auth user to service UserContext
     const userContext: UserContext = {
@@ -92,6 +93,7 @@ async function listOrdersHandler(request: NextRequest, user: AuthUser) {
       recent,
       status,
       patientId: patientId ? parseInt(patientId, 10) : undefined,
+      search,
     });
 
     // Return paginated results with metadata

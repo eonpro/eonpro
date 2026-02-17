@@ -319,10 +319,41 @@ export const orderRepository = {
       where.trackingNumber = null;
     }
 
+    // Server-side search: match patient name (via searchIndex) OR medication name
+    if (filters.search && filters.search.trim().length > 0) {
+      const searchTerm = filters.search.trim().toLowerCase();
+      where.OR = [
+        {
+          patient: {
+            searchIndex: {
+              contains: searchTerm,
+              mode: 'insensitive',
+            },
+          },
+        },
+        {
+          primaryMedName: {
+            contains: searchTerm,
+            mode: 'insensitive',
+          },
+        },
+        {
+          rxs: {
+            some: {
+              medName: {
+                contains: searchTerm,
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
+      ];
+    }
+
     const limit = filters.limit ?? 100;
     const offset = filters.offset ?? 0;
 
-    logger.debug('[OrderRepository] list query', { filters, where, limit, offset });
+    logger.debug('[OrderRepository] list query', { filters: { ...filters, search: filters.search ? '[REDACTED]' : undefined }, where, limit, offset });
 
     // Execute query and count in parallel for efficiency
     const [orders, total] = await Promise.all([

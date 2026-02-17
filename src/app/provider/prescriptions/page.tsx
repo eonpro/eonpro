@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Pill,
@@ -78,6 +78,7 @@ const PAGE_SIZE = 50;
 export default function ProviderPrescriptionsPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,13 +86,42 @@ export default function ProviderPrescriptionsPage() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [expandedPatients, setExpandedPatients] = useState<Set<number>>(new Set());
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchPrescriptions = useCallback(async (page: number) => {
+  // Debounce search input - send to server after 300ms of no typing
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm(value);
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setCurrentPage(1);
+    }, 300);
+  }, []);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
+  const fetchPrescriptions = useCallback(async (page: number, search: string) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const offset = (page - 1) * PAGE_SIZE;
-      const response = await apiFetch(`/api/orders?limit=${PAGE_SIZE}&offset=${offset}`, {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (search.trim()) {
+        params.set('search', search.trim());
+      }
+      const response = await apiFetch(`/api/orders?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -155,8 +185,8 @@ export default function ProviderPrescriptionsPage() {
   }, []);
 
   useEffect(() => {
-    fetchPrescriptions(currentPage);
-  }, [currentPage, fetchPrescriptions]);
+    fetchPrescriptions(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchPrescriptions]);
 
   const mapOrderStatus = (
     status: string
@@ -197,16 +227,12 @@ export default function ProviderPrescriptionsPage() {
     }
   };
 
-  // Filter prescriptions
+  // Filter prescriptions by status only (search is handled server-side)
   const filteredPrescriptions = useMemo(() => {
     return prescriptions.filter((rx) => {
-      const matchesSearch =
-        rx.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rx.medication.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filterStatus === 'all' || rx.status === filterStatus;
-      return matchesSearch && matchesFilter;
+      return filterStatus === 'all' || rx.status === filterStatus;
     });
-  }, [prescriptions, searchTerm, filterStatus]);
+  }, [prescriptions, filterStatus]);
 
   // Group prescriptions by patient
   const patientGroups = useMemo(() => {
@@ -300,7 +326,7 @@ export default function ProviderPrescriptionsPage() {
                 type="text"
                 placeholder="Search by patient or medication..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full rounded-lg border py-1.5 pl-8 pr-3 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
             </div>
@@ -350,11 +376,25 @@ export default function ProviderPrescriptionsPage() {
             <div className="px-4 py-10 text-center">
               <Pill className="mx-auto mb-3 h-10 w-10 text-gray-300" />
               <p className="text-sm text-gray-500">
-                {searchTerm ? 'No prescriptions match your search' : 'No prescriptions yet'}
+                {debouncedSearch ? 'No prescriptions match your search' : 'No prescriptions yet'}
               </p>
               <p className="mt-1 text-xs text-gray-400">
-                Prescriptions will appear here when you create orders for patients.
+                {debouncedSearch
+                  ? 'Try a different search term or clear your search.'
+                  : 'Prescriptions will appear here when you create orders for patients.'}
               </p>
+              {debouncedSearch && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setDebouncedSearch('');
+                    setCurrentPage(1);
+                  }}
+                  className="mt-2 text-sm font-medium text-[var(--brand-primary)] hover:underline"
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           ) : (
             <>
