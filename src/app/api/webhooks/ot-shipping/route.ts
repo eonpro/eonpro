@@ -21,7 +21,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ShippingStatus, WebhookStatus } from '@prisma/client';
 import { z } from 'zod';
@@ -340,8 +340,8 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     webhookLogData.userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Get OT clinic with inbound webhook credentials
-    const clinic = await prisma.clinic.findFirst({
+    // Get OT clinic with inbound webhook credentials (basePrisma: no tenant context needed)
+    const clinic = await basePrisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: OT_SUBDOMAIN },
@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
     if (!clinic) {
       logger.error('[OT SHIPPING] OT clinic not found');
       webhookLogData.errorMessage = 'Clinic not found';
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.clinicId = clinic.id;
       webhookLogData.statusCode = 403;
       webhookLogData.errorMessage = 'Webhook not enabled';
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -393,7 +393,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -406,7 +406,7 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     if (!rawBody) {
       webhookLogData.errorMessage = 'Empty request body';
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -420,7 +420,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -440,7 +440,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = errors.join(', ');
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -454,6 +454,12 @@ export async function POST(req: NextRequest) {
     logger.info(
       `[OT SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}`
     );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Run all clinic-isolated operations within tenant context
+    // REQUIRED for: order, patient, patientShippingUpdate, orderEvent
+    // ═══════════════════════════════════════════════════════════════════
+    return runWithClinicContext(clinic.id, async () => {
 
     // Find patient and order
     const result = await findPatient(clinic.id, data.orderId, data.patientEmail, data.patientId);
@@ -469,7 +475,7 @@ export async function POST(req: NextRequest) {
         orderId: data.orderId,
       };
 
-      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -629,6 +635,8 @@ export async function POST(req: NextRequest) {
         : null,
       processingTime: `${processingTime}ms`,
     });
+
+    }); // end runWithClinicContext
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[OT SHIPPING] Error processing webhook:', {
@@ -640,7 +648,7 @@ export async function POST(req: NextRequest) {
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    await prisma.webhookLog.create({ data: webhookLogData }).catch((dbError: unknown) => {
+    await basePrisma.webhookLog.create({ data: webhookLogData }).catch((dbError: unknown) => {
       logger.warn('[OT SHIPPING] Failed to log webhook error:', {
         error: dbError instanceof Error ? dbError.message : String(dbError),
       });
@@ -661,7 +669,7 @@ export async function POST(req: NextRequest) {
  * Health check endpoint
  */
 export async function GET() {
-  const clinic = await prisma.clinic.findFirst({
+  const clinic = await basePrisma.clinic.findFirst({
     where: {
       OR: [
         { subdomain: OT_SUBDOMAIN },

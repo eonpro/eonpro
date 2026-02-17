@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ShippingStatus, WebhookStatus } from '@prisma/client';
 import { z } from 'zod';
@@ -307,8 +307,8 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
     webhookLogData.userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Get Wellmedr clinic with inbound webhook credentials
-    const clinic = await prisma.clinic.findUnique({
+    // Get Wellmedr clinic with inbound webhook credentials (basePrisma: no tenant context needed)
+    const clinic = await basePrisma.clinic.findUnique({
       where: { subdomain: WELLMEDR_SUBDOMAIN },
       select: {
         id: true,
@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
 
-      await prisma.webhookLog.create({ data: webhookLogData });
+      await basePrisma.webhookLog.create({ data: webhookLogData });
 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -358,7 +358,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
-      await prisma.webhookLog.create({ data: webhookLogData });
+      await basePrisma.webhookLog.create({ data: webhookLogData });
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = errors.join(', ');
 
-      await prisma.webhookLog.create({ data: webhookLogData });
+      await basePrisma.webhookLog.create({ data: webhookLogData });
 
       return NextResponse.json({ error: 'Invalid payload', details: errors }, { status: 400 });
     }
@@ -384,6 +384,12 @@ export async function POST(req: NextRequest) {
     logger.info(
       `[WELLMEDR SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}`
     );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Run all clinic-isolated operations within tenant context
+    // REQUIRED for: order, patient, patientShippingUpdate, orderEvent
+    // ═══════════════════════════════════════════════════════════════════
+    return runWithClinicContext(clinic.id, async () => {
 
     // Find patient and order
     const result = await findPatient(clinic.id, data.orderId, data.patientEmail, data.patientId);
@@ -400,7 +406,7 @@ export async function POST(req: NextRequest) {
         orderId: data.orderId,
       };
 
-      await prisma.webhookLog.create({ data: webhookLogData });
+      await basePrisma.webhookLog.create({ data: webhookLogData });
 
       return NextResponse.json(
         {
@@ -482,7 +488,6 @@ export async function POST(req: NextRequest) {
       };
 
       // Save the lifefileOrderId if it's not already set
-      // This helps link orders that weren't properly connected to LifeFile initially
       if (!order.lifefileOrderId && data.orderId) {
         orderUpdateData.lifefileOrderId = data.orderId;
         logger.info(
@@ -523,13 +528,12 @@ export async function POST(req: NextRequest) {
     };
     webhookLogData.processingTimeMs = processingTime;
 
-    await prisma.webhookLog.create({ data: webhookLogData });
+    await basePrisma.webhookLog.create({ data: webhookLogData });
 
     logger.info(`[WELLMEDR SHIPPING] Processing completed in ${processingTime}ms`);
     logger.info('='.repeat(60));
 
     // Return success response
-    // Decrypt patient PHI for display in response
     const decryptedFirstName = safeDecrypt(patient.firstName) || 'Patient';
     const decryptedLastName = safeDecrypt(patient.lastName) || '';
     const patientDisplayName = `${decryptedFirstName} ${decryptedLastName}`.trim();
@@ -558,24 +562,29 @@ export async function POST(req: NextRequest) {
         : null,
       processingTime: `${processingTime}ms`,
     });
+
+    }); // end runWithClinicContext
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[WELLMEDR SHIPPING] Error processing webhook:', error);
+    logger.error('[WELLMEDR SHIPPING] Error processing webhook:', {
+      error: errorMessage,
+    });
 
     webhookLogData.status = WebhookStatus.ERROR;
     webhookLogData.statusCode = 500;
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await prisma.webhookLog.create({ data: webhookLogData }).catch((dbError: any) => {
-      logger.error('[WELLMEDR SHIPPING] Failed to log webhook error:', dbError);
+    await basePrisma.webhookLog.create({ data: webhookLogData }).catch((dbError: any) => {
+      logger.error('[WELLMEDR SHIPPING] Failed to log webhook error:', {
+        error: dbError instanceof Error ? dbError.message : String(dbError),
+      });
     });
 
     return NextResponse.json(
       {
         error: 'Internal server error',
-        message: errorMessage,
+        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
       },
       { status: 500 }
     );
@@ -587,8 +596,8 @@ export async function POST(req: NextRequest) {
  * Health check endpoint
  */
 export async function GET() {
-  // Verify clinic exists and check inbound webhook config
-  const clinic = await prisma.clinic.findUnique({
+  // Verify clinic exists and check inbound webhook config (basePrisma: no tenant context needed)
+  const clinic = await basePrisma.clinic.findUnique({
     where: { subdomain: WELLMEDR_SUBDOMAIN },
     select: {
       id: true,
