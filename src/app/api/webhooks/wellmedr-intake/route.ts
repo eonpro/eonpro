@@ -851,37 +851,83 @@ export async function POST(req: NextRequest) {
     };
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
+    // NOTE: s3DataKey column requires migration 20260217000000. If not yet applied,
+    // we MUST NOT include s3DataKey in create/update or Prisma will throw.
+    // The storeIntakeData call still uploads to S3 (fire-and-forget) — the key can
+    // be backfilled once the migration is confirmed in production.
     const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
       intakeDataToStore,
       { documentId: existingDoc?.id, patientId: patient.id, clinicId }
     );
 
+    // Safe s3DataKey inclusion: try with it first, fall back without it if column missing
+    const s3DataFields = s3DataKey != null ? { s3DataKey } : {};
+
     if (existingDoc) {
-      patientDocument = await prisma.patientDocument.update({
-        where: { id: existingDoc.id },
-        data: {
-          filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
-          data: intakeDataBuffer,
-          ...(s3DataKey != null ? { s3DataKey } : {}),
-          externalUrl: pdfExternalUrl || existingDoc.externalUrl,
-        },
-      });
+      try {
+        patientDocument = await prisma.patientDocument.update({
+          where: { id: existingDoc.id },
+          data: {
+            filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
+            data: intakeDataBuffer,
+            ...s3DataFields,
+            externalUrl: pdfExternalUrl,
+          },
+        });
+      } catch (s3Err: any) {
+        // If s3DataKey column doesn't exist yet, retry without it
+        if (s3DataKey != null && s3Err?.message?.includes('s3DataKey')) {
+          logger.warn(`[WELLMEDR-INTAKE ${requestId}] s3DataKey column not yet in production, retrying without it`);
+          patientDocument = await prisma.patientDocument.update({
+            where: { id: existingDoc.id },
+            data: {
+              filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
+              data: intakeDataBuffer,
+              externalUrl: pdfExternalUrl,
+            },
+          });
+        } else {
+          throw s3Err;
+        }
+      }
       logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ Updated document: ${patientDocument.id}`);
     } else {
-      patientDocument = await prisma.patientDocument.create({
-        data: {
-          patientId: patient.id,
-          clinicId: clinicId,
-          filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
-          mimeType: 'application/json',
-          category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: intakeDataBuffer,
-          ...(s3DataKey != null ? { s3DataKey } : {}),
-          externalUrl: pdfExternalUrl,
-          source: 'wellmedr-intake',
-          sourceSubmissionId: normalized.submissionId,
-        },
-      });
+      try {
+        patientDocument = await prisma.patientDocument.create({
+          data: {
+            patientId: patient.id,
+            clinicId: clinicId,
+            filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
+            mimeType: 'application/json',
+            category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+            data: intakeDataBuffer,
+            ...s3DataFields,
+            externalUrl: pdfExternalUrl,
+            source: 'wellmedr-intake',
+            sourceSubmissionId: normalized.submissionId,
+          },
+        });
+      } catch (s3Err: any) {
+        // If s3DataKey column doesn't exist yet, retry without it
+        if (s3DataKey != null && s3Err?.message?.includes('s3DataKey')) {
+          logger.warn(`[WELLMEDR-INTAKE ${requestId}] s3DataKey column not yet in production, retrying without it`);
+          patientDocument = await prisma.patientDocument.create({
+            data: {
+              patientId: patient.id,
+              clinicId: clinicId,
+              filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
+              mimeType: 'application/json',
+              category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+              data: intakeDataBuffer,
+              externalUrl: pdfExternalUrl,
+              source: 'wellmedr-intake',
+              sourceSubmissionId: normalized.submissionId,
+            },
+          });
+        } else {
+          throw s3Err;
+        }
+      }
       logger.debug(`[WELLMEDR-INTAKE ${requestId}] ✓ Created document: ${patientDocument.id}`);
     }
   } catch (err) {
@@ -1024,16 +1070,23 @@ export async function POST(req: NextRequest) {
   );
 
   // Record idempotency key for duplicate detection
-  await prisma.idempotencyRecord.create({
-    data: {
-      key: idempotencyKey,
-      resource: 'wellmedr-intake',
-      responseStatus: 200,
-      responseBody: { success: true, requestId, patientId: patient.id, submissionId: normalized.submissionId },
-    },
-  }).catch((err) => {
-    logger.warn(`[WELLMEDR-INTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? err.message : String(err) });
-  });
+  // IMPORTANT: Only record idempotency when document was created successfully.
+  // If document creation failed, we want the next retry to have a chance to create it.
+  const hasDocumentError = errors.some(e => e.includes('Document record'));
+  if (!hasDocumentError) {
+    await prisma.idempotencyRecord.create({
+      data: {
+        key: idempotencyKey,
+        resource: 'wellmedr-intake',
+        responseStatus: 200,
+        responseBody: { success: true, requestId, patientId: patient.id, submissionId: normalized.submissionId },
+      },
+    }).catch((err) => {
+      logger.warn(`[WELLMEDR-INTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? err.message : String(err) });
+    });
+  } else {
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] Skipping idempotency record — document creation had errors, allowing retry`);
+  }
 
   // Response format for Airtable integration
   return Response.json({
