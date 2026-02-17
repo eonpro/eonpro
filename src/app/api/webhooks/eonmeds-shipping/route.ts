@@ -27,6 +27,7 @@ import { ShippingStatus, WebhookStatus } from '@prisma/client';
 import { z } from 'zod';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { decrypt } from '@/lib/security/encryption';
+import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 import crypto from 'crypto';
 
 /**
@@ -516,6 +517,22 @@ export async function POST(req: NextRequest) {
         },
       });
       logger.info(`[EONMEDS SHIPPING] Created new shipping record ${shippingUpdate.id}`);
+
+      // Send tracking SMS to patient (fire-and-forget, non-blocking)
+      sendTrackingNotificationSMS({
+        patientId: patient.id,
+        patientPhone: patient.phone,
+        patientFirstName: patient.firstName,
+        clinicId: clinic.id,
+        clinicName: clinic.name,
+        trackingNumber: data.trackingNumber,
+        carrier: data.deliveryService,
+      }).catch((err) => {
+        logger.warn('[EONMEDS SHIPPING] Tracking SMS failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+          patientId: patient.id,
+        });
+      });
     }
 
     // Also update the Order record if we have one
