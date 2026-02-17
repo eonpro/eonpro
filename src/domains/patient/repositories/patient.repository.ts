@@ -19,7 +19,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
 import { encryptPatientPHI, decryptPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex } from '@/lib/utils/search';
+import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, fuzzyTermMatch } from '@/lib/utils/search';
 
 import {
   PHI_FIELDS,
@@ -893,37 +893,29 @@ function filterPatientsBySearch<
     const emailLower = toSearchableString(patient.email);
     const phoneDigits = toSearchableString(patient.phone).replace(/\D/g, '');
 
-    // Build searchable strings for matching
+    // Phone matching: digits-only comparison
     const searchDigits = searchNormalized.replace(/\D/g, '');
     const hasPhoneMatch =
       searchDigits.length >= 3 && phoneDigits.length >= 3 && phoneDigits.includes(searchDigits);
+    if (hasPhoneMatch) return true;
 
-    // Single term: match against name, patientId, email, or phone
-    if (terms.length === 1) {
-      const term = terms[0];
-      return (
-        firstName.includes(term) ||
-        lastName.includes(term) ||
-        patientIdLower.includes(term) ||
-        emailLower.includes(term) ||
-        hasPhoneMatch
-      );
-    }
-
-    // Multiple terms: match as "firstName lastName" or all terms somewhere
+    // Build searchable fields
     const fullName = `${firstName} ${lastName}`;
     const reverseName = `${lastName} ${firstName}`;
+    const allFields = [fullName, reverseName, patientIdLower, emailLower];
 
+    // Exact substring match on full name (handles "first last" or "last first")
     if (fullName.includes(searchNormalized) || reverseName.includes(searchNormalized)) {
       return true;
     }
 
-    return terms.every(
-      (term) =>
-        firstName.includes(term) ||
-        lastName.includes(term) ||
-        patientIdLower.includes(term) ||
-        emailLower.includes(term)
+    // Multi-term: all terms must match at least one field (exact, starts-with, or fuzzy)
+    return terms.every((term) =>
+      firstName.includes(term) ||
+      lastName.includes(term) ||
+      patientIdLower.includes(term) ||
+      emailLower.includes(term) ||
+      fuzzyTermMatch(term, allFields.join(' '))
     );
   });
 }

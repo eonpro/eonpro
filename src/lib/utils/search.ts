@@ -1,10 +1,12 @@
 /**
- * Search Query Normalization & Index Utilities
+ * Search Query Normalization, Fuzzy Matching & Index Utilities
  *
  * Ensures all search bars behave intuitively:
  * - Leading/trailing whitespace is stripped
  * - Multiple internal spaces are collapsed to a single space
  * - Queries are lowercased for case-insensitive matching
+ * - Fuzzy matching catches typos and close matches
+ * - Multi-term queries match in any order (first + last name)
  *
  * Also provides `buildPatientSearchIndex()` to generate a DB-level search
  * index column that enables SQL LIKE queries via pg_trgm GIN index.
@@ -16,6 +18,10 @@
  * - Client-side filters: normalize before comparing
  * - Patient create/update: build searchIndex from plain-text PHI BEFORE encryption
  */
+
+// ============================================================================
+// Normalization
+// ============================================================================
 
 /**
  * Normalize a raw search query for consistent matching.
@@ -41,6 +47,244 @@ export function normalizeSearch(query: string): string {
  */
 export function splitSearchTerms(query: string): string[] {
   return normalizeSearch(query).split(' ').filter(Boolean);
+}
+
+// ============================================================================
+// Fuzzy Matching
+// ============================================================================
+
+/**
+ * Calculate Levenshtein edit distance between two strings.
+ * Lower = more similar. 0 = identical.
+ */
+export function levenshteinDistance(a: string, b: string): number {
+  const s1 = a.toLowerCase();
+  const s2 = b.toLowerCase();
+  const m = s1.length;
+  const n = s2.length;
+
+  if (m === 0) return n;
+  if (n === 0) return m;
+
+  // Use single-row optimization for memory efficiency
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  let curr = new Array<number>(n + 1);
+
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      if (s1[i - 1] === s2[j - 1]) {
+        curr[j] = prev[j - 1];
+      } else {
+        curr[j] = 1 + Math.min(prev[j], curr[j - 1], prev[j - 1]);
+      }
+    }
+    [prev, curr] = [curr, prev];
+  }
+
+  return prev[n];
+}
+
+/**
+ * Calculate similarity score (0–1) between two strings.
+ * 1 = identical, 0 = completely different.
+ */
+export function similarityScore(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshteinDistance(a, b) / maxLen;
+}
+
+/**
+ * Check if a search term fuzzy-matches a target string.
+ * Returns true for:
+ *  - Exact substring match
+ *  - "Starts with" match on any word in the target
+ *  - Fuzzy match within the edit distance threshold
+ *
+ * The threshold is adaptive: shorter terms require closer matches.
+ */
+export function fuzzyTermMatch(term: string, target: string): boolean {
+  if (!term || !target) return false;
+
+  const t = term.toLowerCase();
+  const tgt = target.toLowerCase();
+
+  // Exact substring — always wins
+  if (tgt.includes(t)) return true;
+
+  // "Starts with" on individual words in target
+  const words = tgt.split(/\s+/);
+  if (words.some((w) => w.startsWith(t) || t.startsWith(w))) return true;
+
+  // Fuzzy: compare against each word in target
+  // Adaptive threshold: allow 1 error per 4 chars, minimum 1
+  const maxDistance = Math.max(1, Math.floor(t.length / 4));
+
+  for (const word of words) {
+    if (levenshteinDistance(t, word) <= maxDistance) return true;
+    // Also check if term is a fuzzy prefix of a longer word
+    if (word.length > t.length) {
+      const prefix = word.slice(0, t.length);
+      if (levenshteinDistance(t, prefix) <= maxDistance) return true;
+    }
+  }
+
+  return false;
+}
+
+// ============================================================================
+// Smart Search Scoring
+// ============================================================================
+
+/**
+ * Score how well a search query matches a set of searchable fields.
+ *
+ * Returns a number from 0 (no match) to 100 (perfect exact match).
+ * Score breakdown:
+ *  - 100: all terms match exactly (substring)
+ *  -  80: all terms match via starts-with
+ *  -  60: all terms match fuzzily
+ *  -  40: partial term matches (some but not all)
+ *  -   0: no meaningful match
+ *
+ * Multi-term queries check all terms against all fields (any order).
+ */
+export function scoreMatch(query: string, fields: string[]): number {
+  const terms = splitSearchTerms(query);
+  if (terms.length === 0) return 100; // empty search matches everything
+
+  const combined = fields.map((f) => (f || '').toLowerCase()).join(' ');
+  if (!combined) return 0;
+
+  let exactCount = 0;
+  let startsWithCount = 0;
+  let fuzzyCount = 0;
+
+  const words = combined.split(/\s+/);
+
+  for (const term of terms) {
+    // Exact substring in combined text
+    if (combined.includes(term)) {
+      exactCount++;
+      continue;
+    }
+
+    // Starts-with on any word
+    if (words.some((w) => w.startsWith(term) || term.startsWith(w))) {
+      startsWithCount++;
+      continue;
+    }
+
+    // Fuzzy match on any word
+    const maxDist = Math.max(1, Math.floor(term.length / 4));
+    const hasFuzzy = words.some((w) => {
+      if (levenshteinDistance(term, w) <= maxDist) return true;
+      if (w.length > term.length) {
+        return levenshteinDistance(term, w.slice(0, term.length)) <= maxDist;
+      }
+      return false;
+    });
+
+    if (hasFuzzy) {
+      fuzzyCount++;
+      continue;
+    }
+  }
+
+  const matched = exactCount + startsWithCount + fuzzyCount;
+  if (matched === 0) return 0;
+
+  // All terms matched
+  if (matched === terms.length) {
+    if (exactCount === terms.length) return 100;
+    if (exactCount + startsWithCount === terms.length) return 80;
+    return 60;
+  }
+
+  // Partial match — scale by proportion matched
+  const proportion = matched / terms.length;
+  return Math.round(40 * proportion);
+}
+
+// ============================================================================
+// Smart Filter for Queue / List Items
+// ============================================================================
+
+export interface SmartSearchResult<T> {
+  /** Items with strong matches (score >= 60), sorted best first */
+  matches: T[];
+  /** Items with partial/close matches (score 20–59) when no strong matches found */
+  closeMatches: T[];
+  /** Whether the results include fuzzy/close matches rather than exact */
+  isFuzzy: boolean;
+}
+
+/**
+ * Smart filter for arrays of items. Given a search query and an array of items,
+ * returns matches sorted by relevance. If no strong matches exist, returns close
+ * matches so the user isn't left with an empty screen.
+ *
+ * @param items - The array to filter
+ * @param query - Raw search input (whitespace, casing handled automatically)
+ * @param getFields - Function returning searchable string fields for an item
+ *
+ * @example
+ * const result = smartSearch(queueItems, searchTerm, (item) => [
+ *   item.patientName,
+ *   item.patientEmail,
+ *   item.treatment,
+ *   item.invoiceNumber,
+ * ]);
+ * // result.matches = strong matches
+ * // result.closeMatches = shown only when matches is empty
+ */
+export function smartSearch<T>(
+  items: T[],
+  query: string,
+  getFields: (item: T) => string[],
+): SmartSearchResult<T> {
+  const normalized = normalizeSearch(query);
+  if (!normalized) {
+    return { matches: items, closeMatches: [], isFuzzy: false };
+  }
+
+  const scored: Array<{ item: T; score: number }> = [];
+  for (const item of items) {
+    const fields = getFields(item);
+    const score = scoreMatch(normalized, fields);
+    if (score > 0) {
+      scored.push({ item, score });
+    }
+  }
+
+  // Sort by score descending
+  scored.sort((a, b) => b.score - a.score);
+
+  const strong = scored.filter((s) => s.score >= 60).map((s) => s.item);
+  const close = scored.filter((s) => s.score >= 20 && s.score < 60).map((s) => s.item);
+
+  if (strong.length > 0) {
+    return { matches: strong, closeMatches: [], isFuzzy: false };
+  }
+
+  // No strong matches — surface close matches so the user isn't stuck
+  return { matches: [], closeMatches: close, isFuzzy: true };
+}
+
+// ============================================================================
+// Name-Aware Matching (for server-side patient search in API routes)
+// ============================================================================
+
+/**
+ * Check if a patient name matches a search query with full intelligence:
+ * normalization, multi-term, starts-with, and fuzzy matching.
+ *
+ * Use this in API routes where you iterate over decrypted records.
+ */
+export function nameMatchesSearch(patientName: string, search: string): boolean {
+  const score = scoreMatch(search, [patientName]);
+  return score >= 40; // Allow partial fuzzy matches for server-side filtering
 }
 
 // ============================================================================

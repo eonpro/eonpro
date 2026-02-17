@@ -38,6 +38,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
+import { normalizeSearch, splitSearchTerms, scoreMatch } from '@/lib/utils/search';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -253,7 +254,8 @@ export function decryptPatientRecord<T extends Record<string, unknown>>(
 
 /**
  * Check if a record matches the search term
- * Supports single terms and multi-word searches (name matching)
+ * Supports single terms, multi-word searches, and fuzzy matching.
+ * Handles whitespace normalization, typos, and partial matches.
  */
 export function matchesSearch(
   record: Record<string, unknown>,
@@ -261,10 +263,10 @@ export function matchesSearch(
   fields: PatientPHIField[]
 ): boolean {
   // Normalize: trim, lowercase, collapse internal whitespace
-  const searchNormalized = search.toLowerCase().trim().replace(/\s+/g, ' ');
+  const searchNormalized = normalizeSearch(search);
   if (!searchNormalized) return true;
 
-  const searchTerms = searchNormalized.split(' ').filter(Boolean);
+  const searchTerms = splitSearchTerms(search);
 
   // Get field values
   const fieldValues: Record<string, string> = {};
@@ -272,25 +274,11 @@ export function matchesSearch(
     fieldValues[field] = ((record[field] as string) || '').toLowerCase();
   }
 
-  // Single term: match any field
-  if (searchTerms.length === 1) {
-    const term = searchTerms[0];
-    return fields.some((field) => fieldValues[field].includes(term));
-  }
+  const allFieldValues = fields.map((f) => fieldValues[f]);
 
-  // Multi-term: smart name matching
-  const firstName = fieldValues.firstName || '';
-  const lastName = fieldValues.lastName || '';
-  const fullName = `${firstName} ${lastName}`;
-  const reverseName = `${lastName} ${firstName}`;
-
-  // Check full search against full name (normalized handles extra spaces)
-  if (fullName.includes(searchNormalized) || reverseName.includes(searchNormalized)) {
-    return true;
-  }
-
-  // Check if all terms appear somewhere in searchable fields
-  return searchTerms.every((term) => fields.some((field) => fieldValues[field].includes(term)));
+  // Use scoreMatch for intelligent matching (exact, starts-with, fuzzy)
+  const score = scoreMatch(searchNormalized, allFieldValues);
+  return score >= 40;
 }
 
 // ============================================================================

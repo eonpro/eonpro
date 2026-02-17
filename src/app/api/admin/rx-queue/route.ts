@@ -17,7 +17,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch } from '@/lib/utils/search';
+import { normalizeSearch, nameMatchesSearch } from '@/lib/utils/search';
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -104,7 +104,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const firstName = safeDecrypt(invoice.patient.firstName) || invoice.patient.firstName;
         const lastName = safeDecrypt(invoice.patient.lastName) || invoice.patient.lastName;
         const patientName = `${firstName} ${lastName}`;
-        if (searchNormalized && !patientName.toLowerCase().includes(searchNormalized)) {
+        if (searchNormalized && !nameMatchesSearch(patientName, searchNormalized)) {
           continue;
         }
 
@@ -168,7 +168,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const firstName = safeDecrypt(note.patient.firstName) || note.patient.firstName;
         const lastName = safeDecrypt(note.patient.lastName) || note.patient.lastName;
         const patientName = `${firstName} ${lastName}`;
-        if (searchNormalized && !patientName.toLowerCase().includes(searchNormalized)) {
+        if (searchNormalized && !nameMatchesSearch(patientName, searchNormalized)) {
           continue;
         }
 
@@ -227,7 +227,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         const firstName = safeDecrypt(refill.patient.firstName) || refill.patient.firstName;
         const lastName = safeDecrypt(refill.patient.lastName) || refill.patient.lastName;
         const patientName = `${firstName} ${lastName}`;
-        if (searchNormalized && !patientName.toLowerCase().includes(searchNormalized)) {
+        if (searchNormalized && !nameMatchesSearch(patientName, searchNormalized)) {
           continue;
         }
 
