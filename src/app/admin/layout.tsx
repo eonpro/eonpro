@@ -193,6 +193,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         router.push('/login');
         return;
       }
+      // Super admin has a dedicated layout at /super-admin — redirect from /admin dashboard
+      if (role === 'super_admin' && pathname === '/admin') {
+        router.push('/super-admin');
+        return;
+      }
       // Ensure userId is always a number (might be string from localStorage)
       setUserId(parsedUser.id ? Number(parsedUser.id) : null);
       setUserRole(role);

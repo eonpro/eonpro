@@ -92,7 +92,13 @@ export default function AdminPage() {
     const user = localStorage.getItem('user');
     if (user) {
       try {
-        setUserData(JSON.parse(user) as Record<string, unknown>);
+        const parsed = JSON.parse(user) as Record<string, unknown>;
+        // Super admin has no clinic — redirect to their dedicated dashboard
+        if (typeof parsed.role === 'string' && parsed.role.toLowerCase() === 'super_admin') {
+          window.location.href = '/super-admin';
+          return;
+        }
+        setUserData(parsed);
       } catch {
         // ignore
       }

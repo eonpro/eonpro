@@ -205,8 +205,9 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
 
 /**
  * Validate required JWT claims
+ * Exported for reuse in middleware-with-params.ts (parity requirement)
  */
-function validateTokenClaims(payload: JWTPayload): string | null {
+export function validateTokenClaims(payload: JWTPayload): string | null {
   if (!payload.id || typeof payload.id !== 'number') {
     return 'Missing or invalid user ID in token';
   }

@@ -177,8 +177,12 @@ function HomePageInner() {
             router.push('/staff');
             return;
           }
+          if (serverRole === 'super_admin') {
+            router.push('/super-admin');
+            return;
+          }
 
-          // Admin / super_admin — show dashboard
+          // Admin — show dashboard
           setUserData(meData.user);
           setLoading(false);
           loadDashboardData();
@@ -227,6 +231,10 @@ function HomePageInner() {
         }
         if (role === 'staff') {
           router.push('/staff');
+          return;
+        }
+        if (role === 'super_admin') {
+          router.push('/super-admin');
           return;
         }
 
