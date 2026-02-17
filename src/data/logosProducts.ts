@@ -97,6 +97,7 @@ export const LOGOS_PRODUCTS: LogosProduct[] = [
   { id: 203449291, name: 'KETAMINE HCL', form: 'Troche', strength: '50 mg' },
   { id: 203449639, name: 'LEVOTHYROXINE CAPSULE', form: 'Capsule', strength: '0.8MG' },
   { id: 203194032, name: 'METFORMIN TABLETS', form: 'Tablet', strength: '500MG' },
+  { id: 204427073, name: 'MODAFINIL', form: 'Tablet', strength: '200MG' },
   {
     id: 203419417,
     name: 'MIC + B12 (30ML VIAL)',
@@ -109,6 +110,7 @@ export const LOGOS_PRODUCTS: LogosProduct[] = [
     form: 'Injectable',
     strength: '100MG/ML',
   },
+  { id: 203449527, name: 'PREGNYL 10,000IU (HCG)', form: 'Injectable', strength: '10,000IU' },
   { id: 203449425, name: 'ONDASENTRON', form: 'Tablet', strength: '4MG' },
   { id: 203449431, name: 'ONDASENTRON', form: 'Tablet', strength: '8MG' },
   {

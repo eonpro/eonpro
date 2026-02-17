@@ -265,6 +265,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required field: customer_email' }, { status: 400 });
   }
 
+  // Reject header row or placeholder emails (e.g. Airtable sending the literal column name)
+  const emailLower = payload.customer_email.toLowerCase().trim();
+  const INVALID_EMAILS = ['customer_email', 'email', 'customer email', 'test@test.com', 'test@example.com'];
+  if (INVALID_EMAILS.includes(emailLower) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+    logger.warn(`[WELLMEDR-INVOICE ${requestId}] Invalid/placeholder email rejected: ${emailLower}`);
+    return NextResponse.json({ error: `Invalid email: "${emailLower}" looks like a column header or placeholder` }, { status: 400 });
+  }
+
   if (!payload.method_payment_id) {
     logger.warn(`[WELLMEDR-INVOICE ${requestId}] Missing method_payment_id`);
     return NextResponse.json(
@@ -285,8 +293,14 @@ export async function POST(req: NextRequest) {
 
   // STEP 5: Find patient by email (PHI-safe), then by name, then by submission_id
   // If no patient found, AUTO-CREATE a stub patient to prevent lost prescriptions
+  //
+  // IMPORTANT: The INTAKE form defines the patient identity, NOT the payment record.
+  // The cardholder/customer name on the payment may differ from the patient
+  // (e.g. a spouse or family member paying). We always match by EMAIL first
+  // (which ties to the intake submission), and only use the payment name for
+  // stub patient creation when no intake-based patient exists.
   const email = payload.customer_email.toLowerCase().trim();
-  const patientName =
+  const paymentName =
     (payload.patient_name || payload.customer_name || payload.cardholder_name || '').trim();
 
   type WellMedRPatient = {
@@ -328,13 +342,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Strategy 2: Match by name when email fails
-    if (!patient && patientName) {
+    if (!patient && paymentName) {
       logger.info(
-        `[WELLMEDR-INVOICE ${requestId}] Email match failed, trying name match: "${patientName}"`
+        `[WELLMEDR-INVOICE ${requestId}] Email match failed, trying name match: "${paymentName}"`
       );
       const nameResults = await PHISearchService.searchPatients({
         baseQuery: { clinicId, profileStatus: 'ACTIVE' },
-        search: patientName,
+        search: paymentName,
         searchFields: ['firstName', 'lastName'],
         pagination: { limit: 5, offset: 0 },
         select: {
@@ -351,11 +365,11 @@ export async function POST(req: NextRequest) {
         patient = nameResults.data[0] as WellMedRPatient;
         logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by name`, {
           patientId: patient.id,
-          matchedName: patientName,
+          matchedName: paymentName,
         });
       } else if (nameResults.data.length > 1) {
         logger.warn(
-          `[WELLMEDR-INVOICE ${requestId}] Multiple patients match name "${patientName}" — cannot disambiguate`
+          `[WELLMEDR-INVOICE ${requestId}] Multiple patients match name "${paymentName}" — cannot disambiguate`
         );
       }
     }
@@ -395,11 +409,11 @@ export async function POST(req: NextRequest) {
     if (!patient) {
       logger.warn(`[WELLMEDR-INVOICE ${requestId}] Patient NOT found — auto-creating stub patient`, {
         searchedEmail: email,
-        searchedName: patientName || '(not provided)',
+        searchedName: paymentName || '(not provided)',
         clinicId,
       });
 
-      const nameParts = patientName.split(/\s+/);
+      const nameParts = paymentName.split(/\s+/);
       const stubFirstName = nameParts[0] || 'Unknown';
       const stubLastName = nameParts.slice(1).join(' ') || 'Checkout';
 
@@ -455,7 +469,7 @@ export async function POST(req: NextRequest) {
             paymentMethodId: payload.method_payment_id,
             createdByInvoiceWebhook: true,
             originalEmail: email,
-            originalName: patientName,
+            originalName: paymentName,
             timestamp: new Date().toISOString(),
             clinicId,
             clinicName: 'Wellmedr',
@@ -520,6 +534,20 @@ export async function POST(req: NextRequest) {
   }
 
   const verifiedPatient = patient!;
+
+  // Log when the payment/cardholder name differs from the patient name (from intake).
+  // This is expected — a spouse or family member may pay for the patient.
+  // The patient identity ALWAYS comes from the intake form, not the payment.
+  const decryptedPatientName = `${safeDecrypt(verifiedPatient.firstName) || ''} ${safeDecrypt(verifiedPatient.lastName) || ''}`.trim().toLowerCase();
+  const paymentNameLower = paymentName.toLowerCase();
+  if (paymentName && decryptedPatientName && paymentNameLower !== decryptedPatientName) {
+    logger.info(`[WELLMEDR-INVOICE ${requestId}] Payment name differs from patient (intake) name — this is normal`, {
+      paymentName,
+      patientName: decryptedPatientName,
+      patientId: verifiedPatient.id,
+      note: 'Patient identity comes from intake, not payment. Cardholder may be a family member.',
+    });
+  }
 
   // STEP 6: Check for duplicate invoice
   try {

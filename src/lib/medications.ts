@@ -343,6 +343,48 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
     ],
   },
   203419417: { name: 'MIC + B12 Injection (30 mL)', strength: '25/50/50/1 mg/mL' },
+  204427073: {
+    name: 'Modafinil 200 mg',
+    strength: '200 mg',
+    sigTemplates: [
+      {
+        label: 'Daily 200 mg (morning)',
+        sig: 'Take 1 tablet (200 mg) by mouth once daily in the morning. Avoid late-afternoon dosing to prevent insomnia.',
+        quantity: '30',
+        refills: '2',
+      },
+      {
+        label: 'Daily 100 mg (half tablet)',
+        sig: 'Take half tablet (100 mg) by mouth once daily in the morning. May increase to 200 mg if tolerated.',
+        quantity: '30',
+        refills: '2',
+      },
+    ],
+  },
+  203449527: {
+    name: 'Pregnyl 10,000 IU (HCG)',
+    strength: '10,000 IU',
+    sigTemplates: [
+      {
+        label: 'Standard 500 IU twice weekly',
+        sig: 'Inject 500 IU subcutaneously twice weekly (e.g., Monday and Thursday). Reconstitute with bacteriostatic water as directed. Keep refrigerated after reconstitution.',
+        quantity: '1',
+        refills: '1',
+      },
+      {
+        label: '1,000 IU twice weekly',
+        sig: 'Inject 1,000 IU subcutaneously twice weekly (e.g., Monday and Thursday). Reconstitute with bacteriostatic water as directed. Keep refrigerated after reconstitution.',
+        quantity: '1',
+        refills: '1',
+      },
+      {
+        label: '250 IU every other day',
+        sig: 'Inject 250 IU subcutaneously every other day. Reconstitute with bacteriostatic water as directed. Keep refrigerated after reconstitution.',
+        quantity: '1',
+        refills: '1',
+      },
+    ],
+  },
   203194055: { name: 'NAD+ 100 mg/mL (10 mL)', strength: '100 mg/mL' },
   203448971: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203448947: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
