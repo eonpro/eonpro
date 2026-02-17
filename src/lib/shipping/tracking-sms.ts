@@ -15,6 +15,7 @@
 
 import { sendSMS, SMSResponse } from '@/lib/integrations/twilio/smsService';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { notificationService } from '@/services/notification/notificationService';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -28,12 +29,16 @@ export interface TrackingNotificationInput {
   patientPhone: string | null;
   /** Encrypted patient first name (PHI) */
   patientFirstName: string | null;
+  /** Encrypted patient last name (PHI) - used for admin notification */
+  patientLastName: string | null;
   clinicId: number;
   /** Clinic display name (e.g. "Wellmedr", "EonMeds") */
   clinicName: string;
   trackingNumber: string;
   /** Carrier / delivery service name (e.g. "UPS", "USPS", "FedEx") */
   carrier: string;
+  /** Order ID if available - used for linking in admin notification */
+  orderId?: number;
 }
 
 // ============================================================================
@@ -106,6 +111,8 @@ export async function sendTrackingNotificationSMS(
   input: TrackingNotificationInput
 ): Promise<SMSResponse> {
   const { patientId, patientPhone, patientFirstName, clinicId, clinicName, trackingNumber, carrier } = input;
+  const patientLastName = input.patientLastName;
+  const orderId = input.orderId;
 
   // Decrypt patient phone
   const phone = safeDecrypt(patientPhone);
@@ -180,5 +187,83 @@ export async function sendTrackingNotificationSMS(
     });
   }
 
+  // Send internal admin notification regardless of SMS outcome
+  const lastName = safeDecrypt(patientLastName) || '';
+  const patientDisplayName = `${firstName} ${lastName}`.trim();
+  await notifyAdminsOfTracking({
+    clinicId,
+    clinicName,
+    patientId,
+    patientName: patientDisplayName,
+    trackingNumber,
+    carrier,
+    orderId,
+  }).catch((err) => {
+    logger.warn('[TRACKING SMS] Admin notification failed (non-critical)', {
+      error: err instanceof Error ? err.message : String(err),
+      clinicId,
+    });
+  });
+
   return result;
+}
+
+// ============================================================================
+// Internal Admin Notification
+// ============================================================================
+
+interface AdminTrackingNotificationInput {
+  clinicId: number;
+  clinicName: string;
+  patientId: number;
+  patientName: string;
+  trackingNumber: string;
+  carrier: string;
+  orderId?: number;
+}
+
+/**
+ * Send an in-app notification to clinic admins when tracking is received from Lifefile.
+ */
+async function notifyAdminsOfTracking(input: AdminTrackingNotificationInput): Promise<void> {
+  const { clinicId, clinicName, patientId, patientName, trackingNumber, carrier, orderId } = input;
+
+  const title = 'Tracking Received from Lifefile';
+  const message = `Tracking for ${patientName} (${carrier}: ${trackingNumber}) has been received and the patient has been notified.`;
+  const actionUrl = orderId
+    ? `/patients/${patientId}?tab=prescriptions`
+    : `/patients/${patientId}`;
+
+  try {
+    const count = await notificationService.notifyAdmins({
+      clinicId,
+      category: 'ORDER',
+      priority: 'NORMAL',
+      title,
+      message,
+      actionUrl,
+      metadata: {
+        trackingNumber,
+        carrier,
+        patientId,
+        orderId: orderId || null,
+        source: 'lifefile',
+      },
+      sourceType: 'webhook',
+      sourceId: `tracking-${trackingNumber}`,
+    });
+
+    logger.info('[TRACKING NOTIFICATION] Admin notification sent', {
+      clinicId,
+      adminCount: count,
+      trackingNumber,
+    });
+  } catch (err) {
+    logger.error('[TRACKING NOTIFICATION] Failed to notify admins', {
+      error: err instanceof Error ? err.message : String(err),
+      clinicId,
+      trackingNumber,
+    });
+    throw err;
+  }
 }

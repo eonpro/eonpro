@@ -481,10 +481,12 @@ export async function POST(req: NextRequest) {
         patientId: patient.id,
         patientPhone: patient.phone,
         patientFirstName: patient.firstName,
+        patientLastName: patient.lastName,
         clinicId: clinic.id,
         clinicName: clinic.name,
         trackingNumber: data.trackingNumber,
         carrier: data.deliveryService,
+        orderId: order?.id,
       }).catch((err) => {
         logger.warn('[WELLMEDR SHIPPING] Tracking SMS failed (non-blocking)', {
           error: err instanceof Error ? err.message : String(err),
