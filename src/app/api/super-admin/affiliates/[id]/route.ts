@@ -211,7 +211,6 @@ export const DELETE = withSuperAdminAuth(
         return NextResponse.json({ error: 'Invalid affiliate ID' }, { status: 400 });
       }
 
-      // Check affiliate exists
       const affiliate = await basePrisma.affiliate.findUnique({
         where: { id: affiliateId },
         include: {
@@ -224,24 +223,21 @@ export const DELETE = withSuperAdminAuth(
         return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
       }
 
-      // Check if affiliate has any commission events or payouts
       const hasHistory = affiliate.commissionEvents.length > 0 || affiliate.payouts.length > 0;
 
       if (hasHistory) {
-        // Soft delete - just mark as inactive
+        // Soft delete - deactivate affiliate and related records
         await basePrisma.$transaction(async (tx) => {
           await tx.affiliate.update({
             where: { id: affiliateId },
             data: { status: 'INACTIVE' },
           });
 
-          // Deactivate all ref codes
           await tx.affiliateRefCode.updateMany({
             where: { affiliateId },
             data: { isActive: false },
           });
 
-          // Deactivate user
           await tx.user.update({
             where: { id: affiliate.userId },
             data: { status: 'INACTIVE' },
@@ -255,28 +251,51 @@ export const DELETE = withSuperAdminAuth(
         });
       }
 
-      // Hard delete - no history
+      // Hard delete - no commission/payout history
       await basePrisma.$transaction(async (tx) => {
-        // Delete plan assignments
-        await tx.affiliatePlanAssignment.deleteMany({
+        // 1. Delete all affiliate-related child records
+        await tx.affiliateTouch.deleteMany({ where: { affiliateId } });
+        await tx.affiliateCommissionEvent.deleteMany({ where: { affiliateId } });
+        await tx.affiliateFraudAlert.deleteMany({ where: { affiliateId } });
+        await tx.affiliateTaxDocument.deleteMany({ where: { affiliateId } });
+        await tx.affiliatePayoutMethod.deleteMany({ where: { affiliateId } });
+        await tx.affiliatePayout.deleteMany({ where: { affiliateId } });
+        await tx.affiliatePlanAssignment.deleteMany({ where: { affiliateId } });
+        await tx.affiliateRefCode.deleteMany({ where: { affiliateId } });
+        // Competition entries cascade automatically (onDelete: Cascade)
+        // OTP codes cascade automatically (onDelete: Cascade)
+
+        // 2. Unlink attributed patients (nullable FK)
+        await tx.patient.updateMany({
+          where: { attributionAffiliateId: affiliateId },
+          data: {
+            attributionAffiliateId: null,
+            attributionRefCode: null,
+            attributionFirstTouchAt: null,
+          },
+        });
+
+        // 3. Unlink application if one exists (nullable FK)
+        await tx.affiliateApplication.updateMany({
           where: { affiliateId },
+          data: { affiliateId: null },
         });
 
-        // Delete ref codes
-        await tx.affiliateRefCode.deleteMany({
-          where: { affiliateId },
-        });
+        // 4. Delete the affiliate record
+        await tx.affiliate.delete({ where: { id: affiliateId } });
 
-        // Delete affiliate
-        await tx.affiliate.delete({
-          where: { id: affiliateId },
-        });
+        // 5. Clean up user-related records before deleting the user
+        const userId = affiliate.userId;
+        await tx.userSession.deleteMany({ where: { userId } });
+        await tx.userAuditLog.deleteMany({ where: { userId } });
+        await tx.passwordResetToken.deleteMany({ where: { userId } });
+        await tx.emailVerificationToken.deleteMany({ where: { userId } });
+        await tx.apiKey.deleteMany({ where: { userId } });
+        await tx.userClinic.deleteMany({ where: { userId } });
 
-        // Delete user
-        await tx.user.delete({
-          where: { id: affiliate.userId },
-        });
-      });
+        // 6. Delete the user
+        await tx.user.delete({ where: { id: userId } });
+      }, { timeout: 30000 });
 
       return NextResponse.json({
         success: true,
@@ -284,8 +303,14 @@ export const DELETE = withSuperAdminAuth(
         softDeleted: false,
       });
     } catch (error) {
-      logger.error('Failed to delete affiliate', { error: error instanceof Error ? error.message : String(error) });
-      return NextResponse.json({ error: 'Failed to delete affiliate' }, { status: 500 });
+      logger.error('Failed to delete affiliate', {
+        affiliateId: params.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return NextResponse.json(
+        { error: 'Failed to delete affiliate', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      );
     }
   }
 );
