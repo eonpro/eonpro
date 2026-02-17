@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { Building2, Plus, Search, Filter, Globe, Users, Edit, Eye, Settings } from 'lucide-react';
 import { apiGet } from '@/lib/api/fetch';
 
@@ -23,7 +22,6 @@ interface Clinic {
 }
 
 export default function ClinicsListPage() {
-  const router = useRouter();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -92,7 +90,7 @@ export default function ClinicsListPage() {
           <p className="mt-1 text-gray-500">Manage all clinics on the platform</p>
         </div>
         <button
-          onClick={() => router.push('/super-admin/clinics/new')}
+          onClick={() => { window.location.href = '/super-admin/clinics/new'; }}
           className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2 text-white shadow-sm transition-colors hover:bg-[#3d9268]"
         >
           <Plus className="h-5 w-5" />
@@ -152,7 +150,7 @@ export default function ClinicsListPage() {
           </p>
           {!searchTerm && (
             <button
-              onClick={() => router.push('/super-admin/clinics/new')}
+              onClick={() => { window.location.href = '/super-admin/clinics/new'; }}
               className="rounded-xl bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3d9268]"
             >
               Create Clinic

@@ -48,6 +48,23 @@ import {
 import type { PortalTreatmentType } from '@/lib/patient-portal';
 import type { PortalFeatureFlagKey } from '@/lib/patient-portal';
 
+// Helper to format a JSON address object (or string) into a display string
+function formatAddress(address: unknown): string {
+  if (!address) return '';
+  if (typeof address === 'string') return address;
+  if (typeof address === 'object' && address !== null) {
+    const a = address as Record<string, string>;
+    const parts = [
+      a.address1,
+      a.address2,
+      a.city,
+      a.state && a.zip ? `${a.state} ${a.zip}` : a.state || a.zip,
+    ].filter(Boolean);
+    return parts.join(', ');
+  }
+  return '';
+}
+
 // Helper function to calculate text color based on background luminance
 function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
   if (mode === 'light') return '#ffffff';
@@ -413,7 +430,7 @@ export default function ClinicDetailPage() {
           customDomain: clinicData.customDomain || undefined,
           adminEmail: clinicData.adminEmail,
           phone: clinicData.phone || '',
-          address: clinicData.address || '',
+          address: formatAddress(clinicData.address),
           primaryColor: clinicData.primaryColor || '#0d9488',
           secondaryColor: clinicData.secondaryColor || '#3B82F6',
           isActive: clinicData.status === 'ACTIVE',
@@ -441,7 +458,7 @@ export default function ClinicDetailPage() {
           customDomain: fetchedClinic.customDomain || '',
           adminEmail: fetchedClinic.adminEmail,
           phone: fetchedClinic.phone || '',
-          address: fetchedClinic.address || '',
+          address: formatAddress(fetchedClinic.address),
           primaryColor: clinicData.primaryColor || '#0d9488',
           secondaryColor: clinicData.secondaryColor || '#3B82F6',
           accentColor: clinicData.accentColor || '#d3f931',
