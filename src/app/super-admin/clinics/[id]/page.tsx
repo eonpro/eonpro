@@ -352,6 +352,24 @@ export default function ClinicDetailPage() {
     usageLimit: '',
   });
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Delete clinic modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    step: 1 | 2;
+    confirmName: string;
+    deleting: boolean;
+    error: string | null;
+    counts: { patients: number; users: number; orders: number; providers: number } | null;
+  }>({
+    open: false,
+    step: 1,
+    confirmName: '',
+    deleting: false,
+    error: null,
+    counts: null,
+  });
+
   const [newUser, setNewUser] = useState({
     email: '',
     firstName: '',
@@ -1139,28 +1157,65 @@ export default function ClinicDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this clinic? This action cannot be undone.')) {
-      return;
-    }
+  const openDeleteModal = () => {
+    setDeleteModal({
+      open: true,
+      step: 1,
+      confirmName: '',
+      deleting: false,
+      error: null,
+      counts: clinic
+        ? {
+            patients: clinic.stats.patients,
+            users: (clinicUsers || []).length,
+            orders: 0,
+            providers: clinic.stats.providers,
+          }
+        : null,
+    });
+  };
+
+  const closeDeleteModal = () => {
+    if (deleteModal.deleting) return;
+    setDeleteModal({
+      open: false,
+      step: 1,
+      confirmName: '',
+      deleting: false,
+      error: null,
+      counts: null,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!clinic) return;
+
+    setDeleteModal((prev) => ({ ...prev, deleting: true, error: null }));
 
     try {
-      const token = localStorage.getItem('auth-token');
       const response = await apiFetch(`/api/super-admin/clinics/${clinicId}`, {
         method: 'DELETE',
-        headers: {
-        },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmClinicName: clinic.name }),
       });
 
       if (response.ok) {
         router.push('/super-admin/clinics');
       } else {
         const data = await response.json();
-        alert(data.error || 'Failed to delete clinic');
+        setDeleteModal((prev) => ({
+          ...prev,
+          deleting: false,
+          error: data.error || 'Failed to delete clinic',
+        }));
       }
     } catch (error) {
       console.error('Error deleting clinic:', error);
-      alert('Failed to delete clinic');
+      setDeleteModal((prev) => ({
+        ...prev,
+        deleting: false,
+        error: 'Network error. Please try again.',
+      }));
     }
   };
 
@@ -1220,7 +1275,7 @@ export default function ClinicDetailPage() {
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleDelete}
+                onClick={openDeleteModal}
                 className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-red-600 transition-colors hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
@@ -2835,6 +2890,17 @@ export default function ClinicDetailPage() {
                                         </button>
                                         <button
                                           onClick={() =>
+                                            router.push(
+                                              `/super-admin/clinics/${clinicId}/users/${user.id}/permissions`
+                                            )
+                                          }
+                                          className="text-sm font-medium text-purple-600 hover:text-purple-800"
+                                          title="Manage user permissions"
+                                        >
+                                          Permissions
+                                        </button>
+                                        <button
+                                          onClick={() =>
                                             window.open(
                                               `/super-admin/users/${user.id}/clinics`,
                                               '_blank'
@@ -3015,11 +3081,11 @@ export default function ClinicDetailPage() {
                   <div>
                     <p className="font-medium text-red-800">Delete this clinic</p>
                     <p className="mt-1 text-sm text-red-600">
-                      Once you delete a clinic, there is no going back. All data will be permanently
-                      removed.
+                      Once you delete a clinic, there is no going back. All data including patients,
+                      orders, subscriptions, and records will be permanently removed.
                     </p>
                     <button
-                      onClick={handleDelete}
+                      onClick={openDeleteModal}
                       className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
                     >
                       Delete Clinic
@@ -3755,6 +3821,36 @@ export default function ClinicDetailPage() {
                   <option value="PENDING">Pending</option>
                 </select>
               </div>
+
+              {/* Access & Permissions Quick Panel */}
+              {editUserModal.user && (
+                <div className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold text-purple-900">
+                      <Shield className="h-4 w-4" />
+                      Access & Permissions
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditUserModal({ show: false, user: null });
+                        router.push(
+                          `/super-admin/clinics/${clinicId}/users/${editUserModal.user!.id}/permissions`
+                        );
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-700"
+                    >
+                      <Settings className="h-3 w-3" />
+                      Manage Permissions
+                    </button>
+                  </div>
+                  <p className="text-xs text-purple-700">
+                    This user has <span className="font-medium">{editUserData.role}</span> role defaults.
+                    Click &quot;Manage Permissions&quot; to customize individual permissions and features
+                    for this user — add or remove access beyond their role defaults.
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 border-t border-gray-200 pt-4">
                 <button
