@@ -403,6 +403,25 @@ export async function POST(req: NextRequest) {
       const stubFirstName = nameParts[0] || 'Unknown';
       const stubLastName = nameParts.slice(1).join(' ') || 'Checkout';
 
+      // Extract address from payload for stub (all fields are required in schema)
+      // Use placeholder values if not provided — STEP 8 will update with real address later
+      const stubAddress1 = String(
+        payload.address || payload.address_line1 || payload.address_line_1 ||
+        payload.addressLine1 || payload.street_address || payload.streetAddress ||
+        payload.shipping_address || payload.shippingAddress || 'Pending'
+      ).trim() || 'Pending';
+      const stubCity = String(
+        payload.city || payload.shipping_city || payload.shippingCity || 'Pending'
+      ).trim() || 'Pending';
+      const stubState = String(
+        payload.state || payload.shipping_state || payload.shippingState || payload.province || 'NA'
+      ).trim() || 'NA';
+      const stubZip = String(
+        payload.zip || payload.zip_code || payload.zipCode ||
+        payload.postal_code || payload.postalCode || payload.shipping_zip ||
+        payload.shippingZip || '00000'
+      ).trim() || '00000';
+
       const stubPatientId = await generatePatientId(clinicId);
       const searchIndex = buildPatientSearchIndex({
         firstName: stubFirstName,
@@ -421,6 +440,10 @@ export async function POST(req: NextRequest) {
           phone: '0000000000',
           dob: '1900-01-01',
           gender: 'm',
+          address1: stubAddress1,
+          city: stubCity,
+          state: stubState,
+          zip: stubZip,
           profileStatus: 'ACTIVE',
           source: 'webhook',
           tags: ['wellmedr', 'stub-from-invoice', 'needs-intake-merge'],
@@ -478,7 +501,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: false,
           queued: true,
-          message: 'Patient lookup failed — queued for retry',
+          message: `Patient lookup failed — queued for retry`,
+          error: errMsg,
           dlqId,
           requestId,
         }, { status: 202 });
@@ -820,6 +844,13 @@ export async function POST(req: NextRequest) {
 
     // STEP 8: Update patient address if provided in payload
     // Support ALL possible Airtable field name variations
+    //
+    // IMPORTANT: Airtable automations often send BOTH a combined address string
+    // (shipping_address/billing_address) AND individual fields (city, state, zip).
+    // When the address has an apartment/unit, Airtable's own naive comma split
+    // puts the apartment in the city field, shifting city→state and state→zip.
+    // We ALWAYS prefer parsing the combined string when available.
+
     const rawAddress1Value =
       payload.address ||
       payload.address_line1 ||
@@ -855,42 +886,69 @@ export async function POST(req: NextRequest) {
 
     const phoneValue = payload.phone || payload.phone_number || payload.phoneNumber;
 
-    // Determine final address values - may need to parse combined string
+    // Look for combined address strings (shipping_address, billing_address)
+    // These are the most reliable source since they contain the full address
+    const combinedAddressString =
+      (payload.shipping_address && typeof payload.shipping_address === 'string'
+        ? String(payload.shipping_address).trim()
+        : '') ||
+      (payload.billing_address && typeof payload.billing_address === 'string'
+        ? String(payload.billing_address).trim()
+        : '') ||
+      (payload.shippingAddress && typeof payload.shippingAddress === 'string'
+        ? String(payload.shippingAddress).trim()
+        : '');
+
+    const combinedHasCommas = combinedAddressString.includes(',');
+
+    // Determine final address values
     let finalAddress1 = rawAddress1Value ? String(rawAddress1Value).trim() : '';
     let finalAddress2 = rawAddress2Value ? String(rawAddress2Value).trim() : '';
     let finalCity = rawCityValue ? String(rawCityValue).trim() : '';
     let finalState = rawStateValue ? String(rawStateValue).trim() : '';
     let finalZip = rawZipValue ? String(rawZipValue).trim() : '';
 
-    // Check if we have a combined address string that needs parsing
-    // This happens when Airtable sends "201 ELBRIDGE AVE, APT F, Cloverdale, California, 95425"
-    // in the address field without separate city/state/zip fields
-    const hasSeparateAddressComponents =
-      rawCityValue || rawStateValue || rawZipValue || rawAddress2Value;
-    const looksLikeCombinedAddress =
-      finalAddress1 && finalAddress1.includes(',') && !hasSeparateAddressComponents;
+    // ALWAYS prefer parsing the combined address string when available.
+    // Airtable's naive comma-split creates corrupt individual fields for addresses
+    // with apartment/unit numbers (e.g., "123 Main St, Apt 4B, City, State, Zip"
+    // gets split as: address1="123 Main St", city="Apt 4B", state="City", zip="State")
+    if (combinedHasCommas) {
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] Parsing combined address string (preferred source)`, {
+        combinedAddress: combinedAddressString.substring(0, 80),
+      });
 
-    if (looksLikeCombinedAddress) {
-      logger.info(`[WELLMEDR-INVOICE ${requestId}] Detected combined address string, parsing...`, {
-        rawAddress: finalAddress1,
+      const parsed = parseAddressString(combinedAddressString);
+
+      if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
+        finalAddress1 = parsed.address1;
+        finalAddress2 = parsed.address2;
+        finalCity = parsed.city;
+        finalState = parsed.state;
+        finalZip = parsed.zip;
+
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] Address parsed from combined string:`, {
+          address1: finalAddress1,
+          address2: finalAddress2,
+          city: finalCity,
+          state: finalState,
+          zip: finalZip,
+        });
+      }
+    } else if (finalAddress1 && finalAddress1.includes(',')) {
+      // Fallback: rawAddress1Value itself contains commas (older payload format)
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] Parsing combined address from address field`, {
+        rawAddress: finalAddress1.substring(0, 80),
       });
 
       const parsed = parseAddressString(finalAddress1);
 
-      // Use parsed values
-      finalAddress1 = parsed.address1;
-      finalAddress2 = parsed.address2;
-      finalCity = parsed.city;
-      finalState = parsed.state;
-      finalZip = parsed.zip;
-
-      logger.info(`[WELLMEDR-INVOICE ${requestId}] Parsed address components:`, {
-        address1: finalAddress1,
-        address2: finalAddress2,
-        city: finalCity,
-        state: finalState,
-        zip: finalZip,
-      });
+      if (parsed.address1 || parsed.city || parsed.state || parsed.zip) {
+        finalAddress1 = parsed.address1;
+        finalAddress2 = parsed.address2;
+        finalCity = parsed.city;
+        finalState = parsed.state;
+        finalZip = parsed.zip;
+      }
     }
 
     // Log all address-related fields received for debugging
@@ -901,7 +959,7 @@ export async function POST(req: NextRequest) {
       rawState: rawStateValue || 'NOT FOUND',
       rawZip: rawZipValue || 'NOT FOUND',
       phoneValue: phoneValue || 'NOT FOUND',
-      wasParsed: looksLikeCombinedAddress,
+      wasParsed: combinedHasCommas,
       finalValues: { finalAddress1, finalAddress2, finalCity, finalState, finalZip },
       // Log raw keys to help debug what Airtable is sending
       payloadKeys: Object.keys(payload).filter(

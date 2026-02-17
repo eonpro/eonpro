@@ -19,7 +19,7 @@
  *
  * TABLE NAME: Update CONFIG.TABLE_NAME to match your Airtable table name exactly.
  *
- * Created: 2026-01-24 | Updated: 2026-02-12
+ * Created: 2026-01-24 | Updated: 2026-02-17
  */
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -167,33 +167,76 @@ async function main() {
             body: JSON.stringify(payload),
         });
 
-        let result;
+        // ═══════════════════════════════════════════════════════════════
+        // ROBUST RESPONSE PARSING
+        // Airtable's fetch() environment can behave differently from
+        // standard Node.js/browser fetch. Use text() + JSON.parse()
+        // for maximum compatibility and better error diagnostics.
+        // ═══════════════════════════════════════════════════════════════
+        let result = {};
+        let rawText = '';
         try {
-            const text = await response.text();
-            result = text ? JSON.parse(text) : {};
-        } catch (_) {
-            result = { error: `Invalid response (${response.status})` };
+            rawText = await response.text();
+            if (CONFIG.DEBUG) {
+                // Log first 500 chars of response for debugging
+                console.log(`📥 Response status: ${response.status}`);
+                console.log(`📥 Response body: ${rawText.substring(0, 500)}`);
+            }
+            if (rawText) {
+                result = JSON.parse(rawText);
+            }
+        } catch (parseErr) {
+            console.error(`❌ Failed to parse response JSON: ${parseErr.message}`);
+            console.error(`   Raw response (first 300 chars): ${rawText.substring(0, 300)}`);
+            output.set('success', false);
+            output.set('error', `Invalid response from EONPRO: ${parseErr.message}`);
+            return;
         }
 
-        if (response.ok && result.success) {
+        // Check for success - handle multiple response formats:
+        // 1. Standard success: { success: true, eonproPatientId: "...", ... }
+        // 2. Duplicate (idempotency): { received: true, status: "duplicate", ... }
+        const isSuccess = result.success === true;
+        const isDuplicate = result.received === true && result.status === 'duplicate';
+
+        if (response.ok && (isSuccess || isDuplicate)) {
+            if (isDuplicate) {
+                console.log('✅ Already processed (duplicate request detected by EONPRO)');
+                output.set('success', true);
+                output.set('eonproPatientId', '');
+                output.set('eonproDatabaseId', '');
+                return;
+            }
+
             console.log('✅ SUCCESS!');
             console.log(`   Patient ID: ${result.eonproPatientId}`);
-            console.log(`   New Patient: ${result.patient?.isNew ? 'Yes' : 'No'}`);
+            console.log(`   Database ID: ${result.eonproDatabaseId}`);
+            console.log(`   New Patient: ${result.patient?.isNew ? 'Yes' : 'No (updated)'}`);
             console.log(`   Time: ${result.processingTime}`);
             if (result.soapNote) console.log(`   SOAP Note: #${result.soapNote.id}`);
+            if (result.warnings && result.warnings.length > 0) {
+                console.log(`   ⚠️ Warnings: ${result.warnings.join(', ')}`);
+            }
 
             output.set('success', true);
             output.set('eonproPatientId', result.eonproPatientId || '');
             output.set('eonproDatabaseId', String(result.eonproDatabaseId || ''));
         } else {
-            console.error(`❌ Error: ${result.error || response.status}`);
+            console.error(`❌ EONPRO returned error`);
+            console.error(`   HTTP Status: ${response.status}`);
+            console.error(`   Error: ${result.error || 'No error message'}`);
+            console.error(`   Code: ${result.code || 'N/A'}`);
+            console.error(`   Message: ${result.message || 'N/A'}`);
+            if (result.requestId) console.error(`   Request ID: ${result.requestId}`);
+            if (result.queued) console.log(`   ℹ️ Queued for retry (DLQ): ${result.dlqId || 'yes'}`);
             output.set('success', false);
-            output.set('error', result.error || `HTTP ${response.status}`);
+            output.set('error', result.error || result.message || `HTTP ${response.status}`);
         }
     } catch (error) {
         console.error(`❌ Network error: ${error.message}`);
+        console.error('   Check that EONPRO is reachable at: ' + CONFIG.WEBHOOK_URL);
         output.set('success', false);
-        output.set('error', error.message);
+        output.set('error', `Network error: ${error.message}`);
     }
 }
 
