@@ -176,7 +176,7 @@ export const ticketService = {
       );
 
       return newTicket;
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Ticket created', {
       ticketId: ticket.id,
@@ -300,7 +300,7 @@ export const ticketService = {
           tx
         );
       }
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Ticket updated', {
       ticketId: id,
@@ -360,7 +360,7 @@ export const ticketService = {
           reason,
         },
       });
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Ticket status changed', {
       ticketId: id,
@@ -449,7 +449,7 @@ export const ticketService = {
           tx
         );
       }
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Ticket assigned', {
       ticketId: id,
@@ -527,7 +527,7 @@ export const ticketService = {
           reason: `Resolved: ${data.disposition}`,
         },
       });
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Ticket resolved', {
       ticketId: id,
@@ -584,7 +584,7 @@ export const ticketService = {
           reason,
         },
       });
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Ticket reopened', {
       ticketId: id,
@@ -664,7 +664,7 @@ export const ticketService = {
       );
 
       return newComment;
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Comment added', {
       ticketId: data.ticketId,
@@ -728,7 +728,7 @@ export const ticketService = {
         userContext,
         tx
       );
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Watcher added', {
       ticketId,
@@ -756,7 +756,7 @@ export const ticketService = {
         userContext,
         tx
       );
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Watcher removed', {
       ticketId,
@@ -862,7 +862,7 @@ export const ticketService = {
         userContext,
         tx
       );
-    });
+    }, { timeout: 15000 });
 
     logger.info('[TicketService] Tickets merged', {
       sourceTicketId: data.sourceTicketId,

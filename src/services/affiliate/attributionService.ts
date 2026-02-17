@@ -404,7 +404,7 @@ export async function setPatientAttribution(
           },
         });
       }
-    });
+    }, { timeout: 15000 });
 
     logger.info('[Attribution] Patient attribution set', {
       patientId,
@@ -551,7 +551,7 @@ export async function tagPatientWithReferralCodeOnly(
           convertedAt: new Date(),
         } as any,
       });
-    });
+    }, { timeout: 15000 });
 
     logger.info('[Attribution] Tagged patient with referral code and created AffiliateTouch', {
       patientId,

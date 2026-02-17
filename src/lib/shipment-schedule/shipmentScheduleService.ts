@@ -280,7 +280,7 @@ export async function createShipmentScheduleForSubscription(
     });
 
     return createdShipments;
-  });
+  }, { timeout: 15000 });
 
   logger.info('[ShipmentSchedule] Created multi-shipment schedule', {
     subscriptionId,
@@ -358,7 +358,7 @@ export async function createShipmentSchedule(
     }
 
     return createdShipments;
-  });
+  }, { timeout: 15000 });
 
   logger.info('[ShipmentSchedule] Created shipment schedule', {
     clinicId,
@@ -495,7 +495,7 @@ export async function scheduleFutureRefillsFromInvoice(
     }
 
     return created;
-  });
+  }, { timeout: 15000 });
 
   logger.info('[ShipmentSchedule] Scheduled complete shipment series from invoice', {
     clinicId,

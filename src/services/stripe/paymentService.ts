@@ -202,7 +202,7 @@ export class StripePaymentService {
           },
         });
       }
-    });
+    }, { timeout: 15000 });
 
     logger.debug(`[STRIPE] Updated payment ${paymentIntent.id} from webhook`);
   }

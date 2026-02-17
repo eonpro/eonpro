@@ -429,7 +429,7 @@ export async function registerPatient(
       });
 
       return { patient, user, linkedToExisting: linkToExistingPatient };
-    });
+    }, { timeout: 15000 });
 
     // Send welcome email with verification link
     const baseUrl = getAppBaseUrl();
@@ -586,7 +586,7 @@ export async function registerWithInviteToken(
         },
       });
       return { user };
-    });
+    }, { timeout: 15000 });
 
     await markInviteTokenUsed(inviteToken);
 
@@ -681,7 +681,7 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
           usedAt: new Date(),
         },
       });
-    });
+    }, { timeout: 15000 });
 
     logger.security('Email verified', {
       userId: verificationRecord.userId,

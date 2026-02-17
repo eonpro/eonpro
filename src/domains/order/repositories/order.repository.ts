@@ -702,7 +702,7 @@ export const orderRepository = {
 
       // Decrypt patient and provider PHI fields before returning
       return decryptOrderDetails(completeOrder) as OrderWithDetails;
-    });
+    }, { timeout: 15000 });
   },
 };
 

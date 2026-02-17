@@ -831,7 +831,7 @@ export async function processPaymentForCommission(
         });
 
         return event;
-      });
+      }, { timeout: 15000 });
     } catch (txError: unknown) {
       // Catch P2002 unique constraint violation = duplicate Stripe event (idempotent)
       if (txError && typeof txError === 'object' && 'code' in txError && (txError as { code: string }).code === 'P2002') {

@@ -218,7 +218,7 @@ async function handlePost(request: NextRequest) {
           },
         });
         return { deduplicated: false, touchId: newTouch.id };
-      });
+      }, { timeout: 15000 });
 
       if (dedupResult.deduplicated) {
         logger.debug('[Tracking] Deduplicated touch (within 30min window)', {

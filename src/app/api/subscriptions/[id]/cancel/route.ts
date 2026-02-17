@@ -145,7 +145,7 @@ async function cancelSubscriptionHandler(
       });
 
       return updated;
-    });
+    }, { timeout: 15000 });
 
     logger.info('[SUBSCRIPTIONS] Subscription canceled successfully', {
       subscriptionId,

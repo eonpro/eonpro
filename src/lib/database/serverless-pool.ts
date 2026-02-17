@@ -79,10 +79,12 @@ export function getServerlessConfig(): ServerlessPoolConfig {
     connectionLimit = Math.min(requested, cap);
   } else if (hasExternalPooler) {
     // RDS Proxy or PgBouncer handles connection multiplexing.
-    // 5 connections per instance enables true parallel queries (Promise.all).
-    // With ~200 concurrent Vercel instances × 5 = 1000 proxy connections,
-    // pooled down to ~900 real PG connections (well within db.t4g.xlarge's ~1800 limit).
-    connectionLimit = isVercel ? 5 : 10;
+    // 3 connections per instance balances parallelism vs headroom:
+    // With ~200 concurrent Vercel instances × 3 = 600 proxy connections,
+    // pooled down to ~600 real PG connections (well within db.t4g.xlarge's ~1800 limit).
+    // This allows safe scaling up to ~600 instances (600 × 3 = 1800) before exhaustion.
+    // Previous value of 5 hit ceiling at ~360 instances.
+    connectionLimit = isVercel ? 3 : 10;
   } else if (isVercel) {
     // No external pooler: MUST stay at 1 to prevent P2024.
     // Each Vercel instance opens a direct connection to PostgreSQL.

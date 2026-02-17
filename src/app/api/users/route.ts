@@ -262,7 +262,7 @@ export const PUT = withAuth(
         });
 
         return updated;
-      });
+      }, { timeout: 15000 });
 
       logger.info('User updated', { targetUserId: targetUser.id, userId: user.id });
 
@@ -345,7 +345,7 @@ export const DELETE = withAuth(
               userAgent: req.headers.get('user-agent'),
             },
           });
-        });
+        }, { timeout: 15000 });
 
         logger.warn('User permanently deleted', { targetUserId: targetUser.id, userId: user.id });
 
@@ -382,7 +382,7 @@ export const DELETE = withAuth(
           });
 
           return updated;
-        });
+        }, { timeout: 15000 });
 
         logger.info('User suspended', { targetUserId: targetUser.id, userId: user.id });
 

@@ -318,7 +318,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         }
 
         return newInvoice;
-          }),
+          }, { timeout: 15000 }),
         {
           maxRetries: 2,
           initialDelayMs: 200,
@@ -422,7 +422,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
             }
 
             return newInvoice;
-          }),
+          }, { timeout: 15000 }),
         {
           maxRetries: 2,
           initialDelayMs: 200,
@@ -488,7 +488,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           // InvoiceItem table might not exist - not critical for invoice creation
           logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
         }
-          }),
+          }, { timeout: 15000 }),
         {
           maxRetries: 2,
           initialDelayMs: 200,

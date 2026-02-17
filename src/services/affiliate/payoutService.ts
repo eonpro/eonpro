@@ -435,7 +435,7 @@ export async function processPayout(request: PayoutRequest): Promise<PayoutResul
       });
 
       return { payout: payoutRecord, assignedEventIds: claimed, netAmountCents: net };
-    }, { isolationLevel: 'Serializable' });
+    }, { isolationLevel: 'Serializable', timeout: 15000, maxWait: 5000 });
 
     // STEP 2: External API call AFTER transaction commit (per data-integrity rules)
     // If this fails, the payout stays in PROCESSING and can be retried/cancelled

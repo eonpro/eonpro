@@ -247,7 +247,7 @@ async function updatePreferencesHandler(req: NextRequest, user: AuthUser): Promi
             update: notificationUpdates,
           });
         }
-      });
+      }, { timeout: 15000 });
 
       logger.info('Notification preferences updated', {
         userId: user.id,

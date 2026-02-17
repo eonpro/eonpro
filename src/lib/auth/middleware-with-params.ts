@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
+import { Prisma } from '@prisma/client';
 import { JWT_SECRET, AUTH_CONFIG } from './config';
 import { runWithClinicContext, basePrisma } from '@/lib/db';
 import { validateSession } from './session-manager';
@@ -18,6 +19,16 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { validateTokenClaims } from './middleware';
 import type { AuthUser, UserRole } from './middleware';
+import {
+  isAuthBlocked,
+  recordAuthFailure,
+  clearAuthFailures,
+} from '@/lib/auth/auth-rate-limiter';
+import {
+  resolveSubdomainClinicId,
+  hasClinicAccess,
+  trackSessionActivity,
+} from './middleware-cache';
 
 // Re-export AuthUser type for convenience
 export type { AuthUser };
@@ -42,24 +53,13 @@ interface AuthOptions {
 // Clinic Access Check
 // ============================================================================
 
+/**
+ * POOL EXHAUSTION FIX: Now delegates to the shared Redis-cached helper.
+ * Previously performed Promise.all of 2 DB queries per request.
+ * @see middleware-cache.ts hasClinicAccess
+ */
 async function hasAccessToClinic(user: AuthUser, clinicId: number): Promise<boolean> {
-  try {
-    const [uc, pc] = await Promise.all([
-      basePrisma.userClinic.findFirst({
-        where: { userId: user.id, clinicId, isActive: true },
-        select: { id: true },
-      }),
-      user.providerId
-        ? basePrisma.providerClinic.findFirst({
-            where: { providerId: user.providerId, clinicId, isActive: true },
-            select: { id: true },
-          })
-        : Promise.resolve(null),
-    ]);
-    return !!uc || !!pc;
-  } catch {
-    return false;
-  }
+  return hasClinicAccess(user.id, clinicId, user.providerId);
 }
 
 // ============================================================================
@@ -142,7 +142,9 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
     }
 
     // Check token version for revocation
-    const tokenVersion = (payload as unknown as AuthUser).tokenVersion || 1;
+    // Use ?? (nullish coalescing) instead of || so that tokenVersion=0 is not
+    // silently coerced to 1, which would bypass the revocation check.
+    const tokenVersion = (payload as unknown as AuthUser).tokenVersion ?? 1;
     if (tokenVersion < AUTH_CONFIG.security.minimumTokenVersion) {
       return {
         valid: false,
@@ -169,7 +171,11 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
     return { valid: true, user };
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('expired')) {
+      // jose JWTExpired has code 'ERR_JWT_EXPIRED' but message is
+      // '"exp" claim timestamp check failed' (no "expired" substring).
+      // Check .code first for reliable detection, then fall back to message.
+      const errCode = (error as Error & { code?: string }).code;
+      if (errCode === 'ERR_JWT_EXPIRED' || error.message.includes('expired')) {
         return {
           valid: false,
           error: 'Token has expired',
@@ -261,6 +267,18 @@ function extractToken(req: NextRequest): string | null {
 // ============================================================================
 
 /**
+ * Extract client IP from request headers (aligned with withAuth)
+ */
+function getClientIP(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    req.headers.get('cf-connecting-ip') ||
+    'unknown'
+  );
+}
+
+/**
  * Add security headers to response (aligned with withAuth)
  */
 function addSecurityHeaders(response: Response, requestId: string): Response {
@@ -308,12 +326,27 @@ export function withAuthParams<T extends { params: any }>(
     const requestId = crypto.randomUUID();
 
     try {
+      const clientIP = getClientIP(req);
+
+      // Check if IP is blocked from repeated auth failures (brute force protection)
+      const blocked = await isAuthBlocked(clientIP);
+      if (blocked && !options.optional) {
+        return errorResponse(
+          'Too many authentication failures. Please try again later.',
+          'AUTH_RATE_LIMITED',
+          429,
+          requestId,
+        );
+      }
+
       const token = extractToken(req);
 
       if (!token) {
         if (options.optional) {
           return handler(req, null as any, context);
         }
+
+        await recordAuthFailure(clientIP);
 
         await auditLog(req, {
           userId: 'unknown',
@@ -341,6 +374,8 @@ export function withAuthParams<T extends { params: any }>(
           return handler(req, null as any, context);
         }
 
+        await recordAuthFailure(clientIP);
+
         await auditLog(req, {
           userId: 'unknown',
           eventType: AuditEventType.LOGIN_FAILED,
@@ -358,6 +393,9 @@ export function withAuthParams<T extends { params: any }>(
           requestId,
         );
       }
+
+      // Auth succeeded — clear any failure records for this IP
+      clearAuthFailures(clientIP).catch(() => {});
 
       const user = tokenResult.user;
 
@@ -457,30 +495,26 @@ export function withAuthParams<T extends { params: any }>(
       }
 
       // Subdomain override
+      // POOL EXHAUSTION FIX: Subdomain→clinicId now resolved via Redis (5 min TTL)
+      // instead of hitting basePrisma.clinic.findFirst on every request.
       const subdomain = req.headers.get('x-clinic-subdomain');
       if (
         subdomain &&
         !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
       ) {
         try {
-          const subdomainClinic = await basePrisma.clinic.findFirst({
-            where: {
-              subdomain: { equals: subdomain, mode: 'insensitive' },
-              status: 'ACTIVE',
-            },
-            select: { id: true },
-          });
-          if (subdomainClinic && subdomainClinic.id !== effectiveClinicId) {
-            const hasAccess =
+          const subdomainClinicId = await resolveSubdomainClinicId(subdomain);
+          if (subdomainClinicId != null && subdomainClinicId !== effectiveClinicId) {
+            const userHasAccess =
               user.role === 'super_admin' ||
-              user.clinicId === subdomainClinic.id ||
-              (await hasAccessToClinic(user, subdomainClinic.id));
-            if (hasAccess) {
-              effectiveClinicId = subdomainClinic.id;
+              user.clinicId === subdomainClinicId ||
+              (await hasAccessToClinic(user, subdomainClinicId));
+            if (userHasAccess) {
+              effectiveClinicId = subdomainClinicId;
               logger.debug('[AuthParams] Using subdomain clinic for context', {
                 userId: user.id,
                 subdomain,
-                clinicId: subdomainClinic.id,
+                clinicId: subdomainClinicId,
                 requestId,
               });
             }
@@ -502,6 +536,9 @@ export function withAuthParams<T extends { params: any }>(
       const userForHandler: AuthUser =
         effectiveClinicId !== user.clinicId ? { ...user, clinicId: effectiveClinicId } : user;
 
+      // Track session activity via Redis (no DB connection consumed)
+      trackSessionActivity(user.id, getClientIP(req)).catch(() => {});
+
       // Execute handler within clinic context (AsyncLocalStorage — thread-safe)
       // Replaces deprecated global setClinicContext() to prevent race conditions
       const response = await runWithClinicContext(effectiveClinicId, () =>
@@ -511,14 +548,30 @@ export function withAuthParams<T extends { params: any }>(
       // Add security headers to response
       return addSecurityHeaders(response, requestId);
     } catch (error) {
-      // Unhandled error — return 500 with requestId for correlation
       const errMsg = error instanceof Error ? error.message : String(error);
+      const errName = error instanceof Error ? error.constructor.name : 'Unknown';
       logger.error('AUTH_PARAMS_MIDDLEWARE_CATCH', {
         requestId,
+        errorName: errName,
         errorMessage: errMsg,
         route: req.nextUrl.pathname,
         method: req.method,
       });
+
+      // Distinguish database/infrastructure connection errors from other errors.
+      // Return 503 with Retry-After so clients can retry on transient failures.
+      if (isDatabaseConnectionError(error)) {
+        logger.error('Database connection error in auth params middleware', error as Error, {
+          requestId,
+          errorType: 'DATABASE_CONNECTION',
+        });
+        return errorResponse(
+          'Service temporarily unavailable. Please try again.',
+          'SERVICE_UNAVAILABLE',
+          503,
+          requestId,
+        );
+      }
 
       return errorResponse(
         'Internal server error',
@@ -528,4 +581,48 @@ export function withAuthParams<T extends { params: any }>(
       );
     }
   };
+}
+
+// ============================================================================
+// Error Classification (aligned with withAuth)
+// ============================================================================
+
+/**
+ * Check if an error is a database/infrastructure connection error.
+ * Returns true for Prisma connection errors and generic connection failures
+ * (ECONNREFUSED, timeout, pool exhaustion, etc.)
+ * These should return 503 instead of 500 to indicate temporary unavailability.
+ */
+function isDatabaseConnectionError(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const connectionErrorCodes = [
+      'P1001', // Can't reach database server
+      'P1002', // Database server timed out
+      'P1008', // Operations timed out
+      'P1017', // Server has closed the connection
+      'P2024', // Timed out fetching a new connection from the connection pool
+    ];
+    return connectionErrorCodes.includes(error.code);
+  }
+
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    const connectionPatterns = [
+      'connection',
+      'econnrefused',
+      'econnreset',
+      'timeout',
+      'pool',
+      'too many connections',
+      'database server',
+      'cannot connect',
+    ];
+    return connectionPatterns.some((pattern) => message.includes(pattern));
+  }
+
+  return false;
 }

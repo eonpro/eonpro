@@ -160,7 +160,7 @@ export async function POST(request: Request) {
       }
 
       return { payment, paymentMethodId, subscriptionId };
-    });
+    }, { timeout: 15000 });
 
     const { payment, paymentMethodId, subscriptionId } = result;
 

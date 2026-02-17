@@ -178,19 +178,22 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
 
     for (const payout of failedPayouts) {
       // Atomically unassign commissions + cancel payout to prevent inconsistency
-      await prisma.$transaction(async (tx) => {
-        await tx.affiliateCommissionEvent.updateMany({
-          where: { payoutId: payout.id },
-          data: { payoutId: null },
-        });
-        await tx.affiliatePayout.update({
-          where: { id: payout.id },
-          data: {
-            status: 'CANCELLED',
-            notes: `${payout.notes || ''} | retry_attempted: ${new Date().toISOString()}`,
-          },
-        });
-      });
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.affiliateCommissionEvent.updateMany({
+            where: { payoutId: payout.id },
+            data: { payoutId: null },
+          });
+          await tx.affiliatePayout.update({
+            where: { id: payout.id },
+            data: {
+              status: 'CANCELLED',
+              notes: `${payout.notes || ''} | retry_attempted: ${new Date().toISOString()}`,
+            },
+          });
+        },
+        { timeout: 15000 }
+      );
       result.failedPayoutsCleanedUp++;
     }
 

@@ -206,7 +206,7 @@ export const POST = withAuth(
         });
 
         return createdUser;
-      });
+      }, { timeout: 15000 });
 
       logger.info('User created', { newUserId: newUser.id, createdByUserId: user.id });
 

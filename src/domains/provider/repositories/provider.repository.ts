@@ -271,6 +271,7 @@ export const providerRepository = {
       where,
       orderBy: { createdAt: 'desc' },
       select: PROVIDER_WITH_CLINIC_SELECT,
+      take: 500,
     });
 
     // Remove duplicates (in case provider matches multiple conditions)
@@ -303,6 +304,7 @@ export const providerRepository = {
     const providers = await basePrisma.provider.findMany({
       orderBy: { createdAt: 'desc' },
       select: PROVIDER_WITH_CLINIC_SELECT,
+      take: 1000,
     });
 
     return providers as ProviderWithClinic[];
@@ -359,7 +361,7 @@ export const providerRepository = {
       });
 
       return provider as ProviderWithClinic;
-    });
+    }, { timeout: 15000 });
   },
 
   /**
@@ -425,7 +427,7 @@ export const providerRepository = {
       }
 
       return provider as ProviderWithClinic;
-    });
+    }, { timeout: 15000 });
   },
 
   /**
@@ -567,7 +569,7 @@ export const providerRepository = {
         appointmentsDeleted: appointmentIds.length,
         actor: actorEmail,
       });
-    });
+    }, { timeout: 15000 });
   },
 
   /**
@@ -597,7 +599,7 @@ export const providerRepository = {
         providerId: id,
         actor: actorEmail,
       });
-    });
+    }, { timeout: 15000 });
   },
 
   /**
@@ -820,7 +822,7 @@ export const providerRepository = {
           },
         });
       }
-    });
+    }, { timeout: 15000 });
 
     logger.info('[ProviderRepository] set primary clinic', {
       providerId,

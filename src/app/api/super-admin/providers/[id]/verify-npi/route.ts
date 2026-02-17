@@ -117,7 +117,7 @@ export const POST = withSuperAdminAuth(
         });
 
         return updated;
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] NPI verified and saved', {
         providerId,

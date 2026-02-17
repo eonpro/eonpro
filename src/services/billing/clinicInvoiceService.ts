@@ -278,7 +278,7 @@ export const clinicInvoiceService = {
       });
 
       return newInvoice;
-    });
+    }, { timeout: 15000 });
 
     logger.info('[ClinicInvoiceService] Invoice generated', {
       invoiceId: invoice.id,
@@ -562,7 +562,7 @@ export const clinicInvoiceService = {
       });
 
       return updatedInvoice;
-    });
+    }, { timeout: 15000 });
 
     logger.info('[ClinicInvoiceService] Invoice marked as paid', {
       invoiceId,
@@ -637,7 +637,7 @@ export const clinicInvoiceService = {
       });
 
       return updatedInvoice;
-    });
+    }, { timeout: 15000 });
 
     logger.info('[ClinicInvoiceService] Invoice cancelled', {
       invoiceId,

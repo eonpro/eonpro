@@ -283,7 +283,7 @@ export const POST = withAuth(
         }
 
         return { user: newUser, affiliate: newAffiliate };
-      });
+      }, { timeout: 15000 });
 
       logger.info('[Admin Affiliates] Created new affiliate', {
         affiliateId: result.affiliate.id,

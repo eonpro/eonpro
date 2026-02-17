@@ -104,7 +104,7 @@ export const POST = withSuperAdminAuth(
         });
 
         return archived;
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS] Provider archived', {
         providerId,
@@ -199,7 +199,7 @@ export const DELETE = withSuperAdminAuth(
         });
 
         return restored;
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS] Provider unarchived', {
         providerId,

@@ -105,7 +105,7 @@ export const POST = withProviderAuth(async (req, user) => {
       });
 
       return newPatient;
-    });
+    }, { timeout: 15000 });
 
     return Response.json({
       patient,

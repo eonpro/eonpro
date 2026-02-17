@@ -273,7 +273,7 @@ export const POST = withSuperAdminAuth(
         });
 
         return newUser;
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] User created and linked', {
         providerId,
@@ -412,7 +412,7 @@ export const PUT = withSuperAdminAuth(
         });
 
         return updatedUser;
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] User linked to provider', {
         providerId,
@@ -527,7 +527,7 @@ export const PATCH = withSuperAdminAuth(
             },
           },
         });
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] Password reset successful', {
         providerId,
@@ -626,7 +626,7 @@ export const DELETE = withSuperAdminAuth(
             },
           },
         });
-      });
+      }, { timeout: 15000 });
 
       logger.info('[SUPER-ADMIN/PROVIDERS/USER] User unlinked from provider', {
         providerId,

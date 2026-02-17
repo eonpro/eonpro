@@ -830,7 +830,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       await tx.invoice.delete({
         where: { id },
       });
-    });
+    }, { timeout: 15000 });
 
     logger.info('[API] Invoice deleted', { invoiceId: id });
 

@@ -278,7 +278,7 @@ export async function checkAndProcessTierUpgrade(
       newTier: qualifiedTier,
       bonusAwarded,
     };
-  }, { isolationLevel: 'Serializable' });
+  }, { isolationLevel: 'Serializable', timeout: 15000, maxWait: 5000 });
 }
 
 /**

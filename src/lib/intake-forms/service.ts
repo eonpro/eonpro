@@ -94,7 +94,7 @@ export async function createFormTemplate(
       );
 
       return { ...newTemplate, questions };
-    });
+    }, { timeout: 15000 });
 
     // Clear cache
     templateCache.clear();
@@ -274,7 +274,7 @@ export async function updateFormTemplate(
       }
 
       return updated;
-    });
+    }, { timeout: 15000 });
 
     // Clear cache
     templateCache.clear();
@@ -573,7 +573,7 @@ export async function submitFormResponses(
       );
 
       return { ...sub, responses: createdResponses };
-    });
+    }, { timeout: 15000 });
 
     logger.info(`Form submitted: ${linkId}`);
     return submission;

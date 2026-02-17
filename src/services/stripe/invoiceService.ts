@@ -536,7 +536,7 @@ export class StripeInvoiceService {
             where: { id: invoice.id },
             data: { subscriptionCreated: true },
           });
-        });
+        }, { timeout: 15000 });
       } else {
         // No subscriptions created, still mark invoice
         await prisma.invoice.update({

@@ -152,7 +152,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
             },
           },
         });
-      });
+      }, { timeout: 15000 });
 
       return NextResponse.json({
         success: true,
@@ -423,7 +423,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               },
             },
           });
-        });
+        }, { timeout: 15000 });
       } catch (dbError: any) {
         // Log DB error but don't fail - the Stripe refund already succeeded
         logger.error('[Refunds] Database update failed after successful Stripe refund', {

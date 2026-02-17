@@ -294,7 +294,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       });
 
       return chatMessage;
-    });
+    }, { timeout: 15000 });
 
     // Send SMS if requested (outside transaction - external service)
     let smsStatus = null;

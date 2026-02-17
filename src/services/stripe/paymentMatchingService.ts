@@ -867,7 +867,7 @@ export async function createPaidInvoiceFromStripe(
     });
 
     return newInvoice;
-  });
+  }, { timeout: 15000 });
 
   logger.info('[PaymentMatching] Created paid invoice from Stripe payment', {
     invoiceId: (invoice as any).id,

@@ -202,7 +202,7 @@ export const POST = withAuthParams(
         });
 
         return { user: newUser, affiliate: newAffiliate, refCode };
-      });
+      }, { timeout: 15000 });
 
       logger.info('[Admin Applications] Application approved', {
         applicationId,
