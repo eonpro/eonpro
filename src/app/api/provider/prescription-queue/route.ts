@@ -901,13 +901,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const planOnlyPatientIds: number[] = [];
     for (const invoice of invoices as any[]) {
       const meta = invoice.metadata as Record<string, unknown> | null;
-      if (!meta) continue;
       // Skip if metadata already has preferredMedication (set by invoice webhook)
-      if (meta.preferredMedication) continue;
-      // Only for wellmedr-airtable source
-      if ((meta.source as string) !== 'wellmedr-airtable') continue;
-      // Check if product looks plan-only
-      const prod = (meta.product as string) || '';
+      if (meta?.preferredMedication) continue;
+      // Check if product looks plan-only (from metadata or lineItems)
+      const prod = (meta?.product as string) ||
+        ((invoice.lineItems as any[])?.[0]?.product as string) || '';
       const prodLower = prod.toLowerCase();
       const hasMedName =
         prodLower.includes('tirzepatide') ||
@@ -916,7 +914,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         prodLower.includes('zepbound') ||
         prodLower.includes('ozempic') ||
         prodLower.includes('wegovy');
-      if (!hasMedName && looksLikePlanOnly(prod)) {
+      if (!hasMedName && (looksLikePlanOnly(prod) || !prod)) {
         planOnlyPatientIds.push(invoice.patient.id);
       }
     }
@@ -1074,14 +1072,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       //           4) glp1Info.glp1Type from intake
       //           5) generic "Semaglutide or Tirzepatide" fallback
       let derivedMedication: string | null = null;
-      if (!formattedMedType && looksLikePlanOnly(cleanTreatment)) {
+      const isPlanOnly = looksLikePlanOnly(cleanTreatment);
+      const isWellmedrClinic = invoice.clinic?.subdomain?.toLowerCase().includes('wellmedr');
+
+      if (!formattedMedType && isPlanOnly) {
         // Priority 1: Use preferredMedication from invoice metadata (set by invoice webhook)
         const preferredMed = metadata?.preferredMedication as string | undefined;
         if (preferredMed && /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(preferredMed)) {
           derivedMedication = preferredMed.charAt(0).toUpperCase() + preferredMed.slice(1).toLowerCase();
         }
         // Priority 2: Price-based derivation for WellMedR (deterministic, no intake needed)
-        if (!derivedMedication && (metadata?.source as string) === 'wellmedr-airtable') {
+        if (!derivedMedication && isWellmedrClinic) {
           const invoiceAmount = invoice.amount || invoice.amountPaid || 0;
           const priceDerived = deriveWellmedrMedicationFromPrice(invoiceAmount, planInfo.months);
           if (priceDerived) {
@@ -1094,6 +1095,24 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           if (docMed) {
             derivedMedication = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
           }
+        }
+
+        // Debug logging for derivation results
+        if (isWellmedrClinic) {
+          logger.info('[PRESCRIPTION-QUEUE] WellMedR medication derivation', {
+            invoiceId: invoice.id,
+            cleanTreatment,
+            plan,
+            planMonths: planInfo.months,
+            amount: invoice.amount,
+            amountPaid: invoice.amountPaid,
+            metadataSource: metadata?.source,
+            metadataProduct: metadata?.product,
+            clinicSubdomain: invoice.clinic?.subdomain,
+            derivedMedication,
+            isPlanOnly,
+            hasIntakeBlob: !!intakeDocBlob,
+          });
         }
       }
 
@@ -1117,13 +1136,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           glp1Info.glp1Type.charAt(0).toUpperCase() + glp1Info.glp1Type.slice(1).toLowerCase();
         treatmentDisplay = `${medName} - ${cleanTreatment}`;
       }
-      // Fallback: when Airtable sends plan-only and no derivation possible,
+      // Fallback: when plan-only and no derivation possible,
       // show "Semaglutide or Tirzepatide - 1mo Injections" so provider knows to verify
       else if (
         !formattedMedType &&
         !derivedMedication &&
         looksLikePlanOnly(cleanTreatment) &&
-        (metadata?.source as string) === 'wellmedr-airtable'
+        invoice.clinic?.subdomain?.toLowerCase().includes('wellmedr')
       ) {
         treatmentDisplay = `Semaglutide or Tirzepatide - ${cleanTreatment}`;
       }
