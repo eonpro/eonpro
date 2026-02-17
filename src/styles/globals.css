@@ -78,8 +78,62 @@ body {
   padding-top: max(env(safe-area-inset-top, 0px), 20px);
 }
 
+/* ============================================================================
+   Checkbox Styles - Solid fill with clear checkmark when checked
+   ============================================================================ */
+
+input[type='checkbox']:not(.sr-only):not(.peer) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid #9ca3af;
+  border-radius: 0.3rem;
+  background-color: #fff;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+input[type='checkbox']:not(.sr-only):not(.peer):hover {
+  border-color: #6b7280;
+}
+
+input[type='checkbox']:not(.sr-only):not(.peer):focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 167, 126, 0.3);
+  border-color: var(--brand-button);
+}
+
+input[type='checkbox']:not(.sr-only):not(.peer):checked {
+  background-color: var(--brand-button);
+  border-color: var(--brand-button);
+}
+
+input[type='checkbox']:not(.sr-only):not(.peer):checked::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 5px;
+  width: 6px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+
+input[type='checkbox']:not(.sr-only):not(.peer):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Form elements */
-input,
+input:not([type='checkbox']):not([type='radio']),
 textarea {
   border-radius: 12px;
   border: 1px solid rgba(17, 24, 39, 0.15);

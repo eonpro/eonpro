@@ -314,10 +314,8 @@ export const AccessibleCheckbox = forwardRef<HTMLInputElement, CheckboxProps>(
               aria-describedby={cn(description && descriptionId, error && errorId) || undefined}
               aria-invalid={error ? 'true' : undefined}
               className={cn(
-                'h-5 w-5 rounded border-gray-300',
-                'text-blue-600 focus:ring-2 focus:ring-blue-500',
+                'h-5 w-5',
                 'transition-colors duration-200',
-                // Touch target: ensure wrapper is at least 44x44px
                 'cursor-pointer',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 className

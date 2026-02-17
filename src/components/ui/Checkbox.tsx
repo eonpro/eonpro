@@ -79,13 +79,16 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
               sizeClasses[size],
               'rounded border-2 transition-all duration-200',
               'flex items-center justify-center',
-              checked ? 'border-transparent' : 'border-gray-300 bg-white hover:border-gray-400',
+              checked
+                ? 'border-transparent shadow-sm'
+                : 'border-gray-400 bg-white hover:border-gray-500',
               disabled && 'opacity-50',
               'peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2',
               className
             )}
             style={{
               backgroundColor: checked ? color : undefined,
+              boxShadow: checked ? `0 0 0 1px ${color}` : undefined,
               ['--tw-ring-color' as string]: color,
             }}
           >
@@ -96,7 +99,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
                 'text-white transition-all duration-200',
                 checked ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
               )}
-              strokeWidth={3}
+              strokeWidth={3.5}
             />
           </div>
         </div>

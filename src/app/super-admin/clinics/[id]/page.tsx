@@ -663,7 +663,7 @@ export default function ClinicDetailPage() {
       return;
     }
 
-    if (newPassword.length < 12) {
+    if (newPassword.length < 8) {
       alert('Password must be at least 8 characters');
       return;
     }
@@ -677,6 +677,7 @@ export default function ClinicDetailPage() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ password: newPassword }),
         }
@@ -3259,6 +3260,9 @@ export default function ClinicDetailPage() {
                   placeholder="Min 8 characters"
                   minLength={8}
                 />
+                {newPassword.length > 0 && newPassword.length < 8 && (
+                  <p className="mt-1 text-xs text-red-500">Password must be at least 8 characters</p>
+                )}
               </div>
 
               <div className="flex gap-3 border-t border-gray-200 pt-4">
@@ -3274,7 +3278,7 @@ export default function ClinicDetailPage() {
                 </button>
                 <button
                   onClick={handleResetPassword}
-                  disabled={resettingPassword || newPassword.length < 12}
+                  disabled={resettingPassword || newPassword.length < 8}
                   className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
                 >
                   {resettingPassword ? 'Resetting...' : 'Reset Password'}
