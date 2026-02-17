@@ -14,6 +14,7 @@ import {
   FileQuestion,
   Download,
 } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Resource {
   id: string;
@@ -147,9 +148,8 @@ export default function ResourcesPage() {
 
   const filteredResources = resources.filter((resource) => {
     const matchesSearch =
-      searchQuery === '' ||
-      resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+      normalizedIncludes(resource.title || '', searchQuery) ||
+      normalizedIncludes(resource.description || '', searchQuery);
 
     const matchesCategory = selectedCategory === 'All' || resource.category === selectedCategory;
 

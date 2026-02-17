@@ -22,6 +22,7 @@ import {
   AlertCircle,
   Laugh,
 } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // =============================================================================
 // Types
@@ -691,11 +692,10 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
   const filteredUsers = users.filter(
     (user) => {
-      const term = searchTerm.toLowerCase().trim();
-      if (!term) return true;
+      if (!searchTerm) return true;
       return (
-        `${user.firstName} ${user.lastName}`.toLowerCase().includes(term) ||
-        user.email.toLowerCase().includes(term)
+        normalizedIncludes(`${user.firstName} ${user.lastName}`, searchTerm) ||
+        normalizedIncludes(user.email, searchTerm)
       );
     }
   );

@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface BillingStats {
   totalRevenue: number;
@@ -79,20 +80,18 @@ export default function AdminBillingPage() {
 
   const filteredPayments = stats?.recentPayments?.filter((payment: any) => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
     return (
-      payment.patientName.toLowerCase().includes(query) ||
-      payment.description?.toLowerCase().includes(query) ||
-      payment.paymentMethod?.toLowerCase().includes(query)
+      normalizedIncludes(payment.patientName || '', searchQuery) ||
+      normalizedIncludes(payment.description || '', searchQuery) ||
+      normalizedIncludes(payment.paymentMethod || '', searchQuery)
     );
   });
 
   const filteredInvoices = stats?.pendingInvoices?.filter((invoice: any) => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
     return (
-      invoice.patientName.toLowerCase().includes(query) ||
-      invoice.stripeInvoiceNumber?.toLowerCase().includes(query)
+      normalizedIncludes(invoice.patientName || '', searchQuery) ||
+      normalizedIncludes(invoice.stripeInvoiceNumber || '', searchQuery)
     );
   });
 

@@ -39,6 +39,7 @@ import {
 import { useNotificationContext } from './NotificationProvider';
 import type { Notification, NotificationCategory } from '@/hooks/useNotifications';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // ============================================================================
 // Category Configuration
@@ -307,12 +308,9 @@ export default function NotificationCenter({
     }
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase().trim();
-      if (query) {
-        result = result.filter(
-          (n) => n.title.toLowerCase().includes(query) || n.message.toLowerCase().includes(query)
-        );
-      }
+      result = result.filter(
+        (n) => normalizedIncludes(n.title, searchQuery) || normalizedIncludes(n.message, searchQuery)
+      );
     }
 
     return result;

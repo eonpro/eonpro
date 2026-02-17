@@ -12,6 +12,7 @@ import {
   Filter,
   Clock,
 } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Document {
   id: string;
@@ -120,8 +121,8 @@ export default function StaffDocumentsPage() {
 
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch =
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.patientName.toLowerCase().includes(searchTerm.toLowerCase());
+      normalizedIncludes(doc.name || '', searchTerm) ||
+      normalizedIncludes(doc.patientName || '', searchTerm);
     const matchesCategory = filterCategory === 'all' || doc.category === filterCategory;
     const matchesStatus = filterStatus === 'all' || doc.status === filterStatus;
     return matchesSearch && matchesCategory && matchesStatus;

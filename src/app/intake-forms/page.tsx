@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // Icons
 const CheckIcon = () => (
@@ -366,9 +367,8 @@ export default function IntakeFormsPage() {
   // Filtered templates based on search and filter
   const filteredTemplates = templates.filter((template: any) => {
     const matchesSearch =
-      searchQuery.toLowerCase() === '' ||
-      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      normalizedIncludes(template.name || '', searchQuery) ||
+      normalizedIncludes(template.description || '', searchQuery);
 
     const matchesFilter = filterType === 'all' || template.treatmentType === filterType;
 

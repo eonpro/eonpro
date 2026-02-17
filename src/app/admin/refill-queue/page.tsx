@@ -19,6 +19,7 @@ import {
   Package,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface RefillPatient {
   id: number;
@@ -373,13 +374,16 @@ export default function AdminRefillQueuePage() {
 
   const filteredRefills = refills.filter((r) => {
     if (!searchQuery) return true;
-    const search = searchQuery.toLowerCase();
     const patientName = r.patient
-      ? `${r.patient.firstName} ${r.patient.lastName}`.toLowerCase()
+      ? `${r.patient.firstName} ${r.patient.lastName}`
       : '';
-    const email = r.patient?.email?.toLowerCase() || '';
-    const medication = r.medicationName?.toLowerCase() || '';
-    return patientName.includes(search) || email.includes(search) || medication.includes(search);
+    const email = r.patient?.email || '';
+    const medication = r.medicationName || '';
+    return (
+      normalizedIncludes(patientName, searchQuery) ||
+      normalizedIncludes(email, searchQuery) ||
+      normalizedIncludes(medication, searchQuery)
+    );
   });
 
   if (loading) {

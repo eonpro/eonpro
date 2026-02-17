@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface SOAPNote {
   id: number;
@@ -190,9 +191,9 @@ export default function ProviderSOAPNotesPage() {
 
   const filteredNotes = soapNotes.filter((note) => {
     const matchesSearch =
-      note.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.subjective?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      note.assessment?.toLowerCase().includes(searchTerm.toLowerCase());
+      normalizedIncludes(note.patientName || '', searchTerm) ||
+      normalizedIncludes(note.subjective || '', searchTerm) ||
+      normalizedIncludes(note.assessment || '', searchTerm);
 
     let matchesFilter = filterStatus === 'all';
     if (filterStatus === 'draft') matchesFilter = note.status === 'DRAFT';

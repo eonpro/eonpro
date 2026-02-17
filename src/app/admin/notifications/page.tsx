@@ -29,6 +29,7 @@ import {
 import { useNotificationContext, NotificationSettings } from '@/components/notifications';
 import type { Notification, NotificationCategory } from '@/hooks/useNotifications';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // ============================================================================
 // Category Configuration
@@ -139,8 +140,7 @@ export default function AdminNotificationsPage() {
     if (showUnreadOnly && n.isRead) return false;
     // Search filter
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return n.title.toLowerCase().includes(query) || n.message.toLowerCase().includes(query);
+    return normalizedIncludes(n.title, searchQuery) || normalizedIncludes(n.message, searchQuery);
   });
 
   // Toggle selection

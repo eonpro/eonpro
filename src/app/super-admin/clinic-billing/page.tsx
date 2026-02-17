@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface ClinicFeeConfig {
   id: number;
@@ -183,8 +184,8 @@ export default function ClinicBillingPage() {
 
   const filteredClinics = clinics.filter(
     (c) =>
-      c.clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.clinic.adminEmail.toLowerCase().includes(searchTerm.toLowerCase())
+      normalizedIncludes(c.clinic.name, searchTerm) ||
+      normalizedIncludes(c.clinic.adminEmail, searchTerm)
   );
 
   return (

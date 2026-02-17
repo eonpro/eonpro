@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, GitMerge, Loader2, AlertTriangle, Check, ArrowRight, Search, User } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // Types for the merge preview
 interface RelationCounts {
@@ -190,15 +191,14 @@ export default function MergePatientModal({
           );
           if (recentResponse.ok) {
             const recentData = await recentResponse.json();
-            const queryLower = query.toLowerCase();
             filtered = (recentData.patients || []).filter((p: PatientSummary) => {
               if (p.id === sourcePatient.id) return false;
-              const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
-              const patientIdMatch = (p.patientId || '').toLowerCase().includes(queryLower);
+              const fullName = `${p.firstName} ${p.lastName}`;
+              const patientIdMatch = normalizedIncludes(p.patientId || '', query);
               const nameMatch =
-                fullName.includes(queryLower) ||
-                p.firstName?.toLowerCase().includes(queryLower) ||
-                p.lastName?.toLowerCase().includes(queryLower);
+                normalizedIncludes(fullName, query) ||
+                normalizedIncludes(p.firstName || '', query) ||
+                normalizedIncludes(p.lastName || '', query);
               return patientIdMatch || nameMatch;
             });
           }

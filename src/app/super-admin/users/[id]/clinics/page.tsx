@@ -24,6 +24,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Clinic {
   id: number;
@@ -286,8 +287,8 @@ export default function UserClinicsPage() {
     .filter((clinic) => !userClinics.some((uc) => uc.clinicId === clinic.id))
     .filter(
       (clinic) =>
-        clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        clinic.subdomain.toLowerCase().includes(searchTerm.toLowerCase())
+        normalizedIncludes(clinic.name, searchTerm) ||
+        normalizedIncludes(clinic.subdomain, searchTerm)
     );
 
   if (loading) {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Package, Search, Truck, CheckCircle, Clock, AlertCircle, DollarSign } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Order {
   id: string;
@@ -125,8 +126,8 @@ export default function StaffOrdersPage() {
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
-      order.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase());
+      normalizedIncludes(order.patientName || '', searchTerm) ||
+      normalizedIncludes(order.id || '', searchTerm);
     const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
     const matchesType = filterType === 'all' || order.type === filterType;
     return matchesSearch && matchesStatus && matchesType;

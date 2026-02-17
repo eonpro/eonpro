@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { HelpCircle, ChevronDown, ChevronUp, Search, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface FAQ {
   id: string;
@@ -104,8 +105,8 @@ export default function FAQsPage() {
 
   const filteredFAQs = mockFAQs.filter((faq) => {
     const matchesSearch =
-      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
+      normalizedIncludes(faq.question || '', searchQuery) ||
+      normalizedIncludes(faq.answer || '', searchQuery);
     const matchesCategory = selectedCategory === 'All' || faq.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });

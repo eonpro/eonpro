@@ -14,6 +14,7 @@ import {
   Inbox,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Message {
   id: number;
@@ -118,7 +119,7 @@ export default function ProviderMessagesPage() {
   }, [selectedMessage]);
 
   const filteredMessages = messages.filter((msg) => {
-    const matchesSearch = msg.patientName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = normalizedIncludes(msg.patientName, searchTerm);
     const matchesFilter =
       filter === 'all' ||
       (filter === 'unread' && msg.unread) ||

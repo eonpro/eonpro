@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Search, RefreshCw, User, Calendar, Filter } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface AuditLog {
   id: number;
@@ -52,15 +53,14 @@ export default function AuditLogsPage() {
   }, [fetchLogs]);
 
   const filteredLogs = logs.filter((log) => {
-    if (filterAction !== 'all' && !log.action.toLowerCase().includes(filterAction)) {
+    if (filterAction !== 'all' && !normalizedIncludes(log.action || '', filterAction)) {
       return false;
     }
     if (searchTerm) {
-      const search = searchTerm.toLowerCase();
       return (
-        log.action.toLowerCase().includes(search) ||
-        log.tableName.toLowerCase().includes(search) ||
-        log.recordId.toLowerCase().includes(search)
+        normalizedIncludes(log.action || '', searchTerm) ||
+        normalizedIncludes(log.tableName || '', searchTerm) ||
+        normalizedIncludes(log.recordId || '', searchTerm)
       );
     }
     return true;

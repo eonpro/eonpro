@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 import {
   Settings,
   Building2,
@@ -608,8 +609,8 @@ export default function AdminSettingsPage() {
   const filteredUsers = users.filter(
     (u) =>
       !userSearch ||
-      u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearch.toLowerCase())
+      normalizedIncludes(u.email, userSearch) ||
+      normalizedIncludes(`${u.firstName} ${u.lastName}`, userSearch)
   );
 
   const roleOptions = [

@@ -49,6 +49,22 @@ export function splitSearchTerms(query: string): string[] {
   return normalizeSearch(query).split(' ').filter(Boolean);
 }
 
+/**
+ * Drop-in replacement for `.toLowerCase().includes(searchTerm.toLowerCase())`.
+ * Normalizes BOTH sides (trim, collapse whitespace, lowercase) before comparing.
+ *
+ * Use this in every client-side filter to make search whitespace-proof.
+ *
+ * @example
+ * normalizedIncludes('Becky Heinrich', '  becky   heinrich  ') // true
+ * normalizedIncludes('Becky Heinrich', 'becky heinrich ')       // true
+ * normalizedIncludes('Becky Heinrich', 'heinrich')              // true
+ */
+export function normalizedIncludes(text: string, search: string): boolean {
+  if (!search || !search.trim()) return true;
+  return normalizeSearch(text || '').includes(normalizeSearch(search));
+}
+
 // ============================================================================
 // Fuzzy Matching
 // ============================================================================

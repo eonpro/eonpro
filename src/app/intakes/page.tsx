@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 const formatter = new Intl.DateTimeFormat('en-US', {
   dateStyle: 'medium',
@@ -71,17 +72,16 @@ export default function IntakesPage() {
       const patient = doc.patient;
       if (!patient) return false;
 
-      const searchLower = searchTerm.toLowerCase();
-      const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
-      const email = (patient.email || '').toLowerCase();
+      const fullName = `${patient.firstName} ${patient.lastName}`;
+      const email = patient.email || '';
       const patientId = String(patient.patientId || patient.id || '');
       const phone = patient.phone || '';
 
       return (
-        fullName.includes(searchLower) ||
-        email.includes(searchLower) ||
-        patientId.includes(searchTerm) ||
-        phone.includes(searchTerm)
+        normalizedIncludes(fullName, searchTerm) ||
+        normalizedIncludes(email, searchTerm) ||
+        normalizedIncludes(patientId, searchTerm) ||
+        normalizedIncludes(phone, searchTerm)
       );
     });
 

@@ -12,6 +12,7 @@ import {
   Star,
   Clock,
 } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Resource {
   id: string;
@@ -155,9 +156,9 @@ export default function ProviderResourcesPage() {
 
   const filteredResources = resources.filter((resource) => {
     const matchesSearch =
-      resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      resource.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+      normalizedIncludes(resource.title, searchTerm) ||
+      normalizedIncludes(resource.description, searchTerm) ||
+      resource.tags.some((tag) => normalizedIncludes(tag, searchTerm));
     const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });

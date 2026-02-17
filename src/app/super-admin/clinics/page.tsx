@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, Plus, Search, Filter, Globe, Users, Edit, Eye, Settings } from 'lucide-react';
 import { apiGet } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Clinic {
   id: number;
@@ -57,9 +58,9 @@ export default function ClinicsListPage() {
 
   const filteredClinics = clinics.filter((clinic) => {
     const matchesSearch =
-      clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clinic.subdomain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      clinic.adminEmail.toLowerCase().includes(searchTerm.toLowerCase());
+      normalizedIncludes(clinic.name, searchTerm) ||
+      normalizedIncludes(clinic.subdomain, searchTerm) ||
+      normalizedIncludes(clinic.adminEmail, searchTerm);
     const matchesStatus = statusFilter === 'all' || clinic.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

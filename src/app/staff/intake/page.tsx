@@ -12,6 +12,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import Link from 'next/link';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface IntakeForm {
   id: string;
@@ -105,7 +106,7 @@ export default function StaffIntakePage() {
   };
 
   const filteredForms = intakeForms.filter((form) => {
-    const matchesSearch = form.patientName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = normalizedIncludes(form.patientName || '', searchTerm);
     const matchesStatus = filterStatus === 'all' || form.status === filterStatus;
     const matchesPriority = filterPriority === 'all' || form.priority === filterPriority;
     return matchesSearch && matchesStatus && matchesPriority;

@@ -19,6 +19,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // ============================================================================
 // Landing Page URL Builder — resolved per clinic from the current hostname
@@ -232,9 +233,9 @@ export default function AdminAffiliatesPage() {
 
   const filteredAffiliates = affiliates.filter(
     (a) =>
-      a.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.refCodes.some((r) => r.refCode.toLowerCase().includes(searchQuery.toLowerCase()))
+      normalizedIncludes(a.displayName, searchQuery) ||
+      normalizedIncludes(a.user.email, searchQuery) ||
+      a.refCodes.some((r) => normalizedIncludes(r.refCode, searchQuery))
   );
 
   const statusColors: Record<string, string> = {

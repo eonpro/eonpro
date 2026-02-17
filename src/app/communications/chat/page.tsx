@@ -5,6 +5,7 @@ import ChatWidget from '@/components/twilio/ChatWidget';
 import { Feature } from '@/components/Feature';
 import { MessageCircle, Users, Search, Filter, Circle, Star } from 'lucide-react';
 import { ChatUserType } from '@/lib/integrations/twilio/chatConfig';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // Sample data for demo - using static dates to avoid hydration issues
 const baseTime = new Date('2024-11-25T10:00:00Z');
@@ -60,8 +61,8 @@ export default function ChatManagementPage() {
   // Filter conversations based on search and filters
   const filteredConversations = sampleConversations.filter((conv: any) => {
     const matchesSearch =
-      conv.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      conv.lastMessage.toLowerCase().includes(searchTerm.toLowerCase());
+      normalizedIncludes(conv.patientName || '', searchTerm) ||
+      normalizedIncludes(conv.lastMessage || '', searchTerm);
     const matchesPriority = !filterPriority || conv.priority;
     const matchesUnread = !filterUnread || conv.unreadCount > 0;
 

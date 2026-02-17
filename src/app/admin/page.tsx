@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { normalizedIncludes } from '@/lib/utils/search';
 import {
   Search,
   Clock,
@@ -206,13 +207,12 @@ export default function AdminPage() {
   const filteredIntakes = recentIntakes
     .filter((patient) => {
       if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
       return (
-        patient.firstName?.toLowerCase().includes(query) ||
-        patient.lastName?.toLowerCase().includes(query) ||
-        patient.email?.toLowerCase().includes(query) ||
-        patient.phone?.includes(query) ||
-        patient.id?.toString().includes(query)
+        normalizedIncludes(patient.firstName || '', searchQuery) ||
+        normalizedIncludes(patient.lastName || '', searchQuery) ||
+        normalizedIncludes(patient.email || '', searchQuery) ||
+        normalizedIncludes(patient.phone || '', searchQuery) ||
+        normalizedIncludes(patient.id?.toString() || '', searchQuery)
       );
     })
     .slice(0, 8);

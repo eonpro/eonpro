@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface PatientIntake {
   id: number;
@@ -150,16 +151,14 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
   const filteredIntakes = recentIntakes.filter((patient) => {
     if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
     return (
-      patient.firstName?.toLowerCase().includes(query) ||
-      patient.lastName?.toLowerCase().includes(query) ||
-      patient.email?.toLowerCase().includes(query) ||
-      patient.phone?.includes(query) ||
-      patient.id?.toString().includes(query) ||
-      patient.tags?.some((tag) => tag.toLowerCase().includes(query)) ||
-      patient.address?.toLowerCase().includes(query)
+      normalizedIncludes(patient.firstName || '', searchQuery) ||
+      normalizedIncludes(patient.lastName || '', searchQuery) ||
+      normalizedIncludes(patient.email || '', searchQuery) ||
+      normalizedIncludes(patient.phone || '', searchQuery) ||
+      patient.id?.toString().includes(searchQuery) ||
+      patient.tags?.some((tag) => normalizedIncludes(tag, searchQuery)) ||
+      normalizedIncludes(patient.address || '', searchQuery)
     );
   });
 

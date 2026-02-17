@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Book, Search, FileText, Video, Download, ExternalLink } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Article {
   id: string;
@@ -93,8 +94,8 @@ export default function KnowledgeBasePage() {
 
   const filteredArticles = articles.filter((article) => {
     const matchesSearch =
-      article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.description.toLowerCase().includes(searchQuery.toLowerCase());
+      normalizedIncludes(article.title || '', searchQuery) ||
+      normalizedIncludes(article.description || '', searchQuery);
     const matchesCategory = selectedCategory === 'All' || article.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });

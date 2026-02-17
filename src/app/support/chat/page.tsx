@@ -11,6 +11,7 @@ import {
   Search,
   Circle,
 } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Chat {
   id: string;
@@ -114,8 +115,8 @@ export default function SupportChatPage() {
 
   const filteredChats = mockChats.filter(
     (chat) =>
-      chat.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      chat.customer.email.toLowerCase().includes(searchQuery.toLowerCase())
+      normalizedIncludes(chat.customer.name || '', searchQuery) ||
+      normalizedIncludes(chat.customer.email || '', searchQuery)
   );
 
   const handleSendMessage = () => {

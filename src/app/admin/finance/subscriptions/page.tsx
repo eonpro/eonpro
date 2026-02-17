@@ -27,6 +27,7 @@ import {
   Legend,
 } from 'recharts';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface SubscriptionMetrics {
   activeSubscriptions: number;
@@ -240,8 +241,8 @@ export default function SubscriptionsPage() {
   const filteredSubscriptions = mockSubscriptions.filter(
     (sub) =>
       (statusFilter === 'all' || sub.status === statusFilter) &&
-      (sub.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sub.planName?.toLowerCase().includes(searchQuery.toLowerCase()))
+      (normalizedIncludes(sub.patientName, searchQuery) ||
+        normalizedIncludes(sub.planName || '', searchQuery))
   );
 
   if (loading) {

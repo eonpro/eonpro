@@ -17,6 +17,7 @@ import {
   Play,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface UnmatchedPayment {
   id: number;
@@ -188,9 +189,9 @@ export default function ReconciliationPage() {
   const filteredPayments = unmatchedPayments.filter(
     (p) =>
       p.status === 'pending' &&
-      (p.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.stripePaymentId.toLowerCase().includes(searchQuery.toLowerCase()))
+      (normalizedIncludes(p.email, searchQuery) ||
+        normalizedIncludes(p.name || '', searchQuery) ||
+        normalizedIncludes(p.stripePaymentId, searchQuery))
   );
 
   const toggleSelectPayment = (id: number) => {

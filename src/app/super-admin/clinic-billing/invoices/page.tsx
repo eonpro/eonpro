@@ -18,6 +18,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Invoice {
   id: number;
@@ -245,8 +246,8 @@ export default function InvoicesPage() {
 
   const filteredInvoices = invoices.filter(
     (inv) =>
-      inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.clinic.name.toLowerCase().includes(searchTerm.toLowerCase())
+      normalizedIncludes(inv.invoiceNumber, searchTerm) ||
+      normalizedIncludes(inv.clinic.name, searchTerm)
   );
 
   // Preset date ranges

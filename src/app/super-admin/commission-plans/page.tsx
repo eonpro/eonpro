@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Clinic {
   id: number;
@@ -266,8 +267,8 @@ export default function SuperAdminCommissionPlansPage() {
   // Filter plans
   const filteredPlans = plans.filter((p) => {
     const matchesSearch =
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      normalizedIncludes(p.name, searchQuery) ||
+      (p.description && normalizedIncludes(p.description, searchQuery));
     const matchesClinic = selectedClinic === 'all' || p.clinicId === selectedClinic;
     return matchesSearch && matchesClinic;
   });

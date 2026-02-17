@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { normalizedIncludes } from '@/lib/utils/search';
 import {
   Home,
   Users,
@@ -394,13 +395,12 @@ function HomePageInner() {
   const filteredIntakes = recentIntakes
     .filter((patient) => {
       if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
       return (
-        patient.firstName?.toLowerCase().includes(query) ||
-        patient.lastName?.toLowerCase().includes(query) ||
-        patient.email?.toLowerCase().includes(query) ||
-        patient.phone?.includes(query) ||
-        patient.id?.toString().includes(query)
+        normalizedIncludes(patient.firstName || '', searchQuery) ||
+        normalizedIncludes(patient.lastName || '', searchQuery) ||
+        normalizedIncludes(patient.email || '', searchQuery) ||
+        normalizedIncludes(patient.phone || '', searchQuery) ||
+        normalizedIncludes(patient.id?.toString() || '', searchQuery)
       );
     })
     .slice(0, 8); // Limit to 8 items

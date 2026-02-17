@@ -12,6 +12,7 @@ import {
   MapPin,
   Shield,
 } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Customer {
   id: string;
@@ -103,8 +104,8 @@ export default function CustomersPage() {
 
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
-      customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+      normalizedIncludes(customer.name || '', searchQuery) ||
+      normalizedIncludes(customer.email || '', searchQuery);
     const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
     const matchesTier = filterTier === 'all' || customer.tier === filterTier;
     return matchesSearch && matchesStatus && matchesTier;

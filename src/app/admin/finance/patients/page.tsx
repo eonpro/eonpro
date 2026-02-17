@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { normalizedIncludes } from '@/lib/utils/search';
 import Link from 'next/link';
 import {
   Users,
@@ -283,8 +284,8 @@ export default function PatientFinancePage() {
 
   const filteredAtRisk = displayData.atRisk.filter(
     (p) =>
-      p.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchQuery.toLowerCase())
+      normalizedIncludes(p.patientName, searchQuery) ||
+      normalizedIncludes(p.email, searchQuery)
   );
 
   return (

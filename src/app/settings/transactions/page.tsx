@@ -22,6 +22,7 @@ import {
   PieChart,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 type TransactionCategory =
   | 'new_patient'
@@ -169,14 +170,13 @@ export default function TransactionsPage() {
 
     // Filter by search term
     if (searchTerm) {
-      const search = searchTerm.toLowerCase();
       return (
-        tx.id.toLowerCase().includes(search) ||
-        tx.customerEmail?.toLowerCase().includes(search) ||
-        tx.customerName?.toLowerCase().includes(search) ||
-        tx.description?.toLowerCase().includes(search) ||
-        tx.categoryLabel?.toLowerCase().includes(search) ||
-        tx.productName?.toLowerCase().includes(search)
+        normalizedIncludes(tx.id || '', searchTerm) ||
+        normalizedIncludes(tx.customerEmail || '', searchTerm) ||
+        normalizedIncludes(tx.customerName || '', searchTerm) ||
+        normalizedIncludes(tx.description || '', searchTerm) ||
+        normalizedIncludes(tx.categoryLabel || '', searchTerm) ||
+        normalizedIncludes(tx.productName || '', searchTerm)
       );
     }
 

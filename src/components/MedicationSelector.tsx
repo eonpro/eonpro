@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { MEDS, MedicationConfig } from '@/lib/medications';
 import { getMedicationCategory } from '@/lib/medications-enhanced';
 import { ChevronDown, Search, X, Check, AlertTriangle, Pill } from 'lucide-react';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // Category configuration with colors and icons
 const CATEGORY_CONFIG: Record<
@@ -244,15 +245,12 @@ export default function MedicationSelector({
 
     // Filter by search
     if (searchTerm) {
-      const search = searchTerm.toLowerCase().trim();
-      if (search) {
-        filtered = filtered.filter(
-          (m) =>
-            m.name.toLowerCase().includes(search) ||
-            m.displayName.toLowerCase().includes(search) ||
-            m.strength.toLowerCase().includes(search)
-        );
-      }
+      filtered = filtered.filter(
+        (m) =>
+          normalizedIncludes(m.name, searchTerm) ||
+          normalizedIncludes(m.displayName, searchTerm) ||
+          normalizedIncludes(m.strength, searchTerm)
+      );
     }
 
     return filtered;

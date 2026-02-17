@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { logger } from '../lib/logger';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 import {
   Ticket,
@@ -382,12 +383,10 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
 
   const filteredTickets = tickets.filter((ticket) => {
     if (filters.search) {
-      const searchTerm = filters.search.toLowerCase().trim();
-      if (!searchTerm) return true;
       if (
-        !ticket.title.toLowerCase().includes(searchTerm) &&
-        !ticket.description.toLowerCase().includes(searchTerm) &&
-        !ticket.ticketNumber.toLowerCase().includes(searchTerm)
+        !normalizedIncludes(ticket.title, filters.search) &&
+        !normalizedIncludes(ticket.description, filters.search) &&
+        !normalizedIncludes(ticket.ticketNumber, filters.search)
       ) {
         return false;
       }
@@ -614,11 +613,10 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
                           ? 'Loading...'
                           : `Found ${
                               patients.filter((p) => {
-                                const s = patientSearchTerm.toLowerCase();
                                 return (
-                                  p.firstName.toLowerCase().includes(s) ||
-                                  p.lastName.toLowerCase().includes(s) ||
-                                  p.email.toLowerCase().includes(s)
+                                  normalizedIncludes(p.firstName, patientSearchTerm) ||
+                                  normalizedIncludes(p.lastName, patientSearchTerm) ||
+                                  normalizedIncludes(p.email, patientSearchTerm)
                                 );
                               }).length
                             } client(s)`}
@@ -642,12 +640,11 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
                         10,
                         patients.filter((patient) => {
                           if (!patientSearchTerm) return true;
-                          const search = patientSearchTerm.toLowerCase();
                           return (
-                            patient.firstName.toLowerCase().includes(search) ||
-                            patient.lastName.toLowerCase().includes(search) ||
-                            patient.email.toLowerCase().includes(search) ||
-                            patient.id.toString().includes(search)
+                            normalizedIncludes(patient.firstName, patientSearchTerm) ||
+                            normalizedIncludes(patient.lastName, patientSearchTerm) ||
+                            normalizedIncludes(patient.email, patientSearchTerm) ||
+                            patient.id.toString().includes(patientSearchTerm)
                           );
                         }).length + 1
                       )}
@@ -659,24 +656,23 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
                         patients
                           .filter((patient) => {
                             if (!patientSearchTerm) return true;
-                            const search = patientSearchTerm.toLowerCase();
                             return (
-                              patient.firstName.toLowerCase().includes(search) ||
-                              patient.lastName.toLowerCase().includes(search) ||
-                              patient.email.toLowerCase().includes(search) ||
-                              patient.id.toString().includes(search)
+                              normalizedIncludes(patient.firstName, patientSearchTerm) ||
+                              normalizedIncludes(patient.lastName, patientSearchTerm) ||
+                              normalizedIncludes(patient.email, patientSearchTerm) ||
+                              patient.id.toString().includes(patientSearchTerm)
                             );
                           })
                           .sort((a, b) => {
                             // If searching, sort by relevance (exact match first)
                             if (patientSearchTerm) {
-                              const search = patientSearchTerm.toLowerCase();
+                              const searchNormalized = patientSearchTerm.toLowerCase().trim();
                               const aName = `${a.firstName} ${a.lastName}`.toLowerCase();
                               const bName = `${b.firstName} ${b.lastName}`.toLowerCase();
 
                               // Exact match first
-                              if (aName.startsWith(search) && !bName.startsWith(search)) return -1;
-                              if (!aName.startsWith(search) && bName.startsWith(search)) return 1;
+                              if (aName.startsWith(searchNormalized) && !bName.startsWith(searchNormalized)) return -1;
+                              if (!aName.startsWith(searchNormalized) && bName.startsWith(searchNormalized)) return 1;
                             }
                             // Then sort by ID descending (most recent first)
                             return b.id - a.id;

@@ -29,6 +29,7 @@ import {
 import { FileUploader } from '@/components/aws/FileUploader';
 import { FileCategory, FileAccessLevel } from '@/lib/integrations/aws/s3Config';
 import { Feature } from '@/components/Feature';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Document {
   id: string;
@@ -90,9 +91,9 @@ export default function DocumentManagementPage() {
   // Filter documents
   const filteredDocuments = documents.filter((doc: any) => {
     const matchesSearch =
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.tags?.some((tag: any) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      normalizedIncludes(doc.name || '', searchQuery) ||
+      normalizedIncludes(doc.patientName || '', searchQuery) ||
+      doc.tags?.some((tag: any) => normalizedIncludes(tag || '', searchQuery));
 
     const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
     const matchesAccess = selectedAccessLevel === 'all' || doc.accessLevel === selectedAccessLevel;

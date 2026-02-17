@@ -19,6 +19,7 @@ import type {
   PermissionCategoryDef,
 } from '@/lib/auth/permissions';
 import { PERMISSION_META, FEATURES } from '@/lib/auth/permissions';
+import { normalizedIncludes } from '@/lib/utils/search';
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -414,15 +415,14 @@ export default function PermissionMatrix({
 
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return categories;
-    const q = searchQuery.toLowerCase();
     return categories
       .map((cat) => ({
         ...cat,
         permissions: cat.permissions.filter(
           (p) =>
-            p.label.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q) ||
-            p.value.toLowerCase().includes(q),
+            normalizedIncludes(p.label, searchQuery) ||
+            normalizedIncludes(p.description, searchQuery) ||
+            normalizedIncludes(p.value, searchQuery),
         ),
       }))
       .filter((cat) => cat.permissions.length > 0);
@@ -430,13 +430,12 @@ export default function PermissionMatrix({
 
   const filteredFeatures = useMemo(() => {
     if (!searchQuery.trim()) return features;
-    const q = searchQuery.toLowerCase();
     return features.filter((f) => {
       const meta = Object.values(FEATURES).find((feat) => feat.id === f.featureId);
       return (
-        f.featureId.toLowerCase().includes(q) ||
-        meta?.name.toLowerCase().includes(q) ||
-        meta?.description.toLowerCase().includes(q)
+        normalizedIncludes(f.featureId, searchQuery) ||
+        (meta?.name && normalizedIncludes(meta.name, searchQuery)) ||
+        (meta?.description && normalizedIncludes(meta.description, searchQuery))
       );
     });
   }, [features, searchQuery]);
