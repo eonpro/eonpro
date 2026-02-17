@@ -751,6 +751,17 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   // ========================================
   // Wellmedr-specific: fix corrupted address when combined string is present
   // (Airtable / intake often sends apt in city, state in zip for addresses with apartment numbers)
+  //
+  // When an address has an apartment/unit, Airtable's naive comma split shifts all fields:
+  //   "123 Main St, Apt 4B, City, State, 12345" becomes:
+  //   address1="123 Main St", city="Apt 4B", state="City", zip="State"
+  //
+  // Detection checks:
+  //   1. City looks like an apartment/unit string
+  //   2. ZIP looks like a state name (not a valid ZIP)
+  //   3. State looks like a ZIP code
+  //   4. State looks like a city name (not a state and not a ZIP, > 2 chars)
+  //      combined with ZIP not being a valid ZIP code
   // ========================================
   const rawCombined =
     (typeof payload['shipping_address'] === 'string' && payload['shipping_address'].trim()) ||
@@ -761,8 +772,13 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   const cityLooksLikeApt = patient.city ? isApartmentString(patient.city) : false;
   const zipLooksLikeState = patient.zip ? isStateName(patient.zip) && !isZipCode(patient.zip) : false;
   const stateLooksLikeZip = patient.state ? isZipCode(patient.state) : false;
+  const stateLooksLikeCity = patient.state
+    ? (!isStateName(patient.state) && !isZipCode(patient.state) && patient.state.length > 2)
+    : false;
+  const zipNotValidCode = patient.zip ? (!isZipCode(patient.zip) && patient.zip.length > 0) : false;
   const addressLooksCorrupted =
-    cityLooksLikeApt || zipLooksLikeState || stateLooksLikeZip;
+    cityLooksLikeApt || zipLooksLikeState || stateLooksLikeZip ||
+    (stateLooksLikeCity && zipNotValidCode);
 
   if (
     combinedForCorrection &&
@@ -778,6 +794,10 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
       patient.zip = parsed.zip || '';
       logger.info('[Wellmedr Normalizer] Address corrected from combined string (corrupted fields)', {
         hadCorruption: true,
+        cityLooksLikeApt,
+        zipLooksLikeState,
+        stateLooksLikeCity,
+        zipNotValidCode,
         city: patient.city,
         state: patient.state,
         zip: patient.zip,

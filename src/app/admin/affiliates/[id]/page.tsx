@@ -25,13 +25,12 @@ import {
 import { apiFetch } from '@/lib/api/fetch';
 
 // ============================================================================
-// Landing Page URL Builder
+// Landing Page URL Builder — resolved per clinic from the current hostname
 // ============================================================================
 
-const LANDING_PAGE_BASE = 'https://ot.eonpro.io/affiliate';
-
 function buildLandingPageUrl(refCode: string): string {
-  return `${LANDING_PAGE_BASE}/${encodeURIComponent(refCode)}`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${origin}/affiliate/${encodeURIComponent(refCode)}`;
 }
 
 interface AffiliateDetail {

@@ -19,7 +19,11 @@ export { Prisma } from '@prisma/client';
 
 // Use AsyncLocalStorage for request-scoped clinic context
 // This prevents race conditions in serverless environments
-const clinicContextStorage = new AsyncLocalStorage<{ clinicId?: number }>();
+const clinicContextStorage = new AsyncLocalStorage<{
+  clinicId?: number;
+  /** When true, clinic-isolated queries are allowed without a clinicId (super-admin / cross-tenant operations). */
+  bypassFilter?: boolean;
+}>();
 
 const globalForPrisma = global as unknown as {
   prisma?: PrismaClient;
@@ -440,10 +444,18 @@ class PrismaWithClinicFilter {
   }
 
   /**
-   * Check if clinic filter should be bypassed
-   * SECURITY: Only allowed in non-production environments
+   * Check if clinic filter should be bypassed.
+   * Returns true when:
+   *   1. withoutClinicFilter() set the explicit bypassFilter flag (safe for super-admin cross-tenant ops), OR
+   *   2. BYPASS_CLINIC_FILTER env var is set (dev-only — blocked in production).
    */
   private shouldBypassFilter(): boolean {
+    // Check AsyncLocalStorage for explicit bypass (set by withoutClinicFilter)
+    const store = clinicContextStorage.getStore();
+    if (store?.bypassFilter === true) {
+      return true;
+    }
+
     if (process.env.BYPASS_CLINIC_FILTER === 'true') {
       if (process.env.NODE_ENV === 'production') {
         logger.security('CRITICAL: BYPASS_CLINIC_FILTER attempted in production - BLOCKED', {
@@ -1327,9 +1339,13 @@ export async function withClinicContext<T>(
 /**
  * Execute queries without clinic filtering (thread-safe)
  * DANGEROUS: Only use for super admin operations
+ *
+ * Sets an explicit bypassFilter flag so the tenant enforcement layer
+ * allows clinic-isolated queries without a clinicId. This is distinct
+ * from "no context set" (which correctly throws TENANT_CONTEXT_REQUIRED).
  */
 export async function withoutClinicFilter<T>(callback: () => Promise<T>): Promise<T> {
-  return clinicContextStorage.run({ clinicId: undefined }, callback);
+  return clinicContextStorage.run({ clinicId: undefined, bypassFilter: true }, callback);
 }
 
 /**

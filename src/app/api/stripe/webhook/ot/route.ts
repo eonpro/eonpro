@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { OT_STRIPE_CONFIG } from '@/lib/stripe/config';
 
 // OT clinic subdomain for identification
@@ -139,17 +139,20 @@ export async function POST(request: NextRequest) {
     const { autoMatchPendingRefillsForPatient } =
       await import('@/services/refill/refillQueueService');
 
-    // Process the event
-    const result = await processOTWebhookEvent(event, clinicId, {
-      processStripePayment,
-      extractPaymentDataFromCharge,
-      extractPaymentDataFromPaymentIntent,
-      extractPaymentDataFromCheckoutSession,
-      processPaymentForCommission,
-      reverseCommissionForRefund,
-      checkIfFirstPayment,
-      autoMatchPendingRefillsForPatient,
-    });
+    // Process the event within the OT clinic context so tenant-isolated
+    // queries (patient, invoice, etc.) resolve correctly.
+    const result = await runWithClinicContext(clinicId, () =>
+      processOTWebhookEvent(event, clinicId, {
+        processStripePayment,
+        extractPaymentDataFromCharge,
+        extractPaymentDataFromPaymentIntent,
+        extractPaymentDataFromCheckoutSession,
+        processPaymentForCommission,
+        reverseCommissionForRefund,
+        checkIfFirstPayment,
+        autoMatchPendingRefillsForPatient,
+      })
+    );
 
     const duration = Date.now() - startTime;
 

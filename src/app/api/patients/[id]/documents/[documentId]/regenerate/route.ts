@@ -60,7 +60,18 @@ export const POST = withAuthParams(
           id: documentId,
           patientId: patientId,
         },
-        include: {
+        select: {
+          id: true,
+          patientId: true,
+          clinicId: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          createdAt: true,
+          data: true,
+          externalUrl: true,
+          source: true,
+          sourceSubmissionId: true,
           patient: true,
         },
       });

@@ -331,12 +331,16 @@ export function extractAddressFromPayload(
   ).trim();
 
   // Detect corrupted individual components (e.g. from bad Airtable mapping when address has apt)
-  // City filled with apt text, state missing and zip has state code, or zip is state abbreviation
+  // When an address has an apartment/unit, Airtable's naive comma split shifts all fields:
+  //   apt → city, city → state, state → zip, zip → lost
   const cityLooksLikeApt = city ? isApartmentString(city) : false;
   const zipLooksLikeState = zip ? isStateName(zip) && !isZipCode(zip) : false;
   const stateLooksLikeZip = state ? isZipCode(state) : false;
+  const stateLooksLikeCity = state ? (!isStateName(state) && !isZipCode(state) && state.length > 2) : false;
+  const zipNotValid = zip ? (!isZipCode(zip) && zip.length > 0) : false;
   const individualComponentsLookCorrupted =
-    cityLooksLikeApt || zipLooksLikeState || stateLooksLikeZip;
+    cityLooksLikeApt || zipLooksLikeState || stateLooksLikeZip ||
+    (stateLooksLikeCity && zipNotValid);
 
   // If we have a parseable combined address and individual fields look wrong, prefer parsing
   if (

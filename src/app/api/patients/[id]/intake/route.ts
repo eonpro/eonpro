@@ -21,11 +21,25 @@ export const GET = withAuthParams(
       }
 
       // Find the intake document
+      // Use explicit select to avoid referencing columns not yet in production (e.g. s3DataKey)
       const intakeDoc = await prisma.patientDocument.findFirst({
         where: {
           patientId,
           clinicId: user.clinicId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+        },
+        select: {
+          id: true,
+          patientId: true,
+          clinicId: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          createdAt: true,
+          data: true,
+          externalUrl: true,
+          source: true,
+          sourceSubmissionId: true,
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -85,6 +99,19 @@ export const PUT = withAuthParams(
           patientId,
           clinicId: user.clinicId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+        },
+        select: {
+          id: true,
+          patientId: true,
+          clinicId: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          createdAt: true,
+          data: true,
+          externalUrl: true,
+          source: true,
+          sourceSubmissionId: true,
         },
         orderBy: { createdAt: 'desc' },
       });

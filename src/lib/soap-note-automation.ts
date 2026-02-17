@@ -109,10 +109,24 @@ export async function ensureSoapNoteExists(
     });
 
     // Step 2b: Query documents separately to avoid any filtering issues
+    // Use explicit select to avoid referencing columns that may not exist yet (e.g. s3DataKey)
     const documents = await prisma.patientDocument.findMany({
       where: {
         patientId,
         category: 'MEDICAL_INTAKE_FORM',
+      },
+      select: {
+        id: true,
+        patientId: true,
+        clinicId: true,
+        filename: true,
+        mimeType: true,
+        category: true,
+        createdAt: true,
+        data: true,
+        externalUrl: true,
+        source: true,
+        sourceSubmissionId: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 1,

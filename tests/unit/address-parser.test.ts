@@ -447,6 +447,20 @@ describe('Real-world WellMedR Address Scenarios', () => {
         input: '1537 Stanford Street, Apt 1, Santa Monica, CA, 90404',
         expected: { address1: '1537 Stanford Street', address2: 'Apt 1', city: 'Santa Monica', state: 'CA', zip: '90404' },
       },
+      // Real bug: "Apr" typo for "Apt" - apartment shifted into city field
+      {
+        input: '11308 Sw 5th st, Apr 6836, Yukon , Oklahoma, 73099',
+        expected: { address1: '11308 Sw 5th st', address2: 'Apr 6836', city: 'Yukon', state: 'OK', zip: '73099' },
+      },
+      // Addresses from Airtable screenshot (with apartment/unit)
+      {
+        input: '8 Church Street, Apt. H, Highland, New York, 12528',
+        expected: { address1: '8 Church Street', address2: 'Apt. H', city: 'Highland', state: 'NY', zip: '12528' },
+      },
+      {
+        input: '625 E VISTA RIDGE MALL DR APT 637, Lewisville, Texas, 75067',
+        expected: { address1: '625 E VISTA RIDGE MALL DR APT 637', city: 'Lewisville', state: 'TX', zip: '75067' },
+      },
     ];
 
     for (const { input, expected } of testCases) {
@@ -492,6 +506,65 @@ describe('Real-world WellMedR Address Scenarios', () => {
     expect(result.city).toBe('Santa Monica');
     expect(result.state).toBe('CA');
     expect(result.zip).toBe('90404');
+  });
+
+  it('should detect corruption when city is a typo apartment prefix (Apr instead of Apt)', () => {
+    // Real bug from Airtable: "Apr 6836" used instead of "Apt 6836"
+    const payload = {
+      shipping_address: '11308 Sw 5th st, Apr 6836, Yukon , Oklahoma, 73099',
+      address1: '11308 Sw 5th st',
+      city: 'Apr 6836', // wrong: apartment typo in city
+      state: 'Yukon', // wrong: city in state
+      zip: 'Oklahoma', // wrong: state in zip
+    };
+    const result = extractAddressFromPayload(payload);
+    expect(result.address1).toBe('11308 Sw 5th st');
+    expect(result.address2).toBe('Apr 6836');
+    expect(result.city).toBe('Yukon');
+    expect(result.state).toBe('OK');
+    expect(result.zip).toBe('73099');
+  });
+
+  it('should detect corruption when state looks like a city and zip is not valid', () => {
+    // Shifted fields: apt→city, city→state, state→zip
+    const payload = {
+      shipping_address: '8 Church Street, Apt. H, Highland, New York, 12528',
+      address1: '8 Church Street',
+      city: 'Apt. H', // wrong
+      state: 'Highland', // wrong: city in state
+      zip: 'New York', // wrong: state in zip
+    };
+    const result = extractAddressFromPayload(payload);
+    expect(result.address1).toBe('8 Church Street');
+    expect(result.address2).toBe('Apt. H');
+    expect(result.city).toBe('Highland');
+    expect(result.state).toBe('NY');
+    expect(result.zip).toBe('12528');
+  });
+
+  it('should detect corruption when bare number apt is in city and zip is a state name', () => {
+    // Bare number apartment: "625 E VISTA RIDGE MALL DR, 637, Lewisville, Texas, 75067"
+    const payload = {
+      shipping_address: '625 E VISTA RIDGE MALL DR, 637, Lewisville, Texas, 75067',
+      address1: '625 E VISTA RIDGE MALL DR',
+      city: '637', // wrong: apartment number in city
+      state: 'Lewisville', // wrong: city in state
+      zip: 'Texas', // wrong: state in zip
+    };
+    const result = extractAddressFromPayload(payload);
+    expect(result.address1).toBe('625 E VISTA RIDGE MALL DR');
+    expect(result.address2).toBe('637');
+    expect(result.city).toBe('Lewisville');
+    expect(result.state).toBe('TX');
+    expect(result.zip).toBe('75067');
+  });
+});
+
+describe('isApartmentString - typo detection', () => {
+  it('should detect "Apr" as apartment prefix (common typo for "Apt")', () => {
+    expect(isApartmentString('Apr 6836')).toBe(true);
+    expect(isApartmentString('APR 123')).toBe(true);
+    expect(isApartmentString('Apr. 4B')).toBe(true);
   });
 });
 

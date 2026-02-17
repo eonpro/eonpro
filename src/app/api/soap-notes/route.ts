@@ -135,6 +135,7 @@ export const POST = withAuth(
               patientId: parsedData.patientId,
               category: 'MEDICAL_INTAKE_FORM',
             },
+            select: { id: true },
           });
 
           if (!hasIntakeDocuments) {

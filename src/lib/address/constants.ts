@@ -137,6 +137,8 @@ export const VALID_STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
  */
 export const APT_PATTERNS = [
   /^APT\.?\s*/i,
+  /^APR\.?\s*/i, // Common typo for APT (e.g., "Apr 6836")
+  /^AP\.?\s+\d/i, // Truncated apartment prefix (e.g., "Ap 123")
   /^APARTMENT\s*/i,
   /^UNIT\s*/i,
   /^STE\.?\s*/i,

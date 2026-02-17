@@ -77,10 +77,24 @@ export const GET = withAuthParams(
 
       // Fetch the document - just check it belongs to the patient
       // The patient access check above already ensures the user has permission
+      // Use explicit select to avoid referencing columns not yet in production (e.g. s3DataKey)
       const document: any = await prisma.patientDocument.findFirst({
         where: {
           id: documentId,
           patientId: patientId,
+        },
+        select: {
+          id: true,
+          patientId: true,
+          clinicId: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          createdAt: true,
+          data: true,
+          externalUrl: true,
+          source: true,
+          sourceSubmissionId: true,
         },
       });
 
@@ -290,6 +304,14 @@ export const DELETE = withAuthParams(
         where: {
           id: documentId,
           patientId: patientId,
+        },
+        select: {
+          id: true,
+          patientId: true,
+          filename: true,
+          mimeType: true,
+          externalUrl: true,
+          data: true,
         },
       });
 

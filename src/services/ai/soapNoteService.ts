@@ -65,11 +65,37 @@ export async function generateSOAPFromIntake(
       documents: intakeDocumentId
         ? {
             where: { id: intakeDocumentId },
+            select: {
+              id: true,
+              patientId: true,
+              clinicId: true,
+              filename: true,
+              mimeType: true,
+              category: true,
+              createdAt: true,
+              data: true,
+              externalUrl: true,
+              source: true,
+              sourceSubmissionId: true,
+            },
           }
         : {
             where: { category: 'MEDICAL_INTAKE_FORM' },
             orderBy: { createdAt: 'desc' },
             take: 1,
+            select: {
+              id: true,
+              patientId: true,
+              clinicId: true,
+              filename: true,
+              mimeType: true,
+              category: true,
+              createdAt: true,
+              data: true,
+              externalUrl: true,
+              source: true,
+              sourceSubmissionId: true,
+            },
           },
     },
   });
@@ -482,7 +508,15 @@ export async function getPatientSOAPNotes(
     },
     include: {
       approvedByProvider: true,
-      intakeDocument: true,
+      intakeDocument: {
+        select: {
+          id: true,
+          filename: true,
+          createdAt: true,
+          category: true,
+          patientId: true,
+        },
+      },
       revisions: includeRevisions,
     },
     orderBy: { createdAt: 'desc' },
@@ -531,7 +565,15 @@ export async function getSOAPNoteById(soapNoteId: number, includeRevisions = fal
     include: {
       patient: true,
       approvedByProvider: true,
-      intakeDocument: true,
+      intakeDocument: {
+        select: {
+          id: true,
+          filename: true,
+          createdAt: true,
+          category: true,
+          patientId: true,
+        },
+      },
       revisions: includeRevisions
         ? {
             orderBy: { createdAt: 'desc' },
