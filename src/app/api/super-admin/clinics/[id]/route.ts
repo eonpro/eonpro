@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { logger } from '@/lib/logger';
 import { UserRole } from '@prisma/client';
+
+type RouteContext = { params: Promise<{ id: string }> };
 
 /**
  * Middleware to check for Super Admin role
@@ -10,12 +12,13 @@ import { UserRole } from '@prisma/client';
 function withSuperAdminAuth(
   handler: (req: NextRequest, user: AuthUser, params: { id: string }) => Promise<Response>
 ) {
-  return async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const params = await context.params;
-    return withAuth((req: NextRequest, user: AuthUser) => handler(req, user, params), {
-      roles: ['super_admin', 'super_admin'],
-    })(req);
-  };
+  return withAuthParams<RouteContext>(
+    async (req, user, context) => {
+      const params = await context.params;
+      return handler(req, user, params);
+    },
+    { roles: ['super_admin'] }
+  );
 }
 
 /**
@@ -326,7 +329,7 @@ export const DELETE = withSuperAdminAuth(
 
         // 11. Finally delete the clinic
         await tx.clinic.delete({ where: { id: clinicId } });
-      });
+      }, { timeout: 15000 });
 
       return NextResponse.json({
         message: 'Clinic deleted successfully',

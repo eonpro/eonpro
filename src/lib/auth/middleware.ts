@@ -26,6 +26,11 @@ import {
   recordAuthFailure,
   clearAuthFailures,
 } from '@/lib/auth/auth-rate-limiter';
+import {
+  resolveSubdomainClinicId,
+  hasClinicAccess,
+  trackSessionActivity,
+} from './middleware-cache';
 
 // Throttle session activity updates to once per 60s per user via Redis
 // In-memory map is unreliable in serverless (each cold start resets it)
@@ -85,44 +90,17 @@ interface TokenValidationResult {
 // ============================================================================
 
 /**
- * Update user session activity in the database (for online status tracking)
- * This is fire-and-forget to not block the request
+ * Update user session activity via Redis-only (no DB connection consumed).
+ *
+ * POOL EXHAUSTION FIX: Previously this performed a fire-and-forget $executeRaw
+ * UPDATE on every authenticated request, consuming a DB connection even after
+ * the response was sent. Now activity is tracked in Redis only. A background
+ * cron can batch-sync to PostgreSQL for persistent storage if needed.
+ *
+ * @see middleware-cache.ts trackSessionActivity
  */
 async function updateSessionActivity(userId: number, ipAddress: string): Promise<void> {
-  // Use Redis SET NX to throttle: only one invocation per user per interval
-  // This works correctly in serverless where in-memory maps reset on cold starts
-  const throttleKey = `session_activity:${userId}`;
-
-  try {
-    // Check if Redis has a recent throttle marker for this user
-    const alreadyUpdated = await cache.exists(throttleKey, { namespace: 'throttle' });
-    if (alreadyUpdated) {
-      return; // Another invocation already updated recently
-    }
-
-    // Set throttle marker immediately (with TTL so it auto-expires)
-    await cache.set(throttleKey, Date.now(), {
-      ttl: ACTIVITY_UPDATE_INTERVAL_S,
-      namespace: 'throttle',
-    });
-  } catch {
-    // Redis unavailable — fall through and update DB anyway (better than silent stale data)
-  }
-
-  // Update the database with a short timeout to prevent lock cascading
-  try {
-    await prisma.$executeRaw`
-      UPDATE "UserSession"
-      SET "lastActivity" = NOW(),
-          "ipAddress" = COALESCE(${ipAddress || null}, "ipAddress")
-      WHERE "userId" = ${userId}
-        AND "expiresAt" > NOW()
-        AND ("lastActivity" IS NULL OR "lastActivity" < NOW() - INTERVAL '30 seconds')
-    `;
-  } catch (error) {
-    // Non-critical — log and move on
-    logger.debug('Failed to update session activity', { userId });
-  }
+  await trackSessionActivity(userId, ipAddress);
 }
 
 // ============================================================================
@@ -151,7 +129,9 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
     }
 
     // Check token version for revocation
-    const tokenVersion = (payload as unknown as AuthUser).tokenVersion || 1;
+    // Use ?? (nullish coalescing) instead of || so that tokenVersion=0 is not
+    // silently coerced to 1, which would bypass the revocation check.
+    const tokenVersion = (payload as unknown as AuthUser).tokenVersion ?? 1;
     if (tokenVersion < AUTH_CONFIG.security.minimumTokenVersion) {
       return {
         valid: false,
@@ -178,7 +158,11 @@ async function verifyToken(token: string): Promise<TokenValidationResult> {
     return { valid: true, user };
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('expired')) {
+      // jose JWTExpired has code 'ERR_JWT_EXPIRED' but message is
+      // '"exp" claim timestamp check failed' (no "expired" substring).
+      // Check .code first for reliable detection, then fall back to message.
+      const errCode = (error as Error & { code?: string }).code;
+      if (errCode === 'ERR_JWT_EXPIRED' || error.message.includes('expired')) {
         return {
           valid: false,
           error: 'Token has expired',
@@ -477,8 +461,6 @@ export function withAuth<T = unknown>(
           const sessionResult = await validateSession(token, req);
 
           if (!sessionResult.valid && sessionResult.reason !== 'Session not found') {
-            setClinicContext(undefined);
-
             await auditLog(req, {
               userId: user.id.toString(),
               userEmail: user.email,
@@ -509,6 +491,16 @@ export function withAuth<T = unknown>(
         const allowedRoles = options.roles.map((r) => r.toLowerCase());
 
         if (!allowedRoles.includes(userRole)) {
+          // Diagnostic: log token source so stale cookie issues can be identified
+          logger.warn('[Auth] Role mismatch 403', {
+            userId: user.id,
+            userRole: user.role,
+            requiredRoles: options.roles,
+            tokenSource,
+            route: new URL(req.url).pathname,
+            requestId,
+          });
+
           await auditLog(req, {
             userId: user.id.toString(),
             userEmail: user.email,
@@ -519,6 +511,7 @@ export function withAuth<T = unknown>(
             action: 'AUTHORIZATION_FAILED',
             outcome: 'FAILURE',
             reason: `Required roles: ${options.roles.join(', ')}, User role: ${user.role}`,
+            metadata: { tokenSource, requestId },
           });
 
           return NextResponse.json(
@@ -590,33 +583,25 @@ export function withAuth<T = unknown>(
       // so that data shown is scoped to the subdomain's clinic.
       // Super admins also get subdomain clinic context — tenant isolation requires it
       // and they have implicit access to all clinics.
+      //
+      // POOL EXHAUSTION FIX: Subdomain→clinicId now resolved via Redis (5 min TTL)
+      // instead of hitting basePrisma.clinic.findFirst on every request.
+      // Clinic access check also uses Redis cache (5 min TTL) instead of
+      // Promise.all([userClinic, providerClinic]) DB queries per request.
       const subdomain = req.headers.get('x-clinic-subdomain');
       if (
         subdomain &&
         !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
       ) {
         try {
-          let subdomainClinicId = getClinicBySubdomainCache(subdomain);
-          if (subdomainClinicId == null) {
-            const subdomainClinic = await basePrisma.clinic.findFirst({
-              where: {
-                subdomain: { equals: subdomain, mode: 'insensitive' },
-                status: 'ACTIVE',
-              },
-              select: { id: true },
-            });
-            if (subdomainClinic) {
-              subdomainClinicId = subdomainClinic.id;
-              setClinicBySubdomainCache(subdomain, subdomainClinic.id);
-            }
-          }
+          const subdomainClinicId = await resolveSubdomainClinicId(subdomain);
           if (subdomainClinicId != null && subdomainClinicId !== effectiveClinicId) {
             // Super admin has implicit access to all clinics
-            const hasAccess =
+            const userHasAccess =
               user.role === 'super_admin' ||
               user.clinicId === subdomainClinicId ||
-              (await userHasAccessToClinic(user, subdomainClinicId));
-            if (hasAccess) {
+              (await hasClinicAccess(user.id, subdomainClinicId, user.providerId));
+            if (userHasAccess) {
               effectiveClinicId = subdomainClinicId;
               logger.debug('[Auth] Using subdomain clinic for context', {
                 userId: user.id,
@@ -633,8 +618,9 @@ export function withAuth<T = unknown>(
         }
       }
 
-      // Also set the legacy global for backwards compatibility
-      setClinicContext(effectiveClinicId);
+      // NOTE: Legacy setClinicContext(effectiveClinicId) removed — runWithClinicContext
+      // (AsyncLocalStorage) below provides proper request-scoped isolation.
+      // The global was a race condition vector under concurrent requests.
 
       // Update session activity for online status tracking (fire-and-forget)
       updateSessionActivity(user.id, getClientIP(req)).catch(() => {
@@ -674,9 +660,6 @@ export function withAuth<T = unknown>(
         );
       });
 
-      // Clear legacy clinic context
-      setClinicContext(undefined);
-
       // Add security headers to response
       const finalResponse = addSecurityHeaders(response, requestId);
 
@@ -710,8 +693,6 @@ export function withAuth<T = unknown>(
 
       return finalResponse;
     } catch (error) {
-      setClinicContext(undefined);
-
       // TEMPORARY DIAGNOSTIC: Capture exact error for debugging systemic 500s
       const errMsg = error instanceof Error ? error.message : String(error);
       const errName = error instanceof Error ? error.constructor.name : 'Unknown';
@@ -778,34 +759,15 @@ export function withAuth<T = unknown>(
 
 /**
  * Check if the user has access to the given clinic (for subdomain-override).
- * Uses UserClinic and ProviderClinic; user.clinicId already checked by caller.
+ *
+ * POOL EXHAUSTION FIX: Now delegates to the shared Redis-cached helper
+ * in middleware-cache.ts. Previously performed Promise.all of 2 DB queries
+ * (UserClinic + ProviderClinic) on every request with subdomain override.
+ *
+ * @see middleware-cache.ts hasClinicAccess
  */
 async function userHasAccessToClinic(user: AuthUser, clinicId: number): Promise<boolean> {
-  try {
-    const [userClinic, providerClinic] = await Promise.all([
-      basePrisma.userClinic.findFirst({
-        where: {
-          userId: user.id,
-          clinicId,
-          isActive: true,
-        },
-        select: { id: true },
-      }),
-      user.providerId
-        ? basePrisma.providerClinic.findFirst({
-            where: {
-              providerId: user.providerId,
-              clinicId,
-              isActive: true,
-            },
-            select: { id: true },
-          })
-        : Promise.resolve(null),
-    ]);
-    return !!userClinic || !!providerClinic;
-  } catch {
-    return false;
-  }
+  return hasClinicAccess(user.id, clinicId, user.providerId);
 }
 
 /**
@@ -1056,7 +1018,8 @@ export async function verifyAuth(req: NextRequest): Promise<{
     return { success: true, user };
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('expired')) {
+      const errCode = (error as Error & { code?: string }).code;
+      if (errCode === 'ERR_JWT_EXPIRED' || error.message.includes('expired')) {
         return { success: false, error: 'Token expired', errorCode: 'EXPIRED' };
       }
     }

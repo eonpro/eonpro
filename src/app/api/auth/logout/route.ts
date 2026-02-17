@@ -35,20 +35,43 @@ const COOKIE_NAMES = [
   'selected-clinic', // So next visit doesn't use stale clinic context (critical for ot.eonpro.io and multi-subdomain)
 ];
 
+/**
+ * Clear auth cookies on BOTH the shared .eonpro.io domain AND the hostname
+ * (e.g. app.eonpro.io). Hostname-only cookies take precedence in the browser's
+ * Cookie header, so a stale hostname-only httpOnly cookie would shadow the
+ * domain cookie and cause auth issues (e.g. 403 "Insufficient permissions").
+ *
+ * NOTE: response.cookies.set() uses cookie name as key and overwrites, so we
+ * use response.headers.append('Set-Cookie', ...) for one layer and the
+ * cookies API for the other to ensure both are sent.
+ */
 function clearCookiesOnResponse(response: NextResponse, req: NextRequest): void {
   const host = getRequestHostWithUrlFallback(req);
   const isEonproIo = shouldUseEonproCookieDomain(host);
-  const clearOpts = {
-    value: '',
-    ...AUTH_CONFIG.cookie,
-    maxAge: 0,
-    expires: new Date(0),
-  };
+  const isSecure = process.env.NODE_ENV === 'production';
+
   for (const name of COOKIE_NAMES) {
+    // Layer 1: Clear hostname-only cookies via raw Set-Cookie header
+    // (no domain attribute = applies to current hostname only)
+    response.headers.append(
+      'Set-Cookie',
+      `${name}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`
+    );
+
+    // Layer 2: Clear .eonpro.io domain cookies via response.cookies API
     if (isEonproIo) {
-      response.cookies.set({ ...clearOpts, name, domain: '.eonpro.io' });
+      response.cookies.set({
+        name,
+        value: '',
+        path: '/',
+        maxAge: 0,
+        expires: new Date(0),
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isSecure,
+        domain: '.eonpro.io',
+      });
     }
-    response.cookies.set({ ...clearOpts, name });
   }
 }
 

@@ -412,7 +412,7 @@ async function loginHandler(req: NextRequest) {
             });
           }
           return u;
-        });
+        }, { timeout: 15000 });
 
         prisma.loginAudit
           .create({
@@ -968,19 +968,39 @@ async function loginHandler(req: NextRequest) {
     const host = getRequestHostWithUrlFallback(req);
     const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
 
+    // Clear existing auth cookies on BOTH the shared domain (.eonpro.io) AND the
+    // hostname (e.g. app.eonpro.io). Hostname-only cookies take precedence over
+    // domain cookies in the browser's Cookie header, so a stale hostname-only
+    // auth-token from a previous login (possibly with a different role) would
+    // shadow the new .eonpro.io cookie and cause 403 "Insufficient permissions".
+    // Since these are httpOnly, client-side JS cannot clear them.
+    //
+    // NOTE: response.cookies.set() uses name as key and would overwrite, so we
+    // use response.headers.append('Set-Cookie', ...) for hostname-only clearing
+    // and response.cookies.set() for the domain clearing.
+    const authCookieNames = [
+      'auth-token',
+      'admin-token',
+      'provider-token',
+      'patient-token',
+      'affiliate-token',
+      'super_admin-token',
+      'staff-token',
+      'support-token',
+      'selected-clinic',
+    ];
+
+    // Step 1: Clear hostname-only cookies (no domain attribute = current hostname)
+    const isSecure = process.env.NODE_ENV === 'production';
+    for (const name of authCookieNames) {
+      response.headers.append(
+        'Set-Cookie',
+        `${name}=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`
+      );
+    }
+
+    // Step 2: Clear domain cookies (.eonpro.io) via response.cookies API
     if (cookieDomain) {
-      // Clear existing auth cookies for this domain so new ones are used (must use same domain to clear)
-      const authCookieNames = [
-        'auth-token',
-        'admin-token',
-        'provider-token',
-        'patient-token',
-        'affiliate-token',
-        'super_admin-token',
-        'staff-token',
-        'support-token',
-        'selected-clinic',
-      ];
       for (const name of authCookieNames) {
         response.cookies.set({
           name,

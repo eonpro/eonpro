@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 /**
- * Middleware to check for Super Admin role
+ * Middleware to check for Super Admin role.
+ * Uses withAuthParams which properly handles dynamic route params and
+ * maintains parity with withAuth (JWT algorithm restriction, session
+ * validation, clinic context via AsyncLocalStorage, security headers).
  */
 function withSuperAdminAuth(
   handler: (req: NextRequest, user: AuthUser, params: { id: string }) => Promise<Response>
 ) {
-  return async (req: NextRequest, context: { params: Promise<{ id: string }> }) => {
-    const params = await context.params;
-    return withAuth((req: NextRequest, user: AuthUser) => handler(req, user, params), {
-      roles: ['super_admin', 'super_admin'],
-    })(req);
-  };
+  return withAuthParams<RouteContext>(
+    async (req, user, context) => {
+      const params = await context.params;
+      return handler(req, user, params);
+    },
+    { roles: ['super_admin'] }
+  );
 }
 
 /**

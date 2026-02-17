@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
-import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 
 type RouteParams = { id: string; userId: string };
+type RouteContext = { params: Promise<RouteParams> };
 
 function withSuperAdminAuth(
   handler: (req: NextRequest, user: AuthUser, params: RouteParams) => Promise<Response>
 ) {
-  return async (req: NextRequest, context: { params: Promise<RouteParams> }) => {
-    const params = await context.params;
-    return withAuth((req: NextRequest, user: AuthUser) => handler(req, user, params), {
-      roles: ['super_admin'],
-    })(req);
-  };
+  return withAuthParams<RouteContext>(
+    async (req, user, context) => {
+      const params = await context.params;
+      return handler(req, user, params);
+    },
+    { roles: ['super_admin'] }
+  );
 }
 
 /**
@@ -178,7 +180,7 @@ export const DELETE = withSuperAdminAuth(
             data: { clinicId: fallbackClinicId },
           });
         }
-      });
+      }, { timeout: 15000 });
 
       logger.info('User removed from clinic by super admin', {
         targetUserId: userId,
