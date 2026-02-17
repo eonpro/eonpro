@@ -26,6 +26,22 @@ export const POST = withAuthParams(
       // Build query based on parameters
       let documents;
 
+      // Shared select clause to avoid referencing columns not yet in production (e.g. s3DataKey)
+      const documentSelect = {
+        id: true as const,
+        patientId: true as const,
+        clinicId: true as const,
+        filename: true as const,
+        mimeType: true as const,
+        category: true as const,
+        createdAt: true as const,
+        data: true as const,
+        externalUrl: true as const,
+        source: true as const,
+        sourceSubmissionId: true as const,
+        patient: true as const,
+      };
+
       if (documentId) {
         // Regenerate specific document
         documents = await prisma.patientDocument.findMany({
@@ -33,9 +49,7 @@ export const POST = withAuthParams(
             id: documentId,
             category: 'MEDICAL_INTAKE_FORM',
           },
-          include: {
-            patient: true,
-          },
+          select: documentSelect,
           take: 10,
         });
       } else if (patientId) {
@@ -45,9 +59,7 @@ export const POST = withAuthParams(
             patientId,
             category: 'MEDICAL_INTAKE_FORM',
           },
-          include: {
-            patient: true,
-          },
+          select: documentSelect,
           take: 100,
         });
       } else if (all) {
@@ -57,9 +69,7 @@ export const POST = withAuthParams(
           where: {
             category: 'MEDICAL_INTAKE_FORM',
           },
-          include: {
-            patient: true,
-          },
+          select: documentSelect,
           take: 100,
           orderBy: { createdAt: 'desc' },
         });

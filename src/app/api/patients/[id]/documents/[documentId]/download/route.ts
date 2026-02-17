@@ -70,10 +70,20 @@ const downloadDocumentHandler = withAuthParams(
       });
 
       // Fetch the document
+      // Use explicit select to avoid referencing columns not yet in production (e.g. s3DataKey)
       const document: any = await prisma.patientDocument.findFirst({
         where: {
           id: documentId,
           patientId: patientId,
+        },
+        select: {
+          id: true,
+          patientId: true,
+          filename: true,
+          mimeType: true,
+          category: true,
+          data: true,
+          externalUrl: true,
         },
       });
 

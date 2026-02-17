@@ -38,6 +38,14 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           where: { category: 'MEDICAL_INTAKE_FORM' },
           orderBy: { createdAt: 'desc' },
           take: 1,
+          select: {
+            id: true,
+            patientId: true,
+            category: true,
+            filename: true,
+            createdAt: true,
+            data: true,
+          },
         },
         intakeSubmissions: {
           include: {

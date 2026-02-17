@@ -16,7 +16,17 @@ async function handleGet(_request: NextRequest, user: AuthUser) {
         category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
         patient: { clinicId },
       },
-      include: {
+      select: {
+        id: true,
+        patientId: true,
+        clinicId: true,
+        filename: true,
+        mimeType: true,
+        category: true,
+        createdAt: true,
+        source: true,
+        sourceSubmissionId: true,
+        externalUrl: true,
         patient: {
           select: {
             id: true,

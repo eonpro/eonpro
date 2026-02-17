@@ -812,6 +812,7 @@ export async function POST(req: NextRequest) {
   try {
     const existingDoc = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
+      select: { id: true },
     });
 
     // Capture consent and metadata from request headers
@@ -861,7 +862,7 @@ export async function POST(req: NextRequest) {
         data: {
           filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
           data: intakeDataBuffer,
-          s3DataKey: s3DataKey ?? existingDoc.s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: pdfExternalUrl || existingDoc.externalUrl,
         },
       });
@@ -875,7 +876,7 @@ export async function POST(req: NextRequest) {
           mimeType: 'application/json',
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
-          s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: pdfExternalUrl,
           source: 'wellmedr-intake',
           sourceSubmissionId: normalized.submissionId,

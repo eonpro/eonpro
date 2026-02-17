@@ -335,6 +335,7 @@ export class IntakeProcessor {
     // Check for existing document
     const existingDocument = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
+      select: { id: true },
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
@@ -350,7 +351,7 @@ export class IntakeProcessor {
         data: {
           filename,
           data: intakeDataBuffer,
-          s3DataKey: s3DataKey ?? existingDocument.s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
         },
       });
     } else {
@@ -364,7 +365,7 @@ export class IntakeProcessor {
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
-          s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
         },
       });
     }

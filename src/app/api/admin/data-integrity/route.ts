@@ -214,7 +214,13 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
   const patientStart = Date.now();
   try {
     await prisma.patient.findFirst({
-      include: { documents: true, clinic: true },
+      include: {
+        documents: {
+          select: { id: true, category: true, createdAt: true },
+          take: 1,
+        },
+        clinic: true,
+      },
     });
     testedQueries.push({
       name: 'Patient with Relations',

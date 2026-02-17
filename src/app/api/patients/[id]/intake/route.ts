@@ -175,7 +175,7 @@ export const PUT = withAuthParams(
           where: { id: intakeDoc.id },
           data: {
             data: dataBuffer,
-            s3DataKey: s3DataKey ?? intakeDoc.s3DataKey,
+            ...(s3DataKey != null ? { s3DataKey } : {}),
           },
         });
         logger.info(`Updated intake data for patient ${patientId}, doc ${intakeDoc.id}`);
@@ -189,7 +189,7 @@ export const PUT = withAuthParams(
             mimeType: 'application/json',
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             data: dataBuffer,
-            s3DataKey,
+            ...(s3DataKey != null ? { s3DataKey } : {}),
             source: 'manual_entry',
             sourceSubmissionId: intakeDataToStore.submissionId,
           },

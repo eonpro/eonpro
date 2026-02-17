@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get patient with existing documents
+    // Use explicit select on documents to avoid referencing columns not yet in production (e.g. s3DataKey)
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -59,6 +60,19 @@ export async function POST(req: NextRequest) {
           where: { category: PatientDocumentCategory.MEDICAL_INTAKE_FORM },
           orderBy: { createdAt: 'desc' },
           take: 1,
+          select: {
+            id: true,
+            patientId: true,
+            clinicId: true,
+            filename: true,
+            mimeType: true,
+            category: true,
+            createdAt: true,
+            data: true,
+            externalUrl: true,
+            source: true,
+            sourceSubmissionId: true,
+          },
         },
         soapNotes: {
           orderBy: { createdAt: 'desc' },
@@ -238,6 +252,7 @@ export async function POST(req: NextRequest) {
               patientId: patient.id,
               category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             },
+            select: { id: true },
             orderBy: { createdAt: 'desc' },
           });
 

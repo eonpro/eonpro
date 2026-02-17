@@ -237,6 +237,7 @@ export async function POST(req: NextRequest) {
     // Check for existing document with same submission ID
     const existingDocument = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
+      select: { id: true },
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
@@ -252,7 +253,7 @@ export async function POST(req: NextRequest) {
         data: {
           filename: stored.filename,
           data: intakeDataBuffer,
-          s3DataKey: s3DataKey ?? existingDocument.s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document updated`, {
@@ -269,7 +270,7 @@ export async function POST(req: NextRequest) {
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
-          s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document created`, {

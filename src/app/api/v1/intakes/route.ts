@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           mimeType: 'application/pdf',
           data: intakeDataBuffer,
-          s3DataKey,
+          ...(s3DataKey != null ? { s3DataKey } : {}),
           sourceSubmissionId: normalized.submissionId,
         },
       });

@@ -641,6 +641,14 @@ async function searchPatientData(
     documents: {
       orderBy: { createdAt: 'desc' as const },
       take: 10,
+      select: {
+        id: true,
+        patientId: true,
+        category: true,
+        filename: true,
+        createdAt: true,
+        data: true,
+      },
     },
     invoices: {
       orderBy: { createdAt: 'desc' as const },
