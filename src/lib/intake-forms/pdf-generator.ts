@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 // Helper to build sections array from submission (for PatientIntakeView display)
 function buildSectionsFromSubmission(
@@ -129,6 +130,12 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
       },
     });
 
+    // Dual-write: S3 + DB `data` column (Phase 3.3)
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+      intakeDataToStore,
+      { patientId: submission.patientId, clinicId: null }
+    );
+
     // Create patient document record with intake data and S3 location
     // Store the S3 key in externalUrl (signed URLs expire; regenerate from key on access)
     await prisma.patientDocument.create({
@@ -140,7 +147,8 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
         externalUrl: s3Result.key,
         source: 'System',
         sourceSubmissionId: String(submissionId),
-        data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+        data: intakeDataBuffer,
+        s3DataKey,
       },
     });
 
