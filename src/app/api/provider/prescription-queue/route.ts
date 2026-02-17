@@ -851,6 +851,68 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
+    // ─── Phase 2b: Targeted blob loading for plan-only WellMedR invoices ───
+    // When Airtable sends plan-only product (e.g. "6mo Injections") without medication name,
+    // we need to extract the preferred medication from the patient's intake document.
+    // This is a targeted query — only for patients whose invoice metadata lacks medication info.
+    const planOnlyPatientIds: number[] = [];
+    for (const invoice of invoices as any[]) {
+      const meta = invoice.metadata as Record<string, unknown> | null;
+      if (!meta) continue;
+      // Skip if metadata already has preferredMedication (set by invoice webhook)
+      if (meta.preferredMedication) continue;
+      // Only for wellmedr-airtable source
+      if ((meta.source as string) !== 'wellmedr-airtable') continue;
+      // Check if product looks plan-only
+      const prod = (meta.product as string) || '';
+      const prodLower = prod.toLowerCase();
+      const hasMedName =
+        prodLower.includes('tirzepatide') ||
+        prodLower.includes('semaglutide') ||
+        prodLower.includes('mounjaro') ||
+        prodLower.includes('zepbound') ||
+        prodLower.includes('ozempic') ||
+        prodLower.includes('wegovy');
+      if (!hasMedName && looksLikePlanOnly(prod)) {
+        planOnlyPatientIds.push(invoice.patient.id);
+      }
+    }
+
+    // Load intake document blobs ONLY for plan-only patients (targeted, not all patients)
+    const patientDocBlobMap = new Map<number, Buffer | Uint8Array>();
+    if (planOnlyPatientIds.length > 0) {
+      const uniqueIds = [...new Set(planOnlyPatientIds)];
+      try {
+        const blobs = await prisma.patientDocument.findMany({
+          where: {
+            patientId: { in: uniqueIds },
+            category: 'MEDICAL_INTAKE_FORM',
+          },
+          orderBy: { createdAt: 'desc' },
+          distinct: ['patientId'],
+          select: {
+            patientId: true,
+            data: true,
+          },
+        });
+        for (const blob of blobs) {
+          if (blob.data) {
+            patientDocBlobMap.set(blob.patientId, blob.data as Buffer | Uint8Array);
+          }
+        }
+        logger.info('[PRESCRIPTION-QUEUE] Loaded intake blobs for plan-only patients', {
+          requested: uniqueIds.length,
+          loaded: patientDocBlobMap.size,
+        });
+      } catch (blobErr) {
+        // Non-fatal — fallback to generic message
+        logger.warn('[PRESCRIPTION-QUEUE] Failed to load intake blobs for plan-only patients', {
+          error: blobErr instanceof Error ? blobErr.message : String(blobErr),
+          count: uniqueIds.length,
+        });
+      }
+    }
+
     // Transform invoice data for frontend
     const invoiceItems = (invoices as any[]).map((invoice: any) => {
       // CRITICAL: Validate clinic consistency between invoice and patient
@@ -878,15 +940,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       let plan = '';
 
       // Get documents from our separate query (more reliable than relation)
-      // NOTE: patientDocument.data (binary blob) is intentionally NOT loaded in the list query
-      // to prevent connection monopolization under connection_limit=1. GLP-1 extraction
-      // now relies on invoice metadata only. For full document data, use the detail endpoint.
       const patientDocs = patientDocsMap.get(invoice.patient.id) || [];
       const intakeDoc = patientDocs[0] || null;
 
+      // Load targeted blob data for this patient (only populated for plan-only WellMedR invoices)
+      const intakeDocBlob = patientDocBlobMap.get(invoice.patient.id) || null;
+
       const glp1Info = extractGlp1Info(
         metadata,
-        null, // blob data not loaded in list — see PERF FIX note above
+        intakeDocBlob, // targeted blob data for plan-only patients
         `${invoice.patient.firstName} ${invoice.patient.lastName}`
       );
 
@@ -929,13 +991,24 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         ? medicationType.charAt(0).toUpperCase() + medicationType.slice(1).toLowerCase()
         : '';
 
-      // When invoice metadata has plan-only (e.g. "1mo Injections", "3mo Injections") without medication,
-      // derive medication from intake document so the Rx queue shows "Tirzepatide 2.5mg 1mo Injections"
+      // ─── Derive medication name for plan-only products ───
+      // Priority: 1) metadata.preferredMedication (set by invoice webhook)
+      //           2) intake document blob extraction
+      //           3) glp1Info.glp1Type from intake
+      //           4) generic "Semaglutide or Tirzepatide" fallback
       let derivedMedFromDoc: string | null = null;
-      if (!formattedMedType && looksLikePlanOnly(cleanTreatment) && documentData) {
-        const docMed = extractMedicationFromDocument(documentData);
-        if (docMed) {
-          derivedMedFromDoc = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
+      if (!formattedMedType && looksLikePlanOnly(cleanTreatment)) {
+        // Priority 1: Use preferredMedication from invoice metadata (set by invoice webhook)
+        const preferredMed = metadata?.preferredMedication as string | undefined;
+        if (preferredMed && /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(preferredMed)) {
+          derivedMedFromDoc = preferredMed.charAt(0).toUpperCase() + preferredMed.slice(1).toLowerCase();
+        }
+        // Priority 2: Extract from intake document blob (loaded for plan-only patients)
+        if (!derivedMedFromDoc && intakeDocBlob) {
+          const docMed = extractMedicationFromDocument(intakeDocBlob);
+          if (docMed) {
+            derivedMedFromDoc = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
+          }
         }
       }
 
@@ -966,7 +1039,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
       // When we derived medication from intake (plan-only product), show medication first for clarity
       if (derivedMedFromDoc) {
-        treatmentDisplay = `${derivedMedFromDoc} ${cleanTreatment}`;
+        treatmentDisplay = `${derivedMedFromDoc} - ${cleanTreatment}`;
       }
       // Use glp1Info.glp1Type when we have it (e.g. patient preference or last-used from intake)
       else if (
@@ -977,7 +1050,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       ) {
         const medName =
           glp1Info.glp1Type.charAt(0).toUpperCase() + glp1Info.glp1Type.slice(1).toLowerCase();
-        treatmentDisplay = `${medName} ${cleanTreatment}`;
+        treatmentDisplay = `${medName} - ${cleanTreatment}`;
       }
       // Fallback: when Airtable sends plan-only (e.g. "1mo Injections") and no med from intake,
       // show "Semaglutide or Tirzepatide - 1mo Injections" so provider knows to verify (WellMedR is GLP-1 clinic)

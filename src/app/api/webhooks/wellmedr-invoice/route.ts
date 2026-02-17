@@ -971,6 +971,133 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // STEP 9: Extract preferred medication from intake document when invoice has plan-only product
+    // This ensures the Rx Queue shows the actual medication name (Tirzepatide/Semaglutide)
+    // even when Airtable sends plan-only in the product field (e.g. "6mo Injections")
+    const productLowerCheck = product.toLowerCase();
+    const invoiceHasPlanOnly =
+      !productLowerCheck.includes('tirzepatide') &&
+      !productLowerCheck.includes('semaglutide') &&
+      !productLowerCheck.includes('mounjaro') &&
+      !productLowerCheck.includes('zepbound') &&
+      !productLowerCheck.includes('ozempic') &&
+      !productLowerCheck.includes('wegovy');
+
+    let preferredMedication: string | null = null;
+
+    if (invoiceHasPlanOnly) {
+      try {
+        const intakeDoc = await prisma.patientDocument.findFirst({
+          where: {
+            patientId: verifiedPatient.id,
+            category: 'MEDICAL_INTAKE_FORM',
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { data: true },
+        });
+
+        if (intakeDoc?.data) {
+          let rawData: string;
+          if (Buffer.isBuffer(intakeDoc.data)) {
+            rawData = intakeDoc.data.toString('utf8');
+          } else if (intakeDoc.data instanceof Uint8Array) {
+            rawData = new TextDecoder().decode(intakeDoc.data);
+          } else if (
+            typeof intakeDoc.data === 'object' &&
+            (intakeDoc.data as any).type === 'Buffer' &&
+            Array.isArray((intakeDoc.data as any).data)
+          ) {
+            rawData = new TextDecoder().decode(new Uint8Array((intakeDoc.data as any).data));
+          } else {
+            rawData = String(intakeDoc.data);
+          }
+
+          const docJson = JSON.parse(rawData);
+
+          // Check root-level fields used by WellMedR/Airtable intake forms
+          const medFields = [
+            'preferred-meds',
+            'preferredMedication',
+            'preferred_meds',
+            'medication-preference',
+            'medication_type',
+            'medicationType',
+            'glp1-medication-type',
+            'glp1_last_30_medication_type',
+            'glp1-last-30-medication-type',
+            'product',
+            'treatment',
+          ];
+          for (const field of medFields) {
+            const val = docJson[field];
+            if (val && typeof val === 'string' && val.trim()) {
+              const s = val.trim();
+              if (
+                /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(s) &&
+                s.toLowerCase() !== 'none'
+              ) {
+                preferredMedication = s;
+                break;
+              }
+            }
+          }
+
+          // Also check answers array
+          if (!preferredMedication && docJson.answers && Array.isArray(docJson.answers)) {
+            for (const a of docJson.answers) {
+              const key = String(a.question || a.field || a.id || a.label || '').toLowerCase().replace(/[-_\s]/g, '');
+              const val = a.answer ?? a.value;
+              if (typeof val !== 'string' || !val.trim()) continue;
+              if (
+                key.includes('preferred') ||
+                key.includes('medication') ||
+                key.includes('glp1type') ||
+                key.includes('treatment')
+              ) {
+                if (
+                  /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(val) &&
+                  val.toLowerCase() !== 'none'
+                ) {
+                  preferredMedication = val.trim();
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        if (preferredMedication) {
+          // Update the invoice metadata with the preferred medication
+          const existingMeta = (invoice.metadata as Record<string, unknown>) || {};
+          await prisma.invoice.update({
+            where: { id: invoice.id },
+            data: {
+              metadata: {
+                ...existingMeta,
+                preferredMedication,
+              },
+            },
+          });
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Extracted preferred medication from intake`, {
+            preferredMedication,
+            patientId: verifiedPatient.id,
+            invoiceId: invoice.id,
+          });
+        } else {
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] No preferred medication found in intake document`, {
+            patientId: verifiedPatient.id,
+            invoiceId: invoice.id,
+            product,
+          });
+        }
+      } catch (medExtractErr) {
+        // Non-fatal - the queue API has its own fallback
+        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Medication extraction failed (non-fatal)`, {
+          error: medExtractErr instanceof Error ? medExtractErr.message : String(medExtractErr),
+        });
+      }
+    }
+
     // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
     // This ensures clinical documentation is complete before providers prescribe
     let soapNoteId: number | null = null;
