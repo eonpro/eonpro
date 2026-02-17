@@ -176,21 +176,31 @@ export class StripePaymentService {
       return;
     }
 
+    const newStatus = this.mapStripeStatus(paymentIntent.status);
+    const wasAlreadySucceeded = payment.status === 'SUCCEEDED';
+
     // Wrap payment and invoice updates in a transaction for atomicity
     await prisma.$transaction(async (tx) => {
       // Update payment
       await tx.payment.update({
         where: { id: payment.id },
         data: {
-          status: this.mapStripeStatus(paymentIntent.status),
+          status: newStatus,
           stripeChargeId: paymentIntent.latest_charge?.toString(),
           paymentMethod: paymentIntent.payment_method?.toString(),
           failureReason: paymentIntent.last_payment_error?.message,
         },
       });
 
-      // If payment succeeded and linked to an invoice, update invoice
-      if (paymentIntent.status === 'succeeded' && payment.invoiceId) {
+      // Only increment amountPaid when payment is TRANSITIONING to succeeded,
+      // not when it was already created as SUCCEEDED (e.g. by paymentMatchingService).
+      // This prevents double-counting when processStripePayment() already sets
+      // amountPaid on the invoice and then this method is called from the webhook.
+      if (
+        paymentIntent.status === 'succeeded' &&
+        payment.invoiceId &&
+        !wasAlreadySucceeded
+      ) {
         await tx.invoice.update({
           where: { id: payment.invoiceId },
           data: {
@@ -201,6 +211,8 @@ export class StripePaymentService {
             paidAt: new Date(),
           },
         });
+      } else if (paymentIntent.status === 'succeeded' && payment.invoiceId && wasAlreadySucceeded) {
+        logger.debug(`[STRIPE] Skipping amountPaid increment for ${paymentIntent.id} - payment already SUCCEEDED (idempotent guard)`);
       }
     }, { timeout: 15000 });
 
