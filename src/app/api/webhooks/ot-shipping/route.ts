@@ -360,29 +360,25 @@ export async function POST(req: NextRequest) {
 
     if (!clinic) {
       logger.error('[OT SHIPPING] OT clinic not found');
-      webhookLogData.errorMessage = 'Clinic not found';
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
       return NextResponse.json({ error: 'Clinic not found' }, { status: 500 });
     }
 
     if (!clinic.lifefileInboundEnabled) {
       logger.warn('[OT SHIPPING] Inbound webhook not enabled for clinic');
-      webhookLogData.clinicId = clinic.id;
-      webhookLogData.statusCode = 403;
-      webhookLogData.errorMessage = 'Webhook not enabled';
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
       return NextResponse.json({ error: 'Webhook not enabled' }, { status: 403 });
     }
 
     webhookLogData.clinicId = clinic.id;
+
+    // Helper: write webhook log within clinic context
+    const writeWebhookLog = () =>
+      runWithClinicContext(clinic.id, () =>
+        prisma.webhookLog.create({ data: webhookLogData })
+      ).catch((err) => {
+        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
 
     // Verify authentication against clinic's configured credentials
     const authHeader = req.headers.get('authorization');
@@ -392,13 +388,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
-
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
-
+      await writeWebhookLog();
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -406,11 +396,7 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     if (!rawBody) {
       webhookLogData.errorMessage = 'Empty request body';
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      await writeWebhookLog();
       return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
     }
 
@@ -420,11 +406,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
+      await writeWebhookLog();
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
@@ -439,13 +421,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = errors.join(', ');
-
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
-        logger.warn('[OT SHIPPING] Failed to persist webhook log', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
-
+      await writeWebhookLog();
       return NextResponse.json({ error: 'Invalid payload', details: errors }, { status: 400 });
     }
 
@@ -475,7 +451,7 @@ export async function POST(req: NextRequest) {
         orderId: data.orderId,
       };
 
-      await basePrisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
+      await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
         logger.warn('[OT SHIPPING] Failed to persist webhook log', {
           error: err instanceof Error ? err.message : String(err),
         });
@@ -648,11 +624,15 @@ export async function POST(req: NextRequest) {
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    await basePrisma.webhookLog.create({ data: webhookLogData }).catch((dbError: unknown) => {
-      logger.warn('[OT SHIPPING] Failed to log webhook error:', {
-        error: dbError instanceof Error ? dbError.message : String(dbError),
+    if (webhookLogData.clinicId) {
+      await runWithClinicContext(webhookLogData.clinicId, () =>
+        prisma.webhookLog.create({ data: webhookLogData })
+      ).catch((dbError: unknown) => {
+        logger.warn('[OT SHIPPING] Failed to log webhook error:', {
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+        });
       });
-    });
+    }
 
     return NextResponse.json(
       {

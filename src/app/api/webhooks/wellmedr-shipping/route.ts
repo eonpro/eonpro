@@ -341,7 +341,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
 
-      await basePrisma.webhookLog.create({ data: webhookLogData });
+      await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
 
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -358,7 +358,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
-      await basePrisma.webhookLog.create({ data: webhookLogData });
+      await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = errors.join(', ');
 
-      await basePrisma.webhookLog.create({ data: webhookLogData });
+      await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
 
       return NextResponse.json({ error: 'Invalid payload', details: errors }, { status: 400 });
     }
@@ -406,7 +406,7 @@ export async function POST(req: NextRequest) {
         orderId: data.orderId,
       };
 
-      await basePrisma.webhookLog.create({ data: webhookLogData });
+      await prisma.webhookLog.create({ data: webhookLogData });
 
       return NextResponse.json(
         {
@@ -528,7 +528,7 @@ export async function POST(req: NextRequest) {
     };
     webhookLogData.processingTimeMs = processingTime;
 
-    await basePrisma.webhookLog.create({ data: webhookLogData });
+    await prisma.webhookLog.create({ data: webhookLogData });
 
     logger.info(`[WELLMEDR SHIPPING] Processing completed in ${processingTime}ms`);
     logger.info('='.repeat(60));
@@ -575,11 +575,16 @@ export async function POST(req: NextRequest) {
     webhookLogData.errorMessage = errorMessage;
     webhookLogData.processingTimeMs = Date.now() - startTime;
 
-    await basePrisma.webhookLog.create({ data: webhookLogData }).catch((dbError: any) => {
-      logger.error('[WELLMEDR SHIPPING] Failed to log webhook error:', {
-        error: dbError instanceof Error ? dbError.message : String(dbError),
+    // Write webhook log within clinic context if available, otherwise skip
+    if (webhookLogData.clinicId) {
+      await runWithClinicContext(webhookLogData.clinicId, () =>
+        prisma.webhookLog.create({ data: webhookLogData })
+      ).catch((dbError: any) => {
+        logger.error('[WELLMEDR SHIPPING] Failed to log webhook error:', {
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+        });
       });
-    });
+    }
 
     return NextResponse.json(
       {
