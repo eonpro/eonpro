@@ -255,7 +255,12 @@ export default function LoginPage() {
   // Check for session expired message
   useEffect(() => {
     const reason = searchParams.get('reason');
-    if (reason === 'session_expired') {
+    const staleSession = searchParams.get('stale_session');
+    if (reason === 'session_expired' && staleSession === 'affiliate') {
+      setSessionMessage(
+        'Your admin session has expired. A stale affiliate session was detected and cleared. Please log in again.'
+      );
+    } else if (reason === 'session_expired') {
       setSessionMessage('Your session has expired. Please log in again.');
     } else if (reason === 'no_session') {
       setSessionMessage('Please log in to continue.');
@@ -1075,7 +1080,7 @@ export default function LoginPage() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-12 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-14 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Email or phone number"
                     required

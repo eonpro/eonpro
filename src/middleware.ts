@@ -112,6 +112,46 @@ function isPatientPortalRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ── Stale affiliate session detection for root page ──────────────────
+  // When visiting '/' (admin dashboard), if only the affiliate_session cookie
+  // exists and auth-token is absent, the admin's session has expired while
+  // the 30-day affiliate cookie remained. Instead of letting the root page's
+  // client-side code redirect to /affiliate, we proactively redirect to /login
+  // so the user sees a clear "session expired" message.
+  if (pathname === '/') {
+    const hasAuthToken = request.cookies.get('auth-token')?.value;
+    const hasAdminToken = request.cookies.get('admin-token')?.value;
+    const hasSuperAdminToken = request.cookies.get('super_admin-token')?.value;
+    const hasProviderToken = request.cookies.get('provider-token')?.value;
+    const hasStaffToken = request.cookies.get('staff-token')?.value;
+    const hasAffiliateSession = request.cookies.get('affiliate_session')?.value;
+
+    const hasPrimarySession = hasAuthToken || hasAdminToken || hasSuperAdminToken || hasProviderToken || hasStaffToken;
+
+    if (!hasPrimarySession && hasAffiliateSession) {
+      // Stale affiliate session detected: admin session expired, affiliate cookie remains
+      console.warn(
+        '[Middleware] Stale affiliate session on root page — redirecting to /login. ' +
+        'Admin/provider session expired but 30-day affiliate_session cookie remained.'
+      );
+
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('reason', 'session_expired');
+      loginUrl.searchParams.set('stale_session', 'affiliate');
+
+      // Clear the stale affiliate_session cookie in the redirect response
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.set('affiliate_session', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      });
+      return response;
+    }
+  }
+
   // Protect /affiliate dashboard routes (not public pages like login, apply, landing pages)
   if (isAffiliateDashboardRoute(pathname)) {
     const token =

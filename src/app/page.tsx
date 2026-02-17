@@ -119,8 +119,49 @@ function HomePageInner() {
         if (meRes.ok) {
           const meData = await meRes.json();
           const serverRole = meData.user?.role?.toLowerCase();
+          const tokenSource = meRes.headers.get('x-auth-token-source');
 
           if (serverRole === 'affiliate') {
+            // STALE SESSION DETECTION:
+            // The root page (/) is the admin dashboard. When we detect an affiliate session here,
+            // it's often because the admin's auth-token expired but the 30-day affiliate_session
+            // cookie remained. The auth middleware falls back to affiliate_session and returns
+            // role=affiliate, causing an unwanted redirect.
+            //
+            // Detection heuristics:
+            // 1. Server tells us the token came from 'affiliate_session' fallback cookie
+            // 2. localStorage contains a non-affiliate role from a previous admin/provider session
+            const isStaleAffiliateSession = tokenSource === 'affiliate_session' || tokenSource === 'affiliate-token';
+
+            let previousRole: string | null = null;
+            try {
+              const storedUser = localStorage.getItem('user');
+              if (storedUser) {
+                previousRole = JSON.parse(storedUser)?.role?.toLowerCase();
+              }
+            } catch {}
+
+            const hadDifferentRole = previousRole && previousRole !== 'affiliate' &&
+              ['admin', 'super_admin', 'provider', 'staff', 'support'].includes(previousRole);
+
+            if (isStaleAffiliateSession || hadDifferentRole) {
+              console.warn(
+                `[Auth] Stale affiliate session redirect blocked on root page. ` +
+                `Server role="${serverRole}", tokenSource="${tokenSource || 'unknown'}", ` +
+                `localStorage role="${previousRole || 'none'}". ` +
+                `Likely cause: admin session expired while 30-day affiliate cookie remained.`
+              );
+              // Clear the stale affiliate session cookie via logout
+              fetch('/api/affiliate/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+              localStorage.removeItem('user');
+              localStorage.removeItem('auth-token');
+              localStorage.removeItem('admin-token');
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              router.push('/login?reason=session_expired&stale_session=affiliate');
+              return;
+            }
+
             router.push('/affiliate');
             return;
           }

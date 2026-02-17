@@ -242,6 +242,18 @@ function validateTokenClaims(payload: JWTPayload): string | null {
 // ============================================================================
 
 /**
+ * Token extraction result with source tracking.
+ * The `source` field identifies WHERE the token came from (e.g. 'auth-token',
+ * 'affiliate_session', 'authorization-header'). This is critical for detecting
+ * stale session fallbacks — e.g. when an admin's auth-token expires but a
+ * 30-day affiliate_session cookie remains and hijacks the root page redirect.
+ */
+interface ExtractedToken {
+  token: string | null;
+  source: string | null;
+}
+
+/**
  * Extract authentication token from request
  * Checks multiple sources in priority order.
  *
@@ -251,11 +263,11 @@ function validateTokenClaims(payload: JWTPayload): string | null {
  * stale `affiliate_session` cookie cannot shadow the admin/provider token
  * and cause 403s on non-affiliate endpoints.
  */
-function extractToken(req: NextRequest): string | null {
+function extractToken(req: NextRequest): ExtractedToken {
   // Priority 1: Authorization header (most secure)
   const authHeader = req.headers.get('authorization');
   if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7).trim();
+    return { token: authHeader.slice(7).trim(), source: 'authorization-header' };
   }
 
   // Priority 2: HTTP-only cookies — order depends on the route being accessed
@@ -293,7 +305,15 @@ function extractToken(req: NextRequest): string | null {
   for (const cookieName of cookieTokenNames) {
     const token = req.cookies.get(cookieName)?.value;
     if (token) {
-      return token;
+      // Detection: warn when affiliate cookie is used as fallback on non-affiliate routes
+      if (!isAffiliateRoute && (cookieName === 'affiliate_session' || cookieName === 'affiliate-token')) {
+        logger.warn('[Auth] Stale affiliate cookie used as fallback on non-affiliate route', {
+          route: pathname,
+          cookieName,
+          hint: 'Admin/provider session likely expired while 30-day affiliate cookie remained',
+        });
+      }
+      return { token, source: cookieName };
     }
   }
 
@@ -306,10 +326,10 @@ function extractToken(req: NextRequest): string | null {
       path: url.pathname,
       ip: getClientIP(req),
     });
-    return queryToken;
+    return { token: queryToken, source: 'query-parameter' };
   }
 
-  return null;
+  return { token: null, source: null };
 }
 
 /**
@@ -373,8 +393,8 @@ export function withAuth<T = unknown>(
         );
       }
 
-      // Extract token
-      const token = extractToken(req);
+      // Extract token (with source tracking for stale session detection)
+      const { token, source: tokenSource } = extractToken(req);
 
       if (!token) {
         if (options.optional) {
@@ -658,6 +678,12 @@ export function withAuth<T = unknown>(
 
       // Add security headers to response
       const finalResponse = addSecurityHeaders(response, requestId);
+
+      // Expose token source so clients can detect stale session fallbacks
+      // (e.g. root page detecting affiliate_session used instead of auth-token)
+      if (tokenSource) {
+        finalResponse.headers.set('x-auth-token-source', tokenSource);
+      }
 
       // Structured request summary (SOC2 / incident response; no PHI)
       logger.requestSummary({
@@ -988,43 +1014,10 @@ export async function verifyAuth(req: NextRequest): Promise<{
     token = authHeader.slice(7).trim();
   }
 
-  // Check cookies as fallback — route-aware ordering (see extractToken)
+  // Check cookies as fallback — reuse the centralized extractToken function
   if (!token) {
-    const pathname = new URL(req.url).pathname;
-    const isAffiliateRoute =
-      pathname.startsWith('/api/affiliate') || pathname.startsWith('/affiliate');
-
-    const cookieTokenNames = isAffiliateRoute
-      ? [
-          'affiliate_session',
-          'affiliate-token',
-          'auth-token',
-          'super_admin-token',
-          'admin-token',
-          'provider-token',
-          'patient-token',
-          'staff-token',
-          'support-token',
-        ]
-      : [
-          'auth-token',
-          'super_admin-token',
-          'admin-token',
-          'provider-token',
-          'patient-token',
-          'staff-token',
-          'support-token',
-          'affiliate_session',
-          'affiliate-token',
-        ];
-
-    for (const cookieName of cookieTokenNames) {
-      const cookieToken = req.cookies.get(cookieName)?.value;
-      if (cookieToken) {
-        token = cookieToken;
-        break;
-      }
-    }
+    const extracted = extractToken(req);
+    token = extracted.token;
   }
 
   if (!token) {
