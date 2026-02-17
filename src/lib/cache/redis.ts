@@ -1,6 +1,18 @@
-import { createClient, RedisClientType } from 'redis';
+/**
+ * Redis Cache — Upstash REST Client
+ * ===================================
+ *
+ * Uses @upstash/redis (HTTP/REST) which is fully compatible with
+ * serverless environments (Vercel, Lambda). No persistent TCP connections.
+ *
+ * Falls back gracefully to a no-op cache when Upstash env vars are missing
+ * (local dev without Redis).
+ *
+ * @module cache/redis
+ */
+
+import { Redis } from '@upstash/redis';
 import { logger } from '@/lib/logger';
-import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -8,61 +20,39 @@ interface CacheOptions {
 }
 
 class RedisCache {
-  private client: RedisClientType | null = null;
-  private isConnected = false;
-  private connectionPromise: Promise<void> | null = null;
+  private client: Redis | null = null;
+  private ready = false;
 
   constructor() {
     this.initializeClient();
   }
 
-  private async initializeClient(): Promise<void> {
-    if (this.connectionPromise) {
-      return this.connectionPromise;
+  private initializeClient(): void {
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    if (!url || !token) {
+      // Try to derive from REDIS_URL for backwards compatibility
+      if (process.env.REDIS_URL) {
+        logger.warn(
+          '[RedisCache] REDIS_URL is set but UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are missing. ' +
+          'TCP-based redis connections are unreliable in serverless. Please set the Upstash REST env vars.'
+        );
+      }
+      logger.info('[RedisCache] Upstash credentials not configured — running without Redis cache');
+      return;
     }
 
-    this.connectionPromise = this.connect();
-    return this.connectionPromise;
-  }
-
-  private async connect(): Promise<void> {
     try {
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-
-      this.client = createClient({
-        url: redisUrl,
-        socket: {
-          reconnectStrategy: (retries: any) => {
-            if (retries > 10) {
-              logger.error('Redis: Max reconnection attempts reached');
-              return new Error('Max reconnection attempts reached');
-            }
-            return Math.min(retries * 100, 3000);
-          },
-        },
+      this.client = new Redis({ url, token });
+      this.ready = true;
+      logger.info('[RedisCache] Upstash REST client initialized');
+    } catch (error) {
+      logger.error('[RedisCache] Failed to initialize Upstash client', {
+        error: error instanceof Error ? error.message : String(error),
       });
-
-      this.client.on('error', (err: any) => {
-        logger.error('Redis Client Error:', err);
-        this.isConnected = false;
-      });
-
-      this.client.on('connect', () => {
-        logger.info('Redis Client Connected');
-        this.isConnected = true;
-      });
-
-      this.client.on('ready', () => {
-        logger.info('Redis Client Ready');
-      });
-
-      await this.client.connect();
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error('Failed to connect to Redis:', error);
       this.client = null;
-      this.isConnected = false;
+      this.ready = false;
     }
   }
 
@@ -72,177 +62,152 @@ class RedisCache {
   }
 
   async get<T = unknown>(key: string, options?: CacheOptions): Promise<T | null> {
-    if (!this.isConnected || !this.client) {
-      logger.warn('Redis not connected, skipping cache get');
-      return null;
-    }
+    if (!this.ready || !this.client) return null;
 
     try {
       const fullKey = this.getKey(key, options?.namespace);
-      const value = await this.client.get(fullKey);
-
-      if (!value) {
-        return null;
-      }
-
-      return safeParseJsonString<T>(value) ?? null;
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error(`Redis get error for key ${key}:`, error);
+      const value = await this.client.get<T>(fullKey);
+      return value ?? null;
+    } catch (error) {
+      logger.error(`[RedisCache] get error for key ${key}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
 
   async set(key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
-      logger.warn('Redis not connected, skipping cache set');
-      return false;
-    }
+    if (!this.ready || !this.client) return false;
 
     try {
       const fullKey = this.getKey(key, options?.namespace);
-      const stringValue = JSON.stringify(value);
 
       if (options?.ttl) {
-        await this.client.setEx(fullKey, options.ttl, stringValue);
+        await this.client.set(fullKey, JSON.stringify(value), { ex: options.ttl });
       } else {
-        await this.client.set(fullKey, stringValue);
+        await this.client.set(fullKey, JSON.stringify(value));
       }
 
       return true;
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error(`Redis set error for key ${key}:`, error);
+    } catch (error) {
+      logger.error(`[RedisCache] set error for key ${key}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
   async delete(key: string, options?: CacheOptions): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
-      logger.warn('Redis not connected, skipping cache delete');
-      return false;
-    }
+    if (!this.ready || !this.client) return false;
 
     try {
       const fullKey = this.getKey(key, options?.namespace);
       const result = await this.client.del(fullKey);
       return result === 1;
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error(`Redis delete error for key ${key}:`, error);
+    } catch (error) {
+      logger.error(`[RedisCache] delete error for key ${key}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
   async flush(namespace?: string): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
-      logger.warn('Redis not connected, skipping cache flush');
-      return false;
-    }
+    if (!this.ready || !this.client) return false;
 
     try {
       const pattern = this.getKey('*', namespace);
       const keys = await this.client.keys(pattern);
 
       if (keys.length > 0) {
-        await this.client.del(keys);
+        const pipeline = this.client.pipeline();
+        for (const k of keys) {
+          pipeline.del(k);
+        }
+        await pipeline.exec();
       }
 
       return true;
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error('Redis flush error:', error);
+    } catch (error) {
+      logger.error('[RedisCache] flush error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
   async increment(key: string, amount = 1, options?: CacheOptions): Promise<number | null> {
-    if (!this.isConnected || !this.client) {
-      logger.warn('Redis not connected, skipping increment');
-      return null;
-    }
+    if (!this.ready || !this.client) return null;
 
     try {
       const fullKey = this.getKey(key, options?.namespace);
-      const result = await this.client.incrBy(fullKey, amount);
+      const result = await this.client.incrby(fullKey, amount);
 
       if (options?.ttl) {
         await this.client.expire(fullKey, options.ttl);
       }
 
       return result;
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error(`Redis increment error for key ${key}:`, error);
+    } catch (error) {
+      logger.error(`[RedisCache] increment error for key ${key}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
 
   async exists(key: string, options?: CacheOptions): Promise<boolean> {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
+    if (!this.ready || !this.client) return false;
 
     try {
       const fullKey = this.getKey(key, options?.namespace);
       const result = await this.client.exists(fullKey);
       return result === 1;
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error(`Redis exists error for key ${key}:`, error);
+    } catch (error) {
+      logger.error(`[RedisCache] exists error for key ${key}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
   async ttl(key: string, options?: CacheOptions): Promise<number | null> {
-    if (!this.isConnected || !this.client) {
-      return null;
-    }
+    if (!this.ready || !this.client) return null;
 
     try {
       const fullKey = this.getKey(key, options?.namespace);
       return await this.client.ttl(fullKey);
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error(`Redis TTL error for key ${key}:`, error);
+    } catch (error) {
+      logger.error(`[RedisCache] TTL error for key ${key}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
 
   async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.quit();
-      this.isConnected = false;
-      this.client = null;
-    }
+    // @upstash/redis is HTTP-based — no persistent connection to close
+    this.ready = false;
+    this.client = null;
   }
 
   isReady(): boolean {
-    return this.isConnected;
+    return this.ready && this.client !== null;
   }
 
   /**
-   * Get all keys matching a pattern
-   * SOC 2 Compliance: Used for session management and audit queries
-   * Warning: Use sparingly - KEYS command can be slow on large datasets
+   * Get all keys matching a pattern.
+   * Warning: Use sparingly — KEYS/SCAN can be slow on large datasets.
    */
   async keys(pattern: string): Promise<string[]> {
-    if (!this.isConnected || !this.client) {
-      logger.warn('Redis not connected, returning empty keys');
-      return [];
-    }
+    if (!this.ready || !this.client) return [];
 
     try {
       return await this.client.keys(pattern);
-    } catch (error: any) {
-      logger.error(`Redis keys error for pattern ${pattern}:`, error);
+    } catch (error) {
+      logger.error(`[RedisCache] keys error for pattern ${pattern}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return [];
     }
   }
@@ -267,7 +232,7 @@ export function cacheable(ttl: number = 300, namespace?: string) {
       }
 
       // Execute original method
-      const result = await originalMethod.apply(this, { value: args });
+      const result = await originalMethod.apply(this, args);
 
       // Store in cache
       await cache.set(cacheKey, result, { ttl, namespace });

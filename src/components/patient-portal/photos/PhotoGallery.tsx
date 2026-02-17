@@ -30,7 +30,7 @@ import {
   Clock,
   Scale,
 } from 'lucide-react';
-import { PatientPhotoType, PatientPhotoVerificationStatus } from '@prisma/client';
+import { PatientPhotoType, PatientPhotoVerificationStatus } from '@/types/prisma-enums';
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO } from 'date-fns';
 
 // =============================================================================

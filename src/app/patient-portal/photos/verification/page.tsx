@@ -31,7 +31,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { PatientPhotoType, PatientPhotoVerificationStatus } from '@prisma/client';
+import { PatientPhotoType, PatientPhotoVerificationStatus } from '@/types/prisma-enums';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 

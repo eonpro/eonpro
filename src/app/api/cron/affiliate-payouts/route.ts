@@ -24,6 +24,7 @@ import { prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { processPayout, checkPayoutEligibility } from '@/services/affiliate/payoutService';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
+import { circuitBreaker, DbTier } from '@/lib/database/circuit-breaker';
 
 // Stable lock key for the affiliate-payouts cron job (arbitrary unique integer)
 const AFFILIATE_PAYOUT_LOCK_KEY = 8675309;
@@ -204,6 +205,19 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
 export async function GET(request: NextRequest) {
   if (!verifyCronAuth(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Tier 3 BACKGROUND: hard-blocked when circuit breaker is open
+  const guard = await circuitBreaker.guard(DbTier.BACKGROUND);
+  if (!guard.allowed) {
+    logger.warn('[PayoutCron] Blocked by circuit breaker', {
+      reason: guard.reason,
+      state: guard.state,
+    });
+    return NextResponse.json(
+      { error: 'Database circuit breaker is open — cron job deferred', reason: guard.reason },
+      { status: 503, headers: { 'Retry-After': '30' } }
+    );
   }
 
   // Acquire distributed lock to prevent concurrent cron executions

@@ -11,6 +11,8 @@ import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { CircuitOpenError } from '@/lib/database/circuit-breaker';
 
 export async function GET(req: NextRequest) {
   const auth = await verifyAuth(req);
@@ -54,27 +56,43 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    // Fetch invoices with patient info
-    const [invoices, total] = await Promise.all([
-      prisma.invoice.findMany({
-        where,
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              profileStatus: true,
+    // Fetch invoices with patient info — Tier 2 READ (fail-fast if breaker open)
+    const dbResult = await executeDbRead(
+      () =>
+        Promise.all([
+          prisma.invoice.findMany({
+            where,
+            include: {
+              patient: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  profileStatus: true,
+                },
+              },
             },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: Math.min(limit, 100), // Cap at 100
-        skip: offset,
-      }),
-      prisma.invoice.count({ where }),
-    ]);
+            orderBy: { createdAt: 'desc' },
+            take: Math.min(limit, 100),
+            skip: offset,
+          }),
+          prisma.invoice.count({ where }),
+        ]),
+      'invoices:list'
+    );
+
+    if (!dbResult.success) {
+      if (dbResult.error instanceof CircuitOpenError) {
+        return NextResponse.json(
+          { error: 'Service temporarily unavailable', invoices: [], total: 0 },
+          { status: 503 }
+        );
+      }
+      throw dbResult.error;
+    }
+
+    const [invoices, total] = dbResult.data!;
 
     await auditPhiAccess(req, buildAuditPhiOptions(req, auth.user, 'invoice:view', {
       route: 'GET /api/invoices',

@@ -26,6 +26,7 @@ import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
@@ -743,12 +744,19 @@ export async function POST(req: NextRequest) {
       },
     };
 
+    // Dual-write: S3 + DB `data` column (Phase 3.3)
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+      intakeDataToStore,
+      { documentId: existingDoc?.id, patientId: patient.id, clinicId }
+    );
+
     if (existingDoc) {
       patientDocument = await prisma.patientDocument.update({
         where: { id: existingDoc.id },
         data: {
           filename: stored?.filename || `overtime-intake-${normalized.submissionId}.json`,
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey: s3DataKey ?? existingDoc.s3DataKey,
           externalUrl: pdfExternalUrl || existingDoc.externalUrl,
         },
       });
@@ -761,7 +769,8 @@ export async function POST(req: NextRequest) {
           filename: stored?.filename || `overtime-intake-${normalized.submissionId}.json`,
           mimeType: 'application/json',
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey,
           externalUrl: pdfExternalUrl,
           source: 'overtime-intake',
           sourceSubmissionId: normalized.submissionId,

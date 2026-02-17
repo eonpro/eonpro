@@ -11,6 +11,7 @@ import type {
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { decryptPHI, decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
+import { readIntakeData } from '@/lib/storage/document-data-store';
 
 /**
  * SOAP Note Service
@@ -120,43 +121,21 @@ export async function generateSOAPFromIntake(
   let structuredData: any = {};
 
   try {
-    // If the document has external URL, it might be a PDF
-    // For now, we'll assume we have normalized data stored
-    if (intakeDocument.data) {
-      let dataStr = '';
+    // Read intake data — prefers S3 (if s3DataKey set + flag on), falls back to DB
+    const parsedData = await readIntakeData(intakeDocument as any);
 
-      // Check if data is stored as comma-separated bytes or as a proper Buffer
-      // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-      const rawDataStr =
-        typeof intakeDocument.data === 'string'
-          ? intakeDocument.data
-          : intakeDocument.data instanceof Uint8Array
-            ? Buffer.from(intakeDocument.data).toString('utf8')
-            : Buffer.isBuffer(intakeDocument.data)
-              ? (intakeDocument.data as Buffer).toString('utf8')
-              : JSON.stringify(intakeDocument.data);
-
-      if (rawDataStr.match(/^\d+,\d+,\d+/)) {
-        // Data is stored as comma-separated byte values
-        const bytes = rawDataStr.split(',').map((b: string) => parseInt(b.trim()));
-        dataStr = Buffer.from(bytes).toString('utf8');
-      } else {
-        // Data is stored as a proper string
-        dataStr = rawDataStr;
-      }
-
-      logger.debug('[SOAP Service] Raw data preview:', { preview: dataStr.substring(0, 100) });
-      const parsedData = JSON.parse(dataStr);
+    if (parsedData && typeof parsedData === 'object') {
+      const pd = parsedData as Record<string, any>;
 
       // If the data has an answers array, transform it to a structured format
-      if (parsedData.answers && Array.isArray(parsedData.answers)) {
-        parsedData.answers.forEach((answer: any) => {
+      if (pd.answers && Array.isArray(pd.answers)) {
+        pd.answers.forEach((answer: any) => {
           structuredData[answer.label] = answer.value;
         });
         intakeData = structuredData;
-        logger.debug('[SOAP Service] Parsed intake answers:', { count: parsedData.answers.length });
+        logger.debug('[SOAP Service] Parsed intake answers:', { count: pd.answers.length });
       } else {
-        intakeData = parsedData;
+        intakeData = pd;
       }
 
       logger.debug('[SOAP Service] Parsed intake data with fields:', {

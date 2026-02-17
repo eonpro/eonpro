@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { WebhookStatus } from '@prisma/client';
+import { WebhookStatus } from '@/types/prisma-enums';
 import { logger } from '@/lib/logger';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { apiFetch } from '@/lib/api/fetch';

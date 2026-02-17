@@ -13,6 +13,7 @@ import { createHash } from 'crypto';
 import { recordSuccess, recordError, recordAuthFailure } from '@/lib/webhooks/monitor';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
 import { decryptPHI } from '@/lib/security/phi-encryption';
@@ -848,12 +849,19 @@ export async function POST(req: NextRequest) {
       consentTimestamp,
     };
 
+    // Dual-write: S3 + DB `data` column (Phase 3.3)
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+      intakeDataToStore,
+      { documentId: existingDoc?.id, patientId: patient.id, clinicId }
+    );
+
     if (existingDoc) {
       patientDocument = await prisma.patientDocument.update({
         where: { id: existingDoc.id },
         data: {
           filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey: s3DataKey ?? existingDoc.s3DataKey,
           externalUrl: pdfExternalUrl || existingDoc.externalUrl,
         },
       });
@@ -866,7 +874,8 @@ export async function POST(req: NextRequest) {
           filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
           mimeType: 'application/json',
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey,
           externalUrl: pdfExternalUrl,
           source: 'wellmedr-intake',
           sourceSubmissionId: normalized.submissionId,

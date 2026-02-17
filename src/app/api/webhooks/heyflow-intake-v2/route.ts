@@ -12,6 +12,7 @@ import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
 import { createHash } from 'crypto';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 const WEBHOOK_ENDPOINT = '/api/webhooks/heyflow-intake-v2';
 
@@ -333,8 +334,12 @@ export async function POST(req: NextRequest) {
         where: { sourceSubmissionId: normalized.submissionId },
       });
 
-      // Create or update patient document
-      // Store intake JSON for display (PDF bytes require DB migration for intakeData field)
+      // Dual-write: S3 + DB `data` column (Phase 3.3)
+      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+        intakeDataToStore,
+        { documentId: existingDocument?.id, patientId: patient.id, clinicId: null }
+      );
+
       let patientDocument;
       if (existingDocument) {
         logger.debug(`[HEYFLOW V2] Updating existing document: ${existingDocument.id}`);
@@ -342,7 +347,8 @@ export async function POST(req: NextRequest) {
           where: { id: existingDocument.id },
           data: {
             filename: stored.filename,
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+            data: intakeDataBuffer,
+            s3DataKey: s3DataKey ?? existingDocument.s3DataKey,
           },
         });
       } else {
@@ -355,7 +361,8 @@ export async function POST(req: NextRequest) {
             source: 'heyflow',
             sourceSubmissionId: normalized.submissionId,
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+            data: intakeDataBuffer,
+            s3DataKey,
           },
         });
       }

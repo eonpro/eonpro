@@ -9,6 +9,7 @@ import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { attributeFromIntake, tagPatientWithReferralCodeOnly, attributeByRecentTouch } from '@/services/affiliate/attributionService';
 import { extractPromoCode } from '@/lib/overtime/intakeNormalizer';
 import { logger } from '@/lib/logger';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 export async function POST(req: NextRequest) {
   // Log all incoming headers for debugging
@@ -199,19 +200,23 @@ export async function POST(req: NextRequest) {
       where: { sourceSubmissionId: normalized.submissionId },
     });
 
+    // Dual-write: S3 + DB `data` column (Phase 3.3)
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+      intakeDataToStore,
+      { documentId: existingDocument?.id, patientId: patient.id, clinicId: null }
+    );
+
     let patientDocument;
     if (existingDocument) {
-      // Update the existing document
       patientDocument = await prisma.patientDocument.update({
         where: { id: existingDocument.id },
         data: {
           filename: stored.filename,
-          // Store intake JSON for display on Intake tab
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey: s3DataKey ?? existingDocument.s3DataKey,
         },
       });
     } else {
-      // Create a new document
       patientDocument = await prisma.patientDocument.create({
         data: {
           patientId: patient.id,
@@ -220,8 +225,8 @@ export async function POST(req: NextRequest) {
           source: 'heyflow',
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          // Store intake JSON for display on Intake tab
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey,
         },
       });
     }

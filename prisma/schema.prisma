@@ -289,6 +289,9 @@ model PatientDocument {
   source             String?
   data               Bytes? // PDF binary data (or legacy JSON)
   externalUrl        String?
+  /// S3 key for externalized intake JSON data (Phase 3.3 blob migration).
+  /// When set, reads prefer S3 over the `data` column. Dual-write keeps both in sync.
+  s3DataKey          String?
   sourceSubmissionId String?                 @unique
   category           PatientDocumentCategory @default(OTHER)
   /// SHA-256 of file content for idempotent bloodwork uploads (dedupe same PDF).

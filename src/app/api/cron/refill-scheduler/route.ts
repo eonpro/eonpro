@@ -36,6 +36,7 @@ import {
 } from '@/lib/shipment-schedule';
 import { notificationService } from '@/services/notification';
 import { sendShipmentReminderSMS } from '@/lib/prescription-tracking/shipment-notifications';
+import { circuitBreaker, DbTier } from '@/lib/database/circuit-breaker';
 import {
   verifyCronAuth,
   runCronPerTenant,
@@ -79,6 +80,19 @@ async function processRefillScheduler(req: NextRequest) {
   if (!verifyCronAuth(req)) {
     logger.warn('[Refill Scheduler] Unauthorized cron request');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Tier 3 BACKGROUND: hard-blocked when circuit breaker is open
+  const guard = await circuitBreaker.guard(DbTier.BACKGROUND);
+  if (!guard.allowed) {
+    logger.warn('[Refill Scheduler] Blocked by circuit breaker', {
+      reason: guard.reason,
+      state: guard.state,
+    });
+    return NextResponse.json(
+      { error: 'Database circuit breaker is open — cron job deferred', reason: guard.reason },
+      { status: 503, headers: { 'Retry-After': '30' } }
+    );
   }
 
   try {

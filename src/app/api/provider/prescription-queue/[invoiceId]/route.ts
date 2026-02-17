@@ -11,6 +11,7 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { getPatientSoapNote } from '@/lib/soap-note-automation';
+import { readIntakeData } from '@/lib/storage/document-data-store';
 
 /**
  * GET /api/provider/prescription-queue/[invoiceId]
@@ -239,27 +240,13 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
           category: 'MEDICAL_INTAKE_FORM',
         },
         orderBy: { createdAt: 'desc' },
-        select: { data: true },
+        select: { id: true, patientId: true, clinicId: true, s3DataKey: true, data: true },
       });
 
-      if (intakeDoc?.data) {
-        let rawData: string;
-        const docData = intakeDoc.data;
-        if (Buffer.isBuffer(docData)) {
-          rawData = docData.toString('utf8');
-        } else if (docData instanceof Uint8Array) {
-          rawData = new TextDecoder().decode(docData);
-        } else if (
-          typeof docData === 'object' &&
-          (docData as any).type === 'Buffer' &&
-          Array.isArray((docData as any).data)
-        ) {
-          rawData = new TextDecoder().decode(new Uint8Array((docData as any).data));
-        } else {
-          rawData = String(docData);
-        }
+      const docJsonRaw = intakeDoc ? await readIntakeData(intakeDoc) : null;
+      const docJson = docJsonRaw as Record<string, unknown> | null;
 
-        const docJson = JSON.parse(rawData);
+      if (docJson && typeof docJson === 'object') {
         const getField = (keys: string[]): string | null => {
           for (const k of keys) {
             const v = docJson[k];

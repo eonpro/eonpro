@@ -27,7 +27,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
-import { PatientPhotoType } from '@prisma/client';
+import { PatientPhotoType } from '@/types/prisma-enums';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { apiFetch } from '@/lib/api/fetch';
 

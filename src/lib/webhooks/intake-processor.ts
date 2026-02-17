@@ -18,6 +18,7 @@ import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
 
@@ -336,8 +337,11 @@ export class IntakeProcessor {
       where: { sourceSubmissionId: normalized.submissionId },
     });
 
-    // Store intake JSON for display (PDF bytes require DB migration for intakeData field)
-    const intakeDataBuffer = Buffer.from(JSON.stringify(intakeDataToStore), 'utf8');
+    // Dual-write: S3 + DB `data` column (Phase 3.3)
+    const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+      intakeDataToStore,
+      { documentId: existingDocument?.id, patientId: patient.id, clinicId }
+    );
 
     let document;
     if (existingDocument) {
@@ -346,6 +350,7 @@ export class IntakeProcessor {
         data: {
           filename,
           data: intakeDataBuffer,
+          s3DataKey: s3DataKey ?? existingDocument.s3DataKey,
         },
       });
     } else {
@@ -359,6 +364,7 @@ export class IntakeProcessor {
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
+          s3DataKey,
         },
       });
     }

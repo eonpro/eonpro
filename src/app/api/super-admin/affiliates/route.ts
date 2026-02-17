@@ -11,6 +11,8 @@ import { basePrisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 import { superAdminRateLimit } from '@/lib/rateLimit';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { CircuitOpenError } from '@/lib/database/circuit-breaker';
 
 /**
  * Middleware to check for Super Admin role
@@ -29,84 +31,98 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
     const take = Math.min(parseInt(searchParams.get('limit') || '100', 10), 200);
     const skip = parseInt(searchParams.get('offset') || '0', 10);
 
-    // Fetch affiliates WITHOUT the unbounded commissionEvents include.
-    // Previously: commissionEvents loaded ALL events per affiliate (could be 1000s each).
-    // Now: We use a separate groupBy aggregation for stats (1 query instead of N×M rows).
-    const [affiliates, plans, totalCount] = await Promise.all([
-      basePrisma.affiliate.findMany({
-        select: {
-          id: true,
-          displayName: true,
-          status: true,
-          createdAt: true,
-          clinicId: true,
-          clinic: {
+    // Fetch affiliates — Tier 2 READ (fail-fast if breaker open, serve empty to UI)
+    const dbResult = await executeDbRead(
+      () =>
+        Promise.all([
+          basePrisma.affiliate.findMany({
             select: {
               id: true,
-              name: true,
-              subdomain: true,
-            },
-          },
-          user: {
-            select: {
-              email: true,
-              firstName: true,
-              lastName: true,
-              lastLogin: true,
+              displayName: true,
               status: true,
-            },
-          },
-          refCodes: {
-            where: { isActive: true },
-            select: {
-              id: true,
-              refCode: true,
-              isActive: true,
-            },
-          },
-          planAssignments: {
-            where: { effectiveTo: null },
-            select: {
-              commissionPlan: {
+              createdAt: true,
+              clinicId: true,
+              clinic: {
                 select: {
                   id: true,
                   name: true,
-                  planType: true,
-                  flatAmountCents: true,
-                  percentBps: true,
-                  initialPercentBps: true,
-                  initialFlatAmountCents: true,
-                  recurringPercentBps: true,
-                  recurringFlatAmountCents: true,
+                  subdomain: true,
                 },
               },
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                  lastLogin: true,
+                  status: true,
+                },
+              },
+              refCodes: {
+                where: { isActive: true },
+                select: {
+                  id: true,
+                  refCode: true,
+                  isActive: true,
+                },
+              },
+              planAssignments: {
+                where: { effectiveTo: null },
+                select: {
+                  commissionPlan: {
+                    select: {
+                      id: true,
+                      name: true,
+                      planType: true,
+                      flatAmountCents: true,
+                      percentBps: true,
+                      initialPercentBps: true,
+                      initialFlatAmountCents: true,
+                      recurringPercentBps: true,
+                      recurringFlatAmountCents: true,
+                    },
+                  },
+                },
+                take: 1,
+              },
             },
-            take: 1,
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take,
-        skip,
-      }),
-      basePrisma.affiliateCommissionPlan.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          name: true,
-          planType: true,
-          flatAmountCents: true,
-          percentBps: true,
-          initialPercentBps: true,
-          initialFlatAmountCents: true,
-          recurringPercentBps: true,
-          recurringFlatAmountCents: true,
-          recurringEnabled: true,
-          isActive: true,
-          clinicId: true,
-        },
-      }),
-      basePrisma.affiliate.count(),
-    ]);
+            orderBy: { createdAt: 'desc' },
+            take,
+            skip,
+          }),
+          basePrisma.affiliateCommissionPlan.findMany({
+            where: { isActive: true },
+            select: {
+              id: true,
+              name: true,
+              planType: true,
+              flatAmountCents: true,
+              percentBps: true,
+              initialPercentBps: true,
+              initialFlatAmountCents: true,
+              recurringPercentBps: true,
+              recurringFlatAmountCents: true,
+              recurringEnabled: true,
+              isActive: true,
+              clinicId: true,
+            },
+          }),
+          basePrisma.affiliate.count(),
+        ]),
+      'super-admin:affiliates:list'
+    );
+
+    if (!dbResult.success) {
+      if (dbResult.error instanceof CircuitOpenError) {
+        return NextResponse.json(
+          { affiliates: [], plans: [], pagination: { total: 0, limit: take, offset: skip, hasMore: false }, warning: 'Service temporarily degraded' },
+          { status: 200 }
+        );
+      }
+      throw dbResult.error;
+    }
+
+    const [affiliates, plans, totalCount] = dbResult.data!;
 
     // Get aggregated commission stats per affiliate in a single query
     const affiliateIds = affiliates.map(a => a.id);

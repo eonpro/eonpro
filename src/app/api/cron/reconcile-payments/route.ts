@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
+import { circuitBreaker, DbTier } from '@/lib/database/circuit-breaker';
 
 type PerClinicResult = {
   newlyProcessed: number;
@@ -36,6 +37,19 @@ async function runReconcile(req: NextRequest) {
 
   if (!verifyCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Tier 3 BACKGROUND: hard-blocked when circuit breaker is open
+  const guard = await circuitBreaker.guard(DbTier.BACKGROUND);
+  if (!guard.allowed) {
+    logger.warn('[Reconciliation Cron] Blocked by circuit breaker', {
+      reason: guard.reason,
+      state: guard.state,
+    });
+    return NextResponse.json(
+      { error: 'Database circuit breaker is open — cron job deferred', reason: guard.reason },
+      { status: 503, headers: { 'Retry-After': '30' } }
+    );
   }
 
   const results = {

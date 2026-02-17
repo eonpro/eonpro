@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { PatientDocumentCategory } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { readIntakeData, storeIntakeData } from '@/lib/storage/document-data-store';
 
 /**
  * GET /api/patients/[id]/intake
@@ -33,29 +34,8 @@ export const GET = withAuthParams(
         return NextResponse.json({ intakeData: null });
       }
 
-      // Parse intake data from the document
-      let intakeData = null;
-      if (intakeDoc.data) {
-        try {
-          let rawData: any = intakeDoc.data;
-          // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-          if (rawData instanceof Uint8Array) {
-            rawData = Buffer.from(rawData).toString('utf8');
-          } else if (Buffer.isBuffer(rawData)) {
-            rawData = rawData.toString('utf8');
-          } else if (typeof rawData === 'object' && rawData.type === 'Buffer') {
-            rawData = Buffer.from(rawData.data).toString('utf8');
-          }
-          if (typeof rawData === 'string') {
-            const trimmed = rawData.trim();
-            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-              intakeData = JSON.parse(trimmed);
-            }
-          }
-        } catch {
-          // Not JSON data
-        }
-      }
+      // Parse intake data — prefers S3 (if s3DataKey set + flag on), falls back to DB
+      const intakeData = await readIntakeData(intakeDoc);
 
       return NextResponse.json({
         documentId: intakeDoc.id,
@@ -126,24 +106,9 @@ export const PUT = withAuthParams(
       };
 
       // Merge with existing data if present
-      if (intakeDoc?.data) {
+      if (intakeDoc) {
         try {
-          let existingData: any = {};
-          let rawData: any = intakeDoc.data;
-          // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-          if (rawData instanceof Uint8Array) {
-            rawData = Buffer.from(rawData).toString('utf8');
-          } else if (Buffer.isBuffer(rawData)) {
-            rawData = rawData.toString('utf8');
-          } else if (typeof rawData === 'object' && rawData.type === 'Buffer') {
-            rawData = Buffer.from(rawData.data).toString('utf8');
-          }
-          if (typeof rawData === 'string') {
-            const trimmed = rawData.trim();
-            if (trimmed.startsWith('{')) {
-              existingData = JSON.parse(trimmed);
-            }
-          }
+          const existingData = (await readIntakeData(intakeDoc) as Record<string, any>) || {};
 
           // Preserve original submission info
           if (existingData.submissionId) {
@@ -171,13 +136,20 @@ export const PUT = withAuthParams(
         }
       }
 
-      const dataBuffer = Buffer.from(JSON.stringify(intakeDataToStore), 'utf8');
+      // Dual-write: S3 + DB `data` column (Phase 3.3)
+      const { s3DataKey, dataBuffer } = await storeIntakeData(
+        intakeDataToStore,
+        { documentId: intakeDoc?.id, patientId, clinicId: user.clinicId }
+      );
 
       if (intakeDoc) {
         // Update existing document
         intakeDoc = await prisma.patientDocument.update({
           where: { id: intakeDoc.id },
-          data: { data: dataBuffer },
+          data: {
+            data: dataBuffer,
+            s3DataKey: s3DataKey ?? intakeDoc.s3DataKey,
+          },
         });
         logger.info(`Updated intake data for patient ${patientId}, doc ${intakeDoc.id}`);
       } else {
@@ -190,6 +162,7 @@ export const PUT = withAuthParams(
             mimeType: 'application/json',
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             data: dataBuffer,
+            s3DataKey,
             source: 'manual_entry',
             sourceSubmissionId: intakeDataToStore.submissionId,
           },

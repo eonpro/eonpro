@@ -33,7 +33,7 @@ import {
   ChevronRight,
   FileText,
 } from 'lucide-react';
-import { PatientPhotoType } from '@prisma/client';
+import { PatientPhotoType } from '@/types/prisma-enums';
 import Link from 'next/link';
 
 // =============================================================================

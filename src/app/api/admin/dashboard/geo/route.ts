@@ -14,6 +14,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import { executeDbRead } from '@/lib/database/executeDb';
+import { getGeoCacheAsync, setGeoCache } from '@/lib/cache/dashboard';
 
 interface ClinicBreakdown {
   clinicId: number;
@@ -43,6 +44,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const isSuperAdmin = user.role === 'super_admin';
     const clinicId = isSuperAdmin ? undefined : (user.clinicId ?? undefined);
+
+    // Two-tier cache: L1 in-memory (20s) + L2 Redis (120s)
+    const cachedGeo = await getGeoCacheAsync(clinicId, user.id);
+    if (cachedGeo) {
+      return NextResponse.json(cachedGeo);
+    }
 
     const clinicFilter = clinicId ? { clinicId } : {};
 
@@ -145,6 +152,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       .sort((a, b) => b.totalPatients - a.totalPatients);
 
     const payload: GeoPayload = { stateData, clinics: clinicsSummary };
+
+    // Populate L1 + L2 cache
+    setGeoCache(clinicId, user.id, payload);
 
     logger.info('[ADMIN-DASHBOARD-GEO] Fetched', {
       userId: user.id,

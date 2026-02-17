@@ -15,6 +15,10 @@ const nextConfig = {
     'puppeteer',
     'pdfkit',
     '@pdf-lib/fontkit',
+    'redis',
+    '@redis/client',
+    'ioredis',
+    'bullmq',
   ],
 
   // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).

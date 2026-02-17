@@ -32,7 +32,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
-import { PatientPhotoType } from '@prisma/client';
+import { PatientPhotoType } from '@/types/prisma-enums';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import Link from 'next/link';
 

@@ -135,6 +135,8 @@ model PatientDocument {
   source             String?
   data               Bytes?
   externalUrl        String?
+  /// S3 key for externalized intake JSON data (Phase 3.3 blob migration).
+  s3DataKey          String?
   sourceSubmissionId String?                 @unique
   category           PatientDocumentCategory @default(OTHER)
   patient            Patient                 @relation(fields: [patientId], references: [id])

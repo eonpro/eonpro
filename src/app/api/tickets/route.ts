@@ -18,6 +18,8 @@ import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import { ticketService, reportTicketError } from '@/domains/ticket';
 import type { TicketListFilters, TicketListOptions } from '@/domains/ticket';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { CircuitOpenError } from '@/lib/database/circuit-breaker';
 
 /**
  * Check if the error indicates a missing table or schema issue
@@ -176,65 +178,74 @@ export const GET = withAuth(async (request, user) => {
     let total: number;
 
     try {
-      [tickets, total] = await Promise.all([
-        prisma.ticket.findMany({
-          where: whereClause,
-          orderBy,
-          skip,
-          take: limit,
-          select: {
-            id: true,
-            ticketNumber: true,
-            title: true,
-            description: true,
-            status: true,
-            priority: true,
-            category: true,
-            createdAt: true,
-            updatedAt: true,
-            lastActivityAt: true,
-            dueDate: true,
-            assignedTo: {
+      const fbResult = await executeDbRead(
+        () =>
+          Promise.all([
+            prisma.ticket.findMany({
+              where: whereClause,
+              orderBy,
+              skip,
+              take: limit,
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
+                ticketNumber: true,
+                title: true,
+                description: true,
+                status: true,
+                priority: true,
+                category: true,
+                createdAt: true,
+                updatedAt: true,
+                lastActivityAt: true,
+                dueDate: true,
+                assignedTo: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                  },
+                },
+                createdBy: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+                patient: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    patientId: true,
+                  },
+                },
+                sla: {
+                  select: {
+                    firstResponseDue: true,
+                    resolutionDue: true,
+                    breached: true,
+                  },
+                },
+                _count: {
+                  select: {
+                    comments: true,
+                    attachmentFiles: true,
+                    watchers: true,
+                  },
+                },
               },
-            },
-            createdBy: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                patientId: true,
-              },
-            },
-            sla: {
-              select: {
-                firstResponseDue: true,
-                resolutionDue: true,
-                breached: true,
-              },
-            },
-            _count: {
-              select: {
-                comments: true,
-                attachmentFiles: true,
-                watchers: true,
-              },
-            },
-          },
-        }),
-        prisma.ticket.count({ where: whereClause }),
-      ]);
+            }),
+            prisma.ticket.count({ where: whereClause }),
+          ]),
+        'tickets:list:fallback'
+      );
+
+      if (!fbResult.success) {
+        throw fbResult.error;
+      }
+      [tickets, total] = fbResult.data!;
     } catch (fallbackError) {
       if (isSchemaMismatchError(fallbackError)) {
         logger.warn('[API] Tickets GET - fallback also failed (lastActivityAt/sla may be missing)');
@@ -311,6 +322,15 @@ export const GET = withAuth(async (request, user) => {
       userId: user.id,
       clinicId: user.clinicId,
     });
+
+    // Circuit breaker open — return empty list gracefully
+    if (error instanceof CircuitOpenError) {
+      return NextResponse.json({
+        tickets: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+        warning: 'Service temporarily degraded. Retrying shortly.',
+      }, { status: 503, headers: { 'Retry-After': '10' } });
+    }
 
     // Database connection errors should return 503 (Service Unavailable)
     if (isDatabaseConnectionError(error)) {

@@ -16,6 +16,7 @@ import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logger } from '@/lib/logger';
 import { PatientDocumentCategory } from '@prisma/client';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 export async function POST(req: NextRequest) {
   const requestId = `v1-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -166,6 +167,12 @@ export async function POST(req: NextRequest) {
         receivedAt: new Date().toISOString(),
       };
 
+      // Dual-write: S3 + DB `data` column (Phase 3.3)
+      const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
+        intakeDataToStore,
+        { patientId: patient.id, clinicId }
+      );
+
       const doc = await prisma.patientDocument.create({
         data: {
           patientId: patient.id,
@@ -173,8 +180,8 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           mimeType: 'application/pdf',
-          // Store intake JSON for display on Intake tab
-          data: Buffer.from(JSON.stringify(intakeDataToStore), 'utf8'),
+          data: intakeDataBuffer,
+          s3DataKey,
           sourceSubmissionId: normalized.submissionId,
         },
       });

@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
@@ -38,70 +39,56 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
     }
 
-    // Get all data in parallel — Tier 2 READ (fail-fast when breaker is OPEN)
+    // PHASE 2 OPTIMIZATION: Consolidated from 7 queries → 3 queries
+    // 1 raw SQL (replaces 5 aggregates) + 2 findMany for list data
     const earningsResult = await executeDbRead(
       () => Promise.all([
-        // Available balance (approved, not yet paid)
-        prisma.affiliateCommissionEvent.aggregate({
-          where: {
-            affiliateId,
-            status: 'APPROVED',
-            payoutId: null,
-          },
-          _sum: { commissionAmountCents: true },
-        }),
+        // Single SQL: all commission + payout aggregates via UNION ALL
+        prisma.$queryRaw<Array<{
+          source: string;
+          status: string;
+          sum_amount: bigint | null;
+          available_amount: bigint | null;
+        }>>(Prisma.sql`
+          SELECT
+            'commission' AS source,
+            status,
+            COALESCE(SUM("commissionAmountCents"), 0) AS sum_amount,
+            COALESCE(SUM(
+              CASE WHEN "payoutId" IS NULL AND status = 'APPROVED'
+                   THEN "commissionAmountCents" ELSE 0 END
+            ), 0) AS available_amount
+          FROM "AffiliateCommissionEvent"
+          WHERE "affiliateId" = ${affiliateId}
+            AND status IN ('PENDING', 'APPROVED', 'PAID')
+          GROUP BY status
+          UNION ALL
+          SELECT
+            'payout' AS source,
+            status,
+            COALESCE(SUM("netAmountCents"), 0) AS sum_amount,
+            0 AS available_amount
+          FROM "AffiliatePayout"
+          WHERE "affiliateId" = ${affiliateId}
+            AND status IN ('PROCESSING', 'COMPLETED')
+          GROUP BY status
+        `),
 
-        // Pending balance (still in hold period)
-        prisma.affiliateCommissionEvent.aggregate({
-          where: {
-            affiliateId,
-            status: 'PENDING',
-          },
-          _sum: { commissionAmountCents: true },
-        }),
-
-        // Processing payouts
-        prisma.affiliatePayout.aggregate({
-          where: {
-            affiliateId,
-            status: 'PROCESSING',
-          },
-          _sum: { netAmountCents: true },
-        }),
-
-        // Commission events (last 100)
+        // Commission events list (last 100) — needed for display
         prisma.affiliateCommissionEvent.findMany({
           where: { affiliateId },
           orderBy: { createdAt: 'desc' },
           take: 100,
         }),
 
-        // Payouts
+        // Payouts list (last 50) — needed for display
         prisma.affiliatePayout.findMany({
           where: { affiliateId },
           orderBy: { createdAt: 'desc' },
           take: 50,
         }),
-
-        // Total paid out
-        prisma.affiliatePayout.aggregate({
-          where: {
-            affiliateId,
-            status: 'COMPLETED',
-          },
-          _sum: { netAmountCents: true },
-        }),
-
-        // Lifetime commissions (PENDING + APPROVED + PAID for accounting identity)
-        prisma.affiliateCommissionEvent.aggregate({
-          where: {
-            affiliateId,
-            status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-          },
-          _sum: { commissionAmountCents: true },
-        }),
       ]),
-      'affiliate-earnings:all-data'
+      'affiliate-earnings:consolidated'
     );
 
     if (!earningsResult.success) {
@@ -115,15 +102,36 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       );
     }
 
-    const [
-      availableCommissions,
-      pendingCommissions,
-      processingPayouts,
-      commissionEvents,
-      payouts,
-      paidCommissions,
-      lifetimeCommissions,
-    ] = earningsResult.data!;
+    const [aggregateRows, commissionEvents, payouts] = earningsResult.data!;
+
+    // Parse aggregation results from the single SQL query
+    let availableBalance = 0;
+    let pendingBalance = 0;
+    let lifetimeEarnings = 0;
+    let processingPayout = 0;
+    let lifetimePaid = 0;
+
+    for (const row of aggregateRows) {
+      const sumAmount = Number(row.sum_amount ?? 0);
+      const availableAmount = Number(row.available_amount ?? 0);
+
+      if (row.source === 'commission') {
+        // Accumulate lifetime earnings across statuses
+        lifetimeEarnings += sumAmount;
+
+        if (row.status === 'APPROVED') {
+          availableBalance = availableAmount; // Only un-paid-out APPROVED commissions
+        } else if (row.status === 'PENDING') {
+          pendingBalance = sumAmount;
+        }
+      } else if (row.source === 'payout') {
+        if (row.status === 'PROCESSING') {
+          processingPayout = sumAmount;
+        } else if (row.status === 'COMPLETED') {
+          lifetimePaid = sumAmount;
+        }
+      }
+    }
 
     // Format commissions
     const formattedCommissions = commissionEvents.map((c: (typeof commissionEvents)[number]) => ({
@@ -147,15 +155,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       method: p.methodType === 'PAYPAL' ? 'PayPal' : 'Bank Transfer',
     }));
 
-    // Calculate next payout (estimated)
-    const availableBalance = availableCommissions._sum.commissionAmountCents || 0;
-    const pendingBalance = pendingCommissions._sum.commissionAmountCents || 0;
-
     // Estimate next payout if there's available balance
     let nextPayout: { date: string; estimatedAmount: number } | undefined;
     if (availableBalance >= 5000) {
-      // $50 minimum
-      // Next weekly payout (Friday)
       const now = new Date();
       const dayOfWeek = now.getDay();
       const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
@@ -173,9 +175,9 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       summary: {
         availableBalance,
         pendingBalance,
-        processingPayout: processingPayouts._sum.netAmountCents || 0,
-        lifetimeEarnings: lifetimeCommissions._sum.commissionAmountCents || 0,
-        lifetimePaid: paidCommissions._sum.netAmountCents || 0,
+        processingPayout,
+        lifetimeEarnings,
+        lifetimePaid,
       },
       commissions: formattedCommissions,
       payouts: formattedPayouts,

@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { logger } from '../logger';
 
-import { Clinic } from '@prisma/client';
+import { Clinic } from '@/types/models';
 
 interface ClinicContextValue {
   clinic: Clinic | null;
