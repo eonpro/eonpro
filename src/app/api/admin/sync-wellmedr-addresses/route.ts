@@ -351,7 +351,7 @@ async function backfillFromAirtable(
   return { results };
 }
 
-export const POST = withAdminAuth(async (req: NextRequest) => {
+async function runSync(req: NextRequest): Promise<Response> {
   const { searchParams } = new URL(req.url);
   const dryRun = searchParams.get('dryRun') !== 'false';
   const source = searchParams.get('source') || 'both';
@@ -485,4 +485,19 @@ export const POST = withAdminAuth(async (req: NextRequest) => {
       { status: 500 },
     );
   }
+}
+
+// GET: browser-friendly access (always dry run for safety)
+export const GET = withAdminAuth(async (req: NextRequest) => {
+  const url = new URL(req.url);
+  // GET always forces dryRun unless explicitly set to false
+  if (!url.searchParams.has('dryRun')) {
+    url.searchParams.set('dryRun', 'true');
+  }
+  return runSync(new NextRequest(url, { method: 'GET', headers: req.headers }));
+});
+
+// POST: programmatic access (respects dryRun param)
+export const POST = withAdminAuth(async (req: NextRequest) => {
+  return runSync(req);
 });
