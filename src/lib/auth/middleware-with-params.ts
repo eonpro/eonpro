@@ -102,31 +102,55 @@ async function verifyToken(token: string): Promise<AuthUser | null> {
 
 /**
  * Extract token from request
+ *
+ * IMPORTANT: Cookie order is route-aware to prevent cross-portal token
+ * collisions. Affiliate cookies are only prioritised on affiliate routes;
+ * otherwise `auth-token` and role-specific cookies come first so that a
+ * stale `affiliate_session` cookie cannot shadow the admin/provider token
+ * and cause 403s on non-affiliate endpoints (e.g. portal-invite).
  */
 function extractToken(req: NextRequest): string | null {
-  const url = req.nextUrl.pathname;
-
-  // Check Authorization header
+  // Priority 1: Authorization header
   const authHeader = req.headers.get('authorization');
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return authHeader.slice(7);
   }
 
-  // Check cookies for various token types (check all possible token storage names)
-  // Note: Order matters - more specific cookies should be checked first
-  const cookieTokens = [
-    'affiliate_session', // Affiliate portal - check first for affiliate routes
-    'affiliate-token',
-    'auth-token',
-    'super_admin-token',
-    'admin-token',
-    'provider-token',
-    'patient-token',
-    'staff-token',
-    'support-token',
-    'token', // Generic fallback
-    'SUPER_ADMIN-token', // Legacy case variant
-  ];
+  // Priority 2: HTTP-only cookies — order depends on the route being accessed
+  const pathname = req.nextUrl.pathname;
+  const isAffiliateRoute =
+    pathname.startsWith('/api/affiliate') || pathname.startsWith('/affiliate');
+
+  const cookieTokens = isAffiliateRoute
+    ? [
+        // Affiliate routes: prefer affiliate-specific cookies
+        'affiliate_session',
+        'affiliate-token',
+        'auth-token',
+        'super_admin-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'staff-token',
+        'support-token',
+        'token',
+        'SUPER_ADMIN-token',
+      ]
+    : [
+        // All other routes: prefer general auth / role-specific cookies
+        'auth-token',
+        'super_admin-token',
+        'admin-token',
+        'provider-token',
+        'patient-token',
+        'staff-token',
+        'support-token',
+        // Affiliate cookies last — only used as fallback for non-affiliate routes
+        'affiliate_session',
+        'affiliate-token',
+        'token',
+        'SUPER_ADMIN-token',
+      ];
 
   for (const cookieName of cookieTokens) {
     const token = req.cookies.get(cookieName)?.value;
