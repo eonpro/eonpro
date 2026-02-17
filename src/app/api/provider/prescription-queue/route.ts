@@ -382,6 +382,49 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return hasInjection || hasPlanDuration;
     };
 
+    // ─── WellMedR price-to-medication mapping ───
+    // WellMedR has fixed pricing per medication+plan. The price on the invoice
+    // deterministically identifies the medication when Airtable sends plan-only product.
+    // Prices in cents. Uses plan duration + price threshold to distinguish Sema vs Tirz.
+    // At every plan level, Tirzepatide is ~1.5-1.7x Semaglutide price.
+    const deriveWellmedrMedicationFromPrice = (amountCents: number, planMonths: number): string | null => {
+      if (!amountCents || amountCents <= 0) return null;
+      const dollars = amountCents / 100;
+      // Thresholds: midpoint between Semaglutide and Tirzepatide prices at each plan level
+      // 1mo: Sema=$149, Tirz=$259 → threshold $204
+      // 3mo: Sema=$485, Tirz=$677 → threshold $581
+      // 6mo: Sema=$820, Tirz=$1234 → threshold $1027
+      // 12mo: Sema=$1290, Tirz=$2130 → threshold $1710
+      switch (planMonths) {
+        case 1:
+          return dollars < 204 ? 'Semaglutide' : 'Tirzepatide';
+        case 3:
+          return dollars < 581 ? 'Semaglutide' : 'Tirzepatide';
+        case 6:
+          return dollars < 1027 ? 'Semaglutide' : 'Tirzepatide';
+        case 12:
+          return dollars < 1710 ? 'Semaglutide' : 'Tirzepatide';
+        default:
+          // Unknown plan — try to match known exact prices (with 10% tolerance)
+          const knownPrices: Array<{ price: number; med: string }> = [
+            { price: 149, med: 'Semaglutide' },
+            { price: 259, med: 'Tirzepatide' },
+            { price: 485, med: 'Semaglutide' },
+            { price: 677, med: 'Tirzepatide' },
+            { price: 820, med: 'Semaglutide' },
+            { price: 1234, med: 'Tirzepatide' },
+            { price: 1290, med: 'Semaglutide' },
+            { price: 2130, med: 'Tirzepatide' },
+          ];
+          for (const kp of knownPrices) {
+            if (Math.abs(dollars - kp.price) / kp.price < 0.10) {
+              return kp.med;
+            }
+          }
+          return null;
+      }
+    };
+
     // Extract preferred medication from intake document for fallback when invoice metadata has plan-only
     const extractMedicationFromDocument = (documentData: Buffer | Uint8Array | null): string | null => {
       if (!documentData) return null;
@@ -991,60 +1034,82 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         ? medicationType.charAt(0).toUpperCase() + medicationType.slice(1).toLowerCase()
         : '';
 
-      // ─── Derive medication name for plan-only products ───
-      // Priority: 1) metadata.preferredMedication (set by invoice webhook)
-      //           2) intake document blob extraction
-      //           3) glp1Info.glp1Type from intake
-      //           4) generic "Semaglutide or Tirzepatide" fallback
-      let derivedMedFromDoc: string | null = null;
-      if (!formattedMedType && looksLikePlanOnly(cleanTreatment)) {
-        // Priority 1: Use preferredMedication from invoice metadata (set by invoice webhook)
-        const preferredMed = metadata?.preferredMedication as string | undefined;
-        if (preferredMed && /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(preferredMed)) {
-          derivedMedFromDoc = preferredMed.charAt(0).toUpperCase() + preferredMed.slice(1).toLowerCase();
-        }
-        // Priority 2: Extract from intake document blob (loaded for plan-only patients)
-        if (!derivedMedFromDoc && intakeDocBlob) {
-          const docMed = extractMedicationFromDocument(intakeDocBlob);
-          if (docMed) {
-            derivedMedFromDoc = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
-          }
-        }
-      }
-
-      // Map plan to duration info for prescribing (label and months must stay in sync)
+      // Map plan to duration info FIRST (needed for price-based medication derivation)
       const planDurationMap: Record<string, { label: string; months: number }> = {
         monthly: { label: 'Monthly', months: 1 },
         '1month': { label: 'Monthly', months: 1 },
         '1-month': { label: 'Monthly', months: 1 },
+        '1mo': { label: 'Monthly', months: 1 },
         quarterly: { label: 'Quarterly', months: 3 },
         '3month': { label: 'Quarterly', months: 3 },
         '3-month': { label: 'Quarterly', months: 3 },
+        '3mo': { label: 'Quarterly', months: 3 },
         semester: { label: '6-Month', months: 6 },
         '6-month': { label: '6-Month', months: 6 },
         '6month': { label: '6-Month', months: 6 },
+        '6mo': { label: '6-Month', months: 6 },
         annual: { label: 'Annual', months: 12 },
         yearly: { label: 'Annual', months: 12 },
         '12-month': { label: '12-Month', months: 12 },
         '12month': { label: '12-Month', months: 12 },
+        '12mo': { label: '12-Month', months: 12 },
       };
 
       const planKey = plan.toLowerCase().replace(/[\s-]/g, '');
-      const planInfo = planDurationMap[planKey] || { label: plan || 'Monthly', months: 1 };
+      // Also try to extract plan months from cleanTreatment (e.g. "6mo Injections" → 6)
+      let planFromTreatment = 0;
+      const treatmentMonthMatch = cleanTreatment.match(/(\d+)\s*mo/i);
+      if (treatmentMonthMatch) {
+        planFromTreatment = parseInt(treatmentMonthMatch[1], 10);
+      }
+      const planInfo = planDurationMap[planKey] || {
+        label: plan || (planFromTreatment ? `${planFromTreatment}-Month` : 'Monthly'),
+        months: planFromTreatment || 1,
+      };
 
-      // Build treatment display string: "Tirzepatide 2.5mg 1mo Injections" or "Tirzepatide Injections"
+      // ─── Derive medication name for plan-only products ───
+      // Priority: 1) metadata.preferredMedication (set by invoice webhook)
+      //           2) Price-based derivation (WellMedR has fixed pricing per med+plan)
+      //           3) intake document blob extraction
+      //           4) glp1Info.glp1Type from intake
+      //           5) generic "Semaglutide or Tirzepatide" fallback
+      let derivedMedication: string | null = null;
+      if (!formattedMedType && looksLikePlanOnly(cleanTreatment)) {
+        // Priority 1: Use preferredMedication from invoice metadata (set by invoice webhook)
+        const preferredMed = metadata?.preferredMedication as string | undefined;
+        if (preferredMed && /tirzepatide|semaglutide|mounjaro|zepbound|ozempic|wegovy/i.test(preferredMed)) {
+          derivedMedication = preferredMed.charAt(0).toUpperCase() + preferredMed.slice(1).toLowerCase();
+        }
+        // Priority 2: Price-based derivation for WellMedR (deterministic, no intake needed)
+        if (!derivedMedication && (metadata?.source as string) === 'wellmedr-airtable') {
+          const invoiceAmount = invoice.amount || invoice.amountPaid || 0;
+          const priceDerived = deriveWellmedrMedicationFromPrice(invoiceAmount, planInfo.months);
+          if (priceDerived) {
+            derivedMedication = priceDerived;
+          }
+        }
+        // Priority 3: Extract from intake document blob (loaded for plan-only patients)
+        if (!derivedMedication && intakeDocBlob) {
+          const docMed = extractMedicationFromDocument(intakeDocBlob);
+          if (docMed) {
+            derivedMedication = docMed.charAt(0).toUpperCase() + docMed.slice(1).toLowerCase();
+          }
+        }
+      }
+
+      // Build treatment display string: "Tirzepatide - 6mo Injections" or "Tirzepatide Injections"
       let treatmentDisplay = cleanTreatment;
       if (formattedMedType) {
         treatmentDisplay += ` ${formattedMedType}`;
       }
-      // When we derived medication from intake (plan-only product), show medication first for clarity
-      if (derivedMedFromDoc) {
-        treatmentDisplay = `${derivedMedFromDoc} - ${cleanTreatment}`;
+      // When we derived medication (from metadata, price, or intake), show it first for clarity
+      if (derivedMedication) {
+        treatmentDisplay = `${derivedMedication} - ${cleanTreatment}`;
       }
       // Use glp1Info.glp1Type when we have it (e.g. patient preference or last-used from intake)
       else if (
         !formattedMedType &&
-        !derivedMedFromDoc &&
+        !derivedMedication &&
         looksLikePlanOnly(cleanTreatment) &&
         glp1Info.glp1Type
       ) {
@@ -1052,11 +1117,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           glp1Info.glp1Type.charAt(0).toUpperCase() + glp1Info.glp1Type.slice(1).toLowerCase();
         treatmentDisplay = `${medName} - ${cleanTreatment}`;
       }
-      // Fallback: when Airtable sends plan-only (e.g. "1mo Injections") and no med from intake,
-      // show "Semaglutide or Tirzepatide - 1mo Injections" so provider knows to verify (WellMedR is GLP-1 clinic)
+      // Fallback: when Airtable sends plan-only and no derivation possible,
+      // show "Semaglutide or Tirzepatide - 1mo Injections" so provider knows to verify
       else if (
         !formattedMedType &&
-        !derivedMedFromDoc &&
+        !derivedMedication &&
         looksLikePlanOnly(cleanTreatment) &&
         (metadata?.source as string) === 'wellmedr-airtable'
       ) {

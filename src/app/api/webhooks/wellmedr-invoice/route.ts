@@ -1066,6 +1066,55 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Fallback: Price-based medication derivation for WellMedR
+        // WellMedR has fixed pricing: Tirzepatide is ~1.5-1.7x Semaglutide at each plan level
+        if (!preferredMedication && amountInCents > 0) {
+          const dollars = amountInCents / 100;
+          // Parse plan months from plan string
+          const planLowerForMonths = (plan || '').toLowerCase().replace(/[\s-]/g, '');
+          const monthMap: Record<string, number> = {
+            '1mo': 1, '1month': 1, monthly: 1,
+            '3mo': 3, '3month': 3, quarterly: 3,
+            '6mo': 6, '6month': 6,
+            '12mo': 12, '12month': 12, annual: 12, yearly: 12,
+          };
+          const planMonths = monthMap[planLowerForMonths] || 0;
+
+          // Also try to extract months from product string (e.g. "6mo Injections" → 6)
+          const prodMonthMatch = product.match(/(\d+)\s*mo/i);
+          const effectiveMonths = planMonths || (prodMonthMatch ? parseInt(prodMonthMatch[1], 10) : 0);
+
+          // Thresholds: midpoint between Sema and Tirz prices at each plan level
+          const thresholds: Record<number, number> = { 1: 204, 3: 581, 6: 1027, 12: 1710 };
+          const threshold = thresholds[effectiveMonths];
+          if (threshold) {
+            preferredMedication = dollars < threshold ? 'Semaglutide' : 'Tirzepatide';
+            logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Derived medication from price`, {
+              preferredMedication,
+              dollars,
+              planMonths: effectiveMonths,
+              threshold,
+            });
+          } else {
+            // Unknown plan — try exact price matching with 10% tolerance
+            const knownPrices = [
+              { price: 149, med: 'Semaglutide' }, { price: 259, med: 'Tirzepatide' },
+              { price: 485, med: 'Semaglutide' }, { price: 677, med: 'Tirzepatide' },
+              { price: 820, med: 'Semaglutide' }, { price: 1234, med: 'Tirzepatide' },
+              { price: 1290, med: 'Semaglutide' }, { price: 2130, med: 'Tirzepatide' },
+            ];
+            for (const kp of knownPrices) {
+              if (Math.abs(dollars - kp.price) / kp.price < 0.10) {
+                preferredMedication = kp.med;
+                logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Derived medication from exact price match`, {
+                  preferredMedication, dollars, matchedPrice: kp.price,
+                });
+                break;
+              }
+            }
+          }
+        }
+
         if (preferredMedication) {
           // Update the invoice metadata with the preferred medication
           const existingMeta = (invoice.metadata as Record<string, unknown>) || {};
@@ -1078,16 +1127,17 @@ export async function POST(req: NextRequest) {
               },
             },
           });
-          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Extracted preferred medication from intake`, {
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Stored preferred medication in invoice metadata`, {
             preferredMedication,
             patientId: verifiedPatient.id,
             invoiceId: invoice.id,
           });
         } else {
-          logger.info(`[WELLMEDR-INVOICE ${requestId}] No preferred medication found in intake document`, {
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] Could not determine preferred medication`, {
             patientId: verifiedPatient.id,
             invoiceId: invoice.id,
             product,
+            amountInCents,
           });
         }
       } catch (medExtractErr) {
