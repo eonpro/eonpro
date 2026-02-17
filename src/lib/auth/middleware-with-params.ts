@@ -280,13 +280,36 @@ export function withAuthParams<T extends { params: any }>(
       }
     }
 
-    // Resolve effective clinic: use subdomain clinic when on clinic subdomain (e.g. ot.eonpro.io) if user has access
-    let effectiveClinicId = user.clinicId ?? undefined;
+    // Resolve effective clinic context
+    // For non-super-admin: start with JWT clinicId
+    // For super_admin: start undefined, but allow subdomain/header override below
+    let effectiveClinicId: number | undefined =
+      user.clinicId != null && user.role !== 'super_admin' ? Number(user.clinicId) : undefined;
+
+    // Fallback: if JWT has no clinicId, use the x-clinic-id header set by the edge
+    // clinic middleware. This ensures clinic context is always available even when
+    // the JWT was minted without clinicId (avoids "No clinic associated" 403s).
+    if (effectiveClinicId == null && user.role !== 'super_admin') {
+      const headerClinicId = req.headers.get('x-clinic-id');
+      if (headerClinicId) {
+        const parsed = parseInt(headerClinicId, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          effectiveClinicId = parsed;
+          logger.info('[AuthParams] Using x-clinic-id header as clinicId fallback', {
+            userId: user.id,
+            clinicId: parsed,
+            jwtClinicId: user.clinicId ?? null,
+          });
+        }
+      }
+    }
+
+    // When on a clinic subdomain (e.g. ot.eonpro.io), use that clinic if the user has access
+    // so that data shown is scoped to the subdomain's clinic.
+    // Super admins also get subdomain clinic context for tenant isolation.
     const subdomain = req.headers.get('x-clinic-subdomain');
     if (
       subdomain &&
-      user.clinicId != null &&
-      user.role !== 'super_admin' &&
       !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())
     ) {
       try {
@@ -297,16 +320,22 @@ export function withAuthParams<T extends { params: any }>(
           },
           select: { id: true },
         });
-        if (subdomainClinic && subdomainClinic.id !== user.clinicId) {
+        if (subdomainClinic && subdomainClinic.id !== effectiveClinicId) {
           const hasAccess =
+            user.role === 'super_admin' ||
             user.clinicId === subdomainClinic.id ||
             (await hasAccessToClinic(user, subdomainClinic.id));
           if (hasAccess) {
             effectiveClinicId = subdomainClinic.id;
+            logger.debug('[AuthParams] Using subdomain clinic for context', {
+              userId: user.id,
+              subdomain,
+              clinicId: subdomainClinic.id,
+            });
           }
         }
       } catch {
-        // Keep effectiveClinicId from user
+        // Keep effectiveClinicId from previous resolution
       }
     }
 
