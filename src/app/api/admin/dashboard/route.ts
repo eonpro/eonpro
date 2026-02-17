@@ -29,16 +29,33 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       clinicId: user.clinicId ?? undefined,
     };
 
+    logger.info('[ADMIN-DASHBOARD] Fetching dashboard', {
+      userId: user.id,
+      clinicId: user.clinicId,
+      clinicIdType: typeof user.clinicId,
+      requestId,
+    });
+
     const payload = await getAdminDashboard(userContext);
 
     logger.info('[ADMIN-DASHBOARD] Fetched', {
       userId: user.id,
       clinicId: user.clinicId,
+      totalIntakes: payload.stats.totalIntakes,
+      totalPatients: payload.stats.totalPatients,
+      totalPrescriptions: payload.stats.totalPrescriptions,
       requestId,
     });
 
     return NextResponse.json(payload);
   } catch (error) {
+    logger.error('[ADMIN-DASHBOARD] Unhandled error in dashboard endpoint', {
+      userId: user.id,
+      clinicId: user.clinicId,
+      clinicIdType: typeof user.clinicId,
+      error: error instanceof Error ? error.message : String(error),
+      requestId,
+    });
     return handleApiError(error, {
       requestId,
       route: 'GET /api/admin/dashboard',

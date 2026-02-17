@@ -15,6 +15,7 @@ import { prisma } from '@/lib/db';
 import { patientService, type UserContext } from '@/domains/patient';
 import { getDashboardCache, getDashboardCacheAsync, setDashboardCache } from '@/lib/cache/dashboard';
 import { executeDbRead } from '@/lib/database/executeDb';
+import { logger } from '@/lib/logger';
 
 export interface DashboardStats {
   totalIntakes: number;
@@ -56,7 +57,16 @@ const RECENT_INTAKES_LIMIT = 20;
 export async function getAdminDashboard(
   userContext: UserContext
 ): Promise<AdminDashboardPayload> {
-  const clinicId = userContext.role === 'super_admin' ? undefined : (userContext.clinicId ?? undefined);
+  // Ensure clinicId is strictly a number (JWT may deliver it as string)
+  const rawClinicId = userContext.role === 'super_admin' ? undefined : (userContext.clinicId ?? undefined);
+  const clinicId = rawClinicId != null ? Number(rawClinicId) : undefined;
+  if (clinicId != null && (isNaN(clinicId) || clinicId <= 0)) {
+    logger.error('[ADMIN-DASHBOARD] Invalid clinicId — cannot load stats', {
+      userId: userContext.id,
+      rawClinicId,
+      clinicId,
+    });
+  }
 
   // L1 fast path (sync, zero-latency)
   const l1Cached = getDashboardCache(clinicId, userContext.id);
@@ -148,7 +158,6 @@ export async function getAdminDashboard(
     'admin-dashboard:stats:consolidated'
   );
 
-  // If breaker blocked the stats query, return zeroed stats
   let totalPatientsCount = 0;
   let totalOrdersCount = 0;
   let recentPatientsCount = 0;
@@ -169,6 +178,53 @@ export async function getAdminDashboard(
     recentRevenue = Number(counts.recent_revenue_cents) / 100;
     totalConverted = convertedRows.length;
     subscriptionMrr = mrr;
+  } else {
+    // Raw SQL failed — log error and try Prisma ORM fallback
+    logger.error('[ADMIN-DASHBOARD] Raw SQL stats query failed — attempting Prisma fallback', {
+      userId: userContext.id,
+      clinicId,
+      errorType: statsResult.error?.type,
+      errorMessage: statsResult.error?.message,
+      attempts: statsResult.attempts,
+      durationMs: statsResult.durationMs,
+    });
+
+    try {
+      const fallbackResult = await executeDbRead(
+        () => prismaFallbackStats(clinicFilter, twentyFourHoursAgo),
+        'admin-dashboard:stats:prisma-fallback'
+      );
+
+      if (fallbackResult.success && fallbackResult.data) {
+        const fb = fallbackResult.data;
+        totalPatientsCount = fb.totalPatients;
+        totalOrdersCount = fb.totalOrders;
+        recentPatientsCount = fb.recentPatients;
+        recentOrdersCount = fb.recentOrders;
+        totalRevenue = fb.totalRevenue;
+        recentRevenue = fb.recentRevenue;
+        totalConverted = fb.totalConverted;
+        subscriptionMrr = fb.subscriptionMrr;
+
+        logger.info('[ADMIN-DASHBOARD] Prisma fallback succeeded', {
+          userId: userContext.id,
+          clinicId,
+          totalPatients: totalPatientsCount,
+        });
+      } else {
+        logger.error('[ADMIN-DASHBOARD] Prisma fallback also failed', {
+          userId: userContext.id,
+          clinicId,
+          errorType: fallbackResult.error?.type,
+          errorMessage: fallbackResult.error?.message,
+        });
+      }
+    } catch (fallbackErr) {
+      logger.error('[ADMIN-DASHBOARD] Prisma fallback threw', {
+        userId: userContext.id,
+        error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+      });
+    }
   }
 
   const totalIntakes = Math.max(0, totalPatientsCount - totalConverted);
@@ -190,27 +246,129 @@ export async function getAdminDashboard(
   };
 
   // Phase 2: Recent intakes via patient service (PHI decryption handled)
-  const listResult = await patientService.listPatients(userContext, {
-    limit: RECENT_INTAKES_LIMIT,
-    recent: '24h',
-  });
+  let recentIntakes: RecentIntake[] = [];
+  try {
+    const listResult = await patientService.listPatients(userContext, {
+      limit: RECENT_INTAKES_LIMIT,
+      recent: '24h',
+    });
 
-  const recentIntakes: RecentIntake[] = listResult.data.map((p) => ({
-    id: p.id,
-    patientId: p.patientId ?? null,
-    firstName: p.firstName ?? '',
-    lastName: p.lastName ?? '',
-    email: p.email,
-    phone: p.phone,
-    dateOfBirth: p.dob ?? undefined,
-    gender: p.gender ?? undefined,
-    createdAt:
-      p.createdAt instanceof Date
-        ? p.createdAt.toISOString()
-        : String(p.createdAt ?? new Date().toISOString()),
-  }));
+    recentIntakes = listResult.data.map((p) => ({
+      id: p.id,
+      patientId: p.patientId ?? null,
+      firstName: p.firstName ?? '',
+      lastName: p.lastName ?? '',
+      email: p.email,
+      phone: p.phone,
+      dateOfBirth: p.dob ?? undefined,
+      gender: p.gender ?? undefined,
+      createdAt:
+        p.createdAt instanceof Date
+          ? p.createdAt.toISOString()
+          : String(p.createdAt ?? new Date().toISOString()),
+    }));
+  } catch (listErr) {
+    logger.error('[ADMIN-DASHBOARD] listPatients failed — returning stats without recent intakes', {
+      userId: userContext.id,
+      clinicId,
+      error: listErr instanceof Error ? listErr.message : String(listErr),
+    });
+  }
 
   const payload: AdminDashboardPayload = { stats, recentIntakes };
   setDashboardCache(clinicId, userContext.id, payload);
   return payload;
+}
+
+/**
+ * Prisma ORM fallback for dashboard stats.
+ * Uses standard Prisma queries instead of raw SQL — slower but more resilient
+ * to type mismatches and schema drift.
+ */
+async function prismaFallbackStats(
+  clinicFilter: { clinicId?: number },
+  twentyFourHoursAgo: Date
+): Promise<{
+  totalPatients: number;
+  totalOrders: number;
+  recentPatients: number;
+  recentOrders: number;
+  totalRevenue: number;
+  recentRevenue: number;
+  totalConverted: number;
+  subscriptionMrr: number;
+}> {
+  const [
+    totalPatients,
+    totalOrders,
+    recentPatients,
+    recentOrders,
+    revenueAgg,
+    recentRevenueAgg,
+    convertedPayments,
+    convertedOrders,
+    mrrGroups,
+  ] = await Promise.all([
+    prisma.patient.count({ where: { ...clinicFilter } }),
+    prisma.order.count({ where: { ...clinicFilter } }),
+    prisma.patient.count({ where: { ...clinicFilter, createdAt: { gte: twentyFourHoursAgo } } }),
+    prisma.order.count({ where: { ...clinicFilter, createdAt: { gte: twentyFourHoursAgo } } }),
+    prisma.invoice.aggregate({
+      where: { ...clinicFilter, status: 'PAID' },
+      _sum: { amountPaid: true },
+    }),
+    prisma.invoice.aggregate({
+      where: { ...clinicFilter, status: 'PAID', paidAt: { gte: twentyFourHoursAgo } },
+      _sum: { amountPaid: true },
+    }),
+    prisma.payment.findMany({
+      where: { status: 'SUCCEEDED', patient: { ...clinicFilter } },
+      select: { patientId: true },
+      distinct: ['patientId'],
+    }),
+    prisma.order.findMany({
+      where: { patient: { ...clinicFilter } },
+      select: { patientId: true },
+      distinct: ['patientId'],
+    }),
+    prisma.subscription.groupBy({
+      by: ['interval'],
+      where: { ...clinicFilter, status: 'ACTIVE' },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const convertedIds = new Set([
+    ...convertedPayments.map((p) => p.patientId),
+    ...convertedOrders.map((o) => o.patientId),
+  ]);
+
+  const subscriptionMrr = mrrGroups.reduce((mrr, group) => {
+    const amt = (group._sum.amount ?? 0) / 100;
+    switch (group.interval) {
+      case 'year':
+      case 'yearly':
+      case 'annual':
+        return mrr + amt / 12;
+      case 'quarter':
+      case 'quarterly':
+        return mrr + amt / 3;
+      case 'week':
+      case 'weekly':
+        return mrr + amt * 4;
+      default:
+        return mrr + amt;
+    }
+  }, 0);
+
+  return {
+    totalPatients,
+    totalOrders,
+    recentPatients,
+    recentOrders,
+    totalRevenue: (revenueAgg._sum.amountPaid ?? 0) / 100,
+    recentRevenue: (recentRevenueAgg._sum.amountPaid ?? 0) / 100,
+    totalConverted: convertedIds.size,
+    subscriptionMrr,
+  };
 }
