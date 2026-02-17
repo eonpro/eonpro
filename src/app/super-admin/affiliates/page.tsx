@@ -307,12 +307,13 @@ export default function SuperAdminAffiliatesPage() {
         setPlans(data.plans || []);
 
         // Check if migration warning exists
-        if (data.details?.includes('migration')) {
+        if (data.details?.includes('migration') || data.details?.includes('migrate')) {
           setMigrationNeeded(true);
         }
       } else {
-        setFetchError(data.error || 'Failed to load affiliates');
-        if (data.details?.includes('migration')) {
+        const errorDetail = data.details ? ` (${data.details})` : '';
+        setFetchError((data.error || 'Failed to load affiliates') + errorDetail);
+        if (data.details?.includes('migration') || data.details?.includes('migrate')) {
           setMigrationNeeded(true);
         }
       }

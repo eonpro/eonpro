@@ -66,7 +66,7 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
           },
           planAssignments: {
             where: { effectiveTo: null },
-            include: {
+            select: {
               commissionPlan: {
                 select: {
                   id: true,
@@ -82,9 +82,6 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
               },
             },
             take: 1,
-          },
-          _count: {
-            select: { commissionEvents: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -172,22 +169,32 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
       },
     });
   } catch (error) {
-    logger.error('Failed to fetch affiliates', { error: error instanceof Error ? error.message : String(error) });
-
-    // Check if this is a Prisma error indicating missing tables
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const isPrismaTableError =
+    const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
+    const errorStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
+
+    logger.error('Failed to fetch affiliates', {
+      error: errorMessage,
+      errorName,
+      errorStack,
+    });
+
+    // Check if this is a Prisma error indicating missing tables/columns
+    const isPrismaSchemaError =
       errorMessage.includes('does not exist') ||
       errorMessage.includes('relation') ||
       errorMessage.includes('P2021') ||
-      errorMessage.includes('P2025');
+      errorMessage.includes('P2022') ||
+      errorMessage.includes('P2025') ||
+      errorMessage.includes('Unknown field') ||
+      errorMessage.includes('Unknown arg') ||
+      errorName === 'PrismaClientValidationError';
 
-    if (isPrismaTableError) {
+    if (isPrismaSchemaError) {
       return NextResponse.json(
         {
-          error: 'Database tables not found. Please run migrations.',
-          details:
-            'The affiliate system tables have not been created yet. Run: npx prisma migrate deploy',
+          error: 'Database schema mismatch. Please run migrations.',
+          details: `Run: npx prisma migrate deploy (${errorMessage.substring(0, 200)})`,
           affiliates: [],
           plans: [],
         },
@@ -196,7 +203,7 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
     }
 
     return NextResponse.json(
-      { error: 'Failed to fetch affiliates', details: errorMessage },
+      { error: 'Failed to fetch affiliates', details: errorMessage.substring(0, 500) },
       { status: 500 }
     );
   }
