@@ -12,6 +12,7 @@ import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { executeDbRead } from '@/lib/database/executeDb';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -37,7 +38,83 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
     }
 
-    // Get all data in parallel
+    // Get all data in parallel — Tier 2 READ (fail-fast when breaker is OPEN)
+    const earningsResult = await executeDbRead(
+      () => Promise.all([
+        // Available balance (approved, not yet paid)
+        prisma.affiliateCommissionEvent.aggregate({
+          where: {
+            affiliateId,
+            status: 'APPROVED',
+            payoutId: null,
+          },
+          _sum: { commissionAmountCents: true },
+        }),
+
+        // Pending balance (still in hold period)
+        prisma.affiliateCommissionEvent.aggregate({
+          where: {
+            affiliateId,
+            status: 'PENDING',
+          },
+          _sum: { commissionAmountCents: true },
+        }),
+
+        // Processing payouts
+        prisma.affiliatePayout.aggregate({
+          where: {
+            affiliateId,
+            status: 'PROCESSING',
+          },
+          _sum: { netAmountCents: true },
+        }),
+
+        // Commission events (last 100)
+        prisma.affiliateCommissionEvent.findMany({
+          where: { affiliateId },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+
+        // Payouts
+        prisma.affiliatePayout.findMany({
+          where: { affiliateId },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+
+        // Total paid out
+        prisma.affiliatePayout.aggregate({
+          where: {
+            affiliateId,
+            status: 'COMPLETED',
+          },
+          _sum: { netAmountCents: true },
+        }),
+
+        // Lifetime commissions (PENDING + APPROVED + PAID for accounting identity)
+        prisma.affiliateCommissionEvent.aggregate({
+          where: {
+            affiliateId,
+            status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+          },
+          _sum: { commissionAmountCents: true },
+        }),
+      ]),
+      'affiliate-earnings:all-data'
+    );
+
+    if (!earningsResult.success) {
+      logger.warn('[AffiliateEarnings] Blocked by circuit breaker', {
+        affiliateId,
+        error: earningsResult.error?.message,
+      });
+      return NextResponse.json(
+        { error: 'Earnings data temporarily unavailable — please retry shortly' },
+        { status: 503 }
+      );
+    }
+
     const [
       availableCommissions,
       pendingCommissions,
@@ -46,67 +123,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       payouts,
       paidCommissions,
       lifetimeCommissions,
-    ] = await Promise.all([
-      // Available balance (approved, not yet paid)
-      prisma.affiliateCommissionEvent.aggregate({
-        where: {
-          affiliateId,
-          status: 'APPROVED',
-          payoutId: null,
-        },
-        _sum: { commissionAmountCents: true },
-      }),
-
-      // Pending balance (still in hold period)
-      prisma.affiliateCommissionEvent.aggregate({
-        where: {
-          affiliateId,
-          status: 'PENDING',
-        },
-        _sum: { commissionAmountCents: true },
-      }),
-
-      // Processing payouts
-      prisma.affiliatePayout.aggregate({
-        where: {
-          affiliateId,
-          status: 'PROCESSING',
-        },
-        _sum: { netAmountCents: true },
-      }),
-
-      // Commission events (last 100)
-      prisma.affiliateCommissionEvent.findMany({
-        where: { affiliateId },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      }),
-
-      // Payouts
-      prisma.affiliatePayout.findMany({
-        where: { affiliateId },
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      }),
-
-      // Total paid out
-      prisma.affiliatePayout.aggregate({
-        where: {
-          affiliateId,
-          status: 'COMPLETED',
-        },
-        _sum: { netAmountCents: true },
-      }),
-
-      // Lifetime commissions (PENDING + APPROVED + PAID for accounting identity)
-      prisma.affiliateCommissionEvent.aggregate({
-        where: {
-          affiliateId,
-          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-        },
-        _sum: { commissionAmountCents: true },
-      }),
-    ]);
+    ] = earningsResult.data!;
 
     // Format commissions
     const formattedCommissions = commissionEvents.map((c: (typeof commissionEvents)[number]) => ({

@@ -800,12 +800,25 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
-    // Add permissions and features if available
-    if ('permissions' in user && user.permissions && Array.isArray(user.permissions)) {
-      tokenPayload.permissions = user.permissions as string[];
-    }
-    if ('features' in user && user.features && Array.isArray(user.features)) {
-      tokenPayload.features = user.features as string[];
+    // Compute effective permissions from role defaults + per-user overrides.
+    // User.permissions / User.features are JSON objects { granted: [], revoked: [] }
+    // used by the additive/subtractive override model.
+    {
+      const {
+        getEffectivePermissionStrings,
+        getEffectiveFeatureStrings,
+        parseOverrides,
+      } = await import('@/lib/auth/permissions');
+
+      const permOverrides = parseOverrides(
+        ('permissions' in user && user.permissions) ? user.permissions : null,
+      );
+      const featOverrides = parseOverrides(
+        ('features' in user && user.features) ? user.features : null,
+      );
+
+      tokenPayload.permissions = getEffectivePermissionStrings(userRole, permOverrides);
+      tokenPayload.features = getEffectiveFeatureStrings(userRole, featOverrides);
     }
 
     tokenPayload.sessionId = sessionId;
@@ -949,8 +962,8 @@ async function loginHandler(req: NextRequest) {
         clinicId: activeClinicId,
         providerId: tokenPayload.providerId,
         patientId: tokenPayload.patientId,
-        permissions: 'permissions' in user ? user.permissions : undefined,
-        features: 'features' in user ? user.features : undefined,
+        permissions: tokenPayload.permissions,
+        features: tokenPayload.features,
       },
       clinics,
       activeClinicId,

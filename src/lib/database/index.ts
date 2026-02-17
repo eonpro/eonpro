@@ -63,6 +63,26 @@ export {
   type EntityType,
 } from './data-preloader';
 
+// Circuit Breaker & Tier-Aware Execution
+export {
+  executeDb,
+  executeDbCritical,
+  executeDbAuth,
+  executeDbRead,
+  executeDbBackground,
+  DbTier,
+  CircuitOpenError,
+  type ExecuteDbOptions,
+  type ExecuteDbResult,
+} from './executeDb';
+
+export {
+  circuitBreaker,
+  type GuardDecision,
+  type BreakerState,
+  type TripReason,
+} from './circuit-breaker';
+
 // =============================================================================
 // CONVENIENCE FUNCTIONS
 // =============================================================================

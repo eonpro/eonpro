@@ -13,6 +13,7 @@ import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
+import { executeDbRead } from '@/lib/database/executeDb';
 
 interface ClinicBreakdown {
   clinicId: number;
@@ -48,25 +49,45 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // PERF FIX: Use groupBy to aggregate at database level instead of loading all patients
     // into memory. Returns only unique (state, clinicId, count) rows — orders of magnitude
     // smaller than the full patient table.
-    const grouped = await prisma.patient.groupBy({
-      by: ['state', 'clinicId'],
-      where: {
-        ...clinicFilter,
-        state: { not: '' },
-      },
-      _count: { _all: true },
-    });
+    // Wrapped in circuit breaker Tier 2 (READ) — fail-fast when breaker is OPEN
+    const geoResult = await executeDbRead(
+      async () => {
+        const grouped = await prisma.patient.groupBy({
+          by: ['state', 'clinicId'],
+          where: {
+            ...clinicFilter,
+            state: { not: '' },
+          },
+          _count: { _all: true },
+        });
 
-    // Fetch clinic info for color mapping
-    const clinicIds = [...new Set(grouped.map((g) => g.clinicId))];
-    const clinics = await prisma.clinic.findMany({
-      where: { id: { in: clinicIds } },
-      select: {
-        id: true,
-        name: true,
-        primaryColor: true,
+        const clinicIds = [...new Set(grouped.map((g) => g.clinicId))];
+        const clinics = await prisma.clinic.findMany({
+          where: { id: { in: clinicIds } },
+          select: {
+            id: true,
+            name: true,
+            primaryColor: true,
+          },
+        });
+
+        return { grouped, clinicIds, clinics };
       },
-    });
+      'admin-dashboard-geo:data'
+    );
+
+    if (!geoResult.success) {
+      logger.warn('[ADMIN-DASHBOARD-GEO] Blocked by circuit breaker', {
+        userId: user.id,
+        error: geoResult.error?.message,
+      });
+      return NextResponse.json(
+        { stateData: {}, clinics: [] } satisfies GeoPayload,
+        { status: 200 } // Return empty payload instead of 503 — dashboard shows "no data"
+      );
+    }
+
+    const { grouped, clinicIds, clinics } = geoResult.data!;
 
     const clinicMap = new Map(
       clinics.map((c) => [c.id, { name: c.name, color: c.primaryColor ?? '#3B82F6' }])

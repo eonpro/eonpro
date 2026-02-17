@@ -2,19 +2,26 @@
  * SAFE DATABASE QUERY WRAPPER
  *
  * Wraps critical database queries with:
- * 1. Pre-query schema validation (optional)
- * 2. Automatic retry on transient failures
- * 3. Detailed error logging
- * 4. Query timeout protection
+ * 1. Circuit breaker guard (tier-aware fail-fast)
+ * 2. Pre-query schema validation (optional)
+ * 3. Automatic retry on transient failures (suppressed for P2024)
+ * 4. Detailed error logging
+ * 5. Query timeout protection
  *
  * Use this for CRITICAL operations like:
  * - Fetching invoices/payments (billing data)
  * - Fetching prescriptions (patient safety)
  * - Fetching SOAP notes (medical records)
+ *
+ * Circuit breaker integration:
+ *   When `tier` is provided the query flows through `executeDb` which
+ *   enforces tier-based bulkhead isolation. When omitted, the legacy
+ *   retry loop runs as before (backwards compatible).
  */
 
 import { PrismaClient } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { executeDb, DbTier, type ExecuteDbResult } from './executeDb';
 
 export interface SafeQueryOptions {
   /** Name of the operation for logging */
@@ -27,13 +34,19 @@ export interface SafeQueryOptions {
   validateSchema?: boolean;
   /** Table name for schema validation */
   tableName?: string;
+  /**
+   * Circuit breaker tier (optional).
+   * When set, the query goes through the circuit breaker + executeDb layer.
+   * When omitted, the legacy retry path is used (backwards compatible).
+   */
+  tier?: DbTier;
 }
 
 export interface SafeQueryResult<T> {
   success: boolean;
   data?: T;
   error?: {
-    type: 'SCHEMA_ERROR' | 'QUERY_ERROR' | 'TIMEOUT' | 'UNKNOWN';
+    type: 'SCHEMA_ERROR' | 'QUERY_ERROR' | 'TIMEOUT' | 'CIRCUIT_OPEN' | 'UNKNOWN';
     message: string;
     retryable: boolean;
   };
@@ -54,13 +67,12 @@ export async function safeQuery<T>(
     timeout = 10000,
     validateSchema = false,
     tableName,
+    tier,
   } = options;
 
   const startTime = Date.now();
-  let attempts = 0;
-  let lastError: Error | null = null;
 
-  // Schema validation (only if explicitly requested)
+  // Schema validation (only if explicitly requested — runs BEFORE breaker check)
   if (validateSchema && tableName) {
     try {
       const { prisma } = await import('@/lib/db');
@@ -87,16 +99,41 @@ export async function safeQuery<T>(
       }
     } catch (error: any) {
       logger.warn(`[SafeQuery] Schema validation check failed`, { error: error.message });
-      // Continue with query - don't block on validation failures
     }
   }
 
-  // Retry loop
+  // ── Circuit-breaker path (when tier is specified) ─────────────────────
+  if (tier !== undefined) {
+    const result: ExecuteDbResult<T> = await executeDb(queryFn, {
+      operationName,
+      tier,
+      timeoutMs: timeout,
+      maxRetries,
+    });
+
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error
+        ? {
+            type: result.error.type,
+            message: result.error.message,
+            retryable: result.error.retryable,
+          }
+        : undefined,
+      attempts: result.attempts,
+      duration: result.durationMs,
+    };
+  }
+
+  // ── Legacy path (no tier — backwards compatible) ──────────────────────
+  let attempts = 0;
+  let lastError: Error | null = null;
+
   while (attempts < maxRetries) {
     attempts++;
 
     try {
-      // Execute with timeout
       const result = await Promise.race([
         queryFn(),
         new Promise<never>((_, reject) =>
@@ -121,7 +158,6 @@ export async function safeQuery<T>(
     } catch (error: any) {
       lastError = error;
 
-      // Determine if error is retryable
       const isRetryable = isRetryableError(error);
 
       logger.warn(`[SafeQuery] ${operationName} attempt ${attempts} failed`, {
@@ -134,14 +170,12 @@ export async function safeQuery<T>(
         break;
       }
 
-      // Wait before retry (exponential backoff)
       if (attempts < maxRetries) {
         await sleep(Math.min(1000 * Math.pow(2, attempts - 1), 5000));
       }
     }
   }
 
-  // All retries exhausted
   const duration = Date.now() - startTime;
 
   logger.error(`[SafeQuery] ${operationName} failed after ${attempts} attempts`, {
@@ -163,6 +197,7 @@ export async function safeQuery<T>(
 
 /**
  * Safe wrapper for invoice queries - CRITICAL for billing
+ * Tier 0 (CRITICAL): allowed to probe when breaker is OPEN.
  */
 export async function safeInvoiceQuery<T>(
   queryFn: () => Promise<T>,
@@ -174,11 +209,13 @@ export async function safeInvoiceQuery<T>(
     tableName: 'Invoice',
     maxRetries: 3,
     timeout: 15000,
+    tier: DbTier.CRITICAL,
   });
 }
 
 /**
  * Safe wrapper for payment queries - CRITICAL for billing
+ * Tier 0 (CRITICAL): allowed to probe when breaker is OPEN.
  */
 export async function safePaymentQuery<T>(
   queryFn: () => Promise<T>,
@@ -190,11 +227,13 @@ export async function safePaymentQuery<T>(
     tableName: 'Payment',
     maxRetries: 3,
     timeout: 15000,
+    tier: DbTier.CRITICAL,
   });
 }
 
 /**
  * Safe wrapper for prescription queries - CRITICAL for patient safety
+ * Tier 0 (CRITICAL): allowed to probe when breaker is OPEN.
  */
 export async function safePrescriptionQuery<T>(
   queryFn: () => Promise<T>,
@@ -206,6 +245,7 @@ export async function safePrescriptionQuery<T>(
     tableName: 'Prescription',
     maxRetries: 3,
     timeout: 10000,
+    tier: DbTier.CRITICAL,
   });
 }
 

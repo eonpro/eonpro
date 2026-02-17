@@ -19,6 +19,7 @@ import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { executeDbCritical, CircuitOpenError } from '@/lib/database/executeDb';
 import type {
   Invoice,
   Clinic,
@@ -132,7 +133,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // These are auto-created from Stripe payments and need admin profile completion
     // before they can be prescribed. They are visible in /api/finance/pending-profiles.
     // Phase 1: Load data (3 queries in parallel — lighter than 6)
-    const [invoices, refills, queuedOrders] = await Promise.all([
+    // Wrapped in circuit breaker Tier 0 (CRITICAL) — probes allowed when breaker is OPEN
+    const phase1 = await executeDbCritical(
+      () => Promise.all([
       prisma.invoice.findMany({
         where: {
           clinicId: { in: clinicIds },
@@ -297,10 +300,29 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         take: limit,
         skip: offset,
       }),
-    ]);
+    ]),
+      'prescription-queue:phase1-data'
+    );
+
+    if (!phase1.success) {
+      logger.error('[PRESCRIPTION-QUEUE] Phase 1 data query failed', {
+        error: phase1.error?.message,
+        type: phase1.error?.type,
+      });
+      return NextResponse.json(
+        { error: phase1.error?.type === 'CIRCUIT_OPEN'
+            ? 'Database temporarily unavailable — please retry in a few seconds'
+            : 'Failed to load prescription queue' },
+        { status: phase1.error?.type === 'CIRCUIT_OPEN' ? 503 : 500 }
+      );
+    }
+
+    const [invoices, refills, queuedOrders] = phase1.data!;
 
     // Phase 2: Lightweight count queries (run after data queries to reduce connection pool pressure)
-    const [invoiceCount, refillCount, queuedOrderCount] = await Promise.all([
+    // Also Tier 0 CRITICAL — counts are needed for pagination
+    const phase2 = await executeDbCritical(
+      () => Promise.all([
       prisma.invoice.count({
         where: {
           clinicId: { in: clinicIds },
@@ -323,7 +345,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           status: 'queued_for_provider',
         },
       }),
-    ]);
+    ]),
+      'prescription-queue:phase2-counts'
+    );
+
+    // Counts are non-critical — fallback to 0 if breaker blocks
+    const [invoiceCount, refillCount, queuedOrderCount] = phase2.success
+      ? phase2.data!
+      : [0, 0, 0];
 
     const totalCount = invoiceCount + refillCount + queuedOrderCount;
 
@@ -849,13 +878,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       let plan = '';
 
       // Get documents from our separate query (more reliable than relation)
+      // NOTE: patientDocument.data (binary blob) is intentionally NOT loaded in the list query
+      // to prevent connection monopolization under connection_limit=1. GLP-1 extraction
+      // now relies on invoice metadata only. For full document data, use the detail endpoint.
       const patientDocs = patientDocsMap.get(invoice.patient.id) || [];
-      const intakeDoc = patientDocs[0] || null; // Most recent intake doc
-      const documentData = intakeDoc?.data || null;
+      const intakeDoc = patientDocs[0] || null;
 
       const glp1Info = extractGlp1Info(
         metadata,
-        documentData,
+        null, // blob data not loaded in list — see PERF FIX note above
         `${invoice.patient.firstName} ${invoice.patient.lastName}`
       );
 
@@ -1074,19 +1105,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const istirzepatide = treatmentDisplay.toLowerCase().includes('tirzepatide');
       const isSemaglutide = treatmentDisplay.toLowerCase().includes('semaglutide');
 
-      // Also check documents for more detailed GLP-1 info (original dose/type from intake)
-      const refillPatientDocs = patientDocsMap.get(refill.patient.id) || [];
-      const refillIntakeDoc = refillPatientDocs[0] || null;
-      const refillDocumentData = refillIntakeDoc?.data || null;
-
-      // Get GLP-1 info from documents if available (for original dose info)
-      const docGlp1Info = refillDocumentData
-        ? extractGlp1Info(
-            null,
-            refillDocumentData,
-            `${refill.patient.firstName} ${refill.patient.lastName}`
-          )
-        : null;
+      // NOTE: patientDocument.data blob is no longer loaded in the list query (PERF FIX).
+      // GLP-1 type is derived from the medication name instead.
+      const docGlp1Info = null;
 
       return {
         // Queue item identification

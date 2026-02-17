@@ -26,10 +26,15 @@ import { logger } from '@/lib/logger';
 // CONFIGURATION
 // =============================================================================
 
-const QUERY_WARN_THRESHOLD = 15;
-const QUERY_ERROR_THRESHOLD = 30;
-const CUMULATIVE_DB_TIME_WARN_MS = 3000;
-const CUMULATIVE_DB_TIME_ERROR_MS = 5000;
+// Thresholds tightened as part of Phase 1 remediation (2026-02-17).
+// Previous values: WARN=15, ERROR=30, TIME_WARN=3000, TIME_ERROR=5000.
+// Under connection_limit=1, even 8 queries in a single request can monopolize
+// the connection for 800ms+ — enough to cause P2024 cascades under concurrency.
+// Override via environment variables for gradual rollout.
+const QUERY_WARN_THRESHOLD = parseInt(process.env.QUERY_BUDGET_WARN ?? '8', 10);
+const QUERY_ERROR_THRESHOLD = parseInt(process.env.QUERY_BUDGET_ERROR ?? '15', 10);
+const CUMULATIVE_DB_TIME_WARN_MS = parseInt(process.env.QUERY_BUDGET_TIME_WARN_MS ?? '1500', 10);
+const CUMULATIVE_DB_TIME_ERROR_MS = parseInt(process.env.QUERY_BUDGET_TIME_ERROR_MS ?? '3000', 10);
 
 // =============================================================================
 // QUERY BUDGET CONTEXT

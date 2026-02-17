@@ -13,6 +13,7 @@
 import { prisma } from '@/lib/db';
 import { patientService, type UserContext } from '@/domains/patient';
 import { getDashboardCache, setDashboardCache } from '@/lib/cache/dashboard';
+import { executeDbRead } from '@/lib/database/executeDb';
 
 export interface DashboardStats {
   totalIntakes: number;
@@ -62,17 +63,9 @@ export async function getAdminDashboard(
   const twentyFourHoursAgo = new Date(Date.now() - RECENT_HOURS * 60 * 60 * 1000);
 
   // Phase 1: All count/aggregate queries in parallel (no findMany for aggregates)
-  const [
-    convertedFromPayments,
-    convertedFromOrders,
-    totalPatientsCount,
-    totalOrdersCount,
-    recentPatientsCount,
-    recentOrdersCount,
-    totalRevenueAgg,
-    recentRevenueAgg,
-    subscriptionMrr,
-  ] = await Promise.all([
+  // Wrapped in circuit breaker Tier 2 (READ) — fail-fast when breaker is OPEN
+  const statsResult = await executeDbRead(
+    () => Promise.all([
     // Converted = distinct patient IDs with SUCCEEDED payment
     prisma.payment
       .groupBy({
@@ -145,7 +138,34 @@ export async function getAdminDashboard(
           }
         }, 0)
       ),
-  ]);
+  ]),
+    'admin-dashboard:stats'
+  );
+
+  // If breaker blocked the stats query, return zeroed stats (dashboard can show stale/empty)
+  const [
+    convertedFromPayments,
+    convertedFromOrders,
+    totalPatientsCount,
+    totalOrdersCount,
+    recentPatientsCount,
+    recentOrdersCount,
+    totalRevenueAgg,
+    recentRevenueAgg,
+    subscriptionMrr,
+  ] = statsResult.success
+    ? statsResult.data!
+    : [
+        new Set<number>(),
+        new Set<number>(),
+        0,
+        0,
+        0,
+        0,
+        { _sum: { amountPaid: 0 } },
+        { _sum: { amountPaid: 0 } },
+        0,
+      ];
 
   const convertedIds = new Set<number>([
     ...convertedFromPayments,

@@ -316,7 +316,11 @@ export async function withTimeout<T>(
 }
 
 /**
- * Retry a query with exponential backoff
+ * Retry a query with exponential backoff.
+ *
+ * Circuit breaker integration: P2024 (pool timeout) and "too many connections"
+ * errors suppress retries immediately — retrying these errors amplifies the
+ * problem under connection_limit=1.
  */
 export async function withRetry<T>(
   queryFn: () => Promise<T>,
@@ -342,6 +346,22 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error as Error;
 
+      // Suppress retries for pool exhaustion — retrying makes it worse
+      if (isPoolExhaustionError(lastError)) {
+        logger.warn('[ConnectionPool] Pool exhaustion — retries suppressed', {
+          attempt,
+          error: lastError.message,
+        });
+        // Feed error to circuit breaker (fire-and-forget)
+        try {
+          const { circuitBreaker } = require('@/lib/database/circuit-breaker');
+          circuitBreaker.recordFailure(lastError).catch(() => {});
+        } catch {
+          // Circuit breaker module not available
+        }
+        throw lastError;
+      }
+
       if (attempt === maxRetries || !retryOn(lastError)) {
         throw lastError;
       }
@@ -360,6 +380,21 @@ export async function withRetry<T>(
   }
 
   throw lastError;
+}
+
+/**
+ * Detect errors caused by connection pool exhaustion.
+ * These should NEVER be retried — retrying amplifies the problem.
+ */
+function isPoolExhaustionError(error: Error): boolean {
+  const msg = error.message.toLowerCase();
+  const code: string | undefined = (error as any).code;
+  return (
+    code === 'P2024' ||
+    msg.includes('timed out fetching a new connection from the connection pool') ||
+    msg.includes('too many connections') ||
+    msg.includes('too many clients')
+  );
 }
 
 function isRetryableError(error: Error): boolean {

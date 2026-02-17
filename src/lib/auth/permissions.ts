@@ -1,6 +1,9 @@
 /**
  * Role-based Permission and Feature Access Control System
- * Enterprise-grade permission matrix for the platform
+ * Enterprise-grade permission matrix with per-user override support.
+ *
+ * Override model: effective = (role defaults) + granted − revoked
+ * Stored in User.permissions / User.features JSON columns.
  */
 
 export interface Permission {
@@ -13,6 +16,39 @@ export interface Feature {
   name: string;
   description: string;
   requiredRole?: string[];
+}
+
+/**
+ * Schema for the User.permissions / User.features JSON columns.
+ * `granted` adds permissions beyond the role defaults.
+ * `revoked` removes permissions from the role defaults.
+ */
+export interface UserPermissionOverrides {
+  granted: string[];
+  revoked: string[];
+}
+
+/** Metadata for a single permission in the effective set */
+export interface EffectivePermissionEntry {
+  permission: string;
+  enabled: boolean;
+  source: 'role_default' | 'custom_granted' | 'custom_revoked' | 'not_available';
+}
+
+/** Metadata for a single feature in the effective set */
+export interface EffectiveFeatureEntry {
+  featureId: string;
+  enabled: boolean;
+  source: 'role_default' | 'custom_granted' | 'custom_revoked' | 'not_available';
+}
+
+/** Describes a category of permissions for UI grouping */
+export interface PermissionCategoryDef {
+  id: string;
+  label: string;
+  description: string;
+  prefix: string;
+  permissions: { key: string; value: string; label: string; description: string }[];
 }
 
 // Define all available permissions
@@ -88,6 +124,170 @@ export const PERMISSIONS = {
   REPORT_EXPORT: 'report:export',
   REPORT_SCHEDULE: 'report:schedule',
 } as const;
+
+/**
+ * Human-readable labels and descriptions for every permission.
+ * Keyed by the permission string value (e.g. 'user:create').
+ */
+export const PERMISSION_META: Record<string, { label: string; description: string }> = {
+  'user:create': { label: 'Create Users', description: 'Create new user accounts' },
+  'user:read': { label: 'View Users', description: 'View user profiles and details' },
+  'user:update': { label: 'Update Users', description: 'Edit user account information' },
+  'user:delete': { label: 'Delete Users', description: 'Permanently remove user accounts' },
+  'user:suspend': { label: 'Suspend Users', description: 'Temporarily disable user access' },
+  'user:reset_password': { label: 'Reset Passwords', description: 'Reset user passwords' },
+
+  'patient:create': { label: 'Create Patients', description: 'Register new patients' },
+  'patient:read': { label: 'View Patients', description: 'View patient records' },
+  'patient:update': { label: 'Update Patients', description: 'Edit patient information' },
+  'patient:delete': { label: 'Delete Patients', description: 'Remove patient records' },
+  'patient:export': { label: 'Export Patient Data', description: 'Export patient data to files' },
+  'patient:view_phi': { label: 'View PHI', description: 'Access protected health information' },
+  'patient:merge': { label: 'Merge Patients', description: 'Merge duplicate patient records' },
+
+  'provider:create': { label: 'Create Providers', description: 'Add new healthcare providers' },
+  'provider:read': { label: 'View Providers', description: 'View provider profiles' },
+  'provider:update': { label: 'Update Providers', description: 'Edit provider information' },
+  'provider:delete': { label: 'Delete Providers', description: 'Remove provider records' },
+  'provider:verify_npi': { label: 'Verify NPI', description: 'Verify provider NPI numbers' },
+
+  'order:create': { label: 'Create Orders', description: 'Place new orders' },
+  'order:read': { label: 'View Orders', description: 'View order details' },
+  'order:update': { label: 'Update Orders', description: 'Modify existing orders' },
+  'order:delete': { label: 'Delete Orders', description: 'Cancel and remove orders' },
+  'order:approve': { label: 'Approve Orders', description: 'Approve pending orders' },
+  'order:ship': { label: 'Ship Orders', description: 'Mark orders as shipped' },
+
+  'soap:create': { label: 'Create SOAP Notes', description: 'Write clinical SOAP notes' },
+  'soap:read': { label: 'View SOAP Notes', description: 'Read SOAP notes' },
+  'soap:update': { label: 'Update SOAP Notes', description: 'Edit existing SOAP notes' },
+  'soap:delete': { label: 'Delete SOAP Notes', description: 'Remove SOAP notes' },
+  'soap:approve': { label: 'Approve SOAP Notes', description: 'Approve and sign SOAP notes' },
+  'soap:lock': { label: 'Lock SOAP Notes', description: 'Lock SOAP notes from editing' },
+
+  'billing:view': { label: 'View Billing', description: 'View invoices and payments' },
+  'billing:create': { label: 'Create Invoices', description: 'Generate new invoices' },
+  'billing:refund': { label: 'Issue Refunds', description: 'Process payment refunds' },
+  'billing:export': { label: 'Export Billing Data', description: 'Export financial data' },
+
+  'affiliate:create': { label: 'Create Affiliates', description: 'Add new affiliate partners' },
+  'affiliate:read': { label: 'View Affiliates', description: 'View affiliate details' },
+  'affiliate:update': { label: 'Update Affiliates', description: 'Edit affiliate settings' },
+  'affiliate:delete': { label: 'Delete Affiliates', description: 'Remove affiliate partners' },
+  'affiliate:payout': { label: 'Process Payouts', description: 'Process affiliate payouts' },
+
+  'system:config': { label: 'System Config', description: 'Modify system configuration' },
+  'system:audit': { label: 'Audit Logs', description: 'Access system audit trail' },
+  'system:backup': { label: 'System Backups', description: 'Manage system backups' },
+  'system:analytics': { label: 'System Analytics', description: 'View platform-wide analytics' },
+  'system:logs': { label: 'System Logs', description: 'View application logs' },
+
+  'integration:create': { label: 'Create Integrations', description: 'Set up new integrations' },
+  'integration:read': { label: 'View Integrations', description: 'View integration status' },
+  'integration:update': { label: 'Update Integrations', description: 'Modify integration settings' },
+  'integration:delete': { label: 'Delete Integrations', description: 'Remove integrations' },
+
+  'report:generate': { label: 'Generate Reports', description: 'Create reports' },
+  'report:export': { label: 'Export Reports', description: 'Download report files' },
+  'report:schedule': { label: 'Schedule Reports', description: 'Set up recurring reports' },
+};
+
+/**
+ * Permission categories for UI grouping.
+ * Each category has a prefix that matches the permission domain (e.g. 'user:', 'patient:').
+ */
+export const PERMISSION_CATEGORIES: PermissionCategoryDef[] = [
+  {
+    id: 'user',
+    label: 'User Management',
+    description: 'Control who can manage user accounts',
+    prefix: 'user:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('user:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'patient',
+    label: 'Patient Management',
+    description: 'Access to patient records and PHI',
+    prefix: 'patient:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('patient:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'provider',
+    label: 'Provider Management',
+    description: 'Manage healthcare providers',
+    prefix: 'provider:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('provider:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'order',
+    label: 'Order Management',
+    description: 'Order creation, fulfillment, and shipping',
+    prefix: 'order:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('order:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'soap',
+    label: 'Clinical / SOAP Notes',
+    description: 'Clinical documentation and notes',
+    prefix: 'soap:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('soap:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'billing',
+    label: 'Billing & Payments',
+    description: 'Financial operations and invoicing',
+    prefix: 'billing:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('billing:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'affiliate',
+    label: 'Affiliate Management',
+    description: 'Affiliate partner administration',
+    prefix: 'affiliate:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('affiliate:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'system',
+    label: 'System Administration',
+    description: 'Platform-wide settings and monitoring',
+    prefix: 'system:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('system:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'integration',
+    label: 'Integrations',
+    description: 'Third-party service connections',
+    prefix: 'integration:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('integration:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'report',
+    label: 'Reports',
+    description: 'Report generation and export',
+    prefix: 'report:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('report:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+];
 
 // Define all available features
 export const FEATURES = {
@@ -601,10 +801,38 @@ function normalizeRoleKey(role: string): RoleKey | undefined {
 }
 
 /**
- * Check if a user role has a specific permission
- * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
+ * Safely parse a UserPermissionOverrides JSON value from the database.
+ * Returns a normalized object with empty arrays as defaults.
  */
-export function hasPermission(userRole: string, permission: string): boolean {
+export function parseOverrides(raw: unknown): UserPermissionOverrides {
+  if (!raw || typeof raw !== 'object') return { granted: [], revoked: [] };
+  const obj = raw as Record<string, unknown>;
+  return {
+    granted: Array.isArray(obj.granted) ? (obj.granted as string[]) : [],
+    revoked: Array.isArray(obj.revoked) ? (obj.revoked as string[]) : [],
+  };
+}
+
+// ─── Permission checks with override support ───────────────────────────
+
+/**
+ * Check if a user role has a specific permission.
+ * When `userOverrides` is supplied the additive/subtractive model is applied:
+ *   effective = (role defaults) + granted − revoked
+ */
+export function hasPermission(
+  userRole: string,
+  permission: string,
+  userOverrides?: UserPermissionOverrides | null,
+): boolean {
+  const overrides = userOverrides ? parseOverrides(userOverrides) : null;
+
+  // Explicit revoke takes priority
+  if (overrides?.revoked.includes(permission)) return false;
+  // Explicit grant
+  if (overrides?.granted.includes(permission)) return true;
+
+  // Fall back to role default
   const roleKey = normalizeRoleKey(userRole);
   if (!roleKey) return false;
 
@@ -615,10 +843,19 @@ export function hasPermission(userRole: string, permission: string): boolean {
 }
 
 /**
- * Check if a user role has access to a feature
- * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
+ * Check if a user role has access to a feature.
+ * When `userOverrides` is supplied the additive/subtractive model is applied.
  */
-export function hasFeature(userRole: string, featureId: string): boolean {
+export function hasFeature(
+  userRole: string,
+  featureId: string,
+  userOverrides?: UserPermissionOverrides | null,
+): boolean {
+  const overrides = userOverrides ? parseOverrides(userOverrides) : null;
+
+  if (overrides?.revoked.includes(featureId)) return false;
+  if (overrides?.granted.includes(featureId)) return true;
+
   const roleKey = normalizeRoleKey(userRole);
   if (!roleKey) return false;
 
@@ -628,9 +865,10 @@ export function hasFeature(userRole: string, featureId: string): boolean {
   return (roleFeatures as readonly string[]).includes(featureId);
 }
 
+// ─── Role-default accessors (unchanged signatures) ─────────────────────
+
 /**
- * Get all permissions for a role
- * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
+ * Get all permissions for a role (without overrides).
  */
 export function getRolePermissions(userRole: string): string[] {
   const roleKey = normalizeRoleKey(userRole);
@@ -641,8 +879,7 @@ export function getRolePermissions(userRole: string): string[] {
 }
 
 /**
- * Get all features for a role
- * Accepts both lowercase ('admin') and uppercase ('ADMIN') role formats
+ * Get all features for a role (without overrides).
  */
 export function getRoleFeatures(userRole: string): string[] {
   const roleKey = normalizeRoleKey(userRole);
@@ -652,18 +889,114 @@ export function getRoleFeatures(userRole: string): string[] {
   return features ? [...features] : [];
 }
 
+// ─── Effective (merged) accessors ───────────────────────────────────────
+
+/**
+ * Compute the effective permission set for a user.
+ * Returns detailed entries with source metadata for every known permission.
+ */
+export function getEffectivePermissions(
+  userRole: string,
+  userOverrides?: UserPermissionOverrides | null,
+): EffectivePermissionEntry[] {
+  const rolePerms = getRolePermissions(userRole);
+  const overrides = userOverrides ? parseOverrides(userOverrides) : { granted: [], revoked: [] };
+  const allPermValues = Object.values(PERMISSIONS) as string[];
+
+  return allPermValues.map((perm) => {
+    const isRoleDefault = rolePerms.includes(perm);
+    const isGranted = overrides.granted.includes(perm);
+    const isRevoked = overrides.revoked.includes(perm);
+
+    if (isRevoked) {
+      return { permission: perm, enabled: false, source: 'custom_revoked' as const };
+    }
+    if (isGranted) {
+      return { permission: perm, enabled: true, source: 'custom_granted' as const };
+    }
+    if (isRoleDefault) {
+      return { permission: perm, enabled: true, source: 'role_default' as const };
+    }
+    return { permission: perm, enabled: false, source: 'not_available' as const };
+  });
+}
+
+/**
+ * Compute the effective feature set for a user.
+ * Returns detailed entries with source metadata for every known feature.
+ */
+export function getEffectiveFeatures(
+  userRole: string,
+  userOverrides?: UserPermissionOverrides | null,
+): EffectiveFeatureEntry[] {
+  const roleFeats = getRoleFeatures(userRole);
+  const overrides = userOverrides ? parseOverrides(userOverrides) : { granted: [], revoked: [] };
+  const allFeatureIds = Object.values(FEATURES).map((f) => f.id);
+
+  return allFeatureIds.map((fid) => {
+    const isRoleDefault = roleFeats.includes(fid);
+    const isGranted = overrides.granted.includes(fid);
+    const isRevoked = overrides.revoked.includes(fid);
+
+    if (isRevoked) {
+      return { featureId: fid, enabled: false, source: 'custom_revoked' as const };
+    }
+    if (isGranted) {
+      return { featureId: fid, enabled: true, source: 'custom_granted' as const };
+    }
+    if (isRoleDefault) {
+      return { featureId: fid, enabled: true, source: 'role_default' as const };
+    }
+    return { featureId: fid, enabled: false, source: 'not_available' as const };
+  });
+}
+
+/**
+ * Get only the enabled permission strings for a user (role defaults + overrides).
+ */
+export function getEffectivePermissionStrings(
+  userRole: string,
+  userOverrides?: UserPermissionOverrides | null,
+): string[] {
+  return getEffectivePermissions(userRole, userOverrides)
+    .filter((e) => e.enabled)
+    .map((e) => e.permission);
+}
+
+/**
+ * Get only the enabled feature IDs for a user (role defaults + overrides).
+ */
+export function getEffectiveFeatureStrings(
+  userRole: string,
+  userOverrides?: UserPermissionOverrides | null,
+): string[] {
+  return getEffectiveFeatures(userRole, userOverrides)
+    .filter((e) => e.enabled)
+    .map((e) => e.featureId);
+}
+
+// ─── Multi-permission helpers ───────────────────────────────────────────
+
 /**
  * Check multiple permissions at once
  */
-export function hasAllPermissions(userRole: string, permissions: string[]): boolean {
-  return permissions.every((permission) => hasPermission(userRole, permission));
+export function hasAllPermissions(
+  userRole: string,
+  permissions: string[],
+  userOverrides?: UserPermissionOverrides | null,
+): boolean {
+  return permissions.every((permission) => hasPermission(userRole, permission, userOverrides));
 }
 
 /**
  * Check if user has any of the specified permissions
  */
-export function hasAnyPermission(userRole: string, permissions: string[]): boolean {
-  return permissions.some((permission) => hasPermission(userRole, permission));
+export function hasAnyPermission(
+  userRole: string,
+  permissions: string[],
+  userOverrides?: UserPermissionOverrides | null,
+): boolean {
+  return permissions.some((permission) => hasPermission(userRole, permission, userOverrides));
 }
 
 /**
@@ -671,4 +1004,28 @@ export function hasAnyPermission(userRole: string, permissions: string[]): boole
  */
 export function isValidRole(role: string): role is UserRole {
   return Object.keys(ROLE_KEY_MAP).includes(role.toLowerCase());
+}
+
+/**
+ * Build an overrides object from a desired permission set compared to role defaults.
+ * Useful when saving the UI state back to the database.
+ */
+export function buildOverridesFromDesired(
+  userRole: string,
+  desiredPermissions: string[],
+  desiredFeatures: string[],
+): { permissionOverrides: UserPermissionOverrides; featureOverrides: UserPermissionOverrides } {
+  const rolePerms = getRolePermissions(userRole);
+  const roleFeats = getRoleFeatures(userRole);
+
+  const permGranted = desiredPermissions.filter((p) => !rolePerms.includes(p));
+  const permRevoked = rolePerms.filter((p) => !desiredPermissions.includes(p));
+
+  const featGranted = desiredFeatures.filter((f) => !roleFeats.includes(f));
+  const featRevoked = roleFeats.filter((f) => !desiredFeatures.includes(f));
+
+  return {
+    permissionOverrides: { granted: permGranted, revoked: permRevoked },
+    featureOverrides: { granted: featGranted, revoked: featRevoked },
+  };
 }

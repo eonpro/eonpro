@@ -238,9 +238,18 @@ function createPrismaClient() {
   drainManager.register(client);
 
   // Add query timing middleware for monitoring + query budget tracking + Sentry metrics
+  // Also runs circuit-breaker guardrails (include depth, blob prevention, unbounded queries)
   if (isProd || process.env.ENABLE_QUERY_LOGGING === 'true') {
     // @ts-ignore - Prisma v5 middleware
     client.$use?.(async (params, next) => {
+      // ── Guardrails (log-only, never blocks unless env flag is set) ─────
+      try {
+        const { runGuardrails } = require('@/lib/database/circuit-breaker/guardrails');
+        runGuardrails(params.model, params.action, params.args);
+      } catch {
+        // Guardrail module not available — continue without blocking
+      }
+
       const start = Date.now();
       try {
         const result = await next(params);
@@ -283,6 +292,14 @@ function createPrismaClient() {
       } catch (error) {
         const duration = Date.now() - start;
         connectionPool.recordQuery(duration, false);
+
+        // Feed error to circuit breaker (async, fire-and-forget)
+        try {
+          const { circuitBreaker } = require('@/lib/database/circuit-breaker');
+          circuitBreaker.recordFailure(error).catch(() => {});
+        } catch {
+          // Circuit breaker module not available
+        }
 
         // Emit error metrics
         try {

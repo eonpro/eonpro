@@ -170,10 +170,24 @@ async function refreshTokenHandler(req: NextRequest) {
           tokenPayload.providerId = (appUser as { providerId?: number }).providerId;
         if ((appUser as { patientId?: number }).patientId != null)
           tokenPayload.patientId = (appUser as { patientId?: number }).patientId;
-        const perms = (appUser as { permissions?: unknown }).permissions;
-        const feats = (appUser as { features?: unknown }).features;
-        if (Array.isArray(perms)) tokenPayload.permissions = perms;
-        if (Array.isArray(feats)) tokenPayload.features = feats;
+        // Compute effective permissions from role defaults + per-user overrides
+        {
+          const {
+            getEffectivePermissionStrings,
+            getEffectiveFeatureStrings,
+            parseOverrides,
+          } = await import('@/lib/auth/permissions');
+
+          const permOverrides = parseOverrides(
+            (appUser as { permissions?: unknown }).permissions,
+          );
+          const featOverrides = parseOverrides(
+            (appUser as { features?: unknown }).features,
+          );
+
+          tokenPayload.permissions = getEffectivePermissionStrings(userRole, permOverrides);
+          tokenPayload.features = getEffectiveFeatureStrings(userRole, featOverrides);
+        }
 
         const newAccessToken = await new SignJWT(tokenPayload)
           .setProtectedHeader({ alg: 'HS256' })
