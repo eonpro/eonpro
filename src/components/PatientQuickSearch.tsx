@@ -39,6 +39,7 @@ export default function PatientQuickSearch({
   const [results, setResults] = useState<PatientResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,17 +52,27 @@ export default function PatientQuickSearch({
       if (trimmed.length < 2) {
         setResults([]);
         setIsOpen(false);
+        setSearchError(null);
         return;
       }
 
       setIsLoading(true);
+      setSearchError(null);
       try {
         const response = await fetch(
           `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`
         );
 
         if (!response.ok) {
-          throw new Error('Search failed');
+          const status = response.status;
+          if (status === 401 || status === 403) {
+            setSearchError('Session expired — please refresh the page');
+          } else {
+            setSearchError('Search unavailable — try again');
+          }
+          setResults([]);
+          setIsOpen(true);
+          return;
         }
 
         const data = await response.json();
@@ -69,15 +80,16 @@ export default function PatientQuickSearch({
         // Filter out current patient and format results
         const filtered = (data.patients || [])
           .filter((p: PatientResult) => p.id !== currentPatientId)
-          .slice(0, 8); // Limit to 8 results for UX
+          .slice(0, 8);
 
         setResults(filtered);
-        setIsOpen(true); // Show dropdown for results OR no-results/create-patient
+        setIsOpen(true);
         setSelectedIndex(-1);
       } catch (error) {
         console.error('Patient search failed:', error);
+        setSearchError('Network error — check your connection');
         setResults([]);
-        setIsOpen(true); // Show no-results/create-patient dropdown
+        setIsOpen(true);
       } finally {
         setIsLoading(false);
       }
@@ -170,6 +182,7 @@ export default function PatientQuickSearch({
     setQuery('');
     setResults([]);
     setIsOpen(false);
+    setSearchError(null);
     inputRef.current?.focus();
   };
 
@@ -177,7 +190,7 @@ export default function PatientQuickSearch({
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           ref={inputRef}
           type="text"
@@ -188,7 +201,7 @@ export default function PatientQuickSearch({
             if (results.length > 0) setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-10 text-sm transition-all placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-11 pr-10 text-sm transition-all placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-opacity-50"
           style={
             {
               '--tw-ring-color': 'var(--brand-primary, #4fa77e)',
@@ -263,10 +276,17 @@ export default function PatientQuickSearch({
         </div>
       )}
 
+      {/* Error state */}
+      {isOpen && query.length >= 2 && !isLoading && searchError && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-red-200 bg-red-50 p-4 shadow-lg">
+          <p className="text-center text-sm text-red-600">{searchError}</p>
+        </div>
+      )}
+
       {/* No results - offer create patient */}
-      {isOpen && query.length >= 2 && !isLoading && results.length === 0 && (
+      {isOpen && query.length >= 2 && !isLoading && !searchError && results.length === 0 && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-          <p className="mb-3 text-center text-sm text-gray-500">No patients found for "{query}"</p>
+          <p className="mb-3 text-center text-sm text-gray-500">No patients found for &ldquo;{query}&rdquo;</p>
           <a
             href={effectiveCreatePath}
             className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-90"
