@@ -28,7 +28,7 @@ const createInviteCodeSchema = z.object({
     .min(3, 'Code must be at least 3 characters')
     .max(20, 'Code must be at most 20 characters')
     .regex(/^[A-Z0-9]+$/, 'Code must be uppercase alphanumeric'),
-  description: z.string().optional(),
+  description: z.string().optional().nullable(),
   usageLimit: z.number().int().positive().optional().nullable(),
   expiresAt: z.string().datetime().optional().nullable(),
 });
