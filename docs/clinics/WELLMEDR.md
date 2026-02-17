@@ -444,12 +444,14 @@ Use **input variables** in your Airtable "Run script" action. Map each variable 
 | `medication_type`    | Medication Type / Medication               | No       | Strength or full drug (e.g. "2.5mg", "Tirzepatide 2.5mg"). Alt: `medication`, `treatment`, `product_name` |
 | `plan`               | Plan / Duration                            | No       | 1mo, 3mo, 6-month, 12-month, Monthly, Quarterly, Annual. **Required for refill scheduling** |
 | `price`              | Price / Amount                              | No       |
-| `shipping_address`   | Shipping Address                            | No       |
+| `shipping_address`   | Shipping Address                            | **Yes*** | **Required for prescription shipping.** Without this, patients have no address on file and prescriptions cannot be fulfilled. |
 | `created_at`         | Created At / Payment Date                   | No       |
 | `submission_id`      | Submission ID                               | No       |
 | `stripe_price_id`    | Stripe Price ID                             | No       |
 
 \* **patient_name is strongly recommended** – EONPRO matches by email first, then by name when email fails. This helps when the payment email differs slightly from the intake record.
+
+\* **shipping_address is effectively required** – Without it, the patient profile has no address and the prescription cannot be shipped. Map this to the Airtable Shipping Address field. Supports JSON objects and comma-separated strings (e.g., "123 Main St, Apt 4B, New York, NY, 10001").
 
 ### Refill Scheduling (6-Month and 12-Month Plans)
 
@@ -661,7 +663,14 @@ Successful response:
    - **Fix (alternate)**: If your base has medication in a separate column (e.g. "Medication", "Treatment"), add that as `medication_type` in the script – the webhook accepts `medication`, `treatment`, and `product_name` as alternates.
    - **Fallback**: EONPRO derives medication from the patient's intake form when the invoice has plan-only product. Ensure the intake ran before payment so the preferred medication is in the document.
 
-4. **Health check**
+5. **Patient addresses missing in Rx Queue**
+   - **Root cause**: The `shipping_address` input variable is not mapped in the Airtable automation, so the webhook receives no address data.
+   - **Fix (Airtable)**: Add `shipping_address` as an input variable in the "Run script" action and map it to the **Shipping Address** field in your Orders table. This is the most important fix.
+   - **Backfill existing patients**: Call `POST /api/admin/sync-wellmedr-addresses?dryRun=true` to preview, then `?dryRun=false` to apply. This syncs addresses from invoice metadata and optionally from Airtable directly.
+   - **Backfill requires env var**: `AIRTABLE_API_KEY` must be set in Vercel for the Airtable source (Base ID `app3usm1VtzcWOvZW` and Orders table `tblDO00gC6FZianoF` are hardcoded). The metadata source works without it.
+   - **Fallback**: The prescription queue detail endpoint automatically falls back to invoice metadata addresses when the patient record has no address.
+
+6. **Health check**
    - `GET https://app.eonpro.io/api/webhooks/wellmedr-invoice` returns endpoint status and `configured: true` when the secret is set.
 
 ---

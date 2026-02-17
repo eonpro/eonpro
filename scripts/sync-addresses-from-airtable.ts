@@ -33,8 +33,8 @@ const prisma = new PrismaClient();
 
 // Configuration
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
-const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Orders';
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || 'app3usm1VtzcWOvZW';
+const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'tblDO00gC6FZianoF';
 const WELLMEDR_CLINIC_ID = 7;
 
 // Parse command line arguments

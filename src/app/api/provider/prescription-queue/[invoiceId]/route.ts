@@ -423,24 +423,55 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         metadata: invoice.metadata,
         lineItems: invoice.lineItems,
       },
-      patient: {
-        id: invoice.patient.id,
-        patientId: invoice.patient.patientId,
-        // Decrypt all PHI fields including names
-        firstName: safeDecrypt(invoice.patient.firstName),
-        lastName: safeDecrypt(invoice.patient.lastName),
-        email: safeDecrypt(invoice.patient.email),
-        phone: safeDecrypt(invoice.patient.phone),
-        dob: safeDecrypt(invoice.patient.dob),
-        gender: safeDecrypt(invoice.patient.gender),
-        address1: safeDecrypt(invoice.patient.address1),
-        address2: safeDecrypt(invoice.patient.address2),
-        city: safeDecrypt(invoice.patient.city),
-        state: safeDecrypt(invoice.patient.state),
-        zip: safeDecrypt(invoice.patient.zip),
-        allergies: (invoice.patient as any).allergies,
-        notes: (invoice.patient as any).notes,
-      },
+      patient: (() => {
+        // Decrypt patient address fields
+        let address1 = safeDecrypt(invoice.patient.address1);
+        let address2 = safeDecrypt(invoice.patient.address2);
+        let city = safeDecrypt(invoice.patient.city);
+        let state = safeDecrypt(invoice.patient.state);
+        let zip = safeDecrypt(invoice.patient.zip);
+
+        // Fallback: if patient has no address, try invoice metadata
+        const hasAddress = address1 || city || state || zip;
+        if (!hasAddress && invoice.metadata) {
+          const meta = invoice.metadata as Record<string, unknown>;
+          const metaAddr1 = String(meta.addressLine1 || meta.address_line1 || '').trim();
+          const metaAddr2 = String(meta.addressLine2 || meta.address_line2 || '').trim();
+          const metaCity = String(meta.city || '').trim();
+          const metaState = String(meta.state || '').trim();
+          const metaZip = String(meta.zipCode || meta.zip || '').trim();
+
+          if (metaAddr1 || metaCity || metaZip) {
+            address1 = metaAddr1 || address1;
+            address2 = metaAddr2 || address2;
+            city = metaCity || city;
+            state = metaState || state;
+            zip = metaZip || zip;
+            logger.info('[PRESCRIPTION-QUEUE-DETAIL] Using invoice metadata address fallback', {
+              patientId: invoice.patient.id,
+              invoiceId: invoice.id,
+            });
+          }
+        }
+
+        return {
+          id: invoice.patient.id,
+          patientId: invoice.patient.patientId,
+          firstName: safeDecrypt(invoice.patient.firstName),
+          lastName: safeDecrypt(invoice.patient.lastName),
+          email: safeDecrypt(invoice.patient.email),
+          phone: safeDecrypt(invoice.patient.phone),
+          dob: safeDecrypt(invoice.patient.dob),
+          gender: safeDecrypt(invoice.patient.gender),
+          address1,
+          address2,
+          city,
+          state,
+          zip,
+          allergies: (invoice.patient as any).allergies,
+          notes: (invoice.patient as any).notes,
+        };
+      })(),
       clinic: invoice.clinic,
       intake: {
         data: intakeData,
