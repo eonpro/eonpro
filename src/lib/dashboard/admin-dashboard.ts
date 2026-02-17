@@ -118,17 +118,18 @@ export async function getAdminDashboard(
       _sum: { amountPaid: true },
     }),
 
-    // MRR from subscriptions
+    // PERF FIX: Use groupBy by interval instead of loading up to 500 subscription records.
+    // Returns at most ~5 rows (one per interval type) instead of 500 full records.
     prisma.subscription
-      .findMany({
+      .groupBy({
+        by: ['interval'],
         where: { ...clinicFilter, status: 'ACTIVE' },
-        select: { amount: true, interval: true },
-        take: 500,
+        _sum: { amount: true },
       })
-      .then((subs) =>
-        subs.reduce((mrr, sub) => {
-          const amt = (sub.amount ?? 0) / 100;
-          switch (sub.interval) {
+      .then((groups) =>
+        groups.reduce((mrr, group) => {
+          const amt = (group._sum.amount ?? 0) / 100;
+          switch (group.interval) {
             case 'year':
             case 'yearly':
             case 'annual':

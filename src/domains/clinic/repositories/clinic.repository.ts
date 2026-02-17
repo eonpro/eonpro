@@ -291,6 +291,7 @@ class ClinicRepositoryImpl implements IClinicRepository {
       return await this.prisma.clinic.findMany({
         select: CLINIC_WITH_COUNTS_SELECT,
         orderBy: { createdAt: 'desc' },
+        take: 500,
       });
     } catch (error) {
       logger.error('[ClinicRepository] Error listing all clinics', { error });
@@ -307,6 +308,7 @@ class ClinicRepositoryImpl implements IClinicRepository {
         where: { status: 'ACTIVE' },
         select: CLINIC_BASIC_SELECT,
         orderBy: { name: 'asc' },
+        take: 500,
       });
     } catch (error) {
       logger.error('[ClinicRepository] Error listing active clinics', { error });

@@ -51,10 +51,10 @@ const safeDecrypt = (value: string | null): string | null => {
   }
 };
 
-// Type for PatientDocument with intake data
+// Type for PatientDocument metadata (blob data loaded lazily via separate endpoint)
 type PatientDocumentWithData = {
   id: number;
-  data: Buffer | null;
+  data?: Buffer | null;
   sourceSubmissionId: string | null;
   category: string;
 };
@@ -782,20 +782,20 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     if (allPatientIds.length > 0) {
       try {
-        // Load only the MOST RECENT intake form per patient (not all docs with full binary data).
-        // The data blobs can be large (JSON intake forms) so we limit to 1 per patient.
+        // Load only metadata (no binary blob) for the MOST RECENT intake form per patient.
+        // PERF FIX: Removed `data: true` — blob fields (10-100KB+ each) were causing
+        // connection monopolization under connection_limit=1. Intake form data should be
+        // loaded lazily via GET /api/patients/[id]/documents/[docId] when needed.
         const allPatientDocs = await prisma.patientDocument.findMany({
           where: {
             patientId: { in: allPatientIds },
             category: 'MEDICAL_INTAKE_FORM',
           },
           orderBy: { createdAt: 'desc' },
-          // Distinct by patientId so we get at most 1 per patient
           distinct: ['patientId'],
           select: {
             id: true,
             patientId: true,
-            data: true,
             sourceSubmissionId: true,
             category: true,
           },

@@ -2627,121 +2627,240 @@ export default function ClinicDetailPage() {
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
-                          User
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
-                          Role
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
-                          Status
-                        </th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">
-                          Last Login
-                        </th>
-                        <th className="px-4 py-3 text-right text-sm font-medium text-gray-500">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {clinicUsers.map((user) => (
-                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100">
-                                <span className="font-medium text-teal-700">
-                                  {user.firstName?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                <div className="space-y-6">
+                  {(() => {
+                    const roleBuckets: {
+                      key: string;
+                      label: string;
+                      description: string;
+                      badgeBg: string;
+                      badgeText: string;
+                      avatarBg: string;
+                      avatarText: string;
+                      borderColor: string;
+                    }[] = [
+                      {
+                        key: 'ADMIN',
+                        label: 'Administrators',
+                        description: 'Full clinic management access',
+                        badgeBg: 'bg-purple-100',
+                        badgeText: 'text-purple-700',
+                        avatarBg: 'bg-purple-100',
+                        avatarText: 'text-purple-700',
+                        borderColor: 'border-purple-200',
+                      },
+                      {
+                        key: 'PROVIDER',
+                        label: 'Providers',
+                        description: 'Clinical and patient care access',
+                        badgeBg: 'bg-blue-100',
+                        badgeText: 'text-blue-700',
+                        avatarBg: 'bg-blue-100',
+                        avatarText: 'text-blue-700',
+                        borderColor: 'border-blue-200',
+                      },
+                      {
+                        key: 'STAFF',
+                        label: 'Staff',
+                        description: 'Operational and scheduling access',
+                        badgeBg: 'bg-green-100',
+                        badgeText: 'text-green-700',
+                        avatarBg: 'bg-green-100',
+                        avatarText: 'text-green-700',
+                        borderColor: 'border-green-200',
+                      },
+                      {
+                        key: 'SALES_REP',
+                        label: 'Sales Representatives',
+                        description: 'Sales and client outreach access',
+                        badgeBg: 'bg-amber-100',
+                        badgeText: 'text-amber-700',
+                        avatarBg: 'bg-amber-100',
+                        avatarText: 'text-amber-700',
+                        borderColor: 'border-amber-200',
+                      },
+                      {
+                        key: 'SUPPORT',
+                        label: 'Support',
+                        description: 'Customer support and ticket access',
+                        badgeBg: 'bg-cyan-100',
+                        badgeText: 'text-cyan-700',
+                        avatarBg: 'bg-cyan-100',
+                        avatarText: 'text-cyan-700',
+                        borderColor: 'border-cyan-200',
+                      },
+                      {
+                        key: 'PATIENT',
+                        label: 'Patients',
+                        description: 'Patient portal access only',
+                        badgeBg: 'bg-gray-100',
+                        badgeText: 'text-gray-600',
+                        avatarBg: 'bg-gray-100',
+                        avatarText: 'text-gray-600',
+                        borderColor: 'border-gray-200',
+                      },
+                    ];
+
+                    const normalizeRole = (role: string) => role.toUpperCase();
+                    const grouped = clinicUsers.reduce(
+                      (acc, user) => {
+                        const key = normalizeRole(user.role);
+                        if (!acc[key]) acc[key] = [];
+                        acc[key].push(user);
+                        return acc;
+                      },
+                      {} as Record<string, ClinicUser[]>
+                    );
+
+                    const knownKeys = new Set(roleBuckets.map((b) => b.key));
+                    const unknownRoles = Object.keys(grouped).filter((k) => !knownKeys.has(k));
+                    if (unknownRoles.length > 0) {
+                      unknownRoles.forEach((role) => {
+                        roleBuckets.push({
+                          key: role,
+                          label: role.charAt(0) + role.slice(1).toLowerCase().replace(/_/g, ' '),
+                          description: 'Custom role',
+                          badgeBg: 'bg-gray-100',
+                          badgeText: 'text-gray-700',
+                          avatarBg: 'bg-gray-100',
+                          avatarText: 'text-gray-700',
+                          borderColor: 'border-gray-200',
+                        });
+                      });
+                    }
+
+                    return roleBuckets
+                      .filter((bucket) => grouped[bucket.key]?.length > 0)
+                      .map((bucket) => {
+                        const users = grouped[bucket.key];
+                        return (
+                          <div
+                            key={bucket.key}
+                            className={`rounded-lg border ${bucket.borderColor} overflow-hidden`}
+                          >
+                            <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/60 px-5 py-3">
+                              <div className="flex items-center gap-3">
+                                <h4 className="text-sm font-semibold text-gray-900">
+                                  {bucket.label}
+                                </h4>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${bucket.badgeBg} ${bucket.badgeText}`}
+                                >
+                                  {users.length}
                                 </span>
                               </div>
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {user.firstName} {user.lastName}
-                                </p>
-                                <p className="text-sm text-gray-500">{user.email}</p>
-                              </div>
+                              <p className="text-xs text-gray-500">{bucket.description}</p>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                user.role === 'admin' || user.role === 'ADMIN'
-                                  ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                                  : user.role === 'provider' || user.role === 'PROVIDER'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : user.role === 'staff' || user.role === 'STAFF'
-                                      ? 'bg-green-100 text-green-700'
-                                      : user.role === 'sales_rep' || user.role === 'SALES_REP'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : user.role === 'support' || user.role === 'SUPPORT'
-                                          ? 'bg-cyan-100 text-cyan-700'
-                                          : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {user.role}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${
-                                user.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-700'
-                                  : user.status === 'PENDING'
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {user.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {user.lastLogin
-                              ? new Date(user.lastLogin).toLocaleDateString()
-                              : 'Never'}
-                          </td>
-                          <td className="space-x-2 px-4 py-3 text-right">
-                            <button
-                              onClick={() => openEditUserModal(user)}
-                              className="text-sm font-medium text-amber-600 hover:text-amber-800"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() =>
-                                setResetPasswordModal({
-                                  show: true,
-                                  userId: user.id,
-                                  userName: `${user.firstName} ${user.lastName}`,
-                                })
-                              }
-                              className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                            >
-                              Reset Password
-                            </button>
-                            <button
-                              onClick={() =>
-                                window.open(`/super-admin/users/${user.id}/clinics`, '_blank')
-                              }
-                              className="text-sm font-medium text-teal-600 hover:text-teal-800"
-                              title="Manage clinic assignments"
-                            >
-                              Clinics
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="text-sm font-medium text-red-600 hover:text-red-800"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="border-b border-gray-100">
+                                    <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                                      User
+                                    </th>
+                                    <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                                      Status
+                                    </th>
+                                    <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                                      Last Login
+                                    </th>
+                                    <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-gray-400">
+                                      Actions
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {users.map((user) => (
+                                    <tr
+                                      key={user.id}
+                                      className="border-b border-gray-50 transition-colors last:border-0 hover:bg-gray-50/50"
+                                    >
+                                      <td className="px-5 py-3">
+                                        <div className="flex items-center gap-3">
+                                          <div
+                                            className={`flex h-9 w-9 items-center justify-center rounded-full ${bucket.avatarBg}`}
+                                          >
+                                            <span
+                                              className={`text-sm font-medium ${bucket.avatarText}`}
+                                            >
+                                              {user.firstName?.charAt(0) ||
+                                                user.email.charAt(0).toUpperCase()}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-medium text-gray-900">
+                                              {user.firstName} {user.lastName}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{user.email}</p>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <span
+                                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                            user.status === 'ACTIVE'
+                                              ? 'bg-green-100 text-green-700'
+                                              : user.status === 'PENDING'
+                                                ? 'bg-yellow-100 text-yellow-700'
+                                                : 'bg-gray-100 text-gray-700'
+                                          }`}
+                                        >
+                                          {user.status}
+                                        </span>
+                                      </td>
+                                      <td className="px-5 py-3 text-sm text-gray-500">
+                                        {user.lastLogin
+                                          ? new Date(user.lastLogin).toLocaleDateString()
+                                          : 'Never'}
+                                      </td>
+                                      <td className="space-x-2 px-5 py-3 text-right">
+                                        <button
+                                          onClick={() => openEditUserModal(user)}
+                                          className="text-sm font-medium text-amber-600 hover:text-amber-800"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            setResetPasswordModal({
+                                              show: true,
+                                              userId: user.id,
+                                              userName: `${user.firstName} ${user.lastName}`,
+                                            })
+                                          }
+                                          className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                                        >
+                                          Reset Password
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            window.open(
+                                              `/super-admin/users/${user.id}/clinics`,
+                                              '_blank'
+                                            )
+                                          }
+                                          className="text-sm font-medium text-teal-600 hover:text-teal-800"
+                                          title="Manage clinic assignments"
+                                        >
+                                          Clinics
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteUser(user.id)}
+                                          className="text-sm font-medium text-red-600 hover:text-red-800"
+                                        >
+                                          Remove
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        );
+                      });
+                  })()}
                 </div>
               )}
             </div>

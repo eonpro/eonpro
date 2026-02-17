@@ -45,21 +45,20 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     const clinicFilter = clinicId ? { clinicId } : {};
 
-    // Fetch patients with state info, grouped by state + clinic
-    // state is a required String field (not nullable), so filter for non-empty values
-    const patients = await prisma.patient.findMany({
+    // PERF FIX: Use groupBy to aggregate at database level instead of loading all patients
+    // into memory. Returns only unique (state, clinicId, count) rows — orders of magnitude
+    // smaller than the full patient table.
+    const grouped = await prisma.patient.groupBy({
+      by: ['state', 'clinicId'],
       where: {
         ...clinicFilter,
         state: { not: '' },
       },
-      select: {
-        state: true,
-        clinicId: true,
-      },
+      _count: { _all: true },
     });
 
     // Fetch clinic info for color mapping
-    const clinicIds = [...new Set(patients.map((p) => p.clinicId))];
+    const clinicIds = [...new Set(grouped.map((g) => g.clinicId))];
     const clinics = await prisma.clinic.findMany({
       where: { id: { in: clinicIds } },
       select: {
@@ -73,38 +72,40 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       clinics.map((c) => [c.id, { name: c.name, color: c.primaryColor ?? '#3B82F6' }])
     );
 
-    // Aggregate by state + clinic
+    // Build stateData from grouped results (small set — only unique state+clinic combos)
     const stateData: Record<string, StateData> = {};
     const clinicTotals = new Map<number, number>();
 
-    for (const patient of patients) {
-      const stateCode = normalizeStateCode(patient.state ?? '');
+    for (const row of grouped) {
+      const stateCode = normalizeStateCode(row.state ?? '');
       if (!stateCode) continue;
+
+      const count = row._count._all;
 
       if (!stateData[stateCode]) {
         stateData[stateCode] = { total: 0, clinics: [] };
       }
-      stateData[stateCode].total++;
+      stateData[stateCode].total += count;
 
       // Track per-clinic within state
-      const clinicInfo = clinicMap.get(patient.clinicId);
+      const clinicInfo = clinicMap.get(row.clinicId);
       const existing = stateData[stateCode].clinics.find(
-        (c) => c.clinicId === patient.clinicId
+        (c) => c.clinicId === row.clinicId
       );
       if (existing) {
-        existing.count++;
+        existing.count += count;
       } else {
         stateData[stateCode].clinics.push({
-          clinicId: patient.clinicId,
+          clinicId: row.clinicId,
           clinicName: clinicInfo?.name ?? 'Unknown',
           color: clinicInfo?.color ?? '#3B82F6',
-          count: 1,
+          count,
         });
       }
 
       clinicTotals.set(
-        patient.clinicId,
-        (clinicTotals.get(patient.clinicId) ?? 0) + 1
+        row.clinicId,
+        (clinicTotals.get(row.clinicId) ?? 0) + count
       );
     }
 

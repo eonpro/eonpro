@@ -274,10 +274,12 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         if (nullIndexCount > 0) {
           // Fetch patients without searchIndex, decrypt, and filter in-memory
           // Use batched approach for memory efficiency
+          // PERF FIX: Hard cap at 1000 to prevent unbounded memory usage
           const allUnindexed = await db.patient.findMany({
             where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
             select: PATIENT_SUMMARY_SELECT,
             orderBy: { [orderBy]: orderDir },
+            take: 1000,
           });
 
           const decrypted = allUnindexed.map((p) => decryptPatientSummary(p));
@@ -371,10 +373,12 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         });
 
         if (nullIndexCount > 0) {
+          // PERF FIX: Hard cap at 1000 to prevent unbounded memory usage
           const allUnindexed = await db.patient.findMany({
             where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
             select: clinicSelect,
             orderBy: { [orderBy]: orderDir },
+            take: 1000,
           });
 
           const decrypted = allUnindexed.map((p) => ({

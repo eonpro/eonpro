@@ -80,6 +80,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       const shippingUpdates = await prisma.patientShippingUpdate.findMany({
         where: { patientId },
         orderBy: { createdAt: 'desc' },
+        take: 100,
         include: {
           order: {
             select: {
@@ -99,6 +100,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           trackingNumber: { not: null },
         },
         orderBy: { createdAt: 'desc' },
+        take: 100,
         select: {
           id: true,
           createdAt: true,
