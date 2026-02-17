@@ -190,39 +190,31 @@ export async function getAdminDashboard(
     });
 
     try {
-      const fallbackResult = await executeDbRead(
-        () => prismaFallbackStats(clinicFilter, twentyFourHoursAgo),
-        'admin-dashboard:stats:prisma-fallback'
-      );
+      // Call Prisma ORM directly — do NOT go through executeDbRead again.
+      // The circuit breaker may have been tripped by the raw SQL failure above,
+      // which would block the fallback on the same READ tier.
+      const fb = await prismaFallbackStats(clinicFilter, twentyFourHoursAgo);
+      totalPatientsCount = fb.totalPatients;
+      totalOrdersCount = fb.totalOrders;
+      recentPatientsCount = fb.recentPatients;
+      recentOrdersCount = fb.recentOrders;
+      totalRevenue = fb.totalRevenue;
+      recentRevenue = fb.recentRevenue;
+      totalConverted = fb.totalConverted;
+      subscriptionMrr = fb.subscriptionMrr;
 
-      if (fallbackResult.success && fallbackResult.data) {
-        const fb = fallbackResult.data;
-        totalPatientsCount = fb.totalPatients;
-        totalOrdersCount = fb.totalOrders;
-        recentPatientsCount = fb.recentPatients;
-        recentOrdersCount = fb.recentOrders;
-        totalRevenue = fb.totalRevenue;
-        recentRevenue = fb.recentRevenue;
-        totalConverted = fb.totalConverted;
-        subscriptionMrr = fb.subscriptionMrr;
-
-        logger.info('[ADMIN-DASHBOARD] Prisma fallback succeeded', {
-          userId: userContext.id,
-          clinicId,
-          totalPatients: totalPatientsCount,
-        });
-      } else {
-        logger.error('[ADMIN-DASHBOARD] Prisma fallback also failed', {
-          userId: userContext.id,
-          clinicId,
-          errorType: fallbackResult.error?.type,
-          errorMessage: fallbackResult.error?.message,
-        });
-      }
-    } catch (fallbackErr) {
-      logger.error('[ADMIN-DASHBOARD] Prisma fallback threw', {
+      logger.info('[ADMIN-DASHBOARD] Prisma fallback succeeded', {
         userId: userContext.id,
+        clinicId,
+        totalPatients: totalPatientsCount,
+        totalOrders: totalOrdersCount,
+      });
+    } catch (fallbackErr) {
+      logger.error('[ADMIN-DASHBOARD] Prisma fallback also failed', {
+        userId: userContext.id,
+        clinicId,
         error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+        stack: fallbackErr instanceof Error ? fallbackErr.stack : undefined,
       });
     }
   }
