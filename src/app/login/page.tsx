@@ -1068,7 +1068,7 @@ export default function LoginPage() {
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
                 <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                     {isPhoneNumber(identifier) ? (
                       <Phone className="h-5 w-5" />
                     ) : (
@@ -1080,8 +1080,8 @@ export default function LoginPage() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-14 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    style={{ paddingLeft: '3.5rem', '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Email or phone number"
                     required
                     autoComplete="username"
@@ -1125,31 +1125,33 @@ export default function LoginPage() {
                   )}
                 </button>
 
-                {/* Patient Portal Link */}
-                <div className="space-y-2 pt-4">
-                  {!isProviderLogin && (
+                {/* Patient Portal Links - only show when banner card is NOT visible */}
+                {!(branding && !isMainApp && !isProviderLogin) && (
+                  <div className="space-y-2 pt-4">
+                    {!isProviderLogin && (
+                      <p className="text-center text-sm text-gray-600">
+                        Patient?{' '}
+                        <a
+                          href="/patient-login"
+                          className="font-medium hover:opacity-80"
+                          style={{ color: primaryColor }}
+                        >
+                          Use Patient Portal Login
+                        </a>
+                      </p>
+                    )}
                     <p className="text-center text-sm text-gray-600">
-                      Patient?{' '}
+                      New patient?{' '}
                       <a
-                        href="/patient-login"
+                        href="/register"
                         className="font-medium hover:opacity-80"
                         style={{ color: primaryColor }}
                       >
-                        Use Patient Portal Login
+                        Create an account
                       </a>
                     </p>
-                  )}
-                  <p className="text-center text-sm text-gray-600">
-                    New patient?{' '}
-                    <a
-                      href="/register"
-                      className="font-medium hover:opacity-80"
-                      style={{ color: primaryColor }}
-                    >
-                      Create an account
-                    </a>
-                  </p>
-                </div>
+                  </div>
+                )}
               </form>
             )}
 
