@@ -22,7 +22,6 @@ import {
 
 import type { UserContext } from '@/domains/shared/types';
 import { logPHIAccess, logPHIAccessDenied } from '@/lib/audit/hipaa-audit';
-import { withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 import { type PatientRepository, patientRepository as defaultRepo } from '../repositories';
@@ -414,12 +413,11 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
   return {
     async getPatient(id: number, user: UserContext): Promise<PatientEntity> {
       // Determine clinic filter based on role
-      // Providers get full cross-clinic access like super_admin
-      const hasFullAccess = user.role === 'super_admin' || user.role === 'provider';
-      const clinicId = hasFullAccess ? undefined : (user.clinicId ?? undefined);
+      // Convert null to undefined for type compatibility
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
-      // Require clinic for restricted roles
-      if (!hasFullAccess && !clinicId) {
+      // Require clinic for non-super-admin
+      if (user.role !== 'super_admin' && !clinicId) {
         // HIPAA: Log access denial
         logPHIAccessDenied(
           null,
@@ -438,9 +436,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
         throw new ForbiddenError(ERR_NO_CLINIC);
       }
 
-      const patient = hasFullAccess
-        ? await withoutClinicFilter(() => repo.findById(id, clinicId))
-        : await repo.findById(id, clinicId);
+      const patient = await repo.findById(id, clinicId);
 
       // Additional check for patient role - can only see own record
       // Coerce patientId to number so string "2695" from JWT matches number 2695
@@ -490,9 +486,8 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       // Build filter
       const filter: PatientFilterOptions = {};
 
-      // Clinic isolation: super_admin and provider see all clinics
-      const hasFullAccess = user.role === 'super_admin' || user.role === 'provider';
-      if (!hasFullAccess) {
+      // Clinic isolation (super_admin sees all)
+      if (user.role !== 'super_admin') {
         if (!user.clinicId) {
           throw new ForbiddenError(ERR_NO_CLINIC);
         }
@@ -531,9 +526,9 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
         orderDir: options.orderDir,
       };
 
-      // Full-access roles bypass tenant filter and get clinic info for each patient
-      if (hasFullAccess) {
-        return withoutClinicFilter(() => repo.findManyWithClinic(filter, pagination));
+      // Super admin gets clinic info
+      if (user.role === 'super_admin') {
+        return repo.findManyWithClinic(filter, pagination);
       }
 
       return repo.findMany(filter, pagination);
@@ -618,18 +613,14 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       }
 
       // Determine clinic filter
-      const hasFullAccessUpdate = user.role === 'super_admin' || user.role === 'provider';
-      const clinicId = hasFullAccessUpdate ? undefined : (user.clinicId ?? undefined);
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
-      if (!hasFullAccessUpdate && !clinicId) {
+      if (user.role !== 'super_admin' && !clinicId) {
         throw new ForbiddenError(ERR_NO_CLINIC);
       }
 
       // Verify patient exists and user has access
-      const findExisting = () => repo.findByIdOrNull(id, clinicId);
-      const existing = hasFullAccessUpdate
-        ? await withoutClinicFilter(findExisting)
-        : await findExisting();
+      const existing = await repo.findByIdOrNull(id, clinicId);
       if (!existing) {
         throw Errors.patientNotFound(id);
       }
@@ -656,8 +647,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
         actorId: user.id,
       };
 
-      const doUpdate = () => repo.update(id, parsed.data as UpdatePatientInput, audit, clinicId);
-      return hasFullAccessUpdate ? withoutClinicFilter(doUpdate) : doUpdate();
+      return repo.update(id, parsed.data as UpdatePatientInput, audit, clinicId);
     },
 
     async deletePatient(id: number, user: UserContext): Promise<void> {
@@ -667,18 +657,14 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       }
 
       // Determine clinic filter
-      const hasFullAccessDelete = user.role === 'super_admin' || user.role === 'provider';
-      const clinicId = hasFullAccessDelete ? undefined : (user.clinicId ?? undefined);
+      const clinicId = user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
-      if (!hasFullAccessDelete && !clinicId) {
+      if (user.role !== 'super_admin' && !clinicId) {
         throw new ForbiddenError(ERR_NO_CLINIC);
       }
 
       // Get patient with counts
-      const findPatient = () => repo.findWithCounts(id, clinicId);
-      const patient = hasFullAccessDelete
-        ? await withoutClinicFilter(findPatient)
-        : await findPatient();
+      const patient = await repo.findWithCounts(id, clinicId);
       if (!patient) {
         throw Errors.patientNotFound(id);
       }
@@ -702,12 +688,7 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
         actorId: user.id,
       };
 
-      const doDelete = () => repo.delete(id, audit, clinicId);
-      if (hasFullAccessDelete) {
-        await withoutClinicFilter(doDelete);
-      } else {
-        await doDelete();
-      }
+      await repo.delete(id, audit, clinicId);
     },
 
     async isEmailRegistered(

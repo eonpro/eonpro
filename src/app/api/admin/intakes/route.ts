@@ -55,12 +55,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const search = (searchParams.get('search') || '').trim();
     const includeContact = searchParams.get('includeContact') === 'true';
 
-    const hasFullAccess = user.role === 'super_admin' || user.role === 'provider';
-    const clinicId = hasFullAccess ? undefined : user.clinicId;
+    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-    // Full-access roles have no clinic context → clinic-filtered prisma throws.
+    // Super admin has no clinic context → clinic-filtered prisma throws.
     // basePrisma.patient is in BASE_PRISMA_ALLOWLIST.
-    const db = (hasFullAccess ? basePrisma : prisma) as PrismaClient;
+    const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
 
     // Intakes = patients with NO successful payments AND NO orders.
     // `none` generates efficient NOT EXISTS subqueries (indexed).
