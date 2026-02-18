@@ -367,7 +367,7 @@ export default function ClinicsAdminPage() {
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                     <div className="flex items-center justify-end gap-2">
                       <Link
-                        href={`/admin/clinics/${clinic.id}`}
+                        href={`/admin/clinics/${clinic.id}/settings`}
                         className="text-blue-600 hover:text-blue-900"
                       >
                         <Eye className="h-4 w-4" />

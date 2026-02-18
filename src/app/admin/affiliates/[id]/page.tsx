@@ -21,6 +21,9 @@ import {
   Plus,
   CreditCard,
   FileText,
+  X,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -151,6 +154,66 @@ export default function AffiliateDetailPage() {
   useEffect(() => {
     fetchAffiliate();
   }, [fetchAffiliate]);
+
+  // --- Inline edit state ---
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    displayName: '',
+    status: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (affiliate) {
+      setEditForm({
+        displayName: affiliate.displayName || '',
+        status: affiliate.status || 'ACTIVE',
+        firstName: affiliate.user?.firstName || '',
+        lastName: affiliate.user?.lastName || '',
+        email: affiliate.user?.email || '',
+        phone: affiliate.user?.phone || '',
+      });
+    }
+  }, [affiliate]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+
+    try {
+      const response = await apiFetch(`/api/admin/affiliates/${affiliateId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editForm),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setEditMode(false);
+        setSuccessMessage('Affiliate updated successfully');
+        setTimeout(() => setSuccessMessage(null), 3000);
+        fetchAffiliate();
+      } else {
+        setSaveError(data.error || 'Failed to update affiliate');
+      }
+    } catch {
+      setSaveError('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // --- Add new ref code state ---
   const [showAddCode, setShowAddCode] = useState(false);
@@ -284,16 +347,163 @@ export default function AffiliateDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => (window.location.href = `/admin/affiliates/${affiliateId}/edit`)}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Edit className="h-4 w-4" />
-              Edit
-            </button>
+            {!editMode ? (
+              <button
+                onClick={() => setEditMode(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4" />
+                Edit
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setEditMode(false);
+                  setSaveError(null);
+                  if (affiliate) {
+                    setEditForm({
+                      displayName: affiliate.displayName || '',
+                      status: affiliate.status || 'ACTIVE',
+                      firstName: affiliate.user?.firstName || '',
+                      lastName: affiliate.user?.lastName || '',
+                      email: affiliate.user?.email || '',
+                      phone: affiliate.user?.phone || '',
+                    });
+                  }
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
+          <Check className="h-5 w-5 text-green-600" />
+          <span className="text-green-800">{successMessage}</span>
+        </div>
+      )}
+      {saveError && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+          <X className="h-5 w-5 text-red-600" />
+          <span className="text-red-800">{saveError}</span>
+          <button onClick={() => setSaveError(null)} className="ml-auto">
+            <X className="h-4 w-4 text-red-400 hover:text-red-600" />
+          </button>
+        </div>
+      )}
+
+      {/* Inline Edit Form */}
+      {editMode && (
+        <div className="mb-6 rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Edit Affiliate</h2>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Display Name</label>
+                <input
+                  type="text"
+                  value={editForm.displayName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="PAUSED">Paused</option>
+                  <option value="SUSPENDED">Suspended</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">First Name</label>
+                <input
+                  type="text"
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                <input
+                  type="text"
+                  value={editForm.lastName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone</label>
+                <input
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditMode(false);
+                  setSaveError(null);
+                  if (affiliate) {
+                    setEditForm({
+                      displayName: affiliate.displayName || '',
+                      status: affiliate.status || 'ACTIVE',
+                      firstName: affiliate.user?.firstName || '',
+                      lastName: affiliate.user?.lastName || '',
+                      email: affiliate.user?.email || '',
+                      phone: affiliate.user?.phone || '',
+                    });
+                  }
+                }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:brightness-90 disabled:opacity-50"
+              >
+                {saving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Stats Grid — Full funnel: Clicks → Intakes → Conversions → Revenue → Commission */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

@@ -383,20 +383,6 @@ export default function LanguageSettingsPage() {
             <div className="p-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <a
-                  href="/test/languages"
-                  className="flex items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100"
-                >
-                  <div className="flex items-center">
-                    <Settings className="mr-3 h-5 w-5 text-gray-600" />
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900">Test Suite</p>
-                      <p className="text-xs text-gray-500">Run language tests</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
-
-                <a
                   href="/admin/features"
                   className="flex items-center justify-between rounded-lg bg-gray-50 p-4 transition-colors hover:bg-gray-100"
                 >

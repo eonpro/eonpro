@@ -211,7 +211,7 @@ export default function AdminProviderCompensationPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
-                href="/admin/providers"
+                href="/providers"
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />

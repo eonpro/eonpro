@@ -1,12 +1,8 @@
 /**
  * Admin Affiliate Detail API
  *
- * Returns detailed information about a specific affiliate including:
- * - Basic info (name, email, status)
- * - Referral codes
- * - Commission plan
- * - Stats (clicks, conversions, revenue, commission)
- * - Recent activity
+ * GET  - Returns detailed information about a specific affiliate
+ * PUT  - Updates affiliate profile (displayName, status, user fields)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -371,3 +367,89 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 }
 
 export const GET = withAdminAuth(handler);
+
+async function updateHandler(req: NextRequest, user: any): Promise<Response> {
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split('/');
+  const idIndex = pathParts.indexOf('affiliates') + 1;
+  const id = pathParts[idIndex];
+  const affiliateId = parseInt(id, 10);
+
+  if (isNaN(affiliateId) || affiliateId <= 0) {
+    return badRequest('Invalid affiliate ID');
+  }
+
+  try {
+    const body = await req.json();
+    const { displayName, status, firstName, lastName, email, phone } = body;
+
+    const clinicFilter =
+      user.role === 'super_admin' ? {} : user.clinicId ? { clinicId: user.clinicId } : {};
+
+    const existingAffiliate = await prisma.affiliate.findFirst({
+      where: { id: affiliateId, ...clinicFilter },
+      include: {
+        user: true,
+        planAssignments: { where: { effectiveTo: null }, take: 1 },
+      },
+    });
+
+    if (!existingAffiliate) {
+      return notFound('Affiliate not found');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.affiliate.update({
+        where: { id: affiliateId },
+        data: {
+          ...(displayName && { displayName }),
+          ...(status && { status }),
+        },
+      });
+
+      if (firstName || lastName || email || phone !== undefined) {
+        const emailToCheck = email?.toLowerCase();
+
+        if (emailToCheck && emailToCheck !== existingAffiliate.user.email) {
+          const existingEmail = await tx.user.findUnique({
+            where: { email: emailToCheck },
+          });
+          if (existingEmail) {
+            throw new Error('Email already in use by another user');
+          }
+        }
+
+        await tx.user.update({
+          where: { id: existingAffiliate.userId },
+          data: {
+            ...(firstName && { firstName }),
+            ...(lastName && { lastName }),
+            ...(emailToCheck && { email: emailToCheck }),
+            ...(phone !== undefined && { phone }),
+          },
+        });
+      }
+    });
+
+    logger.security('[AffiliateAudit] Admin updated affiliate', {
+      action: 'AFFILIATE_UPDATED',
+      affiliateId,
+      clinicId: existingAffiliate.clinicId,
+      performedBy: user.id,
+      performedByRole: user.role,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logger.error('[AffiliateDetail] Failed to update affiliate', {
+      affiliateId,
+      userId: user.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update affiliate';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}
+
+export const PUT = withAdminAuth(updateHandler);

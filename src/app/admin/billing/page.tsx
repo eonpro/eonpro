@@ -10,7 +10,6 @@ import {
   Users,
   CreditCard,
   Calendar,
-  Search,
   FileText,
   AlertCircle,
 } from 'lucide-react';
@@ -186,13 +185,12 @@ export default function AdminBillingPage() {
       {/* Search Bar */}
       <div className="rounded-lg bg-white p-4 shadow">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
           <input
             type="text"
             placeholder="Search payments and invoices..."
             value={searchQuery}
             onChange={(e: any) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-11 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
           />
         </div>
       </div>
@@ -316,7 +314,7 @@ export default function AdminBillingPage() {
             View All Patients
           </Link>
           <Link
-            href="/admin/influencers"
+            href="/admin/affiliates"
             className="flex items-center justify-center rounded-lg border-2 border-[var(--brand-primary)] px-4 py-3 text-[var(--brand-primary)] transition hover:bg-[var(--brand-primary)] hover:text-white"
           >
             <DollarSign className="mr-2 h-5 w-5" />

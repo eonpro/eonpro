@@ -431,13 +431,12 @@ export default function AdminPatientsPage() {
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search all patients and intakes by name, ID, email, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2.5 pl-11 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
+              className="w-full rounded-lg border border-gray-300 py-2.5 pl-4 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
               style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             />
             {searchTerm && (
@@ -881,7 +880,7 @@ export default function AdminPatientsPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => (window.location.href = `/patients/${patient.id}/edit`)}
+                          onClick={() => (window.location.href = `/patients/${patient.id}`)}
                           className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
                           title="Edit"
                         >

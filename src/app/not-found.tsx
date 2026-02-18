@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { Home, ArrowLeft } from 'lucide-react';
-
-const EONPRO_LOGO =
-  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 export default function NotFound() {
   return (
@@ -107,7 +105,7 @@ export default function NotFound() {
               Providers
             </Link>
             <Link
-              href="/prescriptions"
+              href="/provider/prescriptions"
               className="text-sm text-gray-500 transition-colors hover:text-gray-900"
             >
               Prescriptions

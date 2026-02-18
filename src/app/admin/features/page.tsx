@@ -272,12 +272,6 @@ export default function FeatureFlagsPage() {
             >
               SMS Communications
             </a>
-            <a
-              href="/test/twilio"
-              className="flex items-center gap-1 text-blue-600 hover:underline"
-            >
-              Test Twilio
-            </a>
             <a href="/admin" className="flex items-center gap-1 text-blue-600 hover:underline">
               Admin Console
             </a>
