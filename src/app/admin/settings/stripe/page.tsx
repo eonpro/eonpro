@@ -7,7 +7,7 @@
  * Uses OAuth flow - users just log into their existing Stripe account!
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   CreditCard,
@@ -48,7 +48,7 @@ interface ClinicInfo {
   name: string;
 }
 
-export default function StripeSettingsPage() {
+function StripeSettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -788,5 +788,22 @@ export default function StripeSettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function StripeSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-emerald-600" />
+            <p className="text-gray-500">Loading Stripe settings...</p>
+          </div>
+        </div>
+      }
+    >
+      <StripeSettingsContent />
+    </Suspense>
   );
 }
