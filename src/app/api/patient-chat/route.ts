@@ -17,7 +17,17 @@ import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
+
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // ============================================================================
 // SECURITY: Input Sanitization
@@ -240,8 +250,15 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: accessCheck.reason || 'Access denied' }, { status: 403 });
     }
 
-    const patient = accessCheck.patient!;
-    const clinicId = patient.clinicId || user.clinicId;
+    const rawPatient = accessCheck.patient!;
+    const clinicId = rawPatient.clinicId || user.clinicId;
+
+    const patient = {
+      ...rawPatient,
+      phone: safeDecrypt(rawPatient.phone),
+      firstName: safeDecrypt(rawPatient.firstName) || rawPatient.firstName,
+      lastName: safeDecrypt(rawPatient.lastName) || rawPatient.lastName,
+    };
 
     // Validate SMS channel requirements
     if (channel === 'SMS' && !patient.phone) {

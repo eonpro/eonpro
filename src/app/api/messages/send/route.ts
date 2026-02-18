@@ -20,7 +20,17 @@ import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
+
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Input sanitization
 function sanitizeText(text: string): string {
@@ -134,8 +144,15 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: accessCheck.reason || 'Access denied' }, { status: 403 });
     }
 
-    const patient = accessCheck.patient!;
-    const clinicId = patient.clinicId || user.clinicId;
+    const rawPatient = accessCheck.patient!;
+    const clinicId = rawPatient.clinicId || user.clinicId;
+
+    const patient = {
+      ...rawPatient,
+      phone: safeDecrypt(rawPatient.phone),
+      firstName: safeDecrypt(rawPatient.firstName) || rawPatient.firstName,
+      lastName: safeDecrypt(rawPatient.lastName) || rawPatient.lastName,
+    };
 
     // SMS requires phone number
     if (channel === 'SMS' && !patient.phone) {

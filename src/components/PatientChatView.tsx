@@ -162,10 +162,12 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
       const data = await res.json();
 
       if (res.ok) {
-        // Replace temp message with actual message
         setMessages((prev) => prev.map((msg) => (msg.id === tempId ? data : msg)));
 
-        // Reload messages to sync
+        if (data.status === 'FAILED' && sendViaSms) {
+          setError(`SMS delivery failed: ${data.failureReason || 'Could not send SMS to patient'}`);
+        }
+
         setTimeout(() => loadMessages(false), 1000);
       } else {
         throw new Error(data.error || 'Failed to send message');
