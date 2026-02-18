@@ -28,6 +28,7 @@ import { z } from 'zod';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { decrypt } from '@/lib/security/encryption';
 import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
+import { findPatientForShipping } from '@/lib/shipping/find-patient';
 import crypto from 'crypto';
 
 /**
@@ -212,100 +213,7 @@ function parseDate(dateStr: string | undefined): Date | undefined {
   }
 }
 
-/**
- * Find patient by Lifefile order ID or email.
- * Also tries to find the most recent order for the patient if no exact match.
- */
-async function findPatient(
-  clinicId: number,
-  lifefileOrderId: string,
-  patientEmail?: string,
-  patientId?: string
-): Promise<{ patient: any; order: any } | null> {
-  // First, try to find by order with exact lifefileOrderId
-  const order = await prisma.order.findFirst({
-    where: {
-      clinicId,
-      OR: [{ lifefileOrderId }, { referenceId: lifefileOrderId }],
-    },
-    include: {
-      patient: true,
-    },
-  });
-
-  if (order) {
-    return { patient: order.patient, order };
-  }
-
-  // Try to find patient by email if no order found
-  let patient = null;
-  if (patientEmail) {
-    patient = await prisma.patient.findFirst({
-      where: {
-        clinicId,
-        email: patientEmail.toLowerCase(),
-      },
-    });
-  }
-
-  // Try to find patient by patientId
-  if (!patient && patientId) {
-    patient = await prisma.patient.findFirst({
-      where: {
-        clinicId,
-        patientId,
-      },
-    });
-  }
-
-  if (patient) {
-    // Try to find the most recent order without tracking for this patient
-    const recentOrder = await prisma.order.findFirst({
-      where: {
-        clinicId,
-        patientId: patient.id,
-        OR: [{ lifefileOrderId: null }, { lifefileOrderId: '' }, { trackingNumber: null }],
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        patient: true,
-      },
-    });
-
-    if (recentOrder) {
-      logger.info(
-        `[EONMEDS SHIPPING] Found recent order ${recentOrder.id} for patient ${patient.id} without tracking`
-      );
-      return { patient, order: recentOrder };
-    }
-
-    // Try any recent order within last 30 days
-    const recentOrderWithinMonth = await prisma.order.findFirst({
-      where: {
-        clinicId,
-        patientId: patient.id,
-        createdAt: {
-          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        patient: true,
-      },
-    });
-
-    if (recentOrderWithinMonth) {
-      logger.info(
-        `[EONMEDS SHIPPING] Found recent order ${recentOrderWithinMonth.id} within 30 days for patient ${patient.id}`
-      );
-      return { patient, order: recentOrderWithinMonth };
-    }
-
-    return { patient, order: null };
-  }
-
-  return null;
-}
+// findPatient is now centralized in @/lib/shipping/find-patient.ts
 
 /**
  * POST /api/webhooks/eonmeds-shipping
@@ -433,8 +341,14 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════
     return runWithClinicContext(clinic.id, async () => {
 
-    // Find patient and order
-    const result = await findPatient(clinic.id, data.orderId, data.patientEmail, data.patientId);
+    // Find patient and order using shared multi-strategy matching
+    const result = await findPatientForShipping(
+      clinic.id,
+      data.orderId,
+      'EONMEDS SHIPPING',
+      data.patientEmail,
+      data.patientId
+    );
 
     if (!result) {
       logger.warn(`[EONMEDS SHIPPING] Patient/Order not found for order ${data.orderId}`);
@@ -445,6 +359,7 @@ export async function POST(req: NextRequest) {
         processed: false,
         reason: 'Patient or order not found',
         orderId: data.orderId,
+        trackingNumber: data.trackingNumber,
       };
 
       await prisma.webhookLog.create({ data: webhookLogData }).catch((err) => {
@@ -466,7 +381,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { patient, order } = result;
+    const { patient, order, matchStrategy } = result;
+    logger.info(`[EONMEDS SHIPPING] Matched via strategy: ${matchStrategy}`);
 
     // Check for existing shipping update with same tracking number (idempotency)
     const existingUpdate = await prisma.patientShippingUpdate.findFirst({
