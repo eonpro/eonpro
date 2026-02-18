@@ -24,7 +24,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ShippingStatus, WebhookStatus } from '@prisma/client';
-import { z } from 'zod';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { decrypt } from '@/lib/security/encryption';
 import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
@@ -58,40 +57,7 @@ function safeDecryptCredential(value: string | null | undefined): string | null 
 // EonMeds clinic subdomain
 const EONMEDS_SUBDOMAIN = 'eonmeds';
 
-// Payload validation schema
-const shippingPayloadSchema = z.object({
-  // Required fields
-  trackingNumber: z.string().min(1, 'Tracking number is required'),
-  orderId: z.string().min(1, 'Order ID is required'),
-  deliveryService: z.string().min(1, 'Delivery service is required'),
-
-  // Optional fields
-  brand: z.string().optional().default('Eon Medical + Wellness'),
-  status: z.string().optional().default('shipped'),
-  estimatedDelivery: z.string().optional(),
-  actualDelivery: z.string().optional(),
-  trackingUrl: z.string().url().optional(),
-
-  // Medication info (optional)
-  medication: z
-    .object({
-      name: z.string().optional(),
-      strength: z.string().optional(),
-      quantity: z.string().optional(),
-      form: z.string().optional(),
-    })
-    .optional(),
-
-  // Patient identification (optional, will try to find by order)
-  patientEmail: z.string().email().optional(),
-  patientId: z.string().optional(),
-
-  // Additional metadata
-  timestamp: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-type ShippingPayload = z.infer<typeof shippingPayloadSchema>;
+import { normalizeLifefilePayload, NormalizedShipment } from '@/lib/shipping/normalize-lifefile-payload';
 
 /**
  * Accepted usernames for this webhook (LifeFile may use different usernames)
@@ -296,7 +262,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse and validate payload
+    // Parse and normalize payload (Lifefile sends array of Rx line items)
     const rawBody = await req.text();
     if (!rawBody) {
       webhookLogData.errorMessage = 'Empty request body';
@@ -304,9 +270,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Empty request body' }, { status: 400 });
     }
 
-    const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-    const payload = safeParseJsonString<Record<string, unknown>>(rawBody);
-    if (payload === null) {
+    let rawPayload: unknown;
+    try {
+      rawPayload = JSON.parse(rawBody);
+    } catch {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
       webhookLogData.errorMessage = 'Invalid JSON';
@@ -314,25 +281,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
 
-    webhookLogData.payload = payload;
+    webhookLogData.payload = rawPayload;
 
-    // Validate payload against schema
-    const parseResult = shippingPayloadSchema.safeParse(payload);
-    if (!parseResult.success) {
-      const errors = parseResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
-      logger.error('[EONMEDS SHIPPING] Validation failed:', errors);
-
+    const data = normalizeLifefilePayload(rawPayload, 'EONMEDS SHIPPING');
+    if (!data) {
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
-      webhookLogData.errorMessage = errors.join(', ');
+      webhookLogData.errorMessage = 'Could not normalize Lifefile payload';
       await writeWebhookLog();
-      return NextResponse.json({ error: 'Invalid payload', details: errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid payload format' }, { status: 400 });
     }
 
-    const data: ShippingPayload = parseResult.data;
-
     logger.info(
-      `[EONMEDS SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}`
+      `[EONMEDS SHIPPING] Processing shipment - Order: ${data.orderId}, Tracking: ${data.trackingNumber}, ` +
+      `Carrier: ${data.carrier}, RxItems: ${data.rxItems.length}`
     );
 
     // ═══════════════════════════════════════════════════════════════════
@@ -397,21 +359,17 @@ export async function POST(req: NextRequest) {
     const shippingStatus = mapToShippingStatus(data.status || 'shipped');
 
     const updateData = {
-      carrier: data.deliveryService,
-      trackingUrl: data.trackingUrl,
+      carrier: data.carrier,
+      trackingUrl: undefined as string | undefined,
       status: shippingStatus,
-      statusNote: data.notes,
+      statusNote: data.rxItems.map((r) => r.rxNumber).filter(Boolean).join(', ') || undefined,
       shippedAt: shippingStatus === ShippingStatus.SHIPPED ? new Date() : undefined,
-      estimatedDelivery: parseDate(data.estimatedDelivery),
+      estimatedDelivery: parseDate(data.statusDateTime),
       actualDelivery:
-        shippingStatus === ShippingStatus.DELIVERED ? new Date() : parseDate(data.actualDelivery),
-      medicationName: data.medication?.name,
-      medicationStrength: data.medication?.strength,
-      medicationQuantity: data.medication?.quantity,
-      medicationForm: data.medication?.form,
+        shippingStatus === ShippingStatus.DELIVERED ? new Date() : undefined,
       lifefileOrderId: data.orderId,
-      brand: data.brand,
-      rawPayload: payload as any,
+      brand: 'Eon Medical + Wellness',
+      rawPayload: rawPayload as any,
       processedAt: new Date(),
     };
 
@@ -443,7 +401,7 @@ export async function POST(req: NextRequest) {
         clinicId: clinic.id,
         clinicName: clinic.name,
         trackingNumber: data.trackingNumber,
-        carrier: data.deliveryService,
+        carrier: data.carrier,
         orderId: order?.id,
       }).catch((err) => {
         logger.warn('[EONMEDS SHIPPING] Tracking SMS failed (non-blocking)', {
@@ -457,10 +415,9 @@ export async function POST(req: NextRequest) {
     if (order) {
       const orderUpdateData: any = {
         trackingNumber: data.trackingNumber,
-        trackingUrl: data.trackingUrl,
         shippingStatus: data.status,
         lastWebhookAt: new Date(),
-        lastWebhookPayload: JSON.stringify(payload),
+        lastWebhookPayload: JSON.stringify(rawPayload),
       };
 
       // Save the lifefileOrderId if it's not already set
@@ -482,8 +439,8 @@ export async function POST(req: NextRequest) {
           orderId: order.id,
           lifefileOrderId: data.orderId,
           eventType: `shipping_${data.status || 'update'}`,
-          payload: payload as any,
-          note: `Tracking: ${data.trackingNumber} via ${data.deliveryService}`,
+          payload: rawPayload as any,
+          note: `Tracking: ${data.trackingNumber} via ${data.carrier} (${data.deliveryService})`,
         },
       });
     }
