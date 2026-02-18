@@ -1153,18 +1153,7 @@ export default function PrescriptionForm({
               showCategoryBadge={true}
             />
 
-            {/* Enhanced SigBuilder Component */}
-            <SigBuilder
-              medicationKey={rx.medicationKey}
-              initialSig={rx.sig}
-              initialQuantity={rx.quantity}
-              initialRefills={rx.refills}
-              onSigChange={(sig) => updateRx(index, 'sig', sig)}
-              onQuantityChange={(quantity) => updateRx(index, 'quantity', quantity)}
-              onRefillsChange={(refills) => updateRx(index, 'refills', refills)}
-              onDaysSupplyChange={(ds) => updateRx(index, 'daysSupply', ds)}
-              disabled={!rx.medicationKey}
-            />
+            {/* Quantity / Refills / Days Supply - always visible for all medications */}
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-medium text-gray-600">Quantity *</label>
@@ -1202,6 +1191,19 @@ export default function PrescriptionForm({
                 </select>
               </div>
             </div>
+
+            {/* Enhanced SigBuilder Component */}
+            <SigBuilder
+              medicationKey={rx.medicationKey}
+              initialSig={rx.sig}
+              initialQuantity={rx.quantity}
+              initialRefills={rx.refills}
+              onSigChange={(sig) => updateRx(index, 'sig', sig)}
+              onQuantityChange={(quantity) => updateRx(index, 'quantity', quantity)}
+              onRefillsChange={(refills) => updateRx(index, 'refills', refills)}
+              onDaysSupplyChange={(ds) => updateRx(index, 'daysSupply', ds)}
+              disabled={!rx.medicationKey}
+            />
           </div>
         );
       })}

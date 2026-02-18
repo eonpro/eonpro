@@ -2903,25 +2903,7 @@ export default function PrescriptionQueuePage() {
                               />
                             </div>
 
-                            {/* Enhanced SigBuilder Component */}
-                            <SigBuilder
-                              medicationKey={medication.medicationKey}
-                              initialSig={medication.sig}
-                              initialQuantity={medication.quantity}
-                              initialRefills={medication.refills}
-                              onSigChange={(sig) => updateMedicationField(index, 'sig', sig)}
-                              onQuantityChange={(quantity) =>
-                                updateMedicationField(index, 'quantity', quantity)
-                              }
-                              onRefillsChange={(refills) =>
-                                updateMedicationField(index, 'refills', refills)
-                              }
-                              onDaysSupplyChange={(ds) =>
-                                updateMedicationField(index, 'daysSupply', ds)
-                              }
-                              disabled={!medication.medicationKey}
-                            />
-
+                            {/* Quantity / Refills / Days Supply - always visible for all medications */}
                             <div className="grid grid-cols-3 gap-4">
                               <div>
                                 <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -2976,6 +2958,25 @@ export default function PrescriptionQueuePage() {
                                 </select>
                               </div>
                             </div>
+
+                            {/* Enhanced SigBuilder Component */}
+                            <SigBuilder
+                              medicationKey={medication.medicationKey}
+                              initialSig={medication.sig}
+                              initialQuantity={medication.quantity}
+                              initialRefills={medication.refills}
+                              onSigChange={(sig) => updateMedicationField(index, 'sig', sig)}
+                              onQuantityChange={(quantity) =>
+                                updateMedicationField(index, 'quantity', quantity)
+                              }
+                              onRefillsChange={(refills) =>
+                                updateMedicationField(index, 'refills', refills)
+                              }
+                              onDaysSupplyChange={(ds) =>
+                                updateMedicationField(index, 'daysSupply', ds)
+                              }
+                              disabled={!medication.medicationKey}
+                            />
                           </div>
                         ))}
 
