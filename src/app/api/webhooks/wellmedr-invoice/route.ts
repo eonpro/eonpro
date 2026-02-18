@@ -591,26 +591,51 @@ export async function POST(req: NextRequest) {
   }
 
   // STEP 6: Check for duplicate invoice
+  // IMPORTANT: A Stripe payment_method_id (pm_...) represents a CARD, not a transaction.
+  // The same card is reused across multiple purchases by the same customer.
+  // We must use submission_id (unique per Airtable order record) as the primary dedup key.
+  // Fall back to payment_method_id only when no submission_id is available.
   try {
-    const existingInvoice = await prisma.invoice.findFirst({
-      where: {
-        patientId: verifiedPatient.id,
-        clinicId: clinicId,
-        metadata: {
-          path: ['stripePaymentMethodId'],
-          equals: payload.method_payment_id,
+    let existingInvoice = null;
+
+    if (payload.submission_id) {
+      existingInvoice = await prisma.invoice.findFirst({
+        where: {
+          patientId: verifiedPatient.id,
+          clinicId: clinicId,
+          metadata: {
+            path: ['submissionId'],
+            equals: payload.submission_id,
+          },
         },
-      },
-    });
+      });
+    }
+
+    if (!existingInvoice && !payload.submission_id) {
+      existingInvoice = await prisma.invoice.findFirst({
+        where: {
+          patientId: verifiedPatient.id,
+          clinicId: clinicId,
+          metadata: {
+            path: ['stripePaymentMethodId'],
+            equals: payload.method_payment_id,
+          },
+        },
+      });
+    }
 
     if (existingInvoice) {
       logger.info(
-        `[WELLMEDR-INVOICE ${requestId}] Invoice already exists for this payment: ${existingInvoice.id}`
+        `[WELLMEDR-INVOICE ${requestId}] Invoice already exists for this order: ${existingInvoice.id}`,
+        {
+          matchedBy: payload.submission_id ? 'submissionId' : 'stripePaymentMethodId',
+          submissionId: payload.submission_id,
+        }
       );
       return NextResponse.json({
         success: true,
         duplicate: true,
-        message: 'Invoice already exists for this payment',
+        message: 'Invoice already exists for this order',
         invoiceId: existingInvoice.id,
         patientId: verifiedPatient.id,
       });
