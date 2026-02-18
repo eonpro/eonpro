@@ -84,3 +84,5 @@ Thumbs.db
 .turbo/.env.vercel
 .env.rds
 test-results/
+.env.backup
+.env.local.backup

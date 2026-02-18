@@ -69,70 +69,94 @@ const ACCEPTED_USERNAMES = [
   'lifefile_datapush',
 ];
 
+interface AuthResult {
+  success: boolean;
+  diagnostics?: {
+    reason: string;
+    usernameReceived?: string;
+    usernameMatch?: boolean;
+    passwordLenReceived?: number;
+    passwordLenExpected?: number;
+    expectedPasswordDecrypted?: boolean;
+  };
+}
+
 /**
  * Verify Basic Authentication against clinic's configured credentials.
- * Uses constant-time comparison to prevent timing attacks.
+ * Returns diagnostics for debugging auth failures.
  */
 async function verifyBasicAuth(
   authHeader: string | null,
   clinic: { lifefileInboundUsername: string | null; lifefileInboundPassword: string | null }
-): Promise<boolean> {
+): Promise<AuthResult> {
   const expectedPassword = safeDecryptCredential(clinic.lifefileInboundPassword);
 
   if (!expectedPassword) {
     logger.error('[OT SHIPPING] No inbound webhook password configured for clinic');
-    return false;
+    return { success: false, diagnostics: { reason: 'no_password_configured' } };
   }
 
   if (!authHeader) {
     logger.error('[OT SHIPPING] Missing Authorization header');
-    return false;
+    return { success: false, diagnostics: { reason: 'missing_auth_header' } };
   }
 
   try {
     const base64Credentials = authHeader.replace(/^Basic\s+/i, '');
     const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
+    const colonIdx = credentials.indexOf(':');
+    const username = colonIdx >= 0 ? credentials.substring(0, colonIdx) : credentials;
+    const password = colonIdx >= 0 ? credentials.substring(colonIdx + 1) : '';
 
-    if (!username || !password) {
-      logger.error('[OT SHIPPING] Malformed credentials');
-      return false;
-    }
-
-    // Check if username is one of the accepted patterns
     const usernameAccepted = ACCEPTED_USERNAMES.includes(username);
-    // Also accept the configured username from admin UI
     const configuredUsername = safeDecryptCredential(clinic.lifefileInboundUsername);
     const usernameMatch = usernameAccepted || username === configuredUsername;
 
     if (!usernameMatch) {
-      logger.warn('[OT SHIPPING] Username not recognized');
-      return false;
+      logger.error(`[OT SHIPPING] Auth failed: username "${username}" not recognized`);
+      return {
+        success: false,
+        diagnostics: {
+          reason: 'username_mismatch',
+          usernameReceived: username,
+          usernameMatch: false,
+          passwordLenReceived: password.length,
+          passwordLenExpected: expectedPassword.length,
+          expectedPasswordDecrypted: expectedPassword !== clinic.lifefileInboundPassword,
+        },
+      };
     }
 
-    // Constant-time password comparison to prevent timing attacks
-    if (password.length !== expectedPassword.length) {
-      logger.debug('[OT SHIPPING] Password length mismatch');
-      return false;
-    }
-
-    const passwordMatch = crypto.timingSafeEqual(
-      Buffer.from(password),
-      Buffer.from(expectedPassword)
-    );
+    const passwordBuffer = Buffer.from(password);
+    const expectedBuffer = Buffer.from(expectedPassword);
+    const passwordMatch =
+      passwordBuffer.length === expectedBuffer.length &&
+      crypto.timingSafeEqual(passwordBuffer, expectedBuffer);
 
     if (passwordMatch) {
       logger.info(`[OT SHIPPING] Authentication successful (username: ${username})`);
-      return true;
+      return { success: true };
     }
 
-    logger.warn('[OT SHIPPING] Authentication failed - invalid credentials');
-    return false;
-  } catch (error: unknown) {
-    logger.error('[OT SHIPPING] Error parsing auth header:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    logger.error('[OT SHIPPING] Auth failed: password mismatch', {
+      usernameReceived: username,
+      passwordLenReceived: password.length,
+      passwordLenExpected: expectedPassword.length,
     });
-    return false;
+    return {
+      success: false,
+      diagnostics: {
+        reason: 'password_mismatch',
+        usernameReceived: username,
+        usernameMatch: true,
+        passwordLenReceived: password.length,
+        passwordLenExpected: expectedPassword.length,
+        expectedPasswordDecrypted: expectedPassword !== clinic.lifefileInboundPassword,
+      },
+    };
+  } catch (error) {
+    logger.error('[OT SHIPPING] Error parsing auth header:', error);
+    return { success: false, diagnostics: { reason: 'parse_error' } };
   }
 }
 
@@ -257,12 +281,13 @@ export async function POST(req: NextRequest) {
 
     // Verify authentication against clinic's configured credentials
     const authHeader = req.headers.get('authorization');
-    const isAuthenticated = await verifyBasicAuth(authHeader, clinic);
+    const authResult = await verifyBasicAuth(authHeader, clinic);
 
-    if (!isAuthenticated) {
+    if (!authResult.success) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
+      webhookLogData.metadata = authResult.diagnostics;
       await writeWebhookLog();
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -57,46 +57,66 @@ import { normalizeLifefilePayload, NormalizedShipment } from '@/lib/shipping/nor
  */
 const ACCEPTED_USERNAMES = ['lifehook_user', 'wellmedr_shipping', 'lifefile_webhook', 'lifefile_datapush'];
 
+interface AuthResult {
+  success: boolean;
+  diagnostics?: {
+    reason: string;
+    usernameReceived?: string;
+    usernameMatch?: boolean;
+    passwordLenReceived?: number;
+    passwordLenExpected?: number;
+    expectedPasswordDecrypted?: boolean;
+  };
+}
+
 /**
  * Verify Basic Authentication against clinic's configured credentials
  * Accepts any of the known LifeFile usernames as long as password matches
+ * Returns diagnostics for debugging auth failures
  */
 async function verifyBasicAuth(
   authHeader: string | null,
   clinic: { lifefileInboundUsername: string | null; lifefileInboundPassword: string | null }
-): Promise<boolean> {
-  // Get expected password from clinic config
+): Promise<AuthResult> {
   const expectedPassword = safeDecryptCredential(clinic.lifefileInboundPassword);
 
   if (!expectedPassword) {
     logger.error('[WELLMEDR SHIPPING] No inbound webhook password configured for clinic');
-    return false;
+    return { success: false, diagnostics: { reason: 'no_password_configured' } };
   }
 
   if (!authHeader) {
     logger.error('[WELLMEDR SHIPPING] Missing Authorization header');
-    return false;
+    return { success: false, diagnostics: { reason: 'missing_auth_header' } };
   }
 
   try {
-    // Parse Basic auth header
     const base64Credentials = authHeader.replace(/^Basic\s+/i, '');
     const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
+    const colonIdx = credentials.indexOf(':');
+    const username = colonIdx >= 0 ? credentials.substring(0, colonIdx) : credentials;
+    const password = colonIdx >= 0 ? credentials.substring(colonIdx + 1) : '';
 
-    // Check if username is one of the accepted patterns
     const usernameAccepted = ACCEPTED_USERNAMES.includes(username);
-    // Also accept the configured username from admin UI
     const configuredUsername = safeDecryptCredential(clinic.lifefileInboundUsername);
     const usernameMatch = usernameAccepted || username === configuredUsername;
 
     if (!usernameMatch) {
       logger.error(`[WELLMEDR SHIPPING] Auth failed: username "${username}" not recognized`);
-      return false;
+      return {
+        success: false,
+        diagnostics: {
+          reason: 'username_mismatch',
+          usernameReceived: username,
+          usernameMatch: false,
+          passwordLenReceived: password.length,
+          passwordLenExpected: expectedPassword.length,
+          expectedPasswordDecrypted: expectedPassword !== clinic.lifefileInboundPassword,
+        },
+      };
     }
 
-    // Constant-time comparison to prevent timing attacks
-    const passwordBuffer = Buffer.from(password || '');
+    const passwordBuffer = Buffer.from(password);
     const expectedBuffer = Buffer.from(expectedPassword);
     const passwordMatch =
       passwordBuffer.length === expectedBuffer.length &&
@@ -104,18 +124,28 @@ async function verifyBasicAuth(
 
     if (passwordMatch) {
       logger.info(`[WELLMEDR SHIPPING] Authentication successful (username: ${username})`);
-      return true;
+      return { success: true };
     }
 
     logger.error('[WELLMEDR SHIPPING] Auth failed: password mismatch', {
       usernameReceived: username,
-      passwordLenReceived: password?.length || 0,
+      passwordLenReceived: password.length,
       passwordLenExpected: expectedPassword.length,
     });
-    return false;
+    return {
+      success: false,
+      diagnostics: {
+        reason: 'password_mismatch',
+        usernameReceived: username,
+        usernameMatch: true,
+        passwordLenReceived: password.length,
+        passwordLenExpected: expectedPassword.length,
+        expectedPasswordDecrypted: expectedPassword !== clinic.lifefileInboundPassword,
+      },
+    };
   } catch (error) {
     logger.error('[WELLMEDR SHIPPING] Error parsing auth header:', error);
-    return false;
+    return { success: false, diagnostics: { reason: 'parse_error' } };
   }
 }
 
@@ -224,12 +254,13 @@ export async function POST(req: NextRequest) {
 
     // Verify authentication against clinic's configured credentials
     const authHeader = req.headers.get('authorization');
-    const isAuthenticated = await verifyBasicAuth(authHeader, clinic);
+    const authResult = await verifyBasicAuth(authHeader, clinic);
 
-    if (!isAuthenticated) {
+    if (!authResult.success) {
       webhookLogData.status = WebhookStatus.INVALID_AUTH;
       webhookLogData.statusCode = 401;
       webhookLogData.errorMessage = 'Authentication failed';
+      webhookLogData.metadata = authResult.diagnostics;
 
       await runWithClinicContext(clinic.id, () => prisma.webhookLog.create({ data: webhookLogData }));
 
