@@ -40,6 +40,7 @@ import { MEDS } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import SigBuilder from '@/components/SigBuilder';
 import MedicationSelector, { getGLP1SubCategory } from '@/components/MedicationSelector';
+import OrderSetSelector, { AppliedMedication } from '@/components/OrderSetSelector';
 import {
   parseAddressString,
   isApartmentString,
@@ -2267,20 +2268,22 @@ export default function PrescriptionQueuePage() {
       {/* Prescription Slide-Over Panel */}
       {prescriptionPanel && (
         <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop - closes panel when clicked directly */}
           <div
             className="absolute inset-0 z-0 bg-black/50"
             aria-hidden
-            onMouseDown={(e) => {
-              // Only close when clicking the backdrop itself, not when clicks bubble from panel
+            onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setPrescriptionPanel(null);
               }
             }}
           />
+          {/* Panel container - stops ALL event propagation to prevent backdrop interference */}
           <div
             className="absolute inset-y-0 right-0 z-10 flex max-w-full pl-10"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
           >
             <div className="w-screen max-w-lg transform transition-transform duration-300 ease-in-out">
               <div className="flex h-full flex-col bg-white shadow-xl">
@@ -2806,6 +2809,23 @@ export default function PrescriptionQueuePage() {
                         </p>
                       </div>
 
+                      {/* Order Set Selector */}
+                      <OrderSetSelector
+                        onApply={(medications: AppliedMedication[]) => {
+                          setPrescriptionForm((prev) => ({
+                            ...prev,
+                            medications: medications.map((m) => ({
+                              id: crypto.randomUUID(),
+                              medicationKey: m.medicationKey,
+                              sig: m.sig,
+                              quantity: m.quantity,
+                              refills: m.refills,
+                              daysSupply: m.daysSupply,
+                            })),
+                          }));
+                        }}
+                      />
+
                       {/* Medications Selection - Multiple */}
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -2983,32 +3003,38 @@ export default function PrescriptionQueuePage() {
                             The pharmacy requires biological sex for prescription processing.
                             Patient gender is not set or is &quot;Other&quot;. Please select:
                           </p>
-                          <div className="flex gap-3">
+                          <div className="flex gap-3" role="radiogroup" aria-label="Biological Sex">
                             {[
                               { value: 'm' as const, label: 'Male' },
                               { value: 'f' as const, label: 'Female' },
                             ].map((option) => (
-                              <label
+                              <div
                                 key={option.value}
-                                className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                                role="radio"
+                                aria-checked={prescriptionForm.pharmacyGender === option.value}
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPrescriptionForm((prev) => ({
+                                    ...prev,
+                                    pharmacyGender: option.value,
+                                  }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === ' ' || e.key === 'Enter') {
+                                    e.preventDefault();
+                                    setPrescriptionForm((prev) => ({
+                                      ...prev,
+                                      pharmacyGender: option.value,
+                                    }));
+                                  }
+                                }}
+                                className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 p-3 transition-colors ${
                                   prescriptionForm.pharmacyGender === option.value
                                     ? 'border-rose-500 bg-rose-50 shadow-sm ring-2 ring-rose-200'
                                     : 'border-gray-200 bg-white hover:border-gray-300'
                                 }`}
                               >
-                                <input
-                                  type="radio"
-                                  name="pharmacyGender"
-                                  value={option.value}
-                                  checked={prescriptionForm.pharmacyGender === option.value}
-                                  onChange={(e) =>
-                                    setPrescriptionForm((prev) => ({
-                                      ...prev,
-                                      pharmacyGender: e.target.value as 'm' | 'f',
-                                    }))
-                                  }
-                                  className="sr-only"
-                                />
                                 <span className={`font-medium ${
                                   prescriptionForm.pharmacyGender === option.value
                                     ? 'text-rose-900'
@@ -3016,7 +3042,7 @@ export default function PrescriptionQueuePage() {
                                 }`}>
                                   {option.label}
                                 </span>
-                              </label>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -3028,32 +3054,38 @@ export default function PrescriptionQueuePage() {
                           <Clock className="h-4 w-4 text-blue-500" />
                           Shipping Method
                         </h3>
-                        <div className="space-y-2">
+                        <div className="space-y-2" role="radiogroup" aria-label="Shipping Method">
                           {SHIPPING_METHODS.map((method) => {
                             const isSelected =
                               prescriptionForm.shippingMethod === String(method.id);
                             return (
-                              <label
+                              <div
                                 key={method.id}
-                                className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 p-3 transition-all ${
+                                role="radio"
+                                aria-checked={isSelected}
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPrescriptionForm((prev) => ({
+                                    ...prev,
+                                    shippingMethod: String(method.id),
+                                  }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === ' ' || e.key === 'Enter') {
+                                    e.preventDefault();
+                                    setPrescriptionForm((prev) => ({
+                                      ...prev,
+                                      shippingMethod: String(method.id),
+                                    }));
+                                  }
+                                }}
+                                className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 p-3 transition-colors ${
                                   isSelected
                                     ? 'border-rose-500 bg-rose-50 shadow-sm ring-2 ring-rose-200'
                                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                 }`}
                               >
-                                <input
-                                  type="radio"
-                                  name="shippingMethod"
-                                  value={String(method.id)}
-                                  checked={isSelected}
-                                  onChange={(e) =>
-                                    setPrescriptionForm((prev) => ({
-                                      ...prev,
-                                      shippingMethod: e.target.value,
-                                    }))
-                                  }
-                                  className="sr-only"
-                                />
                                 <div
                                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
                                     isSelected
@@ -3074,7 +3106,7 @@ export default function PrescriptionQueuePage() {
                                 >
                                   {method.label}
                                 </p>
-                              </label>
+                              </div>
                             );
                           })}
                         </div>

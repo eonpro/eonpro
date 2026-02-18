@@ -8,6 +8,7 @@ import { SHIPPING_METHODS } from '@/lib/shipping';
 import SignaturePadCanvas from './SignaturePadCanvas';
 import SigBuilder from './SigBuilder';
 import MedicationSelector from './MedicationSelector';
+import OrderSetSelector, { AppliedMedication } from './OrderSetSelector';
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import { formatDobInput } from '@/lib/format';
 import { logger } from '@/lib/logger';
@@ -1102,6 +1103,23 @@ export default function PrescriptionForm({
       )}
 
       <h2 className="mb-2 mt-6 text-2xl font-bold">Medications</h2>
+
+      {/* Order Set Selector */}
+      <OrderSetSelector
+        onApply={(medications: AppliedMedication[]) => {
+          setForm((f: any) => ({
+            ...f,
+            rxs: medications.map((m) => ({
+              medicationKey: m.medicationKey,
+              sig: m.sig,
+              quantity: m.quantity,
+              refills: m.refills,
+              daysSupply: m.daysSupply,
+            })),
+          }));
+        }}
+      />
+
       {form.rxs.map((rx: RxForm, index: number) => {
         const selectedMed = rx.medicationKey ? MEDS[rx.medicationKey] : undefined;
         return (
