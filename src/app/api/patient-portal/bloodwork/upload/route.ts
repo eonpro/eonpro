@@ -2,7 +2,7 @@
  * Patient portal: upload Quest bloodwork PDF and parse into lab report.
  * Patient can only upload for themselves (user.patientId).
  * Rate limited; errors return structured codes for ops (parse vs storage vs validation).
- * Uses Node runtime to support pdf-parse and native dependencies.
+ * Uses Node runtime to support PDF parsing dependencies.
  */
 
 export const runtime = 'nodejs';

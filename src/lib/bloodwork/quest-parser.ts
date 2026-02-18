@@ -621,38 +621,10 @@ const MAX_PDF_BYTES = 15 * 1024 * 1024;
 /** Parse timeout (ms). Prevents unbounded hang in request lifecycle. */
 const PARSE_TIMEOUT_MS = 45000;
 
-/** pdf-parse 2.x getText() can return string or object with text property. */
-interface PdfParseTextResult {
-  text?: string;
-}
-
-/** pdf-parse 2.x: constructor accepts { data: Buffer } or { url: string }; instance has getText() and destroy?(). */
-interface PdfParseInstance {
-  getText(): Promise<string | PdfParseTextResult>;
-  destroy?(): Promise<void>;
-}
-
-type PdfParseConstructor = new (options: { data: Buffer }) => PdfParseInstance;
-
-/** Dynamic import shape for pdf-parse 2.x (default or named PDFParse). */
-interface PdfParseModule {
-  PDFParse?: PdfParseConstructor;
-  default?: PdfParseConstructor | PdfParseModule;
-}
-
-/** Safely extract plain text from pdf-parse getText() result. */
-function extractTextFromResult(result: unknown): string {
-  if (typeof result === 'string') return result;
-  if (result != null && typeof result === 'object' && 'text' in result) {
-    const t = (result as PdfParseTextResult).text;
-    return typeof t === 'string' ? t : '';
-  }
-  return '';
-}
-
 /**
  * Extract text from PDF buffer and parse as Quest report.
- * Guardrails: max size, timeout; typed result handling.
+ * Uses unpdf (serverless-compatible PDF.js wrapper) for text extraction.
+ * Guardrails: max size, timeout.
  */
 export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParsedResult> {
   if (buffer.length > MAX_PDF_BYTES) {
@@ -662,35 +634,27 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
     throw new Error('PDF file is empty.');
   }
 
-  let PDFParse: PdfParseConstructor;
+  let extractText: (src: ArrayBuffer) => Promise<{ totalPages: number; text: string }>;
   try {
-    const mod = (await import('pdf-parse')) as PdfParseModule;
-    const ctor = mod.PDFParse ?? (typeof mod.default === 'function' ? mod.default : mod.default?.PDFParse);
-    if (typeof ctor !== 'function') {
-      throw new Error('PDF parsing library not available');
+    const mod = await import('unpdf');
+    extractText = mod.extractText;
+    if (typeof extractText !== 'function') {
+      throw new Error('PDF text extraction function not available');
     }
-    PDFParse = ctor;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const isCanvasOrPdfjs = /@napi-rs\/canvas|pdfjs-dist|Cannot find module/i.test(msg);
-    logger.error('Failed to load pdf-parse', { error: msg });
-    if (isCanvasOrPdfjs) {
-      throw new Error(
-        'PDF parsing is unavailable in this environment (missing canvas support). Common on Vercel serverless—see docs/BLOODWORK_TROUBLESHOOTING.md.'
-      );
-    }
-    throw new Error('PDF parsing library not available');
+    logger.error('Failed to load unpdf', { error: msg });
+    throw new Error('PDF parsing library not available. Please contact your administrator.');
   }
 
-  const parser = new PDFParse({ data: buffer });
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error('PDF parsing timed out. The file may be too large or complex.')), PARSE_TIMEOUT_MS);
   });
 
   try {
-    const result = await Promise.race([parser.getText(), timeoutPromise]);
-    const text = extractTextFromResult(result);
-    await parser.destroy?.();
+    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    const result = await Promise.race([extractText(arrayBuffer), timeoutPromise]);
+    const text = result?.text ?? '';
     if (!text || text.length < 100) {
       throw new Error(
         'PDF produced no or too little text. Ensure the file is a Quest Diagnostics lab report (not a scan/image-only PDF).'
@@ -698,7 +662,6 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
     }
     return parseQuestText(text);
   } catch (e) {
-    await parser.destroy?.().catch(() => {});
     const msg = e instanceof Error ? e.message : 'Unknown error';
     logger.error('Quest PDF parse failed', { error: msg });
     throw new Error(

@@ -1,7 +1,7 @@
 /**
  * Admin/Provider: upload Quest bloodwork PDF for a patient.
  * Rate limited; errors return structured codes (parse vs storage vs validation).
- * Uses Node runtime to support pdf-parse and native dependencies.
+ * Uses Node runtime to support PDF parsing dependencies.
  */
 
 export const runtime = 'nodejs';
@@ -13,7 +13,7 @@ import { prisma } from '@/lib/db';
 import { createBloodworkReportFromPdf } from '@/lib/bloodwork/service';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';
 import { ensureTenantResource } from '@/lib/tenant-response';
-import { handleApiError } from '@/domains/shared/errors';
+import { handleApiError, AppError } from '@/domains/shared/errors';
 import { rateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
@@ -157,6 +157,14 @@ async function postHandler(
       error: err instanceof Error ? err.message : String(err),
       ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : undefined }),
     });
+
+    if (err instanceof AppError) {
+      return handleApiError(err, {
+        route: 'POST /api/patients/[id]/bloodwork/upload',
+        context: { userId: user.id, patientId },
+      });
+    }
+
     if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
       return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
     }

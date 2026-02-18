@@ -145,6 +145,7 @@
     "stripe": "^20.0.0",
     "tailwind-merge": "^3.4.0",
     "twilio": "^5.10.6",
+    "unpdf": "^1.4.0",
     "use-debounce": "^10.1.0",
     "uuid": "^13.0.0",
     "xml2js": "^0.6.2",

@@ -70,19 +70,17 @@ export async function createBloodworkReportFromPdf(
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to parse PDF';
     logger.warn('Bloodwork PDF parse failed', { patientId, clinicId, error: msg });
-    // Deployment/environment issues (missing native deps on Vercel serverless, etc.)
-    const isEnvUnavailable =
-      msg.includes('unavailable in this environment') ||
-      msg.includes('missing canvas support') ||
-      msg.includes('PDF parsing library not available');
+    const isEnvUnavailable = msg.includes('PDF parsing library not available');
     if (isEnvUnavailable) {
       throw new ServiceUnavailableError(
-        'Lab report parsing is temporarily unavailable on this server. This often happens when deployed to Vercel or other serverless runtimes. Please contact your administrator or try again later.',
+        'PDF parsing is temporarily unavailable. Please contact your administrator or try again later.',
         5
       );
     }
     throw new BadRequestError(
-      msg.includes('PDF') ? msg : 'Failed to parse lab report. Please use a valid Quest Diagnostics text-based PDF.',
+      msg.includes('PDF') || msg.includes('timed out')
+        ? msg
+        : 'Failed to parse lab report. Please use a valid Quest Diagnostics text-based PDF.',
       { cause: 'BLOODWORK_PARSE' }
     );
   }

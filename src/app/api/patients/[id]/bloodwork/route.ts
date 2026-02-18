@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 import { Prisma } from '@prisma/client';
 import { ensureTenantResource } from '@/lib/tenant-response';
-import { handleApiError } from '@/domains/shared/errors';
+import { handleApiError, AppError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 
 type Params = { params: Promise<{ id: string }> };
@@ -127,6 +127,14 @@ export const GET = withAuthParams(
         error: err instanceof Error ? err.message : String(err),
         ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : undefined }),
       });
+
+      if (err instanceof AppError) {
+        return handleApiError(err, {
+          route: 'GET /api/patients/[id]/bloodwork',
+          context: { userId: user.id, patientId },
+        });
+      }
+
       if (err instanceof Prisma.PrismaClientKnownRequestError && ['P2021', 'P2022', 'P2010'].includes(err.code)) {
         return NextResponse.json({ error: BLOODWORK_UNAVAILABLE_MESSAGE }, { status: 503 });
       }

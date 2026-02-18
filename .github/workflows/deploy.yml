@@ -87,15 +87,14 @@ jobs:
   # ============================================================================
   # IMPORTANT: Migrations must run BEFORE deploying code to prevent schema
   # mismatch errors. The new code may expect columns that don't exist yet.
-  # 
-  # Flow: staging -> migrate -> production
+  #
+  # Runs independently of staging — staging failure should not block migrations.
   # ============================================================================
   migrate-database:
     name: Database Migration (Pre-Deploy)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [deploy-staging]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
     environment: production
     
     steps:

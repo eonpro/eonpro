@@ -10,8 +10,6 @@ const nextConfig = {
 
   serverExternalPackages: [
     '@prisma/client',
-    '@napi-rs/canvas',
-    'pdf-parse',
     'puppeteer',
     'pdfkit',
     '@pdf-lib/fontkit',
@@ -30,10 +28,6 @@ const nextConfig = {
   // Image optimization
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'static.wixstatic.com',
-      },
       {
         protocol: 'https',
         hostname: 'lottie.host',
