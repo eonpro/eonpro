@@ -1,25 +1,24 @@
 /**
  * Prescription Queue Count API
  * Returns the count of pending prescriptions for sidebar badge.
- * Multi-clinic: counts invoices, refills, and queued orders across all provider's clinics.
+ * Scoped to the provider's current clinic session context.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
-import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
 
 /**
  * GET /api/provider/prescription-queue/count
- * Get count of pending prescriptions (all clinics for this provider)
+ * Get count of pending prescriptions for the current clinic context
  */
 async function handleGet(_req: NextRequest, user: AuthUser) {
   try {
-    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
-    if (clinicIds.length === 0) {
+    if (!user.clinicId) {
       return NextResponse.json({ count: 0 });
     }
+    const clinicIds = [user.clinicId];
 
     const [invoiceCount, refillCount, queuedOrderCount] = await Promise.all([
       prisma.invoice.count({

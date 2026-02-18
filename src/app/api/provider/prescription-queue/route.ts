@@ -15,7 +15,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
-import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
@@ -111,17 +110,21 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       userId: user.id,
       userEmail: user.email,
       providerId: user.providerId,
+      clinicId: user.clinicId,
     });
 
-    // Get all clinic IDs this provider can work at (multi-clinic: single queue for all clinics)
-    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
-    if (clinicIds.length === 0) {
-      logger.warn('[PRESCRIPTION-QUEUE] Provider has no clinic assignments', { userId: user.id });
+    // Use the current session's clinic context — providers must only see
+    // prescriptions for the clinic they are currently logged into.
+    // Previously this used getClinicIdsForProviderUser() across ALL clinics,
+    // which leaked cross-clinic data when providers had multiple clinic associations.
+    if (!user.clinicId) {
+      logger.warn('[PRESCRIPTION-QUEUE] No clinic context in session', { userId: user.id });
       return NextResponse.json(
-        { error: 'Provider must be associated with at least one clinic' },
+        { error: 'No clinic context. Please log in again.' },
         { status: 400 }
       );
     }
+    const clinicIds = [user.clinicId];
 
     // Query paid invoices that haven't been processed yet (across all provider's clinics)
     // CRITICAL: Include clinic info for Lifefile prescription context
@@ -1442,13 +1445,13 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Invoice ID or Refill ID is required' }, { status: 400 });
     }
 
-    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
-    if (clinicIds.length === 0) {
+    if (!user.clinicId) {
       return NextResponse.json(
-        { error: 'Provider must be associated with at least one clinic' },
+        { error: 'No clinic context. Please log in again.' },
         { status: 400 }
       );
     }
+    const clinicIds = [user.clinicId];
 
     // Get provider ID if user is linked to a provider
     let providerId: number | null = null;
@@ -1629,15 +1632,15 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const clinicIds = await providerService.getClinicIdsForProviderUser(user.id, user.providerId);
-    if (clinicIds.length === 0) {
+    if (!user.clinicId) {
       return NextResponse.json(
-        { error: 'Provider must be associated with at least one clinic' },
+        { error: 'No clinic context. Please log in again.' },
         { status: 400 }
       );
     }
+    const clinicIds = [user.clinicId];
 
-    // Verify invoice exists, belongs to one of provider's clinics, and is in the queue
+    // Verify invoice exists, belongs to provider's current clinic, and is in the queue
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,

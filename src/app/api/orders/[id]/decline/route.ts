@@ -9,7 +9,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
-import { providerService } from '@/domains/provider';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
@@ -38,30 +37,22 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       );
     }
 
-    const providerClinicIds = await providerService.getClinicIdsForProviderUser(
-      user.id,
-      user.providerId
-    );
-    if (providerClinicIds.length === 0) {
+    if (!user.clinicId) {
       return NextResponse.json(
-        { error: 'Provider must be associated with at least one clinic' },
+        { error: 'No clinic context. Please log in again.' },
         { status: 400 }
       );
     }
 
-    let order: Awaited<ReturnType<typeof prisma.order.findUnique>> = null;
-    for (const cid of providerClinicIds) {
-      order = await runWithClinicContext(cid, () =>
-        prisma.order.findUnique({
-          where: { id: orderId },
-          include: {
-            patient: { select: { id: true, firstName: true, lastName: true, clinicId: true } },
-            clinic: { select: { id: true, name: true } },
-          },
-        })
-      );
-      if (order) break;
-    }
+    const order = await runWithClinicContext(user.clinicId, () =>
+      prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true, clinicId: true } },
+          clinic: { select: { id: true, name: true } },
+        },
+      })
+    );
 
     if (!order) return tenantNotFoundResponse();
 
