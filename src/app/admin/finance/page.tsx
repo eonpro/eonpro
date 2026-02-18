@@ -78,6 +78,7 @@ export default function FinanceOverviewPage() {
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'ytd'>('30d');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [syncingFromStripe, setSyncingFromStripe] = useState(false);
+  const [syncingPayments, setSyncingPayments] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const loadData = useCallback(
@@ -158,6 +159,39 @@ export default function FinanceOverviewPage() {
       setSyncMessage('Request failed.');
     } finally {
       setSyncingFromStripe(false);
+    }
+  }, [loadData]);
+
+  const syncPaymentsFromStripe = useCallback(async () => {
+    setSyncingPayments(true);
+    setSyncMessage(null);
+    try {
+      const token =
+        localStorage.getItem('auth-token') ||
+        localStorage.getItem('super_admin-token') ||
+        localStorage.getItem('admin-token') ||
+        localStorage.getItem('token');
+      const res = await apiFetch('/api/finance/sync-payments', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ sinceDate: '2026-02-01' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setSyncMessage(data.message || 'Payments synced from Stripe.');
+        loadData(true);
+      } else {
+        const detail = data.results ? ` (${data.results.failed || 0} failed)` : '';
+        setSyncMessage((data.error || 'Payment sync failed.') + detail);
+      }
+    } catch {
+      setSyncMessage('Payment sync request failed.');
+    } finally {
+      setSyncingPayments(false);
     }
   }, [loadData]);
 
@@ -325,6 +359,15 @@ export default function FinanceOverviewPage() {
             <RefreshCcw className={`h-4 w-4 ${syncingFromStripe ? 'animate-spin' : ''}`} />
             Sync from Stripe
           </button>
+          {/* Sync Payments - backfill missed payments from Stripe since 02/01 */}
+          <button
+            onClick={syncPaymentsFromStripe}
+            disabled={syncingPayments}
+            className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+          >
+            <CreditCard className={`h-4 w-4 ${syncingPayments ? 'animate-pulse' : ''}`} />
+            {syncingPayments ? 'Syncing Payments...' : 'Sync Payments'}
+          </button>
           {/* Refresh Button */}
           <button
             onClick={() => loadData(true)}
@@ -338,7 +381,7 @@ export default function FinanceOverviewPage() {
       </div>
       {syncMessage && (
         <p
-          className={`text-sm ${syncMessage.startsWith('Synced') ? 'text-emerald-600' : 'text-amber-600'}`}
+          className={`text-sm ${syncMessage.startsWith('Synced') || syncMessage.startsWith('Subscriptions') || syncMessage.startsWith('Payments') ? 'text-emerald-600' : 'text-amber-600'}`}
         >
           {syncMessage}
         </p>
