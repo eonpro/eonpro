@@ -7,6 +7,7 @@ import type { LayoutUser } from '@/types/common';
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import {
   Menu,
   X,
@@ -163,7 +164,7 @@ export default function PatientLayout({ children, userData }: PatientLayoutProps
               {/* Logo */}
               <div className="ml-2 flex items-center lg:ml-0">
                 <img
-                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  src={EONPRO_LOGO}
                   alt="EONPRO logo"
                   className="h-10 w-auto"
                 />

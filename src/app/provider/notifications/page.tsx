@@ -8,7 +8,6 @@ import {
   CheckCheck,
   Trash2,
   Filter,
-  Search,
   Pill,
   User,
   Package,
@@ -295,13 +294,12 @@ export default function ProviderNotificationsPage() {
             <div className="flex flex-wrap items-center gap-4 p-4">
               {/* Search */}
               <div className="relative min-w-[200px] flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search notifications..."
-                  className="w-full rounded-xl border border-gray-200 py-2 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                  className="w-full rounded-xl border border-gray-200 py-2 pl-4 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2"
                   style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                 />
               </div>

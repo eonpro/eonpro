@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Search,
   Pill,
   RefreshCw,
   Loader2,
@@ -285,13 +284,12 @@ export default function AdminRxQueuePage() {
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search by patient name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
               style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
             />
           </div>

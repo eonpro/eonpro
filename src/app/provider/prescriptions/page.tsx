@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Pill,
-  Search,
   Plus,
   AlertCircle,
   CheckCircle,
@@ -321,13 +320,12 @@ export default function ProviderPrescriptionsPage() {
           {/* Search and Filter */}
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by patient or medication..."
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full rounded-lg border py-1.5 pl-8 pr-3 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
+                className="w-full rounded-lg border py-1.5 pl-4 pr-3 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
               />
             </div>
             <select

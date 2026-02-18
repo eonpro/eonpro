@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { normalizedIncludes } from '@/lib/utils/search';
 import {
-  Search,
   Clock,
   UserPlus,
   CreditCard,
@@ -272,13 +271,12 @@ export default function AdminPage() {
         </div>
 
         <div className="relative w-96">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search patients"
-            className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            className="w-full rounded-full border border-gray-200 bg-white py-3 pl-4 pr-4 text-sm transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
           />
         </div>
       </div>

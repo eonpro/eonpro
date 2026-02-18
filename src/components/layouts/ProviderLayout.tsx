@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
 import {
@@ -283,7 +284,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
               {/* Logo with clinical badge */}
               <div className="ml-4 flex items-center gap-4">
                 <img
-                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  src={EONPRO_LOGO}
                   alt="EONPRO logo"
                   className="h-10 w-auto"
                 />
@@ -297,13 +298,12 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
             {/* Center - Patient Search */}
             <form onSubmit={handleSearch} className="mx-8 hidden max-w-lg flex-1 md:block">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search patients by name, ID, or condition..."
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
             </form>

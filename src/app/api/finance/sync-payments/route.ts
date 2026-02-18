@@ -12,7 +12,13 @@
  * Phase 4: Sync direct charges without payment intents.
  *
  * Body: { sinceDate: "2026-02-01" }
+ *
+ * maxDuration raised to 300s because this sync can take several minutes
+ * when processing large date ranges across multiple Stripe API calls.
  */
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';

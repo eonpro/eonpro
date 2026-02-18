@@ -17,6 +17,7 @@ import {
   BrandingProvider,
   brandingToCssVars,
 } from './branding-context';
+import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 
 interface NavItem {
   href: string;
@@ -294,7 +295,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
   if (isAuthed === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-white">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
+        <img src={EONPRO_ICON} alt="Loading" className="h-10 w-10 animate-pulse object-contain" />
       </div>
     );
   }
@@ -404,7 +405,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               <p className="mt-4 flex items-center gap-1.5 px-4 text-xs text-gray-400">
                 Powered by{' '}
                 <img
-                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  src={EONPRO_LOGO}
                   alt="EONPRO"
                   className="h-[21px] w-auto"
                 />

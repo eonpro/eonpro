@@ -21,12 +21,9 @@ import { outfitFont as sofiaPro } from './fonts-fallback';
 // import { outfitFont as sofiaPro } from "./fonts-fallback";
 // import { sofiaPro } from "./fonts"; // Uncomment when Sofia Pro files are added // Uncomment when Sofia Pro files are added
 
-// Default favicon: EONPRO logo from app origin (same as login page; avoids external Wix preload)
-const DEFAULT_FAVICON = '/api/assets/eonpro-logo';
-
 export const metadata = {
   title: 'EONPRO',
-  icons: { icon: { url: DEFAULT_FAVICON, type: 'image/svg+xml' } },
+  icons: { icon: { url: '/favicon.png', type: 'image/png' } },
 };
 
 /** White browser chrome (status bar + URL bar) on mobile for patient portal and app. */

@@ -2,9 +2,7 @@
 
 import { useEffect } from 'react';
 import { RefreshCw, Home, ArrowLeft } from 'lucide-react';
-
-const EONPRO_LOGO =
-  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 export default function Error({
   error,

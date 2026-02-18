@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { formatCardNumber, validateCardNumber } from '@/lib/encryption';
 import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
+import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 
 // Icon components
 const CreditCard = ({ className }: { className?: string }) => (
@@ -288,8 +289,11 @@ export default function PatientPaymentMethods({
     }
   };
 
-  // Get card brand icon (SVG)
   const getCardIcon = (brand: string) => {
+    const logo = getCardNetworkLogo(brand);
+    if (logo) {
+      return <img src={logo} alt={brand} className="h-8 w-12 object-contain" />;
+    }
     return (
       <svg className="h-6 w-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" strokeWidth="2" />
@@ -379,11 +383,11 @@ export default function PatientPaymentMethods({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <span className="text-2xl">{getCardIcon(card.brand)}</span>
+                      {getCardIcon(card.brand)}
                       <div>
                         <div className="flex items-center gap-2 font-medium">
                           <span>
-                            {card.brand} •••• {card.last4}
+                            •••• {card.last4}
                           </span>
                           {card.isDefault && (
                             <span className="rounded bg-[#4fa77e] px-2 py-0.5 text-xs text-white">

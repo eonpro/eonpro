@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { MEDS, MedicationConfig } from '@/lib/medications';
 import { getMedicationCategory } from '@/lib/medications-enhanced';
-import { ChevronDown, Search, X, Check, AlertTriangle, Pill } from 'lucide-react';
+import { ChevronDown, X, Check, AlertTriangle, Pill } from 'lucide-react';
 import { normalizedIncludes } from '@/lib/utils/search';
 
 // Category configuration with colors and icons
@@ -371,14 +371,13 @@ export default function MedicationSelector({
           {/* Search */}
           <div className="border-b border-gray-100 p-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <input
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search medications..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+                className="w-full rounded-lg border border-gray-200 py-2 pl-4 pr-10 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
               />
               {searchTerm && (
                 <button

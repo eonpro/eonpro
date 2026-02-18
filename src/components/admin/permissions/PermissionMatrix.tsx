@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   ShieldX,
   ShieldAlert,
-  Search,
   RotateCcw,
   Info,
 } from 'lucide-react';
@@ -461,13 +460,12 @@ export default function PermissionMatrix({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Search */}
         <div className="relative min-w-[240px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search permissions..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 

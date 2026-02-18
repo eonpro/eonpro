@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Package,
-  Search,
   Filter,
   Eye,
   CheckCircle,
@@ -158,13 +157,12 @@ export default function AdminOrdersPage() {
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search orders..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
           <div className="flex items-center gap-2">

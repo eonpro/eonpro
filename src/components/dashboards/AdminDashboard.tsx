@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
-  Search,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -208,13 +207,12 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
         {/* Search */}
         <div className="relative w-96">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search patients"
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-4 pr-4 transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
           />
         </div>
       </div>

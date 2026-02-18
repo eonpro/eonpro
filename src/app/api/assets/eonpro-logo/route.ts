@@ -1,23 +1,22 @@
 import { NextResponse } from 'next/server';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 /**
- * Proxies the EONPRO logo from the CDN so it loads from the app origin.
+ * Serves the EONPRO logo from the local filesystem.
  * This ensures the "Powered by EONPRO" logo displays on all clinic subdomains
- * (e.g. ot.eonpro.io) where the external URL might be blocked or fail to load.
+ * (e.g. ot.eonpro.io) when referenced via /api/assets/eonpro-logo.
  */
-const EONPRO_LOGO_URL =
-  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
+const LOGO_PATH = path.join(
+  process.cwd(),
+  'public',
+  EONPRO_LOGO.replace(/^\//, '')
+);
 
 export async function GET() {
   try {
-    const res = await fetch(EONPRO_LOGO_URL, {
-      headers: { Accept: 'image/svg+xml' },
-      next: { revalidate: 86400 }, // cache 24h
-    });
-    if (!res.ok) {
-      return new NextResponse(null, { status: res.status });
-    }
-    const body = await res.arrayBuffer();
+    const body = await fs.readFile(LOGO_PATH);
     return new NextResponse(body, {
       headers: {
         'Content-Type': 'image/svg+xml',

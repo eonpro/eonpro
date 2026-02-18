@@ -8,7 +8,7 @@
  * - Case-insensitive, partial match (first name, last name, patient ID, email, phone)
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, X, Loader2 } from 'lucide-react';
+import { X } from 'lucide-react';
 
 const DEBOUNCE_MS = 300;
 const RECENT_SEARCHES_KEY = 'provider-patient-recent-searches';
@@ -40,7 +40,6 @@ export function PatientSearchBar({
   className = '',
 }: PatientSearchBarProps) {
   const [localValue, setLocalValue] = useState(value);
-  const [isFocused, setIsFocused] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -82,11 +81,6 @@ export function PatientSearchBar({
   return (
     <div className={`relative ${className}`}>
       <div className="relative">
-        {isSearching ? (
-          <Loader2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-green-600" />
-        ) : (
-          <Search className={`absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transition-colors ${isFocused ? 'text-green-500' : 'text-gray-400'}`} />
-        )}
         <input
           ref={inputRef}
           type="text"
@@ -94,9 +88,7 @@ export function PatientSearchBar({
           value={localValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className={`w-full rounded-xl border bg-white py-2.5 pl-10 pr-10 text-gray-900 transition-all placeholder:text-gray-400 focus:outline-none focus:ring-2 ${
+          className={`w-full rounded-xl border bg-white py-2.5 pl-4 pr-10 text-gray-900 transition-all placeholder:text-gray-400 focus:outline-none focus:ring-2 ${
             showNoResults
               ? 'border-amber-300 focus:border-amber-400 focus:ring-amber-200/50'
               : 'border-gray-200 focus:border-green-500 focus:ring-green-500/20'

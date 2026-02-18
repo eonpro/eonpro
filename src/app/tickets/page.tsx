@@ -15,7 +15,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus as PlusIcon,
   Filter as FunnelIcon,
-  Search as MagnifyingGlassIcon,
   ChevronDown as ChevronDownIcon,
   RefreshCw as ArrowPathIcon,
   AlertTriangle as ExclamationTriangleIcon,
@@ -305,13 +304,12 @@ export default function TicketsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <form onSubmit={handleSearch} className="max-w-md flex-1">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search tickets..."
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         </form>

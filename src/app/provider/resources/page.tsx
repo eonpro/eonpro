@@ -7,7 +7,6 @@ import {
   Video,
   Download,
   ExternalLink,
-  Search,
   Filter,
   Star,
   Clock,
@@ -182,13 +181,12 @@ export default function ProviderResourcesPage() {
         {/* Search and Filter */}
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search resources..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-[var(--brand-primary)]"
+              className="w-full rounded-lg border py-2 pl-4 pr-4 focus:ring-2 focus:ring-[var(--brand-primary)]"
             />
           </div>
           <div className="flex gap-2">

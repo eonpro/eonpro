@@ -8,7 +8,6 @@ import {
   MoreVertical,
   Phone,
   Video,
-  Search,
   Circle,
 } from 'lucide-react';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -165,13 +164,12 @@ export default function SupportChatPage() {
         <div className="border-b p-4">
           <h2 className="mb-4 text-lg font-semibold">Support Chats</h2>
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-11 pr-4 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>

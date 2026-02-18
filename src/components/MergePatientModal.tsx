@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, GitMerge, Loader2, AlertTriangle, Check, ArrowRight, Search, User } from 'lucide-react';
+import { X, GitMerge, Loader2, AlertTriangle, Check, ArrowRight, User } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -325,13 +325,12 @@ export default function MergePatientModal({
           Search for the patient to merge INTO:
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by patient ID (e.g., WEL-78887488) or name..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
             autoFocus
           />
           {searching && (

@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
+import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 const adminNavIconMap = {
   Home,
@@ -109,13 +110,13 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
           <Link href="/">
             {sidebarExpanded ? (
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                src={EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-10 w-auto"
               />
             ) : (
               <img
-                src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
+                src={EONPRO_ICON}
                 alt="EONPRO"
                 className="h-10 w-10 object-contain"
               />

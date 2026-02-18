@@ -27,11 +27,7 @@ import {
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getStoredUserRole } from '@/lib/auth/stored-role';
 import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
-
-const EONPRO_LOGO =
-  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
-const EONPRO_ICON =
-  'https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png';
+import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 
 const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
 
@@ -134,10 +130,7 @@ function OrdersLayoutInner({ children }: { children: React.ReactNode }) {
   if (loading || brandingLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
+        <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
       </div>
     );
   }

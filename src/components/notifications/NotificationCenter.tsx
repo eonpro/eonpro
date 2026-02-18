@@ -10,7 +10,6 @@ import {
   CheckCheck,
   Trash2,
   Filter,
-  Search,
   Pill,
   User,
   Package,
@@ -541,13 +540,12 @@ export default function NotificationCenter({
               {/* Search & Filters */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search... (⌘K)"
-                    className="w-full rounded-xl border border-gray-200 py-2 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                    className="w-full rounded-xl border border-gray-200 py-2 pl-3 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                   />
                 </div>

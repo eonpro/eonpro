@@ -14,7 +14,6 @@ import {
   RefreshCw,
   FileText,
   Building2,
-  Search,
 } from 'lucide-react';
 
 export function AdminDashboardSkeleton() {
@@ -33,7 +32,6 @@ export function AdminDashboardSkeleton() {
           <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
         </div>
         <div className="relative w-96">
-          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <div className="h-12 animate-pulse rounded-full bg-gray-100" />
         </div>
       </div>

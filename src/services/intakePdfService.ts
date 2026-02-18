@@ -5,15 +5,16 @@ import path from 'path';
 import type { Patient } from '@prisma/client';
 import type { IntakeEntry, NormalizedIntake } from '@/lib/medlink/types';
 import { logger } from '@/lib/logger';
+import { BRAND } from '@/lib/constants/brand-assets';
 
 const BACKGROUND = rgb(0.964, 0.956, 0.945);
 const PRIMARY = rgb(0.09, 0.667, 0.482);
 const TEXT = rgb(0.2, 0.2, 0.2);
 const LIGHT_TEXT = rgb(0.4, 0.4, 0.4);
 
-const LOGO_URL =
+const LOGO_SOURCE =
   process.env.INTAKE_PDF_LOGO_URL ??
-  'https://static.wixstatic.com/media/c49a9b_3379db3991ba4ca48dcbb3a979570842~mv2.png';
+  path.join(process.cwd(), 'public', BRAND.logos.eonproLogoPdf.replace(/^\//, ''));
 
 type SectionFieldConfig = {
   id: string;
@@ -131,15 +132,20 @@ async function loadFont(): Promise<Uint8Array> {
 async function loadLogo(): Promise<Uint8Array | null> {
   if (cachedLogo) return cachedLogo;
   try {
-    const res = await fetch(LOGO_URL);
-    if (!res.ok) {
-      throw new Error(`Logo fetch failed: ${res.status}`);
+    const isUrl = LOGO_SOURCE.startsWith('http://') || LOGO_SOURCE.startsWith('https://');
+    if (isUrl) {
+      const res = await fetch(LOGO_SOURCE);
+      if (!res.ok) {
+        throw new Error(`Logo fetch failed: ${res.status}`);
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      cachedLogo = new Uint8Array(arrayBuffer);
+    } else {
+      cachedLogo = await fs.readFile(LOGO_SOURCE);
     }
-    const arrayBuffer = await res.arrayBuffer();
-    cachedLogo = new Uint8Array(arrayBuffer);
     return cachedLogo;
   } catch (err: unknown) {
-    logger.warn('Intake PDF: failed to fetch logo', {
+    logger.warn('Intake PDF: failed to load logo', {
       error: err instanceof Error ? err.message : String(err),
     });
     cachedLogo = null;

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ClinicSwitcher } from '@/components/clinic/ClinicSwitcher';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import { LogOut, User, Shield, Menu, X, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -130,7 +131,7 @@ export default function ConditionalHeader() {
           <div className="flex items-center gap-3">
             <Link href={getDashboardLink()} className="flex-shrink-0">
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                src={EONPRO_LOGO}
                 alt="EONPRO logo"
                 className="h-8 w-auto sm:h-10"
               />

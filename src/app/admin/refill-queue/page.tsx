@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   RefreshCw,
-  Search,
   Clock,
   CheckCircle,
   XCircle,
@@ -504,13 +503,12 @@ export default function AdminRefillQueuePage() {
       {/* Search */}
       <div className="mb-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search by patient name, email, or medication..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 py-2 pl-10 pr-4 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
+            className="w-full rounded-lg border border-gray-200 py-2 pl-4 pr-4 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
           />
         </div>
       </div>

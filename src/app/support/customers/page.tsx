@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   Users,
-  Search,
   Filter,
   MoreVertical,
   Mail,
@@ -179,13 +178,12 @@ export default function CustomersPage() {
       <div className="rounded-lg bg-white p-6 shadow">
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search customers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-11 pr-4 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <select

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import ChatWidget from '@/components/twilio/ChatWidget';
 import { Feature } from '@/components/Feature';
-import { MessageCircle, Users, Search, Filter, Circle, Star } from 'lucide-react';
+import { MessageCircle, Users, Filter, Circle, Star } from 'lucide-react';
 import { ChatUserType } from '@/lib/integrations/twilio/chatConfig';
 import { normalizedIncludes } from '@/lib/utils/search';
 
@@ -147,13 +147,12 @@ export default function ChatManagementPage() {
               <div className="rounded-lg bg-white shadow-sm lg:col-span-1">
                 <div className="border-b p-4">
                   <div className="relative mb-3">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e: any) => setSearchTerm(e.target.value)}
                       placeholder="Search conversations..."
-                      className="w-full rounded-lg border py-2 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border py-2 pl-3 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="flex gap-2">

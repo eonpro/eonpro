@@ -22,6 +22,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Eye, EyeOff, CheckCircle, XCircle, ArrowLeft, Shield } from 'lucide-react';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 type PageStep = 'loading' | 'invalid' | 'form' | 'success';
 
@@ -250,7 +251,7 @@ export default function AffiliateResetPasswordPage() {
               <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
                 Powered by{' '}
                 <img
-                  src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                  src={EONPRO_LOGO}
                   alt="EONPRO"
                   className="h-[21px] w-auto"
                 />
@@ -258,7 +259,7 @@ export default function AffiliateResetPasswordPage() {
             </>
           ) : (
             <img
-              src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+              src={EONPRO_LOGO}
               alt="EONPRO"
               className="h-10 w-auto"
             />

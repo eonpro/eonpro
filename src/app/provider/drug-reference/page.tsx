@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, BookOpen, Pill, AlertTriangle, Info } from 'lucide-react';
+import { BookOpen, Pill, AlertTriangle, Info } from 'lucide-react';
 
 export default function DrugReferencePage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -19,13 +19,12 @@ export default function DrugReferencePage() {
       {/* Search */}
       <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="relative max-w-2xl">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
           <input
             type="text"
             placeholder="Search medications by name, NDC, or ingredient..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-lg focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            className="w-full rounded-xl border border-gray-200 py-3 pl-4 pr-4 text-lg focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
           />
         </div>
       </div>

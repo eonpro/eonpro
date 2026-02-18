@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
@@ -324,11 +325,15 @@ export default function SubscriptionPage() {
 
               <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4">
                 <div className="rounded-lg p-3" style={{ backgroundColor: `${primaryColor}15` }}>
-                  <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
+                  {getCardNetworkLogo(subscription.paymentMethod.brand) ? (
+                    <img src={getCardNetworkLogo(subscription.paymentMethod.brand)!} alt={subscription.paymentMethod.brand} className="h-8 w-12 object-contain" />
+                  ) : (
+                    <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold capitalize text-gray-900">
-                    {subscription.paymentMethod.brand} •••• {subscription.paymentMethod.last4}
+                    •••• {subscription.paymentMethod.last4}
                   </p>
                   <p className="text-sm text-gray-500">
                     {subscription.paymentMethod.expMonth}/{subscription.paymentMethod.expYear}

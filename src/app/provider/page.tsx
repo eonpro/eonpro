@@ -8,7 +8,6 @@ import {
   Clock,
   FileText,
   Pill,
-  Search,
   Loader2,
   X,
 } from 'lucide-react';
@@ -213,11 +212,6 @@ export default function ProviderDashboard() {
       {/* Intake Search */}
       <div className="relative mb-8">
         <div className="relative">
-          {isSearching ? (
-            <Loader2 className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-[#4fa77e]" />
-          ) : (
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          )}
           <input
             type="text"
             placeholder="Search intakes by name, email, phone, or patient ID…"
@@ -229,7 +223,7 @@ export default function ProviderDashboard() {
                 navigateToPatients(searchTerm.trim());
               }
             }}
-            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-12 pr-12 text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-4 pr-12 text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
             autoComplete="off"
           />
           {searchTerm && (

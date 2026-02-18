@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import {
   CreditCard,
   Receipt,
@@ -416,12 +417,15 @@ export default function BillingPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
-                    <CreditCard className="h-6 w-6 text-gray-500" />
+                    {getCardNetworkLogo(method.brand) ? (
+                      <img src={getCardNetworkLogo(method.brand)!} alt={method.brand} className="h-6 w-10 object-contain" />
+                    ) : (
+                      <CreditCard className="h-6 w-6 text-gray-500" />
+                    )}
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">
-                      {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} ••••{' '}
-                      {method.last4}
+                      •••• {method.last4}
                     </p>
                     <p className="text-sm text-gray-500">
                       Expires {method.expMonth}/{method.expYear}

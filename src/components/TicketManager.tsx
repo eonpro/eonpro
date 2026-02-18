@@ -8,7 +8,6 @@ import { normalizedIncludes } from '@/lib/utils/search';
 import {
   Ticket,
   Plus,
-  Search,
   Filter,
   AlertCircle,
   Clock,
@@ -417,13 +416,12 @@ export default function TicketManager({ currentUserId, currentUserRole }: Ticket
       <div className="border-b bg-white px-6 py-3">
         <div className="flex items-center space-x-4">
           <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search tickets..."
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full rounded-lg border py-2 pl-10 pr-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border py-2 pl-3 pr-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
             />
           </div>
 

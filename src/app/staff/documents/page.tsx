@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   FileText,
-  Search,
   Upload,
   Download,
   Eye,
@@ -160,13 +159,12 @@ export default function StaffDocumentsPage() {
         {/* Search and Filters */}
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
             <input
               type="text"
               placeholder="Search documents or patients..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border py-2 pl-11 pr-4 focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-lg border py-2 pl-4 pr-4 focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <select

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import {
   Menu,
   Home,
@@ -56,7 +57,7 @@ export default function SupportLayout({ children, userData }: SupportLayoutProps
                 <Menu className="h-6 w-6" />
               </button>
               <img
-                src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                src={EONPRO_LOGO}
                 alt="EONPRO logo"
                 className="ml-2 h-10 w-auto"
               />

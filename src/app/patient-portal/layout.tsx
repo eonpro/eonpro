@@ -42,6 +42,7 @@ import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { portalFetch } from '@/lib/api/patient-portal-client';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import {
   NAV_MODULES,
   MOBILE_LABEL_OVERRIDE,
@@ -50,10 +51,6 @@ import {
   isPortalPath,
 } from '@/lib/patient-portal';
 import type { LucideIcon } from 'lucide-react';
-
-// Default EONPRO logo
-const EONPRO_LOGO =
-  'https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg';
 
 // Icon mapping for nav (registry holds data; icons stay here for tree-shaking)
 const NAV_ICON_MAP: Record<string, LucideIcon> = {

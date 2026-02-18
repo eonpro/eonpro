@@ -24,6 +24,7 @@ import {
   NotificationToastContainer,
 } from '@/components/notifications';
 import { ClinicBrandingProvider } from '@/lib/contexts/ClinicBrandingContext';
+import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 const navItems = [
   { icon: Shield, path: '/super-admin', label: 'Dashboard', exact: true },
@@ -107,7 +108,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
-        <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent"></div>
+        <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
       </div>
     );
   }
@@ -127,13 +128,13 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               <Link href="/super-admin">
                 {sidebarExpanded ? (
                   <img
-                    src="https://static.wixstatic.com/shapes/c49a9b_112e790eead84c2083bfc1871d0edaaa.svg"
+                    src={EONPRO_LOGO}
                     alt="EONPRO"
                     className="h-10 w-auto"
                   />
                 ) : (
                   <img
-                    src="https://static.wixstatic.com/media/c49a9b_f1c55bbf207b4082bdef7d23fd95f39e~mv2.png"
+                    src={EONPRO_ICON}
                     alt="EONPRO"
                     className="h-10 w-10 object-contain"
                   />

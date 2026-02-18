@@ -25,7 +25,6 @@ import {
   Eye,
   Edit,
   Plus,
-  Search,
   Filter,
 } from 'lucide-react';
 import { Feature } from '@/components/Feature';
@@ -497,11 +496,10 @@ export default function EmailCommunicationsPage() {
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
                       <input
                         type="text"
                         placeholder="Search emails..."
-                        className="rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <button className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50">
