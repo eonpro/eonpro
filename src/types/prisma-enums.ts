@@ -38,3 +38,11 @@ export type WebhookStatus =
   | 'INVALID_AUTH'
   | 'INVALID_PAYLOAD'
   | 'PROCESSING_ERROR';
+
+export const WebhookStatus = {
+  SUCCESS: 'SUCCESS' as const,
+  ERROR: 'ERROR' as const,
+  INVALID_AUTH: 'INVALID_AUTH' as const,
+  INVALID_PAYLOAD: 'INVALID_PAYLOAD' as const,
+  PROCESSING_ERROR: 'PROCESSING_ERROR' as const,
+};
