@@ -241,11 +241,10 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const active = isActive(item.path, item.exact);
             const showBadge = item.hasBadge && rxQueueCount > 0;
 
-            // Use button with direct navigation for reliability
             const handleNavClick = (e: React.MouseEvent) => {
               e.preventDefault();
               e.stopPropagation();
-              if (active) {
+              if (pathname === item.path) {
                 window.location.reload();
               } else {
                 window.location.href = item.path;

@@ -231,6 +231,19 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       weightGoal: null,
     };
 
+    // Fallback values from intake document (used when patient record has placeholder/missing data)
+    let intakeDocGender: string | null = null;
+    let intakeDocEmail: string | null = null;
+    let intakeDocPhone: string | null = null;
+    let intakeDocDob: string | null = null;
+    let intakeDocFirstName: string | null = null;
+    let intakeDocLastName: string | null = null;
+    let intakeDocAddress1: string | null = null;
+    let intakeDocAddress2: string | null = null;
+    let intakeDocCity: string | null = null;
+    let intakeDocState: string | null = null;
+    let intakeDocZip: string | null = null;
+
     // Also fetch PatientDocument for WellMedR/external intake data
     let patientDocumentSections: typeof intakeSections = [];
     try {
@@ -305,6 +318,18 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         clinicalContext.alcoholUse = getField(['alcohol-use', 'alcoholUse', 'alcohol_use']);
         clinicalContext.exerciseFrequency = getField(['exercise-frequency', 'exerciseFrequency', 'exercise_frequency']);
         clinicalContext.weightGoal = getField(['desired-weight-lbs', 'desiredWeightLbs', 'weight-goal', 'weightGoal']);
+
+        // Extract patient fields from intake document as fallbacks for missing/placeholder data
+        intakeDocGender = getField(['sex', 'Sex', 'gender', 'Gender', 'GENDER', 'SEX']);
+        intakeDocEmail = getField(['email', 'Email', 'EMAIL', 'e-mail', 'email-address', 'emailAddress']);
+        intakeDocPhone = getField(['phone', 'Phone', 'PHONE', 'phone-number', 'phoneNumber', 'mobile', 'cell', 'telephone']);
+        intakeDocDob = getField(['dob', 'DOB', 'dateOfBirth', 'date_of_birth', 'date-of-birth', 'Date of Birth', 'birthday']);
+        intakeDocFirstName = getField(['first-name', 'firstName', 'first_name', 'fname', 'First Name']);
+        intakeDocLastName = getField(['last-name', 'lastName', 'last_name', 'lname', 'Last Name']);
+        intakeDocAddress1 = getField(['address1', 'address_line1', 'addressLine1', 'street-address', 'streetAddress', 'shipping-address']);
+        intakeDocCity = getField(['city', 'City', 'shipping-city', 'shippingCity']);
+        intakeDocState = getField(['state', 'State', 'shipping-state', 'shippingState', 'province']);
+        intakeDocZip = getField(['zip', 'ZIP', 'zipCode', 'zip-code', 'zip_code', 'postal-code', 'postalCode', 'shipping-zip']);
 
         // Build enriched intake sections from PatientDocument (WellMedR format)
         // These supplement or replace the sparse invoice metadata sections
@@ -424,16 +449,36 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         lineItems: invoice.lineItems,
       },
       patient: (() => {
-        // Decrypt patient address fields
+        // Helpers to detect stub/placeholder values from the invoice webhook
+        const isPlaceholderPhone = (v: string | null) => !v || v === '0000000000' || v === '';
+        const isPlaceholderDob = (v: string | null) => !v || v === '1900-01-01' || v === '';
+        const isPlaceholderName = (v: string | null) =>
+          !v || v.toLowerCase() === 'unknown' || v.toLowerCase() === 'checkout' || v === '';
+        const isPlaceholderAddress = (v: string | null) =>
+          !v || v.toLowerCase() === 'pending' || v === '';
+        const isPlaceholderState = (v: string | null) =>
+          !v || v === 'NA' || v === '';
+        const isPlaceholderZip = (v: string | null) =>
+          !v || v === '00000' || v === '';
+        const isPlaceholderEmail = (v: string | null) =>
+          !v || v.includes('unknown') || v.includes('@intake.wellmedr.com') || v === '';
+
+        // Decrypt all patient fields
+        const decFirstName = safeDecrypt(invoice.patient.firstName);
+        const decLastName = safeDecrypt(invoice.patient.lastName);
+        const decEmail = safeDecrypt(invoice.patient.email);
+        const decPhone = safeDecrypt(invoice.patient.phone);
+        const decDob = safeDecrypt(invoice.patient.dob);
+        const decGender = safeDecrypt(invoice.patient.gender);
         let address1 = safeDecrypt(invoice.patient.address1);
         let address2 = safeDecrypt(invoice.patient.address2);
         let city = safeDecrypt(invoice.patient.city);
         let state = safeDecrypt(invoice.patient.state);
         let zip = safeDecrypt(invoice.patient.zip);
 
-        // Fallback: if patient has no address, try invoice metadata
-        const hasAddress = address1 || city || state || zip;
-        if (!hasAddress && invoice.metadata) {
+        // --- Address fallback chain: patient record → invoice metadata → intake document ---
+        const hasRealAddress = !isPlaceholderAddress(address1) && !isPlaceholderAddress(city);
+        if (!hasRealAddress && invoice.metadata) {
           const meta = invoice.metadata as Record<string, unknown>;
           const metaAddr1 = String(meta.addressLine1 || meta.address_line1 || '').trim();
           const metaAddr2 = String(meta.addressLine2 || meta.address_line2 || '').trim();
@@ -447,22 +492,47 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
             city = metaCity || city;
             state = metaState || state;
             zip = metaZip || zip;
-            logger.info('[PRESCRIPTION-QUEUE-DETAIL] Using invoice metadata address fallback', {
-              patientId: invoice.patient.id,
-              invoiceId: invoice.id,
-            });
           }
         }
+        // Final fallback: intake document data
+        if (isPlaceholderAddress(address1)) address1 = intakeDocAddress1 || address1;
+        if (isPlaceholderAddress(city)) city = intakeDocCity || city;
+        if (isPlaceholderState(state)) state = intakeDocState || state;
+        if (isPlaceholderZip(zip)) zip = intakeDocZip || zip;
+
+        // --- Name fallback from intake document ---
+        const resolvedFirstName = isPlaceholderName(decFirstName) ? (intakeDocFirstName || decFirstName) : decFirstName;
+        const resolvedLastName = isPlaceholderName(decLastName) ? (intakeDocLastName || decLastName) : decLastName;
+
+        // --- Phone fallback from intake document ---
+        const resolvedPhone = isPlaceholderPhone(decPhone) ? (intakeDocPhone || decPhone) : decPhone;
+
+        // --- DOB fallback from intake document ---
+        const resolvedDob = isPlaceholderDob(decDob) ? (intakeDocDob || decDob) : decDob;
+
+        // --- Gender: normalize 'm'/'f' codes and fall back to intake document ---
+        let resolvedGender = decGender;
+        if (!resolvedGender || resolvedGender === '' || resolvedGender === 'unknown') {
+          resolvedGender = intakeDocGender;
+        }
+        if (resolvedGender) {
+          const g = resolvedGender.toLowerCase().trim();
+          if (g === 'f' || g === 'female' || g === 'woman') resolvedGender = 'Female';
+          else if (g === 'm' || g === 'male' || g === 'man') resolvedGender = 'Male';
+        }
+
+        // --- Email fallback from intake document ---
+        const resolvedEmail = isPlaceholderEmail(decEmail) ? (intakeDocEmail || decEmail) : decEmail;
 
         return {
           id: invoice.patient.id,
           patientId: invoice.patient.patientId,
-          firstName: safeDecrypt(invoice.patient.firstName),
-          lastName: safeDecrypt(invoice.patient.lastName),
-          email: safeDecrypt(invoice.patient.email),
-          phone: safeDecrypt(invoice.patient.phone),
-          dob: safeDecrypt(invoice.patient.dob),
-          gender: safeDecrypt(invoice.patient.gender),
+          firstName: resolvedFirstName,
+          lastName: resolvedLastName,
+          email: resolvedEmail,
+          phone: resolvedPhone,
+          dob: resolvedDob,
+          gender: resolvedGender,
           address1,
           address2,
           city,

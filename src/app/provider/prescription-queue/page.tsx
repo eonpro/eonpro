@@ -1652,27 +1652,37 @@ export default function PrescriptionQueuePage() {
                             <div className="space-y-3 text-sm">
                               <div className="flex items-center gap-2 text-gray-600">
                                 <Phone className="h-4 w-4 text-gray-400" />
-                                {patientDetails.patient.phone || 'No phone'}
+                                {patientDetails.patient.phone && patientDetails.patient.phone !== '0000000000'
+                                  ? patientDetails.patient.phone
+                                  : <span className="italic text-gray-400">No phone</span>}
                               </div>
                               <div className="flex items-center gap-2 text-gray-600">
                                 <Mail className="h-4 w-4 text-gray-400" />
-                                {patientDetails.patient.email}
+                                {patientDetails.patient.email && !patientDetails.patient.email.includes('unknown')
+                                  ? patientDetails.patient.email
+                                  : <span className="italic text-gray-400">No email</span>}
                               </div>
                               <div className="flex items-center gap-2 text-gray-600">
                                 <Calendar className="h-4 w-4 text-gray-400" />
-                                {formatDob(patientDetails.patient.dob)}
+                                {patientDetails.patient.dob && patientDetails.patient.dob !== '1900-01-01'
+                                  ? formatDob(patientDetails.patient.dob)
+                                  : <span className="italic text-gray-400">No DOB</span>}
                               </div>
                               <div className="flex items-start gap-2 text-gray-600">
                                 <MapPin className="mt-0.5 h-4 w-4 text-gray-400" />
-                                <div>
-                                  {patientDetails.patient.address1}
-                                  {patientDetails.patient.address2 && (
-                                    <>, {patientDetails.patient.address2}</>
-                                  )}
-                                  <br />
-                                  {patientDetails.patient.city}, {patientDetails.patient.state}{' '}
-                                  {patientDetails.patient.zip}
-                                </div>
+                                {patientDetails.patient.address1 && patientDetails.patient.address1.toLowerCase() !== 'pending' ? (
+                                  <div>
+                                    {patientDetails.patient.address1}
+                                    {patientDetails.patient.address2 && (
+                                      <>, {patientDetails.patient.address2}</>
+                                    )}
+                                    <br />
+                                    {patientDetails.patient.city}, {patientDetails.patient.state}{' '}
+                                    {patientDetails.patient.zip}
+                                  </div>
+                                ) : (
+                                  <span className="italic text-gray-400">No address</span>
+                                )}
                               </div>
                               {patientDetails.patient.allergies && (
                                 <div className="flex items-start gap-2 rounded-lg bg-red-50 p-2 text-red-600">
@@ -2398,18 +2408,37 @@ export default function PrescriptionQueuePage() {
                           </div>
                           <div>
                             <span className="text-gray-500">DOB:</span>
-                            <p className="font-medium">{prescriptionPanel.details.patient.dob}</p>
+                            <p className="font-medium">
+                              {prescriptionPanel.details.patient.dob && prescriptionPanel.details.patient.dob !== '1900-01-01'
+                                ? prescriptionPanel.details.patient.dob
+                                : 'Not provided'}
+                            </p>
                           </div>
                           <div>
                             <span className="text-gray-500">Phone:</span>
                             <p className="font-medium">
-                              {prescriptionPanel.details.patient.phone || 'Not provided'}
+                              {prescriptionPanel.details.patient.phone && prescriptionPanel.details.patient.phone !== '0000000000'
+                                ? prescriptionPanel.details.patient.phone
+                                : 'Not provided'}
                             </p>
                           </div>
                           <div>
                             <span className="text-gray-500">Gender:</span>
-                            <p className="font-medium capitalize">
-                              {prescriptionPanel.details.patient.gender || 'Not specified'}
+                            <p className="font-medium">
+                              {(() => {
+                                const g = prescriptionPanel.details.patient.gender?.toLowerCase().trim();
+                                if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+                                if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+                                return prescriptionPanel.details.patient.gender || 'Not Specified';
+                              })()}
+                            </p>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-gray-500">Email:</span>
+                            <p className="font-medium">
+                              {prescriptionPanel.details.patient.email && !prescriptionPanel.details.patient.email.includes('unknown')
+                                ? prescriptionPanel.details.patient.email
+                                : 'Not provided'}
                             </p>
                           </div>
                         </div>

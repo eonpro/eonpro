@@ -388,13 +388,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             const active = isActive(item.path);
             const isClinicsTab = item.path === '/admin/clinics';
 
-            // Use button with direct navigation for reliability
             const handleNavClick = (e: React.MouseEvent) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('[Nav] Button clicked:', item.path);
 
-              // Handle special case for Clinics tab
               if (
                 item.path === '/admin/clinics' &&
                 hasMultipleClinics &&
@@ -404,12 +401,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 return;
               }
 
-              // Navigate using window.location for maximum reliability
-              if (active) {
-                console.log('[Nav] Same page, reloading');
+              if (pathname === item.path) {
                 window.location.reload();
               } else {
-                console.log('[Nav] Navigating to:', item.path);
                 window.location.href = item.path;
               }
             };
@@ -418,9 +412,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <button
                 key={item.path}
                 onClick={handleNavClick}
-                onMouseDown={(e) => {
-                  console.log('[Nav] MouseDown:', item.path);
-                }}
                 title={!sidebarExpanded ? item.label : undefined}
                 className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'

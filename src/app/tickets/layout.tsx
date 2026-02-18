@@ -308,7 +308,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
               e.preventDefault();
               e.stopPropagation();
 
-              if (active) {
+              if (pathname === item.path) {
                 window.location.reload();
               } else {
                 window.location.href = item.path;

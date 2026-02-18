@@ -157,13 +157,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                 const Icon = item.icon;
                 const active = isActive(item.path, item.exact);
 
-                // Use button with direct navigation for reliability (consistent with admin layout)
                 const handleNavClick = (e: React.MouseEvent) => {
                   e.preventDefault();
                   e.stopPropagation();
 
-                  // Navigate using window.location for maximum reliability
-                  if (active) {
+                  if (pathname === item.path) {
                     window.location.reload();
                   } else {
                     window.location.href = item.path;
