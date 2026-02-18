@@ -782,11 +782,22 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           { status: 502 }
         );
       }
+      // Lifefile returns orderId nested: { data: { orderId: 100719360 } }
+      // Also check top-level for forward compatibility
+      const lifefileOrderId =
+        orderResponse?.data?.orderId ?? orderResponse?.orderId ?? null;
+
+      logger.info('[PRESCRIPTIONS] Lifefile response', {
+        orderId: order.id,
+        lifefileOrderId,
+        responseType: orderResponse?.type,
+      });
+
       const updated = await prisma.order.update({
         where: { id: order.id },
         data: {
-          lifefileOrderId: orderResponse.orderId ? String(orderResponse.orderId) : undefined,
-          status: orderResponse.status ?? 'sent',
+          lifefileOrderId: lifefileOrderId != null ? String(lifefileOrderId) : undefined,
+          status: orderResponse?.status ?? 'sent',
           responseJson: JSON.stringify(orderResponse),
         },
       });

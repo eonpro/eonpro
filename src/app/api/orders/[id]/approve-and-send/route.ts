@@ -103,7 +103,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
         { status: 400 }
       );
     }
-    let orderResponse: { orderId?: string | number; status?: string };
+    let orderResponse: Record<string, any>;
     try {
       orderResponse = await client.createFullOrder(payload);
     } catch (lifefileError: unknown) {
@@ -130,11 +130,22 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       );
     }
 
+    // Lifefile returns orderId nested: { data: { orderId: 100719360 } }
+    // Also check top-level for forward compatibility
+    const lifefileOrderId =
+      orderResponse?.data?.orderId ?? orderResponse?.orderId ?? null;
+
+    logger.info('[APPROVE-AND-SEND] Lifefile response', {
+      orderId: order.id,
+      lifefileOrderId,
+      responseType: orderResponse?.type,
+    });
+
     const updated = await prisma.order.update({
       where: { id: order.id },
       data: {
-        lifefileOrderId: orderResponse.orderId != null ? String(orderResponse.orderId) : undefined,
-        status: orderResponse.status ?? 'sent',
+        lifefileOrderId: lifefileOrderId != null ? String(lifefileOrderId) : undefined,
+        status: orderResponse?.status ?? 'sent',
         responseJson: JSON.stringify(orderResponse),
         approvedByUserId: user.id,
         approvedAt: new Date(),
