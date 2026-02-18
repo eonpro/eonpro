@@ -88,30 +88,90 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Try to find patient by phone number and save to database
-    let patientFound = false;
+    // Resolve patient from incoming phone number
+    let resolvedPatientId: number | null = null;
+    let resolvedClinicId: number | null = null;
     try {
       const normalizedPhone = from.replace(/^\+1/, '').replace(/\D/g, '');
       const formattedPhone = formatPhoneNumber(from);
 
-      const patient = await basePrisma.patient.findFirst({
+      // Strategy 1: Look up via SmsLog — outbound messages store raw (unencrypted) phone
+      // numbers alongside patientId, so this works even when Patient.phone is encrypted.
+      const previousOutbound = await basePrisma.smsLog.findFirst({
         where: {
+          direction: 'outbound',
+          patientId: { not: null },
           OR: [
-            { phone: from },
-            { phone: formattedPhone },
-            { phone: `+1${normalizedPhone}` },
-            { phone: normalizedPhone },
-            { phone: { contains: normalizedPhone } },
+            { toPhone: from },
+            { toPhone: formattedPhone },
+            { toPhone: `+1${normalizedPhone}` },
+            { toPhone: normalizedPhone },
           ],
         },
-        select: { id: true, clinicId: true, firstName: true, lastName: true },
+        orderBy: { createdAt: 'desc' },
+        select: { patientId: true, clinicId: true },
       });
+
+      if (previousOutbound?.patientId) {
+        resolvedPatientId = previousOutbound.patientId;
+        resolvedClinicId = previousOutbound.clinicId;
+        logger.info('[TWILIO_WEBHOOK] Resolved patient via SmsLog', {
+          patientId: resolvedPatientId,
+          from: formattedPhone,
+        });
+      }
+
+      // Strategy 2: Look up via PatientChatMessage outbound SMS records
+      if (!resolvedPatientId) {
+        const previousChat = await basePrisma.patientChatMessage.findFirst({
+          where: {
+            direction: 'OUTBOUND',
+            channel: 'SMS',
+            patient: {
+              OR: [
+                { phone: from },
+                { phone: formattedPhone },
+                { phone: `+1${normalizedPhone}` },
+                { phone: normalizedPhone },
+              ],
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { patientId: true, clinicId: true },
+        });
+
+        if (previousChat?.patientId) {
+          resolvedPatientId = previousChat.patientId;
+          resolvedClinicId = previousChat.clinicId;
+        }
+      }
+
+      // Strategy 3: Direct Patient phone lookup (works if phone is not encrypted)
+      if (!resolvedPatientId) {
+        const patient = await basePrisma.patient.findFirst({
+          where: {
+            OR: [
+              { phone: from },
+              { phone: formattedPhone },
+              { phone: `+1${normalizedPhone}` },
+              { phone: normalizedPhone },
+              { phone: { contains: normalizedPhone } },
+            ],
+          },
+          select: { id: true, clinicId: true },
+        });
+
+        if (patient) {
+          resolvedPatientId = patient.id;
+          resolvedClinicId = patient.clinicId;
+        }
+      }
 
       // Save to SmsLog for audit trail
       await basePrisma.smsLog.create({
         data: {
-          patientId: patient?.id || null,
-          clinicId: patient?.clinicId || null,
+          patientId: resolvedPatientId,
+          clinicId: resolvedClinicId,
           messageSid,
           fromPhone: from,
           toPhone: to || process.env.TWILIO_PHONE_NUMBER || '',
@@ -122,25 +182,30 @@ export async function POST(req: NextRequest) {
       });
 
       // Create PatientChatMessage so the reply appears in the chat UI
-      if (patient) {
-        patientFound = true;
+      if (resolvedPatientId) {
         try {
-          const decryptedFirst = safeDecrypt(patient.firstName) || 'Patient';
-          const decryptedLast = safeDecrypt(patient.lastName) || '';
+          const patientRecord = await basePrisma.patient.findUnique({
+            where: { id: resolvedPatientId },
+            select: { id: true, clinicId: true, firstName: true, lastName: true },
+          });
+
+          const clinicId = patientRecord?.clinicId || resolvedClinicId;
+          const decryptedFirst = safeDecrypt(patientRecord?.firstName) || 'Patient';
+          const decryptedLast = safeDecrypt(patientRecord?.lastName) || '';
           const senderName = `${decryptedFirst} ${decryptedLast}`.trim();
 
-          await runWithClinicContext(patient.clinicId, async () => {
+          await runWithClinicContext(clinicId, async () => {
             const existingThread = await prisma.patientChatMessage.findFirst({
-              where: { patientId: patient.id, channel: 'SMS' },
+              where: { patientId: resolvedPatientId!, channel: 'SMS' },
               orderBy: { createdAt: 'desc' },
               select: { threadId: true },
             });
-            const threadId = existingThread?.threadId || `sms_${patient.id}_${Date.now()}`;
+            const threadId = existingThread?.threadId || `sms_${resolvedPatientId}_${Date.now()}`;
 
             await prisma.patientChatMessage.create({
               data: {
-                patientId: patient.id,
-                clinicId: patient.clinicId,
+                patientId: resolvedPatientId!,
+                clinicId: clinicId,
                 message: (body || '').trim(),
                 direction: 'INBOUND',
                 channel: 'SMS',
@@ -157,20 +222,24 @@ export async function POST(req: NextRequest) {
 
           logger.info('[TWILIO_WEBHOOK] Created chat message from incoming SMS', {
             messageSid,
-            patientId: patient.id,
+            patientId: resolvedPatientId,
           });
         } catch (chatError: any) {
           logger.error('[TWILIO_WEBHOOK] Failed to create PatientChatMessage', {
             error: chatError.message,
-            patientId: patient.id,
+            patientId: resolvedPatientId,
           });
         }
+      } else {
+        logger.warn('[TWILIO_WEBHOOK] Could not resolve patient for inbound SMS', {
+          messageSid,
+          from: formattedPhone,
+        });
       }
 
       logger.info('[TWILIO_WEBHOOK] Saved incoming SMS', {
         messageSid,
-        patientId: patient?.id,
-        patientFound,
+        patientId: resolvedPatientId,
       });
     } catch (dbError: any) {
       logger.warn('[TWILIO_WEBHOOK] Failed to save incoming SMS to DB', {

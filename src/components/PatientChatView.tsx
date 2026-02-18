@@ -64,14 +64,17 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     setMounted(true);
   }, []);
 
+  const prevMessageCountRef = useRef(0);
+  const isInitialLoadRef = useRef(true);
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
   useEffect(() => {
+    isInitialLoadRef.current = true;
     loadMessages(true);
 
-    // Poll for new messages every 10 seconds
     const pollInterval = setInterval(() => {
       loadMessages(false);
     }, 10000);
@@ -80,7 +83,12 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   }, [patient.id]);
 
   useEffect(() => {
-    scrollToBottom();
+    // Always scroll on initial load; after that only scroll when new messages arrive
+    if (isInitialLoadRef.current || messages.length > prevMessageCountRef.current) {
+      scrollToBottom();
+      isInitialLoadRef.current = false;
+    }
+    prevMessageCountRef.current = messages.length;
   }, [messages, scrollToBottom]);
 
   const loadMessages = async (showLoading = true) => {
