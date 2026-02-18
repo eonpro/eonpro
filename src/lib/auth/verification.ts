@@ -166,9 +166,10 @@ export async function sendVerificationEmail(
       to: email,
       subject,
       html: generateEmailTemplate(code, type),
-      text: `Your ${type === 'email_verification' ? 'verification' : 'password reset'} code is: ${code}. This code expires in 15 minutes.`,
+      text: `Your ${type === 'login_otp' ? 'login' : type === 'email_verification' ? 'verification' : 'password reset'} code is: ${code}. This code expires in 15 minutes.`,
       sourceType: 'manual',
       sourceId: `${type}-${Date.now()}`,
+      skipLogging: true, // Critical auth emails must bypass suppression checks
     });
 
     if (result.success) {

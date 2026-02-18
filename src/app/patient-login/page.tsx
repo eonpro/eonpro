@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
-type LoginStep = 'identifier' | 'password' | 'forgot' | 'reset';
+type LoginStep = 'identifier' | 'password' | 'email-otp' | 'forgot' | 'reset';
 
 interface ClinicBranding {
   clinicId: number;
@@ -84,6 +84,13 @@ export default function PatientLoginPage() {
 
   // Non-patient rejection state
   const [showStaffLoginLink, setShowStaffLoginLink] = useState(false);
+
+  // Email OTP state
+  const [emailOtp, setEmailOtp] = useState(['', '', '', '', '', '']);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpCountdown, setEmailOtpCountdown] = useState(0);
+  const [canResendEmailOtp, setCanResendEmailOtp] = useState(false);
+  const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Forgot password state
   const [resetCode, setResetCode] = useState(['', '', '', '', '', '']);
@@ -176,6 +183,17 @@ export default function PatientLoginPage() {
       setRegisteredMessage('Account created successfully! You can now log in.');
     }
   }, [searchParams]);
+
+  // Email OTP countdown timer
+  useEffect(() => {
+    if (emailOtpCountdown > 0) {
+      const timer = setTimeout(() => setEmailOtpCountdown(emailOtpCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (emailOtpSent && emailOtpCountdown === 0) {
+      setCanResendEmailOtp(true);
+    }
+    return undefined;
+  }, [emailOtpCountdown, emailOtpSent]);
 
   // Reset code countdown
   useEffect(() => {
@@ -337,6 +355,106 @@ export default function PatientLoginPage() {
     router.push(PATIENT_PORTAL_PATH);
   };
 
+  // Send email OTP for passwordless login
+  const sendEmailOtp = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/send-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send login code');
+      }
+
+      setEmailOtpSent(true);
+      setEmailOtpCountdown(60);
+      setCanResendEmailOtp(false);
+      setStep('email-otp');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send login code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendEmailOtp = async () => {
+    if (!canResendEmailOtp) return;
+    setEmailOtp(['', '', '', '', '', '']);
+    await sendEmailOtp();
+  };
+
+  const handleEmailOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newOtp = [...emailOtp];
+    newOtp[index] = digit;
+    setEmailOtp(newOtp);
+
+    if (digit && index < 5) {
+      emailOtpRefs.current[index + 1]?.focus();
+    }
+
+    if (digit && index === 5 && newOtp.every((d) => d)) {
+      verifyEmailOtp(newOtp.join(''));
+    }
+  };
+
+  const handleEmailOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+
+    if (pastedData.length === 6) {
+      const newOtp = pastedData.split('');
+      setEmailOtp(newOtp);
+      emailOtpRefs.current[5]?.focus();
+      verifyEmailOtp(pastedData);
+    }
+  };
+
+  const handleEmailOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !emailOtp[index] && index > 0) {
+      emailOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const verifyEmailOtp = async (code: string) => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/verify-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: identifier,
+          code,
+          clinicId: resolvedClinicId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Invalid login code');
+      }
+
+      handleLoginSuccess(data);
+    } catch (err: any) {
+      setError(err.message || 'Invalid login code. Please try again.');
+      setEmailOtp(['', '', '', '', '', '']);
+      emailOtpRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleForgotPassword = async () => {
     setError('');
     setLoading(true);
@@ -434,8 +552,10 @@ export default function PatientLoginPage() {
   const handleBack = () => {
     setStep('identifier');
     setPassword('');
+    setEmailOtp(['', '', '', '', '', '']);
     setError('');
     setShowStaffLoginLink(false);
+    setEmailOtpSent(false);
   };
 
   // Branding colors
@@ -716,6 +836,21 @@ export default function PatientLoginPage() {
                   )}
                 </button>
 
+                <div className="flex items-center gap-4 py-2">
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <span className="text-sm text-gray-500">Or</span>
+                  <div className="h-px flex-1 bg-gray-200" />
+                </div>
+
+                <button
+                  type="button"
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-semibold text-gray-900 transition-all hover:bg-gray-50 disabled:opacity-50"
+                  onClick={sendEmailOtp}
+                >
+                  Email me a login code
+                </button>
+
                 {/* Forgot password & back */}
                 <div className="flex flex-col items-center gap-3 pt-4">
                   <button
@@ -735,6 +870,113 @@ export default function PatientLoginPage() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* STEP: Email OTP (passwordless login) */}
+            {step === 'email-otp' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                  <div>
+                    <p className="mb-1 text-xs text-gray-500">Login code sent to</p>
+                    <p className="font-medium text-gray-900">{identifier}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                <div className="text-center">
+                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
+                  <p className="text-gray-600">
+                    Enter the 6-digit code we sent to log in
+                  </p>
+                </div>
+
+                <div className="flex justify-center gap-3">
+                  {emailOtp.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={(el) => {
+                        emailOtpRefs.current[index] = el;
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleEmailOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
+                      onPaste={index === 0 ? handleEmailOtpPaste : undefined}
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      autoFocus={index === 0}
+                    />
+                  ))}
+                </div>
+
+                {error && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="flex justify-center">
+                    <div
+                      className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+                      style={{
+                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div className="text-center">
+                  {canResendEmailOtp ? (
+                    <button
+                      type="button"
+                      onClick={handleResendEmailOtp}
+                      className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
+                      style={{ color: primaryColor }}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Resend code
+                    </button>
+                  ) : emailOtpCountdown > 0 ? (
+                    <p className="text-sm text-gray-500">Resend code in {emailOtpCountdown}s</p>
+                  ) : null}
+                </div>
+
+                {/* Help text */}
+                <p className="text-center text-xs text-gray-500">
+                  Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account with this email.
+                </p>
+
+                <div className="flex flex-col items-center gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('password');
+                      setEmailOtp(['', '', '', '', '', '']);
+                      setError('');
+                    }}
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                  >
+                    Use password instead
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                  >
+                    Use a different email
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* STEP: Forgot Password */}

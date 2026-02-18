@@ -14,6 +14,7 @@ import {
   sendVerificationEmail,
 } from '@/lib/auth/verification';
 import { verifyEmail } from '@/lib/auth/registration';
+import { isEmailConfigured } from '@/lib/email';
 
 /**
  * GET /api/auth/verify-email?token=xxx
@@ -78,6 +79,15 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+    }
+
+    // Verify email service is configured
+    if (!isEmailConfigured()) {
+      logger.error('Email service not configured - cannot send verification code');
+      return NextResponse.json(
+        { error: 'Email service is temporarily unavailable. Please try again later.' },
+        { status: 503 }
+      );
     }
 
     // Generate OTP code

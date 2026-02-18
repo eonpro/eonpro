@@ -14,6 +14,7 @@ import {
   verifyOTPCode,
   sendVerificationEmail,
 } from '@/lib/auth/verification';
+import { isEmailConfigured } from '@/lib/email';
 
 /**
  * POST /api/auth/reset-password
@@ -27,6 +28,15 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
     // Validate input
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    }
+
+    // Verify email service is configured
+    if (!isEmailConfigured()) {
+      logger.error('Email service not configured - cannot send password reset code');
+      return NextResponse.json(
+        { error: 'Email service is temporarily unavailable. Please try again later.' },
+        { status: 503 }
+      );
     }
 
     // Check if user exists based on role

@@ -6,7 +6,7 @@ import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } 
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
-type LoginStep = 'identifier' | 'password' | 'otp' | 'clinic' | 'forgot' | 'reset';
+type LoginStep = 'identifier' | 'password' | 'otp' | 'email-otp' | 'clinic' | 'forgot' | 'reset';
 type LoginMethod = 'email' | 'phone';
 
 interface Clinic {
@@ -113,10 +113,17 @@ export default function LoginPage() {
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
   const [sessionMessage, setSessionMessage] = useState('');
 
-  // OTP state
+  // OTP state (phone)
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [canResend, setCanResend] = useState(false);
+
+  // Email OTP state
+  const [emailOtp, setEmailOtp] = useState(['', '', '', '', '', '']);
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpCountdown, setEmailOtpCountdown] = useState(0);
+  const [canResendEmailOtp, setCanResendEmailOtp] = useState(false);
+  const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Multi-clinic state
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -293,6 +300,17 @@ export default function LoginPage() {
     return undefined;
   }, [otpCountdown, otpSent]);
 
+  // Email OTP countdown timer
+  useEffect(() => {
+    if (emailOtpCountdown > 0) {
+      const timer = setTimeout(() => setEmailOtpCountdown(emailOtpCountdown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (emailOtpSent && emailOtpCountdown === 0) {
+      setCanResendEmailOtp(true);
+    }
+    return undefined;
+  }, [emailOtpCountdown, emailOtpSent]);
+
   // Reset code countdown timer
   useEffect(() => {
     if (resetCountdown > 0) {
@@ -435,6 +453,111 @@ export default function LoginPage() {
     if (!canResend) return;
     setOtp(['', '', '', '', '', '']);
     await sendOtp(identifier);
+  };
+
+  // Send email OTP for passwordless login
+  const sendEmailOtp = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/send-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send login code');
+      }
+
+      setEmailOtpSent(true);
+      setEmailOtpCountdown(60);
+      setCanResendEmailOtp(false);
+      setStep('email-otp');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send login code. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend email OTP
+  const handleResendEmailOtp = async () => {
+    if (!canResendEmailOtp) return;
+    setEmailOtp(['', '', '', '', '', '']);
+    await sendEmailOtp();
+  };
+
+  // Handle email OTP input change
+  const handleEmailOtpChange = (index: number, value: string) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newOtp = [...emailOtp];
+    newOtp[index] = digit;
+    setEmailOtp(newOtp);
+
+    if (digit && index < 5) {
+      emailOtpRefs.current[index + 1]?.focus();
+    }
+
+    if (digit && index === 5 && newOtp.every((d) => d)) {
+      verifyEmailOtp(newOtp.join(''));
+    }
+  };
+
+  // Handle email OTP paste
+  const handleEmailOtpPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+
+    if (pastedData.length === 6) {
+      const newOtp = pastedData.split('');
+      setEmailOtp(newOtp);
+      emailOtpRefs.current[5]?.focus();
+      verifyEmailOtp(pastedData);
+    }
+  };
+
+  // Handle email OTP backspace
+  const handleEmailOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !emailOtp[index] && index > 0) {
+      emailOtpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Verify email OTP and log in
+  const verifyEmailOtp = async (code: string) => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/verify-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: identifier,
+          code,
+          clinicId: resolvedClinicId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Invalid login code');
+      }
+
+      handleLoginSuccess(data);
+    } catch (err: any) {
+      setError(err.message || 'Invalid login code. Please try again.');
+      setEmailOtp(['', '', '', '', '', '']);
+      emailOtpRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle forgot password - send reset code
@@ -924,10 +1047,12 @@ export default function LoginPage() {
     setStep('identifier');
     setPassword('');
     setOtp(['', '', '', '', '', '']);
+    setEmailOtp(['', '', '', '', '', '']);
     setError('');
     setWrongClinicRedirectUrl(null);
     setWrongClinicName(null);
     setOtpSent(false);
+    setEmailOtpSent(false);
   };
 
   // Get colors from branding or use defaults
@@ -1304,12 +1429,11 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-semibold text-gray-900 transition-all hover:bg-gray-50"
-                  onClick={() => {
-                    /* TODO: Implement magic link */
-                  }}
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-semibold text-gray-900 transition-all hover:bg-gray-50 disabled:opacity-50"
+                  onClick={sendEmailOtp}
                 >
-                  Email login code
+                  Email me a login code
                 </button>
 
                 <div className="flex flex-col items-center gap-3 pt-4">
@@ -1422,6 +1546,11 @@ export default function LoginPage() {
                   ) : null}
                 </div>
 
+                {/* Help text */}
+                <p className="text-center text-xs text-gray-500">
+                  Didn&apos;t receive it? Check that you have an account registered with this number, then try resending.
+                </p>
+
                 {/* Bottom Links */}
                 <div className="flex items-center justify-center gap-4 pt-4">
                   <button
@@ -1430,6 +1559,118 @@ export default function LoginPage() {
                     className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Use a different number
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2c: Email OTP (passwordless email login) */}
+            {step === 'email-otp' && (
+              <div className="space-y-6">
+                {/* Email Display */}
+                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                  <div>
+                    <p className="mb-1 text-xs text-gray-500">Login code sent to</p>
+                    <p className="font-medium text-gray-900">{identifier}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                {/* Instructions */}
+                <div className="text-center">
+                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
+                  <p className="text-gray-600">
+                    Enter the 6-digit code we sent to log in
+                  </p>
+                </div>
+
+                {/* Email OTP Input */}
+                <div className="flex justify-center gap-3">
+                  {emailOtp.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={(el) => {
+                        emailOtpRefs.current[index] = el;
+                      }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleEmailOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
+                      onPaste={index === 0 ? handleEmailOtpPaste : undefined}
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      autoFocus={index === 0}
+                    />
+                  ))}
+                </div>
+
+                {error && (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-center text-sm text-red-600">{error}</p>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="flex justify-center">
+                    <div
+                      className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+                      style={{
+                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Resend email OTP */}
+                <div className="text-center">
+                  {canResendEmailOtp ? (
+                    <button
+                      type="button"
+                      onClick={handleResendEmailOtp}
+                      className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
+                      style={{ color: primaryColor }}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Resend code
+                    </button>
+                  ) : emailOtpCountdown > 0 ? (
+                    <p className="text-sm text-gray-500">Resend code in {emailOtpCountdown}s</p>
+                  ) : null}
+                </div>
+
+                {/* Help text */}
+                <p className="text-center text-xs text-gray-500">
+                  Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account with this email.
+                </p>
+
+                {/* Bottom Links */}
+                <div className="flex flex-col items-center gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('password');
+                      setEmailOtp(['', '', '', '', '', '']);
+                      setError('');
+                    }}
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                  >
+                    Use password instead
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                  >
+                    Use a different email
                   </button>
                 </div>
               </div>

@@ -105,25 +105,28 @@ export async function POST(req: NextRequest): Promise<Response> {
       });
     }
 
+    // Verify Twilio is configured (not mock mode)
+    const twilioConfigured = isTwilioConfigured();
+    if (!twilioConfigured && process.env.TWILIO_USE_MOCK !== 'true') {
+      logger.error('Twilio not configured - cannot send OTP SMS');
+      return NextResponse.json(
+        { error: 'SMS service is temporarily unavailable. Please use email login or try again later.' },
+        { status: 503 }
+      );
+    }
+
     // Generate OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Store OTP in database
-    // First, delete any existing OTPs for this phone
-    await prisma.phoneOtp
-      .deleteMany({
-        where: {
-          phone: formattedPhone,
-        },
-      })
-      .catch(() => {
-        // Table might not exist yet, that's ok
+    // Store OTP in database — this MUST succeed for verification to work
+    let otpStored = false;
+    try {
+      await prisma.phoneOtp.deleteMany({
+        where: { phone: formattedPhone },
       });
 
-    // Create new OTP record
-    await prisma.phoneOtp
-      .create({
+      await prisma.phoneOtp.create({
         data: {
           phone: formattedPhone,
           code: otp,
@@ -131,29 +134,25 @@ export async function POST(req: NextRequest): Promise<Response> {
           userId: provider?.user?.id || null,
           patientId: patient?.id || null,
         },
-      })
-      .catch(async (err) => {
-        // If table doesn't exist, log warning
-        logger.warn('PhoneOtp table may not exist', { error: err.message });
       });
+      otpStored = true;
+    } catch (err: any) {
+      logger.error('Failed to store OTP in database', { error: err.message });
+    }
+
+    if (!otpStored) {
+      return NextResponse.json(
+        { error: 'Unable to generate verification code. Please try again or use email login.' },
+        { status: 500 }
+      );
+    }
 
     // Send SMS
     const firstName = provider?.firstName || patient?.firstName || 'there';
     const smsBody = `Hi ${firstName}! Your EONPRO verification code is: ${otp}. This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`;
 
-    // Debug: Check Twilio configuration
-    const twilioConfigured = isTwilioConfigured();
     const twilioFeatureEnabled = isFeatureEnabled('TWILIO_SMS');
     const useMock = !twilioConfigured || process.env.TWILIO_USE_MOCK === 'true';
-
-    logger.info('Twilio configuration check', {
-      twilioConfigured,
-      twilioFeatureEnabled,
-      useMock,
-      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
-      hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
-      hasPhoneNumber: !!process.env.TWILIO_PHONE_NUMBER,
-    });
 
     try {
       const smsResult = await sendSMS({
