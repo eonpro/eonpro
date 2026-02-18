@@ -21,6 +21,7 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 import { decrypt } from '@/lib/security/encryption';
 import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 import { findPatientForShipping } from '@/lib/shipping/find-patient';
+import crypto from 'crypto';
 
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
@@ -89,12 +90,28 @@ async function verifyBasicAuth(
     const configuredUsername = safeDecryptCredential(clinic.lifefileInboundUsername);
     const usernameMatch = usernameAccepted || username === configuredUsername;
 
-    if (usernameMatch && password === expectedPassword) {
+    if (!usernameMatch) {
+      logger.error(`[WELLMEDR SHIPPING] Auth failed: username "${username}" not recognized`);
+      return false;
+    }
+
+    // Constant-time comparison to prevent timing attacks
+    const passwordBuffer = Buffer.from(password || '');
+    const expectedBuffer = Buffer.from(expectedPassword);
+    const passwordMatch =
+      passwordBuffer.length === expectedBuffer.length &&
+      crypto.timingSafeEqual(passwordBuffer, expectedBuffer);
+
+    if (passwordMatch) {
       logger.info(`[WELLMEDR SHIPPING] Authentication successful (username: ${username})`);
       return true;
     }
 
-    logger.error('[WELLMEDR SHIPPING] Authentication failed - invalid credentials');
+    logger.error('[WELLMEDR SHIPPING] Auth failed: password mismatch', {
+      usernameReceived: username,
+      passwordLenReceived: password?.length || 0,
+      passwordLenExpected: expectedPassword.length,
+    });
     return false;
   } catch (error) {
     logger.error('[WELLMEDR SHIPPING] Error parsing auth header:', error);
