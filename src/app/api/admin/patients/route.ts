@@ -63,13 +63,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const includeContact = searchParams.get('includeContact') === 'true';
     const salesRepId = searchParams.get('salesRepId');
 
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+    const hasFullAccess = user.role === 'super_admin' || user.role === 'provider';
+    const clinicId = hasFullAccess ? undefined : user.clinicId;
 
-    // Super admin has no clinic context set by middleware, so the clinic-filtered
+    // Full-access roles have no clinic context set by middleware, so the clinic-filtered
     // `prisma` wrapper throws TenantContextRequiredError for clinic-isolated models.
-    // Use basePrisma for super_admin (patient is in BASE_PRISMA_ALLOWLIST; nested
+    // Use basePrisma for these roles (patient is in BASE_PRISMA_ALLOWLIST; nested
     // includes are resolved internally by Prisma, bypassing the guarded proxy).
-    const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
+    const db = (hasFullAccess ? basePrisma : prisma) as PrismaClient;
 
     // Build WHERE using Prisma `some` relation filters → EXISTS subqueries.
     // All top-level keys are ANDed together by Prisma.
