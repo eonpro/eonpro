@@ -248,9 +248,9 @@ export async function POST(req: NextRequest) {
   if (existingIdempotencyRecord) {
     logger.info(`[WELLMEDR-INVOICE ${requestId}] Duplicate request detected, returning cached result`, {
       idempotencyKey: idempotencyKey.substring(0, 40) + '...',
-      originalRequestId: existingIdempotencyRecord.response ? 'exists' : 'none',
+      originalRequestId: existingIdempotencyRecord.responseBody ? 'exists' : 'none',
     });
-    const cachedResponse = existingIdempotencyRecord.response as Record<string, unknown> | null;
+    const cachedResponse = existingIdempotencyRecord.responseBody as Record<string, unknown> | null;
     return NextResponse.json({
       success: true,
       duplicate: true,
@@ -314,12 +314,15 @@ export async function POST(req: NextRequest) {
   let wasAutoCreated = false;
 
   try {
-    // Strategy 1: Match by email — use PHISearchService because email is encrypted at rest
-    const emailResults = await PHISearchService.searchPatients({
-      baseQuery: { clinicId, profileStatus: 'ACTIVE' },
-      search: email,
-      searchFields: ['email'],
-      pagination: { limit: 5, offset: 0 },
+    // Strategy 0: Fast direct DB match via searchIndex (plaintext, no record-count limit)
+    // The searchIndex field contains normalized plaintext: "firstname lastname email phone patientid"
+    // This is MUCH faster than PHISearchService (which fetches up to 2000 records for in-memory filtering)
+    const directMatch = await prisma.patient.findFirst({
+      where: {
+        clinicId,
+        profileStatus: 'ACTIVE',
+        searchIndex: { contains: email, mode: 'insensitive' },
+      },
       select: {
         id: true,
         patientId: true,
@@ -330,14 +333,43 @@ export async function POST(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    for (const candidate of emailResults.data) {
-      const candEmail = safeDecrypt((candidate as { email?: string | null }).email)?.toLowerCase().trim();
-      if (candEmail === email) {
-        patient = candidate as WellMedRPatient;
-        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by email`, {
+    if (directMatch) {
+      // Verify the email actually matches (searchIndex could contain partial overlap)
+      const directEmail = safeDecrypt(directMatch.email)?.toLowerCase().trim();
+      if (directEmail === email) {
+        patient = directMatch as WellMedRPatient;
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by searchIndex (fast path)`, {
           patientId: patient.id,
         });
-        break;
+      }
+    }
+
+    // Strategy 1: Match by email via PHISearchService (handles encrypted PHI, broader fuzzy search)
+    if (!patient) {
+      const emailResults = await PHISearchService.searchPatients({
+        baseQuery: { clinicId, profileStatus: 'ACTIVE' },
+        search: email,
+        searchFields: ['email'],
+        pagination: { limit: 5, offset: 0 },
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      for (const candidate of emailResults.data) {
+        const candEmail = safeDecrypt((candidate as { email?: string | null }).email)?.toLowerCase().trim();
+        if (candEmail === email) {
+          patient = candidate as WellMedRPatient;
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by email (PHISearch)`, {
+            patientId: patient.id,
+          });
+          break;
+        }
       }
     }
 
@@ -410,7 +442,15 @@ export async function POST(req: NextRequest) {
       logger.warn(`[WELLMEDR-INVOICE ${requestId}] Patient NOT found — auto-creating stub patient`, {
         searchedEmail: email,
         searchedName: paymentName || '(not provided)',
+        submissionId: payload.submission_id || '(not provided)',
         clinicId,
+        matchStrategiesAttempted: [
+          'searchIndex (direct DB)',
+          'PHISearch email',
+          paymentName ? 'PHISearch name' : null,
+          payload.submission_id ? 'sourceMetadata.submissionId' : null,
+        ].filter(Boolean),
+        hint: 'Check that Airtable customer_email matches the intake email field',
       });
 
       const nameParts = paymentName.split(/\s+/);
@@ -1312,8 +1352,9 @@ export async function POST(req: NextRequest) {
       await prisma.idempotencyRecord.create({
         data: {
           key: idempotencyKey,
-          response: responsePayload as any,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day TTL
+          resource: 'wellmedr_invoice_create',
+          responseStatus: 200,
+          responseBody: responsePayload as any,
         },
       });
     } catch (idemErr) {

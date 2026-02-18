@@ -229,7 +229,7 @@ export default function ProviderDashboard() {
                 navigateToPatients(searchTerm.trim());
               }
             }}
-            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-12 pr-12 text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            className="w-full rounded-2xl border border-gray-200 bg-white py-3.5 pl-14 pr-12 text-gray-900 shadow-sm transition-all placeholder:text-gray-400 focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
             autoComplete="off"
           />
           {searchTerm && (

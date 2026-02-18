@@ -1189,7 +1189,7 @@ export default function PrescriptionQueuePage() {
               const pasted = e.clipboardData.getData('text');
               setSearchTerm(pasted.replace(/\s+/g, ' ').trim());
             }}
-            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-10 shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-14 pr-10 shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
           />
           {searchTerm && (
             <button

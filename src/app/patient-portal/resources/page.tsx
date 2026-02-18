@@ -193,7 +193,7 @@ export default function ResourcesPage() {
             placeholder="Search resources..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+            className="w-full rounded-xl border border-gray-200 py-3 pl-14 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
             style={ringColorStyle(primaryColor)}
           />
         </div>

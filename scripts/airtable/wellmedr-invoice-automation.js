@@ -15,6 +15,15 @@
  * 4. Input variables: Map Airtable fields to script inputs (see config below)
  * 5. Paste this script
  *
+ * ⚠️  CRITICAL: PATIENT MATCHING REQUIREMENTS
+ * The EONPRO invoice webhook matches invoices to patients primarily by EMAIL.
+ * For matching to succeed:
+ *   - `customer_email` MUST be the PATIENT's email (same as the intake form email)
+ *   - If `customer_email` is the PAYER's email (e.g. spouse), matching WILL FAIL
+ *     and a stub patient will be created (tagged 'needs-intake-merge')
+ *   - To fix: Add a Lookup field in Orders table → Onboarding table → email field
+ *     and map THAT field to `customer_email` instead of the payment email
+ *
  * Created: 2026-01-24 | Updated: 2026-02-17
  */
 

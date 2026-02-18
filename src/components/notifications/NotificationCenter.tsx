@@ -547,7 +547,7 @@ export default function NotificationCenter({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search... (⌘K)"
-                    className="w-full rounded-xl border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
+                    className="w-full rounded-xl border border-gray-200 py-2 pl-10 pr-3 text-sm focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                   />
                 </div>

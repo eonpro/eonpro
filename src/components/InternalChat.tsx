@@ -1165,7 +1165,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
                     placeholder="Search team members..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full rounded-xl bg-gray-100 py-2.5 pl-9 pr-4 text-sm transition-all placeholder:text-gray-400 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-xl bg-gray-100 py-2.5 pl-10 pr-4 text-sm transition-all placeholder:text-gray-400 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
               </div>

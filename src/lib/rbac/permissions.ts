@@ -71,6 +71,7 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   provider: [
     'patient:view',
     'patient:edit',
+    'patient:delete',
     'order:view',
     'order:create',
     'invoice:view',

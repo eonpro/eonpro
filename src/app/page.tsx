@@ -548,7 +548,7 @@ function HomePageInner() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search patients"
-                className="w-full rounded-full border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
+                className="w-full rounded-full border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
                 style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
               />
             </div>

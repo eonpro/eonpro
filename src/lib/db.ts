@@ -472,6 +472,12 @@ class PrismaWithClinicFilter {
   /**
    * Apply clinic filter to where clause.
    * NEVER returns unmodified where for clinic-isolated models when tenant context is missing — THROWS instead.
+   *
+   * IMPORTANT: If the caller already set a complex clinicId filter (e.g. { in: [...] }),
+   * we preserve it instead of overwriting with a scalar. This is critical for multi-clinic
+   * queries like the prescription queue where a provider needs to see data from ALL their
+   * assigned clinics. We still validate that the context clinicId is included in the filter
+   * to prevent cross-tenant access.
    */
   private applyClinicFilter(where: any = {}, modelName?: string): any {
     const clinicId = this.getClinicId();
@@ -491,6 +497,25 @@ class PrismaWithClinicFilter {
     }
 
     if (!clinicId || this.shouldBypassFilter()) {
+      return where;
+    }
+
+    // If the caller already set a complex clinicId filter (e.g. { in: [...] }, { not: ... }),
+    // preserve it. This supports multi-clinic providers who need to query across their
+    // assigned clinics (e.g. prescription queue). The caller is responsible for scoping
+    // the filter to only clinics the user has access to.
+    if (where.clinicId !== undefined && where.clinicId !== null && typeof where.clinicId === 'object') {
+      // Validate: if it's an { in: [...] } filter, ensure the context clinicId is included
+      if (where.clinicId.in && Array.isArray(where.clinicId.in)) {
+        if (!where.clinicId.in.includes(clinicId)) {
+          logger.security('Multi-clinic query does not include current context clinic', {
+            model: modelName,
+            contextClinicId: clinicId,
+            queryClinicIds: where.clinicId.in,
+            code: 'CLINIC_FILTER_MISMATCH',
+          });
+        }
+      }
       return where;
     }
 

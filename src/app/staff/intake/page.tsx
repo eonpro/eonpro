@@ -136,7 +136,7 @@ export default function StaffIntakePage() {
               placeholder="Search by patient name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border py-2 pl-10 pr-4 focus:ring-2 focus:ring-cyan-500"
+              className="w-full rounded-lg border py-2 pl-11 pr-4 focus:ring-2 focus:ring-cyan-500"
             />
           </div>
           <select

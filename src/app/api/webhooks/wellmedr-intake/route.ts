@@ -573,6 +573,7 @@ export async function POST(req: NextRequest) {
           where: { id: existingPatient!.id },
           data: {
             ...patientData,
+            profileStatus: 'ACTIVE',
             tags: updatedTags,
             notes: buildNotes(existingPatient!.notes),
             searchIndex: updateSearchIndex,
@@ -602,6 +603,7 @@ export async function POST(req: NextRequest) {
               ...patientData,
               patientId: patientNumber,
               clinicId: clinicId,
+              profileStatus: 'ACTIVE',
               tags: submissionTags,
               notes: buildNotes(null),
               source: 'webhook',
@@ -652,6 +654,7 @@ export async function POST(req: NextRequest) {
                   where: { id: refetchPatient.id },
                   data: {
                     ...patientData,
+                    profileStatus: 'ACTIVE',
                     tags: mergeTags(refetchPatient.tags, submissionTags),
                     notes: buildNotes(refetchPatient.notes),
                     searchIndex: retrySearchIndex,

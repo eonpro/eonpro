@@ -168,7 +168,7 @@ const deletePatientHandler = withAuthParams(
       });
     }
   },
-  { roles: ['super_admin', 'admin'] }
+  { roles: ['super_admin', 'admin', 'provider'] }
 );
 
 export const DELETE = deletePatientHandler;

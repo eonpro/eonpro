@@ -192,7 +192,7 @@ export default function AdminBillingPage() {
             placeholder="Search payments and invoices..."
             value={searchQuery}
             onChange={(e: any) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-11 pr-4 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
           />
         </div>
       </div>

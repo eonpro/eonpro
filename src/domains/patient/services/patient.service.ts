@@ -651,9 +651,9 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
     },
 
     async deletePatient(id: number, user: UserContext): Promise<void> {
-      // Only admins can delete
-      if (!['super_admin', 'admin'].includes(user.role)) {
-        throw new ForbiddenError('Only administrators can delete patients');
+      // Only admins and providers can delete
+      if (!['super_admin', 'admin', 'provider'].includes(user.role)) {
+        throw new ForbiddenError('Only administrators and providers can delete patients');
       }
 
       // Determine clinic filter
