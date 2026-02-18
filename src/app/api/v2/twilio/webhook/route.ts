@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processIncomingSMS } from '@/lib/integrations/twilio/smsService';
+import { processIncomingSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { isFeatureEnabled } from '@/lib/features';
-import { basePrisma as prisma } from '@/lib/db';
+import { basePrisma, prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+function safeDecrypt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Validate webhook signature
 async function validateTwilioWebhook(
@@ -79,25 +89,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Try to find patient by phone number and save to database
+    let patientFound = false;
     try {
-      // Normalize phone for lookup (remove +1 prefix for comparison)
       const normalizedPhone = from.replace(/^\+1/, '').replace(/\D/g, '');
+      const formattedPhone = formatPhoneNumber(from);
 
-      // Look up patient by phone number
-      const patient = await prisma.patient.findFirst({
+      const patient = await basePrisma.patient.findFirst({
         where: {
           OR: [
             { phone: from },
+            { phone: formattedPhone },
             { phone: `+1${normalizedPhone}` },
             { phone: normalizedPhone },
             { phone: { contains: normalizedPhone } },
           ],
         },
-        select: { id: true, clinicId: true },
+        select: { id: true, clinicId: true, firstName: true, lastName: true },
       });
 
-      // Save incoming message to database
-      await prisma.smsLog.create({
+      // Save to SmsLog for audit trail
+      await basePrisma.smsLog.create({
         data: {
           patientId: patient?.id || null,
           clinicId: patient?.clinicId || null,
@@ -110,13 +121,58 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Create PatientChatMessage so the reply appears in the chat UI
+      if (patient) {
+        patientFound = true;
+        try {
+          const decryptedFirst = safeDecrypt(patient.firstName) || 'Patient';
+          const decryptedLast = safeDecrypt(patient.lastName) || '';
+          const senderName = `${decryptedFirst} ${decryptedLast}`.trim();
+
+          await runWithClinicContext(patient.clinicId, async () => {
+            const existingThread = await prisma.patientChatMessage.findFirst({
+              where: { patientId: patient.id, channel: 'SMS' },
+              orderBy: { createdAt: 'desc' },
+              select: { threadId: true },
+            });
+            const threadId = existingThread?.threadId || `sms_${patient.id}_${Date.now()}`;
+
+            await prisma.patientChatMessage.create({
+              data: {
+                patientId: patient.id,
+                clinicId: patient.clinicId,
+                message: (body || '').trim(),
+                direction: 'INBOUND',
+                channel: 'SMS',
+                senderType: 'PATIENT',
+                senderId: null,
+                senderName: senderName,
+                status: 'DELIVERED',
+                externalId: messageSid,
+                deliveredAt: new Date(),
+                threadId,
+              },
+            });
+          });
+
+          logger.info('[TWILIO_WEBHOOK] Created chat message from incoming SMS', {
+            messageSid,
+            patientId: patient.id,
+          });
+        } catch (chatError: any) {
+          logger.error('[TWILIO_WEBHOOK] Failed to create PatientChatMessage', {
+            error: chatError.message,
+            patientId: patient.id,
+          });
+        }
+      }
+
       logger.info('[TWILIO_WEBHOOK] Saved incoming SMS', {
         messageSid,
         patientId: patient?.id,
-        from,
+        patientFound,
       });
     } catch (dbError: any) {
-      // Log but don't fail the webhook
       logger.warn('[TWILIO_WEBHOOK] Failed to save incoming SMS to DB', {
         error: dbError.message,
       });
