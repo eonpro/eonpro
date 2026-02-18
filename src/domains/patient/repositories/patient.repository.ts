@@ -19,7 +19,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
 import { encryptPatientPHI, decryptPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, fuzzyTermMatch } from '@/lib/utils/search';
+import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, buildPatientSearchWhere, fuzzyTermMatch } from '@/lib/utils/search';
 
 import {
   PHI_FIELDS,
@@ -233,18 +233,23 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       const hasSearch = !!filter.search;
 
       if (hasSearch) {
-        const searchTerm = filter.search!.toLowerCase().trim();
+        const searchTerm = filter.search!.trim();
+        const searchFilter = buildPatientSearchWhere(searchTerm);
 
-        // Strategy 1: DB-level search via searchIndex + patientId (fast path)
-        const dbSearchWhere = {
+        // Phase 1: DB-level search via searchIndex (multi-term AND logic)
+        // Each term must appear in searchIndex OR patientId, in any order.
+        // "lee chad" matches searchIndex "chad lee email..." because both
+        // "lee" and "chad" are found individually.
+        const dbSearchWhere = { ...where, ...searchFilter };
+
+        // Phase 2: Fallback for patients with NULL/empty searchIndex
+        // Run BOTH phases in parallel so fallback patients are always found.
+        const fallbackWhere: Prisma.PatientWhereInput = {
           ...where,
-          OR: [
-            { searchIndex: { contains: searchTerm, mode: 'insensitive' as const } },
-            { patientId: { contains: searchTerm, mode: 'insensitive' as const } },
-          ],
+          OR: [{ searchIndex: null }, { searchIndex: '' }],
         };
 
-        const [dbPatients, dbTotal] = await Promise.all([
+        const [dbPatients, dbTotal, nullIndexCount] = await Promise.all([
           db.patient.findMany({
             where: dbSearchWhere,
             select: PATIENT_SUMMARY_SELECT,
@@ -253,9 +258,20 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
             take: limit,
           }),
           db.patient.count({ where: dbSearchWhere }),
+          db.patient.count({ where: fallbackWhere }),
         ]);
 
-        if (dbTotal > 0) {
+        // Self-heal: backfill searchIndex for unindexed patients in the background
+        if (nullIndexCount > 0) {
+          healMissingSearchIndexes(db, where).catch((err) => {
+            logger.warn('Background searchIndex backfill failed', {
+              error: err instanceof Error ? err.message : 'Unknown',
+            });
+          });
+        }
+
+        // If DB search found results and no unindexed patients, fast return
+        if (dbTotal > 0 && nullIndexCount === 0) {
           return {
             data: dbPatients.map((p) => decryptPatientSummary(p)),
             total: dbTotal,
@@ -265,18 +281,10 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           };
         }
 
-        // Strategy 2: Fallback to in-memory search for patients without searchIndex
-        // This handles patients created before searchIndex was populated
-        const nullIndexCount = await db.patient.count({
-          where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
-        });
-
+        // Merge with in-memory fallback for unindexed patients
         if (nullIndexCount > 0) {
-          // Fetch patients without searchIndex, decrypt, and filter in-memory
-          // Use batched approach for memory efficiency
-          // PERF FIX: Hard cap at 1000 to prevent unbounded memory usage
           const allUnindexed = await db.patient.findMany({
-            where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+            where: fallbackWhere,
             select: PATIENT_SUMMARY_SELECT,
             orderBy: { [orderBy]: orderDir },
             take: 1000,
@@ -284,19 +292,38 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
           const decrypted = allUnindexed.map((p) => decryptPatientSummary(p));
           const filtered = filterPatientsBySearch(decrypted, searchTerm);
-          const paged = filtered.slice(offset, offset + limit);
+
+          // Deduplicate: merge DB results + fallback results
+          const dbIds = new Set(dbPatients.map((p) => p.id));
+          const uniqueFallback = filtered.filter((p) => !dbIds.has(p.id));
+          const mergedData = [
+            ...dbPatients.map((p) => decryptPatientSummary(p)),
+            ...uniqueFallback,
+          ];
+          const mergedTotal = dbTotal + uniqueFallback.length;
+          const paged = mergedData.slice(offset, offset + limit);
 
           return {
             data: paged,
-            total: filtered.length,
+            total: mergedTotal,
             limit,
             offset,
-            hasMore: offset + paged.length < filtered.length,
+            hasMore: offset + paged.length < mergedTotal,
           };
         }
 
-        // No matches found anywhere
-        return { data: [], total: 0, limit, offset, hasMore: false };
+        // DB search found nothing and no unindexed patients exist
+        if (dbTotal === 0) {
+          return { data: [], total: 0, limit, offset, hasMore: false };
+        }
+
+        return {
+          data: dbPatients.map((p) => decryptPatientSummary(p)),
+          total: dbTotal,
+          limit,
+          offset,
+          hasMore: offset + dbPatients.length < dbTotal,
+        };
       }
 
       // No search: use normal DB pagination
@@ -330,20 +357,19 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
       const { limit, offset, orderBy, orderDir } = normalizePagination(pagination);
       const hasSearch = !!filter.search;
       const clinicSelect = { ...PATIENT_SUMMARY_SELECT, clinic: { select: { name: true } } };
+      type ClinicRow = Record<string, unknown> & { clinic?: { name: string } | null };
 
       if (hasSearch) {
-        const searchTerm = filter.search!.toLowerCase().trim();
+        const searchTerm = filter.search!.trim();
+        const searchFilter = buildPatientSearchWhere(searchTerm);
 
-        // Strategy 1: DB-level search via searchIndex + patientId
-        const dbSearchWhere = {
+        const dbSearchWhere = { ...where, ...searchFilter };
+        const fallbackWhere: Prisma.PatientWhereInput = {
           ...where,
-          OR: [
-            { searchIndex: { contains: searchTerm, mode: 'insensitive' as const } },
-            { patientId: { contains: searchTerm, mode: 'insensitive' as const } },
-          ],
+          OR: [{ searchIndex: null }, { searchIndex: '' }],
         };
 
-        const [dbPatients, dbTotal] = await Promise.all([
+        const [dbPatients, dbTotal, nullIndexCount] = await Promise.all([
           db.patient.findMany({
             where: dbSearchWhere,
             select: clinicSelect,
@@ -352,13 +378,22 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
             take: limit,
           }),
           db.patient.count({ where: dbSearchWhere }),
+          db.patient.count({ where: fallbackWhere }),
         ]);
 
-        if (dbTotal > 0) {
+        if (nullIndexCount > 0) {
+          healMissingSearchIndexes(db, where).catch((err) => {
+            logger.warn('Background searchIndex backfill failed', {
+              error: err instanceof Error ? err.message : 'Unknown',
+            });
+          });
+        }
+
+        if (dbTotal > 0 && nullIndexCount === 0) {
           return {
             data: dbPatients.map((p) => ({
               ...decryptPatientSummary(p),
-              clinicName: p.clinic?.name ?? null,
+              clinicName: (p as ClinicRow).clinic?.name ?? null,
             })),
             total: dbTotal,
             limit,
@@ -367,15 +402,9 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           };
         }
 
-        // Strategy 2: Fallback in-memory search for unindexed patients
-        const nullIndexCount = await db.patient.count({
-          where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
-        });
-
         if (nullIndexCount > 0) {
-          // PERF FIX: Hard cap at 1000 to prevent unbounded memory usage
           const allUnindexed = await db.patient.findMany({
-            where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+            where: fallbackWhere,
             select: clinicSelect,
             orderBy: { [orderBy]: orderDir },
             take: 1000,
@@ -383,21 +412,45 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
           const decrypted = allUnindexed.map((p) => ({
             ...decryptPatientSummary(p),
-            clinicName: p.clinic?.name ?? null,
+            clinicName: (p as ClinicRow).clinic?.name ?? null,
           }));
           const filtered = filterPatientsBySearch(decrypted, searchTerm);
-          const paged = filtered.slice(offset, offset + limit);
+
+          const dbIds = new Set(dbPatients.map((p) => p.id));
+          const uniqueFallback = filtered.filter((p) => !dbIds.has(p.id));
+          const mergedData = [
+            ...dbPatients.map((p) => ({
+              ...decryptPatientSummary(p),
+              clinicName: (p as ClinicRow).clinic?.name ?? null,
+            })),
+            ...uniqueFallback,
+          ];
+          const mergedTotal = dbTotal + uniqueFallback.length;
+          const paged = mergedData.slice(offset, offset + limit);
 
           return {
             data: paged,
-            total: filtered.length,
+            total: mergedTotal,
             limit,
             offset,
-            hasMore: offset + paged.length < filtered.length,
+            hasMore: offset + paged.length < mergedTotal,
           };
         }
 
-        return { data: [], total: 0, limit, offset, hasMore: false };
+        if (dbTotal === 0) {
+          return { data: [], total: 0, limit, offset, hasMore: false };
+        }
+
+        return {
+          data: dbPatients.map((p) => ({
+            ...decryptPatientSummary(p),
+            clinicName: (p as ClinicRow).clinic?.name ?? null,
+          })),
+          total: dbTotal,
+          limit,
+          offset,
+          hasMore: offset + dbPatients.length < dbTotal,
+        };
       }
 
       // No search: use normal DB pagination
@@ -414,7 +467,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
       const decryptedPatients = patients.map((p) => ({
         ...decryptPatientSummary(p),
-        clinicName: p.clinic?.name ?? null,
+        clinicName: (p as ClinicRow).clinic?.name ?? null,
       }));
 
       return {
@@ -998,6 +1051,75 @@ function buildChangeDiff(
   }
 
   return diff;
+}
+
+// ============================================================================
+// Self-Healing: Backfill Missing searchIndex
+// ============================================================================
+
+/**
+ * Background self-healing: populate searchIndex for patients that are missing it.
+ * This runs as a fire-and-forget after search queries detect NULL indexes.
+ * Processes up to 100 patients per invocation to avoid blocking.
+ *
+ * Uses safeDecrypt to handle both encrypted and plain-text PHI fields.
+ */
+async function healMissingSearchIndexes(
+  db: PrismaClient,
+  baseWhere: Prisma.PatientWhereInput
+): Promise<void> {
+  const BATCH_SIZE = 100;
+
+  const unindexed = await db.patient.findMany({
+    where: { ...baseWhere, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+    select: {
+      id: true,
+      patientId: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+    },
+    take: BATCH_SIZE,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (unindexed.length === 0) return;
+
+  let healed = 0;
+  for (const patient of unindexed) {
+    try {
+      const fn = decryptField(patient.firstName, 'firstName', patient.id) ?? '';
+      const ln = decryptField(patient.lastName, 'lastName', patient.id) ?? '';
+      const em = decryptField(patient.email, 'email', patient.id) ?? '';
+      const ph = decryptField(patient.phone, 'phone', patient.id) ?? '';
+
+      const idx = buildPatientSearchIndex({
+        firstName: fn,
+        lastName: ln,
+        email: em,
+        phone: ph,
+        patientId: patient.patientId,
+      });
+
+      if (idx) {
+        await db.patient.update({
+          where: { id: patient.id },
+          data: { searchIndex: idx },
+        });
+        healed++;
+      }
+    } catch {
+      // Skip individual failures — next search will retry
+    }
+  }
+
+  if (healed > 0) {
+    logger.info('Self-healed missing searchIndex', {
+      healed,
+      total: unindexed.length,
+    });
+  }
 }
 
 // ============================================================================

@@ -19,7 +19,7 @@ import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { splitSearchTerms } from '@/lib/utils/search';
+import { splitSearchTerms, buildPatientSearchWhere } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 const PAGE_SIZE = 25;
@@ -75,30 +75,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Save base WHERE before adding search filter (used for fallback query)
     const baseWhere: Prisma.PatientWhereInput = { ...whereClause };
 
-    // Search filter using the searchIndex column (DB-level, scales to 10M+)
-    // Also searches patientId directly (not encrypted) for single-term queries.
+    // Search filter using unified buildPatientSearchWhere (single source of truth).
+    // Handles multi-term AND logic, phone search, and patientId matching.
     // Patients with NULL searchIndex are handled via a fallback query below.
     if (search) {
-      const terms = splitSearchTerms(search);
-      const searchDigitsOnly = search.replace(/\D/g, '');
-      const isPhoneSearch = searchDigitsOnly.length >= 3 && searchDigitsOnly === search.trim();
-
-      if (isPhoneSearch) {
-        whereClause.searchIndex = { contains: searchDigitsOnly, mode: 'insensitive' };
-      } else if (terms.length === 1) {
-        whereClause.AND = [
-          {
-            OR: [
-              { searchIndex: { contains: terms[0], mode: 'insensitive' as const } },
-              { patientId: { contains: terms[0], mode: 'insensitive' as const } },
-            ],
-          },
-        ];
-      } else {
-        whereClause.AND = terms.map((term) => ({
-          searchIndex: { contains: term, mode: 'insensitive' as const },
-        }));
-      }
+      const searchFilter = buildPatientSearchWhere(search);
+      Object.assign(whereClause, searchFilter);
     }
 
     // Use explicit `select` (not `include`) to avoid SELECT * on Patient.

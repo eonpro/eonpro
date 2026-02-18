@@ -360,3 +360,65 @@ export function buildPatientSearchIndex(patient: {
 
   return parts.join(' ');
 }
+
+// ============================================================================
+// Unified Patient Search WHERE Clause Builder
+// ============================================================================
+
+/**
+ * Prisma-compatible filter shape returned by buildPatientSearchWhere.
+ * Using a generic record type so callers don't need to import Prisma types.
+ */
+export interface PatientSearchFilter {
+  AND?: Array<Record<string, unknown>>;
+  searchIndex?: Record<string, unknown>;
+}
+
+/**
+ * Build a Prisma WHERE fragment for patient search that works consistently
+ * across ALL endpoints. This is the single source of truth for patient search.
+ *
+ * Handles:
+ * - Multi-term queries: "chad lee" → each term must appear in searchIndex (any order)
+ * - Single-term queries: also checks patientId for wider coverage
+ * - Phone search: digit-only queries match phone digits in searchIndex
+ * - Empty/blank queries: returns empty object (no filter)
+ *
+ * @example
+ * // Single term
+ * buildPatientSearchWhere('chad')
+ * // → { AND: [{ OR: [{ searchIndex: { contains: 'chad', mode: 'insensitive' } }, { patientId: { contains: 'chad', mode: 'insensitive' } }] }] }
+ *
+ * // Multi-term — name in any order
+ * buildPatientSearchWhere('lee chad')
+ * // → { AND: [{ OR: [{ searchIndex: ... 'lee' }, { patientId: ... 'lee' }] }, { OR: [{ searchIndex: ... 'chad' }, { patientId: ... 'chad' }] }] }
+ *
+ * // Phone
+ * buildPatientSearchWhere('8132637844')
+ * // → { searchIndex: { contains: '8132637844', mode: 'insensitive' } }
+ */
+export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter {
+  const search = rawSearch.trim();
+  if (!search) return {};
+
+  const searchDigitsOnly = search.replace(/\D/g, '');
+  const isPhoneSearch = searchDigitsOnly.length >= 3 && searchDigitsOnly === search.trim();
+
+  if (isPhoneSearch) {
+    return {
+      searchIndex: { contains: searchDigitsOnly, mode: 'insensitive' },
+    };
+  }
+
+  const terms = splitSearchTerms(search);
+  if (terms.length === 0) return {};
+
+  return {
+    AND: terms.map((term) => ({
+      OR: [
+        { searchIndex: { contains: term, mode: 'insensitive' } },
+        { patientId: { contains: term, mode: 'insensitive' } },
+      ],
+    })),
+  };
+}

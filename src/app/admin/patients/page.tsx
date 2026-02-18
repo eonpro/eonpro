@@ -225,28 +225,61 @@ export default function AdminPatientsPage() {
           setPatients(combined);
           setMeta({ count: combined.length, total: totalCount, hasMore: false });
         } else {
-          // BROWSE MODE: paginated converted patients only
-          const params = new URLSearchParams({
+          // BROWSE MODE: query BOTH patients and intakes so all patients are visible.
+          // Converted patients appear first, then intakes, both sorted by date.
+          const patientParams = new URLSearchParams({
+            includeContact: 'true',
+            limit: PAGE_SIZE.toString(),
+            offset: ((page - 1) * PAGE_SIZE).toString(),
+          });
+          const intakeParams = new URLSearchParams({
             includeContact: 'true',
             limit: PAGE_SIZE.toString(),
             offset: ((page - 1) * PAGE_SIZE).toString(),
           });
 
           if (salesRepIdFilter && salesRepIdFilter !== 'all') {
-            params.set('salesRepId', salesRepIdFilter);
+            patientParams.set('salesRepId', salesRepIdFilter);
           }
 
-          const response = await apiFetch(`/api/admin/patients?${params.toString()}`, { headers });
+          const [patientsRes, intakesRes] = await Promise.all([
+            apiFetch(`/api/admin/patients?${patientParams.toString()}`, { headers }),
+            apiFetch(`/api/admin/intakes?${intakeParams.toString()}`, { headers }),
+          ]);
 
-          if (response.ok) {
-            const data = await response.json();
-            setPatients(data.patients || []);
-            setMeta({
-              count: data.meta?.count || 0,
-              total: data.meta?.total || 0,
-              hasMore: data.meta?.hasMore || false,
-            });
+          let combined: Patient[] = [];
+          let totalCount = 0;
+
+          if (patientsRes.ok) {
+            const data = await patientsRes.json();
+            combined = [...(data.patients || [])];
+            totalCount += data.meta?.total || 0;
           }
+
+          if (intakesRes.ok) {
+            const intakeData = await intakesRes.json();
+            const intakePatients = (intakeData.patients || []).map((p: Patient) => ({
+              ...p,
+              status: p.status || 'intake',
+            }));
+            const existingIds = new Set(combined.map((p) => p.id));
+            const uniqueIntakes = intakePatients.filter((p: Patient) => !existingIds.has(p.id));
+            combined = [...combined, ...uniqueIntakes];
+            totalCount += intakeData.meta?.total || 0;
+          }
+
+          combined.sort((a, b) => {
+            if (a.status === 'patient' && b.status !== 'patient') return -1;
+            if (a.status !== 'patient' && b.status === 'patient') return 1;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+
+          setPatients(combined);
+          setMeta({
+            count: combined.length,
+            total: totalCount,
+            hasMore: combined.length < totalCount,
+          });
         }
       } catch (error) {
         console.error('Failed to fetch patients:', error);
