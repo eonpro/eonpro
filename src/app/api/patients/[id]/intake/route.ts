@@ -20,8 +20,6 @@ export const GET = withAuthParams(
         return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
       }
 
-      // Find the intake document
-      // Use explicit select to avoid referencing columns not yet in production (e.g. s3DataKey)
       const intakeDoc = await prisma.patientDocument.findFirst({
         where: {
           patientId,
@@ -37,6 +35,7 @@ export const GET = withAuthParams(
           category: true,
           createdAt: true,
           data: true,
+          s3DataKey: true,
           externalUrl: true,
           source: true,
           sourceSubmissionId: true,
@@ -93,7 +92,6 @@ export const PUT = withAuthParams(
         return NextResponse.json({ error: 'Invalid intake data' }, { status: 400 });
       }
 
-      // Find existing intake document
       let intakeDoc = await prisma.patientDocument.findFirst({
         where: {
           patientId,
@@ -109,6 +107,7 @@ export const PUT = withAuthParams(
           category: true,
           createdAt: true,
           data: true,
+          s3DataKey: true,
           externalUrl: true,
           source: true,
           sourceSubmissionId: true,

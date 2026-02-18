@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import type { NormalizedIntake } from '@/lib/heyflow/types';
+import { readIntakeData } from '@/lib/storage/document-data-store';
 
 /**
  * POST /api/admin/regenerate-pdf
@@ -26,7 +27,6 @@ export const POST = withAuthParams(
       // Build query based on parameters
       let documents;
 
-      // Shared select clause to avoid referencing columns not yet in production (e.g. s3DataKey)
       const documentSelect = {
         id: true as const,
         patientId: true as const,
@@ -36,6 +36,7 @@ export const POST = withAuthParams(
         category: true as const,
         createdAt: true as const,
         data: true as const,
+        s3DataKey: true as const,
         externalUrl: true as const,
         source: true as const,
         sourceSubmissionId: true as const,
@@ -97,28 +98,15 @@ export const POST = withAuthParams(
 
       for (const doc of documents) {
         try {
-          // Try to get intake data from the data field (legacy JSON format)
           let intakeDataSource: any = null;
 
-          if (doc.data) {
-            try {
-              // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-              let buffer: Buffer;
-              if (doc.data instanceof Uint8Array) {
-                buffer = Buffer.from(doc.data);
-              } else if (Buffer.isBuffer(doc.data)) {
-                buffer = doc.data;
-              } else {
-                buffer = Buffer.from((doc.data as any).data || doc.data);
-              }
-              const str = buffer.toString('utf8').trim();
-              // Only parse if it looks like JSON (not PDF binary)
-              if (str.startsWith('{') || str.startsWith('[')) {
-                intakeDataSource = JSON.parse(str);
-              }
-            } catch {
-              // Not JSON - might already be PDF bytes, which is fine
+          try {
+            const parsed = await readIntakeData(doc);
+            if (parsed && typeof parsed === 'object') {
+              intakeDataSource = parsed;
             }
+          } catch {
+            // Not JSON or read failed — will fall back to patient record below
           }
 
           // If data is already PDF or we don't have intake JSON, use patient info

@@ -240,7 +240,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
           category: 'MEDICAL_INTAKE_FORM',
         },
         orderBy: { createdAt: 'desc' },
-        select: { id: true, patientId: true, clinicId: true, data: true },
+        select: { id: true, patientId: true, clinicId: true, data: true, s3DataKey: true },
       });
 
       const docJsonRaw = intakeDoc ? await readIntakeData(intakeDoc) : null;

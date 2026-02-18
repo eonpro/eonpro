@@ -542,13 +542,13 @@ function HomePageInner() {
 
             {/* Right: Search */}
             <div className="relative w-96">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search patients"
-                className="w-full rounded-full border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
+                className="w-full rounded-full border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
                 style={{ '--tw-ring-color': `${primaryColor}33` } as React.CSSProperties}
               />
             </div>

@@ -108,8 +108,6 @@ export async function ensureSoapNoteExists(
       hasDecryptedDob: !!patient.dob && !String(patient.dob).includes(':'),
     });
 
-    // Step 2b: Query documents separately to avoid any filtering issues
-    // Use explicit select to avoid referencing columns that may not exist yet (e.g. s3DataKey)
     const documents = await prisma.patientDocument.findMany({
       where: {
         patientId,
@@ -124,6 +122,7 @@ export async function ensureSoapNoteExists(
         category: true,
         createdAt: true,
         data: true,
+        s3DataKey: true,
         externalUrl: true,
         source: true,
         sourceSubmissionId: true,

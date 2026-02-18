@@ -1229,7 +1229,7 @@ export default function PrescriptionQueuePage() {
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="text"
             placeholder="Search by patient name, email, treatment, or invoice..."
@@ -1240,7 +1240,7 @@ export default function PrescriptionQueuePage() {
               const pasted = e.clipboardData.getData('text');
               setSearchTerm(pasted.replace(/\s+/g, ' ').trim());
             }}
-            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-14 pr-10 shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-10 shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
           />
           {searchTerm && (
             <button

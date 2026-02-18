@@ -6,6 +6,7 @@ import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { normalizeMedLinkPayload } from '@/lib/medlink/intakeNormalizer';
 import { PatientDocumentCategory } from '@prisma/client';
+import { readIntakeData } from '@/lib/storage/document-data-store';
 
 // Type for patient with clinic select result
 interface PatientWithClinic {
@@ -51,8 +52,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
     }
 
-    // Get patient with existing documents
-    // Use explicit select on documents to avoid referencing columns not yet in production (e.g. s3DataKey)
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -69,6 +68,7 @@ export async function POST(req: NextRequest) {
             category: true,
             createdAt: true,
             data: true,
+            s3DataKey: true,
             externalUrl: true,
             source: true,
             sourceSubmissionId: true,
@@ -96,24 +96,11 @@ export async function POST(req: NextRequest) {
     // Get or create intake data
     let normalizedIntake: any = null;
 
-    // Try to get intake data from existing document
-    if (patient.documents.length > 0 && patient.documents[0].data) {
+    if (patient.documents.length > 0) {
       try {
         const existingDoc = patient.documents[0];
-        let dataStr = '';
-        const docData = existingDoc.data as Buffer | Uint8Array | string;
-
-        // Handle Buffer/Uint8Array (Prisma 6.x returns Bytes as Buffer)
-        if (Buffer.isBuffer(docData)) {
-          dataStr = docData.toString('utf8');
-        } else if (docData instanceof Uint8Array) {
-          dataStr = Buffer.from(docData).toString('utf8');
-        } else if (typeof docData === 'string') {
-          dataStr = docData;
-        }
-
-        if (dataStr) {
-          const parsedData = JSON.parse(dataStr);
+        const parsedData = await readIntakeData(existingDoc);
+        if (parsedData && typeof parsedData === 'object') {
           normalizedIntake = normalizeMedLinkPayload(parsedData);
           results.intakeSource = 'existing_document';
         }

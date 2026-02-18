@@ -36,6 +36,7 @@ import { scheduleFutureRefillsFromInvoice } from '@/lib/shipment-schedule';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { PHISearchService } from '@/lib/security/phi-search';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
+import { readIntakeData } from '@/lib/storage/document-data-store';
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
@@ -1119,26 +1120,12 @@ export async function POST(req: NextRequest) {
             category: 'MEDICAL_INTAKE_FORM',
           },
           orderBy: { createdAt: 'desc' },
-          select: { data: true },
+          select: { id: true, patientId: true, clinicId: true, data: true, s3DataKey: true },
         });
 
-        if (intakeDoc?.data) {
-          let rawData: string;
-          if (Buffer.isBuffer(intakeDoc.data)) {
-            rawData = intakeDoc.data.toString('utf8');
-          } else if (intakeDoc.data instanceof Uint8Array) {
-            rawData = new TextDecoder().decode(intakeDoc.data);
-          } else if (
-            typeof intakeDoc.data === 'object' &&
-            (intakeDoc.data as any).type === 'Buffer' &&
-            Array.isArray((intakeDoc.data as any).data)
-          ) {
-            rawData = new TextDecoder().decode(new Uint8Array((intakeDoc.data as any).data));
-          } else {
-            rawData = String(intakeDoc.data);
-          }
+        const docJson = intakeDoc ? await readIntakeData(intakeDoc) as Record<string, unknown> | null : null;
 
-          const docJson = JSON.parse(rawData);
+        if (docJson && typeof docJson === 'object') {
 
           // Check root-level fields used by WellMedR/Airtable intake forms
           const medFields = [

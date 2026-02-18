@@ -75,9 +75,6 @@ export const GET = withAuthParams(
         documentId,
       });
 
-      // Fetch the document - just check it belongs to the patient
-      // The patient access check above already ensures the user has permission
-      // Use explicit select to avoid referencing columns not yet in production (e.g. s3DataKey)
       const document: any = await prisma.patientDocument.findFirst({
         where: {
           id: documentId,
@@ -92,6 +89,7 @@ export const GET = withAuthParams(
           category: true,
           createdAt: true,
           data: true,
+          s3DataKey: true,
           externalUrl: true,
           source: true,
           sourceSubmissionId: true,
