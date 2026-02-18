@@ -84,7 +84,10 @@ const nextConfig = {
   // Do NOT duplicate them here — next.config.js headers can conflict with middleware
   // (e.g. middleware sets X-Frame-Options: SAMEORIGIN while config set DENY).
   
-  // Webpack configuration (when using --webpack for production)
+  // Turbopack config (Next.js 16 default build tool)
+  turbopack: {},
+
+  // Webpack configuration (fallback when using --webpack)
   webpack: (config, { isServer, nextRuntime }) => {
     // Vercel: memory cache to avoid filesystem cache exceeding 1GB upload limit.
     // CI/Docker: filesystem cache for faster rebuilds.
