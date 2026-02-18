@@ -35,7 +35,7 @@ export function generateVerificationToken(): string {
 export async function storeVerificationCode(
   email: string,
   code: string,
-  type: 'email_verification' | 'password_reset'
+  type: 'email_verification' | 'password_reset' | 'login_otp'
 ): Promise<boolean> {
   try {
     // Store verification code with 15-minute expiration
@@ -70,7 +70,7 @@ export async function storeVerificationCode(
 export async function verifyOTPCode(
   email: string,
   code: string,
-  type: 'email_verification' | 'password_reset'
+  type: 'email_verification' | 'password_reset' | 'login_otp'
 ): Promise<VerificationResult> {
   try {
     // Find the most recent verification code for this email
@@ -152,13 +152,15 @@ export async function verifyOTPCode(
 export async function sendVerificationEmail(
   email: string,
   code: string,
-  type: 'email_verification' | 'password_reset'
+  type: 'email_verification' | 'password_reset' | 'login_otp'
 ): Promise<boolean> {
   try {
     const subject =
-      type === 'email_verification'
-        ? 'Verify Your Email Address - EONPRO'
-        : 'Reset Your Password - EONPRO';
+      type === 'login_otp'
+        ? 'Your Login Code - EONPRO'
+        : type === 'email_verification'
+          ? 'Verify Your Email Address - EONPRO'
+          : 'Reset Your Password - EONPRO';
 
     const result = await sendEmail({
       to: email,
@@ -187,14 +189,21 @@ export async function sendVerificationEmail(
  */
 function generateEmailTemplate(
   code: string,
-  type: 'email_verification' | 'password_reset'
+  type: 'email_verification' | 'password_reset' | 'login_otp'
 ): string {
-  const title = type === 'email_verification' ? 'Verify Your Email Address' : 'Reset Your Password';
+  const title =
+    type === 'login_otp'
+      ? 'Your Login Code'
+      : type === 'email_verification'
+        ? 'Verify Your Email Address'
+        : 'Reset Your Password';
 
   const message =
-    type === 'email_verification'
-      ? 'Please use the following code to verify your email address:'
-      : 'Please use the following code to reset your password:';
+    type === 'login_otp'
+      ? 'Use this code to log in to your account:'
+      : type === 'email_verification'
+        ? 'Please use the following code to verify your email address:'
+        : 'Please use the following code to reset your password:';
 
   return `
     <!DOCTYPE html>
@@ -260,7 +269,7 @@ export async function cleanupExpiredCodes(): Promise<void> {
       where: {
         patientId: 0,
         action: {
-          in: ['EMAIL_VERIFICATION', 'PASSWORD_RESET'],
+          in: ['EMAIL_VERIFICATION', 'PASSWORD_RESET', 'LOGIN_OTP'],
         },
         createdAt: {
           lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Older than 24 hours

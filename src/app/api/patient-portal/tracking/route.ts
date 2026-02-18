@@ -15,6 +15,8 @@ import { handleApiError } from '@/domains/shared/errors';
 
 // Helper to generate tracking URL based on carrier
 function generateTrackingUrl(carrier: string, trackingNumber: string): string | null {
+  if (!carrier || !trackingNumber || !trackingNumber.trim()) return null;
+
   const carrierUrls: Record<string, string> = {
     ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,
     fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
@@ -64,7 +66,40 @@ function mapStatusToDisplay(status: string): {
     CANCELLED: { status: 'exception', label: 'Cancelled', step: 0 },
   };
 
-  return statusMap[status] || { status: 'processing', label: status, step: 1 };
+  return statusMap[status] || { status: 'processing', label: status || 'Processing', step: 1 };
+}
+
+interface RxRecord {
+  medName: string;
+  strength: string;
+  quantity: string;
+  form: string;
+}
+
+function buildMedicationItems(
+  rxs: RxRecord[] | undefined | null,
+  fallbackName: string | null | undefined,
+  fallbackStrength: string | null | undefined,
+  fallbackQuantity: string | null | undefined
+): Array<{ name: string; strength: string | null; quantity: number }> {
+  if (rxs && rxs.length > 0) {
+    return rxs.map((rx) => ({
+      name: rx.medName || 'Medication',
+      strength: rx.strength || null,
+      quantity: parseInt(rx.quantity || '1') || 1,
+    }));
+  }
+  return [{
+    name: fallbackName || 'Medication',
+    strength: fallbackStrength || null,
+    quantity: parseInt(fallbackQuantity || '1') || 1,
+  }];
+}
+
+function safeDate(value: string | number | Date | null | undefined): string | null {
+  if (value == null) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 async function getHandler(req: NextRequest, user: AuthUser) {
@@ -89,6 +124,14 @@ async function getHandler(req: NextRequest, user: AuthUser) {
               createdAt: true,
               primaryMedName: true,
               primaryMedStrength: true,
+              rxs: {
+                select: {
+                  medName: true,
+                  strength: true,
+                  quantity: true,
+                  form: true,
+                },
+              },
             },
           },
         },
@@ -111,24 +154,35 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           primaryMedName: true,
           primaryMedStrength: true,
           status: true,
+          rxs: {
+            select: {
+              medName: true,
+              strength: true,
+              quantity: true,
+              form: true,
+            },
+          },
         },
       });
 
       return { shippingUpdates, ordersWithTracking };
     });
 
-    // Combine and deduplicate shipments
-    const shipmentMap = new Map<string, any>();
+    const shipmentMap = new Map<string, Record<string, unknown>>();
 
-    // Add from shipping updates
     for (const update of result.shippingUpdates) {
+      if (!update.trackingNumber || !update.trackingNumber.trim()) continue;
+
       const key = update.trackingNumber;
       const statusInfo = mapStatusToDisplay(update.status);
 
-      if (
-        !shipmentMap.has(key) ||
-        new Date(update.updatedAt) > new Date(shipmentMap.get(key).lastUpdate)
-      ) {
+      const existingEntry = shipmentMap.get(key);
+      const existingLastUpdate = existingEntry?.lastUpdate as string | undefined;
+      const shouldReplace = !existingEntry ||
+        (update.updatedAt && existingLastUpdate &&
+          new Date(update.updatedAt).getTime() > new Date(existingLastUpdate).getTime());
+
+      if (shouldReplace) {
         shipmentMap.set(key, {
           id: `shipping-${update.id}`,
           orderNumber:
@@ -138,36 +192,36 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           status: statusInfo.status,
           statusLabel: statusInfo.label,
           step: statusInfo.step,
-          carrier: update.carrier,
+          carrier: update.carrier || 'Carrier',
           trackingNumber: update.trackingNumber,
           trackingUrl:
-            update.trackingUrl || generateTrackingUrl(update.carrier, update.trackingNumber),
-          items: [
-            {
-              name: update.medicationName || update.order?.primaryMedName || 'Medication',
-              strength: update.medicationStrength || update.order?.primaryMedStrength,
-              quantity: parseInt(update.medicationQuantity || '1') || 1,
-            },
-          ],
-          orderedAt: update.order?.createdAt || update.createdAt,
-          shippedAt: update.shippedAt,
-          estimatedDelivery: update.estimatedDelivery,
-          deliveredAt: update.actualDelivery,
-          lastUpdate: update.updatedAt,
-          lastLocation: update.statusNote,
-          isRefill: (update.rawPayload as any)?.isRefill || false,
-          refillNumber: (update.rawPayload as any)?.refillNumber,
+            update.trackingUrl || generateTrackingUrl(update.carrier || '', update.trackingNumber),
+          items: buildMedicationItems(
+            update.order?.rxs,
+            update.medicationName || update.order?.primaryMedName,
+            update.medicationStrength || update.order?.primaryMedStrength,
+            update.medicationQuantity
+          ),
+          orderedAt: safeDate(update.order?.createdAt) || safeDate(update.createdAt),
+          shippedAt: safeDate(update.shippedAt),
+          estimatedDelivery: safeDate(update.estimatedDelivery),
+          deliveredAt: safeDate(update.actualDelivery),
+          lastUpdate: safeDate(update.updatedAt),
+          lastLocation: update.statusNote || null,
+          isRefill: (update.rawPayload as Record<string, unknown>)?.isRefill || false,
+          refillNumber: (update.rawPayload as Record<string, unknown>)?.refillNumber || null,
         });
       }
     }
 
-    // Add from orders (if not already present)
     for (const order of result.ordersWithTracking) {
-      const key = order.trackingNumber!;
+      if (!order.trackingNumber || !order.trackingNumber.trim()) continue;
+
+      const key = order.trackingNumber;
       if (!shipmentMap.has(key)) {
         const status = order.shippingStatus || order.status || 'SHIPPED';
         const statusInfo = mapStatusToDisplay(status.toUpperCase());
-        const carrier = detectCarrier(order.trackingNumber!);
+        const carrier = detectCarrier(order.trackingNumber);
 
         shipmentMap.set(key, {
           id: `order-${order.id}`,
@@ -177,19 +231,18 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           step: statusInfo.step,
           carrier,
           trackingNumber: order.trackingNumber,
-          trackingUrl: order.trackingUrl || generateTrackingUrl(carrier, order.trackingNumber!),
-          items: [
-            {
-              name: order.primaryMedName || 'Medication',
-              strength: order.primaryMedStrength,
-              quantity: 1, // Default quantity, actual comes from Rx records
-            },
-          ],
-          orderedAt: order.createdAt,
-          shippedAt: order.createdAt,
+          trackingUrl: order.trackingUrl || generateTrackingUrl(carrier, order.trackingNumber),
+          items: buildMedicationItems(
+            order.rxs,
+            order.primaryMedName,
+            order.primaryMedStrength,
+            null
+          ),
+          orderedAt: safeDate(order.createdAt),
+          shippedAt: safeDate(order.createdAt),
           estimatedDelivery: null,
           deliveredAt: null,
-          lastUpdate: order.createdAt,
+          lastUpdate: safeDate(order.createdAt),
           lastLocation: null,
           isRefill: false,
           refillNumber: null,

@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import { addDays } from 'date-fns';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { encryptPHI } from '@/lib/security/phi-encryption';
 
 // Types
 export interface CreateFormTemplateInput {
@@ -445,83 +446,86 @@ export async function submitFormResponses(
       }
     }
 
-    // Use existing patientId from the submission if it exists
-    // (submission is created with patientId when the form link is sent)
     let patientId = link.submission?.patientId || null;
+    const templateClinicId = link.template.clinicId;
 
-    // If patientInfo is provided, try to find/create patient
-    if (!patientId && patientInfo?.email) {
-      // Get clinicId from template for data integrity
-      const templateClinicId = link.template.clinicId;
-
-      // Find or create patient within the clinic context
-      let patient = await prisma.patient.findFirst({
-        where: {
-          email: patientInfo.email.toLowerCase(),
-          ...(templateClinicId && { clinicId: templateClinicId }),
-        },
-      });
-
-      if (!patient) {
-        // CRITICAL: Must have clinicId for new patients
-        if (!templateClinicId) {
-          logger.warn('Creating patient without clinicId from intake form', {
-            email: patientInfo.email,
-            templateId: link.template.id,
-          });
-        }
-
-        const searchIndex = buildPatientSearchIndex({
-          firstName: patientInfo.firstName || '',
-          lastName: patientInfo.lastName || '',
-          email: patientInfo.email,
-          phone: patientInfo.phone || undefined,
-        });
-        patient = await prisma.patient.create({
-          data: {
+    const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Patient find/create/update inside the transaction for atomicity
+      if (!patientId && patientInfo?.email) {
+        let patient = await tx.patient.findFirst({
+          where: {
             email: patientInfo.email.toLowerCase(),
+            ...(templateClinicId ? { clinicId: templateClinicId } : {}),
+          },
+        });
+
+        if (!patient) {
+          if (!templateClinicId) {
+            logger.warn('Creating patient without clinicId from intake form', {
+              templateId: link.template.id,
+            });
+          }
+
+          const searchIndex = buildPatientSearchIndex({
             firstName: patientInfo.firstName || '',
             lastName: patientInfo.lastName || '',
+            email: patientInfo.email,
             phone: patientInfo.phone || undefined,
-            dob: '1900-01-01', // Default DOB - should be updated later
-            gender: 'OTHER', // Default gender - should be updated later
-            address1: '',
-            city: '',
-            state: '',
-            zip: '',
-            clinicId: templateClinicId, // Inherit from template
-            searchIndex,
-          },
-        });
-      } else {
-        // Update existing patient with refreshed search index
-        const updateSearchIndex = buildPatientSearchIndex({
-          firstName: patientInfo.firstName || patient.firstName,
-          lastName: patientInfo.lastName || patient.lastName,
-          email: patient.email,
-          phone: patientInfo.phone || patient.phone,
-          patientId: patient.patientId,
-        });
-        patient = await prisma.patient.update({
-          where: { id: patient.id },
-          data: {
-            firstName: patientInfo.firstName || patient.firstName,
-            lastName: patientInfo.lastName || patient.lastName,
-            phone: patientInfo.phone || patient.phone,
-            searchIndex: updateSearchIndex,
-          },
-        });
+          });
+          patient = await tx.patient.create({
+            data: {
+              email: encryptPHI(patientInfo.email.toLowerCase()) || patientInfo.email.toLowerCase(),
+              firstName: encryptPHI(patientInfo.firstName || '') || '',
+              lastName: encryptPHI(patientInfo.lastName || '') || '',
+              phone: encryptPHI(patientInfo.phone || '') || '',
+              dob: encryptPHI('1900-01-01') || '1900-01-01',
+              gender: 'OTHER',
+              address1: '',
+              city: '',
+              state: '',
+              zip: '',
+              clinicId: templateClinicId,
+              searchIndex,
+              source: 'intake-form',
+            },
+          });
+        } else {
+          const newFirstName = patientInfo.firstName || patient.firstName;
+          const newLastName = patientInfo.lastName || patient.lastName;
+          const newPhone = patientInfo.phone || patient.phone;
+          const updateSearchIndex = buildPatientSearchIndex({
+            firstName: newFirstName,
+            lastName: newLastName,
+            email: patient.email,
+            phone: newPhone,
+            patientId: patient.patientId,
+          });
+          patient = await tx.patient.update({
+            where: { id: patient.id },
+            data: {
+              firstName: encryptPHI(newFirstName) || newFirstName,
+              lastName: encryptPHI(newLastName) || newLastName,
+              phone: encryptPHI(newPhone) || newPhone,
+              searchIndex: updateSearchIndex,
+            },
+          });
+        }
+        patientId = patient.id;
       }
-      patientId = patient.id;
-    }
 
-    // Submit the form
-    const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      let sub;
-
-      // Check if there's an existing submission for this link
+      // Re-check for duplicate submission inside transaction (prevents race condition)
       if (link.submission?.id) {
-        // Update existing submission
+        const existingSub = await tx.intakeFormSubmission.findUnique({
+          where: { id: link.submission.id },
+          select: { status: true },
+        });
+        if (existingSub?.status === 'completed') {
+          throw new Error('This form has already been submitted');
+        }
+      }
+
+      let sub;
+      if (link.submission?.id) {
         sub = await tx.intakeFormSubmission.update({
           where: { id: link.submission.id },
           data: {
@@ -534,7 +538,6 @@ export async function submitFormResponses(
           },
         });
       } else {
-        // Create new submission (requires patientId)
         if (!patientId) {
           throw new Error('Unable to determine patient for this submission');
         }
@@ -553,12 +556,10 @@ export async function submitFormResponses(
         });
       }
 
-      // Delete existing responses if any (for re-submission)
       await tx.intakeFormResponse.deleteMany({
         where: { submissionId: sub.id },
       });
 
-      // Create responses
       const createdResponses = await Promise.all(
         responses.map((r: any) =>
           tx.intakeFormResponse.create({
@@ -573,7 +574,7 @@ export async function submitFormResponses(
       );
 
       return { ...sub, responses: createdResponses };
-    }, { timeout: 15000 });
+    }, { timeout: 15000, isolationLevel: 'Serializable' });
 
     logger.info(`Form submitted: ${linkId}`);
     return submission;

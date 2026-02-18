@@ -119,6 +119,7 @@ export default function GlobalFetchInterceptor() {
             url.includes('/api/auth/login') ||
             url.includes('/api/auth/verify') ||
             url.includes('/api/auth/refresh') ||
+            url.includes('/api/auth/me') ||
             url.includes('/api/affiliate/auth/login') ||
             url.includes('/api/affiliate/auth/me');
 

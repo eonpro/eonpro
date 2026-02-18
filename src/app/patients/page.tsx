@@ -80,18 +80,24 @@ const toTagArray = (tags?: string[] | null) =>
 
 const formatPatientAddress = (patient: Patient) => {
   const base = [patient.address1, patient.address2].filter(Boolean).join(', ');
-  const cityLine = [patient.city, patient.state, patient.zip].filter(Boolean).join(' ');
-  if (!patient.city) {
-    return base;
-  }
+  const cityStateZip = [patient.city, patient.state, patient.zip].filter(Boolean).join(' ');
+
+  if (!base && !cityStateZip) return '';
+
+  if (!base) return cityStateZip;
+
+  if (!cityStateZip) return base;
+
   const normalizedBase = base.toLowerCase();
   if (
+    patient.city &&
+    patient.state &&
     normalizedBase.includes(patient.city.toLowerCase()) &&
     normalizedBase.includes(patient.state.toLowerCase())
   ) {
     return base;
   }
-  return [base, cityLine.trim()].filter(Boolean).join(', ');
+  return [base, cityStateZip.trim()].filter(Boolean).join(', ');
 };
 
 const formatDob = (isoDob: string) => {

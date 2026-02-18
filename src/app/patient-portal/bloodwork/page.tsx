@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { logger } from '@/lib/logger';
 import { Upload, FileText, ChevronRight, Activity, Heart, TestTube } from 'lucide-react';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -49,7 +50,11 @@ export default function PatientPortalBloodworkPage() {
         setReports(Array.isArray(list) ? list : []);
         setError(null);
       }
-    } catch {
+    } catch (err) {
+      logger.warn('Failed to load bloodwork reports', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
+      setError('Failed to load reports. Please try again.');
       setReports([]);
     } finally {
       setIsLoading(false);
@@ -65,6 +70,11 @@ export default function PatientPortalBloodworkPage() {
       const file = files[0];
       if (!file || file.type !== 'application/pdf') {
         setError(t('bloodworkUploadError'));
+        return;
+      }
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setError('File exceeds the 10MB size limit. Please upload a smaller file.');
         return;
       }
       setError(null);
@@ -88,7 +98,10 @@ export default function PatientPortalBloodworkPage() {
               : t('bloodworkUploadError');
           setError(errMsg);
         }
-      } catch {
+      } catch (err) {
+        logger.warn('Bloodwork upload failed', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
         setError(t('bloodworkUploadError'));
       } finally {
         setIsUploading(false);

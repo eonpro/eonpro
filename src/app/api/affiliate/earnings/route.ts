@@ -2,18 +2,17 @@
  * Affiliate Earnings API
  *
  * Returns detailed earnings data:
- * - Balance summary
+ * - Balance summary (available, pending, lifetime, paid)
  * - Commission history
  * - Payout history
+ * - Next payout estimate
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAffiliateAuth } from '@/lib/auth/middleware';
 import type { AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { executeDbRead } from '@/lib/database/executeDb';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -26,126 +25,82 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Not an affiliate' }, { status: 403 });
     }
 
-    // Get affiliate
     const affiliate = await prisma.affiliate.findUnique({
       where: { id: affiliateId },
-      select: {
-        id: true,
-        lifetimeRevenueCents: true,
-      },
+      select: { id: true },
     });
 
     if (!affiliate) {
       return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
     }
 
-    // PHASE 2 OPTIMIZATION: Consolidated from 7 queries → 3 queries
-    // 1 raw SQL (replaces 5 aggregates) + 2 findMany for list data
-    const earningsResult = await executeDbRead(
-      () => Promise.all([
-        // Single SQL: all commission + payout aggregates via UNION ALL
-        prisma.$queryRaw<Array<{
-          source: string;
-          status: string;
-          sum_amount: bigint | null;
-          available_amount: bigint | null;
-        }>>(Prisma.sql`
-          SELECT
-            'commission' AS source,
-            status,
-            COALESCE(SUM("commissionAmountCents"), 0) AS sum_amount,
-            COALESCE(SUM(
-              CASE WHEN "payoutId" IS NULL AND status = 'APPROVED'
-                   THEN "commissionAmountCents" ELSE 0 END
-            ), 0) AS available_amount
-          FROM "AffiliateCommissionEvent"
-          WHERE "affiliateId" = ${affiliateId}
-            AND status IN ('PENDING', 'APPROVED', 'PAID')
-          GROUP BY status
-          UNION ALL
-          SELECT
-            'payout' AS source,
-            status,
-            COALESCE(SUM("netAmountCents"), 0) AS sum_amount,
-            0 AS available_amount
-          FROM "AffiliatePayout"
-          WHERE "affiliateId" = ${affiliateId}
-            AND status IN ('PROCESSING', 'COMPLETED')
-          GROUP BY status
-        `),
+    const [
+      availableCommissions,
+      pendingCommissions,
+      lifetimeCommissions,
+      processingPayouts,
+      completedPayouts,
+      commissionEvents,
+      payouts,
+    ] = await Promise.all([
+      prisma.affiliateCommissionEvent.aggregate({
+        where: { affiliateId, status: 'APPROVED', payoutId: null },
+        _sum: { commissionAmountCents: true },
+      }),
+      prisma.affiliateCommissionEvent.aggregate({
+        where: { affiliateId, status: 'PENDING' },
+        _sum: { commissionAmountCents: true },
+      }),
+      prisma.affiliateCommissionEvent.aggregate({
+        where: { affiliateId, status: { in: ['PENDING', 'APPROVED', 'PAID'] } },
+        _sum: { commissionAmountCents: true },
+      }),
+      prisma.affiliatePayout.aggregate({
+        where: { affiliateId, status: 'PROCESSING' },
+        _sum: { netAmountCents: true },
+      }),
+      prisma.affiliatePayout.aggregate({
+        where: { affiliateId, status: 'COMPLETED' },
+        _sum: { netAmountCents: true },
+      }),
+      prisma.affiliateCommissionEvent.findMany({
+        where: { affiliateId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          createdAt: true,
+          commissionAmountCents: true,
+          eventAmountCents: true,
+          status: true,
+          holdUntil: true,
+          metadata: true,
+        },
+      }),
+      prisma.affiliatePayout.findMany({
+        where: { affiliateId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
 
-        // Commission events list (last 100) — needed for display
-        prisma.affiliateCommissionEvent.findMany({
-          where: { affiliateId },
-          orderBy: { createdAt: 'desc' },
-          take: 100,
-        }),
+    const availableBalance = availableCommissions._sum.commissionAmountCents || 0;
+    const pendingBalance = pendingCommissions._sum.commissionAmountCents || 0;
+    const lifetimeEarnings = lifetimeCommissions._sum.commissionAmountCents || 0;
+    const processingPayout = processingPayouts._sum.netAmountCents || 0;
+    const lifetimePaid = completedPayouts._sum.netAmountCents || 0;
 
-        // Payouts list (last 50) — needed for display
-        prisma.affiliatePayout.findMany({
-          where: { affiliateId },
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-        }),
-      ]),
-      'affiliate-earnings:consolidated'
-    );
-
-    if (!earningsResult.success) {
-      logger.warn('[AffiliateEarnings] Blocked by circuit breaker', {
-        affiliateId,
-        error: earningsResult.error?.message,
-      });
-      return NextResponse.json(
-        { error: 'Earnings data temporarily unavailable — please retry shortly' },
-        { status: 503 }
-      );
-    }
-
-    const [aggregateRows, commissionEvents, payouts] = earningsResult.data!;
-
-    // Parse aggregation results from the single SQL query
-    let availableBalance = 0;
-    let pendingBalance = 0;
-    let lifetimeEarnings = 0;
-    let processingPayout = 0;
-    let lifetimePaid = 0;
-
-    for (const row of aggregateRows) {
-      const sumAmount = Number(row.sum_amount ?? 0);
-      const availableAmount = Number(row.available_amount ?? 0);
-
-      if (row.source === 'commission') {
-        // Accumulate lifetime earnings across statuses
-        lifetimeEarnings += sumAmount;
-
-        if (row.status === 'APPROVED') {
-          availableBalance = availableAmount; // Only un-paid-out APPROVED commissions
-        } else if (row.status === 'PENDING') {
-          pendingBalance = sumAmount;
-        }
-      } else if (row.source === 'payout') {
-        if (row.status === 'PROCESSING') {
-          processingPayout = sumAmount;
-        } else if (row.status === 'COMPLETED') {
-          lifetimePaid = sumAmount;
-        }
-      }
-    }
-
-    // Format commissions
-    const formattedCommissions = commissionEvents.map((c: (typeof commissionEvents)[number]) => ({
+    const formattedCommissions = commissionEvents.map((c) => ({
       id: String(c.id),
       createdAt: c.createdAt.toISOString(),
       amount: c.commissionAmountCents,
       status: c.status.toLowerCase() as 'pending' | 'approved' | 'paid' | 'reversed',
       orderAmount: c.eventAmountCents,
-      refCode: 'DIRECT', // TODO: Join with touch to get actual refCode if needed
+      refCode: (c.metadata as any)?.refCode || 'DIRECT',
       holdUntil: c.holdUntil?.toISOString(),
     }));
 
-    // Format payouts
-    const formattedPayouts = payouts.map((p: (typeof payouts)[number]) => ({
+    const formattedPayouts = payouts.map((p) => ({
       id: String(p.id),
       createdAt: p.createdAt.toISOString(),
       amount: p.amountCents,
@@ -155,7 +110,6 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       method: p.methodType === 'PAYPAL' ? 'PayPal' : 'Bank Transfer',
     }));
 
-    // Estimate next payout if there's available balance
     let nextPayout: { date: string; estimatedAmount: number } | undefined;
     if (availableBalance >= 5000) {
       const now = new Date();

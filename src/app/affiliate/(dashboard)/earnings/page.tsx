@@ -105,28 +105,34 @@ const StatusBadge = ({ status }: { status: string }) => {
 export default function EarningsPage() {
   const [data, setData] = useState<EarningsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('commissions');
   const [filter, setFilter] = useState<FilterType>('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  useEffect(() => {
-    const fetchEarnings = async () => {
-      try {
-        const res = await apiFetch('/api/affiliate/earnings');
-        if (res.ok) {
-          const earningsData = await res.json();
-          setData(earningsData);
-        }
-      } catch (error) {
-        console.error('Failed to fetch earnings:', error);
-      } finally {
-        setIsLoading(false);
+  const fetchEarnings = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch('/api/affiliate/earnings');
+      if (res.ok) {
+        const earningsData = await res.json();
+        setData(earningsData);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || 'Failed to load earnings data');
       }
-    };
+    } catch (err) {
+      setError('Unable to connect — please check your internet connection');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchEarnings();
   }, []);
 
-  // Use real data or empty state
   const displayData: EarningsData = data || {
     summary: {
       availableBalance: 0,
@@ -174,6 +180,27 @@ export default function EarningsPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6">
+        <div className="mx-auto max-w-sm text-center">
+          <svg className="mx-auto mb-4 h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <p className="mb-2 text-lg font-medium text-gray-900">Unable to load earnings</p>
+          <p className="mb-6 text-sm text-gray-500">{error}</p>
+          <button
+            onClick={fetchEarnings}
+            className="rounded-xl px-6 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: 'var(--brand-primary)' }}
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }

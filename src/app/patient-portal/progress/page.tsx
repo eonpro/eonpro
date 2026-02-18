@@ -253,6 +253,10 @@ export default function ProgressPage() {
 
   const handleQuickWater = async (amount: number) => {
     if (!patientId) return;
+    if (amount <= 0 || amount > 200) {
+      setError('Water amount must be between 1 and 200 oz');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -285,7 +289,13 @@ export default function ProgressPage() {
 
   const handleLogExercise = async () => {
     if (!patientId || !exerciseDuration) return;
+    const duration = parseInt(exerciseDuration);
+    if (isNaN(duration) || duration <= 0 || duration > 1440) {
+      setError('Exercise duration must be between 1 and 1440 minutes');
+      return;
+    }
     setSaving(true);
+    setError(null);
     try {
       const response = await portalFetch('/api/patient-progress/exercise', {
         method: 'POST',
@@ -293,21 +303,29 @@ export default function ProgressPage() {
         body: JSON.stringify({
           patientId,
           activityType: exerciseType,
-          duration: parseInt(exerciseDuration),
+          duration,
           intensity: exerciseIntensity,
         }),
       });
       if (response.ok) {
-        setWeeklyMinutes((prev) => prev + parseInt(exerciseDuration));
+        setWeeklyMinutes((prev) => prev + duration);
         setExerciseDuration('');
         setShowSuccess('Exercise logged!');
         setTimeout(() => setShowSuccess(''), 2000);
         fetchData();
+      } else {
+        const errBody = await safeParseJson(response);
+        setError(
+          (errBody && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: string }).error)
+            : 'Failed to save exercise') as string
+        );
       }
     } catch (error) {
       logger.error('Failed to log exercise', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setError('Failed to save exercise. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -315,22 +333,36 @@ export default function ProgressPage() {
 
   const handleLogSleep = async () => {
     if (!patientId) return;
+    if (!sleepStart || !sleepEnd) {
+      setError('Please set both sleep start and end times');
+      return;
+    }
+    const [startHour, startMin] = sleepStart.split(':').map(Number);
+    const [endHour, endMin] = sleepEnd.split(':').map(Number);
+    if (isNaN(startHour) || isNaN(startMin) || isNaN(endHour) || isNaN(endMin)) {
+      setError('Invalid time format');
+      return;
+    }
+
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const sleepStartDate = new Date(yesterday);
+    sleepStartDate.setHours(startHour, startMin, 0, 0);
+    const sleepEndDate = new Date(today);
+    sleepEndDate.setHours(endHour, endMin, 0, 0);
+
+    const durationMs = sleepEndDate.getTime() - sleepStartDate.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+    if (durationHours < 1 || durationHours > 24) {
+      setError('Sleep duration must be between 1 and 24 hours');
+      return;
+    }
+
     setSaving(true);
+    setError(null);
     try {
-      // Create datetime from today's date with the times
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const [startHour, startMin] = sleepStart.split(':').map(Number);
-      const [endHour, endMin] = sleepEnd.split(':').map(Number);
-
-      const sleepStartDate = new Date(yesterday);
-      sleepStartDate.setHours(startHour, startMin, 0, 0);
-
-      const sleepEndDate = new Date(today);
-      sleepEndDate.setHours(endHour, endMin, 0, 0);
-
       const response = await portalFetch('/api/patient-progress/sleep', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -345,11 +377,19 @@ export default function ProgressPage() {
         setShowSuccess('Sleep logged!');
         fetchData();
         setTimeout(() => setShowSuccess(''), 2000);
+      } else {
+        const errBody = await safeParseJson(response);
+        setError(
+          (errBody && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: string }).error)
+            : 'Failed to save sleep data') as string
+        );
       }
     } catch (error) {
       logger.error('Failed to log sleep', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setError('Failed to save sleep data. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -357,7 +397,19 @@ export default function ProgressPage() {
 
   const handleLogMeal = async () => {
     if (!patientId) return;
+    if (mealCalories) {
+      const cal = parseInt(mealCalories);
+      if (isNaN(cal) || cal < 0 || cal > 10000) {
+        setError('Calories must be between 0 and 10,000');
+        return;
+      }
+    }
+    if (!mealDescription.trim() && !mealCalories) {
+      setError('Please add a description or calorie count for the meal');
+      return;
+    }
     setSaving(true);
+    setError(null);
     try {
       const response = await portalFetch('/api/patient-progress/nutrition', {
         method: 'POST',
@@ -365,7 +417,7 @@ export default function ProgressPage() {
         body: JSON.stringify({
           patientId,
           mealType,
-          description: mealDescription,
+          description: mealDescription.trim(),
           calories: mealCalories ? parseInt(mealCalories) : undefined,
         }),
       });
@@ -378,11 +430,19 @@ export default function ProgressPage() {
         setShowSuccess('Meal logged!');
         setTimeout(() => setShowSuccess(''), 2000);
         fetchData();
+      } else {
+        const errBody = await safeParseJson(response);
+        setError(
+          (errBody && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: string }).error)
+            : 'Failed to save meal') as string
+        );
       }
     } catch (error) {
       logger.error('Failed to log meal', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setError('Failed to save meal. Please try again.');
     } finally {
       setSaving(false);
     }

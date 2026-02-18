@@ -40,6 +40,30 @@ interface UserProfile {
   };
 }
 
+function validateEmail(email: string): string | null {
+  if (!email.trim()) return 'Email is required';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Invalid email format';
+  return null;
+}
+
+function validatePhone(phone: string): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length > 0 && digits.length < 10) return 'Phone number must be at least 10 digits';
+  return null;
+}
+
+function validateDOB(dob: string): string | null {
+  if (!dob) return null;
+  const date = new Date(dob);
+  if (isNaN(date.getTime())) return 'Invalid date';
+  const now = new Date();
+  if (date > now) return 'Date of birth cannot be in the future';
+  const age = now.getFullYear() - date.getFullYear();
+  if (age > 150) return 'Date of birth is out of valid range';
+  return null;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { branding } = useClinicBranding();
@@ -107,14 +131,15 @@ export default function SettingsPage() {
     };
   }, [notifications, notifLoading]);
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     let cancelled = false;
     const loadProfile = async () => {
       try {
-        const res = await portalFetch('/api/auth/me');
+        const res = await portalFetch('/api/user/profile');
         if (cancelled) return;
         if (!res.ok) {
-          // If unauthorized, redirect to login
           if (res.status === 401) {
             router.replace(
               `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
@@ -125,16 +150,15 @@ export default function SettingsPage() {
         }
         const data = await res.json();
         if (cancelled) return;
-        const user = data?.user;
-        if (user) {
+        if (data) {
           setProfile({
-            id: user.id || 0,
-            firstName: user.firstName || '',
-            lastName: user.lastName || '',
-            email: user.email || '',
-            phone: user.phone || '',
-            dateOfBirth: user.dateOfBirth || '',
-            address: user.address,
+            id: data.id || 0,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            dateOfBirth: data.dateOfBirth || '',
+            address: data.address || undefined,
           });
         } else {
           router.replace(
@@ -153,15 +177,36 @@ export default function SettingsPage() {
   }, [router]);
 
   const handleSaveProfile = async () => {
+    if (!profile) return;
+
+    const errors: Record<string, string> = {};
+    const emailErr = validateEmail(profile.email);
+    if (emailErr) errors.email = emailErr;
+    const phoneErr = validatePhone(profile.phone);
+    if (phoneErr) errors.phone = phoneErr;
+    const dobErr = validateDOB(profile.dateOfBirth || '');
+    if (dobErr) errors.dateOfBirth = dobErr;
+    if (!profile.firstName.trim()) errors.firstName = 'First name is required';
+    if (!profile.lastName.trim()) errors.lastName = 'Last name is required';
+
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error('Please fix the validation errors before saving');
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await portalFetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName: profile?.firstName,
-          lastName: profile?.lastName,
-          phone: profile?.phone,
+          firstName: profile.firstName.trim(),
+          lastName: profile.lastName.trim(),
+          email: profile.email.trim(),
+          phone: profile.phone.trim() || null,
+          dateOfBirth: profile.dateOfBirth || null,
+          address: profile.address || null,
         }),
       });
 
@@ -180,7 +225,6 @@ export default function SettingsPage() {
         return;
       }
 
-      // Keep only minimal identifiers in localStorage (no PHI)
       if (profile) {
         const currentUser = localStorage.getItem('user');
         const userData = safeParseJsonString<{ id?: number; role?: string; patientId?: number }>(currentUser) ?? {};
@@ -189,6 +233,7 @@ export default function SettingsPage() {
 
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
+      toast.success('Profile saved successfully');
     } catch (error) {
       toast.error('Failed to save profile. Please try again.');
     } finally {
@@ -197,12 +242,36 @@ export default function SettingsPage() {
   };
 
   const handlePasswordChange = async () => {
+    if (!passwords.current) {
+      toast.error('Please enter your current password');
+      return;
+    }
     if (passwords.new !== passwords.confirm) {
       toast.error('New passwords do not match');
       return;
     }
     if (passwords.new.length < 8) {
       toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (passwords.new.length > 128) {
+      toast.error('Password must be 128 characters or fewer');
+      return;
+    }
+    if (!/[A-Z]/.test(passwords.new)) {
+      toast.error('Password must include at least one uppercase letter');
+      return;
+    }
+    if (!/[a-z]/.test(passwords.new)) {
+      toast.error('Password must include at least one lowercase letter');
+      return;
+    }
+    if (!/[0-9]/.test(passwords.new)) {
+      toast.error('Password must include at least one number');
+      return;
+    }
+    if (passwords.new === passwords.current) {
+      toast.error('New password must be different from your current password');
       return;
     }
 
@@ -345,10 +414,11 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     value={profile.firstName}
-                    onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    onChange={(e) => { setProfile({ ...profile, firstName: e.target.value }); setValidationErrors((prev) => { const { firstName: _, ...rest } = prev; return rest; }); }}
+                    className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.firstName ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
+                  {validationErrors.firstName && <p className="mt-1 text-sm text-red-600">{validationErrors.firstName}</p>}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -357,10 +427,11 @@ export default function SettingsPage() {
                   <input
                     type="text"
                     value={profile.lastName}
-                    onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    onChange={(e) => { setProfile({ ...profile, lastName: e.target.value }); setValidationErrors((prev) => { const { lastName: _, ...rest } = prev; return rest; }); }}
+                    className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.lastName ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
+                  {validationErrors.lastName && <p className="mt-1 text-sm text-red-600">{validationErrors.lastName}</p>}
                 </div>
               </div>
 
@@ -371,11 +442,12 @@ export default function SettingsPage() {
                   <input
                     type="email"
                     value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    onChange={(e) => { setProfile({ ...profile, email: e.target.value }); setValidationErrors((prev) => { const { email: _, ...rest } = prev; return rest; }); }}
+                    className={`w-full rounded-xl border py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.email ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
                 </div>
+                {validationErrors.email && <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>}
               </div>
 
               <div className="mb-4">
@@ -385,24 +457,67 @@ export default function SettingsPage() {
                   <input
                     type="tel"
                     value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                    className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    onChange={(e) => { setProfile({ ...profile, phone: e.target.value }); setValidationErrors((prev) => { const { phone: _, ...rest } = prev; return rest; }); }}
+                    className={`w-full rounded-xl border py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.phone ? 'border-red-300' : 'border-gray-200'}`}
                     style={ringColorStyle(primaryColor)}
                   />
                 </div>
+                {validationErrors.phone && <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>}
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
                   {t('dateOfBirth')}
                 </label>
                 <input
                   type="date"
                   value={profile.dateOfBirth || ''}
-                  onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  onChange={(e) => { setProfile({ ...profile, dateOfBirth: e.target.value }); setValidationErrors((prev) => { const { dateOfBirth: _, ...rest } = prev; return rest; }); }}
+                  className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.dateOfBirth ? 'border-red-300' : 'border-gray-200'}`}
                   style={ringColorStyle(primaryColor)}
+                  max={new Date().toISOString().split('T')[0]}
                 />
+                {validationErrors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{validationErrors.dateOfBirth}</p>}
+              </div>
+
+              <div className="mb-6">
+                <h3 className="mb-3 text-sm font-semibold text-gray-700">{t('address') || 'Address'}</h3>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder={t('street') || 'Street address'}
+                    value={profile.address?.street || ''}
+                    onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), street: e.target.value } })}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={ringColorStyle(primaryColor)}
+                  />
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <input
+                      type="text"
+                      placeholder={t('city') || 'City'}
+                      value={profile.address?.city || ''}
+                      onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), city: e.target.value } })}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                      style={ringColorStyle(primaryColor)}
+                    />
+                    <input
+                      type="text"
+                      placeholder={t('state') || 'State'}
+                      value={profile.address?.state || ''}
+                      onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), state: e.target.value } })}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                      style={ringColorStyle(primaryColor)}
+                    />
+                    <input
+                      type="text"
+                      placeholder={t('zip') || 'ZIP Code'}
+                      value={profile.address?.zip || ''}
+                      onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), zip: e.target.value } })}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                      style={ringColorStyle(primaryColor)}
+                    />
+                  </div>
+                </div>
               </div>
 
               <button
@@ -510,6 +625,9 @@ export default function SettingsPage() {
                       )}
                     </button>
                   </div>
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    At least 8 characters with uppercase, lowercase, and a number
+                  </p>
                 </div>
 
                 <div>

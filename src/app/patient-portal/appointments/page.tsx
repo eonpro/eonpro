@@ -149,6 +149,11 @@ export default function AppointmentsPage() {
   const loadProviders = async () => {
     try {
       const response = await portalFetch('/api/patient-portal/appointments?action=providers');
+      const sessionErr = getPortalResponseError(response);
+      if (sessionErr) {
+        setLoadError(sessionErr);
+        return;
+      }
       if (response.ok) {
         const data = await safeParseJson(response);
         const list =
@@ -156,17 +161,25 @@ export default function AppointmentsPage() {
             ? (data as { providers?: Provider[] }).providers
             : undefined;
         setProviders(Array.isArray(list) ? list : []);
+      } else {
+        setToast({ message: 'Unable to load providers. Some options may be unavailable.', type: 'error' });
       }
     } catch (error) {
       logger.error('Failed to load providers', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setToast({ message: 'Unable to load providers. Please refresh the page.', type: 'error' });
     }
   };
 
   const loadAppointmentTypes = async () => {
     try {
       const response = await portalFetch('/api/patient-portal/appointments?action=appointment-types');
+      const sessionErr = getPortalResponseError(response);
+      if (sessionErr) {
+        setLoadError(sessionErr);
+        return;
+      }
       if (response.ok) {
         const data = await safeParseJson(response);
         const list =
@@ -174,11 +187,14 @@ export default function AppointmentsPage() {
             ? (data as { appointmentTypes?: AppointmentType[] }).appointmentTypes
             : undefined;
         setAppointmentTypes(Array.isArray(list) ? list : []);
+      } else {
+        setToast({ message: 'Unable to load appointment types.', type: 'error' });
       }
     } catch (error) {
       logger.error('Failed to load appointment types', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setToast({ message: 'Unable to load appointment types. Please refresh the page.', type: 'error' });
     }
   };
 

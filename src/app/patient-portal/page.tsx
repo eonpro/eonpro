@@ -264,6 +264,24 @@ export default function PatientPortalDashboard() {
         }
       }
 
+      // Load recent shipment for dashboard widget
+      try {
+        const trackingRes = await portalFetch('/api/patient-portal/tracking');
+        if (trackingRes.ok) {
+          const trackingResult = await safeParseJson(trackingRes);
+          if (trackingResult && typeof trackingResult === 'object' && 'activeShipments' in trackingResult) {
+            const active = (trackingResult as { activeShipments: RecentShipmentDisplay[] }).activeShipments;
+            if (Array.isArray(active) && active.length > 0) {
+              setRecentShipment(active[0]);
+            }
+          }
+        }
+      } catch (trackingError) {
+        logger.error('PatientPortal: failed to load tracking data', {
+          error: trackingError instanceof Error ? trackingError.message : 'Unknown',
+        });
+      }
+
       // Load photo stats for dashboard widget
       try {
         const photosRes = await portalFetch('/api/patient-portal/photos');
@@ -501,7 +519,7 @@ export default function PatientPortalDashboard() {
               </div>
             </div>
 
-            {weightChange !== null && (
+            {weightChange !== null ? (
               <div className="flex items-center gap-2">
                 {weightChange < 0 ? (
                   <>
@@ -526,11 +544,15 @@ export default function PatientPortalDashboard() {
                   {t('dashboardSinceStarting')}
                 </span>
               </div>
-            )}
+            ) : !currentWeight ? (
+              <p className="text-sm" style={{ color: '#555' }}>
+                Log your first weight to start tracking progress
+              </p>
+            ) : null}
 
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm font-medium" style={{ color: '#555' }}>
-                {t('dashboardTapToLogWeight')}
+                {currentWeight ? t('dashboardTapToLogWeight') : 'Tap to get started'}
               </span>
               <ChevronRight className="h-5 w-5" style={{ color: '#555' }} />
             </div>
@@ -571,9 +593,15 @@ export default function PatientPortalDashboard() {
               </div>
               <span className="text-xs font-medium text-gray-500">{t('dashboardShipment')}</span>
             </div>
-            <p className="font-semibold capitalize text-gray-900">{recentShipment.status}</p>
+            <p className="font-semibold capitalize text-gray-900">
+              {recentShipment.statusLabel || recentShipment.status || 'Processing'}
+            </p>
             <p className="text-sm text-gray-500">
-              {t('dashboardEst')} {String(recentShipment.estimatedDelivery ?? '')}
+              {recentShipment.estimatedDelivery
+                ? `${t('dashboardEst')} ${new Date(String(recentShipment.estimatedDelivery)).toLocaleDateString()}`
+                : recentShipment.orderNumber
+                  ? `Order ${recentShipment.orderNumber}`
+                  : t('dashboardShipment')}
             </p>
           </Link>
         )}

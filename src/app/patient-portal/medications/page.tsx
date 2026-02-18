@@ -117,11 +117,27 @@ export default function MedicationsPage() {
     setLoading(false);
   };
 
+  const [reminderError, setReminderError] = useState<string | null>(null);
+
   const addReminder = async () => {
+    setReminderError(null);
     const medicationName = selectedMed
       ? `${selectedMed.name} ${selectedMed.dosage}`
       : customMedicationName?.trim() || '';
-    if (!medicationName || !patientId) return;
+
+    if (!medicationName) {
+      setReminderError('Please select or enter a medication name');
+      return;
+    }
+    if (medicationName.length > 200) {
+      setReminderError('Medication name is too long');
+      return;
+    }
+    if (!newReminder.time || !/^\d{2}:\d{2}$/.test(newReminder.time)) {
+      setReminderError('Please select a valid time');
+      return;
+    }
+    if (!patientId) return;
 
     setSaving(true);
     try {
@@ -147,30 +163,44 @@ export default function MedicationsPage() {
         setCustomMedicationName('');
         setShowSuccess(t('medsReminderSaved'));
         setTimeout(() => setShowSuccess(''), 3000);
+      } else {
+        const errBody = await safeParseJson(response);
+        setReminderError(
+          errBody && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: string }).error)
+            : 'Failed to save reminder'
+        );
       }
     } catch (error) {
       logger.error('Error saving reminder', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setReminderError('Failed to save reminder. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const removeReminder = async (id: number) => {
+    const previousReminders = [...reminders];
+    setReminders((prev) => prev.filter((r) => r.id !== id));
     try {
       const response = await portalFetch(`/api/patient-progress/medication-reminders?id=${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
-        setReminders((prev) => prev.filter((r) => r.id !== id));
         setShowSuccess(t('medsReminderRemoved'));
         setTimeout(() => setShowSuccess(''), 2000);
+      } else {
+        setReminders(previousReminders);
+        setLoadError('Failed to remove reminder. Please try again.');
       }
     } catch (error) {
+      setReminders(previousReminders);
       logger.error('Error removing reminder', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setLoadError('Failed to remove reminder. Please try again.');
     }
   };
 

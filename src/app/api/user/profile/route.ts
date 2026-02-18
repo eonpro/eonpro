@@ -2,10 +2,11 @@
  * User Profile API
  *
  * Handles user profile information retrieval and updates.
- * Works for all authenticated users.
+ * Works for all authenticated users. For patient users,
+ * also syncs dateOfBirth and address to the Patient record.
  *
- * GET - Get current user's profile information
- * PATCH - Update profile information (firstName, lastName, phone)
+ * GET - Get current user's profile information (includes patient data for patients)
+ * PATCH - Update profile information
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,11 +15,20 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
-// Validation schema for profile updates
+const addressSchema = z.object({
+  street: z.string().max(200).optional(),
+  city: z.string().max(100).optional(),
+  state: z.string().max(50).optional(),
+  zip: z.string().max(20).optional(),
+}).optional().nullable();
+
 const updateProfileSchema = z.object({
-  firstName: z.string().min(1).max(100).optional(),
-  lastName: z.string().min(1).max(100).optional(),
+  firstName: z.string().min(1, 'First name is required').max(100).optional(),
+  lastName: z.string().min(1, 'Last name is required').max(100).optional(),
+  email: z.string().email('Invalid email address').max(255).optional(),
   phone: z.string().max(20).optional().nullable(),
+  dateOfBirth: z.string().max(20).optional().nullable(),
+  address: addressSchema,
   preferredLanguage: z.enum(['en', 'es']).optional(),
 });
 
@@ -44,6 +54,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         createdAt: true,
         lastLogin: true,
         metadata: true,
+        patientId: true,
         clinic: {
           select: {
             id: true,
@@ -60,6 +71,28 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const metadata = (dbUser.metadata as Record<string, unknown>) || {};
     const preferredLanguage = (metadata.preferredLanguage as string) || 'en';
 
+    let dateOfBirth: string | null = null;
+    let address: { street: string; city: string; state: string; zip: string } | null = null;
+
+    if (dbUser.patientId) {
+      const patient = await prisma.patient.findUnique({
+        where: { id: dbUser.patientId },
+        select: { dob: true, address1: true, address2: true, city: true, state: true, zip: true },
+      });
+      if (patient) {
+        dateOfBirth = patient.dob || null;
+        const street = [patient.address1, patient.address2].filter(Boolean).join(', ');
+        if (street || patient.city || patient.state || patient.zip) {
+          address = {
+            street: street || '',
+            city: patient.city || '',
+            state: patient.state || '',
+            zip: patient.zip || '',
+          };
+        }
+      }
+    }
+
     return NextResponse.json({
       id: dbUser.id,
       firstName: dbUser.firstName,
@@ -75,6 +108,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       lastLogin: dbUser.lastLogin,
       preferredLanguage: preferredLanguage === 'es' ? 'es' : 'en',
       clinic: dbUser.clinic,
+      dateOfBirth,
+      address,
     });
   } catch (error) {
     logger.error('[User Profile] GET error', {
@@ -93,74 +128,111 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
 
-    // Validate input
     const parseResult = updateProfileSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: parseResult.error.flatten(),
-        },
+        { error: 'Validation failed', details: parseResult.error.flatten() },
         { status: 400 }
       );
     }
 
-    const { firstName, lastName, phone, preferredLanguage } = parseResult.data;
+    const { firstName, lastName, email, phone, dateOfBirth, address, preferredLanguage } = parseResult.data;
 
-    // Build update object with only provided fields
-    const updateData: Record<string, unknown> = {};
+    const userUpdateData: Record<string, unknown> = {};
+    const patientUpdateData: Record<string, unknown> = {};
+    const updatedFields: string[] = [];
 
     if (firstName !== undefined) {
-      updateData.firstName = firstName;
+      userUpdateData.firstName = firstName;
+      patientUpdateData.firstName = firstName;
+      updatedFields.push('firstName');
     }
-
     if (lastName !== undefined) {
-      updateData.lastName = lastName;
+      userUpdateData.lastName = lastName;
+      patientUpdateData.lastName = lastName;
+      updatedFields.push('lastName');
     }
-
+    if (email !== undefined) {
+      const existingUser = await prisma.user.findFirst({
+        where: { email: email.toLowerCase(), id: { not: user.id } },
+        select: { id: true },
+      });
+      if (existingUser) {
+        return NextResponse.json({ error: 'Email address is already in use' }, { status: 409 });
+      }
+      userUpdateData.email = email.toLowerCase();
+      patientUpdateData.email = email.toLowerCase();
+      updatedFields.push('email');
+    }
     if (phone !== undefined) {
-      updateData.phone = phone || null;
+      userUpdateData.phone = phone || null;
+      patientUpdateData.phone = phone || '';
+      updatedFields.push('phone');
     }
-
+    if (dateOfBirth !== undefined) {
+      if (dateOfBirth) {
+        const dob = new Date(dateOfBirth);
+        if (isNaN(dob.getTime())) {
+          return NextResponse.json({ error: 'Invalid date of birth' }, { status: 400 });
+        }
+        const now = new Date();
+        const age = now.getFullYear() - dob.getFullYear();
+        if (age < 0 || age > 150) {
+          return NextResponse.json({ error: 'Date of birth is out of valid range' }, { status: 400 });
+        }
+      }
+      patientUpdateData.dob = dateOfBirth || '';
+      updatedFields.push('dateOfBirth');
+    }
+    if (address !== undefined && address !== null) {
+      if (address.street !== undefined) {
+        patientUpdateData.address1 = address.street;
+      }
+      if (address.city !== undefined) {
+        patientUpdateData.city = address.city;
+      }
+      if (address.state !== undefined) {
+        patientUpdateData.state = address.state;
+      }
+      if (address.zip !== undefined) {
+        patientUpdateData.zip = address.zip;
+      }
+      updatedFields.push('address');
+    }
     if (preferredLanguage !== undefined) {
       const current = await prisma.user.findUnique({
         where: { id: user.id },
         select: { metadata: true },
       });
       const metadata = (current?.metadata as Record<string, unknown>) || {};
-      updateData.metadata = { ...metadata, preferredLanguage };
+      userUpdateData.metadata = { ...metadata, preferredLanguage };
+      updatedFields.push('preferredLanguage');
     }
 
-    // If no fields to update
-    if (Object.keys(updateData).length === 0) {
+    if (updatedFields.length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    // Update user
-    const updatedUser = await prisma.user.update({
+    const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
-      data: updateData,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        role: true,
-        avatarUrl: true,
-        metadata: true,
-      },
+      select: { patientId: true },
     });
+
+    await prisma.$transaction(async (tx) => {
+      if (Object.keys(userUpdateData).length > 0) {
+        await tx.user.update({ where: { id: user.id }, data: userUpdateData });
+      }
+      if (Object.keys(patientUpdateData).length > 0 && dbUser?.patientId) {
+        await tx.patient.update({ where: { id: dbUser.patientId }, data: patientUpdateData });
+      }
+    }, { timeout: 10000 });
 
     logger.info('[User Profile] Updated', {
       userId: user.id,
-      updatedFields: Object.keys(updateData),
+      updatedFields,
     });
 
-    return NextResponse.json({
-      success: true,
-      user: updatedUser,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     logger.error('[User Profile] PATCH error', {
       userId: user.id,

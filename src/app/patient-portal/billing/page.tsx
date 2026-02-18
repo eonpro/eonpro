@@ -23,7 +23,7 @@ import {
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import NextLink from 'next/link';
-import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
@@ -120,21 +120,34 @@ export default function BillingPage() {
 
   const openCustomerPortal = async () => {
     try {
+      setLoadError(null);
       const res = await portalFetch('/api/patient-portal/billing/portal', {
         method: 'POST',
       });
+      const sessionErr = getPortalResponseError(res);
+      if (sessionErr) {
+        setLoadError(sessionErr);
+        return;
+      }
       if (res.ok) {
         const parsed = await safeParseJson(res);
         const url =
           parsed !== null && typeof parsed === 'object' && 'url' in parsed
             ? (parsed as { url?: string }).url
             : undefined;
-        if (url) window.location.href = url;
+        if (url) {
+          window.location.href = url;
+        } else {
+          setLoadError('Could not open billing portal. Please try again.');
+        }
+      } else {
+        setLoadError('Could not open billing portal. Please try again later.');
       }
     } catch (error) {
       logger.error('Failed to open customer portal', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      setLoadError('Unable to connect to billing portal. Please check your connection.');
     }
   };
 
@@ -176,17 +189,36 @@ export default function BillingPage() {
     <div className="mx-auto max-w-4xl p-4 pb-24 md:p-6">
       {loadError && (
         <div
-          className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
+          className={`mb-6 flex items-center gap-3 rounded-xl border p-4 ${
+            loadError === SESSION_EXPIRED_MESSAGE
+              ? 'border-amber-200 bg-amber-50'
+              : 'border-red-200 bg-red-50'
+          }`}
           role="alert"
         >
-          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
-          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
-          <NextLink
-            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/billing`)}&reason=session_expired`}
-            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
-          >
-            Log in
-          </NextLink>
+          <AlertCircle className={`h-5 w-5 shrink-0 ${
+            loadError === SESSION_EXPIRED_MESSAGE ? 'text-amber-600' : 'text-red-500'
+          }`} />
+          <p className={`flex-1 text-sm font-medium ${
+            loadError === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
+          }`}>
+            {loadError}
+          </p>
+          {loadError === SESSION_EXPIRED_MESSAGE ? (
+            <NextLink
+              href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/billing`)}&reason=session_expired`}
+              className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+            >
+              Log in
+            </NextLink>
+          ) : (
+            <button
+              onClick={() => { setLoadError(null); fetchBillingData(); }}
+              className="shrink-0 rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200"
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
       {/* Header */}

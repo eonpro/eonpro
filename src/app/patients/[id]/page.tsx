@@ -34,6 +34,7 @@ import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary'
 import PatientQuickSearch from '@/components/PatientQuickSearch';
 import WeightProgressSummary from '@/components/WeightProgressSummary';
 import { Patient, Provider, Order } from '@/types/models';
+import { extractVitalsFromIntake, parseDocumentData } from '@/lib/utils/vitals-extraction';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -502,138 +503,10 @@ export default async function PatientDetailPage({
       });
     });
 
-    // Extract vitals from multiple sources:
-    // 1. Document data (JSON with sections array) - from eonpro-intake, heyflow-intake-v2
-    // 2. IntakeSubmissions responses - from intake form system
-    // 3. Flat key-value in document data
-    const extractVitals = () => {
-      const result: {
-        height?: string | null;
-        weight?: string | null;
-        bmi?: string | null;
-        bloodPressure?: string | null;
-        idealWeight?: string | null;
-      } = {};
-
-      // Helper to find value by label in various data sources
-      const findValue = (...labels: string[]): string | null => {
-        // Source 1: Document data with sections array (must be parsed JSON, not Buffer)
-        const intakeDoc = documentsWithParsedData.find(
-          (d: any) =>
-            d.category === 'MEDICAL_INTAKE_FORM' &&
-            d.data &&
-            typeof d.data === 'object' &&
-            !Buffer.isBuffer(d.data) &&
-            !(d.data.type === 'Buffer') // Prisma serialized buffer format
-        );
-
-        if (intakeDoc?.data) {
-          // Check sections array
-          if (intakeDoc.data.sections && Array.isArray(intakeDoc.data.sections)) {
-            for (const section of intakeDoc.data.sections) {
-              if (section.entries && Array.isArray(section.entries)) {
-                for (const entry of section.entries) {
-                  const entryLabel = (entry.label || '').toLowerCase();
-                  for (const label of labels) {
-                    if (
-                      entryLabel.includes(label.toLowerCase()) &&
-                      entry.value &&
-                      entry.value !== ''
-                    ) {
-                      return String(entry.value);
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          // Also check answers array directly (some webhooks store this way)
-          if (intakeDoc.data.answers && Array.isArray(intakeDoc.data.answers)) {
-            for (const answer of intakeDoc.data.answers) {
-              const answerLabel = (answer.label || '').toLowerCase();
-              for (const label of labels) {
-                if (
-                  answerLabel.includes(label.toLowerCase()) &&
-                  answer.value &&
-                  answer.value !== ''
-                ) {
-                  return String(answer.value);
-                }
-              }
-            }
-          }
-        }
-
-        // Source 2: IntakeSubmissions responses
-        if (patientWithDecryptedPHI.intakeSubmissions?.length > 0) {
-          for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
-            if (submission.responses && Array.isArray(submission.responses)) {
-              for (const response of submission.responses) {
-                const resp = response as any;
-                const questionText = (
-                  resp.question?.text ||
-                  resp.question?.label ||
-                  resp.question?.questionText ||
-                  ''
-                ).toLowerCase();
-                for (const label of labels) {
-                  if (
-                    questionText.includes(label.toLowerCase()) &&
-                    resp.value &&
-                    resp.value !== ''
-                  ) {
-                    return String(resp.value);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Source 3: Flat key-value in document data
-        if (intakeDoc?.data && typeof intakeDoc.data === 'object') {
-          for (const label of labels) {
-            const searchKey = label.toLowerCase().replace(/[^a-z0-9]/g, '');
-            for (const [key, value] of Object.entries(intakeDoc.data)) {
-              const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (normalizedKey.includes(searchKey) && value && value !== '') {
-                return String(value);
-              }
-            }
-          }
-        }
-
-        return null;
-      };
-
-      // Extract height - try separate feet/inches first, then combined value
-      const heightFeet = findValue('height (feet)', 'height feet', 'heightfeet');
-      const heightInches = findValue('height (inches)', 'height inches', 'heightinches');
-      if (heightFeet) {
-        result.height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
-      } else {
-        // Fallback: look for combined height value (e.g., "5'2"" or "62 inches")
-        result.height = findValue('height');
-      }
-
-      // Extract weight
-      result.weight = findValue('starting weight', 'current weight', 'weight');
-
-      // Extract BMI
-      result.bmi = findValue('bmi');
-
-      // Extract blood pressure
-      const bp = findValue('blood pressure', 'bloodpressure');
-      result.bloodPressure = bp && bp.toLowerCase() !== 'unknown' ? bp : null;
-
-      // Extract ideal weight
-      result.idealWeight = findValue('ideal weight', 'goal weight', 'target weight');
-
-      return result;
-    };
-
-    const vitals = extractVitals();
+    const vitals = extractVitalsFromIntake(
+      documentsWithParsedData,
+      patientWithDecryptedPHI.intakeSubmissions ?? []
+    );
 
     // ═══════════════════════════════════════════════════════════════════
     // AFFILIATE CODE EXTRACTION

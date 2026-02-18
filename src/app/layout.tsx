@@ -23,7 +23,12 @@ import { outfitFont as sofiaPro } from './fonts-fallback';
 
 export const metadata = {
   title: 'EONPRO',
-  icons: { icon: { url: '/favicon.png', type: 'image/png' } },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [{ url: '/favicon.svg' }],
+  },
 };
 
 /** White browser chrome (status bar + URL bar) on mobile for patient portal and app. */

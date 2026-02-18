@@ -12,6 +12,8 @@ import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { toast } from '@/components/Toast';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
 interface Document {
   id: number;
   filename: string;
@@ -33,7 +35,6 @@ export default function PatientPortalDocuments() {
   const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
 
-  // Get patient ID from user (same as progress/dashboard so data matches admin profile)
   useEffect(() => {
     let cancelled = false;
 
@@ -74,7 +75,6 @@ export default function PatientPortalDocuments() {
     };
   }, [router]);
 
-  // Fetch existing documents on component mount
   useEffect(() => {
     if (!patientId) return;
 
@@ -82,7 +82,7 @@ export default function PatientPortalDocuments() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await portalFetch(`/api/patients/${patientId}/documents`);
+        const response = await portalFetch('/api/patient-portal/documents');
         const sessionError = getPortalResponseError(response);
         if (sessionError) {
           setError(sessionError);
@@ -90,16 +90,19 @@ export default function PatientPortalDocuments() {
         }
         if (response.ok) {
           const data = await safeParseJson(response);
-          if (data !== null && Array.isArray(data)) {
-            setDocuments(data);
+          const docs = data !== null && typeof data === 'object' && 'documents' in data
+            ? (data as { documents?: Document[] }).documents
+            : null;
+          if (Array.isArray(docs)) {
+            setDocuments(docs);
           } else {
             setError('Failed to load documents. Please try again.');
           }
         } else {
           setError('Failed to load documents. Please try again.');
         }
-      } catch (error) {
-        logger.error('Error fetching documents', { error: error instanceof Error ? error.message : 'Unknown' });
+      } catch (err) {
+        logger.error('Error fetching documents', { error: err instanceof Error ? err.message : 'Unknown' });
         setError('Failed to load documents. Please check your connection and try again.');
       } finally {
         setIsLoading(false);
@@ -146,24 +149,32 @@ export default function PatientPortalDocuments() {
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] || '');
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const handleFiles = async (files: FileList) => {
     if (!patientId) return;
+
+    const oversized = Array.from(files).filter((f) => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      toast.error(`File "${oversized[0].name}" exceeds the 10MB limit.`);
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
 
-    const formData = new FormData();
-    Array.from(files).forEach((file) => {
-      formData.append('files', file);
-    });
-    formData.append('patientId', patientId.toString());
-    formData.append('category', selectedCategory);
-    formData.append('source', 'patient_portal');
-
     let progressInterval: NodeJS.Timeout | null = null;
 
     try {
-      // Simulate upload progress
       progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
@@ -174,34 +185,54 @@ export default function PatientPortalDocuments() {
         });
       }, 200);
 
-      const response = await portalFetch(`/api/patients/${patientId}/documents`, {
-        method: 'POST',
-        body: formData,
-      });
+      const uploaded: Document[] = [];
+      for (const file of Array.from(files)) {
+        const base64 = await fileToBase64(file);
+        const response = await portalFetch('/api/patient-portal/documents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientId,
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            category: selectedCategory,
+            data: base64,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await safeParseJson(response);
+          const doc = result && typeof result === 'object' && 'document' in result
+            ? (result as { document?: Document }).document
+            : null;
+          if (doc) uploaded.push(doc);
+        } else {
+          const errBody = await safeParseJson(response);
+          const msg = errBody && typeof errBody === 'object' && 'error' in errBody
+            ? String((errBody as { error?: unknown }).error)
+            : 'Upload failed';
+          throw new Error(msg);
+        }
+      }
 
       if (progressInterval) clearInterval(progressInterval);
       setUploadProgress(100);
 
-      if (response.ok) {
-        const newDocuments = await safeParseJson(response);
-        if (newDocuments !== null && Array.isArray(newDocuments)) {
-          setDocuments([...documents, ...newDocuments]);
-        }
-        // Reset after successful upload
-        setTimeout(() => {
-          setIsUploading(false);
-          setUploadProgress(0);
-        }, 500);
-      } else {
-        throw new Error('Upload failed');
+      if (uploaded.length > 0) {
+        setDocuments((prev) => [...uploaded, ...prev]);
+        toast.success(`${uploaded.length} document${uploaded.length > 1 ? 's' : ''} uploaded.`);
       }
-    } catch (error) {
-      // Always clear the interval on error
+
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }, 500);
+    } catch (err) {
       if (progressInterval) clearInterval(progressInterval);
-      logger.error('Upload error', { error: error instanceof Error ? error.message : 'Unknown' });
+      logger.error('Upload error', { error: err instanceof Error ? err.message : 'Unknown' });
       setIsUploading(false);
       setUploadProgress(0);
-      toast.error('Failed to upload documents. Please try again.');
+      toast.error(err instanceof Error ? err.message : 'Failed to upload documents. Please try again.');
     }
   };
 
@@ -212,18 +243,25 @@ export default function PatientPortalDocuments() {
       return;
     }
 
+    const previous = [...documents];
+    setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
+
     try {
-      const response = await portalFetch(`/api/patients/${patientId}/documents/${documentId}`, {
+      const response = await portalFetch(`/api/patient-portal/documents?documentId=${documentId}`, {
         method: 'DELETE',
       });
 
-      if (response.ok) {
-        setDocuments(documents.filter((doc) => doc.id !== documentId));
-      } else {
-        throw new Error('Delete failed');
+      if (!response.ok) {
+        setDocuments(previous);
+        const errBody = await safeParseJson(response);
+        const msg = errBody && typeof errBody === 'object' && 'error' in errBody
+          ? String((errBody as { error?: unknown }).error)
+          : 'Delete failed';
+        toast.error(msg);
       }
-    } catch (error) {
-      logger.error('Delete error', { error: error instanceof Error ? error.message : 'Unknown' });
+    } catch (err) {
+      setDocuments(previous);
+      logger.error('Delete error', { error: err instanceof Error ? err.message : 'Unknown' });
       toast.error('Failed to delete document. Please try again.');
     }
   };

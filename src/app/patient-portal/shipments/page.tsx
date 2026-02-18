@@ -348,24 +348,25 @@ export default function ShipmentsPage() {
                   </div>
 
                   {/* Delivery Info */}
-                  {(selectedShipment.estimatedDelivery || selectedShipment.deliveredAt) && (
-                    <div className="relative mt-6 rounded-2xl bg-white/20 p-4 backdrop-blur-sm">
-                      <p className="text-xs font-medium text-white/80">
-                        {selectedShipment.status === 'delivered'
-                          ? 'Delivered On'
-                          : 'Expected Delivery'}
-                      </p>
-                      <p className="text-xl font-bold text-white">
-                        {new Date(
-                          selectedShipment.deliveredAt || selectedShipment.estimatedDelivery!
-                        ).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          month: 'long',
-                          day: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                  )}
+                  {(selectedShipment.estimatedDelivery || selectedShipment.deliveredAt) && (() => {
+                    const dateStr = selectedShipment.deliveredAt || selectedShipment.estimatedDelivery!;
+                    const parsed = new Date(dateStr);
+                    const isValid = !isNaN(parsed.getTime());
+                    return (
+                      <div className="relative mt-6 rounded-2xl bg-white/20 p-4 backdrop-blur-sm">
+                        <p className="text-xs font-medium text-white/80">
+                          {selectedShipment.status === 'delivered'
+                            ? 'Delivered On'
+                            : 'Expected Delivery'}
+                        </p>
+                        <p className="text-xl font-bold text-white">
+                          {isValid
+                            ? parsed.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+                            : 'Date unavailable'}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Visual Timeline */}
@@ -464,12 +465,10 @@ export default function ShipmentsPage() {
                           {selectedShipment.lastLocation}
                         </p>
                         <p className="mt-0.5 text-xs text-emerald-500">
-                          {new Date(selectedShipment.lastUpdate).toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}
+                          {(() => {
+                            const d = new Date(selectedShipment.lastUpdate);
+                            return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -523,12 +522,12 @@ export default function ShipmentsPage() {
 
                 <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 text-sm text-gray-500">
                   <Calendar className="h-4 w-4" />
-                  Ordered on{' '}
-                  {new Date(selectedShipment.orderedAt).toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  {(() => {
+                    const d = new Date(selectedShipment.orderedAt);
+                    return isNaN(d.getTime())
+                      ? 'Order date unavailable'
+                      : `Ordered on ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+                  })()}
                 </div>
               </div>
             </div>

@@ -10,6 +10,13 @@ import { generatePDFOnSubmission } from '@/lib/intake-forms/pdf-generator';
 import { sendIntakeFormNotifications } from '@/lib/intake-forms/notifications';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { checkRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
+
+const INTAKE_SUBMIT_RATE_LIMIT = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxAttempts: 10,           // 10 submissions per hour per IP
+  blockDuration: 30 * 60 * 1000, // 30 min block
+};
 
 interface RouteParams {
   params: Promise<{
@@ -21,20 +28,20 @@ interface RouteParams {
 const submitSchema = z.object({
   responses: z.array(
     z.object({
-      questionId: z.number(),
-      answer: z.string().optional(),
-      fileUrl: z.string().optional(),
+      questionId: z.number().int().positive(),
+      answer: z.string().max(10000).optional(),
+      fileUrl: z.string().url().max(2000).optional(),
     })
-  ),
+  ).max(500),
   patientInfo: z
     .object({
-      firstName: z.string().optional(),
-      lastName: z.string().optional(),
-      email: z.string().email().optional(),
-      phone: z.string().optional(),
+      firstName: z.string().max(100).optional(),
+      lastName: z.string().max(100).optional(),
+      email: z.string().email().max(255).optional(),
+      phone: z.string().max(20).optional(),
     })
     .optional(),
-  signature: z.string().optional(),
+  signature: z.string().max(500000).optional(),
 });
 
 /**
@@ -104,6 +111,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
+    const { allowed, retryAfter } = await checkRateLimit(req, INTAKE_SUBMIT_RATE_LIMIT);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please try again later.' },
+        {
+          status: 429,
+          headers: retryAfter ? { 'Retry-After': String(Math.ceil(retryAfter / 1000)) } : {},
+        }
+      );
+    }
+
     const { linkId } = await params;
 
     if (!linkId) {

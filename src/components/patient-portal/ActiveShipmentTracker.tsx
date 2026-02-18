@@ -323,11 +323,10 @@ export default function ActiveShipmentTracker({
                       </span>
                     </div>
                     <p className="text-lg font-bold text-emerald-800">
-                      {new Date(mainShipment.estimatedDelivery).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {(() => {
+                        const d = new Date(mainShipment.estimatedDelivery!);
+                        return isNaN(d.getTime()) ? 'Pending' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      })()}
                     </p>
                   </div>
                 )}
@@ -354,12 +353,10 @@ export default function ActiveShipmentTracker({
                     <p className="text-xs font-medium text-emerald-600">Latest Update</p>
                     <p className="font-semibold text-emerald-900">{mainShipment.lastLocation}</p>
                     <p className="mt-0.5 text-xs text-emerald-500">
-                      {new Date(mainShipment.lastUpdate).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
+                      {(() => {
+                        const d = new Date(mainShipment.lastUpdate);
+                        return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                      })()}
                     </p>
                   </div>
                 </div>

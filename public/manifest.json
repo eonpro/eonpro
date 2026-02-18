@@ -6,7 +6,7 @@
   "scope": "/patient-portal",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#ffffff",
+  "background_color": "#EFECE7",
   "theme_color": "#ffffff",
   "icons": [
     {

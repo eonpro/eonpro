@@ -11,7 +11,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 
@@ -30,14 +30,21 @@ export default function CareTeamPage() {
     available: boolean;
   }>>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
+        setError(null);
         const res = await portalFetch('/api/patient-portal/care-team');
-        if (!res.ok || cancelled) {
-          setLoading(false);
+        const sessionErr = getPortalResponseError(res);
+        if (sessionErr) {
+          if (!cancelled) setError(sessionErr);
+          return;
+        }
+        if (!res.ok) {
+          if (!cancelled) setError('Failed to load your care team. Please try again.');
           return;
         }
         const data = await res.json();
@@ -52,7 +59,7 @@ export default function CareTeamPage() {
           })));
         }
       } catch {
-        // Silently handle - show empty team
+        if (!cancelled) setError('Unable to load care team. Please check your connection.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -104,6 +111,38 @@ export default function CareTeamPage() {
 
       {/* Content */}
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
+        {error && (
+          <div
+            className={`flex items-center gap-3 rounded-xl border p-4 ${
+              error === SESSION_EXPIRED_MESSAGE
+                ? 'border-amber-200 bg-amber-50'
+                : 'border-red-200 bg-red-50'
+            }`}
+            role="alert"
+          >
+            <p className={`flex-1 text-sm font-medium ${
+              error === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
+            }`}>
+              {error}
+            </p>
+            {error === SESSION_EXPIRED_MESSAGE ? (
+              <Link
+                href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/care-team`)}&reason=session_expired`}
+                className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+              >
+                Log in
+              </Link>
+            ) : (
+              <button
+                onClick={() => window.location.reload()}
+                className="shrink-0 rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Book a Visit Card */}
         <div className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
           <h2 className="mb-2 text-xl font-semibold">{t('careTeamBookVisit')}</h2>

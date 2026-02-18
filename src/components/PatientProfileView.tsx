@@ -160,21 +160,44 @@ export default function PatientProfileView({ patient, documents }: Props) {
                 Address
               </label>
               {(() => {
-                // Check if address1 already contains city/state/zip
-                const hasFullAddress =
-                  patient.address1 &&
-                  (patient.address1.includes(patient.city) ||
-                    patient.address1.includes(patient.state) ||
-                    patient.address1.includes(patient.zip));
+                const hasAddr1 = patient.address1 && patient.address1.trim() !== '';
+                const hasCity = patient.city && patient.city.trim() !== '';
+                const hasState = patient.state && patient.state.trim() !== '';
+                const hasZip = patient.zip && patient.zip.trim() !== '';
 
-                // Build the complete address
-                let fullAddress = patient.address1;
-                if (!hasFullAddress && patient.city && patient.state && patient.zip) {
-                  fullAddress = `${patient.address1}, ${patient.city}, ${patient.state} ${patient.zip}`;
+                if (!hasAddr1 && !hasCity && !hasState && !hasZip) {
+                  return (
+                    <p className="mt-1 text-sm text-gray-400 italic">Not provided</p>
+                  );
                 }
 
-                // Generate Google Maps URL
-                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress || '')}`;
+                const addr1ContainsCityOrState =
+                  hasAddr1 &&
+                  ((hasCity && patient.address1.includes(patient.city)) ||
+                    (hasState && patient.address1.includes(patient.state)));
+
+                let fullAddress: string;
+                if (addr1ContainsCityOrState) {
+                  fullAddress = patient.address1;
+                } else {
+                  const parts: string[] = [];
+                  if (hasAddr1) parts.push(patient.address1.trim());
+                  if (hasCity) parts.push(patient.city.trim());
+                  const stateZip = [
+                    hasState ? patient.state.trim() : '',
+                    hasZip ? patient.zip.trim() : '',
+                  ].filter(Boolean).join(' ');
+                  if (stateZip) parts.push(stateZip);
+                  fullAddress = parts.join(', ');
+                }
+
+                if (!fullAddress) {
+                  return (
+                    <p className="mt-1 text-sm text-gray-400 italic">Not provided</p>
+                  );
+                }
+
+                const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
                 return (
                   <div className="mt-1">
