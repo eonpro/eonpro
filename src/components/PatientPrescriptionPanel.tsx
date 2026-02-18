@@ -3,6 +3,13 @@
 import { useMemo } from 'react';
 import PrescriptionForm from '@/components/PrescriptionForm';
 
+function normalizeGender(raw: string | null | undefined): string {
+  const g = (raw || '').toLowerCase().trim();
+  if (['m', 'male', 'man'].includes(g)) return 'm';
+  if (['f', 'female', 'woman'].includes(g)) return 'f';
+  return '';
+}
+
 type PatientPrescriptionPanelProps = {
   patient: {
     id: number;
@@ -31,7 +38,7 @@ export default function PatientPrescriptionPanel({
       firstName: patient.firstName,
       lastName: patient.lastName,
       dob: patient.dob ?? '',
-      gender: patient.gender ?? '',
+      gender: normalizeGender(patient.gender),
       phone: patient.phone ?? '',
       email: patient.email ?? '',
       address1: patient.address1 ?? '',

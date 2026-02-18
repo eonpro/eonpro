@@ -136,6 +136,13 @@ const EMPTY_PATIENT = {
   zip: '',
 };
 
+function normalizeGender(raw: string | null | undefined): string {
+  const g = (raw || '').toLowerCase().trim();
+  if (['m', 'male', 'man'].includes(g)) return 'm';
+  if (['f', 'female', 'woman'].includes(g)) return 'f';
+  return '';
+}
+
 export default function PrescriptionForm({
   patientContext,
   redirectPath,
@@ -149,7 +156,7 @@ export default function PrescriptionForm({
           firstName: patientContext.firstName,
           lastName: patientContext.lastName,
           dob: patientContext.dob,
-          gender: patientContext.gender,
+          gender: normalizeGender(patientContext.gender),
           phone: patientContext.phone,
           email: patientContext.email,
           address1: patientContext.address1,
@@ -399,7 +406,7 @@ export default function PrescriptionForm({
         firstName: patientContext.firstName,
         lastName: patientContext.lastName,
         dob: patientContext.dob,
-        gender: patientContext.gender,
+        gender: normalizeGender(patientContext.gender),
         phone: patientContext.phone,
         email: patientContext.email,
         address1: patientContext.address1,
@@ -486,7 +493,7 @@ export default function PrescriptionForm({
         firstName: patient.firstName,
         lastName: patient.lastName,
         dob: patient.dob,
-        gender: patient.gender === 'm' || patient.gender === 'f' ? patient.gender : '',
+        gender: normalizeGender(patient.gender),
         phone: patient.phone,
         email: patient.email,
         address1: patient.address1,
