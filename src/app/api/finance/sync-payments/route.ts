@@ -4,14 +4,14 @@
  *
  * POST /api/finance/sync-payments
  *
- * Syncs all successful payments from Stripe since a given date.
- * This fills gaps where webhooks were missed and the 48-hour
- * reconciliation cron didn't catch them.
+ * Phase 1: For each Stripe payment, check if a PAID Invoice exists. If not,
+ *          process the payment through the normal pipeline.
+ * Phase 2: For payments that DO have Payment records but missing/broken
+ *          Invoice records, repair them directly.
+ * Phase 3: Sync Stripe invoices (subscription payments).
+ * Phase 4: Sync direct charges without payment intents.
  *
  * Body: { sinceDate: "2026-02-01" }
- *
- * Uses the OT Stripe account when accessed via ot.eonpro.io subdomain,
- * otherwise uses the default (EonMeds) account.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -46,17 +46,6 @@ function getStripeClientForClinic(clinicSubdomain: string | null): Stripe {
     maxNetworkRetries: 3,
     timeout: 30000,
   });
-}
-
-interface SyncResults {
-  stripePaymentsFound: number;
-  alreadyInDatabase: number;
-  newlyProcessed: number;
-  failed: number;
-  skipped: number;
-  errors: string[];
-  dateRange: { from: string; to: string };
-  durationMs: number;
 }
 
 async function handlePost(request: NextRequest, user: AuthUser) {
@@ -105,13 +94,16 @@ async function handlePost(request: NextRequest, user: AuthUser) {
     );
   }
 
-  const results: SyncResults = {
+  const results = {
     stripePaymentsFound: 0,
-    alreadyInDatabase: 0,
     newlyProcessed: 0,
+    repaired: 0,
+    alreadyCorrect: 0,
     failed: 0,
     skipped: 0,
-    errors: [],
+    invoiceSyncCount: 0,
+    directChargeCount: 0,
+    errors: [] as string[],
     dateRange: { from: sinceDate.toISOString(), to: new Date().toISOString() },
     durationMs: 0,
   };
@@ -124,20 +116,23 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 
     const stripe = getStripeClientForClinic(clinic?.subdomain || null);
 
-    logger.info('[Payment Sync] Starting historical sync', {
+    logger.info('[Payment Sync] Starting historical sync v2', {
       clinicId,
       clinicSubdomain: clinic?.subdomain,
       sinceDate: sinceDate.toISOString(),
       userId: user.id,
     });
 
+    // ========================================================================
+    // PHASE 1: Fetch ALL successful payment intents from Stripe
+    // ========================================================================
     const sinceTimestamp = Math.floor(sinceDate.getTime() / 1000);
     const allPayments: Stripe.PaymentIntent[] = [];
     let hasMore = true;
     let startingAfter: string | undefined;
 
     while (hasMore) {
-      const page: Stripe.ApiList<Stripe.PaymentIntent> = await stripe.paymentIntents.list({
+      const page = await stripe.paymentIntents.list({
         created: { gte: sinceTimestamp },
         limit: BATCH_SIZE,
         ...(startingAfter ? { starting_after: startingAfter } : {}),
@@ -163,7 +158,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       });
     }
 
-    logger.info('[Payment Sync] Found payments in Stripe', {
+    logger.info('[Payment Sync] Found Stripe payments', {
       count: allPayments.length,
       clinicId,
     });
@@ -173,84 +168,217 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       extractPaymentDataFromPaymentIntent,
     } = await import('@/services/stripe/paymentMatchingService');
 
+    // ========================================================================
+    // PHASE 2: For EACH Stripe payment, ensure a PAID Invoice exists
+    // ========================================================================
     const CHUNK_SIZE = 50;
+
     for (let i = 0; i < allPayments.length; i += CHUNK_SIZE) {
       const chunk = allPayments.slice(i, i + CHUNK_SIZE);
       const piIds = chunk.map((pi) => pi.id);
 
-      const [existingReconciliations, existingPayments] = await Promise.all([
-        prisma.paymentReconciliation.findMany({
-          where: { stripePaymentIntentId: { in: piIds } },
-          select: { stripePaymentIntentId: true },
-        }),
-        prisma.payment.findMany({
-          where: { stripePaymentIntentId: { in: piIds } },
-          select: { stripePaymentIntentId: true },
-        }),
-      ]);
+      // Fetch existing Payment records that are linked to these payment intents
+      const existingPayments = await prisma.payment.findMany({
+        where: { stripePaymentIntentId: { in: piIds } },
+        select: {
+          stripePaymentIntentId: true,
+          invoiceId: true,
+          amount: true,
+          invoice: {
+            select: {
+              id: true,
+              status: true,
+              amountPaid: true,
+              paidAt: true,
+              clinicId: true,
+            },
+          },
+        },
+      });
 
-      const processedIds = new Set([
-        ...existingReconciliations.map((r) => r.stripePaymentIntentId).filter(Boolean),
-        ...existingPayments.map((p) => p.stripePaymentIntentId).filter(Boolean),
-      ]);
+      const paymentByPiId = new Map(
+        existingPayments
+          .filter((p) => p.stripePaymentIntentId)
+          .map((p) => [p.stripePaymentIntentId!, p])
+      );
 
       for (const pi of chunk) {
-        if (processedIds.has(pi.id)) {
-          results.alreadyInDatabase++;
-          continue;
-        }
-
         const piWithInvoice = pi as Stripe.PaymentIntent & { invoice?: string | null };
         if (piWithInvoice.invoice) {
           results.skipped++;
           continue;
         }
 
-        try {
-          const paymentResult = await runWithClinicContext(clinicId, async () => {
-            const paymentData = await extractPaymentDataFromPaymentIntent(pi);
-            paymentData.metadata = {
-              ...paymentData.metadata,
-              clinicId: clinicId.toString(),
-              sync_source: 'historical_sync',
-              sync_date: new Date().toISOString(),
-            };
+        const existingPayment = paymentByPiId.get(pi.id);
 
-            return processStripePayment(
-              paymentData,
-              `sync_${pi.id}_${Date.now()}`,
-              'payment_intent.succeeded'
-            );
-          });
-
-          if (paymentResult.success) {
-            results.newlyProcessed++;
-            logger.info('[Payment Sync] Processed missing payment', {
-              paymentIntentId: pi.id,
-              clinicId,
-              patientId: paymentResult.patient?.id,
-              invoiceId: paymentResult.invoice?.id,
-              amount: pi.amount,
-            });
-          } else {
-            results.failed++;
-            results.errors.push(`${pi.id}: ${paymentResult.error || 'Unknown error'}`);
+        if (existingPayment) {
+          // Payment record exists. Check if it has a valid PAID Invoice.
+          const inv = existingPayment.invoice;
+          if (inv && inv.status === 'PAID' && inv.amountPaid > 0 && inv.paidAt && inv.clinicId === clinicId) {
+            results.alreadyCorrect++;
+            continue;
           }
-        } catch (error) {
-          results.failed++;
-          const msg = error instanceof Error ? error.message : 'Unknown error';
-          results.errors.push(`${pi.id}: ${msg}`);
-          logger.error('[Payment Sync] Error processing payment', {
-            paymentIntentId: pi.id,
-            clinicId,
-            error: msg,
+
+          // Repair: Invoice is missing, wrong status, zero amount, or wrong clinic
+          try {
+            if (inv && inv.id) {
+              // Invoice exists but has issues — update it
+              await prisma.invoice.update({
+                where: { id: inv.id },
+                data: {
+                  status: 'PAID',
+                  amountPaid: pi.amount,
+                  amount: pi.amount,
+                  amountDue: 0,
+                  clinicId,
+                  paidAt: new Date(pi.created * 1000),
+                },
+              });
+              results.repaired++;
+              logger.info('[Payment Sync] Repaired invoice', {
+                invoiceId: inv.id,
+                paymentIntentId: pi.id,
+                oldStatus: inv.status,
+                oldAmount: inv.amountPaid,
+                newAmount: pi.amount,
+              });
+            } else {
+              // Payment exists but no invoice linked — create one
+              const paidAt = new Date(pi.created * 1000);
+              const description = pi.description || 'Payment received via Stripe';
+
+              const newInvoice = await prisma.$transaction(async (tx) => {
+                // Find the patient from the Payment record
+                const fullPayment = await tx.payment.findFirst({
+                  where: { stripePaymentIntentId: pi.id },
+                  select: { id: true, patientId: true },
+                });
+
+                if (!fullPayment) return null;
+
+                const created = await tx.invoice.create({
+                  data: {
+                    patientId: fullPayment.patientId,
+                    clinicId,
+                    description,
+                    amount: pi.amount,
+                    amountDue: 0,
+                    amountPaid: pi.amount,
+                    currency: pi.currency || 'usd',
+                    status: 'PAID',
+                    paidAt,
+                    lineItems: [{ description, amount: pi.amount, quantity: 1 }] as any,
+                    metadata: {
+                      source: 'payment_sync_repair',
+                      paymentIntentId: pi.id,
+                    } as any,
+                  },
+                });
+
+                // Link invoice to payment
+                await tx.payment.update({
+                  where: { id: fullPayment.id },
+                  data: { invoiceId: created.id },
+                });
+
+                return created;
+              });
+
+              if (newInvoice) {
+                results.repaired++;
+                logger.info('[Payment Sync] Created missing invoice for existing payment', {
+                  invoiceId: newInvoice.id,
+                  paymentIntentId: pi.id,
+                  amount: pi.amount,
+                });
+              } else {
+                results.failed++;
+                results.errors.push(`${pi.id}: Payment exists but patient not found`);
+              }
+            }
+          } catch (error) {
+            results.failed++;
+            const msg = error instanceof Error ? error.message : 'Unknown';
+            results.errors.push(`repair ${pi.id}: ${msg}`);
+          }
+        } else {
+          // No Payment record at all — check reconciliation
+          const existingRecon = await prisma.paymentReconciliation.findFirst({
+            where: { stripePaymentIntentId: pi.id },
+            select: { id: true, invoiceId: true, patientId: true, status: true },
           });
+
+          if (existingRecon?.invoiceId) {
+            // Has recon with an invoice, check invoice is PAID
+            const reconInvoice = await prisma.invoice.findUnique({
+              where: { id: existingRecon.invoiceId },
+              select: { id: true, status: true, amountPaid: true, clinicId: true },
+            });
+
+            if (reconInvoice && reconInvoice.status === 'PAID' && reconInvoice.amountPaid > 0 && reconInvoice.clinicId === clinicId) {
+              results.alreadyCorrect++;
+              continue;
+            }
+
+            if (reconInvoice) {
+              // Repair the invoice
+              await prisma.invoice.update({
+                where: { id: reconInvoice.id },
+                data: {
+                  status: 'PAID',
+                  amountPaid: pi.amount,
+                  amount: pi.amount,
+                  amountDue: 0,
+                  clinicId,
+                  paidAt: new Date(pi.created * 1000),
+                },
+              });
+              results.repaired++;
+              continue;
+            }
+          }
+
+          // Fully new — process from scratch
+          try {
+            const paymentResult = await runWithClinicContext(clinicId, async () => {
+              const paymentData = await extractPaymentDataFromPaymentIntent(pi);
+              paymentData.metadata = {
+                ...paymentData.metadata,
+                clinicId: clinicId.toString(),
+                sync_source: 'historical_sync_v2',
+              };
+
+              return processStripePayment(
+                paymentData,
+                `sync_${pi.id}_${Date.now()}`,
+                'payment_intent.succeeded'
+              );
+            });
+
+            if (paymentResult.success) {
+              results.newlyProcessed++;
+              logger.info('[Payment Sync] Processed new payment', {
+                paymentIntentId: pi.id,
+                patientId: paymentResult.patient?.id,
+                invoiceId: paymentResult.invoice?.id,
+                amount: pi.amount,
+              });
+            } else {
+              results.failed++;
+              results.errors.push(`${pi.id}: ${paymentResult.error || 'Unknown'}`);
+            }
+          } catch (error) {
+            results.failed++;
+            const msg = error instanceof Error ? error.message : 'Unknown';
+            results.errors.push(`${pi.id}: ${msg}`);
+          }
         }
       }
     }
 
-    // Also sync Stripe invoices (subscription payments come through as invoices)
-    let invoiceSyncCount = 0;
+    // ========================================================================
+    // PHASE 3: Sync Stripe invoices (subscription payments)
+    // ========================================================================
     try {
       const allInvoices: Stripe.Invoice[] = [];
       let invoiceHasMore = true;
@@ -276,7 +404,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         });
 
         if (existingInvoice) {
-          if (existingInvoice.status !== 'PAID' && stripeInvoice.status === 'paid') {
+          if (existingInvoice.status !== 'PAID' || existingInvoice.amountPaid === 0) {
             await prisma.invoice.update({
               where: { id: existingInvoice.id },
               data: {
@@ -286,27 +414,20 @@ async function handlePost(request: NextRequest, user: AuthUser) {
                 paidAt: stripeInvoice.status_transitions?.paid_at
                   ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
                   : new Date(),
-                stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
-                stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
               },
             });
-            invoiceSyncCount++;
+            results.invoiceSyncCount++;
           }
           continue;
         }
 
-        // Invoice not in DB -- process its payment intent if it has one
+        // Invoice not in DB — process its payment intent
         const paymentIntentId =
           typeof stripeInvoice.payment_intent === 'string'
             ? stripeInvoice.payment_intent
             : (stripeInvoice.payment_intent as Stripe.PaymentIntent | null)?.id;
 
         if (!paymentIntentId) continue;
-
-        const existingPI = await prisma.payment.findFirst({
-          where: { stripePaymentIntentId: paymentIntentId },
-        });
-        if (existingPI) continue;
 
         try {
           const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
@@ -317,7 +438,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
             paymentData.metadata = {
               ...paymentData.metadata,
               clinicId: clinicId.toString(),
-              sync_source: 'historical_invoice_sync',
+              sync_source: 'historical_invoice_sync_v2',
             };
             paymentData.stripeInvoiceId = stripeInvoice.id;
 
@@ -328,15 +449,12 @@ async function handlePost(request: NextRequest, user: AuthUser) {
             );
 
             if (result.success) {
-              invoiceSyncCount++;
-
+              results.invoiceSyncCount++;
               if (result.invoice?.id) {
                 await prisma.invoice.update({
                   where: { id: result.invoice.id },
                   data: {
                     stripeInvoiceId: stripeInvoice.id,
-                    stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
-                    stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
                     paidAt: stripeInvoice.status_transitions?.paid_at
                       ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
                       : new Date(),
@@ -345,24 +463,19 @@ async function handlePost(request: NextRequest, user: AuthUser) {
               }
             }
           });
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Unknown';
-          logger.warn('[Payment Sync] Failed to sync invoice payment', {
-            stripeInvoiceId: stripeInvoice.id,
-            paymentIntentId,
-            error: msg,
-          });
+        } catch {
+          // Non-critical
         }
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Unknown';
-      logger.warn('[Payment Sync] Invoice sync phase had errors', { error: msg });
+      logger.warn('[Payment Sync] Invoice phase error', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
 
-    results.durationMs = Date.now() - startTime;
-
-    // Also sync charges that aren't tied to payment intents (direct charges)
-    let directChargeCount = 0;
+    // ========================================================================
+    // PHASE 4: Direct charges without payment intents
+    // ========================================================================
     try {
       const allCharges: Stripe.Charge[] = [];
       let chargeHasMore = true;
@@ -375,10 +488,10 @@ async function handlePost(request: NextRequest, user: AuthUser) {
           ...(chargeStartingAfter ? { starting_after: chargeStartingAfter } : {}),
         });
 
-        const succeeded = chargePage.data.filter(
+        const standalone = chargePage.data.filter(
           (c) => c.status === 'succeeded' && !c.payment_intent && !c.invoice
         );
-        allCharges.push(...succeeded);
+        allCharges.push(...standalone);
 
         chargeHasMore = chargePage.has_more;
         if (chargePage.data.length > 0) {
@@ -391,15 +504,55 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       );
 
       for (const charge of allCharges) {
-        const existingByCharge = await prisma.paymentReconciliation.findFirst({
+        const existingByCharge = await prisma.payment.findFirst({
           where: { stripeChargeId: charge.id },
+          select: { id: true, invoiceId: true, invoice: { select: { status: true, amountPaid: true } } },
         });
+
+        if (existingByCharge?.invoice?.status === 'PAID' && (existingByCharge.invoice.amountPaid || 0) > 0) {
+          continue;
+        }
+
+        if (existingByCharge && !existingByCharge.invoice) {
+          // Has payment but no invoice — create one
+          try {
+            const fullPay = await prisma.payment.findUnique({
+              where: { id: existingByCharge.id },
+              select: { patientId: true, amount: true },
+            });
+            if (fullPay) {
+              const inv = await prisma.invoice.create({
+                data: {
+                  patientId: fullPay.patientId,
+                  clinicId,
+                  description: charge.description || 'Charge via Stripe',
+                  amount: charge.amount,
+                  amountDue: 0,
+                  amountPaid: charge.amount,
+                  currency: charge.currency || 'usd',
+                  status: 'PAID',
+                  paidAt: new Date(charge.created * 1000),
+                  metadata: { source: 'charge_sync_repair', chargeId: charge.id } as any,
+                },
+              });
+              await prisma.payment.update({
+                where: { id: existingByCharge.id },
+                data: { invoiceId: inv.id },
+              });
+              results.directChargeCount++;
+            }
+          } catch {
+            // Non-critical
+          }
+          continue;
+        }
+
         if (existingByCharge) continue;
 
-        const existingCharge = await prisma.payment.findFirst({
+        const existingRecon = await prisma.paymentReconciliation.findFirst({
           where: { stripeChargeId: charge.id },
         });
-        if (existingCharge) continue;
+        if (existingRecon) continue;
 
         try {
           await runWithClinicContext(clinicId, async () => {
@@ -407,7 +560,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
             chargeData.metadata = {
               ...chargeData.metadata,
               clinicId: clinicId.toString(),
-              sync_source: 'historical_charge_sync',
+              sync_source: 'historical_charge_sync_v2',
             };
 
             const result = await processStripePayment(
@@ -416,29 +569,77 @@ async function handlePost(request: NextRequest, user: AuthUser) {
               'charge.succeeded'
             );
 
-            if (result.success) directChargeCount++;
+            if (result.success) results.directChargeCount++;
           });
         } catch {
-          // Non-critical, continue
+          // Non-critical
         }
       }
     } catch (error) {
-      logger.warn('[Payment Sync] Direct charge sync had errors', {
+      logger.warn('[Payment Sync] Charge phase error', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
     }
 
+    // ========================================================================
+    // PHASE 5: Final pass — find Payment records with no Invoice at all
+    // ========================================================================
+    let orphanRepairCount = 0;
+    try {
+      const orphanPayments = await prisma.payment.findMany({
+        where: {
+          clinicId,
+          invoiceId: null,
+          status: 'SUCCEEDED',
+          createdAt: { gte: sinceDate },
+        },
+        select: { id: true, patientId: true, amount: true, stripePaymentIntentId: true, stripeChargeId: true, paidAt: true, description: true, currency: true },
+        take: 500,
+      });
+
+      for (const orphan of orphanPayments) {
+        try {
+          const inv = await prisma.invoice.create({
+            data: {
+              patientId: orphan.patientId,
+              clinicId,
+              description: orphan.description || 'Payment received via Stripe',
+              amount: orphan.amount,
+              amountDue: 0,
+              amountPaid: orphan.amount,
+              currency: orphan.currency || 'usd',
+              status: 'PAID',
+              paidAt: orphan.paidAt || new Date(),
+              metadata: {
+                source: 'orphan_payment_repair',
+                paymentIntentId: orphan.stripePaymentIntentId,
+                chargeId: orphan.stripeChargeId,
+              } as any,
+            },
+          });
+
+          await prisma.payment.update({
+            where: { id: orphan.id },
+            data: { invoiceId: inv.id },
+          });
+
+          orphanRepairCount++;
+        } catch {
+          // Non-critical
+        }
+      }
+    } catch (error) {
+      logger.warn('[Payment Sync] Orphan repair phase error', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+    }
+
+    results.repaired += orphanRepairCount;
     results.durationMs = Date.now() - startTime;
 
-    const totalSynced = results.newlyProcessed + invoiceSyncCount + directChargeCount;
+    const totalFixed = results.newlyProcessed + results.repaired + results.invoiceSyncCount + results.directChargeCount;
 
-    logger.info('[Payment Sync] Completed', {
-      clinicId,
-      ...results,
-      invoiceSyncCount,
-      directChargeCount,
-      totalSynced,
-    });
+    logger.info('[Payment Sync] Completed v2', { clinicId, ...results, orphanRepairCount, totalFixed });
 
     if (results.errors.length > 10) {
       results.errors = [
@@ -449,12 +650,11 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 
     return NextResponse.json({
       success: true,
-      message: `Synced ${totalSynced} payments from Stripe (${results.newlyProcessed} payment intents, ${invoiceSyncCount} invoices, ${directChargeCount} direct charges). ${results.alreadyInDatabase} already in database, ${results.failed} failed.`,
+      message: `Fixed ${totalFixed} records. New: ${results.newlyProcessed}, Repaired: ${results.repaired}, Invoices: ${results.invoiceSyncCount}, Charges: ${results.directChargeCount}. Already correct: ${results.alreadyCorrect}, Failed: ${results.failed}.`,
       results: {
         ...results,
-        invoiceSyncCount,
-        directChargeCount,
-        totalSynced,
+        orphanRepairCount,
+        totalFixed,
       },
     });
   } catch (error) {
