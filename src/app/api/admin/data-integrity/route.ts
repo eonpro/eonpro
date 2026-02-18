@@ -13,6 +13,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
 import { prisma, basePrisma, runWithClinicContext, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { validateDatabaseSchema, SchemaValidationResult } from '@/lib/database/schema-validator';
@@ -183,6 +185,144 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 }
 
 export const GET = withAdminAuth(handleGet);
+
+/**
+ * POST /api/admin/data-integrity
+ * Trigger searchIndex backfill for patients missing it.
+ * Body: { action: 'backfill-search-index', clinicId?: number }
+ */
+async function handlePost(req: NextRequest, user: AuthUser) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const action = body.action;
+
+    if (action !== 'backfill-search-index') {
+      return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+    }
+
+    const algorithm = 'aes-256-gcm';
+    const encKey = process.env.PHI_ENCRYPTION_KEY;
+    if (!encKey) {
+      return NextResponse.json({ error: 'PHI_ENCRYPTION_KEY not configured' }, { status: 500 });
+    }
+    const keyBuffer = Buffer.from(encKey, 'base64');
+
+    function decrypt(val: string | null): string | null {
+      if (!val) return null;
+      try {
+        const parts = val.split(':');
+        if (parts.length !== 3) return val;
+        if (!parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) return val;
+        const iv = Buffer.from(parts[0], 'base64');
+        const authTag = Buffer.from(parts[1], 'base64');
+        const encrypted = Buffer.from(parts[2], 'base64');
+        const decipher = crypto.createDecipheriv(algorithm, keyBuffer, iv);
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(encrypted, undefined, 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+      } catch {
+        return null;
+      }
+    }
+
+    const clinicFilter: Prisma.PatientWhereInput = body.clinicId
+      ? { clinicId: body.clinicId }
+      : {};
+
+    const where: Prisma.PatientWhereInput = {
+      ...clinicFilter,
+      OR: [{ searchIndex: null }, { searchIndex: '' }],
+    };
+
+    const total = await basePrisma.patient.count({ where });
+
+    if (total === 0) {
+      return NextResponse.json({
+        message: 'All patients already have searchIndex',
+        backfilled: 0,
+        total: 0,
+      });
+    }
+
+    const BATCH = 200;
+    let backfilled = 0;
+    let errors = 0;
+    let cursor: number | undefined;
+
+    while (true) {
+      const batch = await basePrisma.patient.findMany({
+        where: {
+          ...where,
+          ...(cursor !== undefined ? { id: { gt: cursor } } : {}),
+        },
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+        },
+        orderBy: { id: 'asc' },
+        take: BATCH,
+      });
+
+      if (batch.length === 0) break;
+
+      for (const p of batch) {
+        try {
+          const fn = (decrypt(p.firstName) ?? '').toLowerCase().trim();
+          const ln = (decrypt(p.lastName) ?? '').toLowerCase().trim();
+          const em = (decrypt(p.email) ?? '').toLowerCase().trim();
+          const ph = (decrypt(p.phone) ?? '').replace(/\D/g, '');
+          const pid = (p.patientId ?? '').toLowerCase().trim();
+          const parts = [fn, ln, em, ph, pid].filter(Boolean);
+          const searchIndex = parts.join(' ');
+
+          if (searchIndex) {
+            await basePrisma.patient.update({
+              where: { id: p.id },
+              data: { searchIndex },
+            });
+            backfilled++;
+          }
+        } catch {
+          errors++;
+        }
+      }
+
+      cursor = batch[batch.length - 1].id;
+
+      if (backfilled + errors >= total) break;
+    }
+
+    logger.info('Admin searchIndex backfill completed', {
+      backfilled,
+      errors,
+      total,
+      clinicId: body.clinicId ?? 'all',
+      triggeredBy: user.email,
+    });
+
+    return NextResponse.json({
+      message: `Backfilled searchIndex for ${backfilled} patients`,
+      backfilled,
+      errors,
+      total,
+    });
+  } catch (error) {
+    logger.error('searchIndex backfill failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return NextResponse.json(
+      { error: 'Backfill failed', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+export const POST = withAdminAuth(handlePost);
 
 async function testCriticalQueries(): Promise<DataQueryResult> {
   const testedQueries: DataQueryResult['testedQueries'] = [];
@@ -393,9 +533,19 @@ async function checkDataIntegrity(clinicId?: number): Promise<DataIntegrityResul
       });
     }
 
-    // NOTE: Patient.clinicId is now required in schema (NOT NULL constraint)
-    // All patients must belong to a clinic - this is enforced at database level
-    // No need to check for unassigned patients as the constraint prevents them
+    // Check for patients missing searchIndex (search won't work for them)
+    const missingSearchIndex = await basePrisma.patient.count({
+      where: { OR: [{ searchIndex: null }, { searchIndex: '' }] },
+    });
+
+    if (missingSearchIndex > 0) {
+      issues.push({
+        type: 'MISSING_SEARCH_INDEX',
+        severity: 'warning',
+        count: missingSearchIndex,
+        message: `${missingSearchIndex} patients have no searchIndex — search will use slow fallback. POST this endpoint with { "action": "backfill-search-index" } to fix.`,
+      });
+    }
   } catch (error: any) {
     issues.push({
       type: 'CHECK_FAILED',
