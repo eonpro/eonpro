@@ -663,6 +663,15 @@ class PrismaWithClinicFilter {
           let modifiedArgs = { ...args };
           const method = prop as string;
 
+          // Capture multi-clinic filter BEFORE applyClinicFilter modifies the args.
+          // When callers use { clinicId: { in: [...] } } (e.g. prescription queue for
+          // multi-clinic providers), the post-query validation must allow records from
+          // ALL requested clinics, not just the single context clinicId.
+          let allowedClinicIds: Set<number> | undefined;
+          if (modifiedArgs.where?.clinicId?.in && Array.isArray(modifiedArgs.where.clinicId.in)) {
+            allowedClinicIds = new Set(modifiedArgs.where.clinicId.in as number[]);
+          }
+
           // Apply clinic filter based on method type (pass modelName for strict tenant enforcement)
           if (
             [
@@ -699,41 +708,43 @@ class PrismaWithClinicFilter {
           // Execute with modified args
           const result = await originalMethod.call(target, modifiedArgs);
 
-          // Validate results (defense-in-depth)
+          // Validate results (defense-in-depth).
+          // For multi-clinic queries (clinicId: { in: [...] }), validate against the
+          // full set of allowed IDs. For single-clinic queries, validate against context.
           const currentClinicId = this.getClinicId();
           if (result && currentClinicId) {
-            const clinicId = currentClinicId;
+            const isAllowed = allowedClinicIds
+              ? (id: number) => allowedClinicIds!.has(id)
+              : (id: number) => id === currentClinicId;
 
             if (Array.isArray(result)) {
               const invalidRecords = result.filter(
-                (record: any) => record.clinicId && record.clinicId !== clinicId
+                (record: any) => record.clinicId && !isAllowed(record.clinicId)
               );
 
               if (invalidRecords.length > 0) {
                 logger.security('CRITICAL: Cross-clinic data leak detected', {
                   model: modelName,
                   method: method,
-                  expectedClinic: clinicId,
+                  expectedClinic: allowedClinicIds ? [...allowedClinicIds] : currentClinicId,
                   leakedRecords: invalidRecords.length,
                   timestamp: new Date().toISOString(),
                 });
 
-                // Filter out invalid records - never leak data
                 return result.filter(
-                  (record: any) => !record.clinicId || record.clinicId === clinicId
+                  (record: any) => !record.clinicId || isAllowed(record.clinicId)
                 );
               }
             } else if (typeof result === 'object' && result !== null && 'clinicId' in result) {
-              if (result.clinicId && result.clinicId !== clinicId) {
+              if (result.clinicId && !isAllowed(result.clinicId)) {
                 logger.security('CRITICAL: Cross-clinic data access attempted', {
                   model: modelName,
                   method: method,
-                  expectedClinic: clinicId,
+                  expectedClinic: allowedClinicIds ? [...allowedClinicIds] : currentClinicId,
                   actualClinic: result.clinicId,
                   timestamp: new Date().toISOString(),
                 });
 
-                // Block access - return null instead of wrong clinic's data
                 return null;
               }
             }
