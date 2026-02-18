@@ -1,0 +1,3693 @@
+{
+  "batchId": "wellmedr-merge-2026-02-17T17-02-10-651Z",
+  "timestamp": "2026-02-17T17:16:31.647Z",
+  "clinicId": 7,
+  "totalGroups": 363,
+  "success": 363,
+  "errors": 0,
+  "profilesDeleted": 414,
+  "recordsRepointed": 632,
+  "results": [
+    {
+      "email": "luisamaranon90@gmail.com",
+      "targetId": 1003,
+      "targetPatientId": "WEL-647",
+      "sourcesDeleted": [
+        2906
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cwc792000@yahoo.com",
+      "targetId": 1411,
+      "targetPatientId": "WEL-78887283",
+      "sourcesDeleted": [
+        2129
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dragonflydroneviews@gmail.com",
+      "targetId": 1675,
+      "targetPatientId": "WEL-78887489",
+      "sourcesDeleted": [
+        1151,
+        1659,
+        1660,
+        1669,
+        1671,
+        1673,
+        1674
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "gsvermont@msn.com",
+      "targetId": 502,
+      "targetPatientId": "WEL-426",
+      "sourcesDeleted": [
+        1262,
+        25928
+      ],
+      "recordsMoved": 5,
+      "status": "success"
+    },
+    {
+      "email": "mindybartlett1121@gmail.com",
+      "targetId": 2493,
+      "targetPatientId": "WEL-78888110",
+      "sourcesDeleted": [
+        4709,
+        27257
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "mesaidoff@icloud.com",
+      "targetId": 4385,
+      "targetPatientId": "WEL-78889637",
+      "sourcesDeleted": [
+        5031
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kloskacey@gmail.com",
+      "targetId": 1735,
+      "targetPatientId": "WEL-78887537",
+      "sourcesDeleted": [
+        5064
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "pcambell41@gmail.com",
+      "targetId": 1612,
+      "targetPatientId": "WEL-78887432",
+      "sourcesDeleted": [
+        5000
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "williamsashli53@gmail.com",
+      "targetId": 506,
+      "targetPatientId": "WEL-430",
+      "sourcesDeleted": [
+        659
+      ],
+      "recordsMoved": 17,
+      "status": "success"
+    },
+    {
+      "email": "nkwen13@gmail.com",
+      "targetId": 1551,
+      "targetPatientId": "WEL-78887382",
+      "sourcesDeleted": [
+        3940
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cubbiebear0x@gmail.com",
+      "targetId": 1552,
+      "targetPatientId": "WEL-78887383",
+      "sourcesDeleted": [
+        3323
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "clbeal87@gmail.com",
+      "targetId": 2255,
+      "targetPatientId": "WEL-78887913",
+      "sourcesDeleted": [
+        3972,
+        27258
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "ketsiadalce@aol.com",
+      "targetId": 1421,
+      "targetPatientId": "WEL-78887288",
+      "sourcesDeleted": [
+        2918
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ksebesta19@yahoo.com",
+      "targetId": 1170,
+      "targetPatientId": "WEL-78887116",
+      "sourcesDeleted": [
+        3097
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "nayelyimoore@gmail.com",
+      "targetId": 1169,
+      "targetPatientId": "WEL-78887115",
+      "sourcesDeleted": [
+        5135
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "emiriley11@gmail.com",
+      "targetId": 1682,
+      "targetPatientId": "WEL-78887494",
+      "sourcesDeleted": [
+        25954
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "angielake23@gmail.com",
+      "targetId": 1620,
+      "targetPatientId": "WEL-78887439",
+      "sourcesDeleted": [
+        17800
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "hpcp2517@yahoo.com",
+      "targetId": 1344,
+      "targetPatientId": "WEL-78887239",
+      "sourcesDeleted": [
+        25175
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "atrimnell@gmail.com",
+      "targetId": 1498,
+      "targetPatientId": "WEL-78887353",
+      "sourcesDeleted": [
+        4104
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sbc.1993@hotmail.com",
+      "targetId": 1347,
+      "targetPatientId": "WEL-78887241",
+      "sourcesDeleted": [
+        5046
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "rmcconnnell8717@gmail.com",
+      "targetId": 1500,
+      "targetPatientId": "WEL-78887354",
+      "sourcesDeleted": [
+        2777
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "bewalden3392@gmail.com",
+      "targetId": 25905,
+      "targetPatientId": "WEL-78891165",
+      "sourcesDeleted": [
+        27260
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "seamitchell1@gmail.com",
+      "targetId": 1561,
+      "targetPatientId": "WEL-78887389",
+      "sourcesDeleted": [
+        4526
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mothert2565@gmail.com",
+      "targetId": 2605,
+      "targetPatientId": "WEL-78888208",
+      "sourcesDeleted": [
+        4382
+      ],
+      "recordsMoved": 7,
+      "status": "success"
+    },
+    {
+      "email": "janeloveslifejd@gmail.com",
+      "targetId": 1358,
+      "targetPatientId": "WEL-78887250",
+      "sourcesDeleted": [
+        4125,
+        5058
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "jasonbobo2000@gmail.com",
+      "targetId": 1182,
+      "targetPatientId": "WEL-78887126",
+      "sourcesDeleted": [
+        4073
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "thomasbrandonj@gmail.com",
+      "targetId": 25358,
+      "targetPatientId": "WEL-78890698",
+      "sourcesDeleted": [
+        27262
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "fourgkids4maw@gmail.com",
+      "targetId": 1700,
+      "targetPatientId": "WEL-78887506",
+      "sourcesDeleted": [
+        5020
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "elizabethbecall@icloud.com",
+      "targetId": 1639,
+      "targetPatientId": "WEL-78887456",
+      "sourcesDeleted": [
+        4931
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "icyrivers5150@gmail.com",
+      "targetId": 1701,
+      "targetPatientId": "WEL-78887507",
+      "sourcesDeleted": [
+        5196
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "brendarogers099@gmail.com",
+      "targetId": 4735,
+      "targetPatientId": "WEL-78889902",
+      "sourcesDeleted": [
+        25438
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "hunneycreekjunction@yahoo.com",
+      "targetId": 1270,
+      "targetPatientId": "WEL-78887184",
+      "sourcesDeleted": [
+        25547,
+        26190
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "vpntagle@gmail.com",
+      "targetId": 1704,
+      "targetPatientId": "WEL-78887510",
+      "sourcesDeleted": [
+        26382
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "evagosnell.eg@gmail.com",
+      "targetId": 1644,
+      "targetPatientId": "WEL-78887461",
+      "sourcesDeleted": [
+        4102
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "tdscheffee@gmail.com",
+      "targetId": 3053,
+      "targetPatientId": "WEL-78888613",
+      "sourcesDeleted": [
+        1706
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "reagan.jirak@gmail.com",
+      "targetId": 1519,
+      "targetPatientId": "WEL-78887367",
+      "sourcesDeleted": [
+        4110
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "carlitalmoore@icloud.com",
+      "targetId": 1577,
+      "targetPatientId": "WEL-78887402",
+      "sourcesDeleted": [
+        3199
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "chunt580@gmail.com",
+      "targetId": 1649,
+      "targetPatientId": "WEL-78887466",
+      "sourcesDeleted": [
+        26109
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mmullis49@gmail.com",
+      "targetId": 1711,
+      "targetPatientId": "WEL-78887516",
+      "sourcesDeleted": [
+        3041,
+        3722
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "jkley7887@gmail.com",
+      "targetId": 1775,
+      "targetPatientId": "WEL-78887563",
+      "sourcesDeleted": [
+        3391
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "marci.groves@yahoo.com",
+      "targetId": 266,
+      "targetPatientId": "WEL-196",
+      "sourcesDeleted": [
+        4619
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "leslie.prz111@gmail.com",
+      "targetId": 1905,
+      "targetPatientId": "WEL-78887637",
+      "sourcesDeleted": [
+        26140
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "amber.stamper@gmail.com",
+      "targetId": 1203,
+      "targetPatientId": "WEL-78887143",
+      "sourcesDeleted": [
+        25842
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "emrtn93@gmail.com",
+      "targetId": 599,
+      "targetPatientId": "WEL-523",
+      "sourcesDeleted": [
+        4852
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ledevinadelara@gmail.com",
+      "targetId": 4788,
+      "targetPatientId": "WEL-78889952",
+      "sourcesDeleted": [
+        25620
+      ],
+      "recordsMoved": 20,
+      "status": "success"
+    },
+    {
+      "email": "ycespedes6214@gmail.com",
+      "targetId": 1464,
+      "targetPatientId": "WEL-78887325",
+      "sourcesDeleted": [
+        25951
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ezenor91@gmail.com",
+      "targetId": 1720,
+      "targetPatientId": "WEL-78887524",
+      "sourcesDeleted": [
+        26198
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kandiedstanley@gmail.com",
+      "targetId": 4722,
+      "targetPatientId": "WEL-78889889",
+      "sourcesDeleted": [
+        1207
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kmac8568@gmail.com",
+      "targetId": 1721,
+      "targetPatientId": "WEL-78887525",
+      "sourcesDeleted": [
+        25526
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "svt483@hotmail.com",
+      "targetId": 3841,
+      "targetPatientId": "WEL-78889234",
+      "sourcesDeleted": [
+        2619
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "miriamroses.e@gmail.com",
+      "targetId": 1594,
+      "targetPatientId": "WEL-78887417",
+      "sourcesDeleted": [
+        5015,
+        26447
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "stonesrus4@gmail.com",
+      "targetId": 1213,
+      "targetPatientId": "WEL-78887150",
+      "sourcesDeleted": [
+        25938
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "christycox49@gmail.com",
+      "targetId": 1787,
+      "targetPatientId": "WEL-78887572",
+      "sourcesDeleted": [
+        3028,
+        4115
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "s.hawk5858@gmail.com",
+      "targetId": 1056,
+      "targetPatientId": "WEL-681",
+      "sourcesDeleted": [
+        3265
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mouellette265@gmail.com",
+      "targetId": 187,
+      "targetPatientId": "WEL-122",
+      "sourcesDeleted": [
+        2283
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jerrirobertson1984@gmail.com",
+      "targetId": 1217,
+      "targetPatientId": "WEL-78887153",
+      "sourcesDeleted": [
+        5075
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "janetsanten@icloud.com",
+      "targetId": 199,
+      "targetPatientId": "WEL-133",
+      "sourcesDeleted": [
+        2816
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "smokeyhollow44944@gmail.com",
+      "targetId": 4782,
+      "targetPatientId": "WEL-78889946",
+      "sourcesDeleted": [
+        25406
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "eileenwilliams@att.net",
+      "targetId": 25943,
+      "targetPatientId": "WEL-78891202",
+      "sourcesDeleted": [
+        205,
+        8198
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "btaylor1231@live.comb",
+      "targetId": 1294,
+      "targetPatientId": "WEL-78887200",
+      "sourcesDeleted": [
+        2082
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mistylyons81@gmail.com",
+      "targetId": 256,
+      "targetPatientId": "WEL-187",
+      "sourcesDeleted": [
+        2650
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "vrobertson0353@gmail.com",
+      "targetId": 1140,
+      "targetPatientId": "WEL-762",
+      "sourcesDeleted": [
+        2340
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "stackmichele2@gmail.com",
+      "targetId": 250,
+      "targetPatientId": "WEL-182",
+      "sourcesDeleted": [
+        3177
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "christinedascola9@gmail.com",
+      "targetId": 1961,
+      "targetPatientId": "WEL-78887669",
+      "sourcesDeleted": [
+        238
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "stacytdennis@yahoo.com",
+      "targetId": 245,
+      "targetPatientId": "WEL-177",
+      "sourcesDeleted": [
+        25560
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "brookrohde1982@icloud.com",
+      "targetId": 269,
+      "targetPatientId": "WEL-199",
+      "sourcesDeleted": [
+        3986
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gz1062@gmail.com",
+      "targetId": 274,
+      "targetPatientId": "WEL-204",
+      "sourcesDeleted": [
+        25178
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sablackstone1025@gmail.com",
+      "targetId": 1400,
+      "targetPatientId": "WEL-78887278",
+      "sourcesDeleted": [
+        4886
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "brijade42@yahoo.com",
+      "targetId": 1401,
+      "targetPatientId": "WEL-78887279",
+      "sourcesDeleted": [
+        5059
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lorinbrust@gmail.com",
+      "targetId": 25135,
+      "targetPatientId": "WEL-78890491",
+      "sourcesDeleted": [
+        4811
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kjhand2430@gmail.com",
+      "targetId": 4819,
+      "targetPatientId": "WEL-78889981",
+      "sourcesDeleted": [
+        25567
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "trosinone@yahoo.com",
+      "targetId": 1478,
+      "targetPatientId": "WEL-78887336",
+      "sourcesDeleted": [
+        3900
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mark@awmg.net",
+      "targetId": 152,
+      "targetPatientId": "WEL-88",
+      "sourcesDeleted": [
+        2798
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "19cile51@gmail.com",
+      "targetId": 25311,
+      "targetPatientId": "WEL-78890652",
+      "sourcesDeleted": [
+        4812
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "randallscottpadek@gmail.com",
+      "targetId": 26120,
+      "targetPatientId": "WEL-78891356",
+      "sourcesDeleted": [
+        303,
+        2967,
+        3704
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "emilb212@gmail.com",
+      "targetId": 120,
+      "targetPatientId": "WEL-77",
+      "sourcesDeleted": [
+        1933,
+        2647,
+        25067
+      ],
+      "recordsMoved": 5,
+      "status": "success"
+    },
+    {
+      "email": "michelem4449@gmail.com",
+      "targetId": 316,
+      "targetPatientId": "WEL-244",
+      "sourcesDeleted": [
+        3235
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "avsgrl13@hotmail.com",
+      "targetId": 335,
+      "targetPatientId": "WEL-262",
+      "sourcesDeleted": [
+        25345
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lionelwsullivan@yahoo.com",
+      "targetId": 25924,
+      "targetPatientId": "WEL-78891184",
+      "sourcesDeleted": [
+        344
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jardalk@hotmail.com",
+      "targetId": 291,
+      "targetPatientId": "WEL-220",
+      "sourcesDeleted": [
+        26115
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jcy.crayton@gmail.com",
+      "targetId": 349,
+      "targetPatientId": "WEL-276",
+      "sourcesDeleted": [
+        2193
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kathyagnew29@gmail.com",
+      "targetId": 353,
+      "targetPatientId": "WEL-280",
+      "sourcesDeleted": [
+        5078
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "daccox@cfl.rr.com",
+      "targetId": 368,
+      "targetPatientId": "WEL-295",
+      "sourcesDeleted": [
+        5099
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kristenroberts@yahoo.com",
+      "targetId": 370,
+      "targetPatientId": "WEL-297",
+      "sourcesDeleted": [
+        2911
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "reedsusan76@gmail.com",
+      "targetId": 2364,
+      "targetPatientId": "WEL-78887999",
+      "sourcesDeleted": [
+        360
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "joleepace23@yahoo.com",
+      "targetId": 378,
+      "targetPatientId": "WEL-305",
+      "sourcesDeleted": [
+        5065,
+        26217
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "hendrix1989@yahoo.com",
+      "targetId": 170,
+      "targetPatientId": "WEL-106",
+      "sourcesDeleted": [
+        3585
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "thesweetestea@gmail.com",
+      "targetId": 399,
+      "targetPatientId": "WEL-324",
+      "sourcesDeleted": [
+        4891
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "godtookmyjenny@gmail.com",
+      "targetId": 403,
+      "targetPatientId": "WEL-328",
+      "sourcesDeleted": [
+        4898
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gracemaldonado917@yahoo.com",
+      "targetId": 396,
+      "targetPatientId": "WEL-321",
+      "sourcesDeleted": [
+        4108
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kateishii@icloud.com",
+      "targetId": 417,
+      "targetPatientId": "WEL-342",
+      "sourcesDeleted": [
+        26220
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "melissa.wentzel@yahoo.com",
+      "targetId": 426,
+      "targetPatientId": "WEL-351",
+      "sourcesDeleted": [
+        25700
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "rhonda7b@gmail.com",
+      "targetId": 427,
+      "targetPatientId": "WEL-352",
+      "sourcesDeleted": [
+        3069
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "molliecat39@gmail.com",
+      "targetId": 3026,
+      "targetPatientId": "WEL-78888588",
+      "sourcesDeleted": [
+        431,
+        2261
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "seabolttoni@gmail.com",
+      "targetId": 419,
+      "targetPatientId": "WEL-344",
+      "sourcesDeleted": [
+        5223
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "brsk702@yahoo.com",
+      "targetId": 4902,
+      "targetPatientId": "WEL-78890036",
+      "sourcesDeleted": [
+        25947
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "bkeepers64@gmail.com",
+      "targetId": 25292,
+      "targetPatientId": "WEL-78890634",
+      "sourcesDeleted": [
+        4871
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "thibodeauxkynze@gmail.com",
+      "targetId": 462,
+      "targetPatientId": "WEL-386",
+      "sourcesDeleted": [
+        2104,
+        4749
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "jensen2162@gmail.com",
+      "targetId": 471,
+      "targetPatientId": "WEL-395",
+      "sourcesDeleted": [
+        26454
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "benderdoaks24@gmail.com",
+      "targetId": 3166,
+      "targetPatientId": "WEL-78888717",
+      "sourcesDeleted": [
+        474
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dsnyvactnr@aol.com",
+      "targetId": 482,
+      "targetPatientId": "WEL-406",
+      "sourcesDeleted": [
+        25512
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "fordwoolwine@gmail.com",
+      "targetId": 478,
+      "targetPatientId": "WEL-402",
+      "sourcesDeleted": [
+        4701
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "angiecollections@yahoo.com",
+      "targetId": 4875,
+      "targetPatientId": "WEL-78890020",
+      "sourcesDeleted": [
+        25176,
+        25961
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "jefferson3v@yahoo.com.br",
+      "targetId": 501,
+      "targetPatientId": "WEL-425",
+      "sourcesDeleted": [
+        2971
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "meldps396@gmail.com",
+      "targetId": 499,
+      "targetPatientId": "WEL-423",
+      "sourcesDeleted": [
+        3142,
+        26051
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "randielaynemays@gmail.com",
+      "targetId": 510,
+      "targetPatientId": "WEL-434",
+      "sourcesDeleted": [
+        2922
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "keelynrene@gmail.com",
+      "targetId": 4877,
+      "targetPatientId": "WEL-78890021",
+      "sourcesDeleted": [
+        25618
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "amanda.haigler@outlook.com",
+      "targetId": 1100,
+      "targetPatientId": "WEL-725",
+      "sourcesDeleted": [
+        25134,
+        26022
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "patrickjspera@yahoo.com",
+      "targetId": 522,
+      "targetPatientId": "WEL-446",
+      "sourcesDeleted": [
+        1931
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lauragalbraithrn@comcast.net",
+      "targetId": 523,
+      "targetPatientId": "WEL-447",
+      "sourcesDeleted": [
+        5200
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gramshorty@hotmail.com",
+      "targetId": 1146,
+      "targetPatientId": "WEL-766",
+      "sourcesDeleted": [
+        2242,
+        26461
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "eddy28ny@yahoo.com",
+      "targetId": 532,
+      "targetPatientId": "WEL-456",
+      "sourcesDeleted": [
+        3445
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ashley_chiaratti@hotmail.com",
+      "targetId": 549,
+      "targetPatientId": "WEL-473",
+      "sourcesDeleted": [
+        25411
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "krysten.davis.lockhart@gmail.com",
+      "targetId": 4914,
+      "targetPatientId": "WEL-78890048",
+      "sourcesDeleted": [
+        25235
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "slkremer42@gmail.com",
+      "targetId": 562,
+      "targetPatientId": "WEL-486",
+      "sourcesDeleted": [
+        2437,
+        5215
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "ace1242002@yahoo.com",
+      "targetId": 573,
+      "targetPatientId": "WEL-497",
+      "sourcesDeleted": [
+        4750
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "arikah20@gmail.com",
+      "targetId": 596,
+      "targetPatientId": "WEL-520",
+      "sourcesDeleted": [
+        26167
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "smonfils918@gmail.com",
+      "targetId": 606,
+      "targetPatientId": "WEL-530",
+      "sourcesDeleted": [
+        2347,
+        2951
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "ksproles46@gmail.com",
+      "targetId": 323,
+      "targetPatientId": "WEL-250",
+      "sourcesDeleted": [
+        25519
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "liliandubon50@gmail.com",
+      "targetId": 612,
+      "targetPatientId": "WEL-536",
+      "sourcesDeleted": [
+        26239
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "frazier.vanessar@gmail.com",
+      "targetId": 1042,
+      "targetPatientId": "WEL-668",
+      "sourcesDeleted": [
+        2114,
+        25531
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "maxineduncan56@gmail.com",
+      "targetId": 642,
+      "targetPatientId": "WEL-566",
+      "sourcesDeleted": [
+        26169
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "luoaisi333@gmail.com",
+      "targetId": 648,
+      "targetPatientId": "WEL-572",
+      "sourcesDeleted": [
+        2262
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "amandamoorhead51@gmail.com",
+      "targetId": 4936,
+      "targetPatientId": "WEL-78890069",
+      "sourcesDeleted": [
+        26105
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "elenasorkin62@gmail.com",
+      "targetId": 1153,
+      "targetPatientId": "WEL-772",
+      "sourcesDeleted": [
+        1958
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lisa.wiley611@gmail.com",
+      "targetId": 1114,
+      "targetPatientId": "WEL-738",
+      "sourcesDeleted": [
+        2230,
+        5052
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "robby.l.harbert@gmail.com",
+      "targetId": 3399,
+      "targetPatientId": "WEL-78888883",
+      "sourcesDeleted": [
+        4393,
+        25103
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "netsie79@gmail.com",
+      "targetId": 1903,
+      "targetPatientId": "WEL-78887635",
+      "sourcesDeleted": [
+        986
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ashleighrendon9311@gmail.com",
+      "targetId": 1131,
+      "targetPatientId": "WEL-755",
+      "sourcesDeleted": [
+        25918
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "swinesarefine@yahoo.com",
+      "targetId": 1074,
+      "targetPatientId": "WEL-699",
+      "sourcesDeleted": [
+        5104
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "brettagler@gmail.com",
+      "targetId": 995,
+      "targetPatientId": "WEL-641",
+      "sourcesDeleted": [
+        2884
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "test@test.com",
+      "targetId": 2638,
+      "targetPatientId": "WEL-78888237",
+      "sourcesDeleted": [
+        25580
+      ],
+      "recordsMoved": 9,
+      "status": "success"
+    },
+    {
+      "email": "hillfam0423@gmail.com",
+      "targetId": 3532,
+      "targetPatientId": "WEL-78888985",
+      "sourcesDeleted": [
+        4394
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "wrightb0517@yahoo.com",
+      "targetId": 1940,
+      "targetPatientId": "WEL-78887656",
+      "sourcesDeleted": [
+        3797
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "manny1111c@gmail.com",
+      "targetId": 1941,
+      "targetPatientId": "WEL-78887657",
+      "sourcesDeleted": [
+        4111
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "we22crazy@gmail.com",
+      "targetId": 25676,
+      "targetPatientId": "WEL-78890967",
+      "sourcesDeleted": [
+        1947
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "siennacampbell919@gmail.com",
+      "targetId": 1637,
+      "targetPatientId": "WEL-78887454",
+      "sourcesDeleted": [
+        3045
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "melmac015@yahoo.com",
+      "targetId": 4719,
+      "targetPatientId": "WEL-78889886",
+      "sourcesDeleted": [
+        1950
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lytlady617@gmail.com",
+      "targetId": 4038,
+      "targetPatientId": "WEL-78889354",
+      "sourcesDeleted": [
+        1962
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "madissontaft04@gmail.com",
+      "targetId": 1970,
+      "targetPatientId": "WEL-78887677",
+      "sourcesDeleted": [
+        3453
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "terrymcmaster13@gmail.com",
+      "targetId": 1802,
+      "targetPatientId": "WEL-78887580",
+      "sourcesDeleted": [
+        25669
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "tracyleerafferty@gmail.com",
+      "targetId": 1975,
+      "targetPatientId": "WEL-78887682",
+      "sourcesDeleted": [
+        3200
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "janaeeckels2002@gmail.com",
+      "targetId": 1992,
+      "targetPatientId": "WEL-78887695",
+      "sourcesDeleted": [
+        4954
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "genielnurse@gmail.com",
+      "targetId": 25747,
+      "targetPatientId": "WEL-78891028",
+      "sourcesDeleted": [
+        2669
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "medicalrecordsva@gmail.com",
+      "targetId": 1977,
+      "targetPatientId": "WEL-78887684",
+      "sourcesDeleted": [
+        579
+      ],
+      "recordsMoved": 8,
+      "status": "success"
+    },
+    {
+      "email": "colleenstandefer@gmail.com",
+      "targetId": 3245,
+      "targetPatientId": "WEL-78888772",
+      "sourcesDeleted": [
+        2013
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "navygirlmarinewife@icloud.com",
+      "targetId": 2021,
+      "targetPatientId": "WEL-78887712",
+      "sourcesDeleted": [
+        5199
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "esalsman84@gmail.com",
+      "targetId": 2041,
+      "targetPatientId": "WEL-78887730",
+      "sourcesDeleted": [
+        4766
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "erikamkerr@gmail.com",
+      "targetId": 2058,
+      "targetPatientId": "WEL-78887743",
+      "sourcesDeleted": [
+        2697
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "aregood.mattie2476@gmail.com",
+      "targetId": 1523,
+      "targetPatientId": "WEL-78887370",
+      "sourcesDeleted": [
+        2289
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "moorekourtney88@yahoo.com",
+      "targetId": 2081,
+      "targetPatientId": "WEL-78887764",
+      "sourcesDeleted": [
+        25206
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dherndon@tcsn.net",
+      "targetId": 2083,
+      "targetPatientId": "WEL-78887766",
+      "sourcesDeleted": [
+        3888
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mayaki161@gmail.com",
+      "targetId": 2084,
+      "targetPatientId": "WEL-78887767",
+      "sourcesDeleted": [
+        3695
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cao1533@gmail.com",
+      "targetId": 2091,
+      "targetPatientId": "WEL-78887773",
+      "sourcesDeleted": [
+        26285
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mendomichelle22@gmail.comm",
+      "targetId": 2101,
+      "targetPatientId": "WEL-78887782",
+      "sourcesDeleted": [
+        26602
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "susannah.t95@gmail.com",
+      "targetId": 2103,
+      "targetPatientId": "WEL-78887784",
+      "sourcesDeleted": [
+        26117
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "millikens@msn.com",
+      "targetId": 2110,
+      "targetPatientId": "WEL-78887791",
+      "sourcesDeleted": [
+        3011,
+        4646
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "mislush1945@gmail.com",
+      "targetId": 2115,
+      "targetPatientId": "WEL-78887795",
+      "sourcesDeleted": [
+        3500
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "larafamily8@icloud.com",
+      "targetId": 2045,
+      "targetPatientId": "WEL-78887732",
+      "sourcesDeleted": [
+        2903
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mdevita@wellmadepackaging.com",
+      "targetId": 1808,
+      "targetPatientId": "WEL-78887585",
+      "sourcesDeleted": [
+        3273
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kayladavis0815@icloud.com",
+      "targetId": 2155,
+      "targetPatientId": "WEL-78887830",
+      "sourcesDeleted": [
+        4069
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "itsasmollworld@aol.com",
+      "targetId": 4992,
+      "targetPatientId": "WEL-78890123",
+      "sourcesDeleted": [
+        25285
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "shantel2679@gmail.com",
+      "targetId": 2172,
+      "targetPatientId": "WEL-78887845",
+      "sourcesDeleted": [
+        17817
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jessicadraper205@gmail.com",
+      "targetId": 2201,
+      "targetPatientId": "WEL-78887867",
+      "sourcesDeleted": [
+        3209,
+        5056
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "toneil@twcny.rr.com",
+      "targetId": 2874,
+      "targetPatientId": "WEL-78888446",
+      "sourcesDeleted": [
+        2206
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "waltersherry54@yahoo.com",
+      "targetId": 2227,
+      "targetPatientId": "WEL-78887888",
+      "sourcesDeleted": [
+        3738,
+        5049,
+        26201
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "eawemail@yahoo.com",
+      "targetId": 2232,
+      "targetPatientId": "WEL-78887892",
+      "sourcesDeleted": [
+        25939
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "demetriatodd8@gmail.com",
+      "targetId": 2243,
+      "targetPatientId": "WEL-78887902",
+      "sourcesDeleted": [
+        2908
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "amberhudd07@yahoo.com",
+      "targetId": 2257,
+      "targetPatientId": "WEL-78887915",
+      "sourcesDeleted": [
+        25583
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "paige.dixon47@gmail.com",
+      "targetId": 3466,
+      "targetPatientId": "WEL-78888933",
+      "sourcesDeleted": [
+        2676
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "crystalbuckner93@yahoo.com",
+      "targetId": 1630,
+      "targetPatientId": "WEL-78887448",
+      "sourcesDeleted": [
+        4128
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "andreamccovey@yahoo.com",
+      "targetId": 2287,
+      "targetPatientId": "WEL-78887935",
+      "sourcesDeleted": [
+        3771,
+        26155
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "kliles928@gmail.com",
+      "targetId": 5030,
+      "targetPatientId": "WEL-78890158",
+      "sourcesDeleted": [
+        26607
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "adaadaw@yahoo.com",
+      "targetId": 5080,
+      "targetPatientId": "WEL-78890207",
+      "sourcesDeleted": [
+        26016
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "csumom2000wp@yahoo.com",
+      "targetId": 4652,
+      "targetPatientId": "WEL-78889850",
+      "sourcesDeleted": [
+        2328
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lrk18@hotmail.com",
+      "targetId": 2368,
+      "targetPatientId": "WEL-78888003",
+      "sourcesDeleted": [
+        4818,
+        25595
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "sarverjr@msn.com",
+      "targetId": 2708,
+      "targetPatientId": "WEL-78888296",
+      "sourcesDeleted": [
+        25724
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mullinskarissa12@gmail.com",
+      "targetId": 2961,
+      "targetPatientId": "WEL-78888527",
+      "sourcesDeleted": [
+        2314,
+        25942
+      ],
+      "recordsMoved": 7,
+      "status": "success"
+    },
+    {
+      "email": "kayla.garcia51318@gmail.com",
+      "targetId": 5013,
+      "targetPatientId": "WEL-78890144",
+      "sourcesDeleted": [
+        26060
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "joycekever68@gmail.com",
+      "targetId": 2401,
+      "targetPatientId": "WEL-78888033",
+      "sourcesDeleted": [
+        17812
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "yogabliss@sbcglobal.net",
+      "targetId": 25964,
+      "targetPatientId": "WEL-78891222",
+      "sourcesDeleted": [
+        2410
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "a_sauers0401@yahoo.com",
+      "targetId": 2443,
+      "targetPatientId": "WEL-78888067",
+      "sourcesDeleted": [
+        3603
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kelleycarlin@aol.com",
+      "targetId": 5142,
+      "targetPatientId": "WEL-78890264",
+      "sourcesDeleted": [
+        26065
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sdstanley328@gmail.com",
+      "targetId": 2477,
+      "targetPatientId": "WEL-78888095",
+      "sourcesDeleted": [
+        3286
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "tinasd11@gmail.com",
+      "targetId": 2478,
+      "targetPatientId": "WEL-78888096",
+      "sourcesDeleted": [
+        3558
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "brendajgallo@gmail.com",
+      "targetId": 2487,
+      "targetPatientId": "WEL-78888104",
+      "sourcesDeleted": [
+        5108
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "traci820@gmail.com",
+      "targetId": 2203,
+      "targetPatientId": "WEL-78887869",
+      "sourcesDeleted": [
+        3459
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "sischo29@gmail.com",
+      "targetId": 2498,
+      "targetPatientId": "WEL-78888115",
+      "sourcesDeleted": [
+        5152
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "leilarayne46@gmail.com",
+      "targetId": 2502,
+      "targetPatientId": "WEL-78888118",
+      "sourcesDeleted": [
+        26061
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "callmemizz911@gmail.com",
+      "targetId": 2510,
+      "targetPatientId": "WEL-78888122",
+      "sourcesDeleted": [
+        3071
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mimi711barbee@gmail.com",
+      "targetId": 2536,
+      "targetPatientId": "WEL-78888145",
+      "sourcesDeleted": [
+        5088
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "luzmae@yahoo.com",
+      "targetId": 3427,
+      "targetPatientId": "WEL-78888903",
+      "sourcesDeleted": [
+        2539
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "isabellagsellers@gmail.com",
+      "targetId": 2577,
+      "targetPatientId": "WEL-78888184",
+      "sourcesDeleted": [
+        4580
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "chantelkayprice12@gmail.com",
+      "targetId": 2582,
+      "targetPatientId": "WEL-78888187",
+      "sourcesDeleted": [
+        25881
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sarahmuddiman82@gmail.com",
+      "targetId": 25923,
+      "targetPatientId": "WEL-78891183",
+      "sourcesDeleted": [
+        2594
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cherylsquarters@gmail.com",
+      "targetId": 25953,
+      "targetPatientId": "WEL-78891212",
+      "sourcesDeleted": [
+        4412
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "glancaster33@gmail.com",
+      "targetId": 5153,
+      "targetPatientId": "WEL-78890275",
+      "sourcesDeleted": [
+        26179
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "vrow83@yahoo.com",
+      "targetId": 3274,
+      "targetPatientId": "WEL-78888788",
+      "sourcesDeleted": [
+        2723
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "laurakesinger@gmail.com",
+      "targetId": 2763,
+      "targetPatientId": "WEL-78888346",
+      "sourcesDeleted": [
+        5067,
+        26154
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "mcwhirterkeri@gmail.com",
+      "targetId": 2764,
+      "targetPatientId": "WEL-78888347",
+      "sourcesDeleted": [
+        5182
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "christyrhenson@gmail.com",
+      "targetId": 4417,
+      "targetPatientId": "WEL-78889666",
+      "sourcesDeleted": [
+        5124
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "odlewendy@yahoo.com",
+      "targetId": 5176,
+      "targetPatientId": "WEL-78890296",
+      "sourcesDeleted": [
+        2811
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cbassett1980@gmail.com",
+      "targetId": 2834,
+      "targetPatientId": "WEL-78888409",
+      "sourcesDeleted": [
+        4311
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "nmadrid86@gmail.com",
+      "targetId": 4638,
+      "targetPatientId": "WEL-78889838",
+      "sourcesDeleted": [
+        2841
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gypsyofthesea63@gmail.com",
+      "targetId": 2871,
+      "targetPatientId": "WEL-78888443",
+      "sourcesDeleted": [
+        5066
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "virgesjainya@gmail.com",
+      "targetId": 2878,
+      "targetPatientId": "WEL-78888449",
+      "sourcesDeleted": [
+        25628
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "manja0414@outlook.com",
+      "targetId": 3705,
+      "targetPatientId": "WEL-78889121",
+      "sourcesDeleted": [
+        2880
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "angel_eyes9933@yahoo.com",
+      "targetId": 2887,
+      "targetPatientId": "WEL-78888458",
+      "sourcesDeleted": [
+        4671
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "novemberscorpio85@yahoo.com",
+      "targetId": 2895,
+      "targetPatientId": "WEL-78888466",
+      "sourcesDeleted": [
+        4734
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jschae89@gmail.com",
+      "targetId": 2907,
+      "targetPatientId": "WEL-78888476",
+      "sourcesDeleted": [
+        3952,
+        25062
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "mariahonor59@gmail.com",
+      "targetId": 2913,
+      "targetPatientId": "WEL-78888482",
+      "sourcesDeleted": [
+        5061,
+        26133
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "dee676111@gmail.com",
+      "targetId": 2914,
+      "targetPatientId": "WEL-78888483",
+      "sourcesDeleted": [
+        25538
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ritajoaustin@gmail.com",
+      "targetId": 2835,
+      "targetPatientId": "WEL-78888410",
+      "sourcesDeleted": [
+        3663,
+        25350
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "bobwhitehurst@gmail.com",
+      "targetId": 2930,
+      "targetPatientId": "WEL-78888497",
+      "sourcesDeleted": [
+        3731
+      ],
+      "recordsMoved": 31,
+      "status": "success"
+    },
+    {
+      "email": "pattiabecker62@gmail.com",
+      "targetId": 2960,
+      "targetPatientId": "WEL-78888526",
+      "sourcesDeleted": [
+        5091
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kwpdc1@aol.com",
+      "targetId": 2974,
+      "targetPatientId": "WEL-78888539",
+      "sourcesDeleted": [
+        5082
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gabeandemily2004@gmail.com",
+      "targetId": 3290,
+      "targetPatientId": "WEL-78888799",
+      "sourcesDeleted": [
+        4573
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "monkeygirlsc@gmail.com",
+      "targetId": 4430,
+      "targetPatientId": "WEL-78889676",
+      "sourcesDeleted": [
+        26119
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "emron61894@comcast.net",
+      "targetId": 3005,
+      "targetPatientId": "WEL-78888568",
+      "sourcesDeleted": [
+        26469
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "meganturn7808@gmail.com",
+      "targetId": 3021,
+      "targetPatientId": "WEL-78888583",
+      "sourcesDeleted": [
+        25692
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "shaymichevans@gmail.com",
+      "targetId": 3025,
+      "targetPatientId": "WEL-78888587",
+      "sourcesDeleted": [
+        25295
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jfr1941@verizon.net",
+      "targetId": 3059,
+      "targetPatientId": "WEL-78888618",
+      "sourcesDeleted": [
+        4251
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "pegslaptop@hotmail.com",
+      "targetId": 3070,
+      "targetPatientId": "WEL-78888629",
+      "sourcesDeleted": [
+        26193
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dbastarrdillon@gmail.com",
+      "targetId": 4717,
+      "targetPatientId": "WEL-78889884",
+      "sourcesDeleted": [
+        3079,
+        25968
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "alexamagestro1@yahoo.com",
+      "targetId": 3103,
+      "targetPatientId": "WEL-78888662",
+      "sourcesDeleted": [
+        4363
+      ],
+      "recordsMoved": 19,
+      "status": "success"
+    },
+    {
+      "email": "grimace5872@yahoo.com",
+      "targetId": 3108,
+      "targetPatientId": "WEL-78888667",
+      "sourcesDeleted": [
+        4847
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "littlebit72@hotmail.com",
+      "targetId": 2916,
+      "targetPatientId": "WEL-78888485",
+      "sourcesDeleted": [
+        5022
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "nqle615@yahoo.com",
+      "targetId": 3114,
+      "targetPatientId": "WEL-78888673",
+      "sourcesDeleted": [
+        26131
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "tarneshaflds@yahoo.com",
+      "targetId": 3122,
+      "targetPatientId": "WEL-78888679",
+      "sourcesDeleted": [
+        4724
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sassynae98@yahoo.com",
+      "targetId": 3131,
+      "targetPatientId": "WEL-78888686",
+      "sourcesDeleted": [
+        5050
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "nursecarol6@gmail.com",
+      "targetId": 3149,
+      "targetPatientId": "WEL-78888702",
+      "sourcesDeleted": [
+        4248
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jmcleod3@live.com",
+      "targetId": 3155,
+      "targetPatientId": "WEL-78888707",
+      "sourcesDeleted": [
+        26248
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "annieknght@yahoo.com",
+      "targetId": 3157,
+      "targetPatientId": "WEL-78888708",
+      "sourcesDeleted": [
+        25935
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "derrickmarshall05@gmail.com",
+      "targetId": 3162,
+      "targetPatientId": "WEL-78888713",
+      "sourcesDeleted": [
+        4756
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "wardsandra63@yahoo.com",
+      "targetId": 3179,
+      "targetPatientId": "WEL-78888730",
+      "sourcesDeleted": [
+        5095,
+        25679
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "morgandoughe8@gmail.com",
+      "targetId": 4544,
+      "targetPatientId": "WEL-78889755",
+      "sourcesDeleted": [
+        25588
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "barkerkelsey05@gmail.com",
+      "targetId": 4560,
+      "targetPatientId": "WEL-78889771",
+      "sourcesDeleted": [
+        25326
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "debmarfoglia@gmail.com",
+      "targetId": 3212,
+      "targetPatientId": "WEL-78888753",
+      "sourcesDeleted": [
+        26472
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cambri@fpcodessa.org",
+      "targetId": 3229,
+      "targetPatientId": "WEL-78888762",
+      "sourcesDeleted": [
+        26462
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "koryshepard84@gmail.com",
+      "targetId": 3249,
+      "targetPatientId": "WEL-78888773",
+      "sourcesDeleted": [
+        4863
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "l.c.c.bates@gmail.com",
+      "targetId": 17820,
+      "targetPatientId": "WEL-78890403",
+      "sourcesDeleted": [
+        3262
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "fgarafano@aol.com",
+      "targetId": 3266,
+      "targetPatientId": "WEL-78888783",
+      "sourcesDeleted": [
+        4114
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lorswal04@gmail.com",
+      "targetId": 3297,
+      "targetPatientId": "WEL-78888805",
+      "sourcesDeleted": [
+        25856
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "makaylablakely1998@gmail.com",
+      "targetId": 3300,
+      "targetPatientId": "WEL-78888808",
+      "sourcesDeleted": [
+        26072
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "niglio@charter.net",
+      "targetId": 3314,
+      "targetPatientId": "WEL-78888820",
+      "sourcesDeleted": [
+        4153
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ssheilaf@yahoo.com",
+      "targetId": 3329,
+      "targetPatientId": "WEL-78888835",
+      "sourcesDeleted": [
+        4631
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lopzmr@gmail.com",
+      "targetId": 4152,
+      "targetPatientId": "WEL-78889445",
+      "sourcesDeleted": [
+        26240
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ggknight1@yahoo.com",
+      "targetId": 26108,
+      "targetPatientId": "WEL-78891344",
+      "sourcesDeleted": [
+        3345
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "milliegrujic@yahoo.com",
+      "targetId": 3352,
+      "targetPatientId": "WEL-78888846",
+      "sourcesDeleted": [
+        4126,
+        25445
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "urbanacupuncturemiami@gmail.com",
+      "targetId": 3354,
+      "targetPatientId": "WEL-78888847",
+      "sourcesDeleted": [
+        4732
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "siamdim@gmail.com",
+      "targetId": 3361,
+      "targetPatientId": "WEL-78888852",
+      "sourcesDeleted": [
+        4661
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "debbie.r.mcnees@gmail.com",
+      "targetId": 3362,
+      "targetPatientId": "WEL-78888853",
+      "sourcesDeleted": [
+        26238
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ambongtalavera@yahoo.com",
+      "targetId": 3389,
+      "targetPatientId": "WEL-78888875",
+      "sourcesDeleted": [
+        26165
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "patlemm@aol.com",
+      "targetId": 3400,
+      "targetPatientId": "WEL-78888884",
+      "sourcesDeleted": [
+        5083
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "susla1556@hotmail.com",
+      "targetId": 3000,
+      "targetPatientId": "WEL-78888563",
+      "sourcesDeleted": [
+        3846
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "krystavanscoy@yahoo.com",
+      "targetId": 3419,
+      "targetPatientId": "WEL-78888898",
+      "sourcesDeleted": [
+        26139
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "justachosenvessel@icloud.com",
+      "targetId": 3421,
+      "targetPatientId": "WEL-78888900",
+      "sourcesDeleted": [
+        25996
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ashleh0317@gmail.com",
+      "targetId": 3449,
+      "targetPatientId": "WEL-78888919",
+      "sourcesDeleted": [
+        4352
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "deanna.england@yahoo.com",
+      "targetId": 3464,
+      "targetPatientId": "WEL-78888932",
+      "sourcesDeleted": [
+        5166
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jeanette.myers.111@gmail.com",
+      "targetId": 3468,
+      "targetPatientId": "WEL-78888935",
+      "sourcesDeleted": [
+        4234,
+        5086
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "shealeighranch@gmail.com",
+      "targetId": 3478,
+      "targetPatientId": "WEL-78888943",
+      "sourcesDeleted": [
+        25986
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kvoigt22@outlook.com",
+      "targetId": 3479,
+      "targetPatientId": "WEL-78888944",
+      "sourcesDeleted": [
+        4184
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "raykroll@yahoo.com",
+      "targetId": 3779,
+      "targetPatientId": "WEL-78889187",
+      "sourcesDeleted": [
+        2991
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "bmala83@hotmail.com",
+      "targetId": 3547,
+      "targetPatientId": "WEL-78888994",
+      "sourcesDeleted": [
+        25328
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sallisonhappy123@gmail.com",
+      "targetId": 5044,
+      "targetPatientId": "WEL-78890172",
+      "sourcesDeleted": [
+        3565
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "higuerae@aol.com",
+      "targetId": 3576,
+      "targetPatientId": "WEL-78889017",
+      "sourcesDeleted": [
+        25489
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "skarky206@yahoo.com",
+      "targetId": 3583,
+      "targetPatientId": "WEL-78889024",
+      "sourcesDeleted": [
+        25083
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "carcope12@yahoo.com",
+      "targetId": 3588,
+      "targetPatientId": "WEL-78889029",
+      "sourcesDeleted": [
+        4349
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mrsloehr2018@gmail.com",
+      "targetId": 3606,
+      "targetPatientId": "WEL-78889044",
+      "sourcesDeleted": [
+        5167
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "reaygobr@gmail.com",
+      "targetId": 3602,
+      "targetPatientId": "WEL-78889040",
+      "sourcesDeleted": [
+        4289
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "a_souffront@yahoo.com",
+      "targetId": 3605,
+      "targetPatientId": "WEL-78889043",
+      "sourcesDeleted": [
+        26178
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "stamper2230@gmail.com",
+      "targetId": 3597,
+      "targetPatientId": "WEL-78889036",
+      "sourcesDeleted": [
+        26241
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "katiemittleider@gmail.com",
+      "targetId": 4173,
+      "targetPatientId": "WEL-78889462",
+      "sourcesDeleted": [
+        17809
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cburdie@msn.com",
+      "targetId": 26156,
+      "targetPatientId": "WEL-78891389",
+      "sourcesDeleted": [
+        3662
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "michelleruth03@gmail.com",
+      "targetId": 3666,
+      "targetPatientId": "WEL-78889090",
+      "sourcesDeleted": [
+        5081
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "juanadoby1@gmail.com",
+      "targetId": 3669,
+      "targetPatientId": "WEL-78889093",
+      "sourcesDeleted": [
+        26124
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "drlarmark@aol.com",
+      "targetId": 4897,
+      "targetPatientId": "WEL-78890032",
+      "sourcesDeleted": [
+        3692
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "nicholasreyher1@gmail.com",
+      "targetId": 3697,
+      "targetPatientId": "WEL-78889113",
+      "sourcesDeleted": [
+        5159
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "idam.1@icloud.com",
+      "targetId": 26465,
+      "targetPatientId": "WEL-78891622",
+      "sourcesDeleted": [
+        3720
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jackiewebbx6@gmail.com",
+      "targetId": 3728,
+      "targetPatientId": "WEL-78889141",
+      "sourcesDeleted": [
+        3732
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dprovo61@gmail.com",
+      "targetId": 26177,
+      "targetPatientId": "WEL-78891405",
+      "sourcesDeleted": [
+        3762
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jtjewett@yahoo.com",
+      "targetId": 25584,
+      "targetPatientId": "WEL-78890903",
+      "sourcesDeleted": [
+        25581
+      ],
+      "recordsMoved": 5,
+      "status": "success"
+    },
+    {
+      "email": "tennasn@hotmail.com",
+      "targetId": 5077,
+      "targetPatientId": "WEL-78890204",
+      "sourcesDeleted": [
+        3787
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "harrbust@hotmail.com",
+      "targetId": 3806,
+      "targetPatientId": "WEL-78889212",
+      "sourcesDeleted": [
+        26262,
+        27251
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "crakeslaura@gmail.com",
+      "targetId": 5047,
+      "targetPatientId": "WEL-78890175",
+      "sourcesDeleted": [
+        25366,
+        3816
+      ],
+      "recordsMoved": 6,
+      "status": "success"
+    },
+    {
+      "email": "marither_lois@yahoo.com",
+      "targetId": 4507,
+      "targetPatientId": "WEL-78889718",
+      "sourcesDeleted": [
+        25550
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "kristenmonsalve@yahoo.com",
+      "targetId": 26121,
+      "targetPatientId": "WEL-78891357",
+      "sourcesDeleted": [
+        3894
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dera13@aol.com",
+      "targetId": 3937,
+      "targetPatientId": "WEL-78889305",
+      "sourcesDeleted": [
+        3893
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "chiwolveswin@gmail.com",
+      "targetId": 25065,
+      "targetPatientId": "WEL-78890431",
+      "sourcesDeleted": [
+        25932
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "maude.schaede@gmail.com",
+      "targetId": 3921,
+      "targetPatientId": "WEL-78889294",
+      "sourcesDeleted": [
+        5053
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jordanmichelle55@gmail.com",
+      "targetId": 3922,
+      "targetPatientId": "WEL-78889295",
+      "sourcesDeleted": [
+        26386
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "adamchandler96@gmail.com",
+      "targetId": 3934,
+      "targetPatientId": "WEL-78889302",
+      "sourcesDeleted": [
+        5195,
+        25917
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "rskennedy1983@gmail.com",
+      "targetId": 3936,
+      "targetPatientId": "WEL-78889304",
+      "sourcesDeleted": [
+        5179,
+        26170
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "angelakblais@gmail.com",
+      "targetId": 3960,
+      "targetPatientId": "WEL-78889322",
+      "sourcesDeleted": [
+        26538
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "anitamartinbaker@yahoo.com",
+      "targetId": 3973,
+      "targetPatientId": "WEL-78889329",
+      "sourcesDeleted": [
+        25921
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "nikkimiller98@icloud.com",
+      "targetId": 25111,
+      "targetPatientId": "WEL-78890469",
+      "sourcesDeleted": [
+        27256
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "wcourtn12@gmail.com",
+      "targetId": 3770,
+      "targetPatientId": "WEL-78889179",
+      "sourcesDeleted": [
+        4955
+      ],
+      "recordsMoved": 24,
+      "status": "success"
+    },
+    {
+      "email": "rykerandamanda@gmail.com",
+      "targetId": 3743,
+      "targetPatientId": "WEL-78889154",
+      "sourcesDeleted": [
+        25859
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jeniferrhawkins@gmail.com",
+      "targetId": 4281,
+      "targetPatientId": "WEL-78889550",
+      "sourcesDeleted": [
+        4062
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "waltersashley325@gmail.com",
+      "targetId": 26213,
+      "targetPatientId": "WEL-78891430",
+      "sourcesDeleted": [
+        4606
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gertha2017@gmail.com",
+      "targetId": 4077,
+      "targetPatientId": "WEL-78889383",
+      "sourcesDeleted": [
+        26444
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "spearme23@aol.com",
+      "targetId": 4079,
+      "targetPatientId": "WEL-78889385",
+      "sourcesDeleted": [
+        25585
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "melisa.lopez@live.com",
+      "targetId": 4082,
+      "targetPatientId": "WEL-78889386",
+      "sourcesDeleted": [
+        5068
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "shelleyhettie@msn.com",
+      "targetId": 4092,
+      "targetPatientId": "WEL-78889395",
+      "sourcesDeleted": [
+        26401
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "cpme61@yahoo.com",
+      "targetId": 4109,
+      "targetPatientId": "WEL-78889408",
+      "sourcesDeleted": [
+        4771
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "acj_2020@yahoo.com",
+      "targetId": 4515,
+      "targetPatientId": "WEL-78889726",
+      "sourcesDeleted": [
+        26574
+      ],
+      "recordsMoved": 8,
+      "status": "success"
+    },
+    {
+      "email": "andrearober@yahoo.com",
+      "targetId": 4130,
+      "targetPatientId": "WEL-78889426",
+      "sourcesDeleted": [
+        25989
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gabishop1171@yahoo.com",
+      "targetId": 25056,
+      "targetPatientId": "WEL-78890423",
+      "sourcesDeleted": [
+        4138
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "stockhamjm@gmail.com",
+      "targetId": 4142,
+      "targetPatientId": "WEL-78889436",
+      "sourcesDeleted": [
+        25927
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "sophiadj88@aol.com",
+      "targetId": 4151,
+      "targetPatientId": "WEL-78889444",
+      "sourcesDeleted": [
+        26013
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jcwalker7877@gmail.com",
+      "targetId": 4168,
+      "targetPatientId": "WEL-78889458",
+      "sourcesDeleted": [
+        25539
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "donnacaldwell475@gmail.com",
+      "targetId": 4176,
+      "targetPatientId": "WEL-78889465",
+      "sourcesDeleted": [
+        17831
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ddkk4@hotmail.com",
+      "targetId": 4156,
+      "targetPatientId": "WEL-78889449",
+      "sourcesDeleted": [
+        25966
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "delaguilaeliz@gmail.com",
+      "targetId": 4546,
+      "targetPatientId": "WEL-78889757",
+      "sourcesDeleted": [
+        25925
+      ],
+      "recordsMoved": 44,
+      "status": "success"
+    },
+    {
+      "email": "fayekdobermans@yahoo.com",
+      "targetId": 25138,
+      "targetPatientId": "WEL-78890494",
+      "sourcesDeleted": [
+        25735
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "tabivaughn2@sbcglobal.net",
+      "targetId": 4208,
+      "targetPatientId": "WEL-78889493",
+      "sourcesDeleted": [
+        5198
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "thegoatsbeard38562@gmail.com",
+      "targetId": 25562,
+      "targetPatientId": "WEL-78890884",
+      "sourcesDeleted": [
+        4228
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "thomas.beller@hotmail.com",
+      "targetId": 4261,
+      "targetPatientId": "WEL-78889533",
+      "sourcesDeleted": [
+        26174
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "tinainwyo@gmail.com",
+      "targetId": 4283,
+      "targetPatientId": "WEL-78889552",
+      "sourcesDeleted": [
+        5098
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "whitered64@gmail.com",
+      "targetId": 25638,
+      "targetPatientId": "WEL-78890933",
+      "sourcesDeleted": [
+        4299
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "yuselileon@gmail.com",
+      "targetId": 3980,
+      "targetPatientId": "WEL-78889335",
+      "sourcesDeleted": [
+        25715
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "ddobson781@aol.com",
+      "targetId": 4364,
+      "targetPatientId": "WEL-78889617",
+      "sourcesDeleted": [
+        26224
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "plyetter@gmail.com",
+      "targetId": 5100,
+      "targetPatientId": "WEL-78890226",
+      "sourcesDeleted": [
+        4369
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "my1crackers@gmail.com",
+      "targetId": 4713,
+      "targetPatientId": "WEL-78889880",
+      "sourcesDeleted": [
+        26064
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "klking11301@hotmail.com",
+      "targetId": 4449,
+      "targetPatientId": "WEL-78889687",
+      "sourcesDeleted": [
+        25930
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "greg@athomehawaii.com",
+      "targetId": 4641,
+      "targetPatientId": "WEL-78889841",
+      "sourcesDeleted": [
+        25999
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "courtneyigou@gmail.com",
+      "targetId": 4842,
+      "targetPatientId": "WEL-78890000",
+      "sourcesDeleted": [
+        25472
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ktakacs54@gmail.com",
+      "targetId": 26076,
+      "targetPatientId": "WEL-78891315",
+      "sourcesDeleted": [
+        5036
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jaycoricessna@gmail.com",
+      "targetId": 5134,
+      "targetPatientId": "WEL-78890256",
+      "sourcesDeleted": [
+        26046
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "moller.jennifer@gmail.com",
+      "targetId": 5145,
+      "targetPatientId": "WEL-78890267",
+      "sourcesDeleted": [
+        26071
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "dmtarbet111@gmail.com",
+      "targetId": 5140,
+      "targetPatientId": "WEL-78890262",
+      "sourcesDeleted": [
+        25945
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "hippiezm@gmail.com",
+      "targetId": 25508,
+      "targetPatientId": "WEL-78890834",
+      "sourcesDeleted": [
+        5212
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "combatdoc.cvma@gmail.com",
+      "targetId": 25105,
+      "targetPatientId": "WEL-78890463",
+      "sourcesDeleted": [
+        25940
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "clegassey@yahoo.com",
+      "targetId": 25901,
+      "targetPatientId": "WEL-78891161",
+      "sourcesDeleted": [
+        25109
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jeannieneu27@gmail.com",
+      "targetId": 25128,
+      "targetPatientId": "WEL-78890485",
+      "sourcesDeleted": [
+        25919
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "campbellsk27@gmail.com",
+      "targetId": 25137,
+      "targetPatientId": "WEL-78890493",
+      "sourcesDeleted": [
+        26113
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "jolinda128@yahoo.com",
+      "targetId": 25153,
+      "targetPatientId": "WEL-78890509",
+      "sourcesDeleted": [
+        26175
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "doggis@hotmail.com",
+      "targetId": 25188,
+      "targetPatientId": "WEL-78890542",
+      "sourcesDeleted": [
+        25970
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "vanessavsp@msn.com",
+      "targetId": 25236,
+      "targetPatientId": "WEL-78890584",
+      "sourcesDeleted": [
+        26122
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "merolli28@gmail.com",
+      "targetId": 25238,
+      "targetPatientId": "WEL-78890586",
+      "sourcesDeleted": [
+        25920
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "edeljane.panizales@gmail.com",
+      "targetId": 25764,
+      "targetPatientId": "WEL-78891043",
+      "sourcesDeleted": [
+        26428
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "imatthies24@gmail.com",
+      "targetId": 25244,
+      "targetPatientId": "WEL-78890592",
+      "sourcesDeleted": [
+        26116
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "chloeleeanne08@icloud.com",
+      "targetId": 25252,
+      "targetPatientId": "WEL-78890599",
+      "sourcesDeleted": [
+        25969
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "carbambam99@gmail.com",
+      "targetId": 25251,
+      "targetPatientId": "WEL-78890598",
+      "sourcesDeleted": [
+        26189
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "hobo1954@gmail.com",
+      "targetId": 5012,
+      "targetPatientId": "WEL-78890143",
+      "sourcesDeleted": [
+        26111,
+        25355
+      ],
+      "recordsMoved": 3,
+      "status": "success"
+    },
+    {
+      "email": "wkcarby@frontiernet.net",
+      "targetId": 25239,
+      "targetPatientId": "WEL-78890587",
+      "sourcesDeleted": [
+        25967
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "missstecca@gmail.com",
+      "targetId": 25261,
+      "targetPatientId": "WEL-78890606",
+      "sourcesDeleted": [
+        25873
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "ljc213@aol.com",
+      "targetId": 25272,
+      "targetPatientId": "WEL-78890615",
+      "sourcesDeleted": [
+        26034
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "elin60@aol.com",
+      "targetId": 25289,
+      "targetPatientId": "WEL-78890631",
+      "sourcesDeleted": [
+        25994
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "maryloufernandez3@gmail.com",
+      "targetId": 25301,
+      "targetPatientId": "WEL-78890642",
+      "sourcesDeleted": [
+        25949
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "deborahlyds@gmail.com",
+      "targetId": 25695,
+      "targetPatientId": "WEL-78890983",
+      "sourcesDeleted": [
+        26453
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "heather.romangreen@gmail.com",
+      "targetId": 25305,
+      "targetPatientId": "WEL-78890646",
+      "sourcesDeleted": [
+        26112
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "daveleewillingham@gmail.com",
+      "targetId": 25337,
+      "targetPatientId": "WEL-78890677",
+      "sourcesDeleted": [
+        26222
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "liasafranklin0911@gmail.com",
+      "targetId": 25363,
+      "targetPatientId": "WEL-78890703",
+      "sourcesDeleted": [
+        26127
+      ],
+      "recordsMoved": 13,
+      "status": "success"
+    },
+    {
+      "email": "quinntm0325@icloud.com",
+      "targetId": 25386,
+      "targetPatientId": "WEL-78890725",
+      "sourcesDeleted": [
+        26173
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "g.rica17@hotmail.com",
+      "targetId": 25334,
+      "targetPatientId": "WEL-78890674",
+      "sourcesDeleted": [
+        25977
+      ],
+      "recordsMoved": 2,
+      "status": "success"
+    },
+    {
+      "email": "swhitemich@comcast.net",
+      "targetId": 26093,
+      "targetPatientId": "WEL-78891331",
+      "sourcesDeleted": [
+        25394
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "lfite66@aol.com",
+      "targetId": 25422,
+      "targetPatientId": "WEL-78890758",
+      "sourcesDeleted": [
+        26486
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "kast9315@att.net",
+      "targetId": 25606,
+      "targetPatientId": "WEL-78890917",
+      "sourcesDeleted": [
+        26235
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "gmahayni@comcast.net",
+      "targetId": 25346,
+      "targetPatientId": "WEL-78890686",
+      "sourcesDeleted": [
+        26114
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "price556@yahoo.com",
+      "targetId": 25675,
+      "targetPatientId": "WEL-78890966",
+      "sourcesDeleted": [
+        26416
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "mody3355@yahoo.ckm",
+      "targetId": 25702,
+      "targetPatientId": "WEL-78890989",
+      "sourcesDeleted": [
+        26509
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    },
+    {
+      "email": "debprincess.dc@gmail.com",
+      "targetId": 25980,
+      "targetPatientId": "WEL-78891235",
+      "sourcesDeleted": [
+        27250
+      ],
+      "recordsMoved": 1,
+      "status": "success"
+    }
+  ]
+}

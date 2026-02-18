@@ -380,6 +380,31 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
 
+    // CRITICAL: Lifefile pharmacy API only accepts 'm' or 'f' for gender.
+    // 'other' or empty values cause a 422 rejection.
+    // Map to Lifefile-compatible value or reject with a clear message.
+    const lifefileGender = (() => {
+      const g = (p.patient.gender || '').toLowerCase().trim();
+      if (g === 'm' || g === 'male') return 'm';
+      if (g === 'f' || g === 'female') return 'f';
+      return null; // Invalid for Lifefile
+    })();
+
+    if (!lifefileGender) {
+      logger.warn('[PRESCRIPTIONS] Invalid gender for Lifefile API', {
+        gender: p.patient.gender,
+        patientId: p.patientId,
+      });
+      return NextResponse.json(
+        {
+          error: 'Pharmacy requires biological sex (Male or Female) for prescription processing. Please update the patient gender and try again.',
+          code: 'INVALID_PHARMACY_GENDER',
+          detail: `Gender value "${p.patient.gender}" is not accepted by the pharmacy. Please select Male or Female.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const orderPayload: LifefileOrderPayload = {
       message: {
         id: messageId,
@@ -415,7 +440,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           firstName: p.patient.firstName,
           lastName: p.patient.lastName,
           dateOfBirth: dobIso,
-          gender: p.patient.gender,
+          gender: lifefileGender,
           address1: p.patient.address1,
           address2: patientAddressLine2,
           city: p.patient.city,
@@ -801,6 +826,33 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           responseJson: JSON.stringify(orderResponse),
         },
       });
+
+      // CRITICAL: Auto-mark invoice as processed after successful Lifefile submission.
+      // This prevents the prescription from staying in the queue when the frontend's
+      // separate PATCH call fails (network issue, timeout, etc.)
+      if (p.invoiceId) {
+        try {
+          await prisma.invoice.update({
+            where: { id: p.invoiceId },
+            data: {
+              prescriptionProcessed: true,
+              prescriptionProcessedAt: new Date(),
+              prescriptionProcessedBy: user.providerId ?? null,
+            },
+          });
+          logger.info('[PRESCRIPTIONS] Invoice auto-marked as processed', {
+            invoiceId: p.invoiceId,
+            orderId: order.id,
+          });
+        } catch (invoiceErr) {
+          // Non-fatal: prescription was sent successfully, invoice marking is secondary
+          logger.error('[PRESCRIPTIONS] Failed to auto-mark invoice as processed', {
+            invoiceId: p.invoiceId,
+            orderId: order.id,
+            error: invoiceErr instanceof Error ? invoiceErr.message : 'Unknown error',
+          });
+        }
+      }
 
       // Handle refill queue if this prescription is from a refill request
       let refillResult = null;

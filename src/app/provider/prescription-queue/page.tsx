@@ -325,6 +325,9 @@ interface MedicationItem {
 interface PrescriptionFormState {
   medications: MedicationItem[];
   shippingMethod: string;
+  // Pharmacy gender: Lifefile only accepts 'm' or 'f'
+  // When patient gender is 'other' or unknown, provider must select biological sex
+  pharmacyGender: 'm' | 'f' | '';
   // Address fields (for editing if missing)
   address1: string;
   address2: string;
@@ -355,6 +358,7 @@ export default function PrescriptionQueuePage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [total, setTotal] = useState(0);
 
@@ -372,6 +376,7 @@ export default function PrescriptionQueuePage() {
   const [prescriptionForm, setPrescriptionForm] = useState<PrescriptionFormState>({
     medications: [createEmptyMedication()],
     shippingMethod: '8115', // UPS - OVERNIGHT (numeric string, will be parsed)
+    pharmacyGender: '',
     address1: '',
     address2: '',
     city: '',
@@ -415,9 +420,13 @@ export default function PrescriptionQueuePage() {
     return localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
   };
 
-  const fetchQueue = useCallback(async () => {
+  const fetchQueue = useCallback(async (retryAttempt = 0) => {
+    const MAX_RETRIES = 2;
     try {
-      setError('');
+      if (retryAttempt === 0) {
+        setError('');
+        setFetchFailed(false);
+      }
       const response = await apiFetch('/api/provider/prescription-queue', {
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
@@ -426,15 +435,32 @@ export default function PrescriptionQueuePage() {
         const data: QueueResponse = await response.json();
         setQueueItems(data.items || []);
         setTotal(data.total || 0);
+        setFetchFailed(false);
+        setError('');
+      } else if (response.status === 503 && retryAttempt < MAX_RETRIES) {
+        // Service temporarily busy - auto-retry after short delay
+        await new Promise((r) => setTimeout(r, 2000 * (retryAttempt + 1)));
+        return fetchQueue(retryAttempt + 1);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to fetch queue');
+        const msg = errorData.error || 'Failed to fetch queue';
+        setError(msg);
+        setFetchFailed(true);
+        setQueueItems([]);
       }
     } catch (err) {
+      if (retryAttempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 2000 * (retryAttempt + 1)));
+        return fetchQueue(retryAttempt + 1);
+      }
       console.error('Error fetching prescription queue:', err);
-      setError('Failed to fetch prescription queue');
+      setError('Failed to fetch prescription queue. Please check your connection and try again.');
+      setFetchFailed(true);
+      setQueueItems([]);
     } finally {
-      setLoading(false);
+      if (retryAttempt === 0 || retryAttempt >= MAX_RETRIES) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -672,9 +698,18 @@ export default function PrescriptionQueuePage() {
       setPrescriptionPanel({ item, details });
       const parsedAddress = getPatientAddress(details.patient);
       const isWellmedr = item.clinic?.subdomain?.toLowerCase().includes('wellmedr');
+
+      // Determine pharmacy gender: Lifefile only accepts 'm' or 'f'
+      const patientGender = (details.patient.gender || '').toLowerCase().trim();
+      let pharmacyGender: 'm' | 'f' | '' = '';
+      if (['m', 'male', 'man'].includes(patientGender)) pharmacyGender = 'm';
+      else if (['f', 'female', 'woman'].includes(patientGender)) pharmacyGender = 'f';
+      // If 'other' or empty, leave as '' so provider must select
+
       setPrescriptionForm({
         medications: [createEmptyMedication()],
         shippingMethod: isWellmedr ? WELLMEDR_DEFAULT_SHIPPING_ID : '8115',
+        pharmacyGender,
         address1: parsedAddress.address1,
         address2: parsedAddress.address2,
         city: parsedAddress.city,
@@ -873,27 +908,24 @@ export default function PrescriptionQueuePage() {
       return;
     }
 
+    // Validate pharmacy gender (Lifefile requires 'm' or 'f')
+    if (!prescriptionForm.pharmacyGender) {
+      setError('Biological sex (Male/Female) is required by the pharmacy for prescription processing. Please select one.');
+      return;
+    }
+
     setSubmittingPrescription(true);
     setError('');
 
     try {
-      const { details } = prescriptionPanel;
-
-      // Use address from form (may have been edited)
-      // Normalize gender: validation schema expects 'm', 'f', or 'other'
-      const normalizedGender = (() => {
-        const g = (details.patient.gender || '').toLowerCase().trim();
-        if (['m', 'male', 'man'].includes(g)) return 'm';
-        if (['f', 'female', 'woman'].includes(g)) return 'f';
-        return 'other';
-      })();
+      const { item, details } = prescriptionPanel;
 
       const payload = {
         patient: {
           firstName: details.patient.firstName,
           lastName: details.patient.lastName,
           dob: details.patient.dob,
-          gender: normalizedGender,
+          gender: prescriptionForm.pharmacyGender, // Use pharmacy gender ('m' or 'f' only)
           phone: details.patient.phone,
           email: details.patient.email,
           address1: prescriptionForm.address1,
@@ -914,6 +946,8 @@ export default function PrescriptionQueuePage() {
         clinicId: details.clinic?.id,
         invoiceId: details.invoice.id,
         patientId: details.patient.id,
+        // CRITICAL: Pass refillId so the backend marks the refill as prescribed
+        refillId: item.refillId || null,
       };
 
       const response = await apiFetch('/api/prescriptions', {
@@ -926,23 +960,40 @@ export default function PrescriptionQueuePage() {
       });
 
       if (response.ok) {
-        // Mark as processed
-        await handleMarkProcessed(
-          prescriptionPanel.item.invoiceId!,
-          prescriptionPanel.item.patientName,
-          false
-        );
+        // Remove item from queue immediately (backend auto-marks invoice as processed)
+        // Handle all queue types: invoice, refill, queued_order
+        if (item.queueType === 'refill' && item.refillId) {
+          setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
+        } else if (item.invoiceId) {
+          setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
+        }
+        setTotal((prev) => Math.max(0, prev - 1));
+
+        // Also call handleMarkProcessed as fallback for invoice items
+        // (in case the backend auto-mark failed for any reason)
+        if (item.invoiceId) {
+          handleMarkProcessed(item.invoiceId, item.patientName, false).catch(() => {
+            // Non-fatal: backend already auto-marked, this is a safety net
+          });
+        }
+
         setPrescriptionPanel(null);
         setSuccessMessage(
-          `Prescription for ${prescriptionPanel.item.patientName} sent to Lifefile successfully!`
+          `Prescription for ${item.patientName} sent to Lifefile successfully!`
         );
         setTimeout(() => setSuccessMessage(''), 5000);
       } else {
         const errorData = await response.json();
         // Build a more helpful error message
         let errorMessage = errorData.error || 'Failed to submit prescription';
-        // 503 = service busy / pool exhausted - show user-friendly message only, no technical detail
-        if (response.status !== 503) {
+
+        // Handle specific error codes with user-friendly messages
+        if (errorData.code === 'INVALID_PHARMACY_GENDER') {
+          errorMessage = 'Pharmacy requires biological sex (Male or Female). Please select one in the prescription form.';
+        } else if (response.status === 503) {
+          // 503 = service busy / pool exhausted - show user-friendly message only
+          errorMessage = errorData.error || 'Service temporarily busy. Please try again in a moment.';
+        } else {
           if (errorData.details) {
             const detailMessages = Object.entries(errorData.details)
               .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
@@ -1134,7 +1185,7 @@ export default function PrescriptionQueuePage() {
               <div className="border-l border-gray-300 pl-4">
                 <h1 className="text-xl font-bold text-gray-900">Rx Queue</h1>
                 <p className="text-sm text-gray-500">
-                  {total} patient{total !== 1 ? 's' : ''} awaiting prescriptions
+                  {loading ? 'Loading...' : fetchFailed ? 'Failed to load' : `${total} patient${total !== 1 ? 's' : ''} awaiting prescriptions`}
                 </p>
               </div>
             </div>
@@ -1206,6 +1257,30 @@ export default function PrescriptionQueuePage() {
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+          </div>
+        ) : fetchFailed ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+              <AlertCircle className="h-8 w-8 text-red-600" />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              Failed to load prescriptions
+            </h3>
+            <p className="text-gray-500">
+              {error || 'The prescription queue could not be loaded. This is usually temporary.'}
+            </p>
+            <button
+              onClick={() => {
+                setLoading(true);
+                setFetchFailed(false);
+                setError('');
+                fetchQueue();
+              }}
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-600"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </button>
           </div>
         ) : filteredItems.length === 0 && searchResult.closeMatches.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
@@ -2807,6 +2882,56 @@ export default function PrescriptionQueuePage() {
                         </button>
                       </div>
 
+                      {/* Pharmacy Gender - shown when patient gender is not clearly m/f */}
+                      {!prescriptionForm.pharmacyGender && (
+                        <div className="space-y-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4">
+                          <h3 className="flex items-center gap-2 font-medium text-amber-900">
+                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                            Biological Sex Required for Pharmacy
+                          </h3>
+                          <p className="text-sm text-amber-700">
+                            The pharmacy requires biological sex for prescription processing.
+                            Patient gender is not set or is &quot;Other&quot;. Please select:
+                          </p>
+                          <div className="flex gap-3">
+                            {[
+                              { value: 'm' as const, label: 'Male' },
+                              { value: 'f' as const, label: 'Female' },
+                            ].map((option) => (
+                              <label
+                                key={option.value}
+                                className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 p-3 transition-all ${
+                                  prescriptionForm.pharmacyGender === option.value
+                                    ? 'border-rose-500 bg-rose-50 shadow-sm ring-2 ring-rose-200'
+                                    : 'border-gray-200 bg-white hover:border-gray-300'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="pharmacyGender"
+                                  value={option.value}
+                                  checked={prescriptionForm.pharmacyGender === option.value}
+                                  onChange={(e) =>
+                                    setPrescriptionForm((prev) => ({
+                                      ...prev,
+                                      pharmacyGender: e.target.value as 'm' | 'f',
+                                    }))
+                                  }
+                                  className="sr-only"
+                                />
+                                <span className={`font-medium ${
+                                  prescriptionForm.pharmacyGender === option.value
+                                    ? 'text-rose-900'
+                                    : 'text-gray-700'
+                                }`}>
+                                  {option.label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Shipping Method */}
                       <div className="space-y-3">
                         <h3 className="flex items-center gap-2 font-medium text-gray-900">
@@ -2879,7 +3004,8 @@ export default function PrescriptionQueuePage() {
                             disabled={
                               submittingPrescription ||
                               !hasValidMedication() ||
-                              !isAddressComplete(prescriptionForm)
+                              !isAddressComplete(prescriptionForm) ||
+                              !prescriptionForm.pharmacyGender
                             }
                             className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
@@ -2887,6 +3013,11 @@ export default function PrescriptionQueuePage() {
                               <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Sending...
+                              </>
+                            ) : !prescriptionForm.pharmacyGender ? (
+                              <>
+                                <AlertCircle className="h-4 w-4" />
+                                Select Biological Sex
                               </>
                             ) : !isAddressComplete(prescriptionForm) ? (
                               <>

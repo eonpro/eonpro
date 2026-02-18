@@ -1,0 +1,196 @@
+{
+  "batchId": "wellmedr-inv-import-2026-02-17T18-02-35-728Z",
+  "timestamp": "2026-02-17T18:02:44.786Z",
+  "clinicId": 7,
+  "totalCSVRows": 640,
+  "succeededPayments": 386,
+  "results": {
+    "invoicesCreated": 87,
+    "matchedExisting": 83,
+    "stubPatientsCreated": 4,
+    "alreadyHasRx": 70,
+    "needsRx": 17,
+    "duplicatesSkipped": 292,
+    "noPmSkipped": 6,
+    "errors": 1,
+    "notificationsSent": 0
+  },
+  "needsRx": [
+    {
+      "email": "megan.carroll@lhcgroup.com",
+      "name": "Megan Carroll",
+      "product": "tirzepatide",
+      "plan": "monthly",
+      "price": "$274.00",
+      "invoiceId": 687,
+      "patientDbId": 27310,
+      "patientNumber": "WEL-78892442"
+    },
+    {
+      "email": "mbrowntms2025@gmail.com",
+      "name": "Test OLH",
+      "product": "tirzepatide",
+      "plan": "monthly",
+      "price": "$274.00",
+      "invoiceId": 688,
+      "patientDbId": 26611,
+      "patientNumber": "WEL-78891751"
+    },
+    {
+      "email": "vilpaloma78@icloud.com",
+      "name": "Paloma Villarreal",
+      "product": "tirzepatide",
+      "plan": "monthly",
+      "price": "$274.00",
+      "invoiceId": 689,
+      "patientDbId": 27311,
+      "patientNumber": "WEL-78892443"
+    },
+    {
+      "email": "ladarryl2018@gmail.com",
+      "name": "Carson Jones",
+      "product": "tirzepatide",
+      "plan": "monthly",
+      "price": "$627.00",
+      "invoiceId": 690,
+      "patientDbId": 27313,
+      "patientNumber": "WEL-78892445"
+    },
+    {
+      "email": "mmondelli91@gmail.com",
+      "name": "Molly Mondelli",
+      "product": "tirzepatide",
+      "plan": "quarterly",
+      "price": "$627.00",
+      "invoiceId": 699,
+      "patientDbId": 26689,
+      "patientNumber": "WEL-78891829"
+    },
+    {
+      "email": "bklein1979@yahoo.com",
+      "name": "Augusta Klein",
+      "product": "tirzepatide",
+      "plan": "monthly",
+      "price": "$269.00",
+      "invoiceId": 701,
+      "patientDbId": 26678,
+      "patientNumber": "WEL-78891812"
+    },
+    {
+      "email": "deidrebrownaveryt@yahoo.com",
+      "name": "Deidre  Brown-averyt",
+      "product": "tirzepatide",
+      "plan": "quarterly",
+      "price": "$627.00",
+      "invoiceId": 704,
+      "patientDbId": 26705,
+      "patientNumber": "WEL-78891845"
+    },
+    {
+      "email": "alexamagestro1@yahoo.com",
+      "name": "Alexa Magestro",
+      "product": "tirzepatide",
+      "plan": "monthly",
+      "price": "$269.00",
+      "invoiceId": 717,
+      "patientDbId": 3103,
+      "patientNumber": "WEL-78888662"
+    },
+    {
+      "email": "donnalynnpayne1828@gmail.com",
+      "name": "Donna Payne",
+      "product": "tirzepatide",
+      "plan": "quarterly",
+      "price": "$627.00",
+      "invoiceId": 722,
+      "patientDbId": 27314,
+      "patientNumber": "WEL-78892446"
+    },
+    {
+      "email": "debbyeroman@gmail.com",
+      "name": "Debbye Roman House",
+      "product": "semaglutide",
+      "plan": "monthly",
+      "price": "$199.00",
+      "invoiceId": 751,
+      "patientDbId": 4923,
+      "patientNumber": "WEL-78890057"
+    },
+    {
+      "email": "calabrese-13@hotmail.com",
+      "name": "Francesca Fanelle",
+      "product": "semaglutide",
+      "plan": "6-month",
+      "price": "$720.00",
+      "invoiceId": 747,
+      "patientDbId": 2830,
+      "patientNumber": "WEL-78888405"
+    },
+    {
+      "email": "tabivaughn2@sbcglobal.net",
+      "name": "Tabitha Nooner",
+      "product": "tirzepatide",
+      "plan": "quarterly",
+      "price": "$627.00",
+      "invoiceId": 746,
+      "patientDbId": 4208,
+      "patientNumber": "WEL-78889493"
+    },
+    {
+      "email": "cgm427@gmail.com",
+      "name": "Claire G Manfre",
+      "product": "semaglutide",
+      "plan": "quarterly",
+      "price": "$435.00",
+      "invoiceId": 752,
+      "patientDbId": 25281,
+      "patientNumber": "WEL-78890623"
+    },
+    {
+      "email": "sammysully24@gmail.com",
+      "name": "Samantha Sullivan",
+      "product": "tirzepatide",
+      "plan": "quarterly",
+      "price": "$627.00",
+      "invoiceId": 760,
+      "patientDbId": 3411,
+      "patientNumber": "WEL-78888892"
+    },
+    {
+      "email": "manny1111c@gmail.com",
+      "name": "Emmanuel Carnero",
+      "product": "semaglutide",
+      "plan": "quarterly",
+      "price": "$485.00",
+      "invoiceId": 771,
+      "patientDbId": 1941,
+      "patientNumber": "WEL-78887657"
+    },
+    {
+      "email": "nicole.ricchini@gmail.com",
+      "name": "Nicole  Ohearn",
+      "product": "semaglutide",
+      "plan": "quarterly",
+      "price": "$485.00",
+      "invoiceId": 772,
+      "patientDbId": 27102,
+      "patientNumber": "WEL-78892237"
+    },
+    {
+      "email": "debmarfoglia@gmail.com",
+      "name": "Augostino Marfoglia",
+      "product": "tirzepatide",
+      "plan": "6-month",
+      "price": "$1234.00",
+      "invoiceId": 773,
+      "patientDbId": 3212,
+      "patientNumber": "WEL-78888753"
+    }
+  ],
+  "errors": [
+    {
+      "email": "ashliwilliams2020@icloud.com",
+      "error": "\nInvalid `prisma.patient.create()` invocation:\n\n\nUnique constraint failed on the fields: (`stripeCustomerId`)"
+    }
+  ]
+}

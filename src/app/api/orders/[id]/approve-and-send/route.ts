@@ -95,6 +95,26 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       );
     }
 
+    // CRITICAL: Validate and fix gender before sending to Lifefile.
+    // The payload may have been created with 'other' gender which Lifefile rejects.
+    if (payload.order?.patient?.gender) {
+      const g = payload.order.patient.gender.toLowerCase().trim();
+      if (g === 'm' || g === 'male') {
+        payload.order.patient.gender = 'm';
+      } else if (g === 'f' || g === 'female') {
+        payload.order.patient.gender = 'f';
+      } else {
+        // Invalid gender for Lifefile - reject with clear message
+        return NextResponse.json(
+          {
+            error: 'Pharmacy requires biological sex (Male or Female) for this patient. Please update patient gender and re-queue.',
+            code: 'INVALID_PHARMACY_GENDER',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const clinicClient = order.clinicId ? await getClinicLifefileClient(order.clinicId) : null;
     const client = clinicClient ?? lifefile;
     if (!clinicClient && !getEnvCredentials()) {

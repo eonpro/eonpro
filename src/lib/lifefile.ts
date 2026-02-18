@@ -144,10 +144,21 @@ async function callLifefile<T = any>(
         const res = await fn(client);
         return res.data;
       }
+      // Extract user-friendly error details from Lifefile response
+      const responseData = err.response?.data;
+      let detailMessage = errorMessage;
+      if (responseData) {
+        // Lifefile returns errors like: {"type":"error","messages":["The selected order.patient.gender is invalid."]}
+        if (responseData.messages && Array.isArray(responseData.messages)) {
+          detailMessage = responseData.messages.join('; ');
+        } else if (typeof responseData === 'string') {
+          detailMessage = responseData;
+        } else {
+          detailMessage = JSON.stringify(responseData);
+        }
+      }
       throw new Error(
-        `[Lifefile:${context}] ${err.response?.status} ${
-          JSON.stringify(err.response?.data ?? errorMessage) ?? 'unknown error'
-        }`
+        `[Lifefile:${context}] ${err.response?.status ?? 'unknown'} ${detailMessage}`
       );
     }
   });

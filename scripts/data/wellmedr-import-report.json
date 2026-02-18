@@ -1,0 +1,4209 @@
+{
+  "batchId": "wellmedr-import-2026-02-17T16-49-58-061Z",
+  "csvPath": "/Users/italo/Desktop/lifefile integration/scripts/data/wellmedr-onboarding-export.csv",
+  "timestamp": "2026-02-17T16:55:56.993Z",
+  "totalCSVRows": 6737,
+  "afterDedup": 5565,
+  "testRecordsSkipped": 14,
+  "emptyRecordsSkipped": 4,
+  "readyForImport": 5565,
+  "results": {
+    "created": 619,
+    "updated": 4745,
+    "skipped": 0,
+    "documentsCreated": 5538,
+    "errors": 27
+  },
+  "duplicateDBProfiles": [
+    {
+      "email": "kliles928@gmail.com",
+      "dbIds": [
+        26607,
+        5030
+      ],
+      "patientIds": [
+        "WEL-78891747",
+        "WEL-78890158"
+      ]
+    },
+    {
+      "email": "acj_2020@yahoo.com",
+      "dbIds": [
+        26574,
+        4515
+      ],
+      "patientIds": [
+        "WEL-78891715",
+        "WEL-78889726"
+      ]
+    },
+    {
+      "email": "angelakblais@gmail.com",
+      "dbIds": [
+        26538,
+        3960
+      ],
+      "patientIds": [
+        "WEL-78891687",
+        "WEL-78889322"
+      ]
+    },
+    {
+      "email": "mody3355@yahoo.com",
+      "dbIds": [
+        26509,
+        663
+      ],
+      "patientIds": [
+        "WEL-78891661",
+        "WEL-586"
+      ]
+    },
+    {
+      "email": "lfite66@aol.com",
+      "dbIds": [
+        26486,
+        25422
+      ],
+      "patientIds": [
+        "WEL-78891640",
+        "WEL-78890758"
+      ]
+    },
+    {
+      "email": "debmarfoglia@gmail.com",
+      "dbIds": [
+        26472,
+        3212
+      ],
+      "patientIds": [
+        "WEL-78891629",
+        "WEL-78888753"
+      ]
+    },
+    {
+      "email": "emron61894@comcast.net",
+      "dbIds": [
+        26469,
+        3005
+      ],
+      "patientIds": [
+        "WEL-78891626",
+        "WEL-78888568"
+      ]
+    },
+    {
+      "email": "idam.1@icloud.com",
+      "dbIds": [
+        26465,
+        3720
+      ],
+      "patientIds": [
+        "WEL-78891622",
+        "WEL-78889133"
+      ]
+    },
+    {
+      "email": "cambri@fpcodessa.org",
+      "dbIds": [
+        26462,
+        3229
+      ],
+      "patientIds": [
+        "WEL-78891619",
+        "WEL-78888762"
+      ]
+    },
+    {
+      "email": "gramshorty@hotmail.com",
+      "dbIds": [
+        26461,
+        2242,
+        1146
+      ],
+      "patientIds": [
+        "WEL-78891618",
+        "WEL-78887901",
+        "WEL-766"
+      ]
+    },
+    {
+      "email": "jensen2162@gmail.com",
+      "dbIds": [
+        26454,
+        471
+      ],
+      "patientIds": [
+        "WEL-78891611",
+        "WEL-395"
+      ]
+    },
+    {
+      "email": "deborahlyds@gmail.com",
+      "dbIds": [
+        26453,
+        25695
+      ],
+      "patientIds": [
+        "WEL-78891610",
+        "WEL-78890983"
+      ]
+    },
+    {
+      "email": "miriamroses.e@gmail.com",
+      "dbIds": [
+        26447,
+        5015,
+        1594
+      ],
+      "patientIds": [
+        "WEL-78891604",
+        "WEL-78890145",
+        "WEL-78887417"
+      ]
+    },
+    {
+      "email": "gertha2017@gmail.com",
+      "dbIds": [
+        26444,
+        4077
+      ],
+      "patientIds": [
+        "WEL-78891601",
+        "WEL-78889383"
+      ]
+    },
+    {
+      "email": "edeljane.panizales@gmail.com",
+      "dbIds": [
+        26428,
+        25764
+      ],
+      "patientIds": [
+        "WEL-78891588",
+        "WEL-78891043"
+      ]
+    },
+    {
+      "email": "price556@yahoo.com",
+      "dbIds": [
+        26416,
+        25675
+      ],
+      "patientIds": [
+        "WEL-78891576",
+        "WEL-78890966"
+      ]
+    },
+    {
+      "email": "shelleyhettie@msn.com",
+      "dbIds": [
+        26401,
+        4092
+      ],
+      "patientIds": [
+        "WEL-78891562",
+        "WEL-78889395"
+      ]
+    },
+    {
+      "email": "jordanmichelle55@gmail.com",
+      "dbIds": [
+        26386,
+        3922
+      ],
+      "patientIds": [
+        "WEL-78891550",
+        "WEL-78889295"
+      ]
+    },
+    {
+      "email": "vpntagle@gmail.com",
+      "dbIds": [
+        26382,
+        1704
+      ],
+      "patientIds": [
+        "WEL-78891546",
+        "WEL-78887510"
+      ]
+    },
+    {
+      "email": "cao1533@gmail.com",
+      "dbIds": [
+        26285,
+        2091
+      ],
+      "patientIds": [
+        "WEL-78891471",
+        "WEL-78887773"
+      ]
+    },
+    {
+      "email": "harrbust@hotmail.com",
+      "dbIds": [
+        26262,
+        3806
+      ],
+      "patientIds": [
+        "WEL-78891461",
+        "WEL-78889212"
+      ]
+    },
+    {
+      "email": "jmcleod3@live.com",
+      "dbIds": [
+        26248,
+        3155
+      ],
+      "patientIds": [
+        "WEL-78891453",
+        "WEL-78888707"
+      ]
+    },
+    {
+      "email": "stamper2230@gmail.com",
+      "dbIds": [
+        26241,
+        3597
+      ],
+      "patientIds": [
+        "WEL-78891447",
+        "WEL-78889036"
+      ]
+    },
+    {
+      "email": "lopzmr@gmail.com",
+      "dbIds": [
+        26240,
+        4152
+      ],
+      "patientIds": [
+        "WEL-78891446",
+        "WEL-78889445"
+      ]
+    },
+    {
+      "email": "liliandubon50@gmail.com",
+      "dbIds": [
+        26239,
+        612
+      ],
+      "patientIds": [
+        "WEL-78891445",
+        "WEL-536"
+      ]
+    },
+    {
+      "email": "debbie.r.mcnees@gmail.com",
+      "dbIds": [
+        26238,
+        3362
+      ],
+      "patientIds": [
+        "WEL-78891444",
+        "WEL-78888853"
+      ]
+    },
+    {
+      "email": "kast9315@att.net",
+      "dbIds": [
+        26235,
+        25606
+      ],
+      "patientIds": [
+        "WEL-78891441",
+        "WEL-78890917"
+      ]
+    },
+    {
+      "email": "ddobson781@aol.com",
+      "dbIds": [
+        26224,
+        4364
+      ],
+      "patientIds": [
+        "WEL-78891437",
+        "WEL-78889617"
+      ]
+    },
+    {
+      "email": "daveleewillingham@gmail.com",
+      "dbIds": [
+        26222,
+        25337
+      ],
+      "patientIds": [
+        "WEL-78891435",
+        "WEL-78890677"
+      ]
+    },
+    {
+      "email": "kateishii@icloud.com",
+      "dbIds": [
+        26220,
+        417
+      ],
+      "patientIds": [
+        "WEL-78891434",
+        "WEL-342"
+      ]
+    },
+    {
+      "email": "joleepace23@yahoo.com",
+      "dbIds": [
+        26217,
+        5065,
+        378
+      ],
+      "patientIds": [
+        "WEL-78891432",
+        "WEL-78890193",
+        "WEL-305"
+      ]
+    },
+    {
+      "email": "waltersashley325@gmail.com",
+      "dbIds": [
+        26213,
+        4606
+      ],
+      "patientIds": [
+        "WEL-78891430",
+        "WEL-78889812"
+      ]
+    },
+    {
+      "email": "waltersherry54@yahoo.com",
+      "dbIds": [
+        26201,
+        5049,
+        3738,
+        2227
+      ],
+      "patientIds": [
+        "WEL-78891424",
+        "WEL-78890177",
+        "WEL-78889149",
+        "WEL-78887888"
+      ]
+    },
+    {
+      "email": "ezenor91@gmail.com",
+      "dbIds": [
+        26198,
+        1720
+      ],
+      "patientIds": [
+        "WEL-78891422",
+        "WEL-78887524"
+      ]
+    },
+    {
+      "email": "pegslaptop@hotmail.com",
+      "dbIds": [
+        26193,
+        3070
+      ],
+      "patientIds": [
+        "WEL-78891418",
+        "WEL-78888629"
+      ]
+    },
+    {
+      "email": "hunneycreekjunction@yahoo.com",
+      "dbIds": [
+        26190,
+        25547,
+        1270
+      ],
+      "patientIds": [
+        "WEL-78891415",
+        "WEL-78890872",
+        "WEL-78887184"
+      ]
+    },
+    {
+      "email": "carbambam99@gmail.com",
+      "dbIds": [
+        26189,
+        25251
+      ],
+      "patientIds": [
+        "WEL-78891414",
+        "WEL-78890598"
+      ]
+    },
+    {
+      "email": "glancaster33@gmail.com",
+      "dbIds": [
+        26179,
+        5153
+      ],
+      "patientIds": [
+        "WEL-78891407",
+        "WEL-78890275"
+      ]
+    },
+    {
+      "email": "a_souffront@yahoo.com",
+      "dbIds": [
+        26178,
+        3605
+      ],
+      "patientIds": [
+        "WEL-78891406",
+        "WEL-78889043"
+      ]
+    },
+    {
+      "email": "dprovo61@gmail.com",
+      "dbIds": [
+        26177,
+        3762
+      ],
+      "patientIds": [
+        "WEL-78891405",
+        "WEL-78889172"
+      ]
+    },
+    {
+      "email": "jolinda128@yahoo.com",
+      "dbIds": [
+        26175,
+        25153
+      ],
+      "patientIds": [
+        "WEL-78891404",
+        "WEL-78890509"
+      ]
+    },
+    {
+      "email": "thomas.beller@hotmail.com",
+      "dbIds": [
+        26174,
+        4261
+      ],
+      "patientIds": [
+        "WEL-78891403",
+        "WEL-78889533"
+      ]
+    },
+    {
+      "email": "quinntm0325@icloud.com",
+      "dbIds": [
+        26173,
+        25386
+      ],
+      "patientIds": [
+        "WEL-78891402",
+        "WEL-78890725"
+      ]
+    },
+    {
+      "email": "rskennedy1983@gmail.com",
+      "dbIds": [
+        26170,
+        5179,
+        3936
+      ],
+      "patientIds": [
+        "WEL-78891401",
+        "WEL-78890298",
+        "WEL-78889304"
+      ]
+    },
+    {
+      "email": "maxineduncan56@gmail.com",
+      "dbIds": [
+        26169,
+        642
+      ],
+      "patientIds": [
+        "WEL-78891400",
+        "WEL-566"
+      ]
+    },
+    {
+      "email": "arikah20@gmail.com",
+      "dbIds": [
+        26167,
+        596
+      ],
+      "patientIds": [
+        "WEL-78891398",
+        "WEL-520"
+      ]
+    },
+    {
+      "email": "ambongtalavera@yahoo.com",
+      "dbIds": [
+        26165,
+        3389
+      ],
+      "patientIds": [
+        "WEL-78891396",
+        "WEL-78888875"
+      ]
+    },
+    {
+      "email": "cburdie@msn.com",
+      "dbIds": [
+        26156,
+        3662
+      ],
+      "patientIds": [
+        "WEL-78891389",
+        "WEL-78889086"
+      ]
+    },
+    {
+      "email": "andreamccovey@yahoo.com",
+      "dbIds": [
+        26155,
+        3771,
+        2287
+      ],
+      "patientIds": [
+        "WEL-78891388",
+        "WEL-78889180",
+        "WEL-78887935"
+      ]
+    },
+    {
+      "email": "laurakesinger@gmail.com",
+      "dbIds": [
+        26154,
+        5067,
+        2763
+      ],
+      "patientIds": [
+        "WEL-78891387",
+        "WEL-78890195",
+        "WEL-78888346"
+      ]
+    },
+    {
+      "email": "leslie.prz111@gmail.com",
+      "dbIds": [
+        26140,
+        1905
+      ],
+      "patientIds": [
+        "WEL-78891374",
+        "WEL-78887637"
+      ]
+    },
+    {
+      "email": "krystavanscoy@yahoo.com",
+      "dbIds": [
+        26139,
+        3419
+      ],
+      "patientIds": [
+        "WEL-78891373",
+        "WEL-78888898"
+      ]
+    },
+    {
+      "email": "mariahonor59@gmail.com",
+      "dbIds": [
+        26133,
+        5061,
+        2913
+      ],
+      "patientIds": [
+        "WEL-78891369",
+        "WEL-78890189",
+        "WEL-78888482"
+      ]
+    },
+    {
+      "email": "nqle615@yahoo.com",
+      "dbIds": [
+        26131,
+        3114
+      ],
+      "patientIds": [
+        "WEL-78891367",
+        "WEL-78888673"
+      ]
+    },
+    {
+      "email": "liasafranklin0911@gmail.com",
+      "dbIds": [
+        26127,
+        25363
+      ],
+      "patientIds": [
+        "WEL-78891363",
+        "WEL-78890703"
+      ]
+    },
+    {
+      "email": "juanadoby1@gmail.com",
+      "dbIds": [
+        26124,
+        3669
+      ],
+      "patientIds": [
+        "WEL-78891360",
+        "WEL-78889093"
+      ]
+    },
+    {
+      "email": "vanessavsp@msn.com",
+      "dbIds": [
+        26122,
+        25236
+      ],
+      "patientIds": [
+        "WEL-78891358",
+        "WEL-78890584"
+      ]
+    },
+    {
+      "email": "kristenmonsalve@yahoo.com",
+      "dbIds": [
+        26121,
+        3894
+      ],
+      "patientIds": [
+        "WEL-78891357",
+        "WEL-78889279"
+      ]
+    },
+    {
+      "email": "randallscottpadek@gmail.com",
+      "dbIds": [
+        26120,
+        3704,
+        2967,
+        303
+      ],
+      "patientIds": [
+        "WEL-78891356",
+        "WEL-78889120",
+        "WEL-78888533",
+        "WEL-232"
+      ]
+    },
+    {
+      "email": "monkeygirlsc@gmail.com",
+      "dbIds": [
+        26119,
+        4430
+      ],
+      "patientIds": [
+        "WEL-78891355",
+        "WEL-78889676"
+      ]
+    },
+    {
+      "email": "susannah.t95@gmail.com",
+      "dbIds": [
+        26117,
+        2103
+      ],
+      "patientIds": [
+        "WEL-78891353",
+        "WEL-78887784"
+      ]
+    },
+    {
+      "email": "imatthies24@gmail.com",
+      "dbIds": [
+        26116,
+        25244
+      ],
+      "patientIds": [
+        "WEL-78891352",
+        "WEL-78890592"
+      ]
+    },
+    {
+      "email": "jardalk@hotmail.com",
+      "dbIds": [
+        26115,
+        291
+      ],
+      "patientIds": [
+        "WEL-78891351",
+        "WEL-220"
+      ]
+    },
+    {
+      "email": "gmahayni@comcast.net",
+      "dbIds": [
+        26114,
+        25346
+      ],
+      "patientIds": [
+        "WEL-78891350",
+        "WEL-78890686"
+      ]
+    },
+    {
+      "email": "campbellsk27@gmail.com",
+      "dbIds": [
+        26113,
+        25137
+      ],
+      "patientIds": [
+        "WEL-78891349",
+        "WEL-78890493"
+      ]
+    },
+    {
+      "email": "heather.romangreen@gmail.com",
+      "dbIds": [
+        26112,
+        25305
+      ],
+      "patientIds": [
+        "WEL-78891348",
+        "WEL-78890646"
+      ]
+    },
+    {
+      "email": "hobo1954@gmail.com",
+      "dbIds": [
+        26111,
+        25355,
+        5012
+      ],
+      "patientIds": [
+        "WEL-78891347",
+        "WEL-78890695",
+        "WEL-78890143"
+      ]
+    },
+    {
+      "email": "chunt580@gmail.com",
+      "dbIds": [
+        26109,
+        1649
+      ],
+      "patientIds": [
+        "WEL-78891345",
+        "WEL-78887466"
+      ]
+    },
+    {
+      "email": "ggknight1@yahoo.com",
+      "dbIds": [
+        26108,
+        3345
+      ],
+      "patientIds": [
+        "WEL-78891344",
+        "WEL-78888840"
+      ]
+    },
+    {
+      "email": "amandamoorhead51@gmail.com",
+      "dbIds": [
+        26105,
+        4936
+      ],
+      "patientIds": [
+        "WEL-78891341",
+        "WEL-78890069"
+      ]
+    },
+    {
+      "email": "swhitemich@comcast.net",
+      "dbIds": [
+        26093,
+        25394
+      ],
+      "patientIds": [
+        "WEL-78891331",
+        "WEL-78890733"
+      ]
+    },
+    {
+      "email": "ktakacs54@gmail.com",
+      "dbIds": [
+        26076,
+        5036
+      ],
+      "patientIds": [
+        "WEL-78891315",
+        "WEL-78890164"
+      ]
+    },
+    {
+      "email": "makaylablakely1998@gmail.com",
+      "dbIds": [
+        26072,
+        3300
+      ],
+      "patientIds": [
+        "WEL-78891311",
+        "WEL-78888808"
+      ]
+    },
+    {
+      "email": "moller.jennifer@gmail.com",
+      "dbIds": [
+        26071,
+        5145
+      ],
+      "patientIds": [
+        "WEL-78891310",
+        "WEL-78890267"
+      ]
+    },
+    {
+      "email": "kelleycarlin@aol.com",
+      "dbIds": [
+        26065,
+        5142
+      ],
+      "patientIds": [
+        "WEL-78891306",
+        "WEL-78890264"
+      ]
+    },
+    {
+      "email": "my1crackers@gmail.com",
+      "dbIds": [
+        26064,
+        4713
+      ],
+      "patientIds": [
+        "WEL-78891305",
+        "WEL-78889880"
+      ]
+    },
+    {
+      "email": "leilarayne46@gmail.com",
+      "dbIds": [
+        26061,
+        2502
+      ],
+      "patientIds": [
+        "WEL-78891303",
+        "WEL-78888118"
+      ]
+    },
+    {
+      "email": "kayla.garcia51318@gmail.com",
+      "dbIds": [
+        26060,
+        5013
+      ],
+      "patientIds": [
+        "WEL-78891302",
+        "WEL-78890144"
+      ]
+    },
+    {
+      "email": "meldps396@gmail.com",
+      "dbIds": [
+        26051,
+        3142,
+        499
+      ],
+      "patientIds": [
+        "WEL-78891293",
+        "WEL-78888696",
+        "WEL-423"
+      ]
+    },
+    {
+      "email": "jaycoricessna@gmail.com",
+      "dbIds": [
+        26046,
+        5134
+      ],
+      "patientIds": [
+        "WEL-78891288",
+        "WEL-78890256"
+      ]
+    },
+    {
+      "email": "ljc213@aol.com",
+      "dbIds": [
+        26034,
+        25272
+      ],
+      "patientIds": [
+        "WEL-78891278",
+        "WEL-78890615"
+      ]
+    },
+    {
+      "email": "amanda.haigler@outlook.com",
+      "dbIds": [
+        26022,
+        25134,
+        1100
+      ],
+      "patientIds": [
+        "WEL-78891267",
+        "WEL-78890490",
+        "WEL-725"
+      ]
+    },
+    {
+      "email": "adaadaw@yahoo.com",
+      "dbIds": [
+        26016,
+        5080
+      ],
+      "patientIds": [
+        "WEL-78891262",
+        "WEL-78890207"
+      ]
+    },
+    {
+      "email": "sophiadj88@aol.com",
+      "dbIds": [
+        26013,
+        4151
+      ],
+      "patientIds": [
+        "WEL-78891259",
+        "WEL-78889444"
+      ]
+    },
+    {
+      "email": "greg@athomehawaii.com",
+      "dbIds": [
+        25999,
+        4641
+      ],
+      "patientIds": [
+        "WEL-78891252",
+        "WEL-78889841"
+      ]
+    },
+    {
+      "email": "justachosenvessel@icloud.com",
+      "dbIds": [
+        25996,
+        3421
+      ],
+      "patientIds": [
+        "WEL-78891250",
+        "WEL-78888900"
+      ]
+    },
+    {
+      "email": "elin60@aol.com",
+      "dbIds": [
+        25994,
+        25289
+      ],
+      "patientIds": [
+        "WEL-78891248",
+        "WEL-78890631"
+      ]
+    },
+    {
+      "email": "andrearober@yahoo.com",
+      "dbIds": [
+        25989,
+        4130
+      ],
+      "patientIds": [
+        "WEL-78891243",
+        "WEL-78889426"
+      ]
+    },
+    {
+      "email": "shealeighranch@gmail.com",
+      "dbIds": [
+        25986,
+        3478
+      ],
+      "patientIds": [
+        "WEL-78891240",
+        "WEL-78888943"
+      ]
+    },
+    {
+      "email": "g.galvez17@icloud.com",
+      "dbIds": [
+        25977,
+        281
+      ],
+      "patientIds": [
+        "WEL-78891233",
+        "WEL-211"
+      ]
+    },
+    {
+      "email": "doggis@hotmail.com",
+      "dbIds": [
+        25970,
+        25188
+      ],
+      "patientIds": [
+        "WEL-78891228",
+        "WEL-78890542"
+      ]
+    },
+    {
+      "email": "chloeleeanne08@icloud.com",
+      "dbIds": [
+        25969,
+        25252
+      ],
+      "patientIds": [
+        "WEL-78891227",
+        "WEL-78890599"
+      ]
+    },
+    {
+      "email": "dbastarrdillon@gmail.com",
+      "dbIds": [
+        25968,
+        4717,
+        3079
+      ],
+      "patientIds": [
+        "WEL-78891226",
+        "WEL-78889884",
+        "WEL-78888638"
+      ]
+    },
+    {
+      "email": "wkcarby@frontiernet.net",
+      "dbIds": [
+        25967,
+        25239
+      ],
+      "patientIds": [
+        "WEL-78891225",
+        "WEL-78890587"
+      ]
+    },
+    {
+      "email": "ddkk4@hotmail.com",
+      "dbIds": [
+        25966,
+        4156
+      ],
+      "patientIds": [
+        "WEL-78891224",
+        "WEL-78889449"
+      ]
+    },
+    {
+      "email": "yogabliss@sbcglobal.net",
+      "dbIds": [
+        25964,
+        2410
+      ],
+      "patientIds": [
+        "WEL-78891222",
+        "WEL-78888041"
+      ]
+    },
+    {
+      "email": "angiecollections@yahoo.com",
+      "dbIds": [
+        25961,
+        25176,
+        4875
+      ],
+      "patientIds": [
+        "WEL-78891219",
+        "WEL-78890531",
+        "WEL-78890020"
+      ]
+    },
+    {
+      "email": "emiriley11@gmail.com",
+      "dbIds": [
+        25954,
+        1682
+      ],
+      "patientIds": [
+        "WEL-78891213",
+        "WEL-78887494"
+      ]
+    },
+    {
+      "email": "cherylsquarters@gmail.com",
+      "dbIds": [
+        25953,
+        4412
+      ],
+      "patientIds": [
+        "WEL-78891212",
+        "WEL-78889661"
+      ]
+    },
+    {
+      "email": "ahloveraz@gmail.com",
+      "dbIds": [
+        25952,
+        5144
+      ],
+      "patientIds": [
+        "WEL-78891211",
+        "WEL-78890266"
+      ]
+    },
+    {
+      "email": "ycespedes6214@gmail.com",
+      "dbIds": [
+        25951,
+        1464
+      ],
+      "patientIds": [
+        "WEL-78891210",
+        "WEL-78887325"
+      ]
+    },
+    {
+      "email": "maryloufernandez3@gmail.com",
+      "dbIds": [
+        25949,
+        25301
+      ],
+      "patientIds": [
+        "WEL-78891208",
+        "WEL-78890642"
+      ]
+    },
+    {
+      "email": "brsk702@yahoo.com",
+      "dbIds": [
+        25947,
+        4902
+      ],
+      "patientIds": [
+        "WEL-78891206",
+        "WEL-78890036"
+      ]
+    },
+    {
+      "email": "dmtarbet111@gmail.com",
+      "dbIds": [
+        25945,
+        5140
+      ],
+      "patientIds": [
+        "WEL-78891204",
+        "WEL-78890262"
+      ]
+    },
+    {
+      "email": "eileenwilliams@att.net",
+      "dbIds": [
+        25943,
+        8198,
+        205
+      ],
+      "patientIds": [
+        "WEL-78891202",
+        "WEL-78890348",
+        "WEL-139"
+      ]
+    },
+    {
+      "email": "mullinskarissa12@gmail.com",
+      "dbIds": [
+        25942,
+        2961,
+        2314
+      ],
+      "patientIds": [
+        "WEL-78891201",
+        "WEL-78888527",
+        "WEL-78887953"
+      ]
+    },
+    {
+      "email": "combatdoc.cvma@gmail.com",
+      "dbIds": [
+        25940,
+        25105
+      ],
+      "patientIds": [
+        "WEL-78891199",
+        "WEL-78890463"
+      ]
+    },
+    {
+      "email": "eawemail@yahoo.com",
+      "dbIds": [
+        25939,
+        2232
+      ],
+      "patientIds": [
+        "WEL-78891198",
+        "WEL-78887892"
+      ]
+    },
+    {
+      "email": "stonesrus4@gmail.com",
+      "dbIds": [
+        25938,
+        1213
+      ],
+      "patientIds": [
+        "WEL-78891197",
+        "WEL-78887150"
+      ]
+    },
+    {
+      "email": "annieknght@yahoo.com",
+      "dbIds": [
+        25935,
+        3157
+      ],
+      "patientIds": [
+        "WEL-78891195",
+        "WEL-78888708"
+      ]
+    },
+    {
+      "email": "chiwolveswin@gmail.com",
+      "dbIds": [
+        25932,
+        25065
+      ],
+      "patientIds": [
+        "WEL-78891192",
+        "WEL-78890431"
+      ]
+    },
+    {
+      "email": "klking11301@hotmail.com",
+      "dbIds": [
+        25930,
+        4449
+      ],
+      "patientIds": [
+        "WEL-78891190",
+        "WEL-78889687"
+      ]
+    },
+    {
+      "email": "gsvermont@msn.com",
+      "dbIds": [
+        25928,
+        1262,
+        502
+      ],
+      "patientIds": [
+        "WEL-78891188",
+        "WEL-78887178",
+        "WEL-426"
+      ]
+    },
+    {
+      "email": "stockhamjm@gmail.com",
+      "dbIds": [
+        25927,
+        4142
+      ],
+      "patientIds": [
+        "WEL-78891187",
+        "WEL-78889436"
+      ]
+    },
+    {
+      "email": "delaguilaeliz@gmail.com",
+      "dbIds": [
+        25925,
+        4546
+      ],
+      "patientIds": [
+        "WEL-78891185",
+        "WEL-78889757"
+      ]
+    },
+    {
+      "email": "lionelwsullivan@yahoo.com",
+      "dbIds": [
+        25924,
+        344
+      ],
+      "patientIds": [
+        "WEL-78891184",
+        "WEL-271"
+      ]
+    },
+    {
+      "email": "sarahmuddiman82@gmail.com",
+      "dbIds": [
+        25923,
+        2594
+      ],
+      "patientIds": [
+        "WEL-78891183",
+        "WEL-78888198"
+      ]
+    },
+    {
+      "email": "anitamartinbaker@yahoo.com",
+      "dbIds": [
+        25921,
+        3973
+      ],
+      "patientIds": [
+        "WEL-78891181",
+        "WEL-78889329"
+      ]
+    },
+    {
+      "email": "merolli28@gmail.com",
+      "dbIds": [
+        25920,
+        25238
+      ],
+      "patientIds": [
+        "WEL-78891180",
+        "WEL-78890586"
+      ]
+    },
+    {
+      "email": "jeannieneu27@gmail.com",
+      "dbIds": [
+        25919,
+        25128
+      ],
+      "patientIds": [
+        "WEL-78891179",
+        "WEL-78890485"
+      ]
+    },
+    {
+      "email": "ashleighrendon9311@gmail.com",
+      "dbIds": [
+        25918,
+        1131
+      ],
+      "patientIds": [
+        "WEL-78891178",
+        "WEL-755"
+      ]
+    },
+    {
+      "email": "adamchandler96@gmail.com",
+      "dbIds": [
+        25917,
+        5195,
+        3934
+      ],
+      "patientIds": [
+        "WEL-78891177",
+        "WEL-78890310",
+        "WEL-78889302"
+      ]
+    },
+    {
+      "email": "clegassey@yahoo.com",
+      "dbIds": [
+        25901,
+        25109
+      ],
+      "patientIds": [
+        "WEL-78891161",
+        "WEL-78890467"
+      ]
+    },
+    {
+      "email": "chantelkayprice12@gmail.com",
+      "dbIds": [
+        25881,
+        2582
+      ],
+      "patientIds": [
+        "WEL-78891145",
+        "WEL-78888187"
+      ]
+    },
+    {
+      "email": "missstecca@gmail.com",
+      "dbIds": [
+        25873,
+        25261
+      ],
+      "patientIds": [
+        "WEL-78891139",
+        "WEL-78890606"
+      ]
+    },
+    {
+      "email": "rykerandamanda@gmail.com",
+      "dbIds": [
+        25859,
+        3743
+      ],
+      "patientIds": [
+        "WEL-78891126",
+        "WEL-78889154"
+      ]
+    },
+    {
+      "email": "lorswal04@gmail.com",
+      "dbIds": [
+        25856,
+        3297
+      ],
+      "patientIds": [
+        "WEL-78891123",
+        "WEL-78888805"
+      ]
+    },
+    {
+      "email": "amber.stamper@gmail.com",
+      "dbIds": [
+        25842,
+        1203
+      ],
+      "patientIds": [
+        "WEL-78891112",
+        "WEL-78887143"
+      ]
+    },
+    {
+      "email": "genielnurse@gmail.com",
+      "dbIds": [
+        25747,
+        2669
+      ],
+      "patientIds": [
+        "WEL-78891028",
+        "WEL-78888264"
+      ]
+    },
+    {
+      "email": "fayekdobermans@yahoo.com",
+      "dbIds": [
+        25735,
+        25138
+      ],
+      "patientIds": [
+        "WEL-78891018",
+        "WEL-78890494"
+      ]
+    },
+    {
+      "email": "sarverjr@msn.com",
+      "dbIds": [
+        25724,
+        2708
+      ],
+      "patientIds": [
+        "WEL-78891009",
+        "WEL-78888296"
+      ]
+    },
+    {
+      "email": "pwz2k10@gmail.com",
+      "dbIds": [
+        25722,
+        4711
+      ],
+      "patientIds": [
+        "WEL-78891007",
+        "WEL-78889878"
+      ]
+    },
+    {
+      "email": "yuselileon@gmail.com",
+      "dbIds": [
+        25715,
+        3980
+      ],
+      "patientIds": [
+        "WEL-78891000",
+        "WEL-78889335"
+      ]
+    },
+    {
+      "email": "melissa.wentzel@yahoo.com",
+      "dbIds": [
+        25700,
+        426
+      ],
+      "patientIds": [
+        "WEL-78890987",
+        "WEL-351"
+      ]
+    },
+    {
+      "email": "meganturn7808@gmail.com",
+      "dbIds": [
+        25692,
+        3021
+      ],
+      "patientIds": [
+        "WEL-78890982",
+        "WEL-78888583"
+      ]
+    },
+    {
+      "email": "wardsandra63@yahoo.com",
+      "dbIds": [
+        25679,
+        5095,
+        3179
+      ],
+      "patientIds": [
+        "WEL-78890969",
+        "WEL-78890221",
+        "WEL-78888730"
+      ]
+    },
+    {
+      "email": "we22crazy@gmail.com",
+      "dbIds": [
+        25676,
+        1947
+      ],
+      "patientIds": [
+        "WEL-78890967",
+        "WEL-78887660"
+      ]
+    },
+    {
+      "email": "terrymcmaster13@gmail.com",
+      "dbIds": [
+        25669,
+        1802
+      ],
+      "patientIds": [
+        "WEL-78890960",
+        "WEL-78887580"
+      ]
+    },
+    {
+      "email": "whitered64@gmail.com",
+      "dbIds": [
+        25638,
+        4299
+      ],
+      "patientIds": [
+        "WEL-78890933",
+        "WEL-78889563"
+      ]
+    },
+    {
+      "email": "virgesjainya@gmail.com",
+      "dbIds": [
+        25628,
+        2878
+      ],
+      "patientIds": [
+        "WEL-78890927",
+        "WEL-78888449"
+      ]
+    },
+    {
+      "email": "ledevinadelara@gmail.com",
+      "dbIds": [
+        25620,
+        4788
+      ],
+      "patientIds": [
+        "WEL-78890925",
+        "WEL-78889952"
+      ]
+    },
+    {
+      "email": "keelynrene@gmail.com",
+      "dbIds": [
+        25618,
+        4877
+      ],
+      "patientIds": [
+        "WEL-78890923",
+        "WEL-78890021"
+      ]
+    },
+    {
+      "email": "lrk18@hotmail.com",
+      "dbIds": [
+        25595,
+        4818,
+        2368
+      ],
+      "patientIds": [
+        "WEL-78890909",
+        "WEL-78889980",
+        "WEL-78888003"
+      ]
+    },
+    {
+      "email": "morgandoughe8@gmail.com",
+      "dbIds": [
+        25588,
+        4544
+      ],
+      "patientIds": [
+        "WEL-78890907",
+        "WEL-78889755"
+      ]
+    },
+    {
+      "email": "spearme23@aol.com",
+      "dbIds": [
+        25585,
+        4079
+      ],
+      "patientIds": [
+        "WEL-78890904",
+        "WEL-78889385"
+      ]
+    },
+    {
+      "email": "jtjewett@yahoo.com",
+      "dbIds": [
+        25584,
+        25581
+      ],
+      "patientIds": [
+        "WEL-78890903",
+        "WEL-78890900"
+      ]
+    },
+    {
+      "email": "amberhudd07@yahoo.com",
+      "dbIds": [
+        25583,
+        2257
+      ],
+      "patientIds": [
+        "WEL-78890902",
+        "WEL-78887915"
+      ]
+    },
+    {
+      "email": "test@test.com",
+      "dbIds": [
+        25580,
+        2638
+      ],
+      "patientIds": [
+        "WEL-78890899",
+        "WEL-78888237"
+      ]
+    },
+    {
+      "email": "kjhand2430@gmail.com",
+      "dbIds": [
+        25567,
+        4819
+      ],
+      "patientIds": [
+        "WEL-78890889",
+        "WEL-78889981"
+      ]
+    },
+    {
+      "email": "wdfarmsmjd@gmail.com",
+      "dbIds": [
+        25562,
+        3504
+      ],
+      "patientIds": [
+        "WEL-78890884",
+        "WEL-78888964"
+      ]
+    },
+    {
+      "email": "stacytdennis@yahoo.com",
+      "dbIds": [
+        25560,
+        245
+      ],
+      "patientIds": [
+        "WEL-78890882",
+        "WEL-177"
+      ]
+    },
+    {
+      "email": "marither_lois@yahoo.com",
+      "dbIds": [
+        25550,
+        4507
+      ],
+      "patientIds": [
+        "WEL-78890873",
+        "WEL-78889718"
+      ]
+    },
+    {
+      "email": "jcwalker7877@gmail.com",
+      "dbIds": [
+        25539,
+        4168
+      ],
+      "patientIds": [
+        "WEL-78890864",
+        "WEL-78889458"
+      ]
+    },
+    {
+      "email": "dee676111@gmail.com",
+      "dbIds": [
+        25538,
+        2914
+      ],
+      "patientIds": [
+        "WEL-78890863",
+        "WEL-78888483"
+      ]
+    },
+    {
+      "email": "frazier.vanessar@gmail.com",
+      "dbIds": [
+        25531,
+        2114,
+        1042
+      ],
+      "patientIds": [
+        "WEL-78890856",
+        "WEL-78887794",
+        "WEL-668"
+      ]
+    },
+    {
+      "email": "kmac8568@gmail.com",
+      "dbIds": [
+        25526,
+        1721
+      ],
+      "patientIds": [
+        "WEL-78890852",
+        "WEL-78887525"
+      ]
+    },
+    {
+      "email": "ksproles46@gmail.com",
+      "dbIds": [
+        25519,
+        323
+      ],
+      "patientIds": [
+        "WEL-78890845",
+        "WEL-250"
+      ]
+    },
+    {
+      "email": "dsnyvactnr@aol.com",
+      "dbIds": [
+        25512,
+        482
+      ],
+      "patientIds": [
+        "WEL-78890838",
+        "WEL-406"
+      ]
+    },
+    {
+      "email": "hippiezm@gmail.com",
+      "dbIds": [
+        25508,
+        5212
+      ],
+      "patientIds": [
+        "WEL-78890834",
+        "WEL-78890327"
+      ]
+    },
+    {
+      "email": "higuerae@aol.com",
+      "dbIds": [
+        25489,
+        3576
+      ],
+      "patientIds": [
+        "WEL-78890817",
+        "WEL-78889017"
+      ]
+    },
+    {
+      "email": "courtneyigou@gmail.com",
+      "dbIds": [
+        25472,
+        4842
+      ],
+      "patientIds": [
+        "WEL-78890803",
+        "WEL-78890000"
+      ]
+    },
+    {
+      "email": "milliegrujic@yahoo.com",
+      "dbIds": [
+        25445,
+        4126,
+        3352
+      ],
+      "patientIds": [
+        "WEL-78890779",
+        "WEL-78889423",
+        "WEL-78888846"
+      ]
+    },
+    {
+      "email": "brendarogers099@gmail.com",
+      "dbIds": [
+        25438,
+        4735
+      ],
+      "patientIds": [
+        "WEL-78890773",
+        "WEL-78889902"
+      ]
+    },
+    {
+      "email": "ashley_chiaratti@hotmail.com",
+      "dbIds": [
+        25411,
+        549
+      ],
+      "patientIds": [
+        "WEL-78890748",
+        "WEL-473"
+      ]
+    },
+    {
+      "email": "smokeyhollow44944@gmail.com",
+      "dbIds": [
+        25406,
+        4782
+      ],
+      "patientIds": [
+        "WEL-78890743",
+        "WEL-78889946"
+      ]
+    },
+    {
+      "email": "crakeslaura@gmail.com",
+      "dbIds": [
+        25366,
+        5047,
+        3816
+      ],
+      "patientIds": [
+        "WEL-78890706",
+        "WEL-78890175",
+        "WEL-78889217"
+      ]
+    },
+    {
+      "email": "ritajoaustin@gmail.com",
+      "dbIds": [
+        25350,
+        3663,
+        2835
+      ],
+      "patientIds": [
+        "WEL-78890690",
+        "WEL-78889087",
+        "WEL-78888410"
+      ]
+    },
+    {
+      "email": "avsgrl13@hotmail.com",
+      "dbIds": [
+        25345,
+        335
+      ],
+      "patientIds": [
+        "WEL-78890685",
+        "WEL-262"
+      ]
+    },
+    {
+      "email": "bmala83@hotmail.com",
+      "dbIds": [
+        25328,
+        3547
+      ],
+      "patientIds": [
+        "WEL-78890668",
+        "WEL-78888994"
+      ]
+    },
+    {
+      "email": "barkerkelsey05@gmail.com",
+      "dbIds": [
+        25326,
+        4560
+      ],
+      "patientIds": [
+        "WEL-78890666",
+        "WEL-78889771"
+      ]
+    },
+    {
+      "email": "19cile51@gmail.com",
+      "dbIds": [
+        25311,
+        4812
+      ],
+      "patientIds": [
+        "WEL-78890652",
+        "WEL-78889975"
+      ]
+    },
+    {
+      "email": "shaymichevans@gmail.com",
+      "dbIds": [
+        25295,
+        3025
+      ],
+      "patientIds": [
+        "WEL-78890637",
+        "WEL-78888587"
+      ]
+    },
+    {
+      "email": "bkeepers64@gmail.com",
+      "dbIds": [
+        25292,
+        4871
+      ],
+      "patientIds": [
+        "WEL-78890634",
+        "WEL-78890019"
+      ]
+    },
+    {
+      "email": "itsasmollworld@aol.com",
+      "dbIds": [
+        25285,
+        4992
+      ],
+      "patientIds": [
+        "WEL-78890627",
+        "WEL-78890123"
+      ]
+    },
+    {
+      "email": "krysten.davis.lockhart@gmail.com",
+      "dbIds": [
+        25235,
+        4914
+      ],
+      "patientIds": [
+        "WEL-78890583",
+        "WEL-78890048"
+      ]
+    },
+    {
+      "email": "angel_eyes9933@yahoo.com",
+      "dbIds": [
+        25227,
+        4671,
+        2887
+      ],
+      "patientIds": [
+        "WEL-78890576",
+        "WEL-78889863",
+        "WEL-78888458"
+      ]
+    },
+    {
+      "email": "moorekourtney88@yahoo.com",
+      "dbIds": [
+        25206,
+        2081
+      ],
+      "patientIds": [
+        "WEL-78890559",
+        "WEL-78887764"
+      ]
+    },
+    {
+      "email": "gz1062@gmail.com",
+      "dbIds": [
+        25178,
+        274
+      ],
+      "patientIds": [
+        "WEL-78890533",
+        "WEL-204"
+      ]
+    },
+    {
+      "email": "hpcp2517@yahoo.com",
+      "dbIds": [
+        25175,
+        1344
+      ],
+      "patientIds": [
+        "WEL-78890530",
+        "WEL-78887239"
+      ]
+    },
+    {
+      "email": "lorinbrust@gmail.com",
+      "dbIds": [
+        25135,
+        4811
+      ],
+      "patientIds": [
+        "WEL-78890491",
+        "WEL-78889974"
+      ]
+    },
+    {
+      "email": "robby.l.harbert@gmail.com",
+      "dbIds": [
+        25103,
+        4393,
+        3399
+      ],
+      "patientIds": [
+        "WEL-78890461",
+        "WEL-78889644",
+        "WEL-78888883"
+      ]
+    },
+    {
+      "email": "skarky206@yahoo.com",
+      "dbIds": [
+        25083,
+        3583
+      ],
+      "patientIds": [
+        "WEL-78890446",
+        "WEL-78889024"
+      ]
+    },
+    {
+      "email": "emilb212@gmail.com",
+      "dbIds": [
+        25067,
+        2647,
+        1933,
+        120
+      ],
+      "patientIds": [
+        "WEL-78890433",
+        "WEL-78888245",
+        "WEL-78887651",
+        "WEL-77"
+      ]
+    },
+    {
+      "email": "jschae89@gmail.com",
+      "dbIds": [
+        25062,
+        3952,
+        2907
+      ],
+      "patientIds": [
+        "WEL-78890428",
+        "WEL-78889316",
+        "WEL-78888476"
+      ]
+    },
+    {
+      "email": "gabishop1171@yahoo.com",
+      "dbIds": [
+        25056,
+        4138
+      ],
+      "patientIds": [
+        "WEL-78890423",
+        "WEL-78889434"
+      ]
+    },
+    {
+      "email": "donnacaldwell475@gmail.com",
+      "dbIds": [
+        17831,
+        4176
+      ],
+      "patientIds": [
+        "WEL-78890413",
+        "WEL-78889465"
+      ]
+    },
+    {
+      "email": "l.c.c.bates@gmail.com",
+      "dbIds": [
+        17820,
+        3262
+      ],
+      "patientIds": [
+        "WEL-78890403",
+        "WEL-78888780"
+      ]
+    },
+    {
+      "email": "shantel2679@gmail.com",
+      "dbIds": [
+        17817,
+        2172
+      ],
+      "patientIds": [
+        "WEL-78890401",
+        "WEL-78887845"
+      ]
+    },
+    {
+      "email": "joycekever68@gmail.com",
+      "dbIds": [
+        17812,
+        2401
+      ],
+      "patientIds": [
+        "WEL-78890396",
+        "WEL-78888033"
+      ]
+    },
+    {
+      "email": "katiemittleider@gmail.com",
+      "dbIds": [
+        17809,
+        4173
+      ],
+      "patientIds": [
+        "WEL-78890395",
+        "WEL-78889462"
+      ]
+    },
+    {
+      "email": "angielake23@gmail.com",
+      "dbIds": [
+        17800,
+        1620
+      ],
+      "patientIds": [
+        "WEL-78890387",
+        "WEL-78887439"
+      ]
+    },
+    {
+      "email": "seabolttoni@gmail.com",
+      "dbIds": [
+        5223,
+        419
+      ],
+      "patientIds": [
+        "WEL-78890336",
+        "WEL-344"
+      ]
+    },
+    {
+      "email": "slkremer42@gmail.com",
+      "dbIds": [
+        5215,
+        2437,
+        562
+      ],
+      "patientIds": [
+        "WEL-78890330",
+        "WEL-78888063",
+        "WEL-486"
+      ]
+    },
+    {
+      "email": "lauragalbraithrn@comcast.net",
+      "dbIds": [
+        5200,
+        523
+      ],
+      "patientIds": [
+        "WEL-78890315",
+        "WEL-447"
+      ]
+    },
+    {
+      "email": "navygirlmarinewife@icloud.com",
+      "dbIds": [
+        5199,
+        2021
+      ],
+      "patientIds": [
+        "WEL-78890314",
+        "WEL-78887712"
+      ]
+    },
+    {
+      "email": "tabivaughn2@sbcglobal.net",
+      "dbIds": [
+        5198,
+        4208
+      ],
+      "patientIds": [
+        "WEL-78890313",
+        "WEL-78889493"
+      ]
+    },
+    {
+      "email": "icyrivers5150@gmail.com",
+      "dbIds": [
+        5196,
+        1701
+      ],
+      "patientIds": [
+        "WEL-78890311",
+        "WEL-78887507"
+      ]
+    },
+    {
+      "email": "mcwhirterkeri@gmail.com",
+      "dbIds": [
+        5182,
+        2764
+      ],
+      "patientIds": [
+        "WEL-78890301",
+        "WEL-78888347"
+      ]
+    },
+    {
+      "email": "odlewendy@yahoo.com",
+      "dbIds": [
+        5176,
+        2811
+      ],
+      "patientIds": [
+        "WEL-78890296",
+        "WEL-78888386"
+      ]
+    },
+    {
+      "email": "mrsloehr2018@gmail.com",
+      "dbIds": [
+        5167,
+        3606
+      ],
+      "patientIds": [
+        "WEL-78890288",
+        "WEL-78889044"
+      ]
+    },
+    {
+      "email": "deanna.england@yahoo.com",
+      "dbIds": [
+        5166,
+        3464
+      ],
+      "patientIds": [
+        "WEL-78890287",
+        "WEL-78888932"
+      ]
+    },
+    {
+      "email": "nicholasreyher1@gmail.com",
+      "dbIds": [
+        5159,
+        3697
+      ],
+      "patientIds": [
+        "WEL-78890281",
+        "WEL-78889113"
+      ]
+    },
+    {
+      "email": "sischo29@gmail.com",
+      "dbIds": [
+        5152,
+        2498
+      ],
+      "patientIds": [
+        "WEL-78890274",
+        "WEL-78888115"
+      ]
+    },
+    {
+      "email": "nayelyimoore@gmail.com",
+      "dbIds": [
+        5135,
+        1169
+      ],
+      "patientIds": [
+        "WEL-78890257",
+        "WEL-78887115"
+      ]
+    },
+    {
+      "email": "christyrhenson@gmail.com",
+      "dbIds": [
+        5124,
+        4417
+      ],
+      "patientIds": [
+        "WEL-78890247",
+        "WEL-78889666"
+      ]
+    },
+    {
+      "email": "brendajgallo@gmail.com",
+      "dbIds": [
+        5108,
+        2487
+      ],
+      "patientIds": [
+        "WEL-78890233",
+        "WEL-78888104"
+      ]
+    },
+    {
+      "email": "swinesarefine@yahoo.com",
+      "dbIds": [
+        5104,
+        1074
+      ],
+      "patientIds": [
+        "WEL-78890229",
+        "WEL-699"
+      ]
+    },
+    {
+      "email": "plyetter@gmail.com",
+      "dbIds": [
+        5100,
+        4369
+      ],
+      "patientIds": [
+        "WEL-78890226",
+        "WEL-78889621"
+      ]
+    },
+    {
+      "email": "daccox@cfl.rr.com",
+      "dbIds": [
+        5099,
+        368
+      ],
+      "patientIds": [
+        "WEL-78890225",
+        "WEL-295"
+      ]
+    },
+    {
+      "email": "tinainwyo@gmail.com",
+      "dbIds": [
+        5098,
+        4283
+      ],
+      "patientIds": [
+        "WEL-78890224",
+        "WEL-78889552"
+      ]
+    },
+    {
+      "email": "pattiabecker62@gmail.com",
+      "dbIds": [
+        5091,
+        2960
+      ],
+      "patientIds": [
+        "WEL-78890218",
+        "WEL-78888526"
+      ]
+    },
+    {
+      "email": "mimi711barbee@gmail.com",
+      "dbIds": [
+        5088,
+        2536
+      ],
+      "patientIds": [
+        "WEL-78890215",
+        "WEL-78888145"
+      ]
+    },
+    {
+      "email": "jeanette.myers.111@gmail.com",
+      "dbIds": [
+        5086,
+        4234,
+        3468
+      ],
+      "patientIds": [
+        "WEL-78890213",
+        "WEL-78889514",
+        "WEL-78888935"
+      ]
+    },
+    {
+      "email": "patlemm@aol.com",
+      "dbIds": [
+        5083,
+        3400
+      ],
+      "patientIds": [
+        "WEL-78890210",
+        "WEL-78888884"
+      ]
+    },
+    {
+      "email": "kwpdc1@aol.com",
+      "dbIds": [
+        5082,
+        2974
+      ],
+      "patientIds": [
+        "WEL-78890209",
+        "WEL-78888539"
+      ]
+    },
+    {
+      "email": "michelleruth03@gmail.com",
+      "dbIds": [
+        5081,
+        3666
+      ],
+      "patientIds": [
+        "WEL-78890208",
+        "WEL-78889090"
+      ]
+    },
+    {
+      "email": "kathyagnew29@gmail.com",
+      "dbIds": [
+        5078,
+        353
+      ],
+      "patientIds": [
+        "WEL-78890205",
+        "WEL-280"
+      ]
+    },
+    {
+      "email": "tennasn@hotmail.com",
+      "dbIds": [
+        5077,
+        3787
+      ],
+      "patientIds": [
+        "WEL-78890204",
+        "WEL-78889194"
+      ]
+    },
+    {
+      "email": "jerrirobertson1984@gmail.com",
+      "dbIds": [
+        5075,
+        1217
+      ],
+      "patientIds": [
+        "WEL-78890202",
+        "WEL-78887153"
+      ]
+    },
+    {
+      "email": "melisa.lopez@live.com",
+      "dbIds": [
+        5068,
+        4082
+      ],
+      "patientIds": [
+        "WEL-78890196",
+        "WEL-78889386"
+      ]
+    },
+    {
+      "email": "gypsyofthesea63@gmail.com",
+      "dbIds": [
+        5066,
+        2871
+      ],
+      "patientIds": [
+        "WEL-78890194",
+        "WEL-78888443"
+      ]
+    },
+    {
+      "email": "kloskacey@gmail.com",
+      "dbIds": [
+        5064,
+        1735
+      ],
+      "patientIds": [
+        "WEL-78890192",
+        "WEL-78887537"
+      ]
+    },
+    {
+      "email": "brijade42@yahoo.com",
+      "dbIds": [
+        5059,
+        1401
+      ],
+      "patientIds": [
+        "WEL-78890187",
+        "WEL-78887279"
+      ]
+    },
+    {
+      "email": "janeloveslifejd@gmail.com",
+      "dbIds": [
+        5058,
+        4125,
+        1358
+      ],
+      "patientIds": [
+        "WEL-78890186",
+        "WEL-78889422",
+        "WEL-78887250"
+      ]
+    },
+    {
+      "email": "jessicadraper205@gmail.com",
+      "dbIds": [
+        5056,
+        3209,
+        2201
+      ],
+      "patientIds": [
+        "WEL-78890184",
+        "WEL-78888752",
+        "WEL-78887867"
+      ]
+    },
+    {
+      "email": "maude.schaede@gmail.com",
+      "dbIds": [
+        5053,
+        3921
+      ],
+      "patientIds": [
+        "WEL-78890181",
+        "WEL-78889294"
+      ]
+    },
+    {
+      "email": "lisa.wiley611@gmail.com",
+      "dbIds": [
+        5052,
+        2230,
+        1114
+      ],
+      "patientIds": [
+        "WEL-78890180",
+        "WEL-78887890",
+        "WEL-738"
+      ]
+    },
+    {
+      "email": "sassynae98@yahoo.com",
+      "dbIds": [
+        5050,
+        3131
+      ],
+      "patientIds": [
+        "WEL-78890178",
+        "WEL-78888686"
+      ]
+    },
+    {
+      "email": "sbc.1993@hotmail.com",
+      "dbIds": [
+        5046,
+        1347
+      ],
+      "patientIds": [
+        "WEL-78890174",
+        "WEL-78887241"
+      ]
+    },
+    {
+      "email": "sallisonhappy123@gmail.com",
+      "dbIds": [
+        5044,
+        3565
+      ],
+      "patientIds": [
+        "WEL-78890172",
+        "WEL-78889008"
+      ]
+    },
+    {
+      "email": "mesaidoff@icloud.com",
+      "dbIds": [
+        5031,
+        4385
+      ],
+      "patientIds": [
+        "WEL-78890159",
+        "WEL-78889637"
+      ]
+    },
+    {
+      "email": "littlebit72@hotmail.com",
+      "dbIds": [
+        5022,
+        2916
+      ],
+      "patientIds": [
+        "WEL-78890150",
+        "WEL-78888485"
+      ]
+    },
+    {
+      "email": "fourgkids4maw@gmail.com",
+      "dbIds": [
+        5020,
+        1700
+      ],
+      "patientIds": [
+        "WEL-78890148",
+        "WEL-78887506"
+      ]
+    },
+    {
+      "email": "pcambell41@gmail.com",
+      "dbIds": [
+        5000,
+        1612
+      ],
+      "patientIds": [
+        "WEL-78890131",
+        "WEL-78887432"
+      ]
+    },
+    {
+      "email": "wcourtn12@gmail.com",
+      "dbIds": [
+        4955,
+        3770
+      ],
+      "patientIds": [
+        "WEL-78890088",
+        "WEL-78889179"
+      ]
+    },
+    {
+      "email": "janaeeckels2002@gmail.com",
+      "dbIds": [
+        4954,
+        1992
+      ],
+      "patientIds": [
+        "WEL-78890087",
+        "WEL-78887695"
+      ]
+    },
+    {
+      "email": "elizabethbecall@icloud.com",
+      "dbIds": [
+        4931,
+        1639
+      ],
+      "patientIds": [
+        "WEL-78890064",
+        "WEL-78887456"
+      ]
+    },
+    {
+      "email": "godtookmyjenny@gmail.com",
+      "dbIds": [
+        4898,
+        403
+      ],
+      "patientIds": [
+        "WEL-78890033",
+        "WEL-328"
+      ]
+    },
+    {
+      "email": "drlarmark@aol.com",
+      "dbIds": [
+        4897,
+        3692
+      ],
+      "patientIds": [
+        "WEL-78890032",
+        "WEL-78889110"
+      ]
+    },
+    {
+      "email": "thesweetestea@gmail.com",
+      "dbIds": [
+        4891,
+        399
+      ],
+      "patientIds": [
+        "WEL-78890026",
+        "WEL-324"
+      ]
+    },
+    {
+      "email": "sablackstone1025@gmail.com",
+      "dbIds": [
+        4886,
+        1400
+      ],
+      "patientIds": [
+        "WEL-78890023",
+        "WEL-78887278"
+      ]
+    },
+    {
+      "email": "koryshepard84@gmail.com",
+      "dbIds": [
+        4863,
+        3249
+      ],
+      "patientIds": [
+        "WEL-78890015",
+        "WEL-78888773"
+      ]
+    },
+    {
+      "email": "emrtn93@gmail.com",
+      "dbIds": [
+        4852,
+        599
+      ],
+      "patientIds": [
+        "WEL-78890007",
+        "WEL-523"
+      ]
+    },
+    {
+      "email": "grimace5872@yahoo.com",
+      "dbIds": [
+        4847,
+        3108
+      ],
+      "patientIds": [
+        "WEL-78890004",
+        "WEL-78888667"
+      ]
+    },
+    {
+      "email": "cpme61@yahoo.com",
+      "dbIds": [
+        4771,
+        4109
+      ],
+      "patientIds": [
+        "WEL-78889936",
+        "WEL-78889408"
+      ]
+    },
+    {
+      "email": "esalsman84@gmail.com",
+      "dbIds": [
+        4766,
+        2041
+      ],
+      "patientIds": [
+        "WEL-78889931",
+        "WEL-78887730"
+      ]
+    },
+    {
+      "email": "derrickmarshall05@gmail.com",
+      "dbIds": [
+        4756,
+        3162
+      ],
+      "patientIds": [
+        "WEL-78889921",
+        "WEL-78888713"
+      ]
+    },
+    {
+      "email": "ace1242002@yahoo.com",
+      "dbIds": [
+        4750,
+        573
+      ],
+      "patientIds": [
+        "WEL-78889916",
+        "WEL-497"
+      ]
+    },
+    {
+      "email": "thibodeauxkynze@gmail.com",
+      "dbIds": [
+        4749,
+        2104,
+        462
+      ],
+      "patientIds": [
+        "WEL-78889915",
+        "WEL-78887785",
+        "WEL-386"
+      ]
+    },
+    {
+      "email": "novemberscorpio85@yahoo.com",
+      "dbIds": [
+        4734,
+        2895
+      ],
+      "patientIds": [
+        "WEL-78889901",
+        "WEL-78888466"
+      ]
+    },
+    {
+      "email": "urbanacupuncturemiami@gmail.com",
+      "dbIds": [
+        4732,
+        3354
+      ],
+      "patientIds": [
+        "WEL-78889899",
+        "WEL-78888847"
+      ]
+    },
+    {
+      "email": "tarneshaflds@yahoo.com",
+      "dbIds": [
+        4724,
+        3122
+      ],
+      "patientIds": [
+        "WEL-78889891",
+        "WEL-78888679"
+      ]
+    },
+    {
+      "email": "kandiedstanley@gmail.com",
+      "dbIds": [
+        4722,
+        1207
+      ],
+      "patientIds": [
+        "WEL-78889889",
+        "WEL-78887145"
+      ]
+    },
+    {
+      "email": "melmac015@yahoo.com",
+      "dbIds": [
+        4719,
+        1950
+      ],
+      "patientIds": [
+        "WEL-78889886",
+        "WEL-78887662"
+      ]
+    },
+    {
+      "email": "mindybartlett1121@gmail.com",
+      "dbIds": [
+        4709,
+        2493
+      ],
+      "patientIds": [
+        "WEL-78889876",
+        "WEL-78888110"
+      ]
+    },
+    {
+      "email": "fordwoolwine@gmail.com",
+      "dbIds": [
+        4701,
+        478
+      ],
+      "patientIds": [
+        "WEL-78889870",
+        "WEL-402"
+      ]
+    },
+    {
+      "email": "siamdim@gmail.com",
+      "dbIds": [
+        4661,
+        3361
+      ],
+      "patientIds": [
+        "WEL-78889856",
+        "WEL-78888852"
+      ]
+    },
+    {
+      "email": "csumom2000wp@yahoo.com",
+      "dbIds": [
+        4652,
+        2328
+      ],
+      "patientIds": [
+        "WEL-78889850",
+        "WEL-78887965"
+      ]
+    },
+    {
+      "email": "millikens@msn.com",
+      "dbIds": [
+        4646,
+        3011,
+        2110
+      ],
+      "patientIds": [
+        "WEL-78889846",
+        "WEL-78888574",
+        "WEL-78887791"
+      ]
+    },
+    {
+      "email": "nmadrid86@gmail.com",
+      "dbIds": [
+        4638,
+        2841
+      ],
+      "patientIds": [
+        "WEL-78889838",
+        "WEL-78888416"
+      ]
+    },
+    {
+      "email": "ssheilaf@yahoo.com",
+      "dbIds": [
+        4631,
+        3329
+      ],
+      "patientIds": [
+        "WEL-78889832",
+        "WEL-78888835"
+      ]
+    },
+    {
+      "email": "marci.groves@yahoo.com",
+      "dbIds": [
+        4619,
+        266
+      ],
+      "patientIds": [
+        "WEL-78889824",
+        "WEL-196"
+      ]
+    },
+    {
+      "email": "isabellagsellers@gmail.com",
+      "dbIds": [
+        4580,
+        2577
+      ],
+      "patientIds": [
+        "WEL-78889791",
+        "WEL-78888184"
+      ]
+    },
+    {
+      "email": "gabeandemily2004@gmail.com",
+      "dbIds": [
+        4573,
+        3290
+      ],
+      "patientIds": [
+        "WEL-78889784",
+        "WEL-78888799"
+      ]
+    },
+    {
+      "email": "seamitchell1@gmail.com",
+      "dbIds": [
+        4526,
+        1561
+      ],
+      "patientIds": [
+        "WEL-78889737",
+        "WEL-78887389"
+      ]
+    },
+    {
+      "email": "hillfam0423@gmail.com",
+      "dbIds": [
+        4394,
+        3532
+      ],
+      "patientIds": [
+        "WEL-78889645",
+        "WEL-78888985"
+      ]
+    },
+    {
+      "email": "mothert2565@gmail.com",
+      "dbIds": [
+        4382,
+        2605
+      ],
+      "patientIds": [
+        "WEL-78889634",
+        "WEL-78888208"
+      ]
+    },
+    {
+      "email": "alexamagestro1@yahoo.com",
+      "dbIds": [
+        4363,
+        3103
+      ],
+      "patientIds": [
+        "WEL-78889616",
+        "WEL-78888662"
+      ]
+    },
+    {
+      "email": "ashleh0317@gmail.com",
+      "dbIds": [
+        4352,
+        3449
+      ],
+      "patientIds": [
+        "WEL-78889606",
+        "WEL-78888919"
+      ]
+    },
+    {
+      "email": "carcope12@yahoo.com",
+      "dbIds": [
+        4349,
+        3588
+      ],
+      "patientIds": [
+        "WEL-78889604",
+        "WEL-78889029"
+      ]
+    },
+    {
+      "email": "cbassett1980@gmail.com",
+      "dbIds": [
+        4311,
+        2834
+      ],
+      "patientIds": [
+        "WEL-78889570",
+        "WEL-78888409"
+      ]
+    },
+    {
+      "email": "reaygobr@gmail.com",
+      "dbIds": [
+        4289,
+        3602
+      ],
+      "patientIds": [
+        "WEL-78889556",
+        "WEL-78889040"
+      ]
+    },
+    {
+      "email": "jeniferrhawkins@gmail.com",
+      "dbIds": [
+        4281,
+        4062
+      ],
+      "patientIds": [
+        "WEL-78889550",
+        "WEL-78889375"
+      ]
+    },
+    {
+      "email": "jfr1941@verizon.net",
+      "dbIds": [
+        4251,
+        3059
+      ],
+      "patientIds": [
+        "WEL-78889527",
+        "WEL-78888618"
+      ]
+    },
+    {
+      "email": "nursecarol6@gmail.com",
+      "dbIds": [
+        4248,
+        3149
+      ],
+      "patientIds": [
+        "WEL-78889524",
+        "WEL-78888702"
+      ]
+    },
+    {
+      "email": "kvoigt22@outlook.com",
+      "dbIds": [
+        4184,
+        3479
+      ],
+      "patientIds": [
+        "WEL-78889473",
+        "WEL-78888944"
+      ]
+    },
+    {
+      "email": "niglio@charter.net",
+      "dbIds": [
+        4153,
+        3314
+      ],
+      "patientIds": [
+        "WEL-78889446",
+        "WEL-78888820"
+      ]
+    },
+    {
+      "email": "crystalbuckner93@yahoo.com",
+      "dbIds": [
+        4128,
+        1630
+      ],
+      "patientIds": [
+        "WEL-78889425",
+        "WEL-78887448"
+      ]
+    },
+    {
+      "email": "christycox49@gmail.com",
+      "dbIds": [
+        4115,
+        3028,
+        1787
+      ],
+      "patientIds": [
+        "WEL-78889414",
+        "WEL-78888590",
+        "WEL-78887572"
+      ]
+    },
+    {
+      "email": "fgarafano@aol.com",
+      "dbIds": [
+        4114,
+        3266
+      ],
+      "patientIds": [
+        "WEL-78889413",
+        "WEL-78888783"
+      ]
+    },
+    {
+      "email": "manny1111c@gmail.com",
+      "dbIds": [
+        4111,
+        1941
+      ],
+      "patientIds": [
+        "WEL-78889410",
+        "WEL-78887657"
+      ]
+    },
+    {
+      "email": "reagan.jirak@gmail.com",
+      "dbIds": [
+        4110,
+        1519
+      ],
+      "patientIds": [
+        "WEL-78889409",
+        "WEL-78887367"
+      ]
+    },
+    {
+      "email": "gracemaldonado917@yahoo.com",
+      "dbIds": [
+        4108,
+        396
+      ],
+      "patientIds": [
+        "WEL-78889407",
+        "WEL-321"
+      ]
+    },
+    {
+      "email": "atrimnell@gmail.com",
+      "dbIds": [
+        4104,
+        1498
+      ],
+      "patientIds": [
+        "WEL-78889404",
+        "WEL-78887353"
+      ]
+    },
+    {
+      "email": "evagosnell.eg@gmail.com",
+      "dbIds": [
+        4102,
+        1644
+      ],
+      "patientIds": [
+        "WEL-78889402",
+        "WEL-78887461"
+      ]
+    },
+    {
+      "email": "jasonbobo2000@gmail.com",
+      "dbIds": [
+        4073,
+        1182
+      ],
+      "patientIds": [
+        "WEL-78889381",
+        "WEL-78887126"
+      ]
+    },
+    {
+      "email": "kayladavis0815@icloud.com",
+      "dbIds": [
+        4069,
+        2155
+      ],
+      "patientIds": [
+        "WEL-78889379",
+        "WEL-78887830"
+      ]
+    },
+    {
+      "email": "lytlady617@gmail.com",
+      "dbIds": [
+        4038,
+        1962
+      ],
+      "patientIds": [
+        "WEL-78889354",
+        "WEL-78887670"
+      ]
+    },
+    {
+      "email": "brookrohde1982@icloud.com",
+      "dbIds": [
+        3986,
+        269
+      ],
+      "patientIds": [
+        "WEL-78889341",
+        "WEL-199"
+      ]
+    },
+    {
+      "email": "clbeal87@gmail.com",
+      "dbIds": [
+        3972,
+        2255
+      ],
+      "patientIds": [
+        "WEL-78889328",
+        "WEL-78887913"
+      ]
+    },
+    {
+      "email": "nkwen13@gmail.com",
+      "dbIds": [
+        3940,
+        1551
+      ],
+      "patientIds": [
+        "WEL-78889308",
+        "WEL-78887382"
+      ]
+    },
+    {
+      "email": "dera13@aol.com",
+      "dbIds": [
+        3937,
+        3893
+      ],
+      "patientIds": [
+        "WEL-78889305",
+        "WEL-78889278"
+      ]
+    },
+    {
+      "email": "trosinone@yahoo.com",
+      "dbIds": [
+        3900,
+        1478
+      ],
+      "patientIds": [
+        "WEL-78889284",
+        "WEL-78887336"
+      ]
+    },
+    {
+      "email": "dherndon@tcsn.net",
+      "dbIds": [
+        3888,
+        2083
+      ],
+      "patientIds": [
+        "WEL-78889273",
+        "WEL-78887766"
+      ]
+    },
+    {
+      "email": "susla1556@hotmail.com",
+      "dbIds": [
+        3846,
+        3000
+      ],
+      "patientIds": [
+        "WEL-78889237",
+        "WEL-78888563"
+      ]
+    },
+    {
+      "email": "svt483@hotmail.com",
+      "dbIds": [
+        3841,
+        2619
+      ],
+      "patientIds": [
+        "WEL-78889234",
+        "WEL-78888221"
+      ]
+    },
+    {
+      "email": "wrightb0517@yahoo.com",
+      "dbIds": [
+        3797,
+        1940
+      ],
+      "patientIds": [
+        "WEL-78889204",
+        "WEL-78887656"
+      ]
+    },
+    {
+      "email": "allykulow13@gmail.com",
+      "dbIds": [
+        3785,
+        394
+      ],
+      "patientIds": [
+        "WEL-78889192",
+        "WEL-319"
+      ]
+    },
+    {
+      "email": "raykroll@yahoo.com",
+      "dbIds": [
+        3779,
+        2991
+      ],
+      "patientIds": [
+        "WEL-78889187",
+        "WEL-78888554"
+      ]
+    },
+    {
+      "email": "jackiewebbx6@gmail.com",
+      "dbIds": [
+        3732,
+        3728
+      ],
+      "patientIds": [
+        "WEL-78889145",
+        "WEL-78889141"
+      ]
+    },
+    {
+      "email": "bobwhitehurst@gmail.com",
+      "dbIds": [
+        3731,
+        2930
+      ],
+      "patientIds": [
+        "WEL-78889144",
+        "WEL-78888497"
+      ]
+    },
+    {
+      "email": "mmullis49@gmail.com",
+      "dbIds": [
+        3722,
+        3041,
+        1711
+      ],
+      "patientIds": [
+        "WEL-78889135",
+        "WEL-78888602",
+        "WEL-78887516"
+      ]
+    },
+    {
+      "email": "manja0414@outlook.com",
+      "dbIds": [
+        3705,
+        2880
+      ],
+      "patientIds": [
+        "WEL-78889121",
+        "WEL-78888451"
+      ]
+    },
+    {
+      "email": "mayaki161@gmail.com",
+      "dbIds": [
+        3695,
+        2084
+      ],
+      "patientIds": [
+        "WEL-78889112",
+        "WEL-78887767"
+      ]
+    },
+    {
+      "email": "a_sauers0401@yahoo.com",
+      "dbIds": [
+        3603,
+        2443
+      ],
+      "patientIds": [
+        "WEL-78889041",
+        "WEL-78888067"
+      ]
+    },
+    {
+      "email": "hendrix1989@yahoo.com",
+      "dbIds": [
+        3585,
+        170
+      ],
+      "patientIds": [
+        "WEL-78889026",
+        "WEL-106"
+      ]
+    },
+    {
+      "email": "tinasd11@gmail.com",
+      "dbIds": [
+        3558,
+        2478
+      ],
+      "patientIds": [
+        "WEL-78889003",
+        "WEL-78888096"
+      ]
+    },
+    {
+      "email": "mislush1945@gmail.com",
+      "dbIds": [
+        3500,
+        2115
+      ],
+      "patientIds": [
+        "WEL-78888960",
+        "WEL-78887795"
+      ]
+    },
+    {
+      "email": "paige.dixon47@gmail.com",
+      "dbIds": [
+        3466,
+        2676
+      ],
+      "patientIds": [
+        "WEL-78888933",
+        "WEL-78888269"
+      ]
+    },
+    {
+      "email": "traci820@gmail.com",
+      "dbIds": [
+        3459,
+        2203
+      ],
+      "patientIds": [
+        "WEL-78888927",
+        "WEL-78887869"
+      ]
+    },
+    {
+      "email": "madissontaft04@gmail.com",
+      "dbIds": [
+        3453,
+        1970
+      ],
+      "patientIds": [
+        "WEL-78888922",
+        "WEL-78887677"
+      ]
+    },
+    {
+      "email": "eddy28ny@yahoo.com",
+      "dbIds": [
+        3445,
+        532
+      ],
+      "patientIds": [
+        "WEL-78888917",
+        "WEL-456"
+      ]
+    },
+    {
+      "email": "luzmae@yahoo.com",
+      "dbIds": [
+        3427,
+        2539
+      ],
+      "patientIds": [
+        "WEL-78888903",
+        "WEL-78888148"
+      ]
+    },
+    {
+      "email": "jkley7887@gmail.com",
+      "dbIds": [
+        3391,
+        1775
+      ],
+      "patientIds": [
+        "WEL-78888877",
+        "WEL-78887563"
+      ]
+    },
+    {
+      "email": "mejia.b.hernandez@gmail.com",
+      "dbIds": [
+        3363,
+        2633
+      ],
+      "patientIds": [
+        "WEL-78888854",
+        "WEL-78888233"
+      ]
+    },
+    {
+      "email": "cubbiebear0x@gmail.com",
+      "dbIds": [
+        3323,
+        1552
+      ],
+      "patientIds": [
+        "WEL-78888829",
+        "WEL-78887383"
+      ]
+    },
+    {
+      "email": "sdstanley328@gmail.com",
+      "dbIds": [
+        3286,
+        2477
+      ],
+      "patientIds": [
+        "WEL-78888795",
+        "WEL-78888095"
+      ]
+    },
+    {
+      "email": "vrow83@yahoo.com",
+      "dbIds": [
+        3274,
+        2723
+      ],
+      "patientIds": [
+        "WEL-78888788",
+        "WEL-78888309"
+      ]
+    },
+    {
+      "email": "mdevita@wellmadepackaging.com",
+      "dbIds": [
+        3273,
+        1808
+      ],
+      "patientIds": [
+        "WEL-78888787",
+        "WEL-78887585"
+      ]
+    },
+    {
+      "email": "s.hawk5858@gmail.com",
+      "dbIds": [
+        3265,
+        1056
+      ],
+      "patientIds": [
+        "WEL-78888782",
+        "WEL-681"
+      ]
+    },
+    {
+      "email": "colleenstandefer@gmail.com",
+      "dbIds": [
+        3245,
+        2013
+      ],
+      "patientIds": [
+        "WEL-78888772",
+        "WEL-78887705"
+      ]
+    },
+    {
+      "email": "michelem4449@gmail.com",
+      "dbIds": [
+        3235,
+        316
+      ],
+      "patientIds": [
+        "WEL-78888767",
+        "WEL-244"
+      ]
+    },
+    {
+      "email": "tracyleerafferty@gmail.com",
+      "dbIds": [
+        3200,
+        1975
+      ],
+      "patientIds": [
+        "WEL-78888747",
+        "WEL-78887682"
+      ]
+    },
+    {
+      "email": "carlitalmoore@icloud.com",
+      "dbIds": [
+        3199,
+        1577
+      ],
+      "patientIds": [
+        "WEL-78888746",
+        "WEL-78887402"
+      ]
+    },
+    {
+      "email": "stackmichele2@gmail.com",
+      "dbIds": [
+        3177,
+        250
+      ],
+      "patientIds": [
+        "WEL-78888728",
+        "WEL-182"
+      ]
+    },
+    {
+      "email": "benderdoaks24@gmail.com",
+      "dbIds": [
+        3166,
+        474
+      ],
+      "patientIds": [
+        "WEL-78888717",
+        "WEL-398"
+      ]
+    },
+    {
+      "email": "ksebesta19@yahoo.com",
+      "dbIds": [
+        3097,
+        1170
+      ],
+      "patientIds": [
+        "WEL-78888656",
+        "WEL-78887116"
+      ]
+    },
+    {
+      "email": "callmemizz911@gmail.com",
+      "dbIds": [
+        3071,
+        2510
+      ],
+      "patientIds": [
+        "WEL-78888630",
+        "WEL-78888122"
+      ]
+    },
+    {
+      "email": "rhonda7b@gmail.com",
+      "dbIds": [
+        3069,
+        427
+      ],
+      "patientIds": [
+        "WEL-78888628",
+        "WEL-352"
+      ]
+    },
+    {
+      "email": "tdscheffee@gmail.com",
+      "dbIds": [
+        3053,
+        1706
+      ],
+      "patientIds": [
+        "WEL-78888613",
+        "WEL-78887512"
+      ]
+    },
+    {
+      "email": "siennacampbell919@gmail.com",
+      "dbIds": [
+        3045,
+        1637
+      ],
+      "patientIds": [
+        "WEL-78888605",
+        "WEL-78887454"
+      ]
+    },
+    {
+      "email": "molliecat39@gmail.com",
+      "dbIds": [
+        3026,
+        2261,
+        431
+      ],
+      "patientIds": [
+        "WEL-78888588",
+        "WEL-78887919",
+        "WEL-356"
+      ]
+    },
+    {
+      "email": "jefferson3v@yahoo.com.br",
+      "dbIds": [
+        2971,
+        501
+      ],
+      "patientIds": [
+        "WEL-78888536",
+        "WEL-425"
+      ]
+    },
+    {
+      "email": "smonfils918@gmail.com",
+      "dbIds": [
+        2951,
+        2347,
+        606
+      ],
+      "patientIds": [
+        "WEL-78888517",
+        "WEL-78887983",
+        "WEL-530"
+      ]
+    },
+    {
+      "email": "randielaynemays@gmail.com",
+      "dbIds": [
+        2922,
+        510
+      ],
+      "patientIds": [
+        "WEL-78888490",
+        "WEL-434"
+      ]
+    },
+    {
+      "email": "ketsiadalce@aol.com",
+      "dbIds": [
+        2918,
+        1421
+      ],
+      "patientIds": [
+        "WEL-78888487",
+        "WEL-78887288"
+      ]
+    },
+    {
+      "email": "kristenroberts@yahoo.com",
+      "dbIds": [
+        2911,
+        370
+      ],
+      "patientIds": [
+        "WEL-78888480",
+        "WEL-297"
+      ]
+    },
+    {
+      "email": "demetriatodd8@gmail.com",
+      "dbIds": [
+        2908,
+        2243
+      ],
+      "patientIds": [
+        "WEL-78888477",
+        "WEL-78887902"
+      ]
+    },
+    {
+      "email": "luisamaranon90@gmail.com",
+      "dbIds": [
+        2906,
+        1003
+      ],
+      "patientIds": [
+        "WEL-78888475",
+        "WEL-647"
+      ]
+    },
+    {
+      "email": "larafamily8@icloud.com",
+      "dbIds": [
+        2903,
+        2045
+      ],
+      "patientIds": [
+        "WEL-78888472",
+        "WEL-78887732"
+      ]
+    },
+    {
+      "email": "brettagler@gmail.com",
+      "dbIds": [
+        2884,
+        995
+      ],
+      "patientIds": [
+        "WEL-78888455",
+        "WEL-641"
+      ]
+    },
+    {
+      "email": "toneil@twcny.rr.com",
+      "dbIds": [
+        2874,
+        2206
+      ],
+      "patientIds": [
+        "WEL-78888446",
+        "WEL-78887871"
+      ]
+    },
+    {
+      "email": "janetsanten@icloud.com",
+      "dbIds": [
+        2816,
+        199
+      ],
+      "patientIds": [
+        "WEL-78888391",
+        "WEL-133"
+      ]
+    },
+    {
+      "email": "mark@awmg.net",
+      "dbIds": [
+        2798,
+        152
+      ],
+      "patientIds": [
+        "WEL-78888374",
+        "WEL-88"
+      ]
+    },
+    {
+      "email": "rmcconnnell8717@gmail.com",
+      "dbIds": [
+        2777,
+        1500
+      ],
+      "patientIds": [
+        "WEL-78888357",
+        "WEL-78887354"
+      ]
+    },
+    {
+      "email": "erikamkerr@gmail.com",
+      "dbIds": [
+        2697,
+        2058
+      ],
+      "patientIds": [
+        "WEL-78888287",
+        "WEL-78887743"
+      ]
+    },
+    {
+      "email": "mistylyons81@gmail.com",
+      "dbIds": [
+        2650,
+        256
+      ],
+      "patientIds": [
+        "WEL-78888247",
+        "WEL-187"
+      ]
+    },
+    {
+      "email": "reedsusan76@gmail.com",
+      "dbIds": [
+        2364,
+        360
+      ],
+      "patientIds": [
+        "WEL-78887999",
+        "WEL-287"
+      ]
+    },
+    {
+      "email": "vrobertson0353@gmail.com",
+      "dbIds": [
+        2340,
+        1140
+      ],
+      "patientIds": [
+        "WEL-78887976",
+        "WEL-762"
+      ]
+    },
+    {
+      "email": "aregood.mattie2476@gmail.com",
+      "dbIds": [
+        2289,
+        1523
+      ],
+      "patientIds": [
+        "WEL-78887936",
+        "WEL-78887370"
+      ]
+    },
+    {
+      "email": "mouellette265@gmail.com",
+      "dbIds": [
+        2283,
+        187
+      ],
+      "patientIds": [
+        "WEL-78887931",
+        "WEL-122"
+      ]
+    },
+    {
+      "email": "luoaisi333@gmail.com",
+      "dbIds": [
+        2262,
+        648
+      ],
+      "patientIds": [
+        "WEL-78887920",
+        "WEL-572"
+      ]
+    },
+    {
+      "email": "jcy.crayton@gmail.com",
+      "dbIds": [
+        2193,
+        349
+      ],
+      "patientIds": [
+        "WEL-78887861",
+        "WEL-276"
+      ]
+    },
+    {
+      "email": "cwc792000@yahoo.com",
+      "dbIds": [
+        2129,
+        1411
+      ],
+      "patientIds": [
+        "WEL-78887808",
+        "WEL-78887283"
+      ]
+    },
+    {
+      "email": "btaylor1231@live.comb",
+      "dbIds": [
+        2082,
+        1294
+      ],
+      "patientIds": [
+        "WEL-78887765",
+        "WEL-78887200"
+      ]
+    },
+    {
+      "email": "medicalrecordsva@gmail.com",
+      "dbIds": [
+        1977,
+        579
+      ],
+      "patientIds": [
+        "WEL-78887684",
+        "WEL-503"
+      ]
+    },
+    {
+      "email": "christinedascola9@gmail.com",
+      "dbIds": [
+        1961,
+        238
+      ],
+      "patientIds": [
+        "WEL-78887669",
+        "WEL-170"
+      ]
+    },
+    {
+      "email": "elenasorkin62@gmail.com",
+      "dbIds": [
+        1958,
+        1153
+      ],
+      "patientIds": [
+        "WEL-78887667",
+        "WEL-772"
+      ]
+    },
+    {
+      "email": "patrickjspera@yahoo.com",
+      "dbIds": [
+        1931,
+        522
+      ],
+      "patientIds": [
+        "WEL-78887650",
+        "WEL-446"
+      ]
+    },
+    {
+      "email": "netsie79@gmail.com",
+      "dbIds": [
+        1903,
+        986
+      ],
+      "patientIds": [
+        "WEL-78887635",
+        "WEL-640"
+      ]
+    },
+    {
+      "email": "dragonflydroneviews@gmail.com",
+      "dbIds": [
+        1675,
+        1674,
+        1673,
+        1671,
+        1669,
+        1660,
+        1659,
+        1151
+      ],
+      "patientIds": [
+        "WEL-78887489",
+        "WEL-78887488",
+        "WEL-78887487",
+        "WEL-78887485",
+        "WEL-78887483",
+        "WEL-78887475",
+        "WEL-78887474",
+        "OT-770"
+      ]
+    },
+    {
+      "email": "williamsashli53@gmail.com",
+      "dbIds": [
+        659,
+        506
+      ],
+      "patientIds": [
+        null,
+        "WEL-430"
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "email": "williamsashli53@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "bridget.loree@yahoo.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "jerrynricky@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "becky.bettencourt@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "kaitlinstarr43@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "jencook184@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "tyler06181998@icloud.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "shalastone00@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "tnsr18@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "sheree.taylor3@yahoo.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "lpnrn2026@hotmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "bryanna.murrieta24@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "maeganhoss@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "flowergirlmelinda@yahoo.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "kyliekcope@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "natalyaforbes499@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "yeseniasaldana310@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "debinseawa@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "applebloomsj@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "rccnwulf@yahoo.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "ichoosemyscore@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "msestito789@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "jeniferrhawkins@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "benjaminlmariani@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "delaguilaeliz@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "nuttall.fmf@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    },
+    {
+      "email": "liasafranklin0911@gmail.com",
+      "error": "\nInvalid `prisma.patientDocument.create()` invocation:\n\n\nUnique constraint failed on the fields: (`sourceSubmissionId`)"
+    }
+  ]
+}
