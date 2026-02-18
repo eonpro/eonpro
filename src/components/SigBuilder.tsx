@@ -28,6 +28,7 @@ interface SigBuilderProps {
   onSigChange: (sig: string) => void;
   onQuantityChange?: (quantity: string) => void;
   onRefillsChange?: (refills: string) => void;
+  onDaysSupplyChange?: (daysSupply: string) => void;
   disabled?: boolean;
 }
 
@@ -169,6 +170,7 @@ export default function SigBuilder({
   onSigChange,
   onQuantityChange,
   onRefillsChange,
+  onDaysSupplyChange,
   disabled = false,
 }: SigBuilderProps) {
   // State
@@ -236,11 +238,14 @@ export default function SigBuilder({
       setSig(fullSig);
       onSigChange(fullSig);
 
-      // Update quantity and refills if handlers provided
+      // Update quantity, refills, and days supply if handlers provided
       if (onQuantityChange) onQuantityChange(template.quantity);
       if (onRefillsChange) onRefillsChange(template.refills);
+      if (onDaysSupplyChange && template.daysSupply != null) {
+        onDaysSupplyChange(String(template.daysSupply));
+      }
     },
-    [options, onSigChange, onQuantityChange, onRefillsChange]
+    [options, onSigChange, onQuantityChange, onRefillsChange, onDaysSupplyChange]
   );
 
   // Update sig when options change

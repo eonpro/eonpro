@@ -20,7 +20,7 @@ export interface AWSS3Config {
 // Use AWS_S3_DOCUMENTS_BUCKET_NAME for patient/intake documents when set (e.g. intakesnew);
 // otherwise fall back to AWS_S3_BUCKET_NAME so existing deployments keep working.
 export const s3Config: AWSS3Config = {
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: process.env.AWS_S3_REGION || process.env.AWS_REGION || 'us-east-1',
   bucketName:
     process.env.AWS_S3_DOCUMENTS_BUCKET_NAME ||
     process.env.AWS_S3_BUCKET_NAME ||

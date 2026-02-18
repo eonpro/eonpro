@@ -1479,8 +1479,20 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       });
 
       if (!refill) {
+        // Idempotent: if already prescribed, return success instead of 404
+        const alreadyPrescribed = await prisma.refillQueue.findFirst({
+          where: { id: refillId, clinicId: { in: clinicIds }, status: 'PRESCRIBED' },
+          select: { id: true, status: true },
+        });
+        if (alreadyPrescribed) {
+          return NextResponse.json({
+            success: true,
+            message: 'Refill already marked as processed',
+            refill: { id: alreadyPrescribed.id, status: alreadyPrescribed.status },
+          });
+        }
         return NextResponse.json(
-          { error: 'Refill not found, does not belong to your clinic, or already processed' },
+          { error: 'Refill not found or does not belong to your clinic' },
           { status: 404 }
         );
       }
@@ -1546,8 +1558,25 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     });
 
     if (!invoice) {
+      // Idempotent: if already processed, return success instead of 404
+      const alreadyProcessed = await prisma.invoice.findFirst({
+        where: { id: invoiceId, clinicId: { in: clinicIds }, prescriptionProcessed: true },
+        select: { id: true, prescriptionProcessedAt: true },
+      });
+      if (alreadyProcessed) {
+        return NextResponse.json({
+          success: true,
+          message: 'Invoice already marked as processed',
+          invoice: {
+            id: alreadyProcessed.id,
+            prescriptionProcessed: true,
+            prescriptionProcessedAt: alreadyProcessed.prescriptionProcessedAt,
+            clinicId: user.clinicId,
+          },
+        });
+      }
       return NextResponse.json(
-        { error: 'Invoice not found, does not belong to your clinic, or already processed' },
+        { error: 'Invoice not found or does not belong to your clinic' },
         { status: 404 }
       );
     }

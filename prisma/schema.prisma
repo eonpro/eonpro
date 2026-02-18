@@ -205,6 +205,7 @@ model Rx {
   quantity      String
   refills       String
   sig           String
+  daysSupply    Int    @default(30)
   order         Order  @relation(fields: [orderId], references: [id])
 }
 
@@ -2738,6 +2739,7 @@ model Clinic {
   promotions           Promotion[]
   productBundles       ProductBundle[]
   pricingRules         PricingRule[]
+  rxOrderSets          RxOrderSet[]
   affiliateProgram     AffiliateProgram?
   affiliateReferrals   AffiliateReferral[]
   affiliateCommissions AffiliateCommission[]
@@ -3912,6 +3914,40 @@ model ProductBundleItem {
 
   @@index([bundleId])
   @@index([productId])
+}
+
+// ===== PRESCRIPTION ORDER SETS =====
+
+model RxOrderSet {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+  createdById Int
+
+  items RxOrderSetItem[]
+
+  @@index([clinicId, isActive])
+}
+
+model RxOrderSetItem {
+  id            Int        @id @default(autoincrement())
+  orderSetId    Int
+  orderSet      RxOrderSet @relation(fields: [orderSetId], references: [id], onDelete: Cascade)
+
+  medicationKey String
+  sig           String
+  quantity      String
+  refills       String
+  daysSupply    Int    @default(30)
+  sortOrder     Int    @default(0)
+
+  @@index([orderSetId])
 }
 
 // ===== PRICING RULES ENGINE =====

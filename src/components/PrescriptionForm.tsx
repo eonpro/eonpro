@@ -20,6 +20,7 @@ type RxForm = {
   sig: string;
   quantity: string;
   refills: string;
+  daysSupply: string;
 };
 
 type ProviderOption = {
@@ -172,6 +173,7 @@ export default function PrescriptionForm({
         sig: '',
         quantity: '',
         refills: '',
+        daysSupply: '30',
       } as RxForm,
     ],
     shippingMethod: 8115,
@@ -434,7 +436,7 @@ export default function PrescriptionForm({
   const addRx = () =>
     setForm((f: any) => ({
       ...f,
-      rxs: [...f.rxs, { medicationKey: '', sig: '', quantity: '', refills: '' }],
+      rxs: [...f.rxs, { medicationKey: '', sig: '', quantity: '', refills: '', daysSupply: '30' }],
     }));
 
   const removeRx = (index: number) =>
@@ -712,7 +714,8 @@ export default function PrescriptionForm({
                         </p>
                         <p>
                           <span className="text-gray-600">Quantity:</span> {rx.quantity} •{' '}
-                          <span className="text-gray-600">Refills:</span> {rx.refills}
+                          <span className="text-gray-600">Refills:</span> {rx.refills} •{' '}
+                          <span className="text-gray-600">Days Supply:</span> {rx.daysSupply || '30'}
                         </p>
                       </div>
                     </div>
@@ -1141,21 +1144,45 @@ export default function PrescriptionForm({
               onSigChange={(sig) => updateRx(index, 'sig', sig)}
               onQuantityChange={(quantity) => updateRx(index, 'quantity', quantity)}
               onRefillsChange={(refills) => updateRx(index, 'refills', refills)}
+              onDaysSupplyChange={(ds) => updateRx(index, 'daysSupply', ds)}
               disabled={!rx.medicationKey}
             />
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                placeholder="Quantity"
-                className="border p-2"
-                value={rx.quantity}
-                onChange={(e: any) => updateRx(index, 'quantity', e.target.value)}
-              />
-              <input
-                placeholder="Refills"
-                className="border p-2"
-                value={rx.refills}
-                onChange={(e: any) => updateRx(index, 'refills', e.target.value)}
-              />
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Quantity *</label>
+                <input
+                  placeholder="Quantity"
+                  className="w-full border p-2"
+                  value={rx.quantity}
+                  onChange={(e: any) => updateRx(index, 'quantity', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Refills</label>
+                <input
+                  placeholder="Refills"
+                  className="w-full border p-2"
+                  value={rx.refills}
+                  onChange={(e: any) => updateRx(index, 'refills', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600">Days Supply</label>
+                <select
+                  className="w-full border p-2"
+                  value={rx.daysSupply || '30'}
+                  onChange={(e: any) => updateRx(index, 'daysSupply', e.target.value)}
+                >
+                  <option value="7">7 days</option>
+                  <option value="14">14 days</option>
+                  <option value="28">28 days</option>
+                  <option value="30">30 days</option>
+                  <option value="60">60 days</option>
+                  <option value="90">90 days</option>
+                  <option value="120">120 days</option>
+                  <option value="180">180 days</option>
+                </select>
+              </div>
             </div>
           </div>
         );

@@ -359,7 +359,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           sig: rx.sig,
           quantity: rx.quantity,
           refills: rx.refills,
-          daysSupply: 30,
+          daysSupply: Number(rx.daysSupply) || 30,
         })),
         shipping: {
           methodLabel: shippingMethodLabel,
@@ -477,7 +477,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             directions: rx.sig,
             refills: Number(rx.refills ?? '0'),
             dateWritten,
-            daysSupply: 30,
+            daysSupply: Number(rx.daysSupply) || 30,
             clinicalDifferenceStatement: getClinicalDifferenceStatement(med.name),
           };
 
@@ -696,6 +696,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
                   quantity: rx.quantity,
                   refills: rx.refills,
                   sig: rx.sig,
+                  daysSupply: Number(rx.daysSupply) || 30,
                 })),
               });
 

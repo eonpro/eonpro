@@ -239,7 +239,6 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
     let intakeDocFirstName: string | null = null;
     let intakeDocLastName: string | null = null;
     let intakeDocAddress1: string | null = null;
-    let intakeDocAddress2: string | null = null;
     let intakeDocCity: string | null = null;
     let intakeDocState: string | null = null;
     let intakeDocZip: string | null = null;

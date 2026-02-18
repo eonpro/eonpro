@@ -297,8 +297,10 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 {invoice.metadata.stripePaymentMethodId && (
                   <div className="mt-3 border-t border-emerald-200 pt-3">
                     <p className="text-xs text-emerald-600">
-                      Payment Method:{' '}
-                      <span className="font-mono">{invoice.metadata.stripePaymentMethodId}</span>
+                      Payment Method: ••••{' '}
+                      <span className="font-mono">
+                        {String(invoice.metadata.stripePaymentMethodId).slice(-4)}
+                      </span>
                     </p>
                   </div>
                 )}

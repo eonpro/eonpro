@@ -319,6 +319,7 @@ interface MedicationItem {
   sig: string;
   quantity: string;
   refills: string;
+  daysSupply: string;
 }
 
 // Prescription form state
@@ -350,6 +351,7 @@ const createEmptyMedication = (): MedicationItem => ({
   sig: '',
   quantity: '1',
   refills: '0',
+  daysSupply: '30',
 });
 
 export default function PrescriptionQueuePage() {
@@ -847,12 +849,16 @@ export default function PrescriptionQueuePage() {
     let sig = '';
     let qty = '1';
     let refills = '0';
+    let daysSupply = '30';
 
     if (med) {
       if (med.sigTemplates?.[0]) {
         sig = med.sigTemplates[0].sig;
         qty = med.sigTemplates[0].quantity;
         refills = med.sigTemplates[0].refills;
+        if (med.sigTemplates[0].daysSupply != null) {
+          daysSupply = String(med.sigTemplates[0].daysSupply);
+        }
       } else if (med.defaultSig) {
         sig = med.defaultSig;
         qty = med.defaultQuantity || '1';
@@ -863,7 +869,7 @@ export default function PrescriptionQueuePage() {
     setPrescriptionForm((prev) => ({
       ...prev,
       medications: prev.medications.map((m, i) =>
-        i === index ? { ...m, medicationKey: key, sig, quantity: qty, refills } : m
+        i === index ? { ...m, medicationKey: key, sig, quantity: qty, refills, daysSupply } : m
       ),
     }));
   };
@@ -935,12 +941,13 @@ export default function PrescriptionQueuePage() {
           zip: prescriptionForm.zip,
         },
         rxs: prescriptionForm.medications
-          .filter((m) => m.medicationKey && m.sig) // Only include medications with data
+          .filter((m) => m.medicationKey && m.sig)
           .map((m) => ({
             medicationKey: m.medicationKey,
             sig: m.sig,
             quantity: m.quantity,
             refills: m.refills,
+            daysSupply: m.daysSupply || '30',
           })),
         shippingMethod: parseInt(prescriptionForm.shippingMethod, 10),
         clinicId: details.clinic?.id,
@@ -969,13 +976,6 @@ export default function PrescriptionQueuePage() {
         }
         setTotal((prev) => Math.max(0, prev - 1));
 
-        // Also call handleMarkProcessed as fallback for invoice items
-        // (in case the backend auto-mark failed for any reason)
-        if (item.invoiceId) {
-          handleMarkProcessed(item.invoiceId, item.patientName, false).catch(() => {
-            // Non-fatal: backend already auto-marked, this is a safety net
-          });
-        }
 
         setPrescriptionPanel(null);
         setSuccessMessage(
@@ -1017,29 +1017,38 @@ export default function PrescriptionQueuePage() {
     }
   };
 
-  const handleMarkProcessed = async (
-    invoiceId: number,
-    patientName: string,
-    showMessage = true
-  ) => {
-    setProcessing(invoiceId);
+  const handleMarkProcessed = async (item: QueueItem, showMessage = true) => {
+    const trackingId = item.refillId || item.invoiceId || item.orderId;
+    setProcessing(trackingId ?? null);
     if (showMessage) setError('');
 
     try {
+      const body: Record<string, unknown> =
+        item.queueType === 'refill' && item.refillId
+          ? { refillId: item.refillId }
+          : { invoiceId: item.invoiceId };
+
       const response = await apiFetch('/api/provider/prescription-queue', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getAuthToken()}`,
         },
-        body: JSON.stringify({ invoiceId }),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        setQueueItems((prev) => prev.filter((item) => item.invoiceId !== invoiceId));
-        setTotal((prev) => prev - 1);
+        setQueueItems((prev) =>
+          prev.filter((qi) => {
+            if (item.queueType === 'refill' && item.refillId) {
+              return !(qi.queueType === 'refill' && qi.refillId === item.refillId);
+            }
+            return qi.invoiceId !== item.invoiceId;
+          })
+        );
+        setTotal((prev) => Math.max(0, prev - 1));
         if (showMessage) {
-          setSuccessMessage(`Prescription for ${patientName} marked as processed`);
+          setSuccessMessage(`Prescription for ${item.patientName} marked as processed`);
           setTimeout(() => setSuccessMessage(''), 3000);
         }
       } else {
@@ -1420,7 +1429,11 @@ export default function PrescriptionQueuePage() {
                           <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
                             {item.patientDisplayId}
                           </span>
-                          <p className="truncate text-[10px] text-gray-500">{item.patientEmail}</p>
+                          <p className="truncate text-[10px] text-gray-500">
+                            {item.patientEmail && !item.patientEmail.includes('unknown')
+                              ? item.patientEmail
+                              : ''}
+                          </p>
                         </div>
                       </div>
 
@@ -1563,12 +1576,12 @@ export default function PrescriptionQueuePage() {
                               <span className="hidden 2xl:inline">Write Rx</span>
                             </button>
                             <button
-                              onClick={() => handleMarkProcessed(item.invoiceId!, item.patientName)}
-                              disabled={processing === item.invoiceId}
+                              onClick={() => handleMarkProcessed(item)}
+                              disabled={processing === (item.refillId || item.invoiceId || item.orderId)}
                               className="flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-200 disabled:opacity-50"
                               title="Mark as done"
                             >
-                              {processing === item.invoiceId ? (
+                              {processing === (item.refillId || item.invoiceId || item.orderId) ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <CheckIcon className="h-4 w-4" />
@@ -1667,6 +1680,15 @@ export default function PrescriptionQueuePage() {
                                 {patientDetails.patient.dob && patientDetails.patient.dob !== '1900-01-01'
                                   ? formatDob(patientDetails.patient.dob)
                                   : <span className="italic text-gray-400">No DOB</span>}
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <User className="h-4 w-4 text-gray-400" />
+                                {(() => {
+                                  const g = patientDetails.patient.gender?.toLowerCase().trim();
+                                  if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+                                  if (g === 'm' || g === 'male' || g === 'man') return 'Male';
+                                  return patientDetails.patient.gender || <span className="italic text-gray-400">No gender</span>;
+                                })()}
                               </div>
                               <div className="flex items-start gap-2 text-gray-600">
                                 <MapPin className="mt-0.5 h-4 w-4 text-gray-400" />
@@ -2433,7 +2455,7 @@ export default function PrescriptionQueuePage() {
                               })()}
                             </p>
                           </div>
-                          <div className="col-span-2">
+                          <div>
                             <span className="text-gray-500">Email:</span>
                             <p className="font-medium">
                               {prescriptionPanel.details.patient.email && !prescriptionPanel.details.patient.email.includes('unknown')
@@ -2441,7 +2463,22 @@ export default function PrescriptionQueuePage() {
                                 : 'Not provided'}
                             </p>
                           </div>
+                          <div>
+                            <span className="text-gray-500">Patient ID:</span>
+                            <p className="font-medium text-gray-500">
+                              {prescriptionPanel.details.patient.patientId}
+                            </p>
+                          </div>
                         </div>
+                        {prescriptionPanel.details.patient.allergies && (
+                          <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                            <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                            <div>
+                              <span className="font-medium">Allergies:</span>{' '}
+                              {prescriptionPanel.details.patient.allergies}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* SOAP Note Status - CRITICAL */}
@@ -2861,10 +2898,13 @@ export default function PrescriptionQueuePage() {
                               onRefillsChange={(refills) =>
                                 updateMedicationField(index, 'refills', refills)
                               }
+                              onDaysSupplyChange={(ds) =>
+                                updateMedicationField(index, 'daysSupply', ds)
+                              }
                               disabled={!medication.medicationKey}
                             />
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                               <div>
                                 <label className="mb-1 block text-sm font-medium text-gray-700">
                                   Quantity *
@@ -2894,6 +2934,27 @@ export default function PrescriptionQueuePage() {
                                       {n}
                                     </option>
                                   ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="mb-1 block text-sm font-medium text-gray-700">
+                                  Days Supply
+                                </label>
+                                <select
+                                  value={medication.daysSupply || '30'}
+                                  onChange={(e) =>
+                                    updateMedicationField(index, 'daysSupply', e.target.value)
+                                  }
+                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-rose-400"
+                                >
+                                  <option value="7">7 days</option>
+                                  <option value="14">14 days</option>
+                                  <option value="28">28 days</option>
+                                  <option value="30">30 days</option>
+                                  <option value="60">60 days</option>
+                                  <option value="90">90 days</option>
+                                  <option value="120">120 days</option>
+                                  <option value="180">180 days</option>
                                 </select>
                               </div>
                             </div>
