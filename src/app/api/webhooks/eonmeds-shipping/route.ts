@@ -313,13 +313,35 @@ export async function POST(req: NextRequest) {
     );
 
     if (!result) {
-      logger.warn(`[EONMEDS SHIPPING] Patient/Order not found for order ${data.orderId}`);
+      logger.warn(`[EONMEDS SHIPPING] No match for order ${data.orderId} — storing as unmatched`);
+
+      // Store unmatched tracking data for later recovery
+      const unmatchedShipping = await prisma.patientShippingUpdate.create({
+        data: {
+          clinicId: clinic.id,
+          patientId: null,
+          orderId: null,
+          trackingNumber: data.trackingNumber,
+          carrier: data.carrier,
+          status: mapToShippingStatus(data.status || 'shipped'),
+          shippedAt: new Date(),
+          lifefileOrderId: data.orderId,
+          brand: 'Eon Medical + Wellness',
+          source: 'lifefile',
+          rawPayload: rawPayload as any,
+          processedAt: new Date(),
+          matchedAt: null,
+        },
+      });
+
+      logger.info(`[EONMEDS SHIPPING] Stored unmatched record ${unmatchedShipping.id}`);
 
       webhookLogData.status = WebhookStatus.SUCCESS;
       webhookLogData.statusCode = 202;
       webhookLogData.responseData = {
-        processed: false,
-        reason: 'Patient or order not found',
+        processed: true,
+        matched: false,
+        shippingUpdateId: unmatchedShipping.id,
         orderId: data.orderId,
         trackingNumber: data.trackingNumber,
       };
@@ -332,12 +354,12 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(
         {
-          success: false,
+          success: true,
           requestId,
-          message: 'Patient or order not found for this tracking update',
+          message: 'Tracking stored as unmatched — will attempt matching later',
+          shippingUpdateId: unmatchedShipping.id,
           orderId: data.orderId,
           trackingNumber: data.trackingNumber,
-          hint: 'Ensure the patient/order exists before sending shipping updates',
         },
         { status: 202 }
       );
@@ -387,6 +409,7 @@ export async function POST(req: NextRequest) {
           orderId: order?.id,
           trackingNumber: data.trackingNumber,
           source: 'lifefile',
+          matchedAt: new Date(),
           ...updateData,
         },
       });

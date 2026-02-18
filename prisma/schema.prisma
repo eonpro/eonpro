@@ -5098,13 +5098,16 @@ model PatientShippingUpdate {
   clinicId Int
   clinic   Clinic @relation(fields: [clinicId], references: [id])
 
-  // Patient association
-  patientId Int
-  patient   Patient @relation(fields: [patientId], references: [id])
+  // Patient association (nullable for unmatched webhook data)
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id])
 
   // Optional order link (may be standalone update)
   orderId Int?
   order   Order? @relation(fields: [orderId], references: [id])
+
+  // Match tracking: null = unmatched, set = when match was made
+  matchedAt DateTime?
 
   // Tracking Information
   trackingNumber String
@@ -5140,6 +5143,7 @@ model PatientShippingUpdate {
   @@index([trackingNumber])
   @@index([lifefileOrderId])
   @@index([status])
+  @@index([clinicId, matchedAt])
 }
 
 // =============================================================================
