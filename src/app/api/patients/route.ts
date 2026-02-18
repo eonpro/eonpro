@@ -102,7 +102,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         firstName: patient.firstName,
         lastName: patient.lastName,
         gender: patient.gender,
-        tags: patient.tags || [],
+        tags: Array.isArray(patient.tags) ? patient.tags : [],
         source: patient.source,
         createdAt: patient.createdAt,
         clinicId: patient.clinicId,

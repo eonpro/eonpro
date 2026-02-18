@@ -67,6 +67,9 @@ interface SalesRepOption {
   patientCount: number;
 }
 
+const safeTags = (tags: unknown): string[] =>
+  Array.isArray(tags) ? tags.filter((t): t is string => typeof t === 'string') : [];
+
 // Treatment type options for Overtime Men's Clinic filtering
 const TREATMENT_FILTERS = [
   { value: 'all', label: 'All Treatments' },
@@ -322,7 +325,7 @@ export default function AdminPatientsPage() {
       (statusFilter === 'patient' && status === 'patient');
     const matchesTreatment =
       treatmentFilter === 'all' ||
-      (patient.tags && patient.tags.some((tag) => tag === treatmentFilter));
+      safeTags(patient.tags).some((tag) => tag === treatmentFilter);
     return matchesStatus && matchesTreatment;
   });
 
@@ -780,32 +783,32 @@ export default function AdminPatientsPage() {
                           </>
                         ) : (
                           <>
-                            {patient.tags?.includes('peptides') && (
+                            {safeTags(patient.tags).includes('peptides') && (
                               <span className="rounded-full bg-[var(--brand-primary-light)] px-2 py-0.5 text-xs font-medium text-[var(--brand-primary)]">
                                 Peptides
                               </span>
                             )}
-                            {patient.tags?.includes('nad-plus') && (
+                            {safeTags(patient.tags).includes('nad-plus') && (
                               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
                                 NAD+
                               </span>
                             )}
-                            {patient.tags?.includes('sexual-health') && (
+                            {safeTags(patient.tags).includes('sexual-health') && (
                               <span className="rounded-full bg-pink-100 px-2 py-0.5 text-xs font-medium text-pink-700">
                                 Better Sex
                               </span>
                             )}
-                            {patient.tags?.includes('trt') && (
+                            {safeTags(patient.tags).includes('trt') && (
                               <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
                                 TRT
                               </span>
                             )}
-                            {patient.tags?.includes('labs') && (
+                            {safeTags(patient.tags).includes('labs') && (
                               <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">
                                 Labs
                               </span>
                             )}
-                            {patient.tags?.includes('weight-loss') && (
+                            {safeTags(patient.tags).includes('weight-loss') && (
                               <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                                 Weight Loss
                               </span>
@@ -813,7 +816,7 @@ export default function AdminPatientsPage() {
                           </>
                         )}
                         {(!patient.medicationNames?.length &&
-                          !patient.tags?.some((t) =>
+                          !safeTags(patient.tags).some((t) =>
                             [
                               'peptides',
                               'nad-plus',

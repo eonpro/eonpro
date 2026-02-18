@@ -325,7 +325,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         firstName: safeDecrypt(patient.firstName),
         lastName: safeDecrypt(patient.lastName),
         gender: safeDecrypt(patient.gender),
-        tags: patient.tags || [],
+        tags: Array.isArray(patient.tags) ? patient.tags : [],
         medicationNames: Array.from(medicationNames),
         source: patient.source,
         createdAt: patient.createdAt,
