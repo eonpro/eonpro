@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { useClinicBranding, getContrastTextColor } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { usePatientId } from '@/hooks/usePatientId';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
@@ -61,6 +61,8 @@ export default function MedicationsPage() {
   const { branding } = useClinicBranding();
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
+  const accentIconColor = getContrastTextColor(accentColor) === 'light' ? '#ffffff' : '#1f2937';
+  const primaryIconColor = getContrastTextColor(primaryColor) === 'light' ? '#ffffff' : '#1f2937';
 
   const { patientId } = usePatientId();
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -335,9 +337,9 @@ END:VCALENDAR`;
                     <div className="flex items-center gap-4">
                       <div
                         className="flex h-12 w-12 items-center justify-center rounded-xl"
-                        style={{ backgroundColor: `${accentColor}` }}
+                        style={{ backgroundColor: accentColor }}
                       >
-                        <Bell className="h-5 w-5 text-gray-700" />
+                        <Bell className="h-5 w-5" style={{ color: accentIconColor }} />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{reminder.medicationName}</p>
@@ -497,9 +499,9 @@ END:VCALENDAR`;
                             <div className="flex items-center gap-4">
                               <div
                                 className="flex h-12 w-12 items-center justify-center rounded-xl"
-                                style={{ backgroundColor: `${accentColor}` }}
+                                style={{ backgroundColor: accentColor }}
                               >
-                                <Bell className="h-5 w-5 text-gray-700" />
+                                <Bell className="h-5 w-5" style={{ color: accentIconColor }} />
                               </div>
                               <div>
                                 <p className="font-semibold text-gray-900">
@@ -566,9 +568,9 @@ END:VCALENDAR`;
             <div className="flex items-center gap-4">
               <div
                 className="flex h-14 w-14 items-center justify-center rounded-2xl transition-transform group-hover:scale-110"
-                style={{ backgroundColor: `${accentColor}` }}
+                style={{ backgroundColor: accentColor }}
               >
-                <Syringe className="h-6 w-6 text-gray-700" />
+                <Syringe className="h-6 w-6" style={{ color: accentIconColor }} />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{t('medsDoseCalculator')}</h3>
@@ -622,13 +624,13 @@ END:VCALENDAR`;
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-gray-900">{t('medsAddReminderTitle')}</h2>
+                    <h2 className="text-2xl font-semibold" style={{ color: accentIconColor }}>{t('medsAddReminderTitle')}</h2>
                     {selectedMed ? (
-                      <p className="mt-1 text-gray-700">
+                      <p className="mt-1" style={{ color: accentIconColor, opacity: 0.8 }}>
                         {selectedMed.name} ({selectedMed.dosage})
                       </p>
                     ) : (
-                      <p className="mt-1 text-sm text-gray-600">{t('medsEnterNameBelow')}</p>
+                      <p className="mt-1 text-sm" style={{ color: accentIconColor, opacity: 0.7 }}>{t('medsEnterNameBelow')}</p>
                     )}
                   </div>
                   <button
@@ -637,7 +639,8 @@ END:VCALENDAR`;
                       setSelectedMed(null);
                       setCustomMedicationName('');
                     }}
-                    className="rounded-xl p-2 text-gray-700 transition-colors hover:bg-black/10"
+                    className="rounded-xl p-2 transition-colors hover:bg-black/10"
+                    style={{ color: accentIconColor }}
                   >
                     <X className="h-6 w-6" />
                   </button>
