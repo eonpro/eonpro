@@ -184,7 +184,7 @@ export default function SigBuilder({
 
   // Options for sig building
   const [options, setOptions] = useState<SigOptions>({
-    includeStorage: true,
+    includeStorage: false,
     includeAdministration: false,
     includeWarnings: false,
     includeMissedDose: false,
