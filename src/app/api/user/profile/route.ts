@@ -14,6 +14,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { decryptPatientPHI, encryptPHI } from '@/lib/security/phi-encryption';
 
 const addressSchema = z.object({
   street: z.string().max(200).optional(),
@@ -73,21 +74,27 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     let dateOfBirth: string | null = null;
     let address: { street: string; city: string; state: string; zip: string } | null = null;
+    let patientPhone: string | null = null;
 
     if (dbUser.patientId) {
       const patient = await prisma.patient.findUnique({
         where: { id: dbUser.patientId },
-        select: { dob: true, address1: true, address2: true, city: true, state: true, zip: true },
+        select: { dob: true, phone: true, address1: true, address2: true, city: true, state: true, zip: true },
       });
       if (patient) {
-        dateOfBirth = patient.dob || null;
-        const street = [patient.address1, patient.address2].filter(Boolean).join(', ');
-        if (street || patient.city || patient.state || patient.zip) {
+        const decrypted = decryptPatientPHI(
+          patient as Record<string, unknown>,
+          ['dob', 'phone', 'address1', 'address2', 'city', 'state', 'zip']
+        );
+        dateOfBirth = (decrypted.dob as string) || null;
+        patientPhone = (decrypted.phone as string) || null;
+        const street = [decrypted.address1, decrypted.address2].filter(Boolean).join(', ');
+        if (street || decrypted.city || decrypted.state || decrypted.zip) {
           address = {
             street: street || '',
-            city: patient.city || '',
-            state: patient.state || '',
-            zip: patient.zip || '',
+            city: (decrypted.city as string) || '',
+            state: (decrypted.state as string) || '',
+            zip: (decrypted.zip as string) || '',
           };
         }
       }
@@ -98,7 +105,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       firstName: dbUser.firstName,
       lastName: dbUser.lastName,
       email: dbUser.email,
-      phone: dbUser.phone,
+      phone: dbUser.phone || patientPhone || '',
       role: dbUser.role,
       avatarUrl: dbUser.avatarUrl,
       status: dbUser.status,
@@ -144,12 +151,12 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     if (firstName !== undefined) {
       userUpdateData.firstName = firstName;
-      patientUpdateData.firstName = firstName;
+      patientUpdateData.firstName = encryptPHI(firstName);
       updatedFields.push('firstName');
     }
     if (lastName !== undefined) {
       userUpdateData.lastName = lastName;
-      patientUpdateData.lastName = lastName;
+      patientUpdateData.lastName = encryptPHI(lastName);
       updatedFields.push('lastName');
     }
     if (email !== undefined) {
@@ -161,12 +168,12 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         return NextResponse.json({ error: 'Email address is already in use' }, { status: 409 });
       }
       userUpdateData.email = email.toLowerCase();
-      patientUpdateData.email = email.toLowerCase();
+      patientUpdateData.email = encryptPHI(email.toLowerCase());
       updatedFields.push('email');
     }
     if (phone !== undefined) {
       userUpdateData.phone = phone || null;
-      patientUpdateData.phone = phone || '';
+      patientUpdateData.phone = phone ? encryptPHI(phone) : '';
       updatedFields.push('phone');
     }
     if (dateOfBirth !== undefined) {
@@ -181,21 +188,21 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           return NextResponse.json({ error: 'Date of birth is out of valid range' }, { status: 400 });
         }
       }
-      patientUpdateData.dob = dateOfBirth || '';
+      patientUpdateData.dob = dateOfBirth ? encryptPHI(dateOfBirth) : '';
       updatedFields.push('dateOfBirth');
     }
     if (address !== undefined && address !== null) {
       if (address.street !== undefined) {
-        patientUpdateData.address1 = address.street;
+        patientUpdateData.address1 = address.street ? encryptPHI(address.street) : '';
       }
       if (address.city !== undefined) {
-        patientUpdateData.city = address.city;
+        patientUpdateData.city = address.city ? encryptPHI(address.city) : '';
       }
       if (address.state !== undefined) {
-        patientUpdateData.state = address.state;
+        patientUpdateData.state = address.state ? encryptPHI(address.state) : '';
       }
       if (address.zip !== undefined) {
-        patientUpdateData.zip = address.zip;
+        patientUpdateData.zip = address.zip ? encryptPHI(address.zip) : '';
       }
       updatedFields.push('address');
     }

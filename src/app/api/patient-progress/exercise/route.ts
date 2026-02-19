@@ -9,17 +9,16 @@ import { handleApiError } from '@/domains/shared/errors';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 const createExerciseLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseInt(val, 10) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
   activityType: z.string().min(1).max(100),
-  duration: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseInt(val, 10) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid duration');
-    return num;
-  }),
+  duration: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'Duration must be a positive number' })
+    .refine((n) => n <= 1440, { message: 'Duration must be 1440 minutes or less' }),
   intensity: z.enum(['light', 'moderate', 'vigorous']).default('moderate'),
   calories: z
     .union([z.string(), z.number()])
@@ -50,11 +49,10 @@ const createExerciseLogSchema = z.object({
 });
 
 const getExerciseLogsSchema = z.object({
-  patientId: z.string().transform((val) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
 });
 
 const postHandler = withAuth(async (request: NextRequest, user) => {
@@ -101,7 +99,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    await logPHICreate(request, user, 'PatientExerciseLog', exerciseLog.id, patientId);
+    logPHICreate(request, user, 'PatientExerciseLog', exerciseLog.id, patientId).catch(() => {});
 
     return NextResponse.json(exerciseLog, { status: 201 });
   } catch (error) {
@@ -157,7 +155,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       0
     );
 
-    await logPHIAccess(request, user, 'PatientExerciseLog', 'list', patientId);
+    logPHIAccess(request, user, 'PatientExerciseLog', 'list', patientId).catch(() => {});
 
     return NextResponse.json({
       data: exerciseLogs,

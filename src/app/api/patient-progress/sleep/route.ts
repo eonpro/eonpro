@@ -9,11 +9,10 @@ import { handleApiError } from '@/domains/shared/errors';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 const createSleepLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseInt(val, 10) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
   sleepStart: z.string().datetime(),
   sleepEnd: z.string().datetime(),
   quality: z
@@ -29,11 +28,10 @@ const createSleepLogSchema = z.object({
 });
 
 const getSleepLogsSchema = z.object({
-  patientId: z.string().transform((val) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
 });
 
 const postHandler = withAuth(async (request: NextRequest, user) => {
@@ -73,7 +71,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    await logPHICreate(request, user, 'PatientSleepLog', sleepLog.id, patientId);
+    logPHICreate(request, user, 'PatientSleepLog', sleepLog.id, patientId).catch(() => {});
 
     return NextResponse.json(sleepLog, { status: 201 });
   } catch (error) {
@@ -133,7 +131,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           logsWithQuality.length
         : null;
 
-    await logPHIAccess(request, user, 'PatientSleepLog', 'list', patientId);
+    logPHIAccess(request, user, 'PatientSleepLog', 'list', patientId).catch(() => {});
 
     return NextResponse.json({
       data: sleepLogs,

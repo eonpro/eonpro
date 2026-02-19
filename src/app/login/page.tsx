@@ -1067,38 +1067,16 @@ export default function LoginPage() {
   const isProviderLogin =
     !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
 
-  // Gradient backgrounds - never solid; always multi-color gradients
-  const mainGradient = isProviderLogin
-    ? 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 20%, #93c5fd 45%, #a5b4fc 65%, #bfdbfe 85%, #dbeafe 100%)'
+  const bgColor = isProviderLogin
+    ? '#e8eeff'
     : branding
-      ? `linear-gradient(135deg, ${primaryColor}15 0%, ${secondaryColor}12 33%, ${accentColor}18 66%, ${primaryColor}20 100%)`
-      : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)';
+      ? `${primaryColor}0D`
+      : '#f0fdf4';
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Gradient Background - provider: purple→blue; branded: clinic colors; default: green→yellow */}
-      <div
-        className="absolute inset-0"
-        style={{ background: mainGradient }}
-      />
-
-      {/* Subtle mesh overlay - adds depth, never solid */}
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{
-          backgroundImage: isProviderLogin
-            ? `radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.25) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(147, 197, 253, 0.25) 0%, transparent 50%)`
-            : branding
-              ? `radial-gradient(circle at 20% 50%, ${primaryColor}20 0%, transparent 50%),
-                 radial-gradient(circle at 80% 20%, ${accentColor}25 0%, transparent 50%),
-                 radial-gradient(circle at 40% 80%, ${secondaryColor}18 0%, transparent 50%)`
-              : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
-                 radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.2) 0%, transparent 50%),
-                 radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.15) 0%, transparent 50%)`,
-        }}
-      />
+      {/* Uniform Background */}
+      <div className="absolute inset-0" style={{ backgroundColor: bgColor }} />
 
       {/* Content */}
       <div className="relative z-10 flex min-h-screen flex-col">

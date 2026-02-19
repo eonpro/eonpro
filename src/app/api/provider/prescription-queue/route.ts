@@ -869,39 +869,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
-    // ─── Phase 2b: Targeted blob loading for plan-only WellMedR invoices ───
-    // When Airtable sends plan-only product (e.g. "6mo Injections") without medication name,
-    // we need to extract the preferred medication from the patient's intake document.
-    // This is a targeted query — only for patients whose invoice metadata lacks medication info.
-    const planOnlyPatientIds: number[] = [];
-    for (const invoice of invoices as any[]) {
-      const meta = invoice.metadata as Record<string, unknown> | null;
-      // Skip if metadata already has preferredMedication (set by invoice webhook)
-      if (meta?.preferredMedication) continue;
-      // Check if product looks plan-only (from metadata or lineItems)
-      const prod = (meta?.product as string) ||
-        ((invoice.lineItems as any[])?.[0]?.product as string) || '';
-      const prodLower = prod.toLowerCase();
-      const hasMedName =
-        prodLower.includes('tirzepatide') ||
-        prodLower.includes('semaglutide') ||
-        prodLower.includes('mounjaro') ||
-        prodLower.includes('zepbound') ||
-        prodLower.includes('ozempic') ||
-        prodLower.includes('wegovy');
-      if (!hasMedName && (looksLikePlanOnly(prod) || !prod)) {
-        planOnlyPatientIds.push(invoice.patient.id);
-      }
-    }
-
-    // Load intake document blobs ONLY for plan-only patients (targeted, not all patients)
+    // ─── Phase 2b: Load intake blobs for ALL queue patients ───
+    // Intake document blobs contain GLP-1 history and medication preference data.
+    // Previously only loaded for "plan-only" invoices (missing medication name), but
+    // GLP-1 history extraction needs the intake data for ALL patients — otherwise the
+    // queue shows "No GLP-1 history" even when the patient's intake form has it.
+    // Queue size is bounded (typically <30 patients), so this is safe to load in bulk.
     const patientDocBlobMap = new Map<number, Buffer | Uint8Array>();
-    if (planOnlyPatientIds.length > 0) {
-      const uniqueIds = [...new Set(planOnlyPatientIds)];
+    if (allPatientIds.length > 0) {
       try {
         const blobs = await prisma.patientDocument.findMany({
           where: {
-            patientId: { in: uniqueIds },
+            patientId: { in: allPatientIds },
             category: 'MEDICAL_INTAKE_FORM',
           },
           orderBy: { createdAt: 'desc' },
@@ -916,15 +895,14 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             patientDocBlobMap.set(blob.patientId, blob.data as Buffer | Uint8Array);
           }
         }
-        logger.info('[PRESCRIPTION-QUEUE] Loaded intake blobs for plan-only patients', {
-          requested: uniqueIds.length,
+        logger.info('[PRESCRIPTION-QUEUE] Loaded intake blobs for queue patients', {
+          requested: allPatientIds.length,
           loaded: patientDocBlobMap.size,
         });
       } catch (blobErr) {
-        // Non-fatal — fallback to generic message
-        logger.warn('[PRESCRIPTION-QUEUE] Failed to load intake blobs for plan-only patients', {
+        logger.warn('[PRESCRIPTION-QUEUE] Failed to load intake blobs, GLP-1 history may be missing', {
           error: blobErr instanceof Error ? blobErr.message : String(blobErr),
-          count: uniqueIds.length,
+          count: allPatientIds.length,
         });
       }
     }
@@ -959,12 +937,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const patientDocs = patientDocsMap.get(invoice.patient.id) || [];
       const intakeDoc = patientDocs[0] || null;
 
-      // Load targeted blob data for this patient (only populated for plan-only WellMedR invoices)
       const intakeDocBlob = patientDocBlobMap.get(invoice.patient.id) || null;
 
       const glp1Info = extractGlp1Info(
         metadata,
-        intakeDocBlob, // targeted blob data for plan-only patients
+        intakeDocBlob,
         `${invoice.patient.firstName} ${invoice.patient.lastName}`
       );
 
@@ -1064,7 +1041,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             derivedMedication = priceDerived;
           }
         }
-        // Priority 3: Extract from intake document blob (loaded for plan-only patients)
+        // Priority 3: Extract from intake document blob
         if (!derivedMedication && intakeDocBlob) {
           const docMed = extractMedicationFromDocument(intakeDocBlob);
           if (docMed) {
@@ -1237,9 +1214,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const istirzepatide = treatmentDisplay.toLowerCase().includes('tirzepatide');
       const isSemaglutide = treatmentDisplay.toLowerCase().includes('semaglutide');
 
-      // NOTE: patientDocument.data blob is no longer loaded in the list query (PERF FIX).
-      // GLP-1 type is derived from the medication name instead.
-      const docGlp1Info = null;
+      const refillBlob = patientDocBlobMap.get(refill.patient.id) || null;
+      const docGlp1Info = refillBlob ? extractGlp1Info(null, refillBlob) : null;
 
       return {
         // Queue item identification
@@ -1327,6 +1303,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const treatmentDisplay = order.primaryMedName
         ? `${order.primaryMedName}${order.primaryMedStrength ? ` ${order.primaryMedStrength}` : ''}${order.primaryMedForm ? ` ${order.primaryMedForm}` : ''}`
         : 'Prescription (queued by admin)';
+      const queuedOrderBlob = patientDocBlobMap.get(order.patient.id) || null;
+      const queuedOrderGlp1 = extractGlp1Info(null, queuedOrderBlob);
       return {
         queueType: 'queued_order' as const,
         orderId: order.id,
@@ -1351,7 +1329,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         queuedAt: order.queuedForProviderAt,
         invoiceNumber: `QUEUED-${order.id}`,
         intakeCompletedAt: null,
-        glp1Info: { usedGlp1: false, glp1Type: null, lastDose: null },
+        glp1Info: queuedOrderGlp1,
         soapNote: soapNote
           ? {
               id: soapNote.id,

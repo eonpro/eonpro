@@ -214,6 +214,9 @@ export default function ProgressPage() {
         if (response.ok) {
           const result = await safeParseJson(response);
           setTodayWater((result as { meta?: { todayTotal?: number } } | null)?.meta?.todayTotal || 0);
+        } else {
+          logger.error('Failed to fetch water data', { status: response.status });
+          setError('Could not load water data. Please try again.');
         }
       } else if (activeTab === 'exercise') {
         const response = await portalFetch(`/api/patient-progress/exercise?patientId=${patientId}`, opts);
@@ -224,6 +227,9 @@ export default function ProgressPage() {
         if (response.ok) {
           const result = await safeParseJson(response);
           setWeeklyMinutes((result as { meta?: { weeklyMinutes?: number } } | null)?.meta?.weeklyMinutes || 0);
+        } else {
+          logger.error('Failed to fetch exercise data', { status: response.status });
+          setError('Could not load exercise data. Please try again.');
         }
       } else if (activeTab === 'sleep') {
         const response = await portalFetch(`/api/patient-progress/sleep?patientId=${patientId}`, opts);
@@ -234,6 +240,9 @@ export default function ProgressPage() {
         if (response.ok) {
           const result = await safeParseJson(response);
           setAvgSleepHours((result as { meta?: { avgSleepHours?: number } } | null)?.meta?.avgSleepHours || 0);
+        } else {
+          logger.error('Failed to fetch sleep data', { status: response.status });
+          setError('Could not load sleep data. Please try again.');
         }
       } else if (activeTab === 'nutrition') {
         const response = await portalFetch(`/api/patient-progress/nutrition?patientId=${patientId}`, opts);
@@ -244,6 +253,9 @@ export default function ProgressPage() {
         if (response.ok) {
           const result = await safeParseJson(response);
           setTodayCalories((result as { meta?: { todayCalories?: number } } | null)?.meta?.todayCalories || 0);
+        } else {
+          logger.error('Failed to fetch nutrition data', { status: response.status });
+          setError('Could not load nutrition data. Please try again.');
         }
       }
     } catch (error) {

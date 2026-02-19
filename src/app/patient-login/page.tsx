@@ -565,26 +565,12 @@ export default function PatientLoginPage() {
   const buttonTextMode = branding?.buttonTextColor || 'auto';
   const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
 
-  const mainGradient = branding
-    ? `linear-gradient(135deg, ${primaryColor}15 0%, ${secondaryColor}12 33%, ${accentColor}18 66%, ${primaryColor}20 100%)`
-    : 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 25%, #d1fae5 50%, #fef9c3 75%, #fef3c7 100%)';
+  const bgColor = branding ? `${primaryColor}0D` : '#f0fdf4';
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Gradient Background */}
-      <div className="absolute inset-0" style={{ background: mainGradient }} />
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{
-          backgroundImage: branding
-            ? `radial-gradient(circle at 20% 50%, ${primaryColor}20 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, ${accentColor}25 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, ${secondaryColor}18 0%, transparent 50%)`
-            : `radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
-               radial-gradient(circle at 80% 20%, rgba(250, 204, 21, 0.2) 0%, transparent 50%),
-               radial-gradient(circle at 40% 80%, rgba(52, 211, 153, 0.15) 0%, transparent 50%)`,
-        }}
-      />
+      {/* Uniform Background */}
+      <div className="absolute inset-0" style={{ backgroundColor: bgColor }} />
 
       {/* Content */}
       <div className="relative z-10 flex min-h-screen flex-col">

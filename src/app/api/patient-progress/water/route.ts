@@ -10,27 +10,25 @@ import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
 // Validation schemas
 const createWaterLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseInt(val, 10) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
-  amount: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid amount');
-    return num;
-  }),
+  patientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
+  amount: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'Amount must be a positive number' })
+    .refine((n) => n <= 200, { message: 'Amount must be 200 oz or less' }),
   unit: z.enum(['oz', 'ml']).default('oz'),
   notes: z.string().max(500).optional(),
   recordedAt: z.string().datetime().optional(),
 });
 
 const getWaterLogsSchema = z.object({
-  patientId: z.string().transform((val) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
   date: z.string().nullish(),
 });
 
@@ -65,7 +63,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    await logPHICreate(request, user, 'PatientWaterLog', waterLog.id, patientId);
+    logPHICreate(request, user, 'PatientWaterLog', waterLog.id, patientId).catch(() => {});
 
     return NextResponse.json(waterLog, { status: 201 });
   } catch (error) {
@@ -122,23 +120,20 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       take: 100,
     });
 
-    // Calculate today's total
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const todayLogs = await prisma.patientWaterLog.findMany({
-      where: {
-        patientId,
-        recordedAt: { gte: today, lte: todayEnd },
-      },
-    });
+    type WaterLog = (typeof waterLogs)[number];
+    const todayTotal = waterLogs
+      .filter((log: WaterLog) => {
+        const d = new Date(log.recordedAt);
+        return d >= today && d <= todayEnd;
+      })
+      .reduce((sum: number, log: WaterLog) => sum + log.amount, 0);
 
-    type WaterLog = (typeof todayLogs)[number];
-    const todayTotal = todayLogs.reduce((sum: number, log: WaterLog) => sum + log.amount, 0);
-
-    await logPHIAccess(request, user, 'PatientWaterLog', 'list', patientId);
+    logPHIAccess(request, user, 'PatientWaterLog', 'list', patientId).catch(() => {});
 
     return NextResponse.json({
       data: waterLogs,

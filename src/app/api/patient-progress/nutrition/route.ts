@@ -19,11 +19,10 @@ function sanitizeText(text: string): string {
 }
 
 const createNutritionLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseInt(val, 10) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
   mealType: z.enum(['breakfast', 'lunch', 'dinner', 'snack']),
   description: z
     .string()
@@ -71,11 +70,10 @@ const createNutritionLogSchema = z.object({
 });
 
 const getNutritionLogsSchema = z.object({
-  patientId: z.string().transform((val) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
 });
 
 const postHandler = withAuth(async (request: NextRequest, user) => {
@@ -113,7 +111,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    await logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId);
+    logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId).catch(() => {});
 
     return NextResponse.json(nutritionLog, { status: 201 });
   } catch (error) {
@@ -179,7 +177,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     );
     const todayFat = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.fat || 0), 0);
 
-    await logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId);
+    logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId).catch(() => {});
 
     return NextResponse.json({
       data: nutritionLogs,
