@@ -110,6 +110,10 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   // Check if chat should be shown
   const showChat = features.showChat !== false;
 
+  // Chat page is a full-bleed experience with its own header/input;
+  // hide layout chrome so it doesn't overlap or trap the user.
+  const isChatPage = pathname === `${PATIENT_PORTAL_PATH}/chat` || pathname === '/patient-portal/chat';
+
   useEffect(() => {
     const user = localStorage.getItem('user');
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
@@ -333,8 +337,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Mobile Header - Optimized for iPhone notch */}
-      <header className="fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden">
+      {/* Mobile Header - Optimized for iPhone notch (hidden on chat page) */}
+      <header className={`fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden ${isChatPage ? 'hidden' : ''}`}>
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
           <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
@@ -426,14 +430,15 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       <main
         className={`flex-1 transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        {/* Content padding accounts for header and bottom nav on mobile; no horizontal overflow */}
-        <div className="min-h-[100dvh] w-full min-w-0 overflow-x-hidden pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0">
+        {/* Content padding accounts for header and bottom nav on mobile; no horizontal overflow.
+           Chat page is full-bleed so it gets no padding. */}
+        <div className={`min-h-[100dvh] w-full min-w-0 overflow-x-hidden ${isChatPage ? '' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
           {children}
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation - iPhone optimized */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden">
+      {/* Mobile Bottom Navigation - iPhone optimized (hidden on chat page) */}
+      <nav className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden ${isChatPage ? 'hidden' : ''}`}>
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
             {mobileNavItems.map((item) => {
@@ -481,8 +486,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="safe-bottom bg-white/95" />
       </nav>
 
-      {/* Floating Chat Button - Above bottom nav on mobile (conditional on feature flag) */}
-      {showChat && (
+      {/* Floating Chat Button - Above bottom nav on mobile (hidden when already on chat) */}
+      {showChat && !isChatPage && (
         <Link
           href={`${PATIENT_PORTAL_PATH}/chat`}
           className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"

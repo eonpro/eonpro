@@ -9,6 +9,7 @@ import { portalFetch } from '@/lib/api/patient-portal-client';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
 import { useWebSocket, EventType } from '@/hooks/useWebSocket';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import {
   Send,
   ArrowLeft,
@@ -310,7 +311,7 @@ export default function PatientChatPage() {
       {/* Header */}
       <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push(PATIENT_PORTAL_PATH)}
           aria-label="Go back"
           className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100"
         >
