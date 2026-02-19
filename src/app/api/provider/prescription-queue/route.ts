@@ -366,13 +366,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       if (!amountCents || amountCents <= 0) return null;
       const dollars = amountCents / 100;
       // Thresholds: midpoint between Semaglutide and Tirzepatide prices at each plan level
-      // 1mo: Sema=$149, Tirz=$259 → threshold $204
+      // 1mo: Sema=$149, Tirz=$249 → threshold $199
       // 3mo: Sema=$485, Tirz=$677 → threshold $581
       // 6mo: Sema=$820, Tirz=$1234 → threshold $1027
       // 12mo: Sema=$1290, Tirz=$2130 → threshold $1710
       switch (planMonths) {
         case 1:
-          return dollars < 204 ? 'Semaglutide' : 'Tirzepatide';
+          return dollars < 199 ? 'Semaglutide' : 'Tirzepatide';
         case 3:
           return dollars < 581 ? 'Semaglutide' : 'Tirzepatide';
         case 6:
@@ -383,7 +383,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           // Unknown plan — try to match known exact prices (with 10% tolerance)
           const knownPrices: Array<{ price: number; med: string }> = [
             { price: 149, med: 'Semaglutide' },
-            { price: 259, med: 'Tirzepatide' },
+            { price: 249, med: 'Tirzepatide' },
             { price: 485, med: 'Semaglutide' },
             { price: 677, med: 'Tirzepatide' },
             { price: 820, med: 'Semaglutide' },

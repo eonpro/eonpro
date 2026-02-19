@@ -40,6 +40,9 @@ import { readIntakeData } from '@/lib/storage/document-data-store';
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
+// Vercel/Next.js serverless function timeout (seconds)
+export const maxDuration = 60;
+
 /**
  * Safely decrypt a PHI field, returning original value if decryption fails
  */
@@ -54,6 +57,10 @@ function safeDecrypt(value: string | null | undefined): string | null {
 
 // WellMedR clinic configuration
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
+
+// Cached clinic ID — resolved once per cold start, reused across invocations.
+// The WellMedR clinic record never changes at runtime.
+let cachedClinicId: number | null = null;
 
 // Helper to safely parse payment date from various formats
 function parsePaymentDate(dateValue: string | undefined): Date {
@@ -176,30 +183,35 @@ export async function POST(req: NextRequest) {
 
   logger.debug(`[WELLMEDR-INVOICE ${requestId}] ✓ Authenticated`);
 
-  // STEP 2: Get WellMedR clinic
-  // Use basePrisma since we haven't resolved clinic context yet
+  // STEP 2: Get WellMedR clinic (cached after first cold-start resolution)
   let clinicId: number;
   try {
-    const wellmedrClinic = await basePrisma.clinic.findFirst({
-      where: {
-        OR: [
-          { subdomain: WELLMEDR_CLINIC_SUBDOMAIN },
-          { subdomain: { contains: 'wellmedr', mode: 'insensitive' } },
-          { name: { contains: 'Wellmedr', mode: 'insensitive' } },
-        ],
-      },
-      select: { id: true, name: true, subdomain: true },
-    });
+    if (cachedClinicId) {
+      clinicId = cachedClinicId;
+      logger.debug(`[WELLMEDR-INVOICE ${requestId}] ✓ Clinic from cache: ID=${clinicId}`);
+    } else {
+      const wellmedrClinic = await basePrisma.clinic.findFirst({
+        where: {
+          OR: [
+            { subdomain: WELLMEDR_CLINIC_SUBDOMAIN },
+            { subdomain: { contains: 'wellmedr', mode: 'insensitive' } },
+            { name: { contains: 'Wellmedr', mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, name: true, subdomain: true },
+      });
 
-    if (!wellmedrClinic) {
-      logger.error(`[WELLMEDR-INVOICE ${requestId}] CRITICAL: Wellmedr clinic not found!`);
-      return NextResponse.json({ error: 'Wellmedr clinic not configured' }, { status: 500 });
+      if (!wellmedrClinic) {
+        logger.error(`[WELLMEDR-INVOICE ${requestId}] CRITICAL: Wellmedr clinic not found!`);
+        return NextResponse.json({ error: 'Wellmedr clinic not configured' }, { status: 500 });
+      }
+
+      cachedClinicId = wellmedrClinic.id;
+      clinicId = wellmedrClinic.id;
+      logger.info(
+        `[WELLMEDR-INVOICE ${requestId}] ✓ CLINIC RESOLVED & CACHED: ID=${clinicId}, Name="${wellmedrClinic.name}"`
+      );
     }
-
-    clinicId = wellmedrClinic.id;
-    logger.info(
-      `[WELLMEDR-INVOICE ${requestId}] ✓ CLINIC VERIFIED: ID=${clinicId}, Name="${wellmedrClinic.name}"`
-    );
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Database error finding clinic:`, {
@@ -314,10 +326,13 @@ export async function POST(req: NextRequest) {
   let patient: WellMedRPatient | null = null;
   let wasAutoCreated = false;
 
+  let matchStrategy = 'none';
   try {
-    // Strategy 0: Fast direct DB match via searchIndex (plaintext, no record-count limit)
+    const matchStart = Date.now();
+
+    // Strategy 0: Fast direct DB match via searchIndex (plaintext, GIN-indexed)
     // The searchIndex field contains normalized plaintext: "firstname lastname email phone patientid"
-    // This is MUCH faster than PHISearchService (which fetches up to 2000 records for in-memory filtering)
+    // This leverages the pg_trgm GIN index for O(1) substring matching.
     const directMatch = await prisma.patient.findFirst({
       where: {
         clinicId,
@@ -335,23 +350,86 @@ export async function POST(req: NextRequest) {
     });
 
     if (directMatch) {
-      // Verify the email actually matches (searchIndex could contain partial overlap)
       const directEmail = safeDecrypt(directMatch.email)?.toLowerCase().trim();
       if (directEmail === email) {
         patient = directMatch as WellMedRPatient;
-        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by searchIndex (fast path)`, {
+        matchStrategy = 'searchIndex';
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by searchIndex (fast path) in ${Date.now() - matchStart}ms`, {
           patientId: patient.id,
         });
       }
     }
 
-    // Strategy 1: Match by email via PHISearchService (handles encrypted PHI, broader fuzzy search)
+    // Strategy 1: Scan patients missing searchIndex — limited to 200 records
+    // This covers legacy patients whose searchIndex hasn't been backfilled yet,
+    // without pulling the entire clinic population through PHISearchService.
     if (!patient) {
+      const scanStart = Date.now();
+      const patientsWithoutIndex = await prisma.patient.findMany({
+        where: {
+          clinicId,
+          profileStatus: 'ACTIVE',
+          OR: [{ searchIndex: null }, { searchIndex: '' }],
+        },
+        select: {
+          id: true,
+          patientId: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+        take: 200,
+        orderBy: { createdAt: 'desc' },
+      });
+
+      for (const candidate of patientsWithoutIndex) {
+        const candEmail = safeDecrypt(candidate.email)?.toLowerCase().trim();
+        if (candEmail === email) {
+          patient = candidate as WellMedRPatient;
+          matchStrategy = 'null-index-scan';
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by null-index scan in ${Date.now() - scanStart}ms`, {
+            patientId: patient.id,
+            scannedCount: patientsWithoutIndex.length,
+          });
+
+          // Self-heal: backfill this patient's searchIndex so future lookups use Strategy 0
+          const decFirst = safeDecrypt(candidate.firstName) || '';
+          const decLast = safeDecrypt(candidate.lastName) || '';
+          const decEmail = candEmail || '';
+          if (decFirst || decLast || decEmail) {
+            prisma.patient.update({
+              where: { id: candidate.id },
+              data: {
+                searchIndex: buildPatientSearchIndex({
+                  firstName: decFirst,
+                  lastName: decLast,
+                  email: decEmail,
+                  patientId: candidate.patientId,
+                }),
+              },
+            }).catch((err) => {
+              logger.warn(`[WELLMEDR-INVOICE ${requestId}] Self-heal searchIndex failed`, {
+                patientId: candidate.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            });
+          }
+          break;
+        }
+      }
+    }
+
+    // Strategy 2: PHISearchService email match — CAPPED at 100 records (down from 2000 default)
+    // Only reached when searchIndex is populated but doesn't contain this email
+    // (e.g., email changed after index was built, or index has a typo).
+    if (!patient) {
+      const phiStart = Date.now();
       const emailResults = await PHISearchService.searchPatients({
         baseQuery: { clinicId, profileStatus: 'ACTIVE' },
         search: email,
         searchFields: ['email'],
         pagination: { limit: 5, offset: 0 },
+        maxFetchSize: 100,
         select: {
           id: true,
           patientId: true,
@@ -366,16 +444,36 @@ export async function POST(req: NextRequest) {
         const candEmail = safeDecrypt((candidate as { email?: string | null }).email)?.toLowerCase().trim();
         if (candEmail === email) {
           patient = candidate as WellMedRPatient;
-          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by email (PHISearch)`, {
+          matchStrategy = 'phi-email';
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by email (PHISearch) in ${Date.now() - phiStart}ms`, {
             patientId: patient.id,
+            fetchedCount: emailResults.metrics?.fetchedCount,
           });
+
+          // Self-heal searchIndex
+          const decFirst = safeDecrypt((candidate as any).firstName) || '';
+          const decLast = safeDecrypt((candidate as any).lastName) || '';
+          if (decFirst || decLast || email) {
+            prisma.patient.update({
+              where: { id: patient.id },
+              data: {
+                searchIndex: buildPatientSearchIndex({
+                  firstName: decFirst,
+                  lastName: decLast,
+                  email,
+                  patientId: patient.patientId,
+                }),
+              },
+            }).catch(() => {});
+          }
           break;
         }
       }
     }
 
-    // Strategy 2: Match by name when email fails
+    // Strategy 3: PHISearchService name match — CAPPED at 100 records
     if (!patient && paymentName) {
+      const nameStart = Date.now();
       logger.info(
         `[WELLMEDR-INVOICE ${requestId}] Email match failed, trying name match: "${paymentName}"`
       );
@@ -384,6 +482,7 @@ export async function POST(req: NextRequest) {
         search: paymentName,
         searchFields: ['firstName', 'lastName'],
         pagination: { limit: 5, offset: 0 },
+        maxFetchSize: 100,
         select: {
           id: true,
           patientId: true,
@@ -396,7 +495,8 @@ export async function POST(req: NextRequest) {
 
       if (nameResults.data.length === 1) {
         patient = nameResults.data[0] as WellMedRPatient;
-        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by name`, {
+        matchStrategy = 'phi-name';
+        logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by name in ${Date.now() - nameStart}ms`, {
           patientId: patient.id,
           matchedName: paymentName,
         });
@@ -407,7 +507,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Strategy 3: Match by submission_id stored in patient sourceMetadata
+    // Strategy 4: Match by submission_id stored in patient sourceMetadata
     if (!patient && payload.submission_id) {
       logger.info(
         `[WELLMEDR-INVOICE ${requestId}] Name match failed, trying submission_id: "${payload.submission_id}"`
@@ -431,12 +531,18 @@ export async function POST(req: NextRequest) {
       });
       if (submissionPatient) {
         patient = submissionPatient as WellMedRPatient;
+        matchStrategy = 'submission-id';
         logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Patient matched by submission_id`, {
           patientId: patient.id,
           submissionId: payload.submission_id,
         });
       }
     }
+
+    logger.info(`[WELLMEDR-INVOICE ${requestId}] Patient matching completed in ${Date.now() - matchStart}ms`, {
+      strategy: matchStrategy,
+      found: !!patient,
+    });
 
     // FALLBACK: Auto-create stub patient to prevent lost prescriptions
     if (!patient) {
@@ -447,8 +553,9 @@ export async function POST(req: NextRequest) {
         clinicId,
         matchStrategiesAttempted: [
           'searchIndex (direct DB)',
-          'PHISearch email',
-          paymentName ? 'PHISearch name' : null,
+          'null-index-scan (200 cap)',
+          'PHISearch email (100 cap)',
+          paymentName ? 'PHISearch name (100 cap)' : null,
           payload.submission_id ? 'sourceMetadata.submissionId' : null,
         ].filter(Boolean),
         hint: 'Check that Airtable customer_email matches the intake email field',
@@ -1223,7 +1330,7 @@ export async function POST(req: NextRequest) {
           const effectiveMonths = planMonths || (prodMonthMatch ? parseInt(prodMonthMatch[1], 10) : 0);
 
           // Thresholds: midpoint between Sema and Tirz prices at each plan level
-          const thresholds: Record<number, number> = { 1: 204, 3: 581, 6: 1027, 12: 1710 };
+          const thresholds: Record<number, number> = { 1: 199, 3: 581, 6: 1027, 12: 1710 };
           const threshold = thresholds[effectiveMonths];
           if (threshold) {
             preferredMedication = dollars < threshold ? 'Semaglutide' : 'Tirzepatide';
@@ -1236,7 +1343,7 @@ export async function POST(req: NextRequest) {
           } else {
             // Unknown plan — try exact price matching with 10% tolerance
             const knownPrices = [
-              { price: 149, med: 'Semaglutide' }, { price: 259, med: 'Tirzepatide' },
+              { price: 149, med: 'Semaglutide' }, { price: 249, med: 'Tirzepatide' },
               { price: 485, med: 'Semaglutide' }, { price: 677, med: 'Tirzepatide' },
               { price: 820, med: 'Semaglutide' }, { price: 1234, med: 'Tirzepatide' },
               { price: 1290, med: 'Semaglutide' }, { price: 2130, med: 'Tirzepatide' },
@@ -1323,6 +1430,7 @@ export async function POST(req: NextRequest) {
       note: 'Internal EONPRO invoice only - no Stripe invoice created',
       addressUpdated: !!hasAddressData,
       wasAutoCreated,
+      matchStrategy,
       soapNoteId,
       soapNoteAction,
     });

@@ -464,7 +464,7 @@ export const WELLMEDR_BILLING_PLANS: BillingPlan[] = [
     id: 'wm_tirz_1month',
     name: 'Tirzepatide 1 Month',
     category: 'tirzepatide_monthly',
-    price: 25900,
+    price: 24900,
     description: 'Tirzepatide - 1 Month Supply',
     months: 1,
     isRecurring: false,
