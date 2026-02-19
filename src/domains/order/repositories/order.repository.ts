@@ -355,12 +355,16 @@ export const orderRepository = {
 
     logger.debug('[OrderRepository] list query', { filters: { ...filters, search: filters.search ? '[REDACTED]' : undefined }, where, limit, offset });
 
+    const sortBy = filters.hasTrackingNumber
+      ? [{ lastWebhookAt: 'desc' as const }, { updatedAt: 'desc' as const }]
+      : { createdAt: 'desc' as const };
+
     // Execute query and count in parallel for efficiency
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
         select: ORDER_WITH_PATIENT_SELECT,
-        orderBy: { createdAt: 'desc' },
+        orderBy: sortBy,
         take: limit,
         skip: offset,
       }),

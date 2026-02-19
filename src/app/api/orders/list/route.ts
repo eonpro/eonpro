@@ -141,10 +141,12 @@ export async function GET(request: NextRequest) {
           events: [],
         }));
 
-      // Merge and sort by date
-      const allOrders = [...ordersWithEvents, ...shippingOnlyRecords].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      // Merge and sort by most recent activity (tracking date or creation date)
+      const allOrders = [...ordersWithEvents, ...shippingOnlyRecords].sort((a, b) => {
+        const dateA = (a as any).lastWebhookAt || a.updatedAt || a.createdAt;
+        const dateB = (b as any).lastWebhookAt || b.updatedAt || b.createdAt;
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
 
       return Response.json({ orders: allOrders });
     }

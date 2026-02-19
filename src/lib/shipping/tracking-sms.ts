@@ -77,6 +77,10 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
 /**
  * Build the SMS message body for a tracking notification
  */
+function stripBusinessSuffix(name: string): string {
+  return name.replace(/\s+(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?|LP|LLP|PLLC|PC|PA)$/i, '').trim();
+}
+
 function buildTrackingMessage(
   firstName: string,
   clinicName: string,
@@ -84,9 +88,10 @@ function buildTrackingMessage(
   carrier: string
 ): string {
   const trackingUrl = getTrackingUrl(carrier, trackingNumber);
+  const displayName = stripBusinessSuffix(clinicName);
 
   return (
-    `Hello ${firstName}, your prescription from ${clinicName} has been processed and shipped! ` +
+    `Hello ${firstName}, your prescription from ${displayName} has been processed and shipped! ` +
     `Here is your tracking number: ${trackingNumber}. ` +
     `Track your package: ${trackingUrl}`
   );

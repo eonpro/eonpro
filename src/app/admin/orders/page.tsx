@@ -30,8 +30,9 @@ interface OrderWithTracking {
   trackingNumber: string | null;
   trackingUrl: string | null;
   createdAt: string;
+  updatedAt?: string;
+  lastWebhookAt?: string | null;
   lifefileOrderId?: string | null;
-  // Flag for records that came from PatientShippingUpdate only (no linked Order)
   _isShipmentOnly?: boolean;
   _shipmentId?: number;
 }
@@ -331,7 +332,7 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                      {formatDate(order.createdAt)}
+                      {formatDate(order.lastWebhookAt || order.updatedAt || order.createdAt)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <Link
