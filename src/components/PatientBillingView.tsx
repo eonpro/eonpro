@@ -1276,7 +1276,7 @@ function CreateInvoiceForm({
   onCancel: () => void;
 }) {
   const [lineItems, setLineItems] = useState([{ description: '', amount: 0 }]);
-  const [autoSend, setAutoSend] = useState(true);
+  const [autoSend, setAutoSend] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
   const groupedPlans = getGroupedPlans(clinicSubdomain);
