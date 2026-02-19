@@ -2,14 +2,11 @@
  * Admin Intakes API Route
  * =======================
  *
- * Lists patients who have NOT been converted to full patients yet.
- * An intake becomes a patient when they have a successful payment or prescription/order.
+ * Lists ALL patient profiles regardless of invoice or prescription status.
+ * This is the comprehensive view of every patient in the system.
  *
  * Search uses the `searchIndex` column (populated on create/update) with a
  * pg_trgm GIN index for O(1) substring matching at any scale (10M+ records).
- *
- * Performance: Uses Prisma `none` relation filters to generate efficient
- * NOT EXISTS subqueries instead of fetching IDs separately.
  *
  * @module api/admin/intakes
  */
@@ -42,10 +39,7 @@ const safeDecrypt = (value: string | null): string | null => {
 
 /**
  * GET /api/admin/intakes
- * List patients who are still intakes (no successful payment AND no order)
- *
- * Uses Prisma `none` relation filters which generate NOT EXISTS subqueries,
- * replacing the old "fetch all converted IDs → NOT IN clause" pattern.
+ * List ALL patients — the comprehensive directory of every profile in the system.
  */
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
@@ -61,12 +55,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // basePrisma.patient is in BASE_PRISMA_ALLOWLIST.
     const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
 
-    // Intakes = patients with NO successful payments AND NO orders.
-    // `none` generates efficient NOT EXISTS subqueries (indexed).
-    const whereClause: Prisma.PatientWhereInput = {
-      payments: { none: { status: 'SUCCEEDED' } },
-      orders: { none: {} },
-    };
+    // Show ALL patients — no exclusion filter.
+    const whereClause: Prisma.PatientWhereInput = {};
 
     if (clinicId) {
       whereClause.clinicId = clinicId;

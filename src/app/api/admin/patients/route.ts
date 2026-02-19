@@ -2,8 +2,7 @@
  * Admin Patients API Route
  * ========================
  *
- * Lists patients who HAVE been converted from intakes.
- * A patient is converted when they have a successful payment or prescription/order.
+ * Lists patients who have an invoice and/or a prescription (order).
  *
  * For sales_rep role, only shows patients assigned to them.
  *
@@ -46,13 +45,11 @@ const safeDecrypt = (value: string | null): string | null => {
 
 /**
  * GET /api/admin/patients
- * List patients who are converted (have payment or order)
- * For sales_rep role, only shows patients assigned to them
+ * List patients who have an invoice and/or a prescription (order).
+ * For sales_rep role, only shows patients assigned to them.
  *
- * Uses Prisma `some` relation filters for converted-patient detection,
- * which generates efficient EXISTS subqueries (indexed, stops at first match).
- * This replaces the prior 3-phase "fetch all IDs → IN clause" pattern that
- * generated 100+ queries and caused 500s on serverless (connection_limit=1).
+ * Uses Prisma `some` relation filters which generate efficient
+ * EXISTS subqueries (indexed, stops at first match).
  */
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
@@ -71,11 +68,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // includes are resolved internally by Prisma, bypassing the guarded proxy).
     const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
 
-    // Build WHERE using Prisma `some` relation filters → EXISTS subqueries.
-    // All top-level keys are ANDed together by Prisma.
+    // Patients = those with at least one invoice OR at least one order/prescription.
     const whereClause: Prisma.PatientWhereInput = {
       OR: [
-        { payments: { some: { status: 'SUCCEEDED' } } },
+        { invoices: { some: {} } },
         { orders: { some: {} } },
       ],
     };
@@ -140,6 +136,24 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       clinic: {
         select: { id: true, name: true, subdomain: true },
       },
+      invoices: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 3,
+        select: {
+          id: true,
+          amount: true,
+          amountPaid: true,
+          status: true,
+          paidAt: true,
+          createdAt: true,
+          items: {
+            select: {
+              description: true,
+              product: { select: { name: true } },
+            },
+          },
+        },
+      },
       payments: {
         where: { status: 'SUCCEEDED' as const },
         orderBy: { paidAt: 'desc' as const },
@@ -148,16 +162,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           paidAt: true,
           amount: true,
           invoiceId: true,
-          invoice: {
-            select: {
-              items: {
-                select: {
-                  description: true,
-                  product: { select: { name: true } },
-                },
-              },
-            },
-          },
         },
       },
       orders: {
@@ -276,12 +280,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Transform response
     const patientsData = patients.map((patient) => {
+      const lastInvoice = patient.invoices?.[0];
       const lastPayment = patient.payments?.[0];
       const lastOrder = patient.orders?.[0];
       const salesRepAssignment = patient.salesRepAssignments?.[0];
 
-      // Build medication names from orders (Rx medName or Order.primaryMedName)
-      // and from paid invoices (Product.name or InvoiceItem.description)
+      // Build medication names from orders and invoice items
       const medicationNames = new Set<string>();
       for (const order of patient.orders || []) {
         if (order.rxs && order.rxs.length > 0) {
@@ -300,9 +304,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           medicationNames.add(display);
         }
       }
-      // Add product names from paid invoices (for payment-only or supplement)
-      for (const payment of patient.payments || []) {
-        const inv = payment.invoice;
+      for (const inv of patient.invoices || []) {
         if (!inv?.items) continue;
         for (const item of inv.items) {
           const name = item.product?.name?.trim() || item.description?.trim();
@@ -310,18 +312,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
       }
 
-      // Determine conversion date
-      const paymentDate = lastPayment?.paidAt;
+      const invoiceDate = lastInvoice?.createdAt;
       const orderDate = lastOrder?.createdAt;
-      let convertedAt = paymentDate || orderDate;
-      if (paymentDate && orderDate) {
-        convertedAt = new Date(Math.min(paymentDate.getTime(), orderDate.getTime()));
+      let convertedAt = invoiceDate || orderDate;
+      if (invoiceDate && orderDate) {
+        convertedAt = new Date(Math.min(new Date(invoiceDate).getTime(), new Date(orderDate).getTime()));
       }
 
       const baseData: Record<string, unknown> = {
         id: patient.id,
         patientId: patient.patientId,
-        // Decrypt PHI fields including names
         firstName: safeDecrypt(patient.firstName),
         lastName: safeDecrypt(patient.lastName),
         gender: safeDecrypt(patient.gender),
@@ -331,13 +331,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         createdAt: patient.createdAt,
         clinicId: patient.clinicId,
         clinicName: patient.clinic?.name || null,
-        status: 'patient', // Explicitly mark as converted patient
+        status: 'patient',
         convertedAt,
-        hasPayment: !!lastPayment,
+        hasInvoice: !!lastInvoice,
         hasOrder: !!lastOrder,
-        lastPaymentAmount: lastPayment?.amount ? (lastPayment.amount / 100).toFixed(2) : null,
+        hasPayment: !!lastPayment,
+        lastInvoiceAmount: lastInvoice?.amount ? (lastInvoice.amount / 100).toFixed(2) : null,
         lastOrderStatus: lastOrder?.status || null,
-        // Sales rep assignment info
         salesRep: salesRepAssignment
           ? {
               id: salesRepAssignment.salesRep.id,
@@ -367,7 +367,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return baseData;
     });
 
-    logger.info('[ADMIN-PATIENTS] List converted patients', {
+    logger.info('[ADMIN-PATIENTS] List patients with invoices/prescriptions', {
       userId: user.id,
       clinicId,
       total,

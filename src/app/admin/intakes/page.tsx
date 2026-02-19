@@ -235,7 +235,7 @@ export default function AdminIntakesPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Intakes</h1>
-          <p className="mt-1 text-gray-600">New patient intakes awaiting payment or prescription</p>
+          <p className="mt-1 text-gray-600">All patient profiles in the system</p>
         </div>
         <button
           onClick={() => (window.location.href = '/admin/patients/new')}
@@ -264,10 +264,10 @@ export default function AdminIntakesPage() {
           <UserPlus className="mt-0.5 h-5 w-5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
           <div>
             <p className="text-sm font-medium text-gray-800">
-              Intakes become Patients when they make a payment or receive a prescription
+              This tab shows every patient profile, including those with invoices and prescriptions
             </p>
             <p className="mt-1 text-xs" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
-              Converted patients will appear in the Patients tab
+              The Patients tab filters to only those with an invoice or prescription
             </p>
           </div>
         </div>
@@ -382,7 +382,7 @@ export default function AdminIntakesPage() {
             <p className="mb-4 text-gray-600">
               {searchTerm
                 ? 'Try adjusting your search criteria'
-                : 'All intakes have been converted to patients'}
+                : 'No patient profiles have been created yet'}
             </p>
           </div>
         ) : (
