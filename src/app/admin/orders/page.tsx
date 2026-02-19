@@ -13,6 +13,9 @@ import {
   Truck,
   ExternalLink,
   Loader2,
+  MessageSquare,
+  MessageSquareX,
+  Send,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -33,6 +36,7 @@ interface OrderWithTracking {
   updatedAt?: string;
   lastWebhookAt?: string | null;
   lifefileOrderId?: string | null;
+  smsStatus?: string | null;
   _isShipmentOnly?: boolean;
   _shipmentId?: number;
 }
@@ -228,6 +232,9 @@ export default function AdminOrdersPage() {
                   Tracking
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  SMS
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -238,7 +245,7 @@ export default function AdminOrdersPage() {
             <tbody className="divide-y divide-gray-200">
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Package className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                     <p className="text-sm text-gray-500">No orders found</p>
                     <p className="mt-1 text-xs text-gray-400">
@@ -329,6 +336,35 @@ export default function AdminOrdersPage() {
                             </a>
                           )}
                         </div>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      {order.smsStatus ? (
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                            order.smsStatus === 'delivered'
+                              ? 'bg-green-100 text-green-700'
+                              : order.smsStatus === 'sent' || order.smsStatus === 'queued'
+                                ? 'bg-blue-100 text-blue-700'
+                                : order.smsStatus === 'failed' || order.smsStatus === 'undelivered'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-gray-100 text-gray-600'
+                          }`}
+                          title={`SMS ${order.smsStatus}`}
+                        >
+                          {order.smsStatus === 'delivered' ? (
+                            <CheckCircle className="h-3 w-3" />
+                          ) : order.smsStatus === 'sent' || order.smsStatus === 'queued' ? (
+                            <Send className="h-3 w-3" />
+                          ) : order.smsStatus === 'failed' || order.smsStatus === 'undelivered' ? (
+                            <MessageSquareX className="h-3 w-3" />
+                          ) : (
+                            <MessageSquare className="h-3 w-3" />
+                          )}
+                          {order.smsStatus === 'queued' ? 'Sent' : order.smsStatus}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">

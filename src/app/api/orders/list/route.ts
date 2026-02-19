@@ -129,33 +129,50 @@ export async function GET(request: NextRequest) {
       });
 
       // Convert PatientShippingUpdate records to order-like format
-      const shippingOnlyRecords = patientShipments
-        .filter((s: any) => !existingOrderIds.has(s.orderId || -1))
-        .map((shipment: any) => ({
-          // Use negative ID to distinguish from real orders (prefixed with 'ship-')
-          id: shipment.orderId || -shipment.id,
-          _isShipmentOnly: true, // Flag to identify these records
-          _shipmentId: shipment.id,
-          createdAt: shipment.createdAt,
-          updatedAt: shipment.updatedAt,
-          clinicId: shipment.clinicId,
-          // Decrypt patient PHI - names are encrypted in database
-          patient: {
-            id: shipment.patient?.id,
-            firstName: decryptPHI(shipment.patient?.firstName) || 'Unknown',
-            lastName: decryptPHI(shipment.patient?.lastName) || '',
-          },
-          patientId: shipment.patientId,
-          primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
-          primaryMedStrength:
-            shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
-          status: shipment.status,
-          shippingStatus: shipment.status,
-          trackingNumber: shipment.trackingNumber,
-          trackingUrl: shipment.trackingUrl,
-          lifefileOrderId: shipment.lifefileOrderId,
-          events: [],
-        }));
+      const shippingOnlyRecords = await Promise.all(
+        patientShipments
+          .filter((s: any) => !existingOrderIds.has(s.orderId || -1))
+          .map(async (shipment: any) => {
+            let smsStatus: string | null = null;
+            if (shipment.trackingNumber && shipment.patientId) {
+              const sms = await prisma.smsLog.findFirst({
+                where: {
+                  patientId: shipment.patientId,
+                  templateType: 'SHIPPING_TRACKING',
+                  body: { contains: shipment.trackingNumber },
+                },
+                orderBy: { createdAt: 'desc' },
+                select: { status: true },
+              });
+              smsStatus = sms?.status || null;
+            }
+
+            return {
+              id: shipment.orderId || -shipment.id,
+              _isShipmentOnly: true,
+              _shipmentId: shipment.id,
+              createdAt: shipment.createdAt,
+              updatedAt: shipment.updatedAt,
+              clinicId: shipment.clinicId,
+              patient: {
+                id: shipment.patient?.id,
+                firstName: decryptPHI(shipment.patient?.firstName) || 'Unknown',
+                lastName: decryptPHI(shipment.patient?.lastName) || '',
+              },
+              patientId: shipment.patientId,
+              primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
+              primaryMedStrength:
+                shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
+              status: shipment.status,
+              shippingStatus: shipment.status,
+              trackingNumber: shipment.trackingNumber,
+              trackingUrl: shipment.trackingUrl,
+              lifefileOrderId: shipment.lifefileOrderId,
+              events: [],
+              smsStatus,
+            };
+          })
+      );
 
       // Merge and sort by most recent activity (tracking date or creation date)
       const allOrders = [...ordersWithEvents, ...shippingOnlyRecords].sort((a, b) => {
