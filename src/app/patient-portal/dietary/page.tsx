@@ -83,7 +83,7 @@ export default function DietaryPlansPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
+    <div className="min-h-screen">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b bg-white">
         <div className="mx-auto max-w-2xl px-4 py-3">

@@ -339,7 +339,7 @@ export default function PatientPortalDocuments() {
   if (error) {
     const isSessionExpired = error === SESSION_EXPIRED_MESSAGE;
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+      <div className="flex min-h-screen items-center justify-center p-4">
         <div
           className={`max-w-md rounded-lg border p-4 text-center ${
             isSessionExpired ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-red-200 bg-red-50 text-red-700'
@@ -370,7 +370,7 @@ export default function PatientPortalDocuments() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

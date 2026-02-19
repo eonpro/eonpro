@@ -85,7 +85,7 @@ export default function CareTeamPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <div
           className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
@@ -96,9 +96,9 @@ export default function CareTeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b bg-white">
+      <div className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto max-w-2xl px-4 py-3">
           <div className="flex items-center gap-3">
             <Link href={PATIENT_PORTAL_PATH} className="rounded-lg p-2 hover:bg-gray-100">
@@ -178,7 +178,7 @@ export default function CareTeamPage() {
           <h2 className="text-lg font-semibold">{t('careTeamProviders')}</h2>
 
           {careTeam.length === 0 ? (
-            <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+            <div className="rounded-xl bg-white/60 p-8 text-center shadow-sm backdrop-blur-sm">
               <p className="text-gray-500">
                 {t('careTeamNoProviders')}
               </p>
@@ -187,7 +187,7 @@ export default function CareTeamPage() {
             careTeam.map((member) => (
               <div
                 key={member.id}
-                className="rounded-xl bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+                className="rounded-xl bg-white/60 p-4 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex items-start gap-4">
                   {/* Avatar */}

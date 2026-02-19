@@ -166,7 +166,7 @@ export default function ShipmentsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="relative">
           <div className="h-16 w-16 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
           <Package className="absolute inset-0 m-auto h-6 w-6 text-emerald-600" />
@@ -176,7 +176,7 @@ export default function ShipmentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">

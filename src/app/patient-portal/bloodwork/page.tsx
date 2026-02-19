@@ -133,7 +133,7 @@ export default function PatientPortalBloodworkPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/80 p-4 pb-24 md:p-6">
+    <div className="min-h-screen p-4 pb-24 md:p-6">
       <div className="mx-auto max-w-3xl">
         {error === SESSION_EXPIRED_MESSAGE && (
           <div
