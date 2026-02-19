@@ -24,7 +24,58 @@ import {
   X,
   Sparkles,
   Syringe,
+  CreditCard,
+  Package,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Truck,
 } from 'lucide-react';
+
+interface RxMedication {
+  id: number;
+  name: string;
+  strength: string;
+  form: string;
+  quantity: string;
+  directions: string;
+  daysSupply: number;
+}
+
+interface Prescription {
+  id: number;
+  status: string;
+  prescribedDate: string;
+  provider: { name: string } | null;
+  medications: RxMedication[];
+  shipping: {
+    status: string;
+    trackingNumber: string | null;
+  };
+}
+
+interface BillingPlan {
+  id: number;
+  name: string;
+  status: string;
+  interval: string;
+  amount: number;
+  currency: string;
+  nextBillingDate: string | null;
+  currentPeriodEnd: string | null;
+  startDate: string | null;
+  vialCount: number;
+}
+
+interface InvoiceRecord {
+  id: number;
+  invoiceNumber: string;
+  date: string;
+  amount: number | null;
+  amountPaid: number;
+  status: string;
+  description: string;
+}
 
 interface Medication {
   id: number;
@@ -66,16 +117,19 @@ export default function MedicationsPage() {
 
   const { patientId } = usePatientId();
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [billingPlan, setBillingPlan] = useState<BillingPlan | null>(null);
+  const [invoiceHistory, setInvoiceHistory] = useState<InvoiceRecord[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
-  /** When adding a reminder without a medication card (no prescriptions on file), user enters name here */
   const [customMedicationName, setCustomMedicationName] = useState('');
   const [newReminder, setNewReminder] = useState({ dayOfWeek: 3, time: '08:00' });
   const [showSuccess, setShowSuccess] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     if (patientId) {
@@ -85,37 +139,63 @@ export default function MedicationsPage() {
 
   const loadData = async () => {
     setLoadError(null);
-    // Production: medications list from API when available; until then empty (reminders still work)
     setMedications([]);
 
-    if (patientId) {
-      try {
-        const response = await portalFetch(
-          `/api/patient-progress/medication-reminders?patientId=${patientId}`
-        );
-        const err = getPortalResponseError(response);
-        if (err) {
-          setLoadError(err);
-          setLoading(false);
-          return;
-        }
-        if (response.ok) {
-          const result = await safeParseJson(response);
-          const data =
-            result !== null
-              ? Array.isArray(result)
-                ? result
-                : (result as { data?: unknown[] })?.data ?? []
-              : [];
-          setReminders(data);
-        }
-      } catch (error) {
-        logger.error('Failed to fetch reminders', {
-          error: error instanceof Error ? error.message : 'Unknown',
-        });
-        setLoadError('Failed to load reminders. Please try again.');
-      }
+    if (!patientId) {
+      setLoading(false);
+      return;
     }
+
+    const fetchPromises: Promise<void>[] = [];
+
+    fetchPromises.push(
+      portalFetch('/api/patient-portal/prescriptions')
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await safeParseJson(res);
+            if (data && typeof data === 'object') {
+              const d = data as {
+                prescriptions?: Prescription[];
+                plan?: BillingPlan | null;
+                invoiceHistory?: InvoiceRecord[];
+              };
+              setPrescriptions(d.prescriptions || []);
+              setBillingPlan(d.plan || null);
+              setInvoiceHistory(d.invoiceHistory || []);
+            }
+          }
+        })
+        .catch(() => {})
+    );
+
+    fetchPromises.push(
+      portalFetch(`/api/patient-progress/medication-reminders?patientId=${patientId}`)
+        .then(async (res) => {
+          const err = getPortalResponseError(res);
+          if (err) {
+            setLoadError(err);
+            return;
+          }
+          if (res.ok) {
+            const result = await safeParseJson(res);
+            const data =
+              result !== null
+                ? Array.isArray(result)
+                  ? result
+                  : (result as { data?: unknown[] })?.data ?? []
+                : [];
+            setReminders(data);
+          }
+        })
+        .catch((error) => {
+          logger.error('Failed to fetch reminders', {
+            error: error instanceof Error ? error.message : 'Unknown',
+          });
+          setLoadError('Failed to load reminders. Please try again.');
+        })
+    );
+
+    await Promise.all(fetchPromises);
     setLoading(false);
   };
 
@@ -251,6 +331,44 @@ END:VCALENDAR`;
     setTimeout(() => setShowSuccess(''), 3000);
   };
 
+  const formatCurrency = (cents: number | null) => {
+    if (cents === null || cents === undefined) return '$0.00';
+    return `$${(cents / 100).toFixed(2)}`;
+  };
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+  const statusColor = (status: string) => {
+    const s = status.toLowerCase();
+    if (['active', 'paid', 'delivered', 'completed', 'shipped'].includes(s))
+      return 'bg-emerald-100 text-emerald-700';
+    if (['pending', 'processing', 'draft', 'in_progress'].includes(s))
+      return 'bg-amber-100 text-amber-700';
+    if (['cancelled', 'failed', 'voided', 'void'].includes(s)) return 'bg-red-100 text-red-700';
+    return 'bg-gray-100 text-gray-600';
+  };
+
+  const activePrescriptions = prescriptions.filter((p) =>
+    ['pending', 'processing', 'shipped', 'active', 'approved', 'submitted', 'in_progress'].includes(
+      (p.status || '').toLowerCase()
+    )
+  );
+  const pastPrescriptions = prescriptions.filter(
+    (p) =>
+      !['pending', 'processing', 'shipped', 'active', 'approved', 'submitted', 'in_progress'].includes(
+        (p.status || '').toLowerCase()
+      )
+  );
+
+  const allActiveMeds = activePrescriptions.flatMap((p) =>
+    p.medications.map((m) => ({ ...m, prescription: p }))
+  );
+
   if (loading) {
     return <MedicationsPageSkeleton />;
   }
@@ -289,9 +407,245 @@ END:VCALENDAR`;
         <p className="mt-2 text-gray-500">{t('medsSubtitle')}</p>
       </div>
 
-      {/* When no medications on file: show reminders only and allow adding by name */}
-      {medications.length === 0 && (
-        <div className="mb-10 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
+      {/* ── Active Plan Card ── */}
+      {billingPlan && (
+        <div className="mb-8 overflow-hidden rounded-3xl shadow-xl shadow-gray-200/50">
+          <div
+            className="relative overflow-hidden p-6"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 100%)`,
+            }}
+          >
+            <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10" />
+            <div className="absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/5" />
+            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                  <CreditCard className="h-7 w-7 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/70">Your Plan</p>
+                  <h2 className="text-2xl font-bold text-white">{billingPlan.name}</h2>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+                  {billingPlan.vialCount} {billingPlan.vialCount === 1 ? 'vial' : 'vials'}
+                </span>
+                <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+                  {formatCurrency(billingPlan.amount)}/{billingPlan.interval === 'annual' ? 'yr' : billingPlan.interval === '6-month' ? '6mo' : billingPlan.interval === 'quarterly' ? 'qtr' : 'mo'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3">
+            <div className="bg-white p-4 text-center">
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Status</p>
+              <p className="mt-1 text-sm font-bold text-emerald-600">{billingPlan.status}</p>
+            </div>
+            {billingPlan.nextBillingDate && (
+              <div className="bg-white p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Next Billing</p>
+                <p className="mt-1 text-sm font-bold text-gray-900">{formatDate(billingPlan.nextBillingDate)}</p>
+              </div>
+            )}
+            {billingPlan.startDate && (
+              <div className="bg-white p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Started</p>
+                <p className="mt-1 text-sm font-bold text-gray-900">{formatDate(billingPlan.startDate)}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Current Medications (from prescriptions API) ── */}
+      {allActiveMeds.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <Syringe className="h-5 w-5" style={{ color: primaryColor }} />
+            Active Medications
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+              {allActiveMeds.length}
+            </span>
+          </h2>
+          <div className="space-y-4">
+            {allActiveMeds.map((med) => (
+              <div
+                key={`${med.prescription.id}-${med.id}`}
+                className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40"
+              >
+                <div className="flex items-start gap-4 p-5">
+                  <div
+                    className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <Pill className="h-6 w-6" style={{ color: primaryColor }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{med.name}</h3>
+                        {med.strength && (
+                          <p className="text-sm text-gray-500">
+                            {med.strength} &middot; {med.form}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusColor(med.prescription.status)}`}
+                      >
+                        {med.prescription.status}
+                      </span>
+                    </div>
+
+                    {med.directions && (
+                      <div className="mt-3 rounded-xl bg-gray-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                          Directions
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-gray-700">{med.directions}</p>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
+                      {med.quantity && (
+                        <span className="flex items-center gap-1">
+                          <Package className="h-3.5 w-3.5" /> Qty: {med.quantity}
+                        </span>
+                      )}
+                      {med.daysSupply > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" /> {med.daysSupply}-day supply
+                        </span>
+                      )}
+                      {med.prescription.provider && (
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3.5 w-3.5" /> Dr. {med.prescription.provider.name}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" /> {formatDate(med.prescription.prescribedDate)}
+                      </span>
+                    </div>
+
+                    {med.prescription.shipping.trackingNumber && (
+                      <div
+                        className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                        style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                      >
+                        <Truck className="h-4 w-4" />
+                        <span className="font-medium">
+                          Tracking: {med.prescription.shipping.trackingNumber}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Prescription History ── */}
+      {pastPrescriptions.length > 0 && (
+        <div className="mb-8">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="mb-4 flex w-full items-center justify-between text-left"
+          >
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Clock className="h-5 w-5 text-gray-400" />
+              Prescription History
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+                {pastPrescriptions.length}
+              </span>
+            </h2>
+            {showHistory ? (
+              <ChevronUp className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+          {showHistory && (
+            <div className="space-y-3">
+              {pastPrescriptions.map((rx) => (
+                <div
+                  key={rx.id}
+                  className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {rx.medications.map((m) => m.name).join(', ') || 'Prescription'}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {formatDate(rx.prescribedDate)}
+                        {rx.provider && <> &middot; Dr. {rx.provider.name}</>}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${statusColor(rx.status)}`}
+                    >
+                      {rx.status}
+                    </span>
+                  </div>
+                  {rx.medications.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {rx.medications.map((m) => (
+                        <span
+                          key={m.id}
+                          className="rounded-lg bg-gray-50 px-2 py-1 text-xs text-gray-600"
+                        >
+                          {m.name} {m.strength}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Invoice History ── */}
+      {invoiceHistory.length > 0 && (
+        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
+          <div className="border-b border-gray-100 p-5">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <FileText className="h-5 w-5 text-gray-400" />
+              Payment History
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {invoiceHistory.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-900">
+                    {inv.description || inv.invoiceNumber}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatDate(inv.date)}</p>
+                </div>
+                <div className="flex items-center gap-3 pl-4">
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatCurrency(inv.amountPaid || inv.amount)}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor(inv.status)}`}
+                  >
+                    {inv.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Reminders Section (always visible) ── */}
+      <div className="mb-10 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
           <div className="border-b border-gray-100 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2">
@@ -316,9 +670,11 @@ END:VCALENDAR`;
                 {t('medsAddReminder')}
               </button>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
-              {t('medsNoPrescriptions')}
-            </p>
+            {prescriptions.length === 0 && (
+              <p className="mt-2 text-sm text-gray-500">
+                {t('medsNoPrescriptions')}
+              </p>
+            )}
           </div>
           <div className="p-6">
             {reminders.length === 0 ? (
@@ -374,7 +730,6 @@ END:VCALENDAR`;
             )}
           </div>
         </div>
-      )}
 
       {/* Medications (when we have a list from API in the future) */}
       <div className="mb-10 space-y-6">

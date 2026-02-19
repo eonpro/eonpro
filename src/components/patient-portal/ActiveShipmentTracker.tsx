@@ -38,49 +38,36 @@ interface ActiveShipment {
   refillNumber: number | null;
 }
 
-const statusConfig = {
-  processing: {
-    color: '#F59E0B',
-    bgColor: 'from-amber-400 to-orange-500',
-    lightBg: 'bg-amber-50',
-    icon: Clock,
-    message: 'Preparing your order',
-  },
-  shipped: {
-    color: '#3B82F6',
-    bgColor: 'from-blue-400 to-blue-500',
-    lightBg: 'bg-blue-50',
-    icon: Package,
-    message: 'Package is on its way!',
-  },
-  in_transit: {
-    color: '#06B6D4',
-    bgColor: 'from-cyan-400 to-teal-600',
-    lightBg: 'bg-cyan-50',
-    icon: Truck,
-    message: 'Speeding to you!',
-  },
-  out_for_delivery: {
-    color: '#10B981',
-    bgColor: 'from-emerald-400 to-teal-500',
-    lightBg: 'bg-emerald-50',
-    icon: Truck,
-    message: 'Almost there!',
-  },
-  delivered: {
-    color: '#059669',
-    bgColor: 'from-green-400 to-emerald-600',
-    lightBg: 'bg-green-50',
-    icon: CheckCircle2,
-    message: 'Delivered!',
-  },
-  exception: {
-    color: '#EF4444',
-    bgColor: 'from-red-400 to-rose-500',
-    lightBg: 'bg-red-50',
-    icon: Package,
-    message: 'Attention needed',
-  },
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.substring(0, 2), 16),
+    g: parseInt(h.substring(2, 4), 16),
+    b: parseInt(h.substring(4, 6), 16),
+  };
+}
+
+function lighten(hex: string, amount: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  const lightenChannel = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
+  return `rgb(${lightenChannel(r)}, ${lightenChannel(g)}, ${lightenChannel(b)})`;
+}
+
+function withAlpha(hex: string, alpha: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const statusMeta: Record<
+  string,
+  { icon: typeof Package; message: string }
+> = {
+  processing: { icon: Clock, message: 'Preparing your order' },
+  shipped: { icon: Package, message: 'Package is on its way!' },
+  in_transit: { icon: Truck, message: 'Speeding to you!' },
+  out_for_delivery: { icon: Truck, message: 'Almost there!' },
+  delivered: { icon: CheckCircle2, message: 'Delivered!' },
+  exception: { icon: Package, message: 'Attention needed' },
 };
 
 interface ActiveShipmentTrackerProps {
@@ -96,6 +83,10 @@ export default function ActiveShipmentTracker({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
+
+  const brandLight = lighten(primaryColor, 0.92);
+  const brandMedLight = lighten(primaryColor, 0.85);
+  const brandDarker = lighten(primaryColor, -0.15);
 
   const fetchShipments = async () => {
     try {
@@ -138,11 +129,17 @@ export default function ActiveShipmentTracker({
   if (loading) {
     return (
       <div className="mb-6">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-teal-500 to-emerald-500 p-1">
+        <div
+          className="relative overflow-hidden rounded-3xl p-1"
+          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${brandDarker})` }}
+        >
           <div className="rounded-[22px] bg-white p-6">
             <div className="flex items-center gap-4">
               <div className="relative">
-                <div className="h-16 w-16 animate-pulse rounded-2xl bg-gradient-to-br from-blue-100 to-emerald-100" />
+                <div
+                  className="h-16 w-16 animate-pulse rounded-2xl"
+                  style={{ background: `linear-gradient(135deg, ${brandLight}, ${brandMedLight})` }}
+                />
               </div>
               <div className="flex-1 space-y-3">
                 <div className="h-5 w-48 animate-pulse rounded-full bg-gray-200" />
@@ -158,23 +155,31 @@ export default function ActiveShipmentTracker({
   if (error) return null;
 
   const mainShipment = activeShipments[0];
-  const config = statusConfig[mainShipment.status];
-  const StatusIcon = config.icon;
+  const meta = statusMeta[mainShipment.status] ?? statusMeta.shipped;
+  const StatusIcon = meta.icon;
+  const isException = mainShipment.status === 'exception';
 
-  // Calculate progress percentage
+  const headerBg = isException
+    ? 'linear-gradient(135deg, #EF4444, #F87171)'
+    : `linear-gradient(135deg, ${primaryColor}, ${brandDarker})`;
+
   const progressPercent = Math.min(100, ((mainShipment.step - 1) / 4) * 100);
 
   return (
     <div className="mb-6">
-      {/* Main Card with Animated Border */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-500 via-teal-500 to-emerald-500 p-[3px] shadow-2xl shadow-teal-500/20">
-        {/* Animated shimmer effect */}
+      {/* Main Card */}
+      <div
+        className="relative overflow-hidden rounded-3xl p-[3px] shadow-2xl"
+        style={{
+          background: `linear-gradient(135deg, ${primaryColor}, ${brandDarker})`,
+          boxShadow: `0 25px 50px -12px ${withAlpha(primaryColor, 0.2)}`,
+        }}
+      >
         <div className="absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
         <div className="relative overflow-hidden rounded-[21px] bg-white">
-          {/* Header with Gradient */}
-          <div className={`relative bg-gradient-to-r ${config.bgColor} px-6 py-5`}>
-            {/* Floating particles effect */}
+          {/* Header */}
+          <div className="relative px-6 py-5" style={{ background: headerBg }}>
             <div className="absolute inset-0 overflow-hidden">
               <div
                 className="absolute left-10 top-2 h-2 w-2 animate-bounce rounded-full bg-white/30"
@@ -192,7 +197,6 @@ export default function ActiveShipmentTracker({
 
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {/* Animated Icon Container */}
                 <div className="relative">
                   <div className="absolute inset-0 animate-ping rounded-2xl bg-white/20" />
                   <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white/30 backdrop-blur-sm">
@@ -210,7 +214,7 @@ export default function ActiveShipmentTracker({
                 <div>
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-white/80" />
-                    <span className="text-sm font-medium text-white/90">{config.message}</span>
+                    <span className="text-sm font-medium text-white/90">{meta.message}</span>
                   </div>
                   <h2 className="mt-0.5 text-xl font-bold text-white">
                     {mainShipment.statusLabel}
@@ -262,11 +266,10 @@ export default function ActiveShipmentTracker({
                         {idx < 4 && (
                           <div className="absolute left-[50%] top-5 -z-10 h-1 w-full">
                             <div
-                              className={`h-full transition-all duration-500 ${
-                                isCompleted
-                                  ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
-                                  : 'bg-gray-200'
-                              }`}
+                              className="h-full transition-all duration-500"
+                              style={{
+                                backgroundColor: isCompleted ? primaryColor : '#e5e7eb',
+                              }}
                             />
                           </div>
                         )}
@@ -274,15 +277,22 @@ export default function ActiveShipmentTracker({
                         {/* Icon Circle */}
                         <div
                           className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ${
-                            isCompleted
-                              ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                              : isCurrent
-                                ? 'scale-110 bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
-                                : 'bg-gray-100 text-gray-400'
-                          }`}
+                            !isCompleted && !isCurrent ? 'bg-gray-100 text-gray-400' : 'text-white'
+                          } ${isCurrent ? 'scale-110' : ''}`}
+                          style={
+                            isCompleted || isCurrent
+                              ? {
+                                  background: `linear-gradient(135deg, ${primaryColor}, ${brandDarker})`,
+                                  boxShadow: `0 4px 14px ${withAlpha(primaryColor, 0.3)}`,
+                                }
+                              : undefined
+                          }
                         >
                           {isCurrent && (
-                            <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-30" />
+                            <div
+                              className="absolute inset-0 animate-ping rounded-full opacity-30"
+                              style={{ backgroundColor: primaryColor }}
+                            />
                           )}
                           {isCompleted ? (
                             <CheckCircle2 className="h-5 w-5" />
@@ -294,12 +304,13 @@ export default function ActiveShipmentTracker({
                         {/* Label */}
                         <span
                           className={`mt-2 text-center text-xs font-medium ${
-                            isCurrent
-                              ? 'text-emerald-600'
-                              : isCompleted
-                                ? 'text-emerald-600'
-                                : 'text-gray-400'
+                            !isCurrent && !isCompleted ? 'text-gray-400' : ''
                           }`}
+                          style={
+                            isCurrent || isCompleted
+                              ? { color: primaryColor }
+                              : undefined
+                          }
                         >
                           {item.label}
                         </span>
@@ -313,16 +324,25 @@ export default function ActiveShipmentTracker({
               <div className="mb-4 grid grid-cols-2 gap-3">
                 {/* Estimated Delivery */}
                 {mainShipment.estimatedDelivery && mainShipment.status !== 'delivered' && (
-                  <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-teal-50 p-4">
+                  <div
+                    className="rounded-2xl border p-4"
+                    style={{
+                      borderColor: withAlpha(primaryColor, 0.2),
+                      background: `linear-gradient(135deg, ${brandLight}, ${brandMedLight})`,
+                    }}
+                  >
                     <div className="mb-1 flex items-center gap-2">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
-                        <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                      <div
+                        className="flex h-6 w-6 items-center justify-center rounded-full"
+                        style={{ backgroundColor: withAlpha(primaryColor, 0.1) }}
+                      >
+                        <Clock className="h-3.5 w-3.5" style={{ color: primaryColor }} />
                       </div>
-                      <span className="text-xs font-medium text-emerald-600">
+                      <span className="text-xs font-medium" style={{ color: primaryColor }}>
                         Expected Delivery
                       </span>
                     </div>
-                    <p className="text-lg font-bold text-emerald-800">
+                    <p className="text-lg font-bold text-gray-800">
                       {(() => {
                         const d = new Date(mainShipment.estimatedDelivery!);
                         return isNaN(d.getTime()) ? 'Pending' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -332,27 +352,47 @@ export default function ActiveShipmentTracker({
                 )}
 
                 {/* Carrier Info */}
-                <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-blue-50 p-4">
+                <div
+                  className="rounded-2xl border p-4"
+                  style={{
+                    borderColor: withAlpha(primaryColor, 0.2),
+                    background: `linear-gradient(135deg, ${brandLight}, ${brandMedLight})`,
+                  }}
+                >
                   <div className="mb-1 flex items-center gap-2">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
-                      <Truck className="h-3.5 w-3.5 text-blue-600" />
+                    <div
+                      className="flex h-6 w-6 items-center justify-center rounded-full"
+                      style={{ backgroundColor: withAlpha(primaryColor, 0.1) }}
+                    >
+                      <Truck className="h-3.5 w-3.5" style={{ color: primaryColor }} />
                     </div>
-                    <span className="text-xs font-medium text-blue-600">Carrier</span>
+                    <span className="text-xs font-medium" style={{ color: primaryColor }}>
+                      Carrier
+                    </span>
                   </div>
-                  <p className="text-lg font-bold text-blue-800">{mainShipment.carrier}</p>
+                  <p className="text-lg font-bold text-gray-800">{mainShipment.carrier}</p>
                 </div>
               </div>
 
               {/* Last Location */}
               {mainShipment.lastLocation && (
-                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-                    <MapPin className="h-5 w-5 text-emerald-600" />
+                <div
+                  className="mb-4 flex items-start gap-3 rounded-2xl border p-4"
+                  style={{
+                    borderColor: withAlpha(primaryColor, 0.2),
+                    background: `linear-gradient(to right, ${brandLight}, ${brandMedLight})`,
+                  }}
+                >
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: withAlpha(primaryColor, 0.1) }}
+                  >
+                    <MapPin className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-emerald-600">Latest Update</p>
-                    <p className="font-semibold text-emerald-900">{mainShipment.lastLocation}</p>
-                    <p className="mt-0.5 text-xs text-emerald-500">
+                    <p className="text-xs font-medium" style={{ color: primaryColor }}>Latest Update</p>
+                    <p className="font-semibold text-gray-900">{mainShipment.lastLocation}</p>
+                    <p className="mt-0.5 text-xs" style={{ color: withAlpha(primaryColor, 0.7) }}>
                       {(() => {
                         const d = new Date(mainShipment.lastUpdate);
                         return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -381,7 +421,10 @@ export default function ActiveShipmentTracker({
                   </div>
                 ))}
                 {mainShipment.isRefill && (
-                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <div
+                    className="mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                    style={{ backgroundColor: withAlpha(primaryColor, 0.1), color: primaryColor }}
+                  >
                     <Sparkles className="h-3 w-3" />
                     Refill #{mainShipment.refillNumber || ''}
                   </div>
@@ -395,7 +438,11 @@ export default function ActiveShipmentTracker({
                     href={mainShipment.trackingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)] px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold text-white transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
+                    style={{
+                      backgroundColor: primaryColor,
+                      boxShadow: `0 10px 30px ${withAlpha(primaryColor, 0.3)}`,
+                    }}
                   >
                     <Truck className="h-5 w-5" />
                     Track on {mainShipment.carrier}
@@ -418,14 +465,18 @@ export default function ActiveShipmentTracker({
       {activeShipments.length > 1 && (
         <Link
           href="/patient-portal/shipments"
-          className="mt-3 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 p-4 text-sm font-semibold text-emerald-700 transition-all hover:border-emerald-300 hover:bg-emerald-50"
+          className="mt-3 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-4 text-sm font-semibold transition-all"
+          style={{
+            borderColor: withAlpha(primaryColor, 0.3),
+            backgroundColor: withAlpha(primaryColor, 0.05),
+            color: primaryColor,
+          }}
         >
           <Package className="h-5 w-5" />+{activeShipments.length - 1} more shipment
           {activeShipments.length > 2 ? 's' : ''} on the way
         </Link>
       )}
 
-      {/* CSS for custom animations */}
       <style jsx>{`
         @keyframes shimmer {
           0% {

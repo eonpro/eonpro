@@ -168,8 +168,11 @@ export default function ShipmentsPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="relative">
-          <div className="h-16 w-16 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
-          <Package className="absolute inset-0 m-auto h-6 w-6 text-emerald-600" />
+          <div
+            className="h-16 w-16 animate-spin rounded-full border-4"
+            style={{ borderColor: `${primaryColor}33`, borderTopColor: primaryColor }}
+          />
+          <Package className="absolute inset-0 m-auto h-6 w-6" style={{ color: primaryColor }} />
         </div>
       </div>
     );
@@ -216,9 +219,10 @@ export default function ShipmentsPage() {
           }}
           className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === 'active'
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
+              ? 'text-white shadow-lg'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
+          style={activeTab === 'active' ? { backgroundColor: primaryColor, boxShadow: `0 10px 15px ${primaryColor}30` } : undefined}
         >
           <Truck className="h-4 w-4" />
           Active ({activeShipments.length})
@@ -230,9 +234,10 @@ export default function ShipmentsPage() {
           }}
           className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
             activeTab === 'history'
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
+              ? 'text-white shadow-lg'
               : 'text-gray-600 hover:bg-gray-50'
           }`}
+          style={activeTab === 'history' ? { backgroundColor: primaryColor, boxShadow: `0 10px 15px ${primaryColor}30` } : undefined}
         >
           <History className="h-4 w-4" />
           History ({deliveredShipments.length})
@@ -275,9 +280,10 @@ export default function ShipmentsPage() {
                   onClick={() => setSelectedShipment(shipment)}
                   className={`w-full rounded-2xl border-2 bg-white p-4 text-left transition-all ${
                     isSelected
-                      ? 'border-emerald-500 shadow-lg shadow-emerald-500/10'
+                      ? 'shadow-lg'
                       : 'border-transparent shadow-sm hover:border-gray-200 hover:shadow-md'
                   }`}
+                  style={isSelected ? { borderColor: primaryColor, boxShadow: `0 10px 15px ${primaryColor}10` } : undefined}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`rounded-xl p-2.5 ${config.bgColor}`}>
@@ -289,7 +295,10 @@ export default function ShipmentsPage() {
                           {shipment.orderNumber}
                         </p>
                         {shipment.isRefill && (
-                          <span className="flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          <span
+                            className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                            style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                          >
                             <Sparkles className="h-3 w-3" />
                             Refill
                           </span>
@@ -303,9 +312,8 @@ export default function ShipmentsPage() {
                       </p>
                     </div>
                     <ChevronRight
-                      className={`h-5 w-5 flex-shrink-0 transition-colors ${
-                        isSelected ? 'text-emerald-500' : 'text-gray-300'
-                      }`}
+                      className="h-5 w-5 flex-shrink-0 transition-colors"
+                      style={{ color: isSelected ? primaryColor : '#d1d5db' }}
                     />
                   </div>
                 </button>
@@ -319,7 +327,12 @@ export default function ShipmentsPage() {
               {/* Status Hero Card */}
               <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg">
                 <div
-                  className={`relative bg-gradient-to-r ${statusConfig[selectedShipment.status].gradient} px-8 py-8`}
+                  className="relative px-8 py-8"
+                  style={{
+                    background: selectedShipment.status === 'exception'
+                      ? 'linear-gradient(135deg, #EF4444, #F87171)'
+                      : `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`,
+                  }}
                 >
                   {/* Decorative elements */}
                   <div className="absolute inset-0 overflow-hidden">
@@ -390,26 +403,27 @@ export default function ShipmentsPage() {
                             {idx < 4 && (
                               <div className="absolute left-[50%] top-5 -z-10 h-1 w-full">
                                 <div
-                                  className={`h-full transition-all duration-500 ${
-                                    isCompleted
-                                      ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
-                                      : 'bg-gray-200'
-                                  }`}
+                                  className="h-full transition-all duration-500"
+                                  style={{ backgroundColor: isCompleted ? primaryColor : '#e5e7eb' }}
                                 />
                               </div>
                             )}
 
                             <div
                               className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ${
-                                isCompleted
-                                  ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                                  : isCurrent
-                                    ? 'scale-110 bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/30'
-                                    : 'bg-gray-100 text-gray-400'
-                              }`}
+                                !isCompleted && !isCurrent ? 'bg-gray-100 text-gray-400' : 'text-white'
+                              } ${isCurrent ? 'scale-110' : ''}`}
+                              style={
+                                isCompleted || isCurrent
+                                  ? { background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`, boxShadow: `0 4px 14px ${primaryColor}30` }
+                                  : undefined
+                              }
                             >
                               {isCurrent && (
-                                <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-30" />
+                                <div
+                                  className="absolute inset-0 animate-ping rounded-full opacity-30"
+                                  style={{ backgroundColor: primaryColor }}
+                                />
                               )}
                               {isCompleted ? (
                                 <CheckCircle2 className="h-5 w-5" />
@@ -420,12 +434,9 @@ export default function ShipmentsPage() {
 
                             <span
                               className={`mt-2 text-center text-xs font-medium ${
-                                isCurrent
-                                  ? 'text-emerald-600'
-                                  : isCompleted
-                                    ? 'text-emerald-600'
-                                    : 'text-gray-400'
+                                !isCurrent && !isCompleted ? 'text-gray-400' : ''
                               }`}
+                              style={isCurrent || isCompleted ? { color: primaryColor } : undefined}
                             >
                               {item.label}
                             </span>
@@ -443,9 +454,12 @@ export default function ShipmentsPage() {
 
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl border border-blue-100 bg-[var(--brand-primary-light)] p-4">
-                      <p className="mb-1 text-xs font-medium text-blue-600">Carrier</p>
-                      <p className="text-lg font-bold text-blue-900">{selectedShipment.carrier}</p>
+                    <div
+                      className="rounded-2xl border p-4"
+                      style={{ borderColor: `${primaryColor}20`, backgroundColor: `${primaryColor}08` }}
+                    >
+                      <p className="mb-1 text-xs font-medium" style={{ color: primaryColor }}>Carrier</p>
+                      <p className="text-lg font-bold text-gray-900">{selectedShipment.carrier}</p>
                     </div>
                     <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-slate-50 p-4">
                       <p className="mb-1 text-xs font-medium text-gray-500">Tracking Number</p>
@@ -456,16 +470,22 @@ export default function ShipmentsPage() {
                   </div>
 
                   {selectedShipment.lastLocation && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 p-4">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-                        <MapPin className="h-5 w-5 text-emerald-600" />
+                    <div
+                      className="flex items-start gap-3 rounded-2xl border p-4"
+                      style={{ borderColor: `${primaryColor}20`, backgroundColor: `${primaryColor}08` }}
+                    >
+                      <div
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+                        style={{ backgroundColor: `${primaryColor}15` }}
+                      >
+                        <MapPin className="h-5 w-5" style={{ color: primaryColor }} />
                       </div>
                       <div>
-                        <p className="text-xs font-medium text-emerald-600">Latest Update</p>
-                        <p className="font-semibold text-emerald-900">
+                        <p className="text-xs font-medium" style={{ color: primaryColor }}>Latest Update</p>
+                        <p className="font-semibold text-gray-900">
                           {selectedShipment.lastLocation}
                         </p>
-                        <p className="mt-0.5 text-xs text-emerald-500">
+                        <p className="mt-0.5 text-xs" style={{ color: `${primaryColor}99` }}>
                           {(() => {
                             const d = new Date(selectedShipment.lastUpdate);
                             return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -480,7 +500,8 @@ export default function ShipmentsPage() {
                       href={selectedShipment.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--brand-primary)] px-6 py-4 font-semibold text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.01] hover:shadow-xl hover:shadow-blue-500/40 active:scale-[0.99]"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition-all hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]"
+                      style={{ backgroundColor: primaryColor, boxShadow: `0 10px 30px ${primaryColor}30` }}
                     >
                       <Truck className="h-5 w-5" />
                       Track on {selectedShipment.carrier}
