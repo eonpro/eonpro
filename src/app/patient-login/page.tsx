@@ -239,20 +239,34 @@ export default function PatientLoginPage() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/check-patient-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedIdentifier, clinicId: resolvedClinicId }),
-      });
-      const data = await res.json();
+      const [statusRes, identifierRes] = await Promise.allSettled([
+        fetch('/api/auth/check-patient-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmedIdentifier, clinicId: resolvedClinicId }),
+        }).then((r) => r.json()),
+        fetch('/api/auth/check-identifier', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmedIdentifier }),
+        }).then((r) => r.json()),
+      ]);
 
-      if (data.status === 'needs_setup') {
-        setPatientFirstName(data.firstName || '');
+      if (identifierRes.status === 'fulfilled' && identifierRes.value.isProvider) {
+        setError('This email belongs to a provider account.');
+        setShowStaffLoginLink(true);
+        setLoading(false);
+        return;
+      }
+
+      if (statusRes.status === 'fulfilled' && statusRes.value.status === 'needs_setup') {
+        setPatientFirstName(statusRes.value.firstName || '');
         setStep('needs-setup');
+        setLoading(false);
         return;
       }
     } catch {
-      // If the check fails, fall through to normal password flow
+      // If checks fail, fall through to normal password flow
     } finally {
       setLoading(false);
     }
