@@ -4,22 +4,26 @@ import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 const portalSchema = z.object({
-  patientId: z.number(),
+  patientId: z.number().optional(),
   returnUrl: z.string().url(),
 });
 
 async function createPortalHandler(request: NextRequest, user: AuthUser) {
   try {
-    // Dynamic import to avoid build-time errors
     const { StripeCustomerService } = await import('@/services/stripe/customerService');
 
     const body = await request.json();
+    const parsed = portalSchema.parse(body);
 
-    // Validate request body
-    const { patientId, returnUrl } = portalSchema.parse(body);
+    const patientId = parsed.patientId ?? user.patientId;
+    if (!patientId) {
+      return NextResponse.json(
+        { error: 'Patient ID required. Please log in again.' },
+        { status: 400 }
+      );
+    }
 
-    // Get customer portal URL
-    const portalUrl = await StripeCustomerService.getCustomerPortalUrl(patientId, returnUrl);
+    const portalUrl = await StripeCustomerService.getCustomerPortalUrl(patientId, parsed.returnUrl);
 
     return NextResponse.json({
       success: true,
