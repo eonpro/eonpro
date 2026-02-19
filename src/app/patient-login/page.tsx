@@ -568,12 +568,9 @@ export default function PatientLoginPage() {
   const bgColor = branding ? `${primaryColor}0D` : '#f0fdf4';
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Uniform Background */}
-      <div className="absolute inset-0" style={{ backgroundColor: bgColor }} />
-
+    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
       {/* Content */}
-      <div className="relative z-10 flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col">
         {/* Header */}
         <div className="p-6">
           <button
@@ -648,7 +645,7 @@ export default function PatientLoginPage() {
                     type="email"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-12 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="w-full rounded-2xl border border-gray-200 bg-white/70 py-4 pl-12 pr-4 text-gray-900 placeholder-gray-400 backdrop-blur-sm transition-all focus:border-transparent focus:bg-white focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Your email address"
                     required

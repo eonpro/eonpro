@@ -1074,12 +1074,9 @@ export default function LoginPage() {
       : '#f0fdf4';
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Uniform Background */}
-      <div className="absolute inset-0" style={{ backgroundColor: bgColor }} />
-
+    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
       {/* Content */}
-      <div className="relative z-10 flex min-h-screen flex-col">
+      <div className="flex min-h-screen flex-col">
         {/* Header with X button */}
         <div className="p-6">
           <button
