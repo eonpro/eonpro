@@ -367,8 +367,13 @@ export default function AdminOrdersPage() {
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                      {formatDate(order.lastWebhookAt || order.updatedAt || order.createdAt)}
+                    <td className="px-6 py-4 text-sm">
+                      <div className="text-gray-900">{formatDate(order.createdAt)}</div>
+                      {order.lastWebhookAt && (
+                        <div className="mt-0.5 text-xs text-gray-400">
+                          Tracked {formatDate(order.lastWebhookAt)}
+                        </div>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <Link
