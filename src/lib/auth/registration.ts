@@ -246,60 +246,70 @@ export async function registerPatient(
       };
     }
 
-    // Check if patient with same email exists in this clinic
-    const existingPatient = await prisma.patient.findFirst({
+    // Match patient by email first, then fall back to phone within the clinic
+    let existingPatient = await prisma.patient.findFirst({
       where: {
         email: normalizedEmail,
         clinicId: inviteCode.clinicId,
       },
-      include: {
-        user: true, // Check if patient already has a linked User account
-      },
+      include: { user: true },
     });
 
-    // If patient exists and already has a User account, they should login instead
+    // Phone-based fallback: if no email match, try matching by phone + name + DOB
+    const normalizedPhone = formatPhone(phone);
+    if (!existingPatient && normalizedPhone) {
+      const phoneDigits = phone.replace(/\D/g, '');
+      existingPatient = await prisma.patient.findFirst({
+        where: {
+          clinicId: inviteCode.clinicId,
+          user: null,
+          OR: [
+            { phone: normalizedPhone },
+            { phone: phoneDigits },
+            ...(phoneDigits.length === 10 ? [{ phone: `+1${phoneDigits}` }] : []),
+          ],
+        },
+        include: { user: true },
+      });
+    }
+
     if (existingPatient?.user) {
-      logger.warn('Registration attempted with existing patient+user email', {
+      logger.warn('Registration attempted with existing patient+user', {
         email: normalizedEmail,
         clinicId: inviteCode.clinicId,
         patientId: existingPatient.id,
       });
       return {
         success: false,
-        error: 'An account with this email already exists. Please login or reset your password.',
+        error: 'An account already exists for this patient. Please log in or reset your password.',
       };
     }
 
-    // If patient exists without a User account (from intake), we'll link to it
-    // First verify identity by matching core fields (name and DOB)
+    // Verify identity by matching name + DOB before linking to existing record
     let linkToExistingPatient = false;
     if (existingPatient && !existingPatient.user) {
-      // Normalize names for comparison (case-insensitive, trimmed)
       const existingFirstName = existingPatient.firstName?.toLowerCase().trim() || '';
       const existingLastName = existingPatient.lastName?.toLowerCase().trim() || '';
       const inputFirstName = firstName.toLowerCase().trim();
       const inputLastName = lastName.toLowerCase().trim();
 
-      // Normalize DOB for comparison
       const existingDOB = existingPatient.dob?.replace(/[\/\-]/g, '') || '';
       const inputDOBNormalized = normalizedDOB.replace(/[\/\-]/g, '');
 
-      // Check if name and DOB match (identity verification)
       const nameMatches =
         existingFirstName === inputFirstName && existingLastName === inputLastName;
       const dobMatches = existingDOB === inputDOBNormalized;
 
       if (nameMatches && dobMatches) {
-        // Identity verified - will link to existing patient
         linkToExistingPatient = true;
-        logger.info('Patient portal registration will link to existing intake patient', {
+        logger.info('Registration linked to existing intake patient', {
           email: normalizedEmail,
           patientId: existingPatient.id,
           clinicId: inviteCode.clinicId,
+          matchedBy: existingPatient.email === normalizedEmail ? 'email' : 'phone',
         });
       } else {
-        // Identity mismatch - could be someone trying to hijack account
-        logger.warn('Patient portal registration identity mismatch with existing patient', {
+        logger.warn('Registration identity mismatch with existing patient', {
           email: normalizedEmail,
           patientId: existingPatient.id,
           clinicId: inviteCode.clinicId,
@@ -309,7 +319,7 @@ export async function registerPatient(
         return {
           success: false,
           error:
-            'The information provided does not match our records. Please ensure your name and date of birth match the information from your intake form, or contact support for assistance.',
+            'The information you entered doesn\'t match our records. Please make sure your first name, last name, and date of birth match what you provided during intake. If you need help, contact your clinic.',
         };
       }
     }
@@ -345,16 +355,17 @@ export async function registerPatient(
       let patient;
 
       if (linkToExistingPatient && existingPatient) {
-        // Link to existing patient from intake - update their phone if provided
         patient = await tx.patient.update({
           where: { id: existingPatient.id },
           data: {
-            // Update phone if the existing one is empty or this one is different
             ...(normalizedPhone &&
             (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
               ? { phone: normalizedPhone }
               : {}),
-            // Mark that portal access was created
+            // Update email if patient was matched by phone (email may differ)
+            ...(existingPatient.email !== normalizedEmail
+              ? { email: normalizedEmail }
+              : {}),
             sourceMetadata: {
               ...(typeof existingPatient.sourceMetadata === 'object'
                 ? existingPatient.sourceMetadata

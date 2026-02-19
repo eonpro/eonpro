@@ -6,7 +6,7 @@ import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone }
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
-type LoginStep = 'identifier' | 'password' | 'email-otp' | 'forgot' | 'reset';
+type LoginStep = 'identifier' | 'password' | 'email-otp' | 'forgot' | 'reset' | 'needs-setup';
 
 interface ClinicBranding {
   clinicId: number;
@@ -101,6 +101,7 @@ export default function PatientLoginPage() {
   const [resetCountdown, setResetCountdown] = useState(0);
   const [canResendReset, setCanResendReset] = useState(false);
   const [resetMethod, setResetMethod] = useState<'email' | 'sms'>('email');
+  const [patientFirstName, setPatientFirstName] = useState('');
 
   // White-label branding
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
@@ -235,6 +236,27 @@ export default function PatientLoginPage() {
       setError('Please enter a valid email address');
       return;
     }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/check-patient-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedIdentifier, clinicId: resolvedClinicId }),
+      });
+      const data = await res.json();
+
+      if (data.status === 'needs_setup') {
+        setPatientFirstName(data.firstName || '');
+        setStep('needs-setup');
+        return;
+      }
+    } catch {
+      // If the check fails, fall through to normal password flow
+    } finally {
+      setLoading(false);
+    }
+
     setStep('password');
   };
 
@@ -1073,6 +1095,55 @@ export default function PatientLoginPage() {
                     className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
                   >
                     Back to login
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP: Needs Setup (intake patient without portal account) */}
+            {step === 'needs-setup' && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div
+                    className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <CheckCircle2 className="h-8 w-8" style={{ color: primaryColor }} />
+                  </div>
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">
+                    {patientFirstName
+                      ? `Welcome, ${patientFirstName}!`
+                      : 'Welcome!'}
+                  </h2>
+                  <p className="text-gray-600">
+                    We found your patient record. To access your portal, you need to create a login.
+                    It only takes a minute.
+                  </p>
+                </div>
+
+                <a
+                  href={`/register${resolvedClinicId ? '' : ''}`}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all hover:opacity-90"
+                  style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                >
+                  <ArrowRight className="h-5 w-5" />
+                  Set up your account
+                </a>
+
+                <div className="flex flex-col items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('password')}
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                  >
+                    I already have a login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                  >
+                    Use a different email
                   </button>
                 </div>
               </div>

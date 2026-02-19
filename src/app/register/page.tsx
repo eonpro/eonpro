@@ -634,7 +634,19 @@ export default function RegisterPage() {
                 {error && (
                   <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
                     <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-                    <p className="text-sm text-red-600">{error}</p>
+                    <div className="text-sm text-red-600">
+                      <p>{error}</p>
+                      {(error.toLowerCase().includes('already exists') ||
+                        error.toLowerCase().includes('log in')) && (
+                        <Link
+                          href="/patient-login"
+                          className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" />
+                          Go to login
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 )}
 
