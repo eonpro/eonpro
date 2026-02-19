@@ -256,7 +256,6 @@ export async function registerPatient(
     });
 
     // Phone-based fallback: if no email match, try matching by phone + name + DOB
-    const normalizedPhone = formatPhone(phone);
     if (!existingPatient && normalizedPhone) {
       const phoneDigits = phone.replace(/\D/g, '');
       existingPatient = await prisma.patient.findFirst({

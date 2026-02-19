@@ -409,6 +409,7 @@ export async function POST(req: NextRequest) {
           trackingNumber: data.trackingNumber,
           source: 'lifefile',
           matchedAt: new Date(),
+          matchStrategy,
           ...updateData,
         },
       });

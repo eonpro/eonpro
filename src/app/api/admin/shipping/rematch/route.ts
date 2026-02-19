@@ -116,6 +116,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
               patientId: result.patient.id,
               orderId: result.order?.id || null,
               matchedAt: new Date(),
+              matchStrategy: `rematch:${result.matchStrategy}`,
             },
           });
 

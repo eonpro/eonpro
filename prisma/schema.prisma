@@ -5194,9 +5194,10 @@ model PatientShippingUpdate {
   brand           String? // Clinic brand name (Wellmedr, NewSelf, etc.)
 
   // Audit Trail
-  rawPayload  Json? // Full webhook payload for debugging
-  source      String    @default("lifefile") // lifefile, manual, pharmacy, etc.
-  processedAt DateTime?
+  rawPayload    Json? // Full webhook payload for debugging
+  source        String    @default("lifefile") // lifefile, manual, pharmacy, etc.
+  matchStrategy String? // How the match was made: lifefileOrderId, patientLookup, manual, etc.
+  processedAt   DateTime?
 
   @@index([clinicId, patientId])
   @@index([trackingNumber])
