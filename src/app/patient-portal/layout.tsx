@@ -256,7 +256,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-[100dvh] bg-white lg:bg-[#efece7]">
+    <div className="flex min-h-[100dvh] bg-white">
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside
         className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 lg:flex ${
