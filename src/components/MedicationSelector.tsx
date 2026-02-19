@@ -208,7 +208,40 @@ export default function MedicationSelector({
     const SEMAGLUTIDE_KEYS = ['203448971', '203448947', '203449363', '202851329', '203448974']; // 1mL, 2mL, 3mL, 5/20 2mL, 5mL
     const TIRZEPATIDE_KEYS = ['203448972', '203448973', '203449364', '203449500', '203418602'];
     const SERMORELIN_KEY = '203666651'; // Only show the 5ML vial
+
+    const EXCLUDED_PRODUCT_IDS = new Set([
+      '203419418', // Ascorbic Acid 30ML
+      '202730693', // Baclofen/Dexamethasone/Flurbiprofen Cream
+      '202730691', // Benzocaine/Lidocaine/Tetracaine Paste
+      '203449636', // Betamethasone/Estradiol/Vitamin E Cream
+      '203419259', // BLT Cream
+      '203419702', // Bupivacaine/Diclofenac/Baclofen Cream
+      '203194023', // Clomiphene 25MG
+      '203194024', // Clomiphene 50MG
+      '203418771', // Dexpanthenol
+      '203419321', // Dicyclomine HCL
+      '203194036', // Hair Loss Capsules
+      '203449748', // Ketamine 200mg
+      '203449749', // Ketamine 250mg
+      '203420060', // Ketamine 100mg
+      '203449266', // Ketamine 25mg
+      '203449291', // Ketamine 50mg
+      '203449639', // Levothyroxine
+      '203419417', // MIC + B12 30ML
+      '203449431', // Ondansetron 8MG
+      '203449013', // Sodium Chloride
+      '203194057', // Super Amino
+      '203449633', // Testosterone Cream
+      '203194029', // Testosterone Gel
+      '202851334', // Testosterone Cypionate 10ML
+      '203418861', // Testosterone Cypionate 5ML
+      '203666716', // Testosterone Cypionate 2ML
+      '203666723', // Testosterone Cypionate Injection
+      '203194030', // Testosterone/Chrysin Gel
+    ]);
+
     const filtered = meds.filter((m) => {
+      if (EXCLUDED_PRODUCT_IDS.has(m.key)) return false;
       if (m.subCategory === 'Semaglutide') return SEMAGLUTIDE_KEYS.includes(m.key);
       if (m.subCategory === 'Tirzepatide') return TIRZEPATIDE_KEYS.includes(m.key);
       if (m.name.toLowerCase().includes('sermorelin')) return m.key === SERMORELIN_KEY;

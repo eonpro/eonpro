@@ -157,6 +157,7 @@ export default function ShipmentsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setError(null);
     await loadShipments();
     setRefreshing(false);
   };

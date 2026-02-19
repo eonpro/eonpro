@@ -559,6 +559,7 @@ export class StripeInvoiceService {
         payments: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     });
   }
 

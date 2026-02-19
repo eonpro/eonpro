@@ -13,44 +13,40 @@ import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 // ============================================================================
 
 const createWeightLogSchema = z.object({
-  patientId: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseInt(val, 10) : val;
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
-  weight: z.union([z.string(), z.number()]).transform((val) => {
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    if (isNaN(num) || num <= 0 || num > 2000) throw new Error('Invalid weight');
-    return num;
-  }),
+  patientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
+  weight: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'Weight must be a positive number' })
+    .refine((n) => n <= 2000, { message: 'Weight must be 2000 lbs / 907 kg or less' }),
   unit: z.enum(['lbs', 'kg']).default('lbs'),
   notes: z.string().max(1000).optional(),
   recordedAt: z.string().datetime().optional(),
 });
 
 const getWeightLogsSchema = z.object({
-  patientId: z.string().transform((val) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
-    return num;
-  }),
+  patientId: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
   limit: z
-    .string()
-    .optional()
+    .union([z.string(), z.number(), z.null(), z.undefined()])
     .transform((val) => {
-      if (!val) return 100; // Default pagination limit
-      const num = parseInt(val, 10);
+      if (val == null) return 100;
+      const num = typeof val === 'string' ? parseInt(val, 10) : Number(val);
       if (isNaN(num) || num <= 0) return 100;
-      return Math.min(num, 500); // Max 500 records
+      return Math.min(num, 500);
     }),
 });
 
 const deleteWeightLogSchema = z.object({
-  id: z.string().transform((val) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num <= 0) throw new Error('Invalid id');
-    return num;
-  }),
+  id: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
 });
 
 // ============================================================================

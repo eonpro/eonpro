@@ -213,7 +213,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const unindexedCount = await db.patient.count({ where: fallbackWhere });
 
       if (unindexedCount > 0) {
-        const MAX_FALLBACK = 2000;
+        const MAX_FALLBACK = 500;
         if (unindexedCount > MAX_FALLBACK) {
           logger.warn('[ADMIN-PATIENTS] Large number of unindexed patients — run backfill', {
             count: unindexedCount,

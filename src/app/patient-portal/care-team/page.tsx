@@ -49,12 +49,12 @@ export default function CareTeamPage() {
         }
         const data = await res.json();
         if (!cancelled && data?.providers) {
-          setCareTeam(data.providers.map((p: any) => ({
+          setCareTeam(data.providers.map((p: { id: number; firstName?: string; lastName?: string; titleLine?: string; isActive?: boolean }) => ({
             id: p.id,
-            name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Provider',
-            role: p.titleLine || 'Care Provider',
+            name: `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || 'Provider',
+            role: p.titleLine ?? 'Care Provider',
             specialty: '',
-            avatar: `${(p.firstName || '?')[0]}${(p.lastName || '?')[0]}`.toUpperCase(),
+            avatar: `${(p.firstName ?? '?')[0]}${(p.lastName ?? '?')[0]}`.toUpperCase(),
             available: p.isActive !== false,
           })));
         }

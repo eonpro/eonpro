@@ -592,33 +592,54 @@ async function generatePatientReport(stripe: Stripe, clinicId: number, filters: 
 
   const successfulCharges = charges.filter((c) => c.status === 'succeeded');
 
-  // Match charges to patients via email
+  // Match charges to patients via email (batch lookup to avoid N+1)
+  const chargeEmails = new Set<string>();
+  for (const charge of successfulCharges) {
+    const email = charge.billing_details?.email || charge.receipt_email;
+    if (email) chargeEmails.add(email.toLowerCase());
+  }
+
+  const emailToPatientId = new Map<string, number>();
+  if (chargeEmails.size > 0) {
+    const patients = await prisma.patient.findMany({
+      where: {
+        clinicId,
+        searchIndex: { not: null },
+      },
+      select: { id: true, email: true, searchIndex: true },
+      take: 1000,
+    });
+    for (const p of patients) {
+      const idx = (p.searchIndex || '').toLowerCase();
+      for (const email of chargeEmails) {
+        if (idx.includes(email)) {
+          emailToPatientId.set(email, p.id);
+        }
+      }
+    }
+  }
+
   const patientSpending: Record<
     number,
     { total: number; transactions: number; firstPurchase: Date | null }
   > = {};
 
   for (const charge of successfulCharges) {
-    const email = charge.billing_details?.email || charge.receipt_email;
+    const email = (charge.billing_details?.email || charge.receipt_email || '').toLowerCase();
     if (!email) continue;
 
-    // Find patient by email
-    const patient = await prisma.patient.findFirst({
-      where: { clinicId, email: email.toLowerCase() },
-      select: { id: true },
-    });
-
-    if (patient) {
-      if (!patientSpending[patient.id]) {
-        patientSpending[patient.id] = { total: 0, transactions: 0, firstPurchase: null };
+    const patientId = emailToPatientId.get(email);
+    if (patientId) {
+      if (!patientSpending[patientId]) {
+        patientSpending[patientId] = { total: 0, transactions: 0, firstPurchase: null };
       }
-      patientSpending[patient.id].total += charge.amount;
-      patientSpending[patient.id].transactions++;
+      patientSpending[patientId].total += charge.amount;
+      patientSpending[patientId].transactions++;
 
       const chargeDate = new Date(charge.created * 1000);
-      const currentFirstPurchase = patientSpending[patient.id].firstPurchase;
+      const currentFirstPurchase = patientSpending[patientId].firstPurchase;
       if (!currentFirstPurchase || chargeDate < currentFirstPurchase) {
-        patientSpending[patient.id].firstPurchase = chargeDate;
+        patientSpending[patientId].firstPurchase = chargeDate;
       }
     }
   }

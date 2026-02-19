@@ -40,7 +40,8 @@ export type PortalFeatureFlagKey =
   | 'showTelehealth'
   | 'showChat'
   | 'showCarePlan'
-  | 'showCareTeam';
+  | 'showCareTeam'
+  | 'showDevices';
 
 /** Feature flags shape from branding API (Clinic.settings.patientPortal) */
 export type PortalFeatures = Partial<Record<PortalFeatureFlagKey, boolean>>;

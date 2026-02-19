@@ -113,6 +113,9 @@ model Patient {
   // BLOODWORK: Parsed lab reports (e.g. Quest PDF upload)
   labReports LabReport[]
 
+  // WEARABLE DEVICES: Terra API device connections (Fitbit, Garmin, Apple Watch, etc.)
+  deviceConnections PatientDeviceConnection[]
+
   // SEARCH INDEX: Lowercased plain-text of searchable fields for DB-level full-text search.
   // Contains: "firstname lastname email phone_digits patientid"
   // Enables SQL LIKE queries via pg_trgm GIN index for O(1) substring matching at any scale.
@@ -1652,7 +1655,7 @@ model PatientWeightLog {
   weight     Float // Weight in pounds
   unit       String   @default("lbs") // "lbs" or "kg"
   notes      String? // Optional notes from patient
-  source     String   @default("patient") // "patient", "provider", "import"
+  source     String   @default("patient") // "patient", "provider", "device", "import"
   recordedAt DateTime @default(now()) // When the measurement was taken
 
   @@index([patientId, recordedAt])
@@ -1755,11 +1758,30 @@ model PatientNutritionLog {
   sodium      Float? // Milligrams of sodium
   photoUrl    String? // Optional photo of meal
   notes       String?
-  source      String   @default("patient") // "patient", "import"
+  source      String   @default("patient") // "patient", "device", "import"
   recordedAt  DateTime @default(now())
 
   @@index([patientId, recordedAt])
   @@index([clinicId])
+}
+
+model PatientDeviceConnection {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  terraUserId String    @unique
+  provider    String // "FITBIT", "GARMIN", "OURA", "APPLE", "WITHINGS", "POLAR", "WHOOP", etc.
+  isActive    Boolean   @default(true)
+  lastSyncAt  DateTime?
+  metadata    Json?
+
+  @@index([patientId])
+  @@index([terraUserId])
+  @@index([clinicId, patientId])
 }
 
 // ===== INTERNAL COMMUNICATION SYSTEM =====
@@ -2726,10 +2748,11 @@ model Clinic {
   patientChatMessages  PatientChatMessage[]
 
   // Health Tracking Logs
-  waterLogs     PatientWaterLog[]
-  exerciseLogs  PatientExerciseLog[]
-  sleepLogs     PatientSleepLog[]
-  nutritionLogs PatientNutritionLog[]
+  waterLogs         PatientWaterLog[]
+  exerciseLogs      PatientExerciseLog[]
+  sleepLogs         PatientSleepLog[]
+  nutritionLogs     PatientNutritionLog[]
+  deviceConnections PatientDeviceConnection[]
 
   // Product Catalog
   products Product[]

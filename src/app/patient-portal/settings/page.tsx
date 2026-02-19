@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
 import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
+import { logger } from '@/lib/logger';
 import { toast } from '@/components/Toast';
 import {
   User,
@@ -110,7 +111,11 @@ export default function SettingsPage() {
         if (cancelled || !data?.preferences) return;
         setNotifications(prev => ({ ...prev, ...data.preferences }));
       })
-      .catch(() => {})
+      .catch((err) => {
+        logger.warn('Failed to load notification preferences', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      })
       .finally(() => { if (!cancelled) setNotifLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -124,7 +129,11 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferences: notifications }),
-      }).catch(() => {});
+      }).catch((err) => {
+        logger.warn('Failed to save notification preferences', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     }, 1000);
     return () => {
       if (notifSaveTimerRef.current) clearTimeout(notifSaveTimerRef.current);
@@ -320,7 +329,9 @@ export default function SettingsPage() {
       fetch('/api/auth/logout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+      }).catch(() => {
+        // Logout is best-effort — user is redirected regardless
+      });
     localStorage.removeItem('user');
     localStorage.removeItem('auth-token');
     localStorage.removeItem('patient-token');
@@ -360,13 +371,13 @@ export default function SettingsPage() {
         {/* Sidebar Navigation */}
         <div className="lg:col-span-1">
           <div className="rounded-2xl border border-gray-100 bg-white p-2 shadow-sm" role="tablist">
-            {[
-              { id: 'profile', labelKey: 'settingsProfile', icon: User },
-              { id: 'password', labelKey: 'settingsPassword', icon: Lock },
-              { id: 'notifications', labelKey: 'settingsNotifications', icon: Bell },
-              { id: 'language', labelKey: 'settingsLanguage', icon: Languages },
-              { id: 'privacy', labelKey: 'settingsPrivacy', icon: Shield },
-            ].map((item) => {
+            {([
+              { id: 'profile' as const, labelKey: 'settingsProfile', icon: User },
+              { id: 'password' as const, labelKey: 'settingsPassword', icon: Lock },
+              { id: 'notifications' as const, labelKey: 'settingsNotifications', icon: Bell },
+              { id: 'language' as const, labelKey: 'settingsLanguage', icon: Languages },
+              { id: 'privacy' as const, labelKey: 'settingsPrivacy', icon: Shield },
+            ]).map((item) => {
               const Icon = item.icon;
               const isActive = activeSection === item.id;
               return (
@@ -374,7 +385,7 @@ export default function SettingsPage() {
                   key={item.id}
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => setActiveSection(item.id as any)}
+                  onClick={() => setActiveSection(item.id)}
                   className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all ${
                     isActive ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
                   }`}

@@ -33,6 +33,7 @@ import PatientPhotosView from '@/components/PatientPhotosView';
 import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
 import PatientQuickSearch from '@/components/PatientQuickSearch';
 import WeightProgressSummary from '@/components/WeightProgressSummary';
+import PatientProgressSummary from '@/components/PatientProgressSummary';
 import { Patient, Provider, Order } from '@/types/models';
 import { extractVitalsFromIntake, parseDocumentData } from '@/lib/utils/vitals-extraction';
 
@@ -910,6 +911,9 @@ export default async function PatientDetailPage({
 
                   {/* Weight Progress Summary - Shows patient's journey entries */}
                   <WeightProgressSummary patientId={patientWithDecryptedPHI.id} />
+
+                  {/* Activity Summary - Water, Exercise, Sleep, Nutrition */}
+                  <PatientProgressSummary patientId={patientWithDecryptedPHI.id} />
                 </div>
 
                 {/* Audit Log for admins */}

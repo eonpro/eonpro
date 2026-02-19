@@ -26,6 +26,7 @@ import {
   HeartPulse,
   Activity,
   Camera,
+  Watch,
 } from 'lucide-react';
 import {
   ClinicBrandingProvider,
@@ -69,6 +70,7 @@ const NAV_ICON_MAP: Record<string, LucideIcon> = {
   resources: BookOpen,
   documents: BookOpen,
   billing: CreditCard,
+  devices: Watch,
   settings: Settings,
 };
 
@@ -172,7 +174,11 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
           });
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.warn('Failed to fetch user display name', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     return () => {
       cancelled = true;
     };

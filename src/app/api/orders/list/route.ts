@@ -62,13 +62,29 @@ export async function GET(request: NextRequest) {
       search,
     });
 
-    // Fetch events for each order (for backward compatibility)
+    // Fetch events and SMS status for each order (for backward compatibility)
     const ordersWithEvents = await Promise.all(
       result.orders.map(async (order) => {
         const events = await orderRepository.getEventsByOrderId(order.id, 5);
+
+        let smsStatus: string | null = null;
+        if (order.trackingNumber && order.patientId) {
+          const sms = await prisma.smsLog.findFirst({
+            where: {
+              patientId: order.patientId,
+              templateType: 'SHIPPING_TRACKING',
+              body: { contains: order.trackingNumber },
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { status: true },
+          });
+          smsStatus = sms?.status || null;
+        }
+
         return {
           ...order,
           events,
+          smsStatus,
         };
       })
     );

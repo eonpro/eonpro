@@ -412,9 +412,28 @@ export async function findPatientByEmail(
 
   if (plaintextMatch) return plaintextMatch;
 
-  // Pass 2: Fetch candidates for the clinic and decrypt emails in memory
-  // This handles patients whose emails are encrypted with AES-256-GCM (random IV)
-  const candidateWhere: Record<string, unknown> = {};
+  // Pass 2: Try searchIndex (GIN-indexed, O(1) via pg_trgm)
+  const indexWhere: Record<string, unknown> = {
+    searchIndex: { contains: normalizedEmail, mode: 'insensitive' },
+  };
+  if (clinicId) indexWhere.clinicId = clinicId;
+
+  const indexMatch = await prisma.patient.findFirst({
+    where: indexWhere,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (indexMatch) {
+    const decryptedEmail = safeDecryptField(indexMatch.email);
+    if (decryptedEmail && decryptedEmail.toLowerCase().trim() === normalizedEmail) {
+      return indexMatch;
+    }
+  }
+
+  // Pass 3: Fetch candidates without searchIndex and decrypt in memory (capped at 500)
+  const candidateWhere: Record<string, unknown> = {
+    OR: [{ searchIndex: null }, { searchIndex: '' }],
+  };
   if (clinicId) candidateWhere.clinicId = clinicId;
 
   const candidates = await prisma.patient.findMany({
@@ -425,13 +444,12 @@ export async function findPatientByEmail(
       clinicId: true,
     },
     orderBy: { createdAt: 'desc' },
-    take: 5000, // Reasonable clinic size limit
+    take: 500,
   });
 
   for (const candidate of candidates) {
     const decryptedEmail = safeDecryptField(candidate.email);
     if (decryptedEmail && decryptedEmail.toLowerCase().trim() === normalizedEmail) {
-      // Found a match - fetch the full patient record
       return prisma.patient.findUnique({ where: { id: candidate.id } });
     }
   }
@@ -472,8 +490,31 @@ export async function findPatientByPhone(
 
   if (plaintextMatch) return plaintextMatch;
 
-  // Pass 2: In-memory decryption and comparison
-  const candidateWhere: Record<string, unknown> = {};
+  // Pass 2: Try searchIndex (stores phone digits, GIN-indexed)
+  const indexWhere: Record<string, unknown> = {
+    searchIndex: { contains: normalizedPhone, mode: 'insensitive' },
+  };
+  if (clinicId) indexWhere.clinicId = clinicId;
+
+  const indexMatch = await prisma.patient.findFirst({
+    where: indexWhere,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (indexMatch) {
+    const decryptedPhone = safeDecryptField(indexMatch.phone);
+    if (decryptedPhone) {
+      const candidateNormalized = normalizePhoneForComparison(decryptedPhone);
+      if (candidateNormalized === normalizedPhone) {
+        return indexMatch;
+      }
+    }
+  }
+
+  // Pass 3: In-memory decryption for patients without searchIndex (capped at 500)
+  const candidateWhere: Record<string, unknown> = {
+    OR: [{ searchIndex: null }, { searchIndex: '' }],
+  };
   if (clinicId) candidateWhere.clinicId = clinicId;
 
   const candidates = await prisma.patient.findMany({
@@ -484,7 +525,7 @@ export async function findPatientByPhone(
       clinicId: true,
     },
     orderBy: { createdAt: 'desc' },
-    take: 5000,
+    take: 500,
   });
 
   for (const candidate of candidates) {
@@ -529,8 +570,37 @@ export async function findPatientByName(
 
   if (plaintextMatch) return plaintextMatch;
 
-  // Pass 2: In-memory decryption and comparison
-  const candidateWhere: Record<string, unknown> = {};
+  // Pass 2: Try searchIndex (contains "firstname lastname ...", GIN-indexed)
+  const indexWhere: Record<string, unknown> = {
+    AND: [
+      { searchIndex: { contains: normalizedFirst, mode: 'insensitive' } },
+      { searchIndex: { contains: normalizedLast, mode: 'insensitive' } },
+    ],
+  };
+  if (clinicId) (indexWhere as any).clinicId = clinicId;
+
+  const indexMatch = await prisma.patient.findFirst({
+    where: indexWhere,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (indexMatch) {
+    const decryptedFirst = safeDecryptField(indexMatch.firstName);
+    const decryptedLast = safeDecryptField(indexMatch.lastName);
+    if (
+      decryptedFirst &&
+      decryptedLast &&
+      decryptedFirst.trim().toLowerCase() === normalizedFirst &&
+      decryptedLast.trim().toLowerCase() === normalizedLast
+    ) {
+      return indexMatch;
+    }
+  }
+
+  // Pass 3: In-memory decryption for patients without searchIndex (capped at 500)
+  const candidateWhere: Record<string, unknown> = {
+    OR: [{ searchIndex: null }, { searchIndex: '' }],
+  };
   if (clinicId) candidateWhere.clinicId = clinicId;
 
   const candidates = await prisma.patient.findMany({
@@ -542,7 +612,7 @@ export async function findPatientByName(
       clinicId: true,
     },
     orderBy: { createdAt: 'desc' },
-    take: 5000,
+    take: 500,
   });
 
   for (const candidate of candidates) {

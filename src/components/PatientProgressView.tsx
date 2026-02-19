@@ -75,6 +75,7 @@ interface WaterLog {
   id: number;
   amount: number;
   unit: string;
+  source?: string;
   recordedAt: string;
   notes: string | null;
 }
@@ -85,6 +86,7 @@ interface SleepLog {
   sleepEnd: string;
   duration: number;
   quality: number | null;
+  source?: string;
   recordedAt: string;
   notes: string | null;
 }
@@ -97,6 +99,7 @@ interface ExerciseLog {
   calories: number | null;
   steps: number | null;
   distance: number | null;
+  source?: string;
   recordedAt: string;
   notes: string | null;
 }
@@ -109,6 +112,7 @@ interface NutritionLog {
   protein: number | null;
   carbs: number | null;
   fat: number | null;
+  source?: string;
   recordedAt: string;
   notes: string | null;
 }
@@ -141,6 +145,35 @@ async function fetchProgressData<T>(
 }
 
 // =============================================================================
+// Source badge — distinguishes manual vs device-synced entries
+// =============================================================================
+
+function SourceBadge({ source }: { source?: string }) {
+  if (source === 'device') {
+    return (
+      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+        Device
+      </span>
+    );
+  }
+  if (source === 'intake') {
+    return (
+      <span className="rounded-full bg-[var(--brand-primary-light,#e0f2f1)] px-2 py-0.5 text-xs text-[var(--brand-primary,#4fa77e)]">
+        Intake
+      </span>
+    );
+  }
+  if (source === 'provider') {
+    return (
+      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+        Provider
+      </span>
+    );
+  }
+  return null;
+}
+
+// =============================================================================
 // Component
 // =============================================================================
 
@@ -149,6 +182,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [medicationReminders, setMedicationReminders] = useState<any[]>([]);
   const [hasActiveTreatment, setHasActiveTreatment] = useState(false);
+  const [progressLoaded, setProgressLoaded] = useState(false);
 
   // New tracking states
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
@@ -179,12 +213,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   const [savingWeight, setSavingWeight] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Check if patient has active treatment (has tracking number on any order)
+  // Seed hasActiveTreatment from tracking data; progress fetches below will also set it true
   useEffect(() => {
     const hasTracking = patient.orders?.some((order: any) =>
       order.events?.some((event: any) => event.type === 'TRACKING_UPDATED' || event.tracking)
     );
-    setHasActiveTreatment(hasTracking || false);
+    if (hasTracking) {
+      setHasActiveTreatment(true);
+    }
   }, [patient.orders]);
 
   // Fetch weight data from API (same source as patient portal)
@@ -221,19 +257,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   useEffect(() => {
     if (!patient.id) return;
 
-    fetchWeightData();
+    const fetchOpts = { headers: getAuthHeaders(), credentials: 'include' as const };
 
-    // Medication reminders
-    fetchProgressData<any>(
-      `/api/patient-progress/medication-reminders?patientId=${patient.id}`,
-      'medication reminders'
-    ).then(setMedicationReminders);
-
-    // Water logs
-    apiFetch(`/api/patient-progress/water?patientId=${patient.id}`, {
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    })
+    const waterPromise = apiFetch(
+      `/api/patient-progress/water?patientId=${patient.id}`,
+      fetchOpts
+    )
       .then(async (res) => {
         if (res.ok) {
           const result = await res.json();
@@ -242,13 +271,17 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           if (result.data?.length > 0) setHasActiveTreatment(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.warn('Failed to fetch water logs', {
+          patientId: patient.id,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
 
-    // Sleep logs
-    apiFetch(`/api/patient-progress/sleep?patientId=${patient.id}`, {
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    })
+    const sleepPromise = apiFetch(
+      `/api/patient-progress/sleep?patientId=${patient.id}`,
+      fetchOpts
+    )
       .then(async (res) => {
         if (res.ok) {
           const result = await res.json();
@@ -257,13 +290,17 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           if (result.data?.length > 0) setHasActiveTreatment(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.warn('Failed to fetch sleep logs', {
+          patientId: patient.id,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
 
-    // Exercise logs
-    apiFetch(`/api/patient-progress/exercise?patientId=${patient.id}`, {
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    })
+    const exercisePromise = apiFetch(
+      `/api/patient-progress/exercise?patientId=${patient.id}`,
+      fetchOpts
+    )
       .then(async (res) => {
         if (res.ok) {
           const result = await res.json();
@@ -272,13 +309,17 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           if (result.data?.length > 0) setHasActiveTreatment(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.warn('Failed to fetch exercise logs', {
+          patientId: patient.id,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
 
-    // Nutrition logs
-    apiFetch(`/api/patient-progress/nutrition?patientId=${patient.id}`, {
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    })
+    const nutritionPromise = apiFetch(
+      `/api/patient-progress/nutrition?patientId=${patient.id}`,
+      fetchOpts
+    )
       .then(async (res) => {
         if (res.ok) {
           const result = await res.json();
@@ -287,7 +328,27 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           if (result.data?.length > 0) setHasActiveTreatment(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.warn('Failed to fetch nutrition logs', {
+          patientId: patient.id,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
+
+    const weightPromise = fetchWeightData();
+    const remindersPromise = fetchProgressData<any>(
+      `/api/patient-progress/medication-reminders?patientId=${patient.id}`,
+      'medication reminders'
+    ).then(setMedicationReminders);
+
+    Promise.allSettled([
+      weightPromise,
+      remindersPromise,
+      waterPromise,
+      sleepPromise,
+      exercisePromise,
+      nutritionPromise,
+    ]).then(() => setProgressLoaded(true));
   }, [patient.id, fetchWeightData]);
 
   // Handle adding new weight entry
@@ -350,15 +411,32 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     exerciseLogs.length +
     nutritionLogs.length;
 
-  if (!hasActiveTreatment) {
+  if (!progressLoaded) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+        <span className="ml-3 text-gray-500">Loading progress data…</span>
+      </div>
+    );
+  }
+
+  if (!hasActiveTreatment && totalActivities === 0) {
     return (
       <div className="py-12 text-center">
         <Activity className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-        <h3 className="mb-2 text-lg font-semibold text-gray-700">No Active Treatment</h3>
+        <h3 className="mb-2 text-lg font-semibold text-gray-700">No Progress Data</h3>
         <p className="mx-auto max-w-md text-gray-500">
-          Progress tracking will be available once the patient starts their treatment and receives
-          their medication.
+          No weight, water, exercise, sleep, or nutrition entries have been logged yet.
+          Progress data will appear here once the patient starts logging or their treatment begins.
         </p>
+        <button
+          type="button"
+          onClick={() => setShowWeightForm(true)}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Log First Weight
+        </button>
       </div>
     );
   }
@@ -629,21 +707,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold">{entry.weight} lbs</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        entry.source === 'intake'
-                          ? 'bg-[var(--brand-primary-light,#e0f2f1)] text-[var(--brand-primary,#4fa77e)]'
-                          : entry.source === 'provider'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {entry.source === 'intake'
-                        ? 'Intake'
-                        : entry.source === 'provider'
-                          ? 'Provider'
-                          : 'Patient'}
-                    </span>
+                    <SourceBadge source={entry.source} />
                     {idx === 0 && progress && (
                       <span
                         className={`rounded-full px-2 py-1 text-xs ${
@@ -717,9 +781,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                         {format(new Date(log.recordedAt), 'MMM d, h:mm a')}
                       </span>
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {log.amount} {log.unit}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {log.amount} {log.unit}
+                      </span>
+                      <SourceBadge source={log.source} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -792,6 +859,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                             {log.quality}/10
                           </span>
                         )}
+                        <SourceBadge source={log.source} />
                       </div>
                     </div>
                   );
@@ -881,6 +949,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                           {log.steps.toLocaleString()}
                         </span>
                       )}
+                      <SourceBadge source={log.source} />
                     </div>
                   </div>
                 ))}
@@ -969,15 +1038,18 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        {log.calories != null && (
-                          <span className="text-sm font-semibold text-gray-900">
-                            {log.calories} cal
-                          </span>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          {format(new Date(log.recordedAt), 'MMM d')}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          {log.calories != null && (
+                            <span className="text-sm font-semibold text-gray-900">
+                              {log.calories} cal
+                            </span>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            {format(new Date(log.recordedAt), 'MMM d')}
+                          </p>
+                        </div>
+                        <SourceBadge source={log.source} />
                       </div>
                     </div>
                   );

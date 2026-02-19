@@ -58,7 +58,10 @@ interface NextReminderDisplay {
 interface RecentShipmentDisplay {
   orderNumber?: string;
   status?: string;
+  statusLabel?: string;
   trackingNumber?: string;
+  estimatedDelivery?: string;
+  carrier?: string;
   [key: string]: unknown;
 }
 
@@ -162,7 +165,11 @@ export default function PatientPortalDashboard() {
         const name = `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim();
         if (name) setDisplayName(name);
       })
-      .catch(() => {});
+      .catch((err) => {
+        logger.warn('Failed to fetch user profile for display name', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     return () => { cancelled = true; };
   }, [patient?.id]);
 

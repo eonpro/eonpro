@@ -258,6 +258,8 @@ export default function PatientPortalDocuments() {
           ? String((errBody as { error?: unknown }).error)
           : 'Delete failed';
         toast.error(msg);
+      } else {
+        toast.success('Document deleted');
       }
     } catch (err) {
       setDocuments(previous);

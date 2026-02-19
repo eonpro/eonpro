@@ -31,7 +31,7 @@ const getWaterLogsSchema = z.object({
     if (isNaN(num) || num <= 0) throw new Error('Invalid patientId');
     return num;
   }),
-  date: z.string().optional(), // Filter by specific date
+  date: z.string().nullish(),
 });
 
 // POST - Create water log

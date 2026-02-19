@@ -8,6 +8,7 @@ import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getEnabledProgressTabIds } from '@/lib/patient-portal';
 import { logger } from '@/lib/logger';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
+import { toast } from '@/components/Toast';
 import WeightTracker from '@/components/WeightTracker';
 import {
   Scale,
@@ -147,8 +148,10 @@ export default function ProgressPage() {
             if (me && !cancelled) {
               const fromMePid = typeof me.patientId === 'number' && me.patientId > 0 ? me.patientId : null;
               pid = fromMePid;
-              const toStore = userData ? { ...userData, patientId: fromMePid ?? userData.patientId } : { id: me.id, role: me.role, patientId: fromMePid ?? undefined, email: me.email };
-              setPortalUserStorage(getMinimalPortalUserPayload(toStore as any));
+              const toStore: { id?: number; role?: string; patientId?: number } = userData
+                ? { ...userData, patientId: fromMePid ?? userData.patientId }
+                : { id: me.id, role: me.role, patientId: fromMePid ?? undefined };
+              setPortalUserStorage(getMinimalPortalUserPayload(toStore));
             }
           }
           if (!userData && !meRes.ok && !cancelled) {
@@ -268,6 +271,7 @@ export default function ProgressPage() {
       if (response.ok) {
         setTodayWater((prev) => prev + amount);
         setShowSuccess(`+${amount} oz added!`);
+        toast.success(`+${amount} oz water logged`);
         setTimeout(() => setShowSuccess(''), 2000);
         fetchData();
       } else {
@@ -276,12 +280,14 @@ export default function ProgressPage() {
           (errBody && typeof errBody === 'object' && 'error' in errBody && (errBody as { error?: string }).error) ||
           `Could not save water (${response.status}). Please try again.`;
         setError(String(errMessage));
+        toast.error(String(errMessage));
       }
     } catch (error) {
       logger.error('Failed to log water', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
       setError('Failed to save water. Please check your connection and try again.');
+      toast.error('Failed to save water');
     } finally {
       setSaving(false);
     }
@@ -310,22 +316,26 @@ export default function ProgressPage() {
       if (response.ok) {
         setWeeklyMinutes((prev) => prev + duration);
         setExerciseDuration('');
+        setExerciseType('walking');
+        setExerciseIntensity('moderate');
         setShowSuccess('Exercise logged!');
+        toast.success('Exercise logged!');
         setTimeout(() => setShowSuccess(''), 2000);
         fetchData();
       } else {
         const errBody = await safeParseJson(response);
-        setError(
-          (errBody && typeof errBody === 'object' && 'error' in errBody
+        const errMsg = (errBody && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: string }).error)
-            : 'Failed to save exercise') as string
-        );
+            : 'Failed to save exercise');
+        setError(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
       logger.error('Failed to log exercise', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
       setError('Failed to save exercise. Please try again.');
+      toast.error('Failed to save exercise');
     } finally {
       setSaving(false);
     }
@@ -374,22 +384,27 @@ export default function ProgressPage() {
         }),
       });
       if (response.ok) {
+        setSleepStart('22:00');
+        setSleepEnd('06:00');
+        setSleepQuality(7);
         setShowSuccess('Sleep logged!');
+        toast.success('Sleep logged!');
         fetchData();
         setTimeout(() => setShowSuccess(''), 2000);
       } else {
         const errBody = await safeParseJson(response);
-        setError(
-          (errBody && typeof errBody === 'object' && 'error' in errBody
+        const errMsg = (errBody && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: string }).error)
-            : 'Failed to save sleep data') as string
-        );
+            : 'Failed to save sleep data');
+        setError(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
       logger.error('Failed to log sleep', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
       setError('Failed to save sleep data. Please try again.');
+      toast.error('Failed to save sleep data');
     } finally {
       setSaving(false);
     }
@@ -427,22 +442,25 @@ export default function ProgressPage() {
         }
         setMealDescription('');
         setMealCalories('');
+        setMealType('breakfast');
         setShowSuccess('Meal logged!');
+        toast.success('Meal logged!');
         setTimeout(() => setShowSuccess(''), 2000);
         fetchData();
       } else {
         const errBody = await safeParseJson(response);
-        setError(
-          (errBody && typeof errBody === 'object' && 'error' in errBody
+        const errMsg = (errBody && typeof errBody === 'object' && 'error' in errBody
             ? String((errBody as { error?: string }).error)
-            : 'Failed to save meal') as string
-        );
+            : 'Failed to save meal');
+        setError(errMsg);
+        toast.error(errMsg);
       }
     } catch (error) {
       logger.error('Failed to log meal', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
       setError('Failed to save meal. Please try again.');
+      toast.error('Failed to save meal');
     } finally {
       setSaving(false);
     }
@@ -685,27 +703,34 @@ export default function ProgressPage() {
           {/* Custom Amount */}
           <div className="rounded-2xl bg-white p-5 shadow-sm">
             <h3 className="mb-4 font-semibold text-gray-900">Custom Amount</h3>
-            <div className="flex gap-3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (waterAmount) {
+                  handleQuickWater(parseInt(waterAmount));
+                  setWaterAmount('');
+                }
+              }}
+              className="flex gap-3"
+            >
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
                 value={waterAmount}
-                onChange={(e) => setWaterAmount(e.target.value)}
+                onChange={(e) => setWaterAmount(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="Enter ounces"
-                className="flex-1 rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-blue-500 focus:bg-white"
+                className="min-h-[48px] flex-1 rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-blue-500 focus:bg-white"
+                style={{ fontSize: '16px' }}
               />
               <button
-                onClick={() => {
-                  if (waterAmount) {
-                    handleQuickWater(parseInt(waterAmount));
-                    setWaterAmount('');
-                  }
-                }}
+                type="submit"
                 disabled={!waterAmount || saving}
-                className="rounded-xl bg-blue-500 px-6 py-3 font-semibold text-white transition-all hover:bg-blue-600 disabled:opacity-50"
+                className="min-h-[48px] rounded-xl bg-blue-500 px-6 py-3 font-semibold text-white transition-all hover:bg-blue-600 disabled:opacity-50"
               >
                 Add
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -768,11 +793,14 @@ export default function ProgressPage() {
                 Duration (minutes)
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
                 value={exerciseDuration}
-                onChange={(e) => setExerciseDuration(e.target.value)}
+                onChange={(e) => setExerciseDuration(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="30"
-                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
@@ -797,9 +825,10 @@ export default function ProgressPage() {
             </div>
 
             <button
+              type="button"
               onClick={handleLogExercise}
               disabled={!exerciseDuration || saving}
-              className="w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
+              className="min-h-[48px] w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Log Exercise'}
             </button>
@@ -837,7 +866,8 @@ export default function ProgressPage() {
                   type="time"
                   value={sleepStart}
                   onChange={(e) => setSleepStart(e.target.value)}
-                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                  className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
               <div>
@@ -846,7 +876,8 @@ export default function ProgressPage() {
                   type="time"
                   value={sleepEnd}
                   onChange={(e) => setSleepEnd(e.target.value)}
-                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                  className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                  style={{ fontSize: '16px' }}
                 />
               </div>
             </div>
@@ -871,9 +902,10 @@ export default function ProgressPage() {
             </div>
 
             <button
+              type="button"
               onClick={handleLogSleep}
               disabled={saving}
-              className="w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 disabled:opacity-50"
+              className="min-h-[48px] w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Log Sleep'}
             </button>
@@ -948,18 +980,22 @@ export default function ProgressPage() {
                 Calories (optional)
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
                 value={mealCalories}
-                onChange={(e) => setMealCalories(e.target.value)}
+                onChange={(e) => setMealCalories(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="500"
-                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-amber-500 focus:bg-white"
+                className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-amber-500 focus:bg-white"
+                style={{ fontSize: '16px' }}
               />
             </div>
 
             <button
+              type="button"
               onClick={handleLogMeal}
               disabled={saving}
-              className="w-full rounded-xl bg-amber-500 py-4 font-semibold text-white transition-all hover:bg-amber-600 disabled:opacity-50"
+              className="min-h-[48px] w-full rounded-xl bg-amber-500 py-4 font-semibold text-white transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Log Meal'}
             </button>

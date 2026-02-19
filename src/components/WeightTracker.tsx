@@ -22,6 +22,7 @@ import {
 } from 'chart.js';
 import { TrendingDown, TrendingUp, Scale, Target, Sparkles, Check } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { toast } from '@/components/Toast';
 
 // Register Chart.js components
 ChartJS.register(
@@ -166,12 +167,18 @@ export default function WeightTracker({
   }, [patientId, usePortalFetch, controlledData]);
 
   const handleWeightSubmit = async () => {
-    if (!currentWeight || isNaN(Number(currentWeight))) return;
+    const trimmed = currentWeight.trim();
+    const parsed = Number(trimmed);
+    if (!trimmed || isNaN(parsed) || parsed <= 0) {
+      setSaveError('Please enter a valid weight');
+      toast.error('Please enter a valid weight');
+      return;
+    }
 
     setIsLoading(true);
     const newEntry: WeightEntry = {
       dateInput: new Date().toISOString(),
-      currentWeightInput: parseFloat(currentWeight),
+      currentWeightInput: parsed,
       id: Date.now().toString(),
     };
 
@@ -180,7 +187,7 @@ export default function WeightTracker({
       if (patientId) {
         const body = {
           patientId,
-          weight: parseFloat(currentWeight),
+          weight: parsed,
           unit: 'lbs',
           recordedAt: new Date().toISOString(),
         };
@@ -215,12 +222,14 @@ export default function WeightTracker({
 
       setCurrentWeight('');
       setShowSuccess(true);
+      toast.success(`Weight logged: ${parsed} lbs`);
       setTimeout(() => setShowSuccess(false), 2500);
       if (onWeightSaved) onWeightSaved();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to save weight';
       logger.error('Failed to save weight', { error: error instanceof Error ? error.message : 'Unknown' });
       setSaveError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -434,24 +443,32 @@ export default function WeightTracker({
           </span>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleWeightSubmit();
+          }}
+          className="flex flex-col gap-3 sm:flex-row sm:gap-4"
+        >
           <div
             className={`relative flex-1 transition-all duration-300 ${isFocused ? 'scale-[1.01]' : ''}`}
           >
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              pattern="[0-9]*"
+              autoComplete="off"
               value={currentWeight}
-              onChange={(e) => setCurrentWeight(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.]/g, '');
+                setCurrentWeight(val);
+              }}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              onKeyDown={(e) => e.key === 'Enter' && handleWeightSubmit()}
               placeholder={t('weightTrackerEnterWeight')}
               className={`min-h-[48px] w-full rounded-xl border-2 bg-gray-50 px-4 py-3 text-lg font-semibold text-gray-900 outline-none transition-all placeholder:font-normal placeholder:text-gray-400 sm:min-h-0 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-xl md:px-6 md:py-5 ${
                 isFocused ? 'border-gray-900 bg-white shadow-lg' : 'border-transparent'
               }`}
-              style={{ fontSize: '16px' }} /* Prevent iOS zoom on focus */
+              style={{ fontSize: '16px' }}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 sm:right-5 sm:text-base md:right-6 md:text-lg">
               {t('weightTrackerLbs')}
@@ -459,8 +476,8 @@ export default function WeightTracker({
           </div>
 
           <button
-            onClick={handleWeightSubmit}
-            disabled={isLoading || !currentWeight}
+            type="submit"
+            disabled={isLoading || !currentWeight.trim()}
             className="group relative min-h-[48px] overflow-hidden rounded-xl px-6 py-3 font-semibold text-gray-900 transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[52px] sm:rounded-2xl sm:px-8 sm:py-4 md:px-10 md:py-5 md:hover:scale-105 md:hover:shadow-xl"
             style={{ backgroundColor: accentColor }}
           >
@@ -484,7 +501,7 @@ export default function WeightTracker({
               {saveError}
             </p>
           )}
-        </div>
+        </form>
       </div>
 
       {/* Chart Section - shorter on mobile to fit viewport */}

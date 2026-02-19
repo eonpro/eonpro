@@ -269,6 +269,15 @@ function createPrismaClient() {
           });
         }
 
+        // Warn on large result sets from findMany (> 500 rows)
+        if (params.action === 'findMany' && Array.isArray(result) && result.length > 500) {
+          logger.warn('[Prisma] Large result set — consider adding pagination or reducing take', {
+            model: params.model,
+            rowCount: result.length,
+            duration,
+          });
+        }
+
         // Record metrics for connection pool monitoring
         connectionPool.recordQuery(duration, true);
 

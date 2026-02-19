@@ -1235,6 +1235,7 @@ export class InvoiceManager {
         patientId,
         ...(this.clinicId && { clinicId: this.clinicId }),
       },
+      take: 200,
     });
 
     const now = new Date();

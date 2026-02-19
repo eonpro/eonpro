@@ -100,7 +100,7 @@ export interface PHISearchOptions<T> {
   include?: Prisma.PatientInclude;
   /** Order by (should be safe fields only) */
   orderBy?: Prisma.PatientOrderByWithRelationInput;
-  /** Maximum records to fetch for in-memory filtering (default: 2000) */
+  /** Maximum records to fetch for in-memory filtering (default: 500) */
   maxFetchSize?: number;
   /** Custom transform function after decryption */
   transform?: (record: T) => T;
@@ -305,7 +305,7 @@ export const PHISearchService = {
       select,
       include,
       orderBy = { createdAt: 'desc' },
-      maxFetchSize = 2000,
+      maxFetchSize = 500,
       transform,
     } = options;
 
@@ -315,7 +315,59 @@ export const PHISearchService = {
     // Validate the base query doesn't search encrypted fields
     validateWhereClause(baseQuery, 'PHISearchService.searchPatients');
 
-    // Fetch records from database
+    // ── FAST PATH: searchIndex (GIN-indexed, O(1) via pg_trgm) ──────────
+    // Try the plaintext searchIndex first. This avoids fetching/decrypting
+    // thousands of records when the index already covers the query.
+    if (search) {
+      const indexQueryOptions: Prisma.PatientFindManyArgs = {
+        where: {
+          ...baseQuery,
+          searchIndex: { contains: search.toLowerCase().trim(), mode: 'insensitive' },
+        },
+        orderBy,
+        take: limit + offset,
+      };
+      if (select) indexQueryOptions.select = select;
+      if (include) indexQueryOptions.include = include;
+
+      const indexRecords = (await prisma.patient.findMany(indexQueryOptions)) as unknown as T[];
+
+      if (indexRecords.length > 0) {
+        const decryptedIndex = indexRecords.map((r) => decryptPatientRecord(r, searchFields));
+        const filteredIndex = decryptedIndex.filter((r) =>
+          matchesSearch(r as Record<string, unknown>, search, searchFields)
+        );
+
+        if (filteredIndex.length > 0) {
+          const paginatedIndex = filteredIndex.slice(offset, offset + limit);
+          const finalIndex = transform ? paginatedIndex.map(transform) : paginatedIndex;
+          const fastMs = Date.now() - startTime;
+
+          logger.debug('[PHI-SEARCH] Fast path via searchIndex', {
+            processingTimeMs: fastMs,
+            fetchedCount: indexRecords.length,
+            filteredCount: filteredIndex.length,
+          });
+
+          return {
+            data: finalIndex,
+            total: filteredIndex.length,
+            limit,
+            offset,
+            hasMore: offset + paginatedIndex.length < filteredIndex.length,
+            metrics: {
+              fetchedCount: indexRecords.length,
+              filteredCount: filteredIndex.length,
+              processingTimeMs: fastMs,
+            },
+          };
+        }
+      }
+    }
+
+    // ── SLOW PATH: full fetch + decrypt + filter ────────────────────────
+    // Reached when searchIndex has no matches (patient not indexed, or
+    // search term doesn't appear in the index).
     const queryOptions: Prisma.PatientFindManyArgs = {
       where: baseQuery,
       orderBy,
@@ -349,10 +401,11 @@ export const PHISearchService = {
 
     // Log performance metrics for monitoring
     if (processingTimeMs > 1000) {
-      logger.warn('[PHI-SEARCH] Slow search detected', {
+      logger.warn('[PHI-SEARCH] Slow search detected (full scan path)', {
         processingTimeMs,
         fetchedCount,
         filteredCount,
+        maxFetchSize,
         search: search ? `${search.substring(0, 20)}...` : null,
       });
     }
@@ -385,18 +438,26 @@ export const PHISearchService = {
       baseQuery,
       search,
       searchFields = ['firstName', 'lastName'],
-      maxFetchSize = 2000,
+      maxFetchSize = 500,
     } = options;
 
     // Validate the base query
     validateWhereClause(baseQuery, 'PHISearchService.countPatients');
 
     if (!search) {
-      // No search term - use direct count
       return prisma.patient.count({ where: baseQuery });
     }
 
-    // With search term - need to fetch and filter
+    // Fast path: try searchIndex first
+    const indexCount = await prisma.patient.count({
+      where: {
+        ...baseQuery,
+        searchIndex: { contains: search.toLowerCase().trim(), mode: 'insensitive' },
+      },
+    });
+    if (indexCount > 0) return indexCount;
+
+    // Slow path: fetch, decrypt, filter
     const records = await prisma.patient.findMany({
       where: baseQuery,
       select: searchFields.reduce(
@@ -426,14 +487,36 @@ export const PHISearchService = {
   }): Promise<Record<string, unknown> | null> {
     const { baseQuery, field, value, select, include } = options;
 
-    // Validate the base query
     validateWhereClause(baseQuery, 'PHISearchService.findPatientByPHI');
 
     const valueLower = value.toLowerCase().trim();
 
+    // Fast path: try searchIndex for common fields (email, name, phone)
+    if (['email', 'firstName', 'lastName', 'phone'].includes(field)) {
+      const indexQueryOptions: Prisma.PatientFindManyArgs = {
+        where: {
+          ...baseQuery,
+          searchIndex: { contains: valueLower, mode: 'insensitive' },
+        },
+        take: 10,
+      };
+      if (select) indexQueryOptions.select = { ...select, [field]: true };
+      if (include) indexQueryOptions.include = include;
+
+      const indexRecords = await prisma.patient.findMany(indexQueryOptions);
+      for (const record of indexRecords) {
+        const decrypted = decryptPatientRecord(record as Record<string, unknown>, [field]);
+        const fieldValue = ((decrypted[field] as string) || '').toLowerCase().trim();
+        if (fieldValue === valueLower) {
+          return decryptPatientRecord(record as Record<string, unknown>, PATIENT_PHI_FIELDS);
+        }
+      }
+    }
+
+    // Slow path: scan and decrypt
     const queryOptions: Prisma.PatientFindManyArgs = {
       where: baseQuery,
-      take: 1000, // Reasonable limit for single-value lookup
+      take: 1000,
     };
 
     if (select) queryOptions.select = { ...select, [field]: true };
