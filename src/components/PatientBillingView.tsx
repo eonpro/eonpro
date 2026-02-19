@@ -1283,7 +1283,7 @@ function CreateInvoiceForm({
 
   // Mark as Paid Externally fields
   const [markAsPaidExternally, setMarkAsPaidExternally] = useState(false);
-  const [externalPaymentMethod, setExternalPaymentMethod] = useState('cash');
+  const [externalPaymentMethod, setExternalPaymentMethod] = useState('external_stripe');
   const [externalPaymentNotes, setExternalPaymentNotes] = useState('');
   const [externalPaymentDate, setExternalPaymentDate] = useState(
     new Date().toISOString().split('T')[0]
