@@ -727,7 +727,7 @@ export default function SettingsPage() {
                           [item.key]: !notifications[item.key as keyof typeof notifications],
                         })
                       }
-                      className={`relative h-6 w-12 rounded-full transition-colors ${
+                      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
                         notifications[item.key as keyof typeof notifications] ? '' : 'bg-gray-300'
                       }`}
                       style={
@@ -737,10 +737,10 @@ export default function SettingsPage() {
                       }
                     >
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
                           notifications[item.key as keyof typeof notifications]
-                            ? 'left-6'
-                            : 'left-0.5'
+                            ? 'translate-x-6'
+                            : 'translate-x-1'
                         }`}
                       />
                     </button>

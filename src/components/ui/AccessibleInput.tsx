@@ -63,7 +63,7 @@ const AccessibleInput = forwardRef<HTMLInputElement, AccessibleInputProps>(
         <div className="relative">
           {/* Left icon */}
           {leftIcon && (
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
               {leftIcon}
             </div>
           )}
@@ -72,7 +72,7 @@ const AccessibleInput = forwardRef<HTMLInputElement, AccessibleInputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`block w-full rounded-lg border text-[16px] leading-normal transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:cursor-not-allowed disabled:bg-gray-100 ${leftIcon ? 'pl-10' : 'pl-4'} ${rightIcon ? 'pr-10' : 'pr-4'} py-2.5 ${
+            className={`block w-full rounded-lg border text-[16px] leading-normal transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:cursor-not-allowed disabled:bg-gray-100 ${leftIcon ? 'pl-12' : 'pl-4'} ${rightIcon ? 'pr-10' : 'pr-4'} py-2.5 ${
               error
                 ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
                 : 'border-gray-300 focus:border-[#4fa77e] focus:ring-[#4fa77e]'

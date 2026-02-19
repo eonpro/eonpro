@@ -478,14 +478,14 @@ export default function ProgressPhotosPage() {
                 Current Weight (optional)
               </label>
               <div className="relative">
-                <Scale className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Scale className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="number"
                   step="0.1"
                   value={currentWeight}
                   onChange={(e) => setCurrentWeight(e.target.value)}
                   placeholder="Enter weight"
-                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 py-3 pl-10 pr-16 font-medium outline-none focus:border-gray-300 focus:bg-white"
+                  className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 py-3 pl-12 pr-16 font-medium outline-none focus:border-gray-300 focus:bg-white"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">lbs</span>
               </div>

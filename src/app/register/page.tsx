@@ -408,14 +408,14 @@ export default function RegisterPage() {
                       First Name
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                      <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                       <input
                         id="firstName"
                         type="text"
                         value={firstName}
                         onChange={inviteToken ? undefined : (e) => setFirstName(e.target.value)}
                         readOnly={!!inviteToken}
-                        className={`w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                        className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                         required
                       />
                     </div>
@@ -445,14 +445,14 @@ export default function RegisterPage() {
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       id="email"
                       type="email"
                       value={email}
                       onChange={inviteToken ? undefined : (e) => setEmail(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -464,7 +464,7 @@ export default function RegisterPage() {
                     Phone Number
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       id="phone"
                       type="tel"
@@ -472,7 +472,7 @@ export default function RegisterPage() {
                       onChange={inviteToken ? undefined : handlePhoneChange}
                       placeholder="(555) 555-5555"
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -484,14 +484,14 @@ export default function RegisterPage() {
                     Date of Birth
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Calendar className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       id="dob"
                       type="date"
                       value={dob}
                       onChange={inviteToken ? undefined : (e) => setDob(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -506,13 +506,13 @@ export default function RegisterPage() {
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       required
                     />
                     <button
@@ -552,13 +552,13 @@ export default function RegisterPage() {
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                     <input
                       id="confirmPassword"
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full rounded-xl border bg-white py-2.5 pl-10 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                         confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-200'
                       }`}
                       required

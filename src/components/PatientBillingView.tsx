@@ -1067,7 +1067,7 @@ function RefundModal({
                 Refund Amount (max: {formatCurrency(maxAmount)})
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2 text-gray-500">$</span>
+                <span className="absolute left-4 top-2 text-gray-500">$</span>
                 <input
                   type="number"
                   value={amount}
@@ -1075,7 +1075,7 @@ function RefundModal({
                   step="0.01"
                   min="0.01"
                   max={maxAmount / 100}
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 focus:ring-2 focus:ring-[var(--brand-primary)]"
                   required
                 />
               </div>
@@ -1181,7 +1181,7 @@ function MarkPaidModal({
                 onChange={(e) => setPaymentAmount(parseFloat(e.target.value) || 0)}
                 step="0.01"
                 min="0.01"
-                className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-3 focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>

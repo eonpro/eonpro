@@ -223,7 +223,7 @@ export default function AddressAutocomplete({
           </label>
         )}
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             ref={addressInputRef}
             type="text"
@@ -234,7 +234,7 @@ export default function AddressAutocomplete({
               `${value.address1}${value.city ? `, ${value.city}` : ''}${value.state ? `, ${value.state}` : ''} ${value.zip}`.trim()
             }
             placeholder="Start typing an address..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-12 pr-10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
           {(value.address1 || value.city) && (
             <button
@@ -268,7 +268,7 @@ export default function AddressAutocomplete({
           Street Address {required && <span className="text-red-500">*</span>}
         </label>
         <div className="relative">
-          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             ref={addressInputRef}
             type="text"
@@ -277,7 +277,7 @@ export default function AddressAutocomplete({
             value={value.address1}
             onChange={(e) => handleFieldChange('address1', e.target.value)}
             placeholder="Start typing an address..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+            className="w-full rounded-lg border border-gray-300 py-2 pl-12 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           />
         </div>
         {!isGoogleLoaded && (
@@ -448,7 +448,7 @@ export function AddressInput({
 
   return (
     <div className={`relative ${className}`}>
-      <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
       <input
         ref={inputRef}
         type="text"
@@ -457,7 +457,7 @@ export function AddressInput({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
+        className="w-full rounded-lg border border-gray-300 py-2 pl-12 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
       />
     </div>
   );
