@@ -240,6 +240,14 @@ export function PhotoUploader({
     };
   }, [cameraStream]);
 
+  // Connect camera stream to video element after React renders the modal
+  useEffect(() => {
+    if (isCameraOpen && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isCameraOpen, cameraStream]);
+
   // Cleanup preview object URLs on unmount
   useEffect(() => {
     return () => {
@@ -434,12 +442,6 @@ export function PhotoUploader({
       });
       setCameraStream(stream);
       setIsCameraOpen(true);
-      // Assign stream to video and play (required on iOS/Safari webview for feed to show)
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        video.play().catch(() => {});
-      }
     } catch (error) {
       onUploadError?.('Unable to access camera. Please check permissions.');
     }
