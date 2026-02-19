@@ -89,6 +89,15 @@ export default function PatientPortalDashboard() {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
+  const weightCardTextColor = (() => {
+    const hex = accentColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16) / 255;
+    const g = parseInt(hex.substring(2, 4), 16) / 255;
+    const b = parseInt(hex.substring(4, 6), 16) / 255;
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luminance > 0.5 ? '#1f2937' : '#ffffff';
+  })();
+
   useEffect(() => {
     // SSR guard - only access localStorage on client
     if (typeof window === 'undefined') return;
@@ -509,20 +518,20 @@ export default function PatientPortalDashboard() {
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-white/80">
+                <p className="text-sm font-medium" style={{ color: weightCardTextColor, opacity: 0.8 }}>
                   {t('dashboardCurrentWeight')}
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-semibold text-white">
+                  <span className="text-5xl font-semibold" style={{ color: weightCardTextColor }}>
                     {currentWeight || '---'}
                   </span>
-                  <span className="text-xl font-medium text-white/70">
+                  <span className="text-xl font-medium" style={{ color: weightCardTextColor, opacity: 0.7 }}>
                     {t('dashboardLbs')}
                   </span>
                 </div>
               </div>
-              <div className="rounded-2xl bg-white/15 p-4">
-                <Scale className="h-8 w-8 text-white" />
+              <div className="rounded-2xl p-4" style={{ backgroundColor: weightCardTextColor === '#ffffff' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}>
+                <Scale className="h-8 w-8" style={{ color: weightCardTextColor }} />
               </div>
             </div>
 
@@ -530,38 +539,38 @@ export default function PatientPortalDashboard() {
               <div className="flex items-center gap-2">
                 {weightChange < 0 ? (
                   <>
-                    <TrendingDown className="h-5 w-5 text-white" />
-                    <span className="font-semibold text-white">
+                    <TrendingDown className="h-5 w-5" style={{ color: weightCardTextColor }} />
+                    <span className="font-semibold" style={{ color: weightCardTextColor }}>
                       {t('dashboardDownLbs').replace('{n}', Math.abs(weightChange).toString())}
                     </span>
                   </>
                 ) : weightChange > 0 ? (
                   <>
-                    <TrendingUp className="h-5 w-5 text-white" />
-                    <span className="font-semibold text-white">
+                    <TrendingUp className="h-5 w-5" style={{ color: weightCardTextColor }} />
+                    <span className="font-semibold" style={{ color: weightCardTextColor }}>
                       {t('dashboardUpLbs').replace('{n}', weightChange.toString())}
                     </span>
                   </>
                 ) : (
-                  <span className="font-semibold text-white">
+                  <span className="font-semibold" style={{ color: weightCardTextColor }}>
                     {t('dashboardNoChange')}
                   </span>
                 )}
-                <span className="text-sm text-white/70">
+                <span className="text-sm" style={{ color: weightCardTextColor, opacity: 0.7 }}>
                   {t('dashboardSinceStarting')}
                 </span>
               </div>
             ) : !currentWeight ? (
-              <p className="text-sm text-white/70">
+              <p className="text-sm" style={{ color: weightCardTextColor, opacity: 0.7 }}>
                 Log your first weight to start tracking progress
               </p>
             ) : null}
 
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-white/70">
+              <span className="text-sm font-medium" style={{ color: weightCardTextColor, opacity: 0.7 }}>
                 {currentWeight ? t('dashboardTapToLogWeight') : 'Tap to get started'}
               </span>
-              <ChevronRight className="h-5 w-5 text-white/70" />
+              <ChevronRight className="h-5 w-5" style={{ color: weightCardTextColor, opacity: 0.7 }} />
             </div>
           </div>
         </Link>
