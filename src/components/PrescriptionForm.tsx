@@ -183,6 +183,9 @@ export default function PrescriptionForm({
     clinicId: null, // Will be set from localStorage on mount
   });
 
+  // Increments when an order set is applied, forcing SigBuilder remounts
+  const [rxGeneration, setRxGeneration] = useState(0);
+
   // Load active clinic ID from localStorage on mount (for multi-tenant support)
   useEffect(() => {
     const activeClinicId = localStorage.getItem('activeClinicId');
@@ -1107,6 +1110,7 @@ export default function PrescriptionForm({
       {/* Order Set Selector */}
       <OrderSetSelector
         onApply={(medications: AppliedMedication[]) => {
+          setRxGeneration((g) => g + 1);
           setForm((f: any) => ({
             ...f,
             rxs: medications.map((m) => ({
@@ -1123,7 +1127,7 @@ export default function PrescriptionForm({
       {form.rxs.map((rx: RxForm, index: number) => {
         const selectedMed = rx.medicationKey ? MEDS[rx.medicationKey] : undefined;
         return (
-          <div key={index} className="mb-3 space-y-2 rounded border bg-[#f9f8f6] p-3">
+          <div key={`${rxGeneration}-${index}-${rx.medicationKey}`} className="mb-3 space-y-2 rounded border bg-[#f9f8f6] p-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Medication #{index + 1}</h3>
               {form.rxs.length > 1 && (
@@ -1142,12 +1146,13 @@ export default function PrescriptionForm({
               onChange={(key: string) => {
                 const med = MEDS[key];
                 updateRx(index, 'medicationKey', key);
+                // Clear sig so SigBuilder uses the new medication's template
+                // instead of carrying over the previous medication's sig
+                updateRx(index, 'sig', '');
                 if (med) {
                   const defaults = deriveDefaultValues(med);
-                  if (defaults.sig && !rx.sig) updateRx(index, 'sig', defaults.sig);
-                  if (defaults.quantity && !rx.quantity)
-                    updateRx(index, 'quantity', defaults.quantity);
-                  if (defaults.refills && !rx.refills) updateRx(index, 'refills', defaults.refills);
+                  if (defaults.quantity) updateRx(index, 'quantity', defaults.quantity);
+                  if (defaults.refills) updateRx(index, 'refills', defaults.refills);
                 }
               }}
               showCategoryBadge={true}

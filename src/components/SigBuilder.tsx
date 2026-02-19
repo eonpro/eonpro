@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getEnhancedTemplates,
   getDefaultStorage,
@@ -8,9 +8,6 @@ import {
   buildComprehensiveSig,
   getMedicationCategory,
   type EnhancedSigTemplate,
-  type StorageInfo,
-  type AdministrationInfo,
-  type WarningsInfo,
 } from '@/lib/medications-enhanced';
 import { MEDS } from '@/lib/medications';
 import { logger } from '@/lib/logger';
@@ -177,11 +174,13 @@ export default function SigBuilder({
   const [sig, setSig] = useState(initialSig);
   const [selectedTemplate, setSelectedTemplate] = useState<EnhancedSigTemplate | null>(null);
   const [templates, setTemplates] = useState<EnhancedSigTemplate[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Tracks whether the user has manually edited the sig textarea.
+  // Prevents the options useEffect from overwriting manual edits on every keystroke.
+  const manuallyEditedRef = useRef(false);
 
   // Options for sig building
   const [options, setOptions] = useState<SigOptions>({
@@ -197,6 +196,8 @@ export default function SigBuilder({
 
   // Load templates when medication changes
   useEffect(() => {
+    manuallyEditedRef.current = false;
+
     if (!medicationKey) {
       setTemplates([]);
       setSelectedTemplate(null);
@@ -206,24 +207,37 @@ export default function SigBuilder({
     const enhanced = getEnhancedTemplates(medicationKey);
     if (enhanced && enhanced.length > 0) {
       setTemplates(enhanced);
-      // If no initial sig, select first template
-      if (!initialSig && enhanced.length > 0) {
+      if (initialSig) {
+        // External sig provided (e.g. from order set) — sync to internal state
+        // and set a template base so toggle buttons still work.
+        // Mark as manually edited so the [options, selectedTemplate] effect
+        // doesn't overwrite this sig with a template-generated one.
+        setSig(initialSig);
+        onSigChange(initialSig);
+        setSelectedTemplate(enhanced[0]);
+        manuallyEditedRef.current = true;
+      } else {
         handleSelectTemplate(enhanced[0]);
       }
     } else {
       setTemplates([]);
-      // Set default storage/admin based on form
       if (med) {
         const storage = getDefaultStorage(med.form);
         const admin = getDefaultAdministration(med.form);
+        const baseSig = initialSig || `Use ${med.name} as directed.`;
         setSelectedTemplate({
           label: 'Custom',
-          sig: initialSig || `Use ${med.name} as directed.`,
+          sig: baseSig,
           quantity: initialQuantity || '1',
           refills: initialRefills || '0',
           storage,
           administration: admin,
         });
+        setSig(baseSig);
+        onSigChange(baseSig);
+        if (initialSig) {
+          manuallyEditedRef.current = true;
+        }
       }
     }
   }, [medicationKey]);
@@ -231,6 +245,7 @@ export default function SigBuilder({
   // Handle template selection
   const handleSelectTemplate = useCallback(
     (template: EnhancedSigTemplate) => {
+      manuallyEditedRef.current = false;
       setSelectedTemplate(template);
 
       // Build sig with current options
@@ -248,9 +263,9 @@ export default function SigBuilder({
     [options, onSigChange, onQuantityChange, onRefillsChange, onDaysSupplyChange]
   );
 
-  // Update sig when options change
+  // Update sig when options change (skip if user is manually editing)
   useEffect(() => {
-    if (selectedTemplate) {
+    if (selectedTemplate && !manuallyEditedRef.current) {
       const fullSig = buildComprehensiveSig(selectedTemplate, options);
       setSig(fullSig);
       onSigChange(fullSig);
@@ -259,12 +274,9 @@ export default function SigBuilder({
 
   // Handle manual sig edit
   const handleSigEdit = (value: string) => {
+    manuallyEditedRef.current = true;
     setSig(value);
     onSigChange(value);
-    // Clear selected template since user is customizing
-    if (selectedTemplate && value !== buildComprehensiveSig(selectedTemplate, options)) {
-      setSelectedTemplate({ ...selectedTemplate, sig: value });
-    }
   };
 
   // AI Generation
@@ -310,6 +322,7 @@ export default function SigBuilder({
       const data = await response.json();
 
       if (data.success && data.sig) {
+        manuallyEditedRef.current = false;
         setSelectedTemplate(data.sig);
         const fullSig = data.sig.sig || buildComprehensiveSig(data.sig, options);
         setSig(fullSig);
@@ -330,8 +343,9 @@ export default function SigBuilder({
     }
   };
 
-  // Toggle option
+  // Toggle option — resets manual edit so the sig rebuilds from the clean template base
   const toggleOption = (key: keyof SigOptions) => {
+    manuallyEditedRef.current = false;
     setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
