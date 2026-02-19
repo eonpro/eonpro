@@ -129,11 +129,11 @@ export default function AdminOrdersPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    const d = new Date(dateString);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${mm}/${dd}/${yy}`;
   };
 
   // Search is now server-side; only filter by status client-side
@@ -367,11 +367,11 @@ export default function AdminOrdersPage() {
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="text-gray-900">{formatDate(order.createdAt)}</div>
-                      {order.lastWebhookAt && (
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      <div className="text-gray-900">Rx {formatDate(order.createdAt)}</div>
+                      {(order.lastWebhookAt || order.updatedAt) && order.trackingNumber && (
                         <div className="mt-0.5 text-xs text-gray-400">
-                          Tracked {formatDate(order.lastWebhookAt)}
+                          Tracked {formatDate((order.lastWebhookAt || order.updatedAt)!)}
                         </div>
                       )}
                     </td>
