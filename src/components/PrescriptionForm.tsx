@@ -186,7 +186,7 @@ export default function PrescriptionForm({
   // Increments when an order set is applied, forcing SigBuilder remounts
   const [rxGeneration, setRxGeneration] = useState(0);
 
-  // Load active clinic ID from localStorage on mount (for multi-tenant support)
+  // Load active clinic ID and detect clinic-specific defaults on mount
   useEffect(() => {
     const activeClinicId = localStorage.getItem('activeClinicId');
     if (activeClinicId) {
@@ -195,6 +195,14 @@ export default function PrescriptionForm({
         setForm((f: any) => ({ ...f, clinicId: clinicIdNum }));
         logger.info(`[PrescriptionForm] Set active clinicId: ${clinicIdNum}`);
       }
+    }
+
+    // WellMedR defaults to UPS 2nd Day Air (8200) instead of Overnight (8115)
+    const isWellmedr =
+      typeof window !== 'undefined' &&
+      window.location.hostname.toLowerCase().includes('wellmedr');
+    if (isWellmedr) {
+      setForm((f: any) => ({ ...f, shippingMethod: 8200 }));
     }
   }, []);
 
