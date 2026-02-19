@@ -143,7 +143,7 @@ export default function AdminOrdersPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
+    <div className="mx-auto w-full max-w-[1600px] p-6">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
@@ -296,16 +296,16 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1">
                         <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(order.shippingStatus || order.status)}`}
+                          className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(order.shippingStatus || order.status)}`}
                         >
                           {getStatusIcon(order.shippingStatus || order.status)}
                           {(order.shippingStatus || order.status || 'Unknown').replace('_', ' ')}
                         </span>
                         {(order._isShipmentOnly || order.lifefileOrderId) && (
                           <span
-                            className="rounded bg-orange-50 px-1.5 py-0.5 text-xs text-orange-600"
+                            className="inline-flex w-fit rounded bg-orange-50 px-1.5 py-0.5 text-xs text-orange-600"
                             title={
                               order._isShipmentOnly
                                 ? 'Tracking from Lifefile webhook - order record pending'
