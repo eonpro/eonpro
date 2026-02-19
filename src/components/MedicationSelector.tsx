@@ -207,9 +207,11 @@ export default function MedicationSelector({
     // GLP-1: only the standard options in display order
     const SEMAGLUTIDE_KEYS = ['203448971', '203448947', '203449363', '202851329', '203448974']; // 1mL, 2mL, 3mL, 5/20 2mL, 5mL
     const TIRZEPATIDE_KEYS = ['203448972', '203448973', '203449364', '203449500', '203418602'];
+    const SERMORELIN_KEY = '203666651'; // Only show the 5ML vial
     const filtered = meds.filter((m) => {
       if (m.subCategory === 'Semaglutide') return SEMAGLUTIDE_KEYS.includes(m.key);
       if (m.subCategory === 'Tirzepatide') return TIRZEPATIDE_KEYS.includes(m.key);
+      if (m.name.toLowerCase().includes('sermorelin')) return m.key === SERMORELIN_KEY;
       return true;
     });
 
