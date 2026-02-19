@@ -218,6 +218,34 @@ export async function sendVerificationEmail(
 }
 
 /**
+ * Send verification code via SMS (Twilio)
+ */
+export async function sendVerificationSMS(
+  phone: string,
+  code: string,
+  type: 'password_reset' | 'login_otp',
+  clinicName?: string
+): Promise<boolean> {
+  try {
+    const { sendSMS } = await import('@/lib/integrations/twilio/smsService');
+    const brand = clinicName || 'EONPRO';
+    const label = type === 'login_otp' ? 'login' : 'password reset';
+    const body = `Your ${brand} ${label} code is: ${code}. It expires in 15 minutes. Do not share this code.`;
+
+    const result = await sendSMS({ to: phone, body, templateType: `auth_${type}` });
+    if (result.success) {
+      logger.info('Verification SMS sent', { type });
+      return true;
+    }
+    logger.error('Failed to send verification SMS', { type, error: result.error });
+    return false;
+  } catch (error) {
+    logger.error('Failed to send verification SMS:', error);
+    return false;
+  }
+}
+
+/**
  * Generate email HTML template branded to the clinic (or EONPRO default)
  */
 function generateEmailTemplate(

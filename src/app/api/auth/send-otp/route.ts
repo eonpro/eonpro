@@ -15,9 +15,9 @@ import { isTwilioConfigured } from '@/lib/integrations/twilio/config';
 import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
 
-// Schema for phone number
 const sendOtpSchema = z.object({
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  clinicId: z.number().optional(),
 });
 
 // Generate a random 6-digit OTP
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       );
     }
 
-    const { phone } = validated.data;
+    const { phone, clinicId } = validated.data;
 
     // Format phone number
     const formattedPhone = formatPhoneNumber(phone);
@@ -147,9 +147,14 @@ export async function POST(req: NextRequest): Promise<Response> {
       );
     }
 
-    // Send SMS
+    let clinicName = 'EONPRO';
+    if (clinicId) {
+      const clinic = await prisma.clinic.findUnique({ where: { id: clinicId }, select: { name: true } });
+      if (clinic) clinicName = clinic.name;
+    }
+
     const firstName = provider?.firstName || patient?.firstName || 'there';
-    const smsBody = `Hi ${firstName}! Your EONPRO verification code is: ${otp}. This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`;
+    const smsBody = `Hi ${firstName}! Your ${clinicName} verification code is: ${otp}. This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share this code with anyone.`;
 
     const twilioFeatureEnabled = isFeatureEnabled('TWILIO_SMS');
     const useMock = !twilioConfigured || process.env.TWILIO_USE_MOCK === 'true';

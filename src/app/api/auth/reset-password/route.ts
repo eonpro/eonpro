@@ -13,6 +13,7 @@ import {
   storeVerificationCode,
   verifyOTPCode,
   sendVerificationEmail,
+  sendVerificationSMS,
   resolveClinicEmailBranding,
 } from '@/lib/auth/verification';
 import { isEmailConfigured } from '@/lib/email';
@@ -24,15 +25,15 @@ import { isEmailConfigured } from '@/lib/email';
 export const POST = strictRateLimit(async (req: NextRequest) => {
   try {
     const body = await req.json();
-    const { email, role = 'provider', clinicId } = body;
+    const { email, role = 'provider', clinicId, method = 'email' } = body;
 
-    // Validate input
     if (!email) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // Verify email service is configured
-    if (!isEmailConfigured()) {
+    const viaSMS = method === 'sms';
+
+    if (!viaSMS && !isEmailConfigured()) {
       logger.error('Email service not configured - cannot send password reset code');
       return NextResponse.json(
         { error: 'Email service is temporarily unavailable. Please try again later.' },
@@ -40,53 +41,72 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       );
     }
 
-    // Check if user exists based on role
     let userExists = false;
+    let patientPhone: string | null = null;
 
     switch (role) {
-      case 'patient':
+      case 'patient': {
         const user = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
+          select: { id: true, patientId: true },
         });
         userExists = !!user;
+        if (user?.patientId && viaSMS) {
+          const patient = await prisma.patient.findUnique({
+            where: { id: user.patientId },
+            select: { phone: true },
+          });
+          patientPhone = patient?.phone || null;
+        }
         break;
-
-      case 'provider':
+      }
+      case 'provider': {
         const provider: any = await prisma.provider.findFirst({
           where: { email: email.toLowerCase() },
         });
         userExists = !!provider;
         break;
-
+      }
       case 'admin':
         userExists = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
         break;
-
       default:
         return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
 
-    // Always return success to prevent email enumeration
-    // But only send email if user exists
     if (userExists) {
       const code = generateOTP();
       await storeVerificationCode(email.toLowerCase(), code, 'password_reset');
 
-      const clinic = await resolveClinicEmailBranding(
-        typeof clinicId === 'number' ? clinicId : undefined
-      );
-      await sendVerificationEmail(email.toLowerCase(), code, 'password_reset', clinic);
+      if (viaSMS && patientPhone) {
+        const clinicBranding = await resolveClinicEmailBranding(
+          typeof clinicId === 'number' ? clinicId : undefined
+        );
+        await sendVerificationSMS(
+          patientPhone,
+          code,
+          'password_reset',
+          clinicBranding?.clinicName
+        );
+      } else {
+        const clinic = await resolveClinicEmailBranding(
+          typeof clinicId === 'number' ? clinicId : undefined
+        );
+        await sendVerificationEmail(email.toLowerCase(), code, 'password_reset', clinic);
+      }
 
-      logger.info(`Password reset requested for ${email} (${role})`);
+      logger.info(`Password reset requested for ${email} (${role}) via ${method}`);
     } else {
       logger.warn(`Password reset requested for non-existent user: ${email} (${role})`);
     }
 
-    // Always return success to prevent user enumeration
+    const successMsg = viaSMS
+      ? 'If an account with a phone number on file exists, a reset code has been sent via text.'
+      : 'If an account exists with this email, a reset code has been sent.';
+
     return NextResponse.json({
       success: true,
-      message: 'If an account exists with this email, a reset code has been sent',
-      // In development only, indicate if user exists and include code
+      message: successMsg,
       ...(process.env.NODE_ENV === 'development' && {
         userExists,
         ...(userExists && {

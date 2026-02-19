@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
@@ -100,6 +100,7 @@ export default function PatientLoginPage() {
   const [resetCodeSent, setResetCodeSent] = useState(false);
   const [resetCountdown, setResetCountdown] = useState(0);
   const [canResendReset, setCanResendReset] = useState(false);
+  const [resetMethod, setResetMethod] = useState<'email' | 'sms'>('email');
 
   // White-label branding
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
@@ -455,14 +456,16 @@ export default function PatientLoginPage() {
     }
   };
 
-  const handleForgotPassword = async () => {
+  const handleForgotPassword = async (viaSms = false) => {
     setError('');
     setLoading(true);
+    const method = viaSms ? 'sms' : 'email';
+    setResetMethod(method);
     try {
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, role: 'patient', clinicId: resolvedClinicId }),
+        body: JSON.stringify({ email: identifier, role: 'patient', clinicId: resolvedClinicId, method }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -836,14 +839,27 @@ export default function PatientLoginPage() {
 
                 {/* Forgot password & back */}
                 <div className="flex flex-col items-center gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={loading}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
-                  >
-                    Forgot password?
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => handleForgotPassword(false)}
+                      disabled={loading}
+                      className="inline-flex items-center gap-1.5 text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Reset via email
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => handleForgotPassword(true)}
+                      disabled={loading}
+                      className="inline-flex items-center gap-1.5 text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                    >
+                      <Smartphone className="h-3.5 w-3.5" />
+                      Reset via text
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={handleBack}
@@ -967,8 +983,12 @@ export default function PatientLoginPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Reset code sent to</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className="mb-1 text-xs text-gray-500">
+                      Reset code sent {resetMethod === 'sms' ? 'via text to phone on file' : 'to'}
+                    </p>
+                    {resetMethod === 'email' && (
+                      <p className="font-medium text-gray-900">{identifier}</p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -984,8 +1004,14 @@ export default function PatientLoginPage() {
                 </div>
 
                 <div className="text-center">
-                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
+                  {resetMethod === 'sms' ? (
+                    <Smartphone className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                  ) : (
+                    <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                  )}
+                  <h2 className="mb-2 text-xl font-semibold text-gray-900">
+                    {resetMethod === 'sms' ? 'Check your phone' : 'Check your email'}
+                  </h2>
                   <p className="text-gray-600">
                     Enter the 6-digit code we sent to reset your password
                   </p>
@@ -1022,7 +1048,7 @@ export default function PatientLoginPage() {
                       type="button"
                       onClick={() => {
                         setResetCode(['', '', '', '', '', '']);
-                        handleForgotPassword();
+                        handleForgotPassword(resetMethod === 'sms');
                       }}
                       className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
                       style={{ color: primaryColor }}
