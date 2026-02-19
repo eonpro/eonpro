@@ -509,20 +509,20 @@ export default function PatientPortalDashboard() {
           >
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium opacity-80" style={{ color: '#333' }}>
+                <p className="text-sm font-medium text-white/80">
                   {t('dashboardCurrentWeight')}
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-semibold" style={{ color: '#333' }}>
+                  <span className="text-5xl font-semibold text-white">
                     {currentWeight || '---'}
                   </span>
-                  <span className="text-xl font-medium" style={{ color: '#555' }}>
+                  <span className="text-xl font-medium text-white/70">
                     {t('dashboardLbs')}
                   </span>
                 </div>
               </div>
-              <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
-                <Scale className="h-8 w-8" style={{ color: '#333' }} />
+              <div className="rounded-2xl bg-white/15 p-4">
+                <Scale className="h-8 w-8 text-white" />
               </div>
             </div>
 
@@ -530,38 +530,38 @@ export default function PatientPortalDashboard() {
               <div className="flex items-center gap-2">
                 {weightChange < 0 ? (
                   <>
-                    <TrendingDown className="h-5 w-5" style={{ color: '#166534' }} />
-                    <span className="font-semibold" style={{ color: '#166534' }}>
+                    <TrendingDown className="h-5 w-5 text-white" />
+                    <span className="font-semibold text-white">
                       {t('dashboardDownLbs').replace('{n}', Math.abs(weightChange).toString())}
                     </span>
                   </>
                 ) : weightChange > 0 ? (
                   <>
-                    <TrendingUp className="h-5 w-5" style={{ color: '#dc2626' }} />
-                    <span className="font-semibold" style={{ color: '#dc2626' }}>
+                    <TrendingUp className="h-5 w-5 text-white" />
+                    <span className="font-semibold text-white">
                       {t('dashboardUpLbs').replace('{n}', weightChange.toString())}
                     </span>
                   </>
                 ) : (
-                  <span className="font-semibold" style={{ color: '#333' }}>
+                  <span className="font-semibold text-white">
                     {t('dashboardNoChange')}
                   </span>
                 )}
-                <span className="text-sm opacity-70" style={{ color: '#555' }}>
+                <span className="text-sm text-white/70">
                   {t('dashboardSinceStarting')}
                 </span>
               </div>
             ) : !currentWeight ? (
-              <p className="text-sm" style={{ color: '#555' }}>
+              <p className="text-sm text-white/70">
                 Log your first weight to start tracking progress
               </p>
             ) : null}
 
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-sm font-medium" style={{ color: '#555' }}>
+              <span className="text-sm font-medium text-white/70">
                 {currentWeight ? t('dashboardTapToLogWeight') : 'Tap to get started'}
               </span>
-              <ChevronRight className="h-5 w-5" style={{ color: '#555' }} />
+              <ChevronRight className="h-5 w-5 text-white/70" />
             </div>
           </div>
         </Link>

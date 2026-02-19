@@ -266,9 +266,13 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="mb-6 flex items-center justify-center px-4">
           <Link href={PATIENT_PORTAL_PATH}>
             <img
-              src={branding?.logoUrl || EONPRO_LOGO}
+              src={
+                sidebarExpanded
+                  ? branding?.logoUrl || EONPRO_LOGO
+                  : branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_LOGO
+              }
               alt={branding?.clinicName || 'EONPRO'}
-              className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10'} object-contain`}
+              className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10 rounded-lg'} object-contain`}
             />
           </Link>
         </div>
