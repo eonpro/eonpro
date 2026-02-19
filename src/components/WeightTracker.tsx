@@ -87,6 +87,14 @@ const getBMICategory = (bmi: number): { label: string; color: string; bgColor: s
   return { label: 'Obese', color: '#EF4444', bgColor: '#FEF2F2' };
 };
 
+function getHeroTextColor(hex: string): string {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16) / 255;
+  const g = parseInt(c.substring(2, 4), 16) / 255;
+  const b = parseInt(c.substring(4, 6), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 ? 'dark' : 'light';
+}
+
 export default function WeightTracker({
   patientId,
   embedded = false,
@@ -99,6 +107,7 @@ export default function WeightTracker({
   usePortalFetch = false,
   weightLogsFromParent,
 }: WeightTrackerProps) {
+  const heroTheme = getHeroTextColor(accentColor);
   const { t: tPortal } = usePatientPortalLanguage();
   const t = usePortalI18n ? tPortal : (key: string) => getPatientPortalTranslation('en', key);
   const [currentWeight, setCurrentWeight] = useState('');
@@ -370,18 +379,18 @@ export default function WeightTracker({
 
         <div className="relative">
           <div className="mb-0.5 flex items-center gap-2 sm:mb-1">
-            <Scale className="h-3.5 w-3.5 text-gray-700/60 sm:h-4 sm:w-4" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-700/60 sm:text-xs">
+            <Scale className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${heroTheme === 'light' ? 'text-white/60' : 'text-gray-700/60'}`} />
+            <span className={`text-[10px] font-semibold uppercase tracking-wider sm:text-xs ${heroTheme === 'light' ? 'text-white/60' : 'text-gray-700/60'}`}>
               {t('weightTrackerCurrentWeight')}
             </span>
           </div>
 
           <div className="flex items-end justify-between gap-2">
             <div className="flex min-w-0 items-baseline gap-2 sm:gap-3">
-              <span className="text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl md:text-7xl">
+              <span className={`text-4xl font-semibold tracking-tight sm:text-5xl md:text-7xl ${heroTheme === 'light' ? 'text-white' : 'text-gray-900'}`}>
                 {latestWeight || '---'}
               </span>
-              <span className="mb-1 text-lg font-medium text-gray-700/70 sm:mb-2 sm:text-2xl">
+              <span className={`mb-1 text-lg font-medium sm:mb-2 sm:text-2xl ${heroTheme === 'light' ? 'text-white/70' : 'text-gray-700/70'}`}>
                 {t('weightTrackerLbs')}
               </span>
             </div>
@@ -389,16 +398,22 @@ export default function WeightTracker({
             {weightChange !== 0 && (
               <div
                 className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 backdrop-blur-sm sm:gap-2 sm:rounded-2xl sm:px-5 sm:py-3 ${
-                  weightChange < 0 ? 'bg-emerald-500/20' : 'bg-rose-500/20'
+                  heroTheme === 'light'
+                    ? 'bg-white/20'
+                    : weightChange < 0 ? 'bg-emerald-500/20' : 'bg-rose-500/20'
                 }`}
               >
                 {weightChange < 0 ? (
-                  <TrendingDown className="h-4 w-4 text-emerald-700 sm:h-5 sm:w-5" />
+                  <TrendingDown className={`h-4 w-4 sm:h-5 sm:w-5 ${heroTheme === 'light' ? 'text-white' : 'text-emerald-700'}`} />
                 ) : (
-                  <TrendingUp className="h-4 w-4 text-rose-700 sm:h-5 sm:w-5" />
+                  <TrendingUp className={`h-4 w-4 sm:h-5 sm:w-5 ${heroTheme === 'light' ? 'text-white' : 'text-rose-700'}`} />
                 )}
                 <span
-                  className={`text-sm font-semibold sm:text-lg ${weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'}`}
+                  className={`text-sm font-semibold sm:text-lg ${
+                    heroTheme === 'light'
+                      ? 'text-white'
+                      : weightChange < 0 ? 'text-emerald-700' : 'text-rose-700'
+                  }`}
                 >
                   {Math.abs(weightChange).toFixed(1)} {t('weightTrackerLbs')}
                 </span>
@@ -409,8 +424,8 @@ export default function WeightTracker({
           {/* BMI Badge - single row, smaller on mobile */}
           {showBMI && currentBMI && bmiCategory && (
             <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-4 md:mt-6 md:gap-3">
-              <div className="rounded-lg bg-black/10 px-3 py-1.5 backdrop-blur-sm sm:rounded-xl sm:px-4 sm:py-2">
-                <span className="text-xs font-semibold text-gray-800 sm:text-sm">
+              <div className={`rounded-lg px-3 py-1.5 backdrop-blur-sm sm:rounded-xl sm:px-4 sm:py-2 ${heroTheme === 'light' ? 'bg-white/20' : 'bg-black/10'}`}>
+                <span className={`text-xs font-semibold sm:text-sm ${heroTheme === 'light' ? 'text-white' : 'text-gray-800'}`}>
                   BMI {currentBMI.toFixed(1)}
                 </span>
               </div>
@@ -478,13 +493,13 @@ export default function WeightTracker({
           <button
             type="submit"
             disabled={isLoading || !currentWeight.trim()}
-            className="group relative min-h-[48px] overflow-hidden rounded-xl px-6 py-3 font-semibold text-gray-900 transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[52px] sm:rounded-2xl sm:px-8 sm:py-4 md:px-10 md:py-5 md:hover:scale-105 md:hover:shadow-xl"
+            className={`group relative min-h-[48px] overflow-hidden rounded-xl px-6 py-3 font-semibold transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[52px] sm:rounded-2xl sm:px-8 sm:py-4 md:px-10 md:py-5 md:hover:scale-105 md:hover:shadow-xl ${heroTheme === 'light' ? 'text-white' : 'text-gray-900'}`}
             style={{ backgroundColor: accentColor }}
           >
             <span className="absolute inset-0 translate-y-full bg-black/10 transition-transform duration-300 group-hover:translate-y-0" />
             {isLoading ? (
               <div className="flex items-center justify-center gap-2">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-900 border-t-transparent" />
+                <div className={`h-5 w-5 animate-spin rounded-full border-2 border-t-transparent ${heroTheme === 'light' ? 'border-white' : 'border-gray-900'}`} />
                 <span className="relative">{t('weightTrackerSaving')}</span>
               </div>
             ) : showSuccess ? (
