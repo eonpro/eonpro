@@ -13,6 +13,7 @@ import {
   storeVerificationCode,
   verifyOTPCode,
   sendVerificationEmail,
+  resolveClinicEmailBranding,
 } from '@/lib/auth/verification';
 import { isEmailConfigured } from '@/lib/email';
 
@@ -23,7 +24,7 @@ import { isEmailConfigured } from '@/lib/email';
 export const POST = strictRateLimit(async (req: NextRequest) => {
   try {
     const body = await req.json();
-    const { email, role = 'provider' } = body;
+    const { email, role = 'provider', clinicId } = body;
 
     // Validate input
     if (!email) {
@@ -68,14 +69,13 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
     // Always return success to prevent email enumeration
     // But only send email if user exists
     if (userExists) {
-      // Generate OTP code
       const code = generateOTP();
-
-      // Store verification code
       await storeVerificationCode(email.toLowerCase(), code, 'password_reset');
 
-      // Send email
-      await sendVerificationEmail(email.toLowerCase(), code, 'password_reset');
+      const clinic = await resolveClinicEmailBranding(
+        typeof clinicId === 'number' ? clinicId : undefined
+      );
+      await sendVerificationEmail(email.toLowerCase(), code, 'password_reset', clinic);
 
       logger.info(`Password reset requested for ${email} (${role})`);
     } else {
@@ -132,8 +132,7 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
       );
     }
 
-    // Validate password strength
-    if (newPassword.length < 12) {
+    if (newPassword.length < 8) {
       return NextResponse.json(
         { error: 'Password must be at least 8 characters long' },
         { status: 400 }

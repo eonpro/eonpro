@@ -16,11 +16,13 @@ import {
   generateOTP,
   storeVerificationCode,
   sendVerificationEmail,
+  resolveClinicEmailBranding,
 } from '@/lib/auth/verification';
 import { isEmailConfigured } from '@/lib/email';
 
 const sendEmailOtpSchema = z.object({
   email: z.string().email('Invalid email address').transform((v) => v.toLowerCase().trim()),
+  clinicId: z.number().optional(),
 });
 
 const OTP_EXPIRY_MINUTES = 15;
@@ -37,7 +39,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       );
     }
 
-    const { email } = validated.data;
+    const { email, clinicId } = validated.data;
 
     // Verify email service is configured (not mock mode)
     if (!isEmailConfigured()) {
@@ -101,8 +103,8 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       );
     }
 
-    // Send email
-    const sent = await sendVerificationEmail(email, code, 'login_otp');
+    const clinic = await resolveClinicEmailBranding(clinicId);
+    const sent = await sendVerificationEmail(email, code, 'login_otp', clinic);
 
     if (!sent) {
       logger.error('Failed to send login OTP email');

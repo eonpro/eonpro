@@ -3,7 +3,7 @@
  * Handles OTP generation, storage, and verification for email authentication
  */
 
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
@@ -12,6 +12,36 @@ interface VerificationResult {
   success: boolean;
   message: string;
   email?: string;
+}
+
+export interface ClinicEmailBranding {
+  clinicName: string;
+  logoUrl?: string | null;
+  primaryColor: string;
+}
+
+/**
+ * Resolve clinic branding for email templates from a clinicId.
+ * Returns null if clinic not found or no branding configured.
+ */
+export async function resolveClinicEmailBranding(
+  clinicId: number | null | undefined
+): Promise<ClinicEmailBranding | undefined> {
+  if (!clinicId) return undefined;
+  try {
+    const clinic = await basePrisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { name: true, logoUrl: true, primaryColor: true },
+    });
+    if (!clinic) return undefined;
+    return {
+      clinicName: clinic.name,
+      logoUrl: clinic.logoUrl,
+      primaryColor: clinic.primaryColor || '#059669',
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -147,29 +177,31 @@ export async function verifyOTPCode(
 }
 
 /**
- * Send verification email via AWS SES
+ * Send verification email via AWS SES, branded per clinic
  */
 export async function sendVerificationEmail(
   email: string,
   code: string,
-  type: 'email_verification' | 'password_reset' | 'login_otp'
+  type: 'email_verification' | 'password_reset' | 'login_otp',
+  clinic?: ClinicEmailBranding
 ): Promise<boolean> {
   try {
+    const brandName = clinic?.clinicName || 'EONPRO';
     const subject =
       type === 'login_otp'
-        ? 'Your Login Code - EONPRO'
+        ? `Your Login Code - ${brandName}`
         : type === 'email_verification'
-          ? 'Verify Your Email Address - EONPRO'
-          : 'Reset Your Password - EONPRO';
+          ? `Verify Your Email Address - ${brandName}`
+          : `Reset Your Password - ${brandName}`;
 
     const result = await sendEmail({
       to: email,
       subject,
-      html: generateEmailTemplate(code, type),
+      html: generateEmailTemplate(code, type, clinic),
       text: `Your ${type === 'login_otp' ? 'login' : type === 'email_verification' ? 'verification' : 'password reset'} code is: ${code}. This code expires in 15 minutes.`,
       sourceType: 'manual',
       sourceId: `${type}-${Date.now()}`,
-      skipLogging: true, // Critical auth emails must bypass suppression checks
+      skipLogging: true,
     });
 
     if (result.success) {
@@ -186,17 +218,22 @@ export async function sendVerificationEmail(
 }
 
 /**
- * Generate email HTML template with EONPRO branding
+ * Generate email HTML template branded to the clinic (or EONPRO default)
  */
 function generateEmailTemplate(
   code: string,
-  type: 'email_verification' | 'password_reset' | 'login_otp'
+  type: 'email_verification' | 'password_reset' | 'login_otp',
+  clinic?: ClinicEmailBranding
 ): string {
+  const brandName = clinic?.clinicName || 'EONPRO';
+  const brandColor = clinic?.primaryColor || '#059669';
+  const logoUrl = clinic?.logoUrl;
+
   const title =
     type === 'login_otp'
       ? 'Your Login Code'
       : type === 'email_verification'
-        ? 'Verify Your Email Address'
+        ? 'Verify Your Email'
         : 'Reset Your Password';
 
   const message =
@@ -204,61 +241,43 @@ function generateEmailTemplate(
       ? 'Use this code to log in to your account:'
       : type === 'email_verification'
         ? 'Please use the following code to verify your email address:'
-        : 'Please use the following code to reset your password:';
+        : 'Use this code to reset your password:';
 
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #efece7; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
-          .header { background: #059669; color: white; padding: 30px 20px; text-align: center; }
-          .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
-          .content { padding: 30px; }
-          .code-box { 
-            background: #efece7; 
-            border: 2px dashed #059669; 
-            border-radius: 8px;
-            padding: 20px; 
-            margin: 24px 0; 
-            text-align: center; 
-            font-size: 36px; 
-            font-weight: bold; 
-            letter-spacing: 8px;
-            color: #059669;
-          }
-          .warning { background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 16px; border-radius: 4px; margin: 20px 0; }
-          .footer { padding: 20px; text-align: center; color: #6B7280; font-size: 13px; border-top: 1px solid #E5E7EB; }
-          .footer a { color: #059669; text-decoration: none; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="card">
-            <div class="header">
-              <h1>${title}</h1>
-            </div>
-            <div class="content">
-              <p>${message}</p>
-              <div class="code-box">${code}</div>
-              <div class="warning">
-                <strong>This code expires in 15 minutes</strong> for security reasons.
-              </div>
-              <p style="color: #6B7280; font-size: 14px;">If you didn't request this code, you can safely ignore this email. Someone may have entered your email address by mistake.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} EONPRO. All rights reserved.</p>
-              <p><a href="https://eonpro.io">eonpro.io</a></p>
-            </div>
-          </div>
+  const logoHtml = logoUrl
+    ? `<img src="${logoUrl}" alt="${brandName}" style="max-height:40px;max-width:180px;margin-bottom:16px;" />`
+    : `<h2 style="margin:0 0 12px;font-size:20px;font-weight:700;color:white;">${brandName}</h2>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;background:#f4f4f5;">
+  <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
+    <div style="background:white;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08);overflow:hidden;">
+      <div style="background:${brandColor};padding:32px 24px;text-align:center;">
+        ${logoHtml}
+        <h1 style="margin:0;font-size:22px;font-weight:600;color:white;">${title}</h1>
+      </div>
+      <div style="padding:32px 24px;">
+        <p style="margin:0 0 8px;font-size:15px;color:#374151;">${message}</p>
+        <div style="background:#f9fafb;border:2px solid ${brandColor};border-radius:12px;padding:24px;margin:20px 0;text-align:center;font-size:36px;font-weight:bold;letter-spacing:8px;color:${brandColor};">
+          ${code}
         </div>
-      </body>
-    </html>
-  `;
+        <div style="background:#FFFBEB;border-left:4px solid #F59E0B;padding:12px 16px;border-radius:6px;margin:20px 0;">
+          <p style="margin:0;font-size:14px;color:#92400E;"><strong>This code expires in 15 minutes</strong> for security reasons.</p>
+        </div>
+        <p style="color:#9CA3AF;font-size:13px;margin:20px 0 0;">If you didn't request this code, you can safely ignore this email. Someone may have entered your email address by mistake.</p>
+      </div>
+      <div style="padding:20px 24px;text-align:center;border-top:1px solid #f3f4f6;">
+        <p style="margin:0;color:#9CA3AF;font-size:12px;">&copy; ${new Date().getFullYear()} ${brandName}. All rights reserved.</p>
+        <p style="margin:4px 0 0;color:#9CA3AF;font-size:12px;">Powered by <a href="https://eonpro.io" style="color:${brandColor};text-decoration:none;">EONPRO</a></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 /**

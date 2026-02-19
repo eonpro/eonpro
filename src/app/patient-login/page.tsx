@@ -364,7 +364,7 @@ export default function PatientLoginPage() {
       const response = await fetch('/api/auth/send-email-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier }),
+        body: JSON.stringify({ email: identifier, clinicId: resolvedClinicId }),
       });
 
       const data = await response.json();
@@ -462,7 +462,7 @@ export default function PatientLoginPage() {
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, role: 'patient' }),
+        body: JSON.stringify({ email: identifier, role: 'patient', clinicId: resolvedClinicId }),
       });
       const data = await response.json();
       if (!response.ok) {
