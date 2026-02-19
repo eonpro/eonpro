@@ -88,7 +88,7 @@ export default function TutorialVideosPage() {
   return (
     <div className="min-h-screen bg-[var(--brand-primary-light)]">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b bg-white">
+      <div className="sticky top-0 z-10">
         <div className="mx-auto max-w-2xl px-4 py-3">
           <div className="flex items-center gap-3">
             <Link href="/patient-portal" className="rounded-lg p-2 hover:bg-gray-100">
