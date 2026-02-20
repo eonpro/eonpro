@@ -226,13 +226,8 @@ export default function ProviderPatientsPage() {
     setError('');
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const response = await apiFetch('/api/patients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(newPatient),
       });
 

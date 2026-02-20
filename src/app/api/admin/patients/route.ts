@@ -106,9 +106,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Search filter using unified buildPatientSearchWhere (single source of truth).
     // Handles multi-term AND logic, phone search, and patientId matching.
     // Patients with NULL searchIndex are handled via a fallback query below.
+    //
+    // Use AND to compose search filter with base where clause, avoiding
+    // Object.assign which would overwrite the base OR (invoice/order constraint)
+    // when the search filter also contains an OR key.
     if (search) {
       const searchFilter = buildPatientSearchWhere(search);
-      Object.assign(whereClause, searchFilter);
+      whereClause.AND = [
+        ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+        searchFilter,
+      ];
     }
 
     // Use explicit `select` (not `include`) to avoid SELECT * on Patient.

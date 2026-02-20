@@ -70,7 +70,10 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Patients with NULL searchIndex are handled via a fallback query below.
     if (search) {
       const searchFilter = buildPatientSearchWhere(search);
-      Object.assign(whereClause, searchFilter);
+      whereClause.AND = [
+        ...(Array.isArray(whereClause.AND) ? whereClause.AND : whereClause.AND ? [whereClause.AND] : []),
+        searchFilter,
+      ];
     }
 
     // Use explicit `select` (not `include`) to avoid SELECT * on Patient.

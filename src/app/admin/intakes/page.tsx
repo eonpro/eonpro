@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Plus,
-  Filter,
   Eye,
   Edit,
   MoreVertical,
@@ -65,7 +64,6 @@ export default function AdminIntakesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [mergePatient, setMergePatient] = useState<Patient | null>(null);
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
@@ -100,8 +98,6 @@ export default function AdminIntakesPage() {
       setIsSearching(isSearch);
       setLoading(true);
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
       const params = new URLSearchParams({
         includeContact: 'true',
       });
@@ -115,11 +111,7 @@ export default function AdminIntakesPage() {
         params.set('offset', offset.toString());
       }
 
-      const response = await apiFetch(`/api/admin/intakes?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/intakes?${params.toString()}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -152,11 +144,8 @@ export default function AdminIntakesPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Apply client-side status filter
-  const filteredPatients = patients.filter((patient) => {
-    const matchesStatus = statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
-    return matchesStatus;
-  });
+  // No client-side status filter — API returns constant 'intake' status for all records
+  const filteredPatients = patients;
 
   // Pagination calculations
   const totalPages = isSearching
@@ -213,12 +202,8 @@ export default function AdminIntakesPage() {
   const handleDeletePatient = async () => {
     if (!deletePatient) return;
 
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
     const response = await apiFetch(`/api/patients/${deletePatient.id}`, {
       method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     if (!response.ok) {
@@ -273,41 +258,25 @@ export default function AdminIntakesPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Search by name, patient ID, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-400 hover:text-gray-600"
-              >
-                <span className="sr-only">Clear search</span>×
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search by name, patient ID, email, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-4 pr-4 focus:border-transparent focus:outline-none focus:ring-2"
+            style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-400 hover:text-gray-600"
             >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
+              <span className="sr-only">Clear search</span>×
+            </button>
+          )}
         </div>
       </div>
 
@@ -350,13 +319,11 @@ export default function AdminIntakesPage() {
               <>
                 Found <span className="font-medium">{filteredPatients.length}</span> intake
                 {filteredPatients.length !== 1 ? 's' : ''} matching &quot;{debouncedSearch}&quot;
-                {statusFilter !== 'all' && ` (${statusFilter})`}
               </>
             ) : (
               <>
                 Showing <span className="font-medium">{displayedPatients.length}</span> of{' '}
                 <span className="font-medium">{meta.total}</span> intakes
-                {statusFilter !== 'all' && ` (filtered by ${statusFilter})`}
               </>
             )}
           </p>

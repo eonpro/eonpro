@@ -112,7 +112,6 @@ export default function AdminPatientsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [treatmentFilter, setTreatmentFilter] = useState('all');
   const [mergePatient, setMergePatient] = useState<Patient | null>(null);
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
@@ -147,12 +146,7 @@ export default function AdminPatientsPage() {
   // Fetch sales reps list
   const fetchSalesReps = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      const response = await apiFetch('/api/admin/sales-reps', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch('/api/admin/sales-reps');
       if (response.ok) {
         const data = await response.json();
         setSalesReps(data.salesReps || []);
@@ -170,9 +164,6 @@ export default function AdminPatientsPage() {
         setIsSearching(isSearch);
         setLoading(true);
 
-        const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-        const headers = { Authorization: `Bearer ${token}` };
-
         const params = new URLSearchParams({ includeContact: 'true' });
 
         if (isSearch) {
@@ -187,7 +178,7 @@ export default function AdminPatientsPage() {
           params.set('salesRepId', salesRepIdFilter);
         }
 
-        const response = await apiFetch(`/api/admin/patients?${params.toString()}`, { headers });
+        const response = await apiFetch(`/api/admin/patients?${params.toString()}`);
 
         if (response.ok) {
           const data = await response.json();
@@ -228,14 +219,12 @@ export default function AdminPatientsPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Apply client-side status and treatment filters
+  // Apply client-side treatment filter (status filter removed — API returns constant 'patient' status)
   const filteredPatients = patients.filter((patient) => {
-    const matchesStatus =
-      statusFilter === 'all' || patient.status?.toLowerCase() === statusFilter;
     const matchesTreatment =
       treatmentFilter === 'all' ||
       safeTags(patient.tags).some((tag) => tag === treatmentFilter);
-    return matchesStatus && matchesTreatment;
+    return matchesTreatment;
   });
 
   // Pagination calculations
@@ -298,12 +287,8 @@ export default function AdminPatientsPage() {
   const handleDeletePatient = async () => {
     if (!deletePatient) return;
 
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
     const response = await apiFetch(`/api/patients/${deletePatient.id}`, {
       method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     if (!response.ok) {
@@ -383,19 +368,6 @@ export default function AdminPatientsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2"
-              style={{ '--tw-ring-color': 'var(--brand-primary, #4fa77e)' } as React.CSSProperties}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
             <select
               value={treatmentFilter}
               onChange={(e) => setTreatmentFilter(e.target.value)}
