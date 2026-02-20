@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+
+
 
 const TREATMENT_CARDS = [
   {
@@ -75,23 +75,12 @@ export default function TreatmentsPage() {
 
       <div className="rounded-xl bg-indigo-50 p-6 text-center">
         <h3 className="text-base font-semibold text-gray-900">
-          Ready to get started?
+          Interested in a treatment?
         </h3>
         <p className="text-sm text-gray-500 mt-1">
-          Complete your intake form and a licensed provider will review your
-          information.
+          Contact your provider to discuss which treatment plan is right for
+          you.
         </p>
-        <Link
-          href="/patient-portal/intake"
-          className="
-            inline-flex items-center gap-2 mt-4 px-5 py-2.5
-            bg-indigo-600 text-white font-medium text-sm rounded-full
-            hover:bg-indigo-700 transition-colors
-          "
-        >
-          Start Intake
-          <ArrowRight className="w-4 h-4" />
-        </Link>
       </div>
     </div>
   );

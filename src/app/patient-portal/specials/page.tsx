@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { Gift, Users, ArrowRight } from 'lucide-react';
+import { Gift, Users } from 'lucide-react';
 
 export default function SpecialsPage() {
   return (
@@ -16,30 +15,17 @@ export default function SpecialsPage() {
         </p>
       </div>
 
-      {/* Promotions placeholder — these would be populated from clinic settings / API */}
       <div className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 p-6 text-center">
         <Gift className="w-10 h-10 text-amber-400 mx-auto" />
         <h2 className="mt-3 text-lg font-semibold text-gray-900">
           New Patient Special
         </h2>
         <p className="text-sm text-gray-500 mt-1">
-          Complete your intake today and receive a special introductory offer on
-          your first month of treatment.
+          Contact your provider to learn about current promotions and
+          introductory offers on your treatment plan.
         </p>
-        <Link
-          href="/patient-portal/intake"
-          className="
-            inline-flex items-center gap-2 mt-4 px-5 py-2.5
-            bg-amber-500 text-white font-medium text-sm rounded-full
-            hover:bg-amber-600 transition-colors
-          "
-        >
-          Get Started
-          <ArrowRight className="w-4 h-4" />
-        </Link>
       </div>
 
-      {/* Referral program */}
       <div className="rounded-xl border border-gray-100 p-6">
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-xl bg-teal-50">
@@ -57,11 +43,9 @@ export default function SpecialsPage() {
         </div>
       </div>
 
-      {/* CTA */}
       <div className="rounded-xl bg-gray-50 p-6 text-center">
         <p className="text-sm text-gray-500">
-          Specials are updated regularly. Complete your intake to unlock
-          personalized offers.
+          Specials are updated regularly. Check back often for new offers.
         </p>
       </div>
     </div>
