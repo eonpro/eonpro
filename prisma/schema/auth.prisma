@@ -126,6 +126,9 @@ model User {
   assignmentsMadeByUser PatientSalesRepAssignment[] @relation("AssignmentsMadeBy")
   assignmentsRemovedBy  PatientSalesRepAssignment[] @relation("AssignmentsRemovedBy")
 
+  // FedEx Shipping Labels
+  shipmentLabels ShipmentLabel[]
+
   // In-App Notifications
   notifications Notification[]
 

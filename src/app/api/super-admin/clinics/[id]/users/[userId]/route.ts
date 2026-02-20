@@ -19,9 +19,16 @@ function withSuperAdminAuth(
   );
 }
 
+const VALID_ROLES = [
+  'SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER',
+  'AFFILIATE', 'PATIENT', 'STAFF', 'SUPPORT', 'SALES_REP',
+] as const;
+
+const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED'] as const;
+
 /**
  * PUT /api/super-admin/clinics/[id]/users/[userId]
- * Update a user (currently supports password reset)
+ * Update a user's profile fields and/or reset password
  */
 export const PUT = withSuperAdminAuth(
   async (req: NextRequest, user: AuthUser, params: RouteParams) => {
@@ -50,7 +57,7 @@ export const PUT = withSuperAdminAuth(
             { userClinics: { some: { clinicId, isActive: true } } },
           ],
         },
-        select: { id: true, email: true, firstName: true, lastName: true },
+        select: { id: true, email: true, firstName: true, lastName: true, role: true },
       });
 
       if (!targetUser) {
@@ -61,38 +68,82 @@ export const PUT = withSuperAdminAuth(
       }
 
       const body = await req.json();
-      const { password } = body;
+      const { password, firstName, lastName, phone, role, status } = body;
 
-      if (!password || typeof password !== 'string') {
+      const userData: Record<string, unknown> = {};
+      const changes: string[] = [];
+
+      if (firstName && typeof firstName === 'string') {
+        userData.firstName = firstName.trim();
+        changes.push('firstName');
+      }
+      if (lastName && typeof lastName === 'string') {
+        userData.lastName = lastName.trim();
+        changes.push('lastName');
+      }
+      if (phone !== undefined) {
+        userData.phone = typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+        changes.push('phone');
+      }
+      if (role && typeof role === 'string') {
+        const upperRole = role.toUpperCase();
+        if (!VALID_ROLES.includes(upperRole as (typeof VALID_ROLES)[number])) {
+          return NextResponse.json({ error: `Invalid role: ${role}` }, { status: 400 });
+        }
+        userData.role = upperRole;
+        changes.push('role');
+      }
+      if (status && typeof status === 'string') {
+        const upperStatus = status.toUpperCase();
+        if (!VALID_STATUSES.includes(upperStatus as (typeof VALID_STATUSES)[number])) {
+          return NextResponse.json({ error: `Invalid status: ${status}` }, { status: 400 });
+        }
+        userData.status = upperStatus;
+        changes.push('status');
+      }
+
+      if (password && typeof password === 'string') {
+        if (password.length < 8) {
+          return NextResponse.json(
+            { error: 'Password must be at least 8 characters' },
+            { status: 400 }
+          );
+        }
+        userData.passwordHash = await bcrypt.hash(password, 12);
+        changes.push('password');
+      }
+
+      if (changes.length === 0) {
         return NextResponse.json(
-          { error: 'Password is required' },
+          { error: 'No valid fields to update' },
           { status: 400 }
         );
       }
 
-      if (password.length < 8) {
-        return NextResponse.json(
-          { error: 'Password must be at least 8 characters' },
-          { status: 400 }
-        );
-      }
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: userData,
+        });
 
-      const passwordHash = await bcrypt.hash(password, 12);
-
-      await prisma.user.update({
-        where: { id: userId },
-        data: { passwordHash },
+        if (userData.role) {
+          await tx.userClinic.updateMany({
+            where: { userId, clinicId },
+            data: { role: userData.role as string },
+          });
+        }
       });
 
-      logger.info('Password reset by super admin', {
+      logger.info('User updated by super admin', {
         targetUserId: userId,
         clinicId,
         performedBy: user.id,
+        fieldsChanged: changes,
       });
 
       return NextResponse.json({
         success: true,
-        message: 'Password updated successfully',
+        message: 'User updated successfully',
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

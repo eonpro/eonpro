@@ -114,6 +114,10 @@ export const GET = withAuth(
               id: refill.subscription.id,
               planName: refill.subscription.planName,
               status: refill.subscription.status,
+              amount: refill.subscription.amount,
+              interval: refill.subscription.interval,
+              currentPeriodEnd: refill.subscription.currentPeriodEnd,
+              stripeSubscriptionId: refill.subscription.stripeSubscriptionId,
             }
           : null,
         lastOrder: refill.lastOrder

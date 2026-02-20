@@ -75,6 +75,7 @@ model Patient {
   affiliateReferrals      AffiliateReferral[]
   chatMessages            PatientChatMessage[]
   shippingUpdates         PatientShippingUpdate[]
+  shipmentLabels          ShipmentLabel[]
   pushSubscriptions       PushSubscription[]
   streaks                 PatientStreak[]
   achievements            PatientAchievement[]

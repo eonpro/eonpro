@@ -16,6 +16,9 @@ import {
   Calendar,
   DollarSign,
   Package,
+  Pause,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -32,6 +35,10 @@ interface RefillSubscription {
   id: number;
   planName: string;
   status: string;
+  amount: number | null;
+  interval: string | null;
+  currentPeriodEnd: string | null;
+  stripeSubscriptionId: string | null;
 }
 
 interface RefillOrder {
@@ -199,6 +206,9 @@ export default function AdminRefillQueuePage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Subscription action modal
+  const [showSubActionModal, setShowSubActionModal] = useState<'pause' | 'cancel' | null>(null);
+
   useEffect(() => {
     fetchRefills();
   }, [statusFilter]);
@@ -363,6 +373,44 @@ export default function AdminRefillQueuePage() {
       setShowDetailModal(false);
       setSelectedRefill(null);
       setRejectReason('');
+      fetchRefills();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSubscriptionAction = async (action: 'pause' | 'cancel') => {
+    if (!selectedRefill?.subscription) return;
+
+    setProcessing(true);
+    setActionError(null);
+    const token = getToken();
+
+    try {
+      const response = await apiFetch(
+        `/api/subscriptions/${selectedRefill.subscription.id}/${action}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(
+            action === 'cancel' ? { cancelAtPeriodEnd: false } : {}
+          ),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || `Failed to ${action} subscription`);
+      }
+
+      setShowSubActionModal(null);
+      setShowDetailModal(false);
+      setSelectedRefill(null);
       fetchRefills();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'An error occurred');
@@ -841,6 +889,62 @@ export default function AdminRefillQueuePage() {
                 </div>
               )}
 
+              {/* Subscription Info */}
+              {selectedRefill.subscription && (
+                <div className="rounded-lg bg-indigo-50 p-4">
+                  <h3 className="mb-2 text-sm font-semibold uppercase text-gray-500">
+                    Membership
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Plan</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedRefill.subscription.planName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Status</p>
+                      <p className="font-medium text-gray-900">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            selectedRefill.subscription.status === 'ACTIVE'
+                              ? 'bg-green-100 text-green-800'
+                              : selectedRefill.subscription.status === 'PAUSED'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : selectedRefill.subscription.status === 'CANCELED'
+                                  ? 'bg-red-100 text-red-800'
+                                  : selectedRefill.subscription.status === 'PAST_DUE'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {selectedRefill.subscription.status}
+                        </span>
+                      </p>
+                    </div>
+                    {selectedRefill.subscription.amount != null && (
+                      <div>
+                        <p className="text-sm text-gray-500">Amount</p>
+                        <p className="font-medium text-gray-900">
+                          {formatCurrency(selectedRefill.subscription.amount)}
+                          {selectedRefill.subscription.interval
+                            ? `/${selectedRefill.subscription.interval}`
+                            : ''}
+                        </p>
+                      </div>
+                    )}
+                    {selectedRefill.subscription.currentPeriodEnd && (
+                      <div>
+                        <p className="text-sm text-gray-500">Period Ends</p>
+                        <p className="font-medium text-gray-900">
+                          {formatDate(selectedRefill.subscription.currentPeriodEnd)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Patient Notes */}
               {selectedRefill.patientNotes && (
                 <div className="rounded-lg bg-gray-50 p-4">
@@ -924,6 +1028,49 @@ export default function AdminRefillQueuePage() {
                   className="w-full rounded-lg bg-[var(--brand-primary)] py-2 font-medium text-white hover:brightness-90"
                 >
                   View in Provider Queue
+                </button>
+              )}
+
+              {/* Subscription management actions */}
+              {selectedRefill.subscription &&
+                selectedRefill.subscription.status !== 'CANCELED' && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Membership Actions
+                    </p>
+                    <div className="flex gap-3">
+                      {selectedRefill.subscription.status === 'ACTIVE' && (
+                        <button
+                          onClick={() => setShowSubActionModal('pause')}
+                          disabled={processing}
+                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-yellow-300 py-2 text-sm font-medium text-yellow-700 hover:bg-yellow-50 disabled:opacity-50"
+                        >
+                          <Pause className="h-4 w-4" />
+                          Pause
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowSubActionModal('cancel')}
+                        disabled={processing}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-300 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Cancel Membership
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              {/* View patient profile */}
+              {selectedRefill.patientId && (
+                <button
+                  onClick={() =>
+                    router.push(`/patients/${selectedRefill.patientId}?tab=billing`)
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View Patient Profile
                 </button>
               )}
             </div>
@@ -1047,6 +1194,74 @@ export default function AdminRefillQueuePage() {
                   {processing ? 'Rejecting...' : 'Reject Refill'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Action Confirmation Modal */}
+      {showSubActionModal && selectedRefill?.subscription && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">
+              {showSubActionModal === 'pause' ? 'Pause Membership' : 'Cancel Membership'}
+            </h2>
+            <p className="mb-2 text-sm text-gray-600">
+              {showSubActionModal === 'pause' ? (
+                <>
+                  This will pause the recurring subscription for{' '}
+                  <strong>
+                    {selectedRefill.patient?.firstName} {selectedRefill.patient?.lastName}
+                  </strong>
+                  . No future payments will be charged until the membership is resumed. Active
+                  refills will be placed on hold.
+                </>
+              ) : (
+                <>
+                  This will permanently cancel the membership for{' '}
+                  <strong>
+                    {selectedRefill.patient?.firstName} {selectedRefill.patient?.lastName}
+                  </strong>
+                  . All active refills will be cancelled. This action cannot be undone.
+                </>
+              )}
+            </p>
+            <p className="mb-4 rounded bg-gray-50 p-2 text-sm text-gray-500">
+              Plan: {selectedRefill.subscription.planName}
+            </p>
+
+            {actionError && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                {actionError}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubActionModal(null);
+                  setActionError(null);
+                }}
+                className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => handleSubscriptionAction(showSubActionModal)}
+                disabled={processing}
+                className={`flex-1 rounded-lg py-2 font-medium text-white disabled:opacity-50 ${
+                  showSubActionModal === 'pause'
+                    ? 'bg-yellow-600 hover:bg-yellow-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {processing
+                  ? 'Processing...'
+                  : showSubActionModal === 'pause'
+                    ? 'Pause Membership'
+                    : 'Cancel Membership'}
+              </button>
             </div>
           </div>
         </div>

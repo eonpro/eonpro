@@ -13,7 +13,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/', label: 'Home', iconKey: 'Home' },
   { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
-  { path: '/admin/rx-queue', label: 'RX Queue', iconKey: 'Pill' },
+  { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
   { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
@@ -41,7 +41,7 @@ export const controlCenterNavConfig: AdminNavItemConfig = {
 };
 
 /**
- * Returns admin nav config for the given role. Inserts Clinics after RX Queue for super_admin;
+ * Returns admin nav config for the given role. Inserts Clinics after Membership/Refills for super_admin;
  * adds Control Center at the end for super_admin only.
  */
 export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
@@ -54,7 +54,7 @@ export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
 }
 
 /**
- * Reduced nav for provider/staff/support (no Intakes, RX Queue, Tickets, Affiliates, Stripe, Registration Codes).
+ * Reduced nav for provider/staff/support (no Intakes, Membership/Refills, Tickets, Affiliates, Stripe, Registration Codes).
  * Used so sidebar is consistent when same role visits /patients, /orders, or /intake-forms.
  */
 export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfig[] {

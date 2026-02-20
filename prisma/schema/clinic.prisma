@@ -95,6 +95,12 @@ model Clinic {
   zoomRecordingEnabled   Boolean   @default(true) // Enable cloud recording
   zoomHipaaCompliant     Boolean   @default(true) // Use HIPAA-compliant settings
 
+  // FedEx Shipping Integration (per-clinic credentials — all encrypted at rest)
+  fedexClientId      String? // OAuth2 Client ID (encrypted)
+  fedexClientSecret  String? // OAuth2 Client Secret (encrypted)
+  fedexAccountNumber String? // FedEx account number (encrypted)
+  fedexEnabled       Boolean @default(false) // Is FedEx integration enabled?
+
   // Billing & Limits
   billingPlan   String @default("starter")
   patientLimit  Int    @default(100)
@@ -218,6 +224,9 @@ model Clinic {
 
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]
+
+  // FedEx Shipping Labels
+  shipmentLabels ShipmentLabel[]
 
   // Medication Beyond Use Date Configuration
   defaultBudDays Int @default(90) // Default Beyond Use Date in days for multi-shipment scheduling

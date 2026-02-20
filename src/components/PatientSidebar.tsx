@@ -2,10 +2,11 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink } from 'lucide-react';
+import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
+import FedExLabelModal from './FedExLabelModal';
 import SalesRepDropdown from './SalesRepDropdown';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
@@ -42,6 +43,12 @@ interface PatientSidebarProps {
     lastName: string;
   } | null;
   userRole?: string;
+  /** Clinic info for FedEx label origin address */
+  clinicInfo?: {
+    name?: string;
+    phone?: string;
+    address?: { address1?: string; address2?: string; city?: string; state?: string; zip?: string } | null;
+  };
   /** Show Labs tab (bloodwork). Default true. Set from clinic feature BLOODWORK_LABS so OT and all clinics can show it. */
   showLabsTab?: boolean;
   /** Base path for patient detail links. Use /provider/patients when rendered from provider route. */
@@ -443,6 +450,7 @@ export default function PatientSidebar({
   affiliateAttribution,
   currentSalesRep,
   userRole,
+  clinicInfo,
   showLabsTab = true,
   patientDetailBasePath = '/patients',
 }: PatientSidebarProps) {
@@ -450,6 +458,7 @@ export default function PatientSidebar({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [showFedExModal, setShowFedExModal] = useState(false);
 
   const formatDob = (dob: string | null) => {
     if (!dob) return '—';
@@ -718,6 +727,21 @@ export default function PatientSidebar({
 
         {/* Actions */}
         <div className="space-y-1 border-t pt-4">
+          {/* FedEx Label — admin only, requires patient address */}
+          {userRole &&
+            ['super_admin', 'admin'].includes(userRole.toLowerCase()) &&
+            patient.address1 &&
+            patient.city &&
+            patient.state &&
+            patient.zip && (
+              <button
+                onClick={() => setShowFedExModal(true)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#4D148C] transition-colors hover:bg-purple-50"
+              >
+                <Truck className="h-4 w-4" />
+                Print FedEx Label
+              </button>
+            )}
           <button
             onClick={() => setShowMergeModal(true)}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
@@ -771,6 +795,36 @@ export default function PatientSidebar({
             setShowMergeModal(false);
             window.location.href = `/patients/${mergedPatientId}`;
           }}
+        />
+      )}
+
+      {/* FedEx Label Modal */}
+      {showFedExModal && (
+        <FedExLabelModal
+          patientId={patient.id}
+          clinicAddress={
+            clinicInfo?.address
+              ? {
+                  address1: clinicInfo.address.address1,
+                  address2: clinicInfo.address.address2,
+                  city: clinicInfo.address.city,
+                  state: clinicInfo.address.state,
+                  zip: clinicInfo.address.zip,
+                }
+              : null
+          }
+          clinicName={clinicInfo?.name}
+          clinicPhone={clinicInfo?.phone}
+          patientName={`${patient.firstName} ${patient.lastName}`}
+          patientPhone={patient.phone}
+          patientAddress={{
+            address1: patient.address1,
+            address2: patient.address2,
+            city: patient.city,
+            state: patient.state,
+            zip: patient.zip,
+          }}
+          onClose={() => setShowFedExModal(false)}
         />
       )}
     </>

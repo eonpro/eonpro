@@ -250,6 +250,45 @@ export interface StorageDownloadResult {
 }
 
 // ============================================================================
+// Shipping Adapter (FedEx, UPS, etc.)
+// ============================================================================
+
+export interface ShippingAdapter extends IntegrationAdapter {
+  createLabel(params: CreateShippingLabelParams): Promise<ShippingLabelResult>;
+  voidLabel(trackingNumber: string): Promise<{ success: boolean }>;
+}
+
+export interface ShippingAddress {
+  personName: string;
+  companyName?: string;
+  phoneNumber: string;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  state: string;
+  zip: string;
+  countryCode?: string;
+}
+
+export interface CreateShippingLabelParams {
+  serviceType: string;
+  packagingType: string;
+  shipper: ShippingAddress;
+  recipient: ShippingAddress;
+  weightLbs: number;
+  length?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface ShippingLabelResult {
+  trackingNumber: string;
+  shipmentId: string;
+  serviceType: string;
+  labelPdfBase64: string;
+}
+
+// ============================================================================
 // Webhook Ingestion Adapter
 // ============================================================================
 

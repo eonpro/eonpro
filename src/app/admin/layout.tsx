@@ -114,6 +114,7 @@ const adminNavIconMap = {
   UserPlus,
   Users,
   Pill,
+  RefreshCw,
   ClipboardCheck,
   ShoppingCart,
   Ticket,

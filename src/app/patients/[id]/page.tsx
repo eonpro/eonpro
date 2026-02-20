@@ -135,7 +135,7 @@ export default async function PatientDetailPage({
     const patientInclude = {
       user: { select: { id: true } },
       clinic: {
-        select: { id: true, subdomain: true, name: true, features: true },
+        select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
       },
       orders: {
         orderBy: { createdAt: 'desc' } as const,
@@ -751,6 +751,15 @@ export default async function PatientDetailPage({
             }
             currentSalesRep={patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null}
             userRole={user.role}
+            clinicInfo={
+              patientWithDecryptedPHI.clinic
+                ? {
+                    name: patientWithDecryptedPHI.clinic.name,
+                    phone: (patientWithDecryptedPHI.clinic as any).phone ?? undefined,
+                    address: (patientWithDecryptedPHI.clinic as any).address ?? null,
+                  }
+                : undefined
+            }
             showLabsTab={showLabsTab}
             patientDetailBasePath={PATIENTS_LIST_PATH}
           />

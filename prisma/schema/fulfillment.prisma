@@ -78,6 +78,54 @@ model PatientShippingUpdate {
   @@index([clinicId, matchedAt])
 }
 
+// FedEx shipping labels generated from admin patient profile
+model ShipmentLabel {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  // Multi-tenant isolation
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Patient association
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Who created the label
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  // FedEx shipment details
+  trackingNumber String
+  shipmentId     String? // FedEx master tracking ID
+  serviceType    String // FEDEX_GROUND, PRIORITY_OVERNIGHT, etc.
+  carrier        String  @default("FEDEX")
+
+  // Addresses snapshot (at time of label creation)
+  originAddress      Json // {name, address1, address2, city, state, zip, phone}
+  destinationAddress Json // {name, address1, address2, city, state, zip, phone}
+
+  // Package details
+  weightLbs Float   @default(1.0)
+  weightOz  Float?
+  length    Float?
+  width     Float?
+  height    Float?
+
+  // Label storage
+  labelS3Key  String? // S3 key for stored PDF
+  labelFormat String  @default("PDF") // PDF, PNG, ZPL
+
+  // Status
+  status    String @default("CREATED") // CREATED, VOIDED
+  voidedAt  DateTime?
+  voidedBy  Int?
+
+  @@index([clinicId, patientId])
+  @@index([trackingNumber])
+  @@index([clinicId, createdAt])
+}
+
 // Status flow for prescription refills
 enum RefillStatus {
   SCHEDULED // Future refill, not yet due

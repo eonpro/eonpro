@@ -1170,27 +1170,19 @@ export async function triggerRefillForSubscriptionPayment(
       vialCount,
       refillIntervalDays: intervalDays,
       nextRefillDate: now,
-      status: 'PENDING_PROVIDER',
-      // Auto-verified payment (Stripe confirmed)
+      status: 'PENDING_ADMIN',
       paymentVerified: true,
       paymentVerifiedAt: now,
       paymentVerifiedBy: 0,
       paymentMethod: 'STRIPE_AUTO',
       stripePaymentId: stripePaymentId || undefined,
       invoiceId: invoiceId || undefined,
-      // Auto-approved (skip admin review)
-      adminApproved: true,
-      adminApprovedAt: now,
-      adminApprovedBy: 0,
-      adminNotes: 'Auto-approved: subscription payment confirmed',
-      providerQueuedAt: now,
-      // Medication info from subscription/plan
+      adminApproved: false,
       planName: subscription.planName,
       medicationName: extractMedicationName(subscription.planName),
     },
   });
 
-  // Update subscription with last refill queue ID
   await prisma.subscription.update({
     where: { id: subscriptionId },
     data: {
@@ -1200,7 +1192,7 @@ export async function triggerRefillForSubscriptionPayment(
     },
   });
 
-  logger.info('[RefillQueue] Triggered refill for subscription payment (auto → provider queue)', {
+  logger.info('[RefillQueue] Triggered refill for subscription payment (→ pending admin review)', {
     refillId: refill.id,
     subscriptionId,
     patientId: subscription.patientId,
