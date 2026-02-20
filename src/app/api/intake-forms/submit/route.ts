@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { IntakeProcessor, type ProcessIntakeOptions } from '@/lib/webhooks/intake-processor';
 import type { NormalizedIntake } from '@/lib/heyflow/types';
 import { transitionLeadToActive } from '@/domains/intake/services/lead-transition.service';
+import { smartParseAddress } from '@/lib/address/parser';
 
 const submitSchema = z.object({
   sessionId: z.string().min(1),
@@ -71,6 +72,33 @@ export async function POST(req: NextRequest) {
 
     const r = responses as Record<string, string | undefined>;
 
+    let address1 = r.street || r.address1 || '';
+    let address2 = r.apartment || r.address2 || '';
+    let city = r.city || '';
+    let state = r.state || '';
+    let zip = r.zip || '';
+
+    // Fallback: if city/zip are empty but street looks like a combined address,
+    // parse it into components (handles legacy submissions without separate fields)
+    if (address1 && !city && !zip) {
+      const parsed = smartParseAddress(address1);
+
+      if (parsed.address1 && (parsed.city || parsed.zip)) {
+        // Comma-separated addresses parse cleanly into all components
+        address1 = parsed.address1;
+        address2 = address2 || parsed.address2;
+        city = parsed.city;
+        state = state || parsed.state;
+        zip = parsed.zip;
+      } else if (!parsed.address1 && parsed.zip) {
+        // Space-only addresses: parser extracted zip (and maybe state) but
+        // put the whole street+city into the city field. Keep original street
+        // and only take the zip/state we're confident about.
+        zip = parsed.zip;
+        state = state || parsed.state;
+      }
+    }
+
     const normalizedIntake: NormalizedIntake = {
       submissionId: sessionId,
       submittedAt: new Date(),
@@ -81,11 +109,11 @@ export async function POST(req: NextRequest) {
         phone: r.phone || '',
         dob: r.dob || '',
         gender: r.sex || r.gender,
-        address1: r.street || r.address1 || '',
-        address2: r.apartment || r.address2 || '',
-        city: r.city || '',
-        state: r.state || '',
-        zip: r.zip || '',
+        address1,
+        address2,
+        city,
+        state,
+        zip,
       },
       sections: [],
       answers: Object.entries(responses).map(([key, val]) => ({

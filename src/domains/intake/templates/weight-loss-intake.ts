@@ -187,6 +187,8 @@ const steps: FormStep[] = [
     fields: [
       { id: 'street', type: 'text', label: { en: 'Street Address', es: 'Dirección' }, storageKey: 'street', validation: [{ type: 'required', message: { en: 'Address is required', es: 'La dirección es requerida' } }] },
       { id: 'apartment', type: 'text', label: { en: 'Apartment/Suite (Optional)', es: 'Apartamento/Suite (Opcional)' }, storageKey: 'apartment' },
+      { id: 'city', type: 'text', label: { en: 'City', es: 'Ciudad' }, storageKey: 'city', validation: [{ type: 'required', message: { en: 'City is required', es: 'La ciudad es requerida' } }] },
+      { id: 'zip', type: 'text', label: { en: 'ZIP Code', es: 'Código Postal' }, storageKey: 'zip', validation: [{ type: 'required', message: { en: 'ZIP code is required', es: 'El código postal es requerido' } }] },
     ],
     autoAdvance: false,
     showContinueButton: true,
