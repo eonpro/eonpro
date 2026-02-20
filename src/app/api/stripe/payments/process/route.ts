@@ -9,7 +9,6 @@ import { Patient, Provider, Order } from '@/types/models';
 import { handleApiError } from '@/domains/shared/errors';
 import { getStripeForClinic } from '@/lib/stripe/connect';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { PaymentMethodService } from '@/services/paymentMethodService';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 
 interface PaymentDetails {
@@ -97,70 +96,56 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         stripeCustomerId = customer.id;
       }
 
-      // If local card has no Stripe link, create one from encrypted card data
+      // If local card has no Stripe link, create an unconfirmed PaymentIntent
+      // and return clientSecret so the frontend can confirm via Stripe.js
       if (!stripePaymentMethodId && localPaymentMethodId) {
-        const decrypted = await PaymentMethodService.getDecryptedCard(localPaymentMethodId, patient.id);
-        if (!decrypted) {
-          return NextResponse.json(
-            { error: 'Could not retrieve card details. Please add a new card.' },
-            { status: 400 }
-          );
-        }
+        const intentParams: Record<string, unknown> = {
+          amount,
+          currency: 'usd',
+          customer: stripeCustomerId,
+          description,
+          setup_future_usage: 'off_session',
+          metadata: {
+            patientId: patient.id.toString(),
+            localPaymentMethodId: localPaymentMethodId.toString(),
+            cardLast4,
+            cardBrand,
+          },
+        };
 
-        try {
-          const connectOpts: Record<string, string> | undefined = stripeContext.stripeAccountId
-            ? { stripeAccount: stripeContext.stripeAccountId }
-            : undefined;
+        const connectOpts = stripeContext.stripeAccountId
+          ? { stripeAccount: stripeContext.stripeAccountId }
+          : undefined;
 
-          const pmParams = {
-            type: 'card' as const,
-            card: {
-              number: decrypted.cardNumber,
-              exp_month: decrypted.expiryMonth,
-              exp_year: decrypted.expiryYear,
-              cvc: decrypted.cvv || undefined,
-            },
-            billing_details: {
-              name: decrypted.cardholderName,
-              address: { postal_code: decrypted.billingZip },
-            },
-          };
+        const intent = connectOpts
+          ? await stripe.paymentIntents.create(intentParams as any, connectOpts)
+          : await stripe.paymentIntents.create(intentParams as any);
 
-          const pm = connectOpts
-            ? await stripe.paymentMethods.create(pmParams, connectOpts)
-            : await stripe.paymentMethods.create(pmParams);
-
-          if (connectOpts) {
-            await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId! }, connectOpts);
-          } else {
-            await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId! });
-          }
-
-          // Persist the link so future charges skip this step
-          await prisma.paymentMethod.update({
-            where: { id: localPaymentMethodId },
-            data: { stripePaymentMethodId: pm.id },
-          });
-
-          stripePaymentMethodId = pm.id;
-
-          logger.info('[PaymentProcess] Auto-synced local card to Stripe', {
-            localPaymentMethodId,
-            stripePaymentMethodId: pm.id,
+        // Create a PENDING payment record
+        await prisma.payment.create({
+          data: {
             patientId: patient.id,
-          });
-        } catch (syncErr: unknown) {
-          const msg = syncErr instanceof Error ? syncErr.message : 'Failed to sync card to Stripe';
-          logger.error('[PaymentProcess] Failed to create Stripe PaymentMethod from local card', {
-            localPaymentMethodId,
-            patientId: patient.id,
-            error: msg,
-          });
-          return NextResponse.json(
-            { error: `Card could not be verified with Stripe: ${msg}` },
-            { status: 400 }
-          );
-        }
+            amount,
+            status: PaymentStatus.PENDING,
+            paymentMethod: `Card ending ${cardLast4}`,
+            description,
+            notes,
+            stripePaymentIntentId: intent.id,
+            metadata: {
+              cardBrand,
+              localPaymentMethodId,
+              requiresStripeConfirmation: true,
+              planId: subscription?.planId,
+            } as any,
+          },
+        });
+
+        return NextResponse.json({
+          requiresStripeConfirmation: true,
+          clientSecret: intent.client_secret,
+          paymentIntentId: intent.id,
+          localPaymentMethodId,
+        });
       }
 
       if (!stripePaymentMethodId) {

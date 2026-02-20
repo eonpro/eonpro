@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   getGroupedPlans,
   formatPlanPrice,
@@ -16,6 +16,11 @@ import {
 import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
+import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 interface SavedCard {
   id: number | string;
@@ -66,6 +71,52 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const [cardErrors, setCardErrors] = useState<{ [key: string]: string }>({});
   const [formSubmitted, setFormSubmitted] = useState(false);
   const groupedPlans = getGroupedPlans(clinicSubdomain);
+
+  // Stripe.js confirmation flow for local-only cards
+  const [stripeConfirmation, setStripeConfirmation] = useState<{
+    clientSecret: string;
+    paymentIntentId: string;
+    localPaymentMethodId: number;
+  } | null>(null);
+  const stripeCardRef = useRef<HTMLDivElement>(null);
+  const stripeElementRef = useRef<StripeCardElement | null>(null);
+  const stripeInstanceRef = useRef<Stripe | null>(null);
+
+  // Mount Stripe CardElement when confirmation is needed
+  useEffect(() => {
+    if (!stripeConfirmation || !stripeCardRef.current) return;
+
+    let mounted = true;
+    const mountCard = async () => {
+      const stripeInstance = await stripePromise;
+      if (!stripeInstance || !mounted) return;
+      stripeInstanceRef.current = stripeInstance;
+
+      const elements = stripeInstance.elements();
+      const card = elements.create('card', {
+        style: {
+          base: {
+            fontSize: '16px',
+            color: '#1a1a1a',
+            fontFamily: 'inherit',
+            '::placeholder': { color: '#9ca3af' },
+          },
+          invalid: { color: '#ef4444' },
+        },
+      });
+      if (stripeCardRef.current) {
+        card.mount(stripeCardRef.current);
+        stripeElementRef.current = card;
+      }
+    };
+    mountCard();
+
+    return () => {
+      mounted = false;
+      stripeElementRef.current?.unmount();
+      stripeElementRef.current = null;
+    };
+  }, [stripeConfirmation]);
 
   useEffect(() => {
     const fetchSavedCards = async () => {
@@ -288,6 +339,17 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
         throw new Error(data.error || 'Failed to process payment');
       }
 
+      // Backend says the card needs Stripe.js confirmation (local-only card)
+      if (data.requiresStripeConfirmation) {
+        setStripeConfirmation({
+          clientSecret: data.clientSecret,
+          paymentIntentId: data.paymentIntentId,
+          localPaymentMethodId: data.localPaymentMethodId,
+        });
+        setSubmitting(false);
+        return;
+      }
+
       setSuccessMessage(
         isRecurring
           ? 'Payment processed and recurring subscription set up successfully!'
@@ -325,6 +387,52 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     }
   };
 
+  const handleStripeConfirm = async () => {
+    if (!stripeConfirmation || !stripeInstanceRef.current || !stripeElementRef.current) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const { error: stripeError, paymentIntent } = await stripeInstanceRef.current.confirmCardPayment(
+        stripeConfirmation.clientSecret,
+        { payment_method: { card: stripeElementRef.current } }
+      );
+
+      if (stripeError) {
+        throw new Error(stripeError.message || 'Payment failed');
+      }
+
+      // Tell the backend to finalize
+      const confirmRes = await apiFetch('/api/stripe/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentIntentId: stripeConfirmation.paymentIntentId,
+          stripePaymentMethodId: paymentIntent?.payment_method,
+          localPaymentMethodId: stripeConfirmation.localPaymentMethodId,
+        }),
+      });
+
+      const confirmData = await confirmRes.json();
+      if (!confirmRes.ok) {
+        throw new Error(confirmData.error || 'Failed to confirm payment');
+      }
+
+      setStripeConfirmation(null);
+      setSuccessMessage(
+        isRecurring
+          ? 'Payment processed and recurring subscription set up successfully!'
+          : 'Payment processed successfully!'
+      );
+
+      setTimeout(() => { onSuccess(); }, 1500);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Payment confirmation failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleClear = () => {
     setSelectedPlanId('');
     setAmount(0);
@@ -343,6 +451,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setSaveCard(true);
     setCardBrand('');
     setFormSubmitted(false);
+    setStripeConfirmation(null);
     if (savedCards.length > 0) {
       setPaymentMode('saved');
       const defaultCard = savedCards.find((c) => c.isDefault) || savedCards[0];
@@ -372,7 +481,39 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {stripeConfirmation && (
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-800">
+              This card needs to be verified for secure payment processing.
+              Please enter the card details below to complete the payment.
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Card Details</label>
+            <div ref={stripeCardRef} className="rounded border border-gray-300 p-3" />
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => { setStripeConfirmation(null); setError(null); }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleStripeConfirm}
+              disabled={submitting}
+              className="rounded-lg bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              {submitting ? 'Processing...' : 'Confirm Payment'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className={`space-y-6 ${stripeConfirmation ? 'hidden' : ''}`}>
         {/* Billing Plan Selection */}
         <div>
           <label htmlFor="billingPlan" className="mb-1 block text-sm font-medium text-gray-700">
