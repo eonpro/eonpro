@@ -224,7 +224,7 @@ export default function ClinicsListPage() {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = `/super-admin/clinics/${clinic.id}/edit`;
+                      window.location.href = `/super-admin/clinics/${clinic.id}`;
                     }}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                   >
