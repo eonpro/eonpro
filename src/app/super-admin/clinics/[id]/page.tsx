@@ -3357,7 +3357,7 @@ export default function ClinicDetailPage() {
                   Phone Number
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Phone className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${newUser.phone ? 'opacity-0' : 'opacity-100'}`} />
                   <input
                     type="tel"
                     value={newUser.phone}

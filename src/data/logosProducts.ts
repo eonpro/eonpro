@@ -13,6 +13,7 @@ export const LOGOS_PRODUCTS: LogosProduct[] = [
   { id: 203449329, name: 'ENCLOMIPHENE CITRATE', form: 'Capsule', strength: '25 mg' },
   { id: 203449330, name: 'ENCLOMIPHENE CITRATE', form: 'Capsule', strength: '50 mg' },
   { id: 203194010, name: 'ALCOHOL PADS', form: 'Swab', strength: '' },
+  { id: 203419244, name: 'SYRINGES/ALCOHOL PADS (KIT OF #10)', form: 'Kit', strength: '' },
   { id: 203666707, name: 'ANASTROZOLE', form: 'Capsule', strength: '0.125MG' },
   { id: 203449460, name: 'ANASTROZOLE', form: 'Capsule', strength: '0.25MG' },
   { id: 203194021, name: 'ANASTROZOLE', form: 'Capsule', strength: '0.5MG' },

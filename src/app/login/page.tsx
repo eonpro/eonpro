@@ -1168,7 +1168,7 @@ export default function LoginPage() {
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
                 <div className="relative">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <div className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
                     {isPhoneNumber(identifier) ? (
                       <Phone className="h-5 w-5" />
                     ) : (

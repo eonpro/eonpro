@@ -2,7 +2,7 @@ import lifefile, { LifefileOrderPayload, getEnvCredentials } from '@/lib/lifefil
 import { getClinicLifefileClient, getClinicLifefileCredentials } from '@/lib/clinic-lifefile';
 import { prescriptionSchema } from '@/lib/validate';
 import { generatePrescriptionPDF } from '@/lib/pdf';
-import { MEDS } from '@/lib/medications';
+import { MEDS, GLP1_PRODUCT_IDS, SYRINGE_KIT_PRODUCT_ID } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { prisma, basePrisma, withRetry } from '@/lib/db';
 import { Prisma } from '@prisma/client';
@@ -275,7 +275,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
 
-    let rxsWithMeds;
+    let rxsWithMeds: { rx: any; med: any }[];
     try {
       rxsWithMeds = p.rxs.map((rx: any) => {
         const med = MEDS[rx.medicationKey];
@@ -287,6 +287,32 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       return NextResponse.json({ error: errorMessage ?? 'Invalid medication' }, { status: 400 });
+    }
+
+    // Auto-add syringe kit (1 per vial) for GLP-1 medications (semaglutide/tirzepatide)
+    const syringeKitMed = MEDS[String(SYRINGE_KIT_PRODUCT_ID)];
+    if (syringeKitMed) {
+      const glp1VialCount = rxsWithMeds
+        .filter(({ med }) => GLP1_PRODUCT_IDS.has(med.id))
+        .reduce((sum, { rx }) => sum + (Number(rx.quantity) || 1), 0);
+
+      if (glp1VialCount > 0) {
+        const alreadyHasSyringeKit = rxsWithMeds.some(
+          ({ med }) => med.id === SYRINGE_KIT_PRODUCT_ID
+        );
+        if (!alreadyHasSyringeKit) {
+          rxsWithMeds.push({
+            rx: {
+              medicationKey: String(SYRINGE_KIT_PRODUCT_ID),
+              sig: 'Use supplies as directed for subcutaneous injection.',
+              quantity: String(glp1VialCount),
+              refills: '0',
+              daysSupply: '30',
+            },
+            med: syringeKitMed,
+          });
+        }
+      }
     }
 
     const primary = rxsWithMeds[0];

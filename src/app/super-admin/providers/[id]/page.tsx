@@ -1683,7 +1683,7 @@ export default function SuperAdminProviderDetailPage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Password *</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Key className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${createUserForm.password ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={createUserForm.password}

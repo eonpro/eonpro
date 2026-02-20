@@ -1,6 +1,6 @@
 'use client';
 
-import React, { InputHTMLAttributes, forwardRef, useId } from 'react';
+import React, { InputHTMLAttributes, forwardRef, useId, useState, useCallback } from 'react';
 
 interface AccessibleInputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Label text */
@@ -30,23 +30,40 @@ const AccessibleInput = forwardRef<HTMLInputElement, AccessibleInputProps>(
       id: providedId,
       required,
       disabled,
+      onChange,
+      value,
+      defaultValue,
       ...props
     },
     ref
   ) => {
-    // Generate unique IDs for accessibility
     const generatedId = useId();
     const inputId = providedId || generatedId;
     const helperId = `${inputId}-helper`;
     const errorId = `${inputId}-error`;
 
-    // Determine aria-describedby
+    const [hasValue, setHasValue] = useState(() => {
+      if (value !== undefined) return String(value).length > 0;
+      if (defaultValue !== undefined) return String(defaultValue).length > 0;
+      return false;
+    });
+
+    const handleChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        setHasValue(e.target.value.length > 0);
+        onChange?.(e);
+      },
+      [onChange]
+    );
+
+    const isControlled = value !== undefined;
+    const inputHasValue = isControlled ? String(value).length > 0 : hasValue;
+
     const describedBy =
       [helperText ? helperId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined;
 
     return (
       <div className="w-full">
-        {/* Label */}
         <label
           htmlFor={inputId}
           className={`mb-1 block text-sm font-medium text-gray-700 ${hideLabel ? 'sr-only' : ''}`}
@@ -59,16 +76,15 @@ const AccessibleInput = forwardRef<HTMLInputElement, AccessibleInputProps>(
           )}
         </label>
 
-        {/* Input wrapper */}
         <div className="relative">
-          {/* Left icon */}
           {leftIcon && (
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
+            <div
+              className={`pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 transition-opacity duration-200 ${inputHasValue ? 'opacity-0' : 'opacity-100'}`}
+            >
               {leftIcon}
             </div>
           )}
 
-          {/* Input */}
           <input
             ref={ref}
             id={inputId}
@@ -81,25 +97,27 @@ const AccessibleInput = forwardRef<HTMLInputElement, AccessibleInputProps>(
             aria-describedby={describedBy}
             aria-required={required}
             disabled={disabled}
+            onChange={handleChange}
+            value={value}
+            defaultValue={defaultValue}
             {...props}
           />
 
-          {/* Right icon */}
           {rightIcon && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+            <div
+              className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-opacity duration-200 ${inputHasValue ? 'opacity-0' : 'opacity-100'}`}
+            >
               {rightIcon}
             </div>
           )}
         </div>
 
-        {/* Helper text */}
         {helperText && !error && (
           <p id={helperId} className="mt-1 text-sm text-gray-500">
             {helperText}
           </p>
         )}
 
-        {/* Error message */}
         {error && (
           <p id={errorId} className="mt-1 text-sm text-red-600" role="alert" aria-live="polite">
             {error}

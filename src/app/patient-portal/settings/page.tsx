@@ -449,7 +449,7 @@ export default function SettingsPage() {
               <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700">{t('email')}</label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Mail className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${profile.email ? 'opacity-0' : 'opacity-100'}`} />
                   <input
                     type="email"
                     value={profile.email}
@@ -464,7 +464,7 @@ export default function SettingsPage() {
               <div className="mb-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700">{t('phone')}</label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <Phone className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${profile.phone ? 'opacity-0' : 'opacity-100'}`} />
                   <input
                     type="tel"
                     value={profile.phone}

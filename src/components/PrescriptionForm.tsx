@@ -56,8 +56,8 @@ const deriveDefaultValues = (
     const first = med.sigTemplates[0];
     return {
       sig: first.sig,
-      quantity: first.quantity,
-      refills: first.refills,
+      quantity: med.defaultQuantity ?? first.quantity,
+      refills: med.defaultRefills ?? first.refills,
     };
   }
   const base = {
@@ -65,7 +65,7 @@ const deriveDefaultValues = (
     quantity: med.defaultQuantity,
     refills: med.defaultRefills,
   };
-  if (base.sig || base.quantity || base.refills) {
+  if (base.sig || base.quantity || base.refills != null) {
     return base;
   }
   switch (med.form) {
@@ -88,12 +88,18 @@ const deriveDefaultValues = (
       return {
         sig: 'Apply a thin layer to affected area as directed.',
         quantity: '1',
-        refills: '1',
+        refills: '0',
       };
     case 'SWAB':
       return {
         sig: 'Use to cleanse skin prior to injection as directed.',
         quantity: '30',
+        refills: '0',
+      };
+    case 'KIT':
+      return {
+        sig: 'Use supplies as directed for subcutaneous injection.',
+        quantity: '1',
         refills: '0',
       };
     default:
@@ -185,6 +191,7 @@ export default function PrescriptionForm({
 
   // Increments when an order set is applied, forcing SigBuilder remounts
   const [rxGeneration, setRxGeneration] = useState(0);
+  const [isWellmedr, setIsWellmedr] = useState(false);
 
   // Load active clinic ID and detect clinic-specific defaults on mount
   useEffect(() => {
@@ -197,14 +204,23 @@ export default function PrescriptionForm({
       }
     }
 
-    // WellMedR defaults to UPS 2nd Day Air (8200) instead of Overnight (8115)
-    const isWellmedr =
+    const wellmedr =
       typeof window !== 'undefined' &&
       window.location.hostname.toLowerCase().includes('wellmedr');
-    if (isWellmedr) {
-      setForm((f: any) => ({ ...f, shippingMethod: 8200 }));
+    setIsWellmedr(wellmedr);
+    if (wellmedr) {
+      setForm((f: any) => ({ ...f, shippingMethod: 8234 }));
     }
   }, []);
+
+  // WellMedR: auto-switch shipping based on patient state
+  // Florida → UPS Next Day Florida (8097), all others → FedEx 2 Day (8234)
+  useEffect(() => {
+    if (!isWellmedr) return;
+    const patientState = form.patient.state?.toUpperCase();
+    const shippingId = patientState === 'FL' ? 8097 : 8234;
+    setForm((f: any) => ({ ...f, shippingMethod: shippingId }));
+  }, [isWellmedr, form.patient.state]);
 
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [patients, setPatients] = useState<PatientOption[]>([]);
@@ -1154,13 +1170,11 @@ export default function PrescriptionForm({
               onChange={(key: string) => {
                 const med = MEDS[key];
                 updateRx(index, 'medicationKey', key);
-                // Clear sig so SigBuilder uses the new medication's template
-                // instead of carrying over the previous medication's sig
                 updateRx(index, 'sig', '');
                 if (med) {
                   const defaults = deriveDefaultValues(med);
-                  if (defaults.quantity) updateRx(index, 'quantity', defaults.quantity);
-                  if (defaults.refills) updateRx(index, 'refills', defaults.refills);
+                  if (defaults.quantity != null) updateRx(index, 'quantity', defaults.quantity);
+                  if (defaults.refills != null) updateRx(index, 'refills', defaults.refills);
                 }
               }}
               showCategoryBadge={true}

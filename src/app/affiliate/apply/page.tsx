@@ -429,7 +429,7 @@ export default function AffiliateApplyPage() {
                       Phone Number *
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${formData.phone ? 'opacity-0' : 'opacity-100'}`}>
                         +1
                       </span>
                       <input

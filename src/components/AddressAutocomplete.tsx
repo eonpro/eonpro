@@ -223,7 +223,7 @@ export default function AddressAutocomplete({
           </label>
         )}
         <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <MapPin data-input-icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200" />
           <input
             ref={addressInputRef}
             type="text"
@@ -268,7 +268,7 @@ export default function AddressAutocomplete({
           Street Address {required && <span className="text-red-500">*</span>}
         </label>
         <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <MapPin data-input-icon className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${value.address1 ? 'opacity-0' : 'opacity-100'}`} />
           <input
             ref={addressInputRef}
             type="text"
@@ -448,7 +448,7 @@ export function AddressInput({
 
   return (
     <div className={`relative ${className}`}>
-      <MapPin className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <MapPin className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${value ? 'opacity-0' : 'opacity-100'}`} />
       <input
         ref={inputRef}
         type="text"

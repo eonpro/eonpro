@@ -131,7 +131,7 @@ function EmailVerifiedContent() {
                   </p>
                   <form onSubmit={handleResendVerification} className="space-y-3">
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                      <Mail className={`absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${resendEmail ? 'opacity-0' : 'opacity-100'}`} />
                       <input
                         type="email"
                         value={resendEmail}

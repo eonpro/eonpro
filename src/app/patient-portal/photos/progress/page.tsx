@@ -478,7 +478,7 @@ export default function ProgressPhotosPage() {
                 Current Weight (optional)
               </label>
               <div className="relative">
-                <Scale className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <Scale className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${currentWeight ? 'opacity-0' : 'opacity-100'}`} />
                 <input
                   type="number"
                   step="0.1"

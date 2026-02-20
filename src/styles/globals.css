@@ -132,9 +132,11 @@ input[type='checkbox']:not(.sr-only):not(.peer):disabled {
   cursor: not-allowed;
 }
 
-/* Form elements */
-input:not([type='checkbox']):not([type='radio']),
-textarea {
+/* Form elements – use :where() for zero specificity so Tailwind padding
+   utilities (pl-12, pr-10, etc.) can override the default padding when
+   icons are present inside the input wrapper. */
+:where(input:not([type='checkbox']):not([type='radio']),
+textarea) {
   border-radius: 12px;
   border: 1px solid rgba(17, 24, 39, 0.15);
   padding: 0.65rem 0.9rem;
@@ -143,8 +145,18 @@ textarea {
   -webkit-appearance: none;
 }
 
+/* Decorative input icons fade out when the input has a value */
+[data-input-icon] {
+  transition: opacity 0.2s ease;
+}
+
+.relative:has(> input:not(:placeholder-shown)) > [data-input-icon] {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Ensure select dropdowns work properly across all browsers */
-select {
+:where(select) {
   border-radius: 12px;
   border: 1px solid rgba(17, 24, 39, 0.15);
   padding: 0.65rem 0.9rem;

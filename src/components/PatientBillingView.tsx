@@ -1067,7 +1067,7 @@ function RefundModal({
                 Refund Amount (max: {formatCurrency(maxAmount)})
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-2 text-gray-500">$</span>
+                <span className={`absolute left-4 top-2 text-gray-500 transition-opacity duration-200 ${amount ? 'opacity-0' : 'opacity-100'}`}>$</span>
                 <input
                   type="number"
                   value={amount}
@@ -1174,7 +1174,7 @@ function MarkPaidModal({
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Payment Amount</label>
             <div className="relative">
-              <span className="absolute left-3 top-2 text-gray-500">$</span>
+              <span className={`absolute left-3 top-2 text-gray-500 transition-opacity duration-200 ${paymentAmount ? 'opacity-0' : 'opacity-100'}`}>$</span>
               <input
                 type="number"
                 value={paymentAmount}

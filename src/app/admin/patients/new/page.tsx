@@ -359,7 +359,7 @@ export default function NewPatientPage() {
                 Date of Birth *
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
+                <Calendar className={`absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400 transition-opacity duration-200 ${formData.dob ? 'opacity-0' : 'opacity-100'}`} />
                 <input
                   type="date"
                   name="dob"
@@ -399,7 +399,7 @@ export default function NewPatientPage() {
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Email *</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
+                <Mail className={`absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400 transition-opacity duration-200 ${formData.email ? 'opacity-0' : 'opacity-100'}`} />
                 <input
                   type="email"
                   name="email"
@@ -413,7 +413,7 @@ export default function NewPatientPage() {
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700">Phone *</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400" />
+                <Phone className={`absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-gray-400 transition-opacity duration-200 ${formData.phone ? 'opacity-0' : 'opacity-100'}`} />
                 <input
                   type="tel"
                   name="phone"

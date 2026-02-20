@@ -408,7 +408,7 @@ export default function RegisterPage() {
                       First Name
                     </label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                      <User className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${firstName ? 'opacity-0' : 'opacity-100'}`} />
                       <input
                         id="firstName"
                         type="text"
@@ -445,7 +445,7 @@ export default function RegisterPage() {
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Mail className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="email"
                       type="email"
@@ -464,7 +464,7 @@ export default function RegisterPage() {
                     Phone Number
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Phone className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${phone ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="phone"
                       type="tel"
@@ -484,7 +484,7 @@ export default function RegisterPage() {
                     Date of Birth
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Calendar className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${dob ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="dob"
                       type="date"
@@ -506,7 +506,7 @@ export default function RegisterPage() {
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${password ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}

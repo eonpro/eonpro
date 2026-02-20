@@ -279,7 +279,7 @@ const SERMORELIN_TEMPLATES: SigTemplate[] = [
   },
 ];
 
-type FormCategory = 'INJ' | 'TAB' | 'CAP' | 'TROCHE' | 'CREAM' | 'GEL' | 'SWAB' | 'OTHER';
+type FormCategory = 'INJ' | 'TAB' | 'CAP' | 'TROCHE' | 'CREAM' | 'GEL' | 'SWAB' | 'KIT' | 'OTHER';
 
 function normalizeForm(form: string): { code: FormCategory; label: string } {
   const value = form.toLowerCase();
@@ -290,6 +290,7 @@ function normalizeForm(form: string): { code: FormCategory; label: string } {
   if (value.includes('cream')) return { code: 'CREAM', label: form };
   if (value.includes('gel')) return { code: 'GEL', label: form };
   if (value.includes('swab')) return { code: 'SWAB', label: form };
+  if (value.includes('kit')) return { code: 'KIT', label: form };
   return { code: 'OTHER', label: form };
 }
 
@@ -302,6 +303,8 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203449329: {
     name: 'Enclomiphene Citrate 25 mg',
     strength: '25 mg',
+    defaultQuantity: '12',
+    defaultRefills: '0',
     sigTemplates: [ENCLO_TEMPLATE_DAILY, ENCLO_TEMPLATE_PULSE],
   },
   203449330: {
@@ -320,16 +323,22 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203666707: {
     name: 'Anastrozole 0.125 mg',
     strength: '0.125 mg',
+    defaultQuantity: '8',
+    defaultRefills: '0',
     sigTemplates: ANASTROZOLE_TEMPLATES,
   },
   203449460: {
     name: 'Anastrozole 0.25 mg',
     strength: '0.25 mg',
+    defaultQuantity: '8',
+    defaultRefills: '0',
     sigTemplates: ANASTROZOLE_TEMPLATES,
   },
   203194021: {
     name: 'Anastrozole 0.5 mg',
     strength: '0.5 mg',
+    defaultQuantity: '8',
+    defaultRefills: '0',
     sigTemplates: ANASTROZOLE_TEMPLATES,
   },
   203418766: {
@@ -417,6 +426,12 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203449500: { sigTemplates: TIRZEPATIDE_TEMPLATES },
   203449362: { sigTemplates: TIRZEPATIDE_15MG_TEMPLATES }, // 15 mg/mL - uses different concentration templates
   203418602: { sigTemplates: TIRZEPATIDE_30MG_TEMPLATES }, // 30 mg/mL - uses highest concentration templates
+  203419244: {
+    name: 'Syringes/Alcohol Pads (Kit of #10)',
+    defaultQuantity: '1',
+    defaultRefills: '0',
+    defaultSig: 'Use supplies as directed for subcutaneous injection.',
+  },
 };
 
 export const MEDS: Record<string, MedicationConfig> = {};
@@ -437,3 +452,22 @@ LOGOS_PRODUCTS.forEach((product: any) => {
   };
   MEDS[String(product.id)] = config;
 });
+
+// ============================================================================
+// GLP-1 AUTO-ADD SYRINGE KIT
+// ============================================================================
+
+export const SYRINGE_KIT_PRODUCT_ID = 203419244;
+
+export const SEMAGLUTIDE_PRODUCT_IDS = new Set([
+  203448971, 203448947, 203449363, 203448974, 202851329,
+]);
+
+export const TIRZEPATIDE_PRODUCT_IDS = new Set([
+  203448972, 203448973, 203449364, 203449500, 203449362, 203418602,
+]);
+
+export const GLP1_PRODUCT_IDS = new Set([
+  ...SEMAGLUTIDE_PRODUCT_IDS,
+  ...TIRZEPATIDE_PRODUCT_IDS,
+]);

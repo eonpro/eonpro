@@ -233,7 +233,7 @@ export default function AffiliateForgotPasswordPage() {
                       Email address
                     </label>
                     <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`}>
                         <Mail className="h-5 w-5" />
                       </div>
                       <input

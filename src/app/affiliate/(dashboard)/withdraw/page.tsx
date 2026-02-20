@@ -285,7 +285,7 @@ export default function WithdrawPage() {
               <div className="rounded-2xl bg-white p-6">
                 <label className="mb-3 block text-sm text-gray-500">Amount to withdraw</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">
+                  <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400 transition-opacity duration-200 ${amount ? 'opacity-0' : 'opacity-100'}`}>
                     $
                   </span>
                   <input
