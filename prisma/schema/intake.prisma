@@ -5,6 +5,13 @@
 // Part of multi-file Prisma schema (prisma/schema/)
 // ==========================================================================
 
+enum DraftStatus {
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  ABANDONED
+}
+
 model IntakeFormTemplate {
   id               Int                     @id @default(autoincrement())
   createdAt        DateTime                @default(now())
@@ -22,6 +29,7 @@ model IntakeFormTemplate {
   questions        IntakeFormQuestion[]
   submissions      IntakeFormSubmission[]
   formLinks        IntakeFormLink[]
+  drafts           IntakeFormDraft[]
   version          Int                     @default(1)
   metadata         Json? // Additional settings, styling, etc.
   appointmentTypes AppointmentTypeConfig[]
@@ -104,5 +112,28 @@ model IntakeFormLink {
   metadata     Json? // Tracking info, utm params, etc.
 
   @@index([patientEmail, isActive])
+  @@index([expiresAt])
+}
+
+model IntakeFormDraft {
+  id             String             @id @default(cuid())
+  clinicId       Int
+  templateId     Int
+  patientId      Int?
+  sessionId      String             @unique
+  currentStep    String
+  completedSteps Json
+  responses      Json
+  startedAt      DateTime           @default(now())
+  lastSavedAt    DateTime           @updatedAt
+  expiresAt      DateTime
+  status         DraftStatus        @default(IN_PROGRESS)
+
+  clinic         Clinic             @relation(fields: [clinicId], references: [id])
+  template       IntakeFormTemplate @relation(fields: [templateId], references: [id])
+  patient        Patient?           @relation(fields: [patientId], references: [id])
+
+  @@index([patientId, status])
+  @@index([sessionId])
   @@index([expiresAt])
 }

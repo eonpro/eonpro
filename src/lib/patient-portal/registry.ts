@@ -211,5 +211,67 @@ export const PROGRESS_TRACKING_MODULES: readonly ProgressTrackingModule[] = [
   },
 ] as const;
 
+/**
+ * Lead portal nav modules — conversion-focused experience for patients who
+ * have created an account but have not yet completed their intake form.
+ */
+export const LEAD_NAV_MODULES: readonly PortalNavModule[] = [
+  {
+    id: 'lead-home',
+    pathSuffix: '',
+    labelKey: 'navHome',
+    featureFlagKey: null,
+    navSlot: 'both',
+    exact: true,
+    defaultOn: true,
+  },
+  {
+    id: 'lead-intake',
+    pathSuffix: '/intake',
+    labelKey: 'navIntake',
+    featureFlagKey: null,
+    navSlot: 'both',
+    defaultOn: true,
+  },
+  {
+    id: 'lead-treatments',
+    pathSuffix: '/treatments',
+    labelKey: 'navTreatments',
+    featureFlagKey: null,
+    navSlot: 'both',
+    defaultOn: true,
+  },
+  {
+    id: 'lead-specials',
+    pathSuffix: '/specials',
+    labelKey: 'navSpecials',
+    featureFlagKey: null,
+    navSlot: 'main',
+    defaultOn: true,
+  },
+  {
+    id: 'lead-resources',
+    pathSuffix: '/resources',
+    labelKey: 'navResources',
+    featureFlagKey: 'showResources',
+    navSlot: 'main',
+    defaultOn: true,
+  },
+  {
+    id: 'lead-settings',
+    pathSuffix: '/settings',
+    labelKey: 'navSettings',
+    featureFlagKey: null,
+    navSlot: 'both',
+    defaultOn: true,
+  },
+] as const;
+
+export const LEAD_MOBILE_LABEL_OVERRIDE: Record<string, string> = {
+  'lead-treatments': 'navTx',
+  'lead-settings': 'navProfile',
+};
+
 export type NavModuleId = (typeof NAV_MODULES)[number]['id'];
+export type LeadNavModuleId = (typeof LEAD_NAV_MODULES)[number]['id'];
 export type ProgressTabId = (typeof PROGRESS_TRACKING_MODULES)[number]['tabId'];
