@@ -278,11 +278,18 @@ export default function SubscriptionPage() {
                     <div>
                       <p className="text-sm text-gray-500">{t('subscriptionNextBilling')}</p>
                       <p className="font-semibold text-gray-900">
-                        {new Date(subscription.nextBillingDate).toLocaleDateString(undefined, {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {subscription.nextBillingDate
+                          ? (() => {
+                              const date = new Date(subscription.nextBillingDate);
+                              return isNaN(date.getTime())
+                                ? '—'
+                                : date.toLocaleDateString(undefined, {
+                                    month: 'long',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  });
+                            })()
+                          : '—'}
                       </p>
                     </div>
                   </div>
@@ -362,11 +369,18 @@ export default function SubscriptionPage() {
                     <div>
                       <p className="font-medium text-gray-900">{invoice.description}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(invoice.date).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {invoice.date
+                          ? (() => {
+                              const date = new Date(invoice.date);
+                              return isNaN(date.getTime())
+                                ? '—'
+                                : date.toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                  });
+                            })()
+                          : '—'}
                       </p>
                     </div>
                     <div className="text-right">

@@ -275,6 +275,7 @@ export default function BillingPage() {
   }, [brandLocale, brandCurrency]);
 
   const formatDate = useCallback((dateStr: string) => {
+    if (!dateStr) return '—';
     return new Date(dateStr).toLocaleDateString(brandLocale, {
       month: 'short',
       day: 'numeric',
@@ -284,13 +285,14 @@ export default function BillingPage() {
 
   const totalPaid = useMemo(() => {
     return data?.invoices
-      .filter((i) => i.status === 'paid')
+      ?.filter((i) => i.status === 'paid')
       .reduce((sum, i) => sum + i.amount, 0) || 0;
   }, [data?.invoices]);
 
   const memberSince = useMemo(() => {
     if (!data?.invoices?.length) return 'N/A';
-    return formatDate(data.invoices[data.invoices.length - 1].date);
+    const lastInvoice = data.invoices[data.invoices.length - 1];
+    return lastInvoice ? formatDate(lastInvoice.date) : 'N/A';
   }, [data?.invoices, formatDate]);
 
   const recentInvoices = useMemo(() => {
@@ -736,7 +738,7 @@ export default function BillingPage() {
       {/* Payment History Tab */}
       {activeTab === 'history' && (
         <div className="space-y-3">
-          {data?.invoices.map((invoice) => {
+          {data?.invoices?.map((invoice) => {
             const status = STATUS_CONFIG[invoice.status];
             const StatusIcon = status.icon;
 
@@ -790,7 +792,7 @@ export default function BillingPage() {
       {/* Payment Methods Tab */}
       {activeTab === 'methods' && (
         <div className="space-y-4">
-          {data?.paymentMethods.map((method) => (
+          {data?.paymentMethods?.map((method) => (
             <div key={method.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

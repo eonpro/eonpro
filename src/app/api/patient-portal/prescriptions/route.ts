@@ -53,8 +53,12 @@ function derivePlanInterval(sub: {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patientId: number) {
 
+  const safeQuery = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+    try { return await fn(); } catch { return fallback; }
+  };
+
   const [orders, subscription, invoices] = await Promise.all([
-    prisma.order.findMany({
+    safeQuery(async () => prisma.order.findMany({
       where: { patientId },
       include: {
         rxs: {
@@ -74,12 +78,12 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
-    }),
-    prisma.subscription.findFirst({
+    }), []),
+    safeQuery(async () => prisma.subscription.findFirst({
       where: { patientId, status: 'ACTIVE' },
       orderBy: { createdAt: 'desc' },
-    }),
-    prisma.invoice.findMany({
+    }), null),
+    safeQuery(async () => prisma.invoice.findMany({
       where: { patientId },
       orderBy: { createdAt: 'desc' },
       take: 20,
@@ -92,7 +96,7 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
         description: true,
         stripeInvoiceNumber: true,
       },
-    }),
+    }), []),
   ]);
 
   await logPHIAccess(req, user, 'Prescription', String(patientId), patientId);

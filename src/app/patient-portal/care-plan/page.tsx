@@ -169,8 +169,8 @@ export default function CarePlanPage() {
   }
 
   const overallProgress =
-    carePlan.goals.length > 0
-      ? Math.round(carePlan.goals.reduce((sum, g) => sum + g.progress, 0) / carePlan.goals.length)
+    (carePlan?.goals?.length ?? 0) > 0
+      ? Math.round((carePlan.goals?.reduce((sum, g) => sum + g.progress, 0) ?? 0) / (carePlan.goals?.length ?? 1))
       : 0;
 
   return (
@@ -244,8 +244,8 @@ export default function CarePlanPage() {
                 <span className="text-sm text-gray-600">Goals</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {carePlan.goals.filter((g) => g.status === 'COMPLETED').length} /{' '}
-                {carePlan.goals.length}
+                {carePlan?.goals?.filter((g) => g.status === 'COMPLETED').length ?? 0} /{' '}
+                {carePlan?.goals?.length ?? 0}
               </p>
               <p className="text-sm text-gray-500">completed</p>
             </div>
@@ -255,7 +255,7 @@ export default function CarePlanPage() {
                 <span className="text-sm text-gray-600">Activities</span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {carePlan.activities.filter((a) => a.status === 'COMPLETED').length}
+                {carePlan?.activities?.filter((a) => a.status === 'COMPLETED').length ?? 0}
               </p>
               <p className="text-sm text-gray-500">this week</p>
             </div>
@@ -280,8 +280,8 @@ export default function CarePlanPage() {
           <div>
             <h3 className="mb-3 font-semibold text-gray-900">Active Goals</h3>
             <div className="space-y-3">
-              {carePlan.goals
-                .filter((g) => g.status === 'IN_PROGRESS')
+              {carePlan?.goals
+                ?.filter((g) => g.status === 'IN_PROGRESS')
                 .slice(0, 3)
                 .map((goal) => (
                   <div key={goal.id} className="rounded-xl bg-white p-4 shadow-sm">
@@ -310,7 +310,7 @@ export default function CarePlanPage() {
       {/* Goals Tab */}
       {activeTab === 'goals' && (
         <div className="space-y-4">
-          {carePlan.goals.map((goal) => (
+          {carePlan?.goals?.map((goal) => (
             <div key={goal.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div
@@ -362,7 +362,7 @@ export default function CarePlanPage() {
                       {goal.targetDate && (
                         <p className="mt-2 flex items-center gap-1 text-xs text-gray-500">
                           <Clock className="h-3 w-3" />
-                          Target: {new Date(goal.targetDate).toLocaleDateString()}
+                          Target: {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString() : ''}
                         </p>
                       )}
                     </>
@@ -377,7 +377,7 @@ export default function CarePlanPage() {
       {/* Activities Tab */}
       {activeTab === 'activities' && (
         <div className="space-y-4">
-          {carePlan.activities.map((activity) => (
+          {carePlan?.activities?.map((activity) => (
             <div key={activity.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <button
@@ -408,7 +408,7 @@ export default function CarePlanPage() {
                       {activity.frequency}
                     </span>
                     {activity.lastCompletedAt && (
-                      <span>Last: {new Date(activity.lastCompletedAt).toLocaleDateString()}</span>
+                      <span>Last: {activity.lastCompletedAt ? new Date(activity.lastCompletedAt).toLocaleDateString() : 'Never'}</span>
                     )}
                   </div>
                 </div>

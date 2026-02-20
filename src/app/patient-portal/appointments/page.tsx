@@ -312,12 +312,15 @@ export default function AppointmentsPage() {
   };
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return '—';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    return isNaN(date.getTime())
+      ? '—'
+      : date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        });
   };
 
   const formatTime = (dateStr: string) => {
@@ -357,7 +360,10 @@ export default function AppointmentsPage() {
   };
 
   const canCancel = (appointment: Appointment) => {
-    const hoursUntil = (new Date(appointment.startTime).getTime() - Date.now()) / (1000 * 60 * 60);
+    if (!appointment.startTime) return false;
+    const startTime = new Date(appointment.startTime).getTime();
+    if (isNaN(startTime)) return false;
+    const hoursUntil = (startTime - Date.now()) / (1000 * 60 * 60);
     return (
       hoursUntil >= 24 && ['SCHEDULED', 'CONFIRMED'].includes(appointment.status.toUpperCase())
     );
@@ -488,14 +494,31 @@ export default function AppointmentsPage() {
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 flex-col items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm">
-                      <span className="text-xs font-medium uppercase">
-                        {new Date(appointment.startTime).toLocaleDateString('en-US', {
-                          month: 'short',
-                        })}
-                      </span>
-                      <span className="text-2xl font-bold">
-                        {new Date(appointment.startTime).getDate()}
-                      </span>
+                      {appointment.startTime ? (() => {
+                        const date = new Date(appointment.startTime);
+                        return isNaN(date.getTime()) ? (
+                          <>
+                            <span className="text-xs font-medium uppercase">—</span>
+                            <span className="text-2xl font-bold">—</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-xs font-medium uppercase">
+                              {date.toLocaleDateString('en-US', {
+                                month: 'short',
+                              })}
+                            </span>
+                            <span className="text-2xl font-bold">
+                              {date.getDate()}
+                            </span>
+                          </>
+                        );
+                      })() : (
+                        <>
+                          <span className="text-xs font-medium uppercase">—</span>
+                          <span className="text-2xl font-bold">—</span>
+                        </>
+                      )}
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-white">
@@ -836,12 +859,18 @@ export default function AppointmentsPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Date</span>
                           <span className="font-medium text-gray-900">
-                            {selectedDate &&
-                              new Date(selectedDate).toLocaleDateString('en-US', {
-                                weekday: 'long',
-                                month: 'long',
-                                day: 'numeric',
-                              })}
+                            {selectedDate
+                              ? (() => {
+                                  const date = new Date(selectedDate);
+                                  return isNaN(date.getTime())
+                                    ? '—'
+                                    : date.toLocaleDateString('en-US', {
+                                        weekday: 'long',
+                                        month: 'long',
+                                        day: 'numeric',
+                                      });
+                                })()
+                              : '—'}
                           </span>
                         </div>
                         <div className="flex justify-between">

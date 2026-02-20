@@ -614,7 +614,10 @@ export default function PatientPortalDashboard() {
             </p>
             <p className="truncate text-sm text-gray-500">
               {recentShipment.estimatedDelivery
-                ? `${t('dashboardEst')} ${new Date(String(recentShipment.estimatedDelivery)).toLocaleDateString()}`
+                ? `${t('dashboardEst')} ${(() => {
+                    const date = new Date(String(recentShipment.estimatedDelivery));
+                    return isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+                  })()}`
                 : recentShipment.orderNumber
                   ? `Order ${recentShipment.orderNumber}`
                   : t('dashboardShipment')}

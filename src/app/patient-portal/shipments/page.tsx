@@ -308,7 +308,7 @@ export default function ShipmentsPage() {
                         {shipment.statusLabel}
                       </p>
                       <p className="mt-1 truncate text-xs text-gray-400">
-                        {shipment.items.map((i) => i.name).join(', ')}
+                        {(shipment.items ?? []).map((i) => i.name).join(', ')}
                       </p>
                     </div>
                     <ChevronRight
@@ -516,7 +516,7 @@ export default function ShipmentsPage() {
                 <h3 className="mb-4 font-bold text-gray-900">📦 Package Contents</h3>
 
                 <div className="space-y-3">
-                  {selectedShipment.items.map((item, index) => (
+                  {(selectedShipment.items ?? []).map((item, index) => (
                     <div
                       key={index}
                       className="flex items-center justify-between rounded-2xl bg-gray-50 p-4"

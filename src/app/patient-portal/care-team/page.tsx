@@ -49,7 +49,7 @@ export default function CareTeamPage() {
         }
         const data = await res.json();
         if (!cancelled && data?.providers) {
-          setCareTeam(data.providers.map((p: { id: number; firstName?: string; lastName?: string; titleLine?: string; isActive?: boolean }) => ({
+          setCareTeam((data.providers ?? []).map((p: { id: number; firstName?: string; lastName?: string; titleLine?: string; isActive?: boolean }) => ({
             id: p.id,
             name: `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || 'Provider',
             role: p.titleLine ?? 'Care Provider',

@@ -336,12 +336,14 @@ END:VCALENDAR`;
     return `$${(cents / 100).toFixed(2)}`;
   };
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-US', {
+  const formatDate = (iso: string) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
+  };
 
   const statusColor = (status: string) => {
     const s = status.toLowerCase();
@@ -366,7 +368,7 @@ END:VCALENDAR`;
   );
 
   const allActiveMeds = activePrescriptions.flatMap((p) =>
-    p.medications.map((m) => ({ ...m, prescription: p }))
+    (p.medications ?? []).map((m) => ({ ...m, prescription: p }))
   );
 
   if (loading) {
@@ -594,9 +596,9 @@ END:VCALENDAR`;
                       {rx.status}
                     </span>
                   </div>
-                  {rx.medications.length > 0 && (
+                  {(rx.medications?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {rx.medications.map((m) => (
+                      {rx.medications?.map((m) => (
                         <span
                           key={m.id}
                           className="break-words rounded-lg bg-gray-50 px-2 py-1 text-xs leading-tight text-gray-700"
@@ -606,7 +608,7 @@ END:VCALENDAR`;
                       ))}
                     </div>
                   )}
-                  {rx.medications.length === 0 && (
+                  {(rx.medications?.length ?? 0) === 0 && (
                     <p className="text-sm font-medium text-gray-900">Prescription</p>
                   )}
                 </div>
@@ -798,10 +800,17 @@ END:VCALENDAR`;
                         </p>
                       </div>
                       <p className="text-lg font-semibold text-gray-900">
-                        {new Date(med.startDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {med.startDate
+                          ? (() => {
+                              const date = new Date(med.startDate);
+                              return isNaN(date.getTime())
+                                ? '—'
+                                : date.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  });
+                            })()
+                          : '—'}
                       </p>
                     </div>
                   </div>
@@ -905,10 +914,17 @@ END:VCALENDAR`;
                           <p className="font-semibold text-amber-900">{t('medsRefillNeeded')}</p>
                           <p className="text-sm text-amber-700">
                             {t('medsDueBy')}{' '}
-                            {new Date(med.refillDate).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
+                            {med.refillDate
+                              ? (() => {
+                                  const date = new Date(med.refillDate);
+                                  return isNaN(date.getTime())
+                                    ? '—'
+                                    : date.toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                      });
+                                })()
+                              : '—'}
                           </p>
                         </div>
                       </div>

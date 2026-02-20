@@ -250,7 +250,7 @@ export default function HealthScorePage() {
 
       {/* Metrics Grid */}
       <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {displayData.metrics.map((metric) => {
+        {displayData?.metrics?.map((metric) => {
           const MetricIcon = metric.icon;
           const progress =
             metric.target && typeof metric.value === 'number'
@@ -340,7 +340,7 @@ export default function HealthScorePage() {
           <h3 className="font-semibold text-gray-900">AI Insights</h3>
         </div>
         <ul className="space-y-2">
-          {displayData.insights.map((insight, i) => (
+          {displayData?.insights?.map((insight, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
               <span className="mt-0.5 text-blue-500">•</span>
               {insight}
