@@ -108,12 +108,12 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         }
 
         try {
-          const stripeOpts = stripeContext.stripeAccountId
+          const connectOpts: Record<string, string> | undefined = stripeContext.stripeAccountId
             ? { stripeAccount: stripeContext.stripeAccountId }
-            : {};
+            : undefined;
 
-          const pm = await stripe.paymentMethods.create({
-            type: 'card',
+          const pmParams = {
+            type: 'card' as const,
             card: {
               number: decrypted.cardNumber,
               exp_month: decrypted.expiryMonth,
@@ -124,9 +124,17 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               name: decrypted.cardholderName,
               address: { postal_code: decrypted.billingZip },
             },
-          }, stripeOpts);
+          };
 
-          await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId }, stripeOpts);
+          const pm = connectOpts
+            ? await stripe.paymentMethods.create(pmParams, connectOpts)
+            : await stripe.paymentMethods.create(pmParams);
+
+          if (connectOpts) {
+            await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId! }, connectOpts);
+          } else {
+            await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId! });
+          }
 
           // Persist the link so future charges skip this step
           await prisma.paymentMethod.update({
