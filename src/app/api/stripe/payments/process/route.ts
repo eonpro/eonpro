@@ -9,6 +9,8 @@ import { Patient, Provider, Order } from '@/types/models';
 import { handleApiError } from '@/domains/shared/errors';
 import { getStripeForClinic } from '@/lib/stripe/connect';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { PaymentMethodService } from '@/services/paymentMethodService';
+import { StripeCustomerService } from '@/services/stripe/customerService';
 
 interface PaymentDetails {
   cardNumber: string;
@@ -85,22 +87,80 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         localPaymentMethodId = existingMethod.id;
       }
 
-      if (!stripePaymentMethodId) {
-        return NextResponse.json(
-          { error: 'This card is not linked to Stripe and cannot be charged. Please add a new card or use a Stripe-linked card.' },
-          { status: 400 }
-        );
-      }
-
-      if (!patient.stripeCustomerId) {
-        return NextResponse.json(
-          { error: 'Patient does not have a Stripe customer profile. Please add a card through Stripe first.' },
-          { status: 400 }
-        );
-      }
-
       const stripeContext = await getStripeForClinic(patient.clinicId);
       const stripe = stripeContext.stripe;
+
+      // Ensure Stripe customer exists
+      let stripeCustomerId = patient.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const customer = await StripeCustomerService.getOrCreateCustomer(patient.id);
+        stripeCustomerId = customer.id;
+      }
+
+      // If local card has no Stripe link, create one from encrypted card data
+      if (!stripePaymentMethodId && localPaymentMethodId) {
+        const decrypted = await PaymentMethodService.getDecryptedCard(localPaymentMethodId, patient.id);
+        if (!decrypted) {
+          return NextResponse.json(
+            { error: 'Could not retrieve card details. Please add a new card.' },
+            { status: 400 }
+          );
+        }
+
+        try {
+          const stripeOpts = stripeContext.stripeAccountId
+            ? { stripeAccount: stripeContext.stripeAccountId }
+            : {};
+
+          const pm = await stripe.paymentMethods.create({
+            type: 'card',
+            card: {
+              number: decrypted.cardNumber,
+              exp_month: decrypted.expiryMonth,
+              exp_year: decrypted.expiryYear,
+              cvc: decrypted.cvv || undefined,
+            },
+            billing_details: {
+              name: decrypted.cardholderName,
+              address: { postal_code: decrypted.billingZip },
+            },
+          }, stripeOpts);
+
+          await stripe.paymentMethods.attach(pm.id, { customer: stripeCustomerId }, stripeOpts);
+
+          // Persist the link so future charges skip this step
+          await prisma.paymentMethod.update({
+            where: { id: localPaymentMethodId },
+            data: { stripePaymentMethodId: pm.id },
+          });
+
+          stripePaymentMethodId = pm.id;
+
+          logger.info('[PaymentProcess] Auto-synced local card to Stripe', {
+            localPaymentMethodId,
+            stripePaymentMethodId: pm.id,
+            patientId: patient.id,
+          });
+        } catch (syncErr: unknown) {
+          const msg = syncErr instanceof Error ? syncErr.message : 'Failed to sync card to Stripe';
+          logger.error('[PaymentProcess] Failed to create Stripe PaymentMethod from local card', {
+            localPaymentMethodId,
+            patientId: patient.id,
+            error: msg,
+          });
+          return NextResponse.json(
+            { error: `Card could not be verified with Stripe: ${msg}` },
+            { status: 400 }
+          );
+        }
+      }
+
+      if (!stripePaymentMethodId) {
+        return NextResponse.json(
+          { error: 'Unable to resolve a payment method. Please add a new card.' },
+          { status: 400 }
+        );
+      }
 
       // Resolve card details for Stripe-only cards
       if (isStripeOnly) {
@@ -143,7 +203,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         const intentParams: Record<string, unknown> = {
           amount,
           currency: 'usd',
-          customer: patient.stripeCustomerId,
+          customer: stripeCustomerId,
           payment_method: stripePaymentMethodId,
           description,
           confirm: true,
