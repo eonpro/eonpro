@@ -56,21 +56,21 @@ export function formatVolume(ml: number): string {
 const SEMAGLUTIDE_TEMPLATES: SigTemplate[] = [
   {
     label: 'Weeks 1-4 · 0.25 mg',
-    sig: 'Inject 0.25 mg (0.1 mL / 10 units) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.',
+    sig: 'Inject 0.25 mg (10 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Weeks 5-8 · 0.5 mg',
-    sig: 'Inject 0.5 mg (0.2 mL / 20 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
+    sig: 'Inject 0.5 mg (20 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Maintenance · 1 mg',
-    sig: 'Inject 1 mg (0.4 mL / 40 units) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.',
+    sig: 'Inject 1 mg (40 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
@@ -82,35 +82,35 @@ const SEMAGLUTIDE_TEMPLATES: SigTemplate[] = [
 const SEMAGLUTIDE_5MG_TEMPLATES: SigTemplate[] = [
   {
     label: 'Weeks 1-4 · 0.25 mg',
-    sig: 'Inject 0.25 mg (0.05 mL / 5 units) subcutaneously once weekly for 4 weeks. Rotate injection sites. Keep refrigerated.',
+    sig: 'Inject 0.25 mg (5 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Weeks 5-8 · 0.5 mg',
-    sig: 'Inject 0.5 mg (0.1 mL / 10 units) subcutaneously once weekly. Titrate only if tolerating previous dose well. Hydrate adequately.',
+    sig: 'Inject 0.5 mg (10 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Maintenance · 1 mg',
-    sig: 'Inject 1 mg (0.2 mL / 20 units) subcutaneously once weekly. Continue lifestyle counseling and monitor fasting glucose.',
+    sig: 'Inject 1 mg (20 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
   },
   {
     label: 'Maintenance · 1.7 mg',
-    sig: 'Inject 1.7 mg (0.34 mL / 34 units) subcutaneously once weekly for weight maintenance.',
+    sig: 'Inject 1.7 mg (34 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
   },
   {
     label: 'Maximum · 2.4 mg',
-    sig: 'Inject 2.4 mg (0.48 mL / 48 units) subcutaneously once weekly. Maximum dose. Vial: 1 mL = 100 units, 2 mL = 200 units; 5 mg per mL means 2.4 mg = 48 units.',
+    sig: 'Inject 2.4 mg (48 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
@@ -120,21 +120,21 @@ const SEMAGLUTIDE_5MG_TEMPLATES: SigTemplate[] = [
 const TIRZEPATIDE_TEMPLATES: SigTemplate[] = [
   {
     label: 'Initiation · 2.5 mg',
-    sig: 'Inject 2.5 mg (0.25 mL / 25 units) subcutaneously once weekly for 4 weeks to initiate therapy.',
+    sig: 'Inject 2.5 mg (25 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Escalation · 5 mg',
-    sig: 'Inject 5 mg (0.5 mL / 50 units) subcutaneously once weekly if patient tolerates initiation dose.',
+    sig: 'Inject 5 mg (50 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Maintenance · 10 mg',
-    sig: 'Inject 10 mg (1 mL / 100 units) subcutaneously once weekly for maintenance/weight management.',
+    sig: 'Inject 10 mg (100 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
@@ -147,28 +147,28 @@ const TIRZEPATIDE_TEMPLATES: SigTemplate[] = [
 const TIRZEPATIDE_15MG_TEMPLATES: SigTemplate[] = [
   {
     label: 'Initiation · 2.5 mg',
-    sig: 'Inject 2.5 mg (0.17 mL / 17 units) subcutaneously once weekly for 4 weeks to initiate therapy.',
+    sig: 'Inject 2.5 mg (17 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Escalation · 5 mg',
-    sig: 'Inject 5 mg (0.33 mL / 33 units) subcutaneously once weekly if patient tolerates initiation dose.',
+    sig: 'Inject 5 mg (33 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Maintenance · 10 mg',
-    sig: 'Inject 10 mg (0.67 mL / 67 units) subcutaneously once weekly for maintenance/weight management.',
+    sig: 'Inject 10 mg (67 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
   },
   {
     label: 'High Dose · 15 mg',
-    sig: 'Inject 15 mg (1 mL / 100 units) subcutaneously once weekly for maximum effect.',
+    sig: 'Inject 15 mg (100 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
@@ -181,28 +181,28 @@ const TIRZEPATIDE_15MG_TEMPLATES: SigTemplate[] = [
 const TIRZEPATIDE_30MG_TEMPLATES: SigTemplate[] = [
   {
     label: 'Initiation · 2.5 mg',
-    sig: 'Inject 2.5 mg (0.08 mL / 8 units) subcutaneously once weekly for 4 weeks to initiate therapy.',
+    sig: 'Inject 2.5 mg (8 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Escalation · 5 mg',
-    sig: 'Inject 5 mg (0.17 mL / 17 units) subcutaneously once weekly if patient tolerates initiation dose.',
+    sig: 'Inject 5 mg (17 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '0',
     daysSupply: 28,
   },
   {
     label: 'Maintenance · 10 mg',
-    sig: 'Inject 10 mg (0.33 mL / 33 units) subcutaneously once weekly for maintenance/weight management.',
+    sig: 'Inject 10 mg (33 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
   },
   {
     label: 'High Dose · 15 mg',
-    sig: 'Vial contains 2 mL (200 units total). Inject 15 mg (0.5 mL / 50 units*) subcutaneously once weekly. Maximum dose. Monitor weight loss progress and metabolic parameters.',
+    sig: 'Inject 15 mg (50 units) subcutaneously once weekly.',
     quantity: '1',
     refills: '1',
     daysSupply: 28,
@@ -226,21 +226,21 @@ const ENCLO_TEMPLATE_PULSE: SigTemplate = {
 const TESTOSTERONE_TEMPLATES: SigTemplate[] = [
   {
     label: 'Weekly 100 mg',
-    sig: 'Inject 100 mg (0.5 mL / 50 units) intramuscularly or subcutaneously once weekly. Rotate injection sites.',
+    sig: 'Inject 100 mg (50 units) intramuscularly or subcutaneously once weekly.',
     quantity: '10',
     refills: '1',
     daysSupply: 70,
   },
   {
     label: 'Biweekly 200 mg',
-    sig: 'Inject 200 mg (1 mL / 100 units) intramuscularly every 10-14 days as directed. Rotate injection sites.',
+    sig: 'Inject 200 mg (100 units) intramuscularly every 10-14 days.',
     quantity: '10',
     refills: '1',
     daysSupply: 100,
   },
   {
     label: 'Twice Weekly 50 mg x2',
-    sig: 'Inject 50 mg (0.25 mL / 25 units) subcutaneously twice weekly (e.g., Monday and Thursday) for stable testosterone levels.',
+    sig: 'Inject 50 mg (25 units) subcutaneously twice weekly.',
     quantity: '10',
     refills: '2',
     daysSupply: 70,
@@ -265,14 +265,14 @@ const ANASTROZOLE_TEMPLATES: SigTemplate[] = [
 const SERMORELIN_TEMPLATES: SigTemplate[] = [
   {
     label: 'Nightly 0.3 mg',
-    sig: 'Inject 0.3 mg (0.15 mL / 15 units) subcutaneously nightly before bed on an empty stomach.',
+    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly before bed on an empty stomach.',
     quantity: '1',
     refills: '1',
     daysSupply: 30,
   },
   {
     label: '5 nights/week',
-    sig: 'Inject 0.3 mg (0.15 mL / 15 units) subcutaneously nightly Monday through Friday; hold on weekends.',
+    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly Monday through Friday.',
     quantity: '1',
     refills: '1',
     daysSupply: 30,
@@ -336,7 +336,7 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
     sigTemplates: [
       {
         label: 'Weekly 200 mg',
-        sig: 'Inject 1 mL (200 mg) intravenously or as directed once weekly.',
+        sig: 'Inject 200 mg intravenously once weekly.',
         quantity: '1',
         refills: '0',
       },
@@ -367,19 +367,19 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
     sigTemplates: [
       {
         label: 'Standard 500 IU twice weekly',
-        sig: 'Inject 500 IU subcutaneously twice weekly (e.g., Monday and Thursday). Reconstitute with bacteriostatic water as directed. Keep refrigerated after reconstitution.',
+        sig: 'Inject 500 IU subcutaneously twice weekly.',
         quantity: '1',
         refills: '1',
       },
       {
         label: '1,000 IU twice weekly',
-        sig: 'Inject 1,000 IU subcutaneously twice weekly (e.g., Monday and Thursday). Reconstitute with bacteriostatic water as directed. Keep refrigerated after reconstitution.',
+        sig: 'Inject 1,000 IU subcutaneously twice weekly.',
         quantity: '1',
         refills: '1',
       },
       {
         label: '250 IU every other day',
-        sig: 'Inject 250 IU subcutaneously every other day. Reconstitute with bacteriostatic water as directed. Keep refrigerated after reconstitution.',
+        sig: 'Inject 250 IU subcutaneously every other day.',
         quantity: '1',
         refills: '1',
       },

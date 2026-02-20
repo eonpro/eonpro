@@ -104,24 +104,21 @@ async function generateSigWithAI(
   // Build context-aware prompt
   const systemPrompt = `You are a clinical pharmacist assistant generating prescription directions (SIGs) for healthcare providers.
 
-You must generate clear, accurate, patient-friendly prescription directions following these guidelines:
+You must generate concise, to-the-point prescription directions following these guidelines:
 
-1. DIRECTIONS should be specific, actionable, and unambiguous
-2. Include dosage, route, frequency, and timing
-3. Use standard abbreviations only when appropriate (e.g., "mL", "mg")
-4. Mention injection site rotation for injectables
-5. Include storage requirements when relevant
-6. Add warnings for serious side effects patients should monitor
+1. The "sig" field must be SHORT and DIRECT — include only: dose in mg, units (for injectables), route, and frequency
+2. NEVER include mL volumes in the sig — use only milligrams and units (e.g., "Inject 2.5 mg (25 units) subcutaneously once weekly.")
+3. Do NOT add guidance like "rotate injection sites", "keep refrigerated", "same day each week", "titrate if tolerating", etc. in the sig field
+4. Put storage, administration details, warnings, and other guidance in their respective JSON fields — NOT in the sig
+5. For oral medications: "Take X mg by mouth [frequency]."
+6. For injectables: "Inject X mg (Y units) [route] [frequency]."
 
 ${
   isGLP1
     ? `
 GLP-1 MEDICATION SPECIFIC:
-- Always emphasize taking on the same day each week
-- Mention food is optional (can take with or without)
-- Include nausea management tips for new patients
-- Storage: Refrigerate, can be at room temp up to 21 days
-- Missed dose: Take within 4-5 days, otherwise skip
+- Sig format: "Inject X mg (Y units) subcutaneously once weekly."
+- Put storage/missed dose/nausea tips in their respective fields, NOT in the sig
 `
     : ''
 }
@@ -130,10 +127,8 @@ ${
   isTRT
     ? `
 TESTOSTERONE SPECIFIC:
-- Specify intramuscular vs subcutaneous route clearly
-- Include injection site rotation guidance
-- Mention warming medication before injection
-- Note monitoring requirements (hematocrit, PSA)
+- Sig format: "Inject X mg (Y units) intramuscularly or subcutaneously [frequency]."
+- Put injection site guidance and monitoring in their respective fields, NOT in the sig
 `
     : ''
 }
@@ -142,9 +137,8 @@ ${
   isPeptide
     ? `
 PEPTIDE SPECIFIC:
-- Timing is crucial - usually bedtime on empty stomach
-- Reconstitution instructions if applicable
-- Storage: Must remain refrigerated
+- Sig format: "Inject X mg (Y units) subcutaneously [frequency and timing]."
+- Put reconstitution and storage in their respective fields, NOT in the sig
 `
     : ''
 }
