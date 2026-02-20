@@ -7,7 +7,7 @@ import { processPaymentForCommission } from '@/services/affiliate/affiliateCommi
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { handleApiError } from '@/domains/shared/errors';
-import { getStripeForClinic } from '@/lib/stripe/connect';
+import { getStripeForClinic, getDedicatedAccountPublishableKey } from '@/lib/stripe/connect';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 
@@ -194,11 +194,22 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           },
         });
 
+        // Resolve the correct publishable key for this clinic's Stripe account
+        const clinic = await prisma.clinic.findUnique({
+          where: { id: patient.clinicId },
+          select: { subdomain: true },
+        });
+        const clinicPk = clinic?.subdomain
+          ? getDedicatedAccountPublishableKey(clinic.subdomain)
+          : undefined;
+
         return NextResponse.json({
           requiresStripeConfirmation: true,
           clientSecret: intent.client_secret,
           paymentIntentId: intent.id,
           localPaymentMethodId,
+          stripePublishableKey: clinicPk || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+          stripeConnectedAccountId: stripeContext.stripeAccountId || null,
         });
       }
 

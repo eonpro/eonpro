@@ -18,9 +18,22 @@ import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
 
-const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : null;
+const stripeCache = new Map<string, Promise<Stripe | null>>();
+
+function getStripeInstance(
+  publishableKey?: string,
+  connectedAccountId?: string | null,
+): Promise<Stripe | null> | null {
+  const pk = publishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!pk) return null;
+
+  const cacheKey = connectedAccountId ? `${pk}__${connectedAccountId}` : pk;
+  if (!stripeCache.has(cacheKey)) {
+    const opts = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined;
+    stripeCache.set(cacheKey, loadStripe(pk, opts));
+  }
+  return stripeCache.get(cacheKey)!;
+}
 
 interface SavedCard {
   id: number | string;
@@ -77,6 +90,8 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     clientSecret: string;
     paymentIntentId: string;
     localPaymentMethodId: number;
+    stripePublishableKey?: string;
+    stripeConnectedAccountId?: string | null;
   } | null>(null);
   const stripeCardRef = useRef<HTMLDivElement>(null);
   const stripeElementRef = useRef<StripeCardElement | null>(null);
@@ -88,7 +103,12 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
 
     let mounted = true;
     const mountCard = async () => {
-      const stripeInstance = await stripePromise;
+      const stripeP = getStripeInstance(
+        stripeConfirmation.stripePublishableKey,
+        stripeConfirmation.stripeConnectedAccountId,
+      );
+      if (!stripeP) return;
+      const stripeInstance = await stripeP;
       if (!stripeInstance || !mounted) return;
       stripeInstanceRef.current = stripeInstance;
 
@@ -345,6 +365,8 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           clientSecret: data.clientSecret,
           paymentIntentId: data.paymentIntentId,
           localPaymentMethodId: data.localPaymentMethodId,
+          stripePublishableKey: data.stripePublishableKey,
+          stripeConnectedAccountId: data.stripeConnectedAccountId,
         });
         setSubmitting(false);
         return;
