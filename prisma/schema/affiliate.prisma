@@ -1,0 +1,1151 @@
+// ==========================================================================
+// AFFILIATE DOMAIN
+// ==========================================================================
+// Bounded context: affiliate
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model Influencer {
+  id                     Int                     @id @default(autoincrement())
+  createdAt              DateTime                @default(now())
+  clinicId               Int? // Multi-clinic support
+  clinic                 Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt              DateTime                @updatedAt
+  email                  String                  @unique
+  name                   String
+  promoCode              String                  @unique
+  commissionRate         Float                   @default(0.10) // 10% default commission
+  status                 InfluencerStatus        @default(ACTIVE)
+  passwordHash           String?
+  passwordResetToken     String?
+  passwordResetExpires   DateTime?
+  lastLogin              DateTime?
+  phone                  String?
+  paypalEmail            String?
+  preferredPaymentMethod String?                 @default("paypal")
+  notes                  String?
+  metadata               Json?
+  referrals              ReferralTracking[]
+  commissions            Commission[]
+  payouts                CommissionPayout[]
+  bankAccounts           InfluencerBankAccount[]
+  user                   User?
+
+  // New affiliate system relations
+  discountCodes        DiscountCode[]
+  affiliateReferrals   AffiliateReferral[]
+  affiliateCommissions AffiliateCommission[]
+
+  @@index([promoCode])
+  @@index([email])
+}
+
+model InfluencerBankAccount {
+  id            Int        @id @default(autoincrement())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  influencerId  Int
+  bankName      String
+  accountNumber String // Encrypted
+  routingNumber String // Encrypted
+  accountType   String     @default("checking")
+  isDefault     Boolean    @default(false)
+  influencer    Influencer @relation(fields: [influencerId], references: [id])
+
+  @@index([influencerId])
+}
+
+model ReferralTracking {
+  id                  Int          @id @default(autoincrement())
+  createdAt           DateTime     @default(now())
+  clinicId            Int? // Multi-clinic support
+  clinic              Clinic?      @relation(fields: [clinicId], references: [id])
+  updatedAt           DateTime     @updatedAt
+  patientId           Int          @unique
+  influencerId        Int
+  promoCode           String
+  referralSource      String? // e.g., "instagram", "youtube", "tiktok"
+  referralExpiresAt   DateTime // 90 days from creation
+  isConverted         Boolean      @default(false)
+  convertedAt         DateTime?
+  conversionInvoiceId Int?         @unique
+  metadata            Json? // Store additional tracking data
+  patient             Patient      @relation(fields: [patientId], references: [id])
+  influencer          Influencer   @relation(fields: [influencerId], references: [id])
+  commissions         Commission[]
+
+  @@index([influencerId])
+  @@index([patientId])
+  @@index([referralExpiresAt])
+  @@index([isConverted])
+}
+
+model Commission {
+  id               Int               @id @default(autoincrement())
+  createdAt        DateTime          @default(now())
+  clinicId         Int? // Multi-clinic support
+  clinic           Clinic?           @relation(fields: [clinicId], references: [id])
+  updatedAt        DateTime          @updatedAt
+  influencerId     Int
+  referralId       Int
+  invoiceId        Int               @unique
+  orderAmount      Int // Amount in cents
+  commissionRate   Float // Rate at time of commission (e.g., 0.10 for 10%)
+  commissionAmount Int // Calculated commission in cents
+  status           CommissionStatus  @default(PENDING)
+  payoutId         Int?
+  notes            String?
+  metadata         Json?
+  influencer       Influencer        @relation(fields: [influencerId], references: [id])
+  referral         ReferralTracking  @relation(fields: [referralId], references: [id])
+  invoice          Invoice           @relation(fields: [invoiceId], references: [id])
+  payout           CommissionPayout? @relation(fields: [payoutId], references: [id])
+
+  @@index([influencerId])
+  @@index([status])
+  @@index([payoutId])
+  @@index([invoiceId])
+}
+
+model CommissionPayout {
+  id              Int          @id @default(autoincrement())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  influencerId    Int
+  payoutMethod    String // "paypal", "bank_transfer", "check"
+  payoutReference String? // Transaction ID, check number, etc.
+  totalAmount     Int // Total payout amount in cents
+  currency        String       @default("usd")
+  status          PayoutStatus @default(PENDING)
+  paidAt          DateTime?
+  failureReason   String?
+  notes           String?
+  metadata        Json?
+  influencer      Influencer   @relation(fields: [influencerId], references: [id])
+  commissions     Commission[]
+
+  @@index([influencerId])
+  @@index([status])
+}
+
+enum InfluencerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_APPROVAL
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+  DISPUTED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model AffiliateProgram {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int      @unique
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Program Settings
+  name     String  @default("Affiliate Program")
+  isActive Boolean @default(true)
+
+  // Default Commission
+  defaultCommissionType  CommissionType @default(PERCENTAGE)
+  defaultCommissionValue Float          @default(10) // 10% or $10
+
+  // Commission Rules
+  commissionOnFirstPurchase   Boolean @default(true)
+  commissionOnRecurring       Boolean @default(true)
+  recurringCommissionDuration Int? // Months to pay recurring (null = lifetime)
+
+  // Cookie/Attribution
+  attributionWindowDays Int @default(30) // Days to attribute sale
+
+  // Tiers
+  tiers AffiliateTier[]
+
+  // Payouts
+  minimumPayout   Int             @default(5000) // $50 minimum
+  payoutFrequency PayoutFrequency @default(MONTHLY)
+
+  @@index([clinicId])
+}
+
+model AffiliateTier {
+  id        Int              @id @default(autoincrement())
+  programId Int
+  program   AffiliateProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  // Tier Info
+  name  String // "Bronze", "Silver", "Gold", "Platinum"
+  level Int    @default(1) // 1, 2, 3, 4...
+
+  // Requirements
+  minReferrals Int @default(0) // Min referrals to reach tier
+  minRevenue   Int @default(0) // Min revenue generated (cents)
+
+  // Benefits
+  commissionType  CommissionType @default(PERCENTAGE)
+  commissionValue Float // Commission rate for this tier
+  bonusAmount     Int? // One-time bonus for reaching tier
+
+  // Perks
+  perks Json? // Array of perk descriptions
+
+  @@unique([programId, level])
+  @@index([programId])
+}
+
+model AffiliateReferral {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Referral Details
+  affiliateId       Int // The influencer/affiliate
+  affiliate         Influencer @relation(fields: [affiliateId], references: [id])
+  referredPatientId Int // The patient who was referred
+  referredPatient   Patient    @relation(fields: [referredPatientId], references: [id])
+
+  // Attribution
+  discountCodeUsed String? // Code they used
+  landingPage      String? // Where they landed
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+
+  // Status
+  status      ReferralStatus @default(PENDING)
+  convertedAt DateTime? // When they made first purchase
+
+  // Lifetime Value
+  totalRevenue    Int @default(0) // Total revenue from this referral
+  totalCommission Int @default(0) // Total commission paid
+
+  @@index([affiliateId])
+  @@index([referredPatientId])
+  @@index([clinicId])
+}
+
+model AffiliateCommission {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Commission Details
+  affiliateId Int
+  affiliate   Influencer @relation(fields: [affiliateId], references: [id])
+  referralId  Int?
+
+  // Source
+  invoiceId      Int?
+  orderId        Int?
+  subscriptionId Int?
+
+  // Amounts
+  orderAmount      Int // Order/payment amount
+  commissionRate   Float // Rate applied
+  commissionAmount Int // Commission earned
+
+  // Status
+  status   CommissionStatus @default(PENDING)
+  paidAt   DateTime?
+  payoutId String? // External payout reference
+
+  // Type
+  commissionType String @default("first_purchase") // first_purchase, recurring, bonus
+
+  @@index([affiliateId])
+  @@index([clinicId])
+  @@index([status])
+}
+
+enum CommissionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PayoutFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+}
+
+enum ReferralStatus {
+  PENDING // Signed up but no purchase
+  CONVERTED // Made first purchase
+  ACTIVE // Active customer
+  CHURNED // Cancelled/inactive
+}
+
+model Affiliate {
+  id          Int             @id @default(autoincrement())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  clinicId    Int // Multi-tenant: affiliate belongs to a clinic
+  clinic      Clinic          @relation(fields: [clinicId], references: [id])
+  userId      Int             @unique // Link to User for login credentials
+  user        User            @relation(fields: [userId], references: [id])
+  displayName String // Display name shown in portal
+  status      AffiliateStatus @default(ACTIVE)
+  metadata    Json? // Additional affiliate info
+
+  // Tier tracking (cached for performance)
+  currentTierId        Int? // Current tier level
+  currentTier          AffiliateCommissionTier? @relation(fields: [currentTierId], references: [id])
+  tierQualifiedAt      DateTime? // When they qualified for current tier
+  lifetimeConversions  Int                      @default(0)
+  lifetimeRevenueCents Int                      @default(0)
+
+  // Login tracking
+  lastLoginAt DateTime?
+
+  // Leaderboard settings
+  leaderboardOptIn Boolean @default(false) // Whether affiliate appears on public leaderboards
+  leaderboardAlias String? // Custom display name for leaderboard (if opt-in)
+
+  // Relations
+  refCodes           AffiliateRefCode[]
+  planAssignments    AffiliatePlanAssignment[]
+  commissionEvents   AffiliateCommissionEvent[]
+  attributedPatients Patient[]
+  touches            AffiliateTouch[]
+  payoutMethods      AffiliatePayoutMethod[]
+  payouts            AffiliatePayout[]
+  taxDocuments       AffiliateTaxDocument[]
+  fraudAlerts        AffiliateFraudAlert[]
+  otpCode            AffiliateOtpCode?
+  application        AffiliateApplication? // Link to original application (if created via self-signup)
+  competitionEntries AffiliateCompetitionEntry[]
+
+  @@index([clinicId])
+  @@index([status])
+}
+
+// OTP codes for phone-based login
+model AffiliateOtpCode {
+  id          Int       @id @default(autoincrement())
+  affiliateId Int       @unique
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  code        String // 6-digit code
+  expiresAt   DateTime
+  attempts    Int       @default(0) // Failed verification attempts
+  createdAt   DateTime  @default(now())
+}
+
+// Self-service affiliate applications (pending approval)
+model AffiliateApplication {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Required applicant information
+  fullName String
+  email    String
+  phone    String
+
+  // Address
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  zipCode      String
+  country      String  @default("US")
+
+  // Social media profiles (JSON array: [{platform: "instagram", url: "..."}])
+  socialProfiles Json
+
+  // Optional additional info
+  website       String?
+  audienceSize  String? // e.g., "1K-10K", "10K-50K", "50K-100K", "100K+"
+  promotionPlan String? // How they plan to promote
+
+  // Application status
+  status      AffiliateApplicationStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewedBy  Int? // Admin user who reviewed
+  reviewNotes String? // Internal notes from reviewer
+
+  // If approved, link to created affiliate
+  affiliateId Int?       @unique
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
+
+  @@index([clinicId, status])
+  @@index([email])
+  @@index([phone])
+}
+
+model AffiliateRefCode {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  clinicId    Int // Multi-tenant scoping
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  refCode     String // e.g., "infl_xxx", "partner_abc"
+  description String? // Optional description of the ref code source
+  isActive    Boolean   @default(true)
+
+  @@unique([clinicId, refCode]) // Ref codes unique per clinic
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([refCode])
+}
+
+model AffiliateCommissionPlan {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  clinicId        Int // Multi-tenant scoping
+  clinic          Clinic              @relation(fields: [clinicId], references: [id])
+  name            String // e.g., "Standard 10%", "VIP Partner 15%"
+  description     String?
+  planType        CommissionPlanType  @default(PERCENT)
+  flatAmountCents Int? // Default flat-rate commission (in cents), used as fallback
+  percentBps      Int? // Default percentage commission (basis points: 1000 = 10%), used as fallback
+  appliesTo       CommissionAppliesTo @default(FIRST_PAYMENT_ONLY)
+  holdDays        Int                 @default(0) // Days to hold before commission is approved
+  clawbackEnabled Boolean             @default(false) // If true, refund/chargeback reverses commission
+  isActive        Boolean             @default(true)
+
+  // Initial/First Payment Commission (overrides default if set)
+  initialPercentBps      Int? // e.g., 1000 = 10% for first payment
+  initialFlatAmountCents Int? // e.g., 5000 = $50 for first payment
+
+  // Recurring Payment Commission (overrides default if set)
+  recurringPercentBps      Int? // e.g., 500 = 5% for recurring payments
+  recurringFlatAmountCents Int? // e.g., 2500 = $25 for recurring payments
+
+  // Tier-based commission
+  tierEnabled Boolean @default(false)
+
+  // Recurring commission settings
+  recurringEnabled  Boolean @default(false)
+  recurringMonths   Int? // null = lifetime recurring
+  recurringDecayPct Int? // e.g., 50 = 50% of original rate after year 1
+
+  // Relations
+  assignments  AffiliatePlanAssignment[]
+  tiers        AffiliateCommissionTier[]
+  productRules AffiliateProductRate[]
+  promotions   AffiliatePromotion[]
+
+  @@index([clinicId])
+  @@index([isActive])
+}
+
+model AffiliatePlanAssignment {
+  id               Int                     @id @default(autoincrement())
+  createdAt        DateTime                @default(now())
+  clinicId         Int // Multi-tenant scoping
+  clinic           Clinic                  @relation(fields: [clinicId], references: [id])
+  affiliateId      Int
+  affiliate        Affiliate               @relation(fields: [affiliateId], references: [id])
+  commissionPlanId Int
+  commissionPlan   AffiliateCommissionPlan @relation(fields: [commissionPlanId], references: [id])
+  effectiveFrom    DateTime                @default(now())
+  effectiveTo      DateTime? // Null = no expiry
+
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([commissionPlanId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+// Immutable ledger of commission events - NEVER store patient-level data here
+model AffiliateCommissionEvent {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  clinicId    Int // Multi-tenant scoping
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  // Stripe event tracking for idempotency
+  stripeEventId   String // Stripe event ID (evt_xxx)
+  stripeObjectId  String // Payment intent/charge/session ID
+  stripeEventType String // e.g., "payment_intent.succeeded"
+
+  // Commission details (HIPAA-SAFE: no patient identifiers)
+  eventAmountCents      Int // Total payment amount
+  commissionAmountCents Int // Calculated commission
+  commissionPlanId      Int? // Plan used for calculation (null if plan deleted)
+
+  // Commission breakdown (for tiered/promotional calculations)
+  baseCommissionCents    Int? // Base commission before adjustments
+  tierBonusCents         Int? // Tier-based bonus
+  promotionBonusCents    Int? // Promotional bonus
+  productAdjustmentCents Int? // Product-specific adjustment
+
+  // Attribution tracking
+  touchId          Int? // Link to the touch that attributed this conversion
+  attributionModel String? // Which model was used (FIRST_CLICK, LAST_CLICK, etc.)
+
+  // Recurring tracking
+  isRecurring     Boolean @default(false)
+  recurringMonth  Int? // Which month of recurring (1, 2, 3...)
+  originalEventId Int? // Link to first commission event for this subscription
+
+  // Status tracking
+  status         CommissionEventStatus @default(PENDING)
+  occurredAt     DateTime // When the payment occurred
+  holdUntil      DateTime? // When commission becomes eligible for approval
+  approvedAt     DateTime?
+  paidAt         DateTime?
+  reversedAt     DateTime?
+  reversalReason String? // e.g., "refund", "chargeback"
+
+  // Payout tracking
+  payoutId Int? // Which payout included this commission
+  payout   AffiliatePayout? @relation(fields: [payoutId], references: [id])
+
+  // Audit trail
+  metadata Json? // Additional non-PHI context
+
+  @@unique([clinicId, stripeEventId]) // Idempotency: one event per stripe event per clinic
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([status])
+  @@index([occurredAt])
+  @@index([stripeEventId])
+  @@index([payoutId])
+  // Performance indexes for reporting queries
+  @@index([affiliateId, occurredAt]) // Revenue queries by affiliate with date range
+  @@index([affiliateId, status]) // Payout eligibility checks
+}
+
+enum AffiliateStatus {
+  ACTIVE
+  PAUSED
+  SUSPENDED
+  INACTIVE
+}
+
+enum AffiliateApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CommissionPlanType {
+  FLAT // Flat dollar amount per conversion
+  PERCENT // Percentage of revenue
+}
+
+enum CommissionAppliesTo {
+  FIRST_PAYMENT_ONLY // Commission only on first payment
+  ALL_PAYMENTS // Commission on all payments (recurring)
+}
+
+enum CommissionEventStatus {
+  PENDING // Waiting for hold period
+  APPROVED // Hold period passed, ready for payout
+  PAID // Commission paid out
+  REVERSED // Clawed back due to refund/chargeback
+}
+
+// Competition/challenge for affiliates (managed by clinic admins)
+model AffiliateCompetition {
+  id               Int               @id @default(autoincrement())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  clinicId         Int
+  clinic           Clinic            @relation(fields: [clinicId], references: [id])
+  name             String // e.g., "January Sales Sprint"
+  description      String? // Detailed description of the competition
+  metric           CompetitionMetric // What metric is being tracked
+  startDate        DateTime // When competition starts
+  endDate          DateTime // When competition ends
+  status           CompetitionStatus @default(SCHEDULED)
+  prizeDescription String? // e.g., "$500 bonus", "Free trip to Vegas"
+  prizeValueCents  Int? // Monetary value of prize in cents
+  minParticipants  Int               @default(0) // Minimum participants required
+  isPublic         Boolean           @default(true) // Show on affiliate leaderboard page
+
+  // Relations
+  entries AffiliateCompetitionEntry[]
+
+  @@index([clinicId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+// Entry/participation in a competition
+model AffiliateCompetitionEntry {
+  id            Int                  @id @default(autoincrement())
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  competitionId Int
+  competition   AffiliateCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  affiliateId   Int
+  affiliate     Affiliate            @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  currentValue  Int                  @default(0) // Current score (clicks, conversions, or cents depending on metric)
+  rank          Int? // Current rank in competition (updated by cron)
+
+  @@unique([competitionId, affiliateId])
+  @@index([competitionId, rank])
+  @@index([affiliateId])
+}
+
+enum CompetitionMetric {
+  CLICKS // Most clicks
+  CONVERSIONS // Most conversions/sales
+  REVENUE // Highest revenue generated (in cents)
+  CONVERSION_RATE // Best conversion rate (conversions/clicks * 10000 for precision)
+  NEW_CUSTOMERS // Most new customer acquisitions
+}
+
+enum CompetitionStatus {
+  SCHEDULED // Not yet started
+  ACTIVE // Currently running
+  COMPLETED // Ended successfully
+  CANCELLED // Cancelled by admin
+}
+
+// Multi-touch attribution tracking (HIPAA-safe: no names/medical data)
+model AffiliateTouch {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Visitor identification (HIPAA-safe: hashed/anonymized)
+  visitorFingerprint String // Browser fingerprint hash
+  cookieId           String? // First-party cookie ID
+  ipAddressHash      String? // SHA-256 hashed IP for privacy
+  userAgent          String?
+
+  // Attribution data
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  refCode     String
+
+  // UTM tracking
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+
+  // Sub-ID tracking (custom tracking params)
+  subId1 String?
+  subId2 String?
+  subId3 String?
+  subId4 String?
+  subId5 String?
+
+  // Landing info
+  landingPage String?
+  referrerUrl String?
+
+  // Touch type
+  touchType TouchType @default(CLICK)
+
+  // Conversion tracking
+  convertedPatientId Int? // Set when this touch leads to conversion
+  convertedAt        DateTime? // When conversion occurred
+
+  @@index([clinicId, visitorFingerprint])
+  @@index([clinicId, cookieId])
+  @@index([affiliateId])
+  @@index([createdAt])
+  @@index([refCode])
+  // Performance indexes for reporting queries
+  @@index([affiliateId, convertedAt]) // Conversion counts by affiliate
+  @@index([refCode, createdAt]) // Deduplication and per-code stats
+  @@index([affiliateId, createdAt]) // Click counts with date filter
+  @@index([affiliateId, touchType, createdAt]) // CLICK-specific queries
+}
+
+enum TouchType {
+  CLICK // Regular click
+  IMPRESSION // View (for CPM tracking)
+  POSTBACK // Server-to-server tracking
+}
+
+// Attribution configuration per clinic
+model AffiliateAttributionConfig {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int      @unique
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Attribution model selection
+  newPatientModel       AttributionModel @default(FIRST_CLICK)
+  returningPatientModel AttributionModel @default(LAST_CLICK)
+
+  // Cookie/window settings
+  cookieWindowDays      Int @default(30)
+  impressionWindowHours Int @default(24)
+
+  // Fingerprinting
+  enableFingerprinting Boolean @default(true)
+
+  // Sub-ID tracking
+  enableSubIds Boolean @default(true)
+  maxSubIds    Int     @default(5)
+
+  // Advanced settings
+  crossDeviceEnabled     Boolean @default(false)
+  viewThroughEnabled     Boolean @default(false)
+  viewThroughWindowHours Int     @default(24)
+}
+
+enum AttributionModel {
+  FIRST_CLICK // Credit to first referrer
+  LAST_CLICK // Credit to most recent referrer
+  LINEAR // Split evenly among all touches
+  TIME_DECAY // More credit to recent touches (exponential decay)
+  POSITION // 40% first, 40% last, 20% split among middle
+}
+
+// Commission tiers within a plan
+model AffiliateCommissionTier {
+  id        Int                     @id @default(autoincrement())
+  createdAt DateTime                @default(now())
+  planId    Int
+  plan      AffiliateCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // Tier info
+  name  String // "Bronze", "Silver", "Gold", "Platinum"
+  level Int    @default(1) // 1, 2, 3, 4...
+
+  // Requirements to reach this tier
+  minConversions  Int  @default(0)
+  minRevenueCents Int  @default(0)
+  minActiveMonths Int? // Optional: months active
+
+  // Override commission rate for this tier
+  percentBps      Int? // Overrides plan rate
+  flatAmountCents Int? // Overrides plan rate
+
+  // Bonus for reaching tier
+  bonusCents Int? // One-time bonus
+
+  // Additional perks (JSON array of perk descriptions)
+  perks Json?
+
+  // Back-reference for affiliates at this tier
+  affiliates Affiliate[]
+
+  @@unique([planId, level])
+  @@unique([planId, name])
+  @@index([planId])
+}
+
+// Product-specific commission rates
+model AffiliateProductRate {
+  id        Int                     @id @default(autoincrement())
+  createdAt DateTime                @default(now())
+  planId    Int
+  plan      AffiliateCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // Product matching (supports SKU, category, or price range)
+  productSku      String? // Exact SKU match
+  productCategory String? // Category match
+  minPriceCents   Int? // Min price for range
+  maxPriceCents   Int? // Max price for range
+
+  // Override rate for matching products
+  percentBps      Int?
+  flatAmountCents Int?
+
+  // Priority (higher = checked first)
+  priority Int @default(0)
+
+  isActive Boolean @default(true)
+
+  @@index([planId])
+  @@index([productSku])
+  @@index([productCategory])
+}
+
+// Time-limited promotional rates
+model AffiliatePromotion {
+  id        Int                     @id @default(autoincrement())
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  planId    Int
+  plan      AffiliateCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  // Promotion info
+  name        String // "Summer 2026 Bonus"
+  description String?
+
+  // Time window
+  startsAt DateTime
+  endsAt   DateTime
+
+  // Bonus rate during promotion (added on top of base)
+  bonusPercentBps Int? // Additional % on top of base
+  bonusFlatCents  Int? // Additional flat amount
+
+  // Conditions
+  minOrderCents Int? // Minimum order value
+  maxUses       Int? // Max times this promotion can be used
+  usesCount     Int  @default(0)
+
+  // Targeting
+  affiliateIds Json? // Specific affiliates (null = all)
+  refCodes     Json? // Specific ref codes (null = all)
+
+  isActive Boolean @default(true)
+
+  @@index([planId, startsAt, endsAt])
+  @@index([isActive])
+}
+
+// Affiliate payout methods
+model AffiliatePayoutMethod {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  methodType PayoutMethodType
+  isDefault  Boolean          @default(false)
+  isVerified Boolean          @default(false)
+  verifiedAt DateTime?
+
+  // Stripe Connect
+  stripeAccountId          String? // acct_xxx
+  stripeAccountStatus      String? // pending, active, restricted
+  stripeOnboardingComplete Boolean @default(false)
+
+  // PayPal
+  paypalEmail    String?
+  paypalPayerId  String?
+  paypalVerified Boolean @default(false)
+
+  // Bank (for manual wire)
+  bankName         String?
+  bankAccountLast4 String? // Last 4 digits only
+  bankRoutingLast4 String? // Last 4 digits only
+  bankCountry      String?
+
+  // Encrypted full details (for manual processing) - AES-256 encrypted JSON
+  encryptedDetails String?
+  encryptionKeyId  String? // KMS key ID used
+
+  // Check mailing address
+  mailingAddressLine1 String?
+  mailingAddressLine2 String?
+  mailingCity         String?
+  mailingState        String?
+  mailingZip          String?
+  mailingCountry      String?
+
+  metadata Json?
+
+  @@unique([affiliateId, methodType])
+  @@index([affiliateId])
+}
+
+enum PayoutMethodType {
+  STRIPE_CONNECT // Direct deposit via Stripe
+  PAYPAL // PayPal Payouts
+  BANK_WIRE // Manual bank wire
+  CHECK // Physical check
+  MANUAL // Manual/other method
+}
+
+// Payout records
+model AffiliatePayout {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  // Payout details
+  amountCents    Int
+  feeCents       Int              @default(0) // Processing fees
+  netAmountCents Int // Amount after fees
+  currency       String           @default("USD")
+  methodType     PayoutMethodType
+
+  // Status tracking
+  status        AffiliatePayoutStatus @default(PENDING)
+  scheduledAt   DateTime?
+  processedAt   DateTime?
+  completedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+  failureCode   String? // Machine-readable error code
+
+  // External references
+  stripeTransferId String? // tr_xxx
+  stripePayoutId   String? // po_xxx
+  paypalBatchId    String?
+  paypalPayoutId   String?
+  checkNumber      String?
+  wireReference    String?
+
+  // Commission events included in this payout
+  commissionEvents AffiliateCommissionEvent[]
+
+  // Period covered
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  // Audit
+  processedBy Int? // Admin user ID who initiated
+  approvedBy  Int? // Admin user ID who approved
+  notes       String?
+
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+enum AffiliatePayoutStatus {
+  PENDING // Awaiting processing
+  SCHEDULED // Scheduled for future date
+  AWAITING_APPROVAL // Needs admin approval
+  PROCESSING // In progress
+  COMPLETED // Successfully paid
+  FAILED // Payment failed
+  CANCELLED // Cancelled by admin
+  ON_HOLD // Temporarily held
+}
+
+// Tax documents for compliance
+model AffiliateTaxDocument {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  documentType TaxDocumentType
+  taxYear      Int
+
+  // Document storage (encrypted in S3)
+  s3Key           String?
+  s3Bucket        String?
+  encryptionKeyId String? // KMS key ID
+
+  // Status
+  status          TaxDocumentStatus @default(PENDING)
+  submittedAt     DateTime?
+  verifiedAt      DateTime?
+  verifiedBy      Int? // Admin user ID
+  rejectedAt      DateTime?
+  rejectionReason String?
+  expiresAt       DateTime?
+
+  // Extracted/validated data (masked for display)
+  taxIdLast4        String? // Last 4 of SSN/EIN
+  taxIdType         String? // SSN, EIN, ITIN
+  legalName         String?
+  businessName      String?
+  taxClassification String? // Individual, LLC, Corporation, etc.
+  address           String?
+
+  // IRS TIN matching (optional)
+  tinMatchStatus String? // matched, mismatched, pending
+  tinMatchedAt   DateTime?
+
+  @@unique([affiliateId, documentType, taxYear])
+  @@index([affiliateId])
+  @@index([status])
+}
+
+enum TaxDocumentType {
+  W9 // US persons/entities
+  W8BEN // Foreign individuals
+  W8BENE // Foreign entities
+}
+
+enum TaxDocumentStatus {
+  PENDING // Not yet submitted
+  SUBMITTED // Submitted, awaiting review
+  VERIFIED // Verified and valid
+  REJECTED // Rejected, needs resubmission
+  EXPIRED // Document expired
+}
+
+// Fraud alerts for review
+model AffiliateFraudAlert {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  affiliateId Int
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+
+  alertType FraudAlertType
+  severity  FraudSeverity  @default(MEDIUM)
+
+  // Evidence
+  description String
+  evidence    Json // Detailed evidence data (IPs, patterns, etc.)
+
+  // Related records
+  commissionEventId Int?
+  touchId           Int?
+
+  // Risk scoring
+  riskScore Int @default(50) // 0-100
+
+  // Financial impact
+  affectedAmountCents Int? // Commission at risk
+
+  // Resolution
+  status           FraudAlertStatus       @default(OPEN)
+  resolvedAt       DateTime?
+  resolvedBy       Int? // Admin user ID
+  resolution       String? // Resolution notes
+  resolutionAction FraudResolutionAction?
+
+  @@index([clinicId])
+  @@index([affiliateId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+enum FraudAlertType {
+  SELF_REFERRAL // Affiliate referring themselves
+  DUPLICATE_IP // Multiple conversions from same IP
+  VELOCITY_SPIKE // Unusual conversion rate spike
+  SUSPICIOUS_PATTERN // Detected anomaly in behavior
+  GEO_MISMATCH // IP location doesn't match patient billing
+  REFUND_ABUSE // High refund rate for affiliate's referrals
+  COOKIE_STUFFING // Suspected cookie stuffing
+  CLICK_FRAUD // Invalid click patterns
+  DEVICE_FRAUD // Same device, multiple "new" conversions
+  INCENTIVIZED_TRAFFIC // Suspected paid/incentivized signups
+}
+
+enum FraudSeverity {
+  LOW // Minor concern, informational
+  MEDIUM // Needs review
+  HIGH // Likely fraud, hold commissions
+  CRITICAL // Confirmed fraud, suspend affiliate
+}
+
+enum FraudAlertStatus {
+  OPEN // New, not yet reviewed
+  INVESTIGATING // Under investigation
+  CONFIRMED_FRAUD // Fraud confirmed
+  FALSE_POSITIVE // Not fraud
+  DISMISSED // Dismissed without action
+}
+
+enum FraudResolutionAction {
+  NO_ACTION // Alert dismissed
+  WARNING_ISSUED // Warning sent to affiliate
+  COMMISSION_REVERSED // Commission clawed back
+  COMMISSIONS_HELD // Future commissions on hold
+  AFFILIATE_SUSPENDED // Affiliate suspended
+  AFFILIATE_TERMINATED // Affiliate terminated
+}
+
+// IP intelligence cache
+model AffiliateIpIntel {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipHash    String   @unique // SHA-256 hash of IP
+
+  // Geolocation
+  country     String?
+  countryCode String?
+  region      String?
+  city        String?
+  latitude    Float?
+  longitude   Float?
+  timezone    String?
+
+  // ISP info
+  isp          String?
+  organization String?
+  asn          String?
+
+  // Risk indicators
+  isProxy      Boolean @default(false)
+  isVpn        Boolean @default(false)
+  isTor        Boolean @default(false)
+  isDatacenter Boolean @default(false)
+  isBot        Boolean @default(false)
+  isCrawler    Boolean @default(false)
+
+  // Risk score (0-100, higher = riskier)
+  riskScore  Int @default(0)
+  fraudScore Int @default(0)
+
+  // Provider used
+  provider String? // "ipqualityscore", "maxmind", etc.
+
+  // Cache expiry
+  expiresAt DateTime
+
+  @@index([ipHash])
+  @@index([expiresAt])
+}
+
+// Fraud detection thresholds per clinic
+model AffiliateFraudConfig {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int      @unique
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Enable/disable fraud checks
+  enabled Boolean @default(true)
+
+  // Velocity thresholds
+  maxConversionsPerDay    Int   @default(50)
+  maxConversionsPerHour   Int   @default(10)
+  velocitySpikeMultiplier Float @default(3.0) // Alert if > 3x normal
+
+  // IP thresholds
+  maxConversionsPerIp Int     @default(3) // Per 30 days
+  minIpRiskScore      Int     @default(75) // Alert if IP risk > 75
+  blockProxyVpn       Boolean @default(false)
+  blockDatacenter     Boolean @default(true)
+  blockTor            Boolean @default(true)
+
+  // Refund thresholds
+  maxRefundRatePct   Int @default(20) // Alert if refund rate > 20%
+  minRefundsForAlert Int @default(5) // Need at least 5 refunds to trigger
+
+  // Geo settings
+  enableGeoMismatchCheck Boolean @default(true)
+  allowedCountries       Json? // null = all allowed
+
+  // Self-referral
+  enableSelfReferralCheck Boolean @default(true)
+
+  // Auto-actions
+  autoHoldOnHighRisk    Boolean @default(true)
+  autoSuspendOnCritical Boolean @default(false)
+
+  @@index([clinicId])
+}

@@ -3,6 +3,7 @@
 /**
  * Billing Page
  * Payment history, invoices, and subscription management
+ * Includes native controls for pause/resume/cancel subscriptions
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -19,6 +20,11 @@ import {
   Calendar,
   Shield,
   ExternalLink,
+  PauseCircle,
+  PlayCircle,
+  XCircle,
+  Pill,
+  RefreshCw,
 } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -59,6 +65,38 @@ interface Subscription {
   cancelAtPeriodEnd: boolean;
 }
 
+interface SubscriptionDetails {
+  id: number;
+  planId: string;
+  planName: string;
+  planDescription: string;
+  amount: number;
+  interval: string;
+  intervalCount: number;
+  status: string;
+  startDate: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  nextBillingDate: string | null;
+  canceledAt: string | null;
+  pausedAt: string | null;
+  resumeAt: string | null;
+  vialCount: number;
+  stripeSubscriptionId: string | null;
+  nextRefill: {
+    id: number;
+    status: string;
+    nextRefillDate: string;
+    medicationName: string | null;
+  } | null;
+  recentActions: {
+    id: number;
+    actionType: string;
+    reason: string | null;
+    createdAt: string;
+  }[];
+}
+
 interface BillingData {
   subscription: Subscription | null;
   paymentMethods: PaymentMethod[];
@@ -76,31 +114,58 @@ const STATUS_CONFIG = {
   refunded: { color: 'text-gray-600', bg: 'bg-gray-100', icon: DollarSign },
 };
 
+const SUB_STATUS_STYLES: Record<string, { badge: string; label: string }> = {
+  ACTIVE: { badge: 'bg-green-100 text-green-700', label: 'Active' },
+  active: { badge: 'bg-green-100 text-green-700', label: 'Active' },
+  PAUSED: { badge: 'bg-amber-100 text-amber-700', label: 'Paused' },
+  paused: { badge: 'bg-amber-100 text-amber-700', label: 'Paused' },
+  CANCELED: { badge: 'bg-red-100 text-red-700', label: 'Canceled' },
+  canceled: { badge: 'bg-red-100 text-red-700', label: 'Canceled' },
+  PAST_DUE: { badge: 'bg-orange-100 text-orange-700', label: 'Past Due' },
+  past_due: { badge: 'bg-orange-100 text-orange-700', label: 'Past Due' },
+  EXPIRED: { badge: 'bg-gray-100 text-gray-700', label: 'Expired' },
+};
+
+type ConfirmAction = 'pause' | 'resume' | 'cancel' | null;
+
 export default function BillingPage() {
   const { branding } = useClinicBranding();
   const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
-  // Locale/currency may be added to branding in the future; fall back to defaults
   const brandLocale = (branding as Record<string, unknown> | null)?.locale as string || 'en-US';
   const brandCurrency = (branding as Record<string, unknown> | null)?.currency as string || 'USD';
 
   const [data, setData] = useState<BillingData | null>(null);
+  const [subDetails, setSubDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'methods'>('overview');
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Subscription action state
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(true);
+  const [pauseReason, setPauseReason] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+
   useEffect(() => {
-    fetchBillingData();
+    fetchAllData();
   }, []);
 
-  const fetchBillingData = async () => {
+  const fetchAllData = async () => {
     setLoadError(null);
+    setLoading(true);
+    await Promise.all([fetchBillingData(), fetchSubscriptionDetails()]);
+    setLoading(false);
+  };
+
+  const fetchBillingData = async () => {
     try {
       const res = await portalFetch('/api/patient-portal/billing');
       const err = getPortalResponseError(res);
       if (err) {
         setLoadError(err);
-        setLoading(false);
         return;
       }
       if (res.ok) {
@@ -113,8 +178,22 @@ export default function BillingPage() {
       logger.error('Failed to fetch billing data', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchSubscriptionDetails = async () => {
+    try {
+      const res = await portalFetch('/api/patient-portal/subscription');
+      if (res.ok) {
+        const result = await safeParseJson(res);
+        if (result && typeof result === 'object' && 'subscription' in result) {
+          setSubDetails((result as { subscription: SubscriptionDetails | null }).subscription);
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to fetch subscription details', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
     }
   };
 
@@ -151,6 +230,43 @@ export default function BillingPage() {
     }
   };
 
+  const handleSubscriptionAction = async (action: 'pause' | 'resume' | 'cancel') => {
+    setActionLoading(true);
+    setActionError(null);
+
+    try {
+      const bodyMap: Record<string, object> = {
+        pause: { reason: pauseReason || undefined },
+        resume: {},
+        cancel: { reason: cancelReason || undefined, cancelAtPeriodEnd },
+      };
+
+      const res = await portalFetch(`/api/patient-portal/subscription/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyMap[action]),
+      });
+
+      if (res.ok) {
+        setConfirmAction(null);
+        setPauseReason('');
+        setCancelReason('');
+        await fetchAllData();
+      } else {
+        const result = await safeParseJson(res);
+        const errorMsg =
+          result && typeof result === 'object' && 'error' in result
+            ? (result as { error: string }).error
+            : `Failed to ${action} subscription`;
+        setActionError(errorMsg);
+      }
+    } catch (error) {
+      setActionError(`Unable to ${action} subscription. Please try again.`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat(brandLocale, {
       style: 'currency',
@@ -180,6 +296,26 @@ export default function BillingPage() {
   const recentInvoices = useMemo(() => {
     return data?.invoices?.slice(0, 3) || [];
   }, [data?.invoices]);
+
+  const subStatus = subDetails?.status || data?.subscription?.status || '';
+  const normalizedStatus = subStatus.toUpperCase();
+  const statusStyle = SUB_STATUS_STYLES[subStatus] || SUB_STATUS_STYLES[normalizedStatus] || {
+    badge: 'bg-gray-100 text-gray-700',
+    label: subStatus,
+  };
+
+  const hasSubscription = !!(subDetails || data?.subscription);
+  const isActive = normalizedStatus === 'ACTIVE';
+  const isPaused = normalizedStatus === 'PAUSED';
+  const isCanceled = normalizedStatus === 'CANCELED' || normalizedStatus === 'EXPIRED';
+
+  const formatInterval = (interval: string, count?: number) => {
+    const c = count || 1;
+    if (interval === 'year' || c === 12) return 'year';
+    if (interval === 'semiannual' || c === 6) return '6 months';
+    if (interval === 'quarter' || c === 3) return '3 months';
+    return 'month';
+  };
 
   if (loading) {
     return <BillingPageSkeleton />;
@@ -213,7 +349,7 @@ export default function BillingPage() {
             </NextLink>
           ) : (
             <button
-              onClick={() => { setLoadError(null); fetchBillingData(); }}
+              onClick={() => { setLoadError(null); fetchAllData(); }}
               className="shrink-0 rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200"
             >
               Retry
@@ -221,6 +357,7 @@ export default function BillingPage() {
           )}
         </div>
       )}
+
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{t('billingTitle')}</h1>
@@ -228,7 +365,7 @@ export default function BillingPage() {
       </div>
 
       {/* Subscription Card */}
-      {data?.subscription && (
+      {hasSubscription && (
         <div
           className="mb-6 rounded-2xl p-4 text-white sm:p-6"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
@@ -236,50 +373,259 @@ export default function BillingPage() {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm text-white/80">{t('billingCurrentPlan')}</p>
-              <h2 className="mt-1 break-words text-xl font-bold sm:text-2xl">{data.subscription.planName}</h2>
+              <h2 className="mt-1 break-words text-xl font-bold sm:text-2xl">
+                {subDetails?.planName || data?.subscription?.planName}
+              </h2>
               <p className="mt-2 text-white/90">
-                {formatCurrency(data.subscription.amount)} / {data.subscription.interval}
+                {formatCurrency(subDetails?.amount || data?.subscription?.amount || 0)} /{' '}
+                {formatInterval(
+                  subDetails?.interval || data?.subscription?.interval || 'month',
+                  subDetails?.intervalCount
+                )}
               </p>
             </div>
-            <div
-              className={`rounded-full px-3 py-1 text-sm font-medium ${
-                data.subscription.status === 'active'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-red-500/20 text-red-200'
-              }`}
-            >
-              {data.subscription.status === 'active' ? t('billingActive') : data.subscription.status}
-            </div>
+            <span className={`rounded-full px-3 py-1 text-sm font-medium ${
+              isActive ? 'bg-white/20 text-white'
+                : isPaused ? 'bg-amber-400/30 text-amber-100'
+                : 'bg-red-400/30 text-red-100'
+            }`}>
+              {statusStyle.label}
+            </span>
           </div>
 
-          {data.subscription.cancelAtPeriodEnd && (
+          {/* Cancellation pending notice */}
+          {data?.subscription?.cancelAtPeriodEnd && !isCanceled && (
             <div className="mt-4 rounded-xl bg-white/10 p-3">
               <p className="text-sm">
-                Your subscription will cancel on {formatDate(data.subscription.currentPeriodEnd)}
+                Your subscription will cancel on{' '}
+                {formatDate(subDetails?.currentPeriodEnd || data.subscription.currentPeriodEnd)}
               </p>
             </div>
           )}
 
-          {data.upcomingInvoice && (
-            <div className="mt-4 border-t border-white/20 pt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-white/80">{t('billingNextBillingDate')}</span>
-                <span className="font-medium">{formatDate(data.upcomingInvoice.date)}</span>
-              </div>
-              <div className="mt-1 flex justify-between text-sm">
-                <span className="text-white/80">{t('billingAmount')}</span>
-                <span className="font-medium">{formatCurrency(data.upcomingInvoice.amount)}</span>
+          {/* Paused notice */}
+          {isPaused && subDetails?.pausedAt && (
+            <div className="mt-4 rounded-xl bg-white/10 p-3">
+              <div className="flex items-center gap-2">
+                <PauseCircle className="h-4 w-4 text-amber-200" />
+                <p className="text-sm">
+                  Paused since {formatDate(subDetails.pausedAt)}
+                  {subDetails.resumeAt && ` — auto-resumes ${formatDate(subDetails.resumeAt)}`}
+                </p>
               </div>
             </div>
           )}
 
-          <button
+          {/* Next billing / refill info */}
+          <div className="mt-4 border-t border-white/20 pt-4 space-y-2">
+            {subDetails?.nextBillingDate && isActive && (
+              <div className="flex justify-between text-sm">
+                <span className="text-white/80">{t('billingNextBillingDate')}</span>
+                <span className="font-medium">{formatDate(subDetails.nextBillingDate)}</span>
+              </div>
+            )}
+            {!subDetails?.nextBillingDate && data?.upcomingInvoice && isActive && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/80">{t('billingNextBillingDate')}</span>
+                  <span className="font-medium">{formatDate(data.upcomingInvoice.date)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-white/80">{t('billingAmount')}</span>
+                  <span className="font-medium">{formatCurrency(data.upcomingInvoice.amount)}</span>
+                </div>
+              </>
+            )}
+            {subDetails?.nextRefill && (
+              <div className="flex justify-between text-sm">
+                <span className="flex items-center gap-1 text-white/80">
+                  <Pill className="h-3.5 w-3.5" />
+                  Next Refill
+                </span>
+                <span className="font-medium">
+                  {subDetails.nextRefill.medicationName && `${subDetails.nextRefill.medicationName} — `}
+                  {subDetails.nextRefill.status === 'PENDING_PROVIDER'
+                    ? 'In provider queue'
+                    : formatDate(subDetails.nextRefill.nextRefillDate)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {isActive && (
+              <>
+                <button
+                  onClick={() => { setConfirmAction('pause'); setActionError(null); }}
+                  className="flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/30"
+                >
+                  <PauseCircle className="h-4 w-4" />
+                  Pause Subscription
+                </button>
+                <button
+                  onClick={() => { setConfirmAction('cancel'); setActionError(null); }}
+                  className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/20"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancel
+                </button>
+              </>
+            )}
+            {isPaused && (
+              <>
+                <button
+                  onClick={() => { setConfirmAction('resume'); setActionError(null); }}
+                  className="flex items-center gap-2 rounded-xl bg-white/20 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/30"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  Resume Subscription
+                </button>
+                <button
+                  onClick={() => { setConfirmAction('cancel'); setActionError(null); }}
+                  className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-white/20"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* No subscription — Start a Plan CTA */}
+      {!hasSubscription && (
+        <div className="mb-6 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 p-6 text-center">
+          <Pill className="mx-auto mb-3 h-10 w-10 text-gray-400" />
+          <h3 className="text-lg font-semibold text-gray-900">No Active Plan</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            Start a subscription plan to receive automatic refills of your medication.
+          </p>
+          <NextLink
+            href={`${PATIENT_PORTAL_PATH}/billing`}
             onClick={openCustomerPortal}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/20 py-3 font-medium transition-colors hover:bg-white/30"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-medium text-white transition-colors hover:opacity-90"
+            style={{ backgroundColor: primaryColor }}
           >
-            {t('billingManageSubscription')}
-            <ExternalLink className="h-4 w-4" />
-          </button>
+            <RefreshCw className="h-4 w-4" />
+            View Plans
+          </NextLink>
+        </div>
+      )}
+
+      {/* ─── Confirmation Dialog (overlay) ─── */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            {confirmAction === 'pause' && (
+              <>
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                    <PauseCircle className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Pause Subscription</h3>
+                </div>
+                <p className="mb-4 text-sm text-gray-600">
+                  Your subscription billing will be paused and your next refill will be
+                  put on hold until you resume. You can resume at any time.
+                </p>
+                <label className="mb-4 block">
+                  <span className="text-sm font-medium text-gray-700">Reason (optional)</span>
+                  <input
+                    type="text"
+                    value={pauseReason}
+                    onChange={(e) => setPauseReason(e.target.value)}
+                    placeholder="e.g., traveling, taking a break"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    maxLength={500}
+                  />
+                </label>
+              </>
+            )}
+
+            {confirmAction === 'resume' && (
+              <>
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                    <PlayCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Resume Subscription</h3>
+                </div>
+                <p className="mb-4 text-sm text-gray-600">
+                  Your subscription will resume and your next refill will be scheduled.
+                  Billing will restart from today.
+                </p>
+              </>
+            )}
+
+            {confirmAction === 'cancel' && (
+              <>
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                    <XCircle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Cancel Subscription</h3>
+                </div>
+                <p className="mb-4 text-sm text-gray-600">
+                  Are you sure? Canceling your subscription will stop future refills and billing.
+                </p>
+                <label className="mb-3 block">
+                  <span className="text-sm font-medium text-gray-700">Reason (optional)</span>
+                  <input
+                    type="text"
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="e.g., no longer needed, switching providers"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                    maxLength={500}
+                  />
+                </label>
+                <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={cancelAtPeriodEnd}
+                    onChange={(e) => setCancelAtPeriodEnd(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                    style={{ accentColor: primaryColor }}
+                  />
+                  Cancel at end of billing period (keep access until then)
+                </label>
+              </>
+            )}
+
+            {actionError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
+                <p className="text-sm text-red-700">{actionError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setConfirmAction(null); setActionError(null); }}
+                disabled={actionLoading}
+                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => handleSubscriptionAction(confirmAction)}
+                disabled={actionLoading}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-50 ${
+                  confirmAction === 'cancel'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : confirmAction === 'pause'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {actionLoading && <RefreshCw className="h-4 w-4 animate-spin" />}
+                {confirmAction === 'pause' && 'Pause'}
+                {confirmAction === 'resume' && 'Resume'}
+                {confirmAction === 'cancel' && 'Cancel Subscription'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

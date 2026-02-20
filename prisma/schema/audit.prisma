@@ -1,0 +1,104 @@
+// ==========================================================================
+// AUDIT DOMAIN
+// ==========================================================================
+// Bounded context: audit
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model ProviderAudit {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  providerId Int
+  actorEmail String?
+  action     String
+  diff       Json?
+  provider   Provider @relation(fields: [providerId], references: [id])
+}
+
+model PatientAudit {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  patientId  Int
+  actorEmail String?
+  action     String
+  diff       Json?
+  patient    Patient  @relation(fields: [patientId], references: [id])
+}
+
+// Idempotency keys for critical mutations (B6); short TTL to limit storage
+model IdempotencyRecord {
+  id             Int      @id @default(autoincrement())
+  key            String   @unique // Client-provided idempotency key (e.g. UUID)
+  resource       String   // e.g. "refill_approve", "order_create"
+  responseStatus Int      // HTTP status returned
+  responseBody   Json     // Response body to return on replay
+  createdAt      DateTime @default(now())
+
+  @@index([resource, createdAt])
+}
+
+// General audit log for all system activities (HIPAA compliance)
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  action     String // TWO_FACTOR_ENABLED, PHI_ACCESS, PRESCRIPTION_CREATED, etc.
+  resource   String? // Resource type (Patient, Order, etc.)
+  resourceId Int? // ID of the resource
+  details    Json? // Additional audit details
+  ipAddress  String?
+  userAgent  String?
+  clinicId   Int?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([resource, resourceId])
+}
+
+// HIPAA-Compliant Audit Entry - Comprehensive PHI access logging
+// Designed to meet HIPAA §164.312(b) audit control requirements
+model HIPAAAuditEntry {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  // User context - who performed the action
+  userId    String // String to handle system/anonymous
+  userEmail String
+  userRole  String
+  clinicId  Int?
+
+  // Event classification
+  eventType    String // PHI_VIEW, PHI_UPDATE, LOGIN, etc.
+  resourceType String // Patient, Order, SOAPNote, etc.
+  resourceId   String? // ID of accessed resource
+  patientId    Int? // Patient whose data was accessed (for PHI events)
+
+  // Request context - forensic data
+  ipAddress     String
+  userAgent     String
+  sessionId     String?
+  requestId     String // Unique request identifier
+  requestMethod String // GET, POST, PUT, DELETE
+  requestPath   String // API path accessed
+
+  // Outcome tracking
+  outcome String // SUCCESS, FAILURE, PARTIAL
+  reason  String? // Failure reason if applicable
+
+  // Integrity verification (tamper detection)
+  hash String // SHA-256 hash of record for integrity
+
+  // Additional context
+  metadata  Json? // Flexible additional data
+  emergency Boolean @default(false) // Break-glass access
+
+  // Indexes for efficient querying (HIPAA requires searchable audit logs)
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([createdAt(sort: Desc)])
+  @@index([outcome, createdAt(sort: Desc)])
+  @@index([requestId])
+}

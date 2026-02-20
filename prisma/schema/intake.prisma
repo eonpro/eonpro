@@ -1,0 +1,108 @@
+// ==========================================================================
+// INTAKE DOMAIN
+// ==========================================================================
+// Bounded context: intake
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model IntakeFormTemplate {
+  id               Int                     @id @default(autoincrement())
+  createdAt        DateTime                @default(now())
+  clinicId         Int? // Multi-clinic support
+  clinic           Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt        DateTime                @updatedAt
+  name             String // e.g., "General Medical Intake", "Weight Loss Program Intake"
+  description      String?
+  treatmentType    String // e.g., "general", "weight-loss", "hormone-therapy", "aesthetic"
+  isActive         Boolean                 @default(true)
+  providerId       Int? // Optional: specific provider's form
+  provider         Provider?               @relation(fields: [providerId], references: [id])
+  createdById      Int? // User who created this template
+  createdBy        User?                   @relation(fields: [createdById], references: [id])
+  questions        IntakeFormQuestion[]
+  submissions      IntakeFormSubmission[]
+  formLinks        IntakeFormLink[]
+  version          Int                     @default(1)
+  metadata         Json? // Additional settings, styling, etc.
+  appointmentTypes AppointmentTypeConfig[]
+
+  @@index([treatmentType, isActive])
+  @@index([providerId])
+  @@index([createdById])
+}
+
+model IntakeFormQuestion {
+  id               Int                  @id @default(autoincrement())
+  createdAt        DateTime             @default(now())
+  templateId       Int
+  template         IntakeFormTemplate   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  questionText     String
+  questionType     String // "text", "textarea", "select", "radio", "checkbox", "date", "number", "email", "phone", "signature", "file"
+  options          Json? // For select/radio/checkbox: ["Option 1", "Option 2"]
+  isRequired       Boolean              @default(false)
+  validation       Json? // { "min": 0, "max": 100, "pattern": "regex" }
+  placeholder      String?
+  helpText         String?
+  orderIndex       Int                  @default(0)
+  section          String? // Group questions into sections
+  conditionalLogic Json? // Show/hide based on other answers
+  responses        IntakeFormResponse[]
+
+  @@index([templateId, orderIndex])
+}
+
+model IntakeFormSubmission {
+  id             Int                  @id @default(autoincrement())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  templateId     Int
+  template       IntakeFormTemplate   @relation(fields: [templateId], references: [id])
+  patientId      Int
+  patient        Patient              @relation(fields: [patientId], references: [id])
+  status         String               @default("pending") // "pending", "in_progress", "completed", "expired"
+  completedAt    DateTime?
+  formLinkId     String?              @unique
+  formLink       IntakeFormLink?      @relation(fields: [formLinkId], references: [id])
+  responses      IntakeFormResponse[]
+  pdfUrl         String? // URL to generated PDF
+  pdfGeneratedAt DateTime?
+  metadata       Json? // IP address, device info, etc.
+  signature      String? // Base64 signature image
+  signedAt       DateTime?
+
+  @@index([patientId, status])
+  @@index([templateId])
+}
+
+model IntakeFormResponse {
+  id           Int                  @id @default(autoincrement())
+  createdAt    DateTime             @default(now())
+  submissionId Int
+  submission   IntakeFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   Int
+  question     IntakeFormQuestion   @relation(fields: [questionId], references: [id])
+  answer       String? // Text answer or JSON for complex types
+  fileUrl      String? // For file uploads
+
+  @@unique([submissionId, questionId])
+  @@index([submissionId])
+}
+
+model IntakeFormLink {
+  id           String                @id @default(cuid())
+  createdAt    DateTime              @default(now())
+  expiresAt    DateTime
+  templateId   Int
+  template     IntakeFormTemplate    @relation(fields: [templateId], references: [id])
+  patientEmail String
+  patientPhone String?
+  sentVia      String? // "email", "sms", "both"
+  sentAt       DateTime?
+  clickedAt    DateTime?
+  submission   IntakeFormSubmission?
+  isActive     Boolean               @default(true)
+  metadata     Json? // Tracking info, utm params, etc.
+
+  @@index([patientEmail, isActive])
+  @@index([expiresAt])
+}

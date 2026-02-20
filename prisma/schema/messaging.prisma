@@ -1,0 +1,242 @@
+// ==========================================================================
+// MESSAGING DOMAIN
+// ==========================================================================
+// Bounded context: messaging
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model InternalMessage {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  clinicId        Int? // Multi-clinic support
+  clinic          Clinic?             @relation(fields: [clinicId], references: [id])
+  senderId        Int
+  sender          User                @relation("SentMessages", fields: [senderId], references: [id])
+  recipientId     Int? // Null for broadcast messages
+  recipient       User?               @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  message         String
+  isRead          Boolean             @default(false)
+  readAt          DateTime?
+  attachments     Json? // File URLs/references
+  messageType     InternalMessageType @default(DIRECT)
+  channelId       String? // For channel/group messages
+  parentMessageId Int? // For threaded replies
+  parentMessage   InternalMessage?    @relation("MessageThread", fields: [parentMessageId], references: [id])
+  replies         InternalMessage[]   @relation("MessageThread")
+  metadata        Json? // Additional context
+  reactions       MessageReaction[]   // iMessage-style reactions (love, like, etc.)
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, isRead])
+  @@index([channelId, createdAt])
+}
+
+// Message Reactions (iMessage-style: love, like, dislike, question, exclamation, laugh)
+model MessageReaction {
+  id        Int             @id @default(autoincrement())
+  messageId Int
+  message   InternalMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User            @relation("MessageReactions", fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String          // "love", "like", "dislike", "question", "exclamation", "laugh"
+  createdAt DateTime        @default(now())
+
+  @@unique([messageId, userId, emoji]) // One reaction type per user per message
+  @@index([messageId])
+}
+
+enum InternalMessageType {
+  DIRECT // One-to-one message
+  BROADCAST // System-wide announcement
+  CHANNEL // Channel/group message
+  ALERT // Urgent notification
+}
+
+model SmsLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId  Int?
+  patient    Patient? @relation(fields: [patientId], references: [id])
+  messageSid String?  @unique // Twilio message SID
+  fromPhone  String // Sender phone number
+  toPhone    String // Recipient phone number
+  body       String // Message content
+  direction  String // 'inbound' or 'outbound'
+  status     String   @default("sent") // sent, delivered, failed, etc.
+  error      String? // Error message if failed
+  metadata   Json? // Additional data
+
+  // Enhanced delivery tracking
+  deliveredAt      DateTime?
+  failedAt         DateTime?
+  errorCode        String?
+  price            Decimal?  @db.Decimal(10, 4)
+  priceUnit        String?
+  segments         Int       @default(1)
+  templateType     String? // APPOINTMENT_REMINDER, PRESCRIPTION_READY, etc.
+  isOptOutResponse Boolean   @default(false)
+  queuedForRetry   Boolean   @default(false)
+  retryCount       Int       @default(0)
+  statusUpdatedAt  DateTime?
+
+  @@index([patientId, createdAt])
+  @@index([fromPhone])
+  @@index([toPhone])
+  @@index([clinicId])
+  @@index([status, createdAt])
+  @@index([messageSid, status])
+}
+
+// ===== SMS OPT-OUT (TCPA Compliance) =====
+model SmsOptOut {
+  id             Int       @id @default(autoincrement())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  phone          String // E.164 format
+  clinicId       Int? // null = global opt-out
+  clinic         Clinic?   @relation(fields: [clinicId], references: [id])
+  patientId      Int?
+  patient        Patient?  @relation(fields: [patientId], references: [id])
+  reason         String    @default("STOP") // STOP, UNSUBSCRIBE, MANUAL, etc.
+  optedOutAt     DateTime  @default(now())
+  optedInAt      DateTime? // If they re-subscribe
+  isActive       Boolean   @default(true)
+  source         String    @default("sms") // sms, admin, patient_portal
+  lastMessageSid String? // Last message received that triggered opt-out
+
+  @@index([phone, clinicId])
+  @@index([phone])
+  @@index([clinicId])
+  @@index([patientId])
+}
+
+// ===== SMS QUIET HOURS =====
+model SmsQuietHours {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clinicId    Int
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  name        String   @default("Default Quiet Hours")
+  startHour   Int      @default(21) // 9 PM
+  startMinute Int      @default(0)
+  endHour     Int      @default(8) // 8 AM
+  endMinute   Int      @default(0)
+  timezone    String   @default("America/New_York")
+  isActive    Boolean  @default(true)
+  daysOfWeek  Int[]    @default([0, 1, 2, 3, 4, 5, 6]) // All days
+
+  @@unique([clinicId, name])
+  @@index([clinicId, isActive])
+}
+
+// ===== SMS RATE LIMITING =====
+model SmsRateLimit {
+  id               Int       @id @default(autoincrement())
+  phone            String
+  clinicId         Int? // null = global rate limit
+  clinic           Clinic?   @relation(fields: [clinicId], references: [id])
+  messageCount     Int       @default(0)
+  windowStart      DateTime  @default(now())
+  dailyCount       Int       @default(0)
+  dailyWindowStart DateTime  @default(now())
+  lastMessageAt    DateTime?
+  isBlocked        Boolean   @default(false)
+  blockedUntil     DateTime?
+  blockReason      String?
+
+  @@index([phone, clinicId])
+  @@index([phone])
+}
+
+model PatientChatMessage {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int?
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id])
+
+  // Message content
+  message   String // The message text
+  direction MessageDirection // INBOUND (patient->staff) or OUTBOUND (staff->patient)
+  channel   MessageChannel   @default(WEB) // WEB, SMS, EMAIL
+
+  // Sender info
+  senderType SenderType // PATIENT, STAFF, PROVIDER, SYSTEM
+  senderId   Int? // User ID if staff/provider, null if patient
+  senderName String? // Display name of sender
+
+  // Delivery status (for SMS/email)
+  status        MessageStatus @default(SENT)
+  externalId    String? // Twilio message SID or external reference
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  failureReason String?
+
+  // Thread support
+  threadId  String? // Group messages into threads
+  replyToId Int? // Reply to specific message
+  replyTo   PatientChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies   PatientChatMessage[] @relation("MessageReplies")
+
+  // Attachments
+  attachments Json? // Array of attachment URLs
+
+  // Metadata
+  metadata Json? // Additional data (device info, etc.)
+
+  @@index([patientId, createdAt])
+  @@index([clinicId])
+  @@index([threadId])
+  @@index([status])
+}
+
+enum MessageDirection {
+  INBOUND // Patient -> Staff
+  OUTBOUND // Staff -> Patient
+}
+
+enum MessageChannel {
+  WEB // In-app web chat
+  SMS // Twilio SMS
+  EMAIL // Email
+}
+
+enum SenderType {
+  PATIENT
+  STAFF
+  PROVIDER
+  SYSTEM
+}
+
+enum MessageStatus {
+  PENDING // Queued for delivery
+  SENT // Sent but not confirmed delivered
+  DELIVERED // Confirmed delivered
+  READ // Read by recipient
+  FAILED // Delivery failed
+}
+
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Web Push subscription data
+  endpoint String @unique
+  p256dh   String // Public key
+  auth     String // Auth secret
+
+  // Metadata
+  userAgent  String?
+  deviceType String? // mobile, desktop, tablet
+
+  @@index([patientId])
+}

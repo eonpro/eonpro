@@ -1,0 +1,317 @@
+// ==========================================================================
+// APPOINTMENT DOMAIN
+// ==========================================================================
+// Bounded context: appointment
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum AppointmentModeType {
+  IN_PERSON
+  VIDEO
+  PHONE
+}
+
+enum ReminderType {
+  EMAIL
+  SMS
+  BOTH
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model AppointmentTypeConfig {
+  id                   Int                 @id @default(autoincrement())
+  clinicId             Int?
+  clinic               Clinic?             @relation(fields: [clinicId], references: [id])
+  name                 String
+  description          String?
+  duration             Int                 @default(30) // in minutes
+  color                String              @default("#3B82F6")
+  isActive             Boolean             @default(true)
+  requiresVideoLink    Boolean             @default(false)
+  allowSelfScheduling  Boolean             @default(true)
+  bufferBefore         Int                 @default(0) // minutes before
+  bufferAfter          Int                 @default(0) // minutes after
+  price                Int? // in cents
+  intakeFormTemplateId Int?
+  intakeFormTemplate   IntakeFormTemplate? @relation(fields: [intakeFormTemplateId], references: [id])
+  appointments         Appointment[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([clinicId])
+  @@map("AppointmentType")
+}
+
+model Appointment {
+  id                     Int                    @id @default(autoincrement())
+  clinicId               Int?
+  clinic                 Clinic?                @relation(fields: [clinicId], references: [id])
+  patientId              Int
+  patient                Patient                @relation(fields: [patientId], references: [id])
+  providerId             Int
+  provider               Provider               @relation(fields: [providerId], references: [id])
+  appointmentTypeId      Int?
+  appointmentType        AppointmentTypeConfig? @relation(fields: [appointmentTypeId], references: [id])
+  title                  String?
+  startTime              DateTime
+  endTime                DateTime
+  duration               Int                    @default(30)
+  type                   AppointmentModeType    @default(IN_PERSON)
+  status                 AppointmentStatus      @default(SCHEDULED)
+  reason                 String?
+  notes                  String? // Patient-visible notes
+  internalNotes          String? // Provider-only notes
+  location               String?
+  roomNumber             String?
+  videoLink              String?
+  zoomMeetingId          String?
+  confirmedAt            DateTime?
+  checkedInAt            DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  cancelledAt            DateTime?
+  cancellationReason     String?
+  rescheduledFromId      Int?
+  rescheduledToId        Int?
+  noShowAt               DateTime?
+  createdById            Int?
+  createdBy              User?                  @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  metadata               Json?
+  reminders              AppointmentReminder[]
+  superbills             Superbill[]
+  telehealthSessions     TelehealthSession[]
+  googleCalendarEventId  String?
+  outlookCalendarEventId String?
+  appleCalendarEventId   String?
+  zoomJoinUrl            String?
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model AppointmentReminder {
+  id            Int            @id @default(autoincrement())
+  appointmentId Int
+  appointment   Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  type          ReminderType   @default(BOTH)
+  scheduledFor  DateTime
+  status        ReminderStatus @default(PENDING)
+  sentAt        DateTime?
+  errorMessage  String?
+  messageId     String? // Twilio message ID or email ID
+  template      String? // Which template was used
+  createdAt     DateTime       @default(now())
+
+  @@index([appointmentId])
+  @@index([scheduledFor, status])
+}
+
+model Superbill {
+  id             Int             @id @default(autoincrement())
+  clinicId       Int?
+  clinic         Clinic?         @relation(fields: [clinicId], references: [id])
+  patientId      Int
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  providerId     Int
+  provider       Provider        @relation(fields: [providerId], references: [id])
+  appointmentId  Int?
+  appointment    Appointment?    @relation(fields: [appointmentId], references: [id])
+  serviceDate    DateTime
+  totalAmount    Int             @default(0) // in cents
+  paidAmount     Int             @default(0) // in cents
+  status         String          @default("DRAFT") // DRAFT, FINALIZED, SENT, PAID
+  pdfUrl         String?
+  pdfGeneratedAt DateTime?
+  sentToPatient  Boolean         @default(false)
+  sentAt         DateTime?
+  notes          String?
+  items          SuperbillItem[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([serviceDate])
+}
+
+model SuperbillItem {
+  id              Int       @id @default(autoincrement())
+  superbillId     Int
+  superbill       Superbill @relation(fields: [superbillId], references: [id], onDelete: Cascade)
+  cptCode         String
+  cptDescription  String
+  icdCodes        String[] // Array of ICD-10 codes
+  icdDescriptions String[] // Array of ICD-10 descriptions
+  modifier        String? // CPT modifier (e.g., "25")
+  units           Int       @default(1)
+  unitPrice       Int // in cents
+  totalPrice      Int // in cents
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@index([superbillId])
+}
+
+model BillingCode {
+  id           Int      @id @default(autoincrement())
+  clinicId     Int?
+  clinic       Clinic?  @relation(fields: [clinicId], references: [id])
+  codeType     String // "CPT" or "ICD10"
+  code         String
+  description  String
+  defaultPrice Int? // in cents (for CPT)
+  category     String? // e.g., "Evaluation", "Procedure", "Lab"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([clinicId, codeType, code])
+}
+
+enum TelehealthSessionStatus {
+  SCHEDULED
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  TECHNICAL_ISSUES
+}
+
+model TelehealthSession {
+  id            Int          @id @default(autoincrement())
+  clinicId      Int?
+  clinic        Clinic?      @relation(fields: [clinicId], references: [id])
+  appointmentId Int?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  patientId     Int
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  providerId    Int
+  provider      Provider     @relation(fields: [providerId], references: [id])
+
+  // Zoom Meeting Details
+  meetingId   String  @unique
+  meetingUuid String?
+  joinUrl     String
+  hostUrl     String?
+  password    String?
+  topic       String?
+
+  // Scheduling
+  scheduledAt    DateTime
+  startedAt      DateTime?
+  endedAt        DateTime?
+  duration       Int       @default(30) // scheduled duration in minutes
+  actualDuration Int? // actual duration in minutes
+
+  // Status
+  status   TelehealthSessionStatus @default(SCHEDULED)
+  platform String                  @default("zoom") // zoom, teams, etc.
+
+  // Recording (HIPAA: requires patient consent)
+  recordingUrl      String?
+  recordingPassword String?
+  recordingDuration Int? // in seconds
+  recordingSize     BigInt? // in bytes
+  transcriptUrl     String?
+
+  // Participant Tracking
+  participantCount      Int?      @default(0)
+  hostJoinedAt          DateTime?
+  patientJoinedAt       DateTime?
+  waitingRoomEnteredAt  DateTime?
+  waitingRoomAdmittedAt DateTime?
+
+  // Issues & Notes
+  technicalIssues String?
+  endReason       String?
+  metadata        Json?
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  participants TelehealthParticipant[]
+
+  @@index([clinicId])
+  @@index([appointmentId])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model TelehealthParticipant {
+  id                Int               @id @default(autoincrement())
+  sessionId         Int
+  session           TelehealthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participantId     String? // External participant ID (from Zoom)
+  name              String
+  email             String?
+  role              String            @default("participant") // host, cohost, participant
+  joinedAt          DateTime
+  leftAt            DateTime?
+  duration          Int? // in seconds
+  deviceType        String? // desktop, mobile, tablet
+  ipAddress         String?
+  location          String?
+  connectionQuality String? // good, fair, poor
+  audioEnabled      Boolean?          @default(true)
+  videoEnabled      Boolean?          @default(true)
+  screenShared      Boolean?          @default(false)
+  createdAt         DateTime          @default(now())
+
+  @@index([sessionId])
+}
+
+model CalendarSubscription {
+  id         Int      @id @default(autoincrement())
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  token      String   @unique // Secure random token for URL
+  name       String? // User-defined name for this subscription
+  isActive   Boolean  @default(true)
+
+  // Privacy Settings
+  includePatientNames Boolean @default(false) // HIPAA: default to anonymized
+  includeMeetingLinks Boolean @default(true)
+
+  // Sync Configuration
+  syncRangeDays Int @default(90) // Days to include in feed
+
+  // Access Tracking
+  lastAccessedAt DateTime?
+  accessCount    Int       @default(0)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([providerId])
+}

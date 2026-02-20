@@ -138,31 +138,50 @@ class QueueManager {
   }
 
   private registerProcessors(): void {
-    // Email processor
+    // Email processor — delegates to AWS SES service
     this.processors.set(JobType.SEND_EMAIL, async (job: Job<EmailJobData>) => {
       const { to, subject, body, template, attachments } = job.data;
-
-      // Update progress
       await job.updateProgress(10);
 
-      // TODO: Integrate with actual email service (SendGrid, SES, etc.)
-      logger.info('Sending email', { to, subject });
-
-      // Simulate email sending
-      await new Promise((resolve: any) => setTimeout(resolve, 1000));
+      try {
+        const { sendEmail } = await import('@/lib/integrations/aws/sesService');
+        const recipients = Array.isArray(to) ? to : [to];
+        for (const recipient of recipients) {
+          await sendEmail({
+            to: recipient,
+            subject,
+            html: body,
+            template: template as any,
+          });
+        }
+        logger.info('[JobQueue] Email sent via SES', { to, subject });
+      } catch (err) {
+        logger.error('[JobQueue] Email send failed', {
+          to,
+          subject,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+        throw err;
+      }
 
       await job.updateProgress(100);
     });
 
-    // SMS processor
+    // SMS processor — delegates to Twilio SMS service
     this.processors.set(JobType.SEND_SMS, async (job: Job<SMSJobData>) => {
       const { to, message } = job.data;
 
-      // TODO: Integrate with Twilio or other SMS service
-      logger.info('Sending SMS', { to, message: message.substring(0, 50) });
-
-      // Simulate SMS sending
-      await new Promise((resolve: any) => setTimeout(resolve, 500));
+      try {
+        const { sendSMS } = await import('@/lib/integrations/twilio/smsService');
+        await sendSMS({ to, body: message });
+        logger.info('[JobQueue] SMS sent via Twilio', { to });
+      } catch (err) {
+        logger.error('[JobQueue] SMS send failed', {
+          to,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+        throw err;
+      }
     });
 
     // Report processor

@@ -1,0 +1,150 @@
+// ==========================================================================
+// SUBSCRIPTION DOMAIN
+// ==========================================================================
+// Bounded context: subscription
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model Subscription {
+  id                   Int                @id @default(autoincrement())
+  createdAt            DateTime           @default(now())
+  clinicId             Int? // Multi-clinic support
+  clinic               Clinic?            @relation(fields: [clinicId], references: [id])
+  updatedAt            DateTime           @updatedAt
+  patientId            Int
+  planId               String
+  planName             String
+  planDescription      String
+  status               SubscriptionStatus @default(ACTIVE)
+  amount               Int
+  currency             String             @default("usd")
+  interval             String             @default("month")
+  intervalCount        Int                @default(1)
+  startDate            DateTime           @default(now())
+  currentPeriodStart   DateTime           @default(now())
+  currentPeriodEnd     DateTime           @default(now())
+  nextBillingDate      DateTime?
+  canceledAt           DateTime?
+  pausedAt             DateTime?
+  resumeAt             DateTime?
+  endedAt              DateTime?
+  paymentMethodId      Int?
+  stripeSubscriptionId String?            @unique
+  metadata             Json?
+  lastPaymentId        Int?
+  failedAttempts       Int                @default(0)
+
+  // Refill scheduling
+  vialCount          Int  @default(1) // 1 = monthly, 3 = quarterly, 6 = semi-annual
+  refillIntervalDays Int? // Calculated from vialCount: 30, 90, or 180
+  lastRefillQueueId  Int? // Most recent refill queue entry
+
+  patient       Patient              @relation(fields: [patientId], references: [id])
+  paymentMethod PaymentMethod?       @relation(fields: [paymentMethodId], references: [id])
+  payments      Payment[]
+  actions       SubscriptionAction[]
+  refillQueue   RefillQueue[]
+
+  @@index([patientId])
+  @@index([status])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
+  PAST_DUE
+  EXPIRED
+}
+
+model SubscriptionAction {
+  id             Int          @id @default(autoincrement())
+  createdAt      DateTime     @default(now())
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  // Action Details
+  actionType SubscriptionActionType
+  reason     String?
+
+  // For Pauses
+  pausedUntil DateTime?
+
+  // For Plan Changes
+  previousPlanId String?
+  newPlanId      String?
+  previousAmount Int?
+  newAmount      Int?
+
+  // For Cancellation
+  cancellationReason String?
+  retentionOfferMade Boolean @default(false)
+  retentionOfferId   Int?
+
+  // Who performed
+  performedBy String? // user ID or "system" or "patient"
+
+  @@index([subscriptionId])
+}
+
+model RetentionOffer {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Offer Info
+  name        String // "Stay with us - 50% off next month"
+  description String?
+
+  // Offer Type
+  offerType RetentionOfferType @default(DISCOUNT)
+
+  // Discount (if applicable)
+  discountType     DiscountType?
+  discountValue    Float?
+  discountDuration Int? // How many billing cycles
+
+  // Free Period (if applicable)
+  freeMonths Int?
+
+  // Pause Option
+  pauseDuration Int? // Days to pause
+
+  // Targeting
+  triggerOn          String @default("cancellation") // cancellation, payment_failed, etc.
+  minSubscriptionAge Int? // Min days subscribed to show offer
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Stats
+  timesShown    Int @default(0)
+  timesAccepted Int @default(0)
+
+  @@index([clinicId, isActive])
+}
+
+enum SubscriptionActionType {
+  CREATED
+  ACTIVATED
+  PAUSED
+  RESUMED
+  UPGRADED
+  DOWNGRADED
+  CANCELLED
+  REACTIVATED
+  PAYMENT_FAILED
+  PAYMENT_SUCCEEDED
+  RETENTION_OFFERED
+  RETENTION_ACCEPTED
+  RETENTION_DECLINED
+}
+
+enum RetentionOfferType {
+  DISCOUNT // Percentage or fixed off
+  FREE_PERIOD // Free month(s)
+  PAUSE // Pause subscription
+  DOWNGRADE // Offer cheaper plan
+  BONUS // Free add-on product
+}

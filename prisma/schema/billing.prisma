@@ -1,0 +1,534 @@
+// ==========================================================================
+// BILLING DOMAIN
+// ==========================================================================
+// Bounded context: billing
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model Invoice {
+  id                      Int                     @id @default(autoincrement())
+  createdAt               DateTime                @default(now())
+  clinicId                Int? // Multi-clinic support
+  clinic                  Clinic?                 @relation(fields: [clinicId], references: [id])
+  updatedAt               DateTime                @updatedAt
+  stripeInvoiceId         String?                 @unique // Optional for demo mode
+  stripeInvoiceNumber     String?
+  stripeInvoiceUrl        String?
+  stripePdfUrl            String?
+  patientId               Int
+  description             String?
+  amount                  Int? // Total amount for demo mode
+  amountDue               Int?
+  amountPaid              Int                     @default(0)
+  currency                String                  @default("usd")
+  status                  InvoiceStatus           @default(DRAFT)
+  dueDate                 DateTime?
+  paidAt                  DateTime?
+  lineItems               Json?
+  metadata                Json?
+  orderId                 Int?
+  commissionGenerated     Boolean                 @default(false)
+  createSubscription      Boolean                 @default(false) // If true, creates subscription on payment
+  subscriptionCreated     Boolean                 @default(false) // Was subscription created?
+  // Prescription processing tracking
+  prescriptionProcessed   Boolean                 @default(false)
+  prescriptionProcessedAt DateTime?
+  prescriptionProcessedBy Int? // Provider ID who processed
+  patient                 Patient                 @relation(fields: [patientId], references: [id])
+  commission              Commission?
+  payments                Payment[]
+  items                   InvoiceItem[] // Structured line items
+  reconciliations         PaymentReconciliation[]
+  refillQueue             RefillQueue[]
+
+  @@index([prescriptionProcessed])
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement())
+  createdAt             DateTime      @default(now())
+  clinicId              Int? // Multi-clinic support
+  clinic                Clinic?       @relation(fields: [clinicId], references: [id])
+  stripePaymentIntentId String?       @unique
+  stripeChargeId        String?
+  stripeRefundId        String? // Stripe refund ID if refunded
+  amount                Int
+  currency              String        @default("usd")
+  status                PaymentStatus @default(PENDING)
+  paymentMethod         String?
+  failureReason         String?
+  refundedAmount        Int? // Amount refunded in cents
+  refundedAt            DateTime? // When refund was processed
+  paidAt                DateTime? // When payment was completed
+  patientId             Int
+  invoiceId             Int?
+  subscriptionId        Int?
+  description           String?
+  notes                 String?
+  metadata              Json?
+  invoice               Invoice?      @relation(fields: [invoiceId], references: [id])
+  patient               Patient       @relation(fields: [patientId], references: [id])
+  subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+// Audit trail for Stripe payment matching
+model PaymentReconciliation {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int?
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+
+  // Stripe identifiers
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  stripeInvoiceId       String?
+  stripeCustomerId      String?
+  stripeEventId         String? @unique // Prevent duplicate processing
+  stripeEventType       String // e.g., "charge.succeeded"
+
+  // Payment details
+  amount      Int
+  currency    String  @default("usd")
+  description String?
+
+  // Customer data from Stripe
+  customerEmail String?
+  customerName  String?
+  customerPhone String?
+
+  // Matching results
+  status          ReconciliationStatus @default(PENDING)
+  matchedBy       String? // "stripeCustomerId", "email", "phone", "name"
+  matchConfidence String? // "exact", "high", "medium", "low"
+
+  // Linked records (null if unmatched)
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  invoiceId Int?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+
+  // Processing details
+  patientCreated Boolean   @default(false)
+  processedAt    DateTime?
+  errorMessage   String?
+  metadata       Json? // Raw Stripe event metadata
+
+  @@index([stripePaymentIntentId])
+  @@index([stripeChargeId])
+  @@index([stripeCustomerId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ReconciliationStatus {
+  PENDING // Not yet processed
+  MATCHED // Successfully matched to existing patient
+  CREATED // New patient created
+  FAILED // Processing failed
+  SKIPPED // Intentionally skipped (e.g., duplicate)
+}
+
+model PaymentMethod {
+  id                    Int            @id @default(autoincrement())
+  createdAt             DateTime       @default(now())
+  clinicId              Int? // Multi-clinic support
+  clinic                Clinic?        @relation(fields: [clinicId], references: [id])
+  updatedAt             DateTime       @updatedAt
+  patientId             Int
+  encryptedCardNumber   String
+  cardLast4             String
+  cardBrand             String?
+  expiryMonth           Int
+  expiryYear            Int
+  cardholderName        String
+  encryptedCvv          String?
+  billingZip            String
+  stripePaymentMethodId String?        @unique
+  isDefault             Boolean        @default(false)
+  isActive              Boolean        @default(true)
+  lastUsedAt            DateTime?
+  encryptionKeyId       String
+  fingerprint           String?
+  patient               Patient        @relation(fields: [patientId], references: [id])
+  subscriptions         Subscription[]
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Basic Information
+  name             String // e.g., "Semaglutide 0-1.25mg Monthly"
+  description      String? // Detailed description
+  shortDescription String? // For invoices/receipts
+  category         ProductCategory @default(SERVICE)
+
+  // Pricing
+  price    Int // Price in cents
+  currency String @default("usd")
+
+  // Billing Type
+  billingType          BillingType      @default(ONE_TIME)
+  billingInterval      BillingInterval? // For recurring: MONTHLY, QUARTERLY, etc.
+  billingIntervalCount Int              @default(1) // e.g., 3 for quarterly (3 months)
+
+  // Trial Period (for subscriptions)
+  trialDays Int? // Optional trial period
+
+  // Stripe Integration
+  stripeProductId String? @unique // Stripe Product ID
+  stripePriceId   String? @unique // Stripe Price ID
+
+  // Status & Visibility
+  isActive     Boolean @default(true)
+  isVisible    Boolean @default(true) // Show in patient-facing catalog
+  displayOrder Int     @default(0) // For sorting
+
+  // Inventory (optional)
+  trackInventory    Boolean @default(false)
+  inventoryCount    Int?
+  lowStockThreshold Int?
+
+  // Tax
+  taxable Boolean @default(false)
+  taxRate Float? // e.g., 0.07 for 7%
+
+  // Metadata
+  metadata Json? // Additional custom data
+  tags     Json? // Array of tags for filtering
+
+  // Relations
+  invoiceItems InvoiceItem[]
+  bundleItems  ProductBundleItem[]
+
+  @@index([clinicId, isActive])
+  @@index([clinicId, category])
+  @@index([stripeProductId])
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  invoiceId   Int
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   Int?
+  product     Product? @relation(fields: [productId], references: [id])
+  description String // Line item description
+  quantity    Int      @default(1)
+  unitPrice   Int // Price per unit in cents
+  amount      Int // Total amount (quantity * unitPrice)
+  metadata    Json?
+
+  @@index([invoiceId])
+  @@index([productId])
+}
+
+enum ProductCategory {
+  SERVICE // Medical services, consultations
+  MEDICATION // Prescription medications
+  SUPPLEMENT // OTC supplements
+  LAB_TEST // Lab work, tests
+  PROCEDURE // Medical procedures
+  PACKAGE // Bundled services
+  MEMBERSHIP // Membership/subscription plans
+  OTHER
+}
+
+enum BillingType {
+  ONE_TIME // Single payment
+  RECURRING // Subscription
+}
+
+enum BillingInterval {
+  WEEKLY
+  MONTHLY
+  QUARTERLY // Every 3 months
+  SEMI_ANNUAL // Every 6 months
+  ANNUAL // Yearly
+  CUSTOM // Custom interval using billingIntervalCount
+}
+
+model DiscountCode {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Code Details
+  code        String // e.g., "WELCOME20", "SUMMER2026"
+  name        String // Display name: "Welcome Discount"
+  description String? // Internal description
+
+  // Discount Type
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float // 20 for 20% or 2000 for $20 off (cents)
+
+  // Applicability
+  applyTo           DiscountApplyTo @default(ALL_PRODUCTS)
+  productIds        Json? // Specific product IDs if LIMITED_PRODUCTS
+  categoryIds       Json? // Specific categories if LIMITED_CATEGORIES
+  excludeProductIds Json? // Products to exclude
+
+  // Usage Limits
+  maxUses           Int? // Total uses allowed (null = unlimited)
+  maxUsesPerPatient Int? // Per patient limit (null = unlimited)
+  currentUses       Int  @default(0)
+
+  // Validity
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime? // null = never expires
+  isActive  Boolean   @default(true)
+
+  // Requirements
+  minOrderAmount Int? // Minimum order in cents
+  minQuantity    Int? // Minimum quantity of items
+  firstTimeOnly  Boolean @default(false) // Only for new patients
+
+  // Subscription Specifics
+  applyToFirstPayment Boolean @default(true)
+  applyToRecurring    Boolean @default(false)
+  recurringDuration   Int? // How many billing cycles to apply (null = all)
+
+  // Stripe Integration
+  stripeCouponId String? @unique
+
+  // Tracking
+  affiliateId Int? // If code belongs to affiliate
+  affiliate   Influencer? @relation(fields: [affiliateId], references: [id])
+
+  // Usage Records
+  usages DiscountUsage[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId, isActive])
+  @@index([code])
+  @@index([affiliateId])
+}
+
+model DiscountUsage {
+  id             Int          @id @default(autoincrement())
+  createdAt      DateTime     @default(now())
+  discountCodeId Int
+  discountCode   DiscountCode @relation(fields: [discountCodeId], references: [id])
+  patientId      Int
+  patient        Patient      @relation(fields: [patientId], references: [id])
+  invoiceId      Int?
+  orderId        Int?
+  amountSaved    Int // Amount saved in cents
+  orderTotal     Int // Original order total
+
+  @@index([discountCodeId])
+  @@index([patientId])
+}
+
+enum DiscountType {
+  PERCENTAGE // % off
+  FIXED_AMOUNT // $ off
+  FREE_SHIPPING // Free shipping
+  FREE_TRIAL // Extended trial period
+  BUY_X_GET_Y // Buy X get Y free/discounted
+}
+
+enum DiscountApplyTo {
+  ALL_PRODUCTS
+  LIMITED_PRODUCTS // Specific products only
+  LIMITED_CATEGORIES // Specific categories only
+  SUBSCRIPTIONS_ONLY // Only recurring products
+  ONE_TIME_ONLY // Only one-time products
+}
+
+model Promotion {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Basic Info
+  name          String // "Summer Sale 2026"
+  description   String?
+  internalNotes String?
+
+  // Promotion Type
+  promotionType PromotionType @default(SALE)
+
+  // Discount Configuration
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+
+  // Applicability
+  applyTo     DiscountApplyTo @default(ALL_PRODUCTS)
+  productIds  Json?
+  categoryIds Json?
+
+  // Schedule
+  startsAt DateTime
+  endsAt   DateTime?
+  isActive Boolean   @default(true)
+
+  // Display
+  bannerText     String? // "Save 20% - Limited Time!"
+  bannerColor    String? // Hex color for banner
+  showOnProducts Boolean @default(true)
+  showBanner     Boolean @default(false)
+
+  // Limits
+  maxRedemptions     Int?
+  currentRedemptions Int  @default(0)
+
+  // Auto-apply
+  autoApply      Boolean @default(true) // Automatically apply vs. need code
+  requiresCode   Boolean @default(false)
+  discountCodeId Int? // If requires code
+
+  // Stripe
+  stripeCouponId String?
+
+  @@index([clinicId, isActive])
+  @@index([startsAt, endsAt])
+}
+
+enum PromotionType {
+  SALE // General sale
+  FLASH_SALE // Limited time (hours)
+  SEASONAL // Holiday/seasonal
+  CLEARANCE // Clearance pricing
+  NEW_PATIENT // New patient special
+  LOYALTY // Loyalty reward
+  BUNDLE // Bundle deal
+  UPGRADE // Upgrade offer
+}
+
+model ProductBundle {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Bundle Info
+  name             String // "3-Month Weight Loss Program"
+  description      String?
+  shortDescription String?
+
+  // Pricing
+  regularPrice   Int // Sum of individual products (cents)
+  bundlePrice    Int // Discounted bundle price
+  savingsAmount  Int // How much they save
+  savingsPercent Float // Percentage saved
+
+  // Products in Bundle
+  items ProductBundleItem[]
+
+  // Billing
+  billingType     BillingType      @default(ONE_TIME)
+  billingInterval BillingInterval?
+
+  // Status
+  isActive     Boolean @default(true)
+  isVisible    Boolean @default(true)
+  displayOrder Int     @default(0)
+
+  // Stripe
+  stripeProductId String? @unique
+  stripePriceId   String? @unique
+
+  // Limits
+  maxPurchases     Int? // Max times can be purchased
+  currentPurchases Int       @default(0)
+  availableFrom    DateTime?
+  availableUntil   DateTime?
+
+  @@index([clinicId, isActive])
+}
+
+model ProductBundleItem {
+  id        Int           @id @default(autoincrement())
+  bundleId  Int
+  bundle    ProductBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product       @relation(fields: [productId], references: [id])
+  quantity  Int           @default(1)
+
+  @@index([bundleId])
+  @@index([productId])
+}
+
+model PricingRule {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  // Rule Info
+  name        String // "Volume Discount Tier 1"
+  description String?
+  priority    Int     @default(0) // Higher = applied first
+
+  // Rule Type
+  ruleType PricingRuleType @default(VOLUME_DISCOUNT)
+
+  // Conditions (JSON for flexibility)
+  conditions Json // Array of condition objects
+  // Example: [{"type": "quantity", "operator": ">=", "value": 5}]
+  // Example: [{"type": "patientTag", "operator": "contains", "value": "VIP"}]
+
+  // Action
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+
+  // Applicability
+  applyTo    DiscountApplyTo @default(ALL_PRODUCTS)
+  productIds Json?
+
+  // Status
+  isActive Boolean   @default(true)
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  @@index([clinicId, isActive, priority])
+}
+
+enum PricingRuleType {
+  VOLUME_DISCOUNT // Buy more, save more
+  TIERED_PRICING // Price decreases at quantity thresholds
+  PATIENT_SEGMENT // Based on patient attributes/tags
+  LOYALTY_DISCOUNT // Based on purchase history
+  TIME_BASED // Different prices at different times
+  LOCATION_BASED // Based on patient location
+  CUSTOM // Custom rule logic
+}
+
+// How payment was verified for the refill
+enum PaymentVerificationMethod {
+  STRIPE_AUTO // Auto-matched via Stripe payment
+  MANUAL_VERIFIED // Admin manually verified payment
+  EXTERNAL_REFERENCE // External payment method (Venmo, check, etc.)
+  PAYMENT_SKIPPED // Admin skipped verification (for non-Stripe clinics)
+}

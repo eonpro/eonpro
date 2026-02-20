@@ -1,0 +1,162 @@
+// ==========================================================================
+// PRESCRIPTION DOMAIN
+// ==========================================================================
+// Bounded context: prescription
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model Order {
+  id                 Int       @id @default(autoincrement())
+  createdAt          DateTime  @default(now())
+  clinicId           Int? // Multi-clinic support
+  clinic             Clinic?   @relation(fields: [clinicId], references: [id])
+  updatedAt          DateTime  @updatedAt
+  messageId          String
+  referenceId        String
+  lifefileOrderId    String?
+  status             String?
+  patientId          Int
+  providerId         Int
+  shippingMethod     Int
+  primaryMedName     String?
+  primaryMedStrength String?
+  primaryMedForm     String?
+  errorMessage       String?
+  requestJson        String?
+  responseJson       String?
+  lastWebhookAt      DateTime?
+  lastWebhookPayload String?
+  shippingStatus     String?
+  trackingNumber     String?
+  trackingUrl        String?
+
+  // Cancellation tracking
+  cancelledAt            DateTime? // When the order was cancelled
+  cancelledBy            Int? // User ID who cancelled
+  cancellationReason     String? // Reason code (patient_request, provider_request, etc.)
+  cancellationNotes      String? // Additional notes about cancellation
+  lifefileCancelResponse String? // JSON response from Lifefile cancel API
+
+  // Modification tracking  
+  lastModifiedAt      DateTime? // When the order was last modified
+  lastModifiedBy      Int? // User ID who modified
+  modificationHistory Json? // Array of modification records
+
+  // Provider assignment tracking (for routing system)
+  assignedProviderId Int? // Provider assigned via routing (may differ from providerId for queue items)
+  assignedAt         DateTime? // When provider was assigned
+  assignmentSource   String? // 'state_match', 'round_robin', 'manual', 'self_select', 'direct'
+
+  // Admin queue → provider approval workflow (enterprise compliance)
+  queuedForProviderAt DateTime? // When admin queued for provider review
+  queuedByUserId      Int?      // User ID who queued (admin)
+  approvedByUserId   Int?      // User ID who approved and sent to pharmacy (provider)
+  approvedAt         DateTime? // When provider approved and sent to Lifefile
+
+  provider          Provider                @relation(fields: [providerId], references: [id])
+  patient           Patient                 @relation(fields: [patientId], references: [id])
+  events            OrderEvent[]
+  rxs               Rx[]
+  tickets           Ticket[]
+  shippingUpdates   PatientShippingUpdate[]
+  refillAsLastOrder RefillQueue[]           @relation("RefillLastOrder")
+  refillAsNewOrder  RefillQueue?            @relation("RefillNewOrder")
+
+  // Provider Compensation
+  compensationEvent ProviderCompensationEvent?
+
+  // PLATFORM BILLING: Fee event for this order
+  platformFeeEvent PlatformFeeEvent?
+
+  @@index([cancelledAt])
+  @@index([assignedProviderId])
+  @@index([clinicId, status])
+}
+
+model Rx {
+  id            Int    @id @default(autoincrement())
+  orderId       Int
+  medicationKey String
+  medName       String
+  strength      String
+  form          String
+  quantity      String
+  refills       String
+  sig           String
+  daysSupply    Int    @default(30)
+  order         Order  @relation(fields: [orderId], references: [id])
+}
+
+model OrderEvent {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  orderId         Int
+  lifefileOrderId String?
+  eventType       String
+  payload         Json?
+  note            String?
+  order           Order    @relation(fields: [orderId], references: [id])
+}
+
+model RxOrderSet {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+  createdById Int
+
+  items RxOrderSetItem[]
+
+  @@index([clinicId, isActive])
+}
+
+model RxOrderSetItem {
+  id            Int        @id @default(autoincrement())
+  orderSetId    Int
+  orderSet      RxOrderSet @relation(fields: [orderSetId], references: [id], onDelete: Cascade)
+
+  medicationKey String
+  sig           String
+  quantity      String
+  refills       String
+  daysSupply    Int    @default(30)
+  sortOrder     Int    @default(0)
+
+  @@index([orderSetId])
+}
+
+// Track prescription cycles per patient+medication to avoid double-charging
+// Example: If prescriptionCycleDays = 90, patient gets Rx on Jan 1,
+// nextEligibleAt = April 1. Any Rx before April 1 is not charged.
+model PatientPrescriptionCycle {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Medication identifier (from Rx table)
+  // Format: normalized key like "semaglutide-2.5mg-vial" or "tirzepatide-5mg-pen"
+  medicationKey String
+
+  // Last billable prescription date
+  lastChargedAt DateTime
+  lastOrderId   Int
+
+  // Next eligible billing date (lastChargedAt + prescriptionCycleDays)
+  nextEligibleAt DateTime
+
+  @@unique([clinicId, patientId, medicationKey])
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([nextEligibleAt])
+}

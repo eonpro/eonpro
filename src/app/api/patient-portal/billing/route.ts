@@ -31,7 +31,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
-    // Get patient with Stripe customer ID
+    // Get patient with Stripe customer ID and subscription details
     const patient = await prisma.patient.findUnique({
       where: { id: user.patientId },
       select: {
@@ -39,6 +39,17 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         subscriptions: {
           orderBy: { createdAt: 'desc' },
           take: 1,
+          include: {
+            refillQueue: {
+              where: {
+                status: {
+                  in: ['SCHEDULED', 'PENDING_PAYMENT', 'PENDING_ADMIN', 'APPROVED', 'PENDING_PROVIDER'],
+                },
+              },
+              orderBy: { nextRefillDate: 'asc' },
+              take: 1,
+            },
+          },
         },
         invoices: {
           orderBy: { createdAt: 'desc' },

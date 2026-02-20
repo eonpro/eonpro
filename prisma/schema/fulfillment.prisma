@@ -1,0 +1,178 @@
+// ==========================================================================
+// FULFILLMENT DOMAIN
+// ==========================================================================
+// Bounded context: fulfillment
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+// Shipping status for prescription tracking at patient level
+enum ShippingStatus {
+  PENDING
+  LABEL_CREATED
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RETURNED
+  EXCEPTION
+  CANCELLED
+}
+
+// Patient-level shipping update records from Lifefile
+// Stores prescription shipping/tracking info at the patient profile level
+model PatientShippingUpdate {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenant isolation
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Patient association (nullable for unmatched webhook data)
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+
+  // Optional order link (may be standalone update)
+  orderId Int?
+  order   Order? @relation(fields: [orderId], references: [id])
+
+  // Match tracking: null = unmatched, set = when match was made
+  matchedAt DateTime?
+
+  // Tracking Information
+  trackingNumber String
+  carrier        String // UPS, FedEx, USPS, DHL, etc.
+  trackingUrl    String?
+
+  // Shipping Status
+  status     ShippingStatus @default(SHIPPED)
+  statusNote String?
+
+  // Dates
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+
+  // Medication Info (for display on patient profile)
+  medicationName     String?
+  medicationStrength String?
+  medicationQuantity String?
+  medicationForm     String? // injection, tablet, etc.
+
+  // External References
+  lifefileOrderId String? // Lifefile's order ID
+  externalRef     String? // Any other external reference
+  brand           String? // Clinic brand name (Wellmedr, NewSelf, etc.)
+
+  // Audit Trail
+  rawPayload    Json? // Full webhook payload for debugging
+  source        String    @default("lifefile") // lifefile, manual, pharmacy, etc.
+  matchStrategy String? // How the match was made: lifefileOrderId, patientLookup, manual, etc.
+  processedAt   DateTime?
+
+  @@index([clinicId, patientId])
+  @@index([trackingNumber])
+  @@index([lifefileOrderId])
+  @@index([status])
+  @@index([clinicId, matchedAt])
+}
+
+// Status flow for prescription refills
+enum RefillStatus {
+  SCHEDULED // Future refill, not yet due
+  PENDING_PAYMENT // Due, awaiting payment verification
+  PENDING_ADMIN // Payment verified, awaiting admin approval
+  APPROVED // Admin approved, ready for provider
+  PENDING_PROVIDER // Queued for provider prescription
+  PRESCRIBED // Provider submitted to Lifefile
+  COMPLETED // Order fulfilled/delivered
+  REJECTED // Admin rejected the refill
+  CANCELLED // Patient or admin cancelled
+  ON_HOLD // Temporarily paused (e.g., patient request)
+}
+
+// Tracks prescription refill schedules and approval workflow
+// Flow: Patient subscription → Scheduled refill → Payment check → Admin approval → Provider queue → Lifefile
+model RefillQueue {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenant isolation
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Patient association
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Subscription link (optional - may be one-time refill)
+  subscriptionId Int?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  // Previous order reference (for refill continuity)
+  lastOrderId Int?
+  lastOrder   Order? @relation("RefillLastOrder", fields: [lastOrderId], references: [id])
+
+  // Refill Schedule
+  vialCount          Int       @default(1) // 1 = monthly, 3 = quarterly, 6 = semi-annual
+  refillIntervalDays Int       @default(30) // 30, 90, or 180 days
+  nextRefillDate     DateTime // When the refill becomes due
+  lastRefillDate     DateTime? // When the previous refill was completed
+
+  // Multi-Shipment Scheduling (for BUD constraints)
+  shipmentNumber Int? // Which shipment in the series (1, 2, 3, 4)
+  totalShipments Int? // Total number of shipments for this package
+  parentRefillId Int? // Links to the first refill in multi-shipment series
+  parentRefill   RefillQueue?  @relation("RefillShipmentSeries", fields: [parentRefillId], references: [id])
+  childRefills   RefillQueue[] @relation("RefillShipmentSeries")
+  budDays        Int           @default(90) // Beyond Use Date in days
+
+  // Notification Tracking
+  reminderSentAt    DateTime? // When advance reminder was sent to staff
+  patientNotifiedAt DateTime? // When patient was notified about upcoming shipment
+
+  // Status Flow
+  status RefillStatus @default(SCHEDULED)
+
+  // Payment Verification
+  paymentVerified   Boolean                    @default(false)
+  paymentVerifiedAt DateTime?
+  paymentVerifiedBy Int? // User ID who verified
+  paymentMethod     PaymentVerificationMethod?
+  paymentReference  String? // External payment reference (check #, Venmo ID, etc.)
+  stripePaymentId   String? // Stripe payment intent ID if auto-matched
+  invoiceId         Int? // Linked invoice if applicable
+  invoice           Invoice?                   @relation(fields: [invoiceId], references: [id])
+
+  // Admin Approval
+  adminApproved   Boolean?
+  adminApprovedAt DateTime?
+  adminApprovedBy Int? // Admin user ID who approved/rejected
+  adminNotes      String? // Notes from admin (reason for rejection, etc.)
+
+  // Provider Queue
+  providerQueuedAt DateTime? // When moved to provider queue
+  prescribedAt     DateTime? // When provider submitted prescription
+  prescribedBy     Int? // Provider user ID
+  orderId          Int?      @unique // New order created for this refill
+  order            Order?    @relation("RefillNewOrder", fields: [orderId], references: [id])
+
+  // Patient Request Metadata
+  requestedEarly Boolean @default(false) // Patient requested early refill
+  patientNotes   String? // Notes from patient request
+
+  // Medication Info (cached from subscription/last order for quick reference)
+  medicationName     String?
+  medicationStrength String?
+  medicationForm     String?
+  planName           String? // e.g., "Semaglutide 3 Month"
+
+  @@index([clinicId, status])
+  @@index([patientId])
+  @@index([subscriptionId])
+  @@index([nextRefillDate])
+  @@index([status, nextRefillDate])
+  @@index([parentRefillId])
+}

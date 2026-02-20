@@ -70,12 +70,14 @@ export interface AuthOptions {
   roles?: UserRole[];
   /** If true, unauthenticated requests will pass through with null user */
   optional?: boolean;
-  /** Skip session validation (use only for specific endpoints like logout) */
+  /** Skip session validation (use only for specific endpoints like logout) @deprecated Will be enforced in a future release */
   skipSessionValidation?: boolean;
   /** Required permissions for this endpoint */
   permissions?: string[];
   /** Custom error message for unauthorized access */
   unauthorizedMessage?: string;
+  /** If true, require that a clinic context is resolved (returns 403 if missing). Default: false */
+  requireClinic?: boolean;
 }
 
 interface TokenValidationResult {
@@ -458,6 +460,13 @@ export function withAuth<T = unknown>(
       // Note: even WITH sessionId, "Session not found" in Redis is allowed through,
       // so blocking on *missing* sessionId while allowing *missing sessions* was
       // inconsistent and provided no real security benefit.
+      if (options.skipSessionValidation) {
+        logger.warn('[Auth] DEPRECATED: skipSessionValidation used — will be enforced in future release', {
+          userId: user.id,
+          route: new URL(req.url).pathname,
+          requestId,
+        });
+      }
       if (!options.skipSessionValidation) {
         if (!user.sessionId) {
           // Log for monitoring — helps track down tokens issued without sessionId
@@ -572,20 +581,28 @@ export function withAuth<T = unknown>(
         user.clinicId && user.role !== 'super_admin' ? user.clinicId : undefined;
 
       // Fallback: if JWT has no clinicId, use the x-clinic-id header set by the edge
-      // clinic middleware. This ensures clinic context is always available even when
-      // the JWT was minted without clinicId (avoids "No clinic associated" 403s).
-      // NOTE: super_admin gets clinic context from subdomain override below instead.
+      // clinic middleware — but ONLY after verifying the user actually has access.
+      // This prevents tenant isolation bypass if the header is spoofed or stale.
       if (effectiveClinicId == null && user.role !== 'super_admin') {
         const headerClinicId = req.headers.get('x-clinic-id');
         if (headerClinicId) {
           const parsed = parseInt(headerClinicId, 10);
           if (!isNaN(parsed) && parsed > 0) {
-            effectiveClinicId = parsed;
-            logger.info('[Auth] Using x-clinic-id header as clinicId fallback', {
-              userId: user.id,
-              clinicId: parsed,
-              jwtClinicId: user.clinicId ?? null,
-            });
+            const accessGranted = await hasClinicAccess(user.id, parsed, user.providerId);
+            if (accessGranted) {
+              effectiveClinicId = parsed;
+              logger.info('[Auth] Using x-clinic-id header as clinicId fallback (access verified)', {
+                userId: user.id,
+                clinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+              });
+            } else {
+              logger.security('[Auth] BLOCKED: x-clinic-id header fallback denied — user lacks access', {
+                userId: user.id,
+                headerClinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+              });
+            }
           }
         }
       }
@@ -627,6 +644,24 @@ export function withAuth<T = unknown>(
             error: err instanceof Error ? err.message : String(err),
           });
         }
+      }
+
+      // Enforce requireClinic option — reject if no clinic context was resolved
+      if (options.requireClinic && effectiveClinicId == null && user.role !== 'super_admin') {
+        logger.warn('[Auth] requireClinic enforcement: no clinic context', {
+          userId: user.id,
+          role: user.role,
+          route: new URL(req.url).pathname,
+          requestId,
+        });
+        return NextResponse.json(
+          {
+            error: 'Clinic context required for this endpoint',
+            code: 'CLINIC_REQUIRED',
+            requestId,
+          },
+          { status: 403 }
+        );
       }
 
       // NOTE: Legacy setClinicContext(effectiveClinicId) removed — runWithClinicContext
@@ -881,6 +916,7 @@ function addSecurityHeaders(response: Response, requestId: string): Response {
 
 /**
  * Middleware for super admin only routes
+ * @see withAuth — use withAuth({ roles: ['super_admin'] }) for new code
  */
 export function withSuperAdminAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
@@ -890,6 +926,7 @@ export function withSuperAdminAuth(
 
 /**
  * Middleware for admin routes (includes super_admin)
+ * @see withAuth — use withAuth(handler, { roles: ['super_admin', 'admin'] }) for new code
  */
 export function withAdminAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
@@ -899,36 +936,27 @@ export function withAdminAuth(
 
 /**
  * Middleware for provider routes
+ * @see withAuth — use withAuth(handler, { roles: ['super_admin', 'admin', 'provider'] }) for new code
  */
 export function withProviderAuth(
   handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
 ): (req: NextRequest, context?: unknown) => Promise<Response> {
-  return async (req: NextRequest, context?: unknown): Promise<Response> => {
-    const authHandler = withAuth(
-      (authedReq: NextRequest, user: AuthUser) => handler(authedReq, user, context),
-      { roles: ['super_admin', 'admin', 'provider'] }
-    );
-    return authHandler(req);
-  };
+  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider'] });
 }
 
 /**
  * Middleware for clinical routes (providers and staff)
+ * @see withAuth — use withAuth(handler, { roles: ['super_admin', 'admin', 'provider', 'staff'] }) for new code
  */
 export function withClinicalAuth(
   handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
 ): (req: NextRequest, context?: unknown) => Promise<Response> {
-  return async (req: NextRequest, context?: unknown): Promise<Response> => {
-    const authHandler = withAuth(
-      (authedReq: NextRequest, user: AuthUser) => handler(authedReq, user, context),
-      { roles: ['super_admin', 'admin', 'provider', 'staff'] }
-    );
-    return authHandler(req);
-  };
+  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider', 'staff'] });
 }
 
 /**
  * Middleware for support routes
+ * @see withAuth — use withAuth(handler, { roles: [...] }) for new code
  */
 export function withSupportAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
@@ -941,6 +969,7 @@ export function withSupportAuth(
 /**
  * Middleware for affiliate portal routes
  * HIPAA-COMPLIANT: Affiliates can only access their own aggregated data
+ * @see withAuth — use withAuth(handler, { roles: [...] }) for new code
  */
 export function withAffiliateAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>
@@ -950,6 +979,7 @@ export function withAffiliateAuth(
 
 /**
  * Middleware for patient routes
+ * @see withAuth — use withAuth(handler, { roles: [...] }) for new code
  */
 export function withPatientAuth(
   handler: (req: NextRequest, user: AuthUser) => Promise<Response>

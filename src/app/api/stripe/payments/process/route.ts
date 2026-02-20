@@ -6,6 +6,8 @@ import crypto from 'crypto';
 import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { handleApiError } from '@/domains/shared/errors';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 
 interface PaymentDetails {
   cardNumber: string;
@@ -50,24 +52,155 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // --- Saved card path ---
+    // --- Saved card path: actually charges through Stripe ---
     if (savedPaymentMethodId) {
-      const existingMethod = await prisma.paymentMethod.findFirst({
-        where: {
-          id: typeof savedPaymentMethodId === 'string' ? parseInt(savedPaymentMethodId) : savedPaymentMethodId,
+      const savedId = String(savedPaymentMethodId);
+      const isStripeOnly = savedId.startsWith('stripe_');
+
+      let stripePaymentMethodId: string | null = null;
+      let cardLast4 = '????';
+      let cardBrand = 'Unknown';
+      let localPaymentMethodId: number | null = null;
+
+      if (isStripeOnly) {
+        stripePaymentMethodId = savedId.replace('stripe_', '');
+      } else {
+        const numericId = parseInt(savedId);
+        if (isNaN(numericId)) {
+          return NextResponse.json({ error: 'Invalid payment method ID' }, { status: 400 });
+        }
+
+        const existingMethod = await prisma.paymentMethod.findFirst({
+          where: { id: numericId, patientId: patient.id, isActive: true },
+        });
+
+        if (!existingMethod) {
+          return NextResponse.json({ error: 'Payment method not found or inactive' }, { status: 404 });
+        }
+
+        stripePaymentMethodId = existingMethod.stripePaymentMethodId;
+        cardLast4 = existingMethod.cardLast4;
+        cardBrand = existingMethod.cardBrand;
+        localPaymentMethodId = existingMethod.id;
+      }
+
+      if (!stripePaymentMethodId) {
+        return NextResponse.json(
+          { error: 'This card is not linked to Stripe and cannot be charged. Please add a new card or use a Stripe-linked card.' },
+          { status: 400 }
+        );
+      }
+
+      if (!patient.stripeCustomerId) {
+        return NextResponse.json(
+          { error: 'Patient does not have a Stripe customer profile. Please add a card through Stripe first.' },
+          { status: 400 }
+        );
+      }
+
+      const stripeContext = await getStripeForClinic(patient.clinicId);
+      const stripe = stripeContext.stripe;
+
+      // Resolve card details for Stripe-only cards
+      if (isStripeOnly) {
+        try {
+          const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+          cardLast4 = pm.card?.last4 || '????';
+          cardBrand = pm.card?.brand
+            ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1)
+            : 'Unknown';
+        } catch {
+          // Non-blocking: card display details are cosmetic
+        }
+      }
+
+      const idempotencyKey = `pi_saved_${patient.id}_${Date.now()}_${crypto.randomUUID()}`;
+
+      // DB-first: create PENDING payment record before calling Stripe
+      const pendingPayment = await prisma.payment.create({
+        data: {
           patientId: patient.id,
-          isActive: true,
+          amount,
+          status: PaymentStatus.PENDING,
+          paymentMethod: `Card ending ${cardLast4}`,
+          description,
+          notes,
+          metadata: {
+            cardBrand,
+            localPaymentMethodId,
+            stripePaymentMethodId,
+            planId: subscription?.planId,
+            usedSavedCard: true,
+            idempotencyKey,
+          } as any,
         },
       });
 
-      if (!existingMethod) {
-        return NextResponse.json({ error: 'Payment method not found or inactive' }, { status: 404 });
+      // Create and confirm PaymentIntent through Stripe
+      let paymentIntent;
+      try {
+        const intentParams: Record<string, unknown> = {
+          amount,
+          currency: 'usd',
+          customer: patient.stripeCustomerId,
+          payment_method: stripePaymentMethodId,
+          description,
+          confirm: true,
+          off_session: true,
+          metadata: {
+            paymentId: pendingPayment.id.toString(),
+            patientId: patient.id.toString(),
+            idempotencyKey,
+          },
+        };
+
+        paymentIntent = await stripe.paymentIntents.create(
+          intentParams as any,
+          {
+            idempotencyKey,
+            ...(stripeContext.stripeAccountId ? { stripeAccount: stripeContext.stripeAccountId } : {}),
+          }
+        );
+      } catch (stripeError: unknown) {
+        const errMsg = stripeError instanceof Error ? stripeError.message : 'Stripe charge failed';
+        await prisma.payment.update({
+          where: { id: pendingPayment.id },
+          data: {
+            status: PaymentStatus.FAILED,
+            failureReason: errMsg,
+          },
+        });
+
+        logger.error('[PaymentProcess] Stripe charge failed for saved card', {
+          paymentId: pendingPayment.id,
+          patientId: patient.id,
+          error: errMsg,
+        });
+
+        return NextResponse.json({ error: errMsg }, { status: 402 });
       }
 
+      // Map Stripe status
+      const stripeStatus = paymentIntent.status === 'succeeded'
+        ? PaymentStatus.SUCCEEDED
+        : paymentIntent.status === 'processing'
+          ? PaymentStatus.PROCESSING
+          : PaymentStatus.FAILED;
+
+      // Update payment record and create subscription inside a transaction
       const result = await prisma.$transaction(async (tx) => {
         let subscriptionId: number | null = null;
 
-        if (subscription) {
+        await tx.payment.update({
+          where: { id: pendingPayment.id },
+          data: {
+            status: stripeStatus,
+            stripePaymentIntentId: paymentIntent.id,
+            stripeChargeId: paymentIntent.latest_charge?.toString(),
+          },
+        });
+
+        if (subscription && stripeStatus === PaymentStatus.SUCCEEDED) {
           const subscriptionInfo = subscription as SubscriptionInfo;
           const now = new Date();
           const periodEnd = new Date(now);
@@ -88,61 +221,52 @@ export async function POST(request: Request) {
               currentPeriodStart: now,
               currentPeriodEnd: periodEnd,
               nextBillingDate: periodEnd,
-              paymentMethodId: existingMethod.id,
+              paymentMethodId: localPaymentMethodId ?? 0,
             },
           });
 
           subscriptionId = createdSubscription.id;
 
+          await tx.payment.update({
+            where: { id: pendingPayment.id },
+            data: { subscriptionId },
+          });
+
           const currentTags = (patient.tags as string[]) || [];
           const subscriptionTag = `subscription-${subscriptionInfo.planName.toLowerCase().replace(/\s+/g, '-')}`;
-
           if (!currentTags.includes(subscriptionTag)) {
             await tx.patient.update({
               where: { id: patient.id },
-              data: {
-                tags: [...currentTags, subscriptionTag, 'active-subscription'],
-              },
+              data: { tags: [...currentTags, subscriptionTag, 'active-subscription'] },
             });
           }
         }
 
-        const payment = await tx.payment.create({
-          data: {
-            patientId: patient.id,
-            amount,
-            status: PaymentStatus.SUCCEEDED,
-            paymentMethod: `Card ending ${existingMethod.cardLast4}`,
-            description,
-            notes,
-            subscriptionId,
-            metadata: {
-              cardBrand: existingMethod.cardBrand,
-              paymentMethodId: existingMethod.id,
-              subscriptionId,
-              planId: subscription?.planId,
-              usedSavedCard: true,
-            } as any,
-          },
-        });
+        if (localPaymentMethodId) {
+          await tx.paymentMethod.update({
+            where: { id: localPaymentMethodId },
+            data: { lastUsedAt: new Date() },
+          });
+        }
 
-        await tx.paymentMethod.update({
-          where: { id: existingMethod.id },
-          data: { lastUsedAt: new Date() },
-        });
-
-        return { payment, paymentMethodId: existingMethod.id, subscriptionId };
+        return { subscriptionId };
       }, { timeout: 15000 });
 
-      const { payment } = result;
+      if (stripeStatus !== PaymentStatus.SUCCEEDED) {
+        return NextResponse.json(
+          { error: `Payment ${paymentIntent.status}. Please try again or use a different card.` },
+          { status: 402 }
+        );
+      }
 
+      // Commission processing (non-blocking)
       let commissionProcessed = false;
       try {
         const priorPaymentCount = await prisma.payment.count({
           where: {
             patientId: patient.id,
             status: PaymentStatus.SUCCEEDED,
-            id: { not: payment.id },
+            id: { not: pendingPayment.id },
           },
         });
         const isFirstPayment = priorPaymentCount === 0;
@@ -150,10 +274,10 @@ export async function POST(request: Request) {
         const commissionResult = await processPaymentForCommission({
           clinicId: patient.clinicId,
           patientId: patient.id,
-          stripeEventId: `payment-${payment.id}`,
-          stripeObjectId: payment.id.toString(),
-          stripeEventType: 'payment.succeeded',
-          amountCents: Math.round(amount * 100),
+          stripeEventId: paymentIntent.id,
+          stripeObjectId: paymentIntent.id,
+          stripeEventType: 'payment_intent.succeeded',
+          amountCents: amount,
           occurredAt: new Date(),
           isFirstPayment,
           isRecurring: !!subscription,
@@ -165,14 +289,14 @@ export async function POST(request: Request) {
         commissionProcessed = commissionResult.success && !commissionResult.skipped;
         if (commissionProcessed) {
           logger.info('[PaymentProcess] Affiliate commission created', {
-            paymentId: payment.id,
+            paymentId: pendingPayment.id,
             patientId: patient.id,
             commissionEventId: commissionResult.commissionEventId,
           });
         }
       } catch (commissionError) {
         logger.warn('[PaymentProcess] Affiliate commission processing failed (non-blocking)', {
-          paymentId: payment.id,
+          paymentId: pendingPayment.id,
           patientId: patient.id,
           error: commissionError instanceof Error ? commissionError.message : 'Unknown',
         });
@@ -180,7 +304,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        payment,
+        payment: { ...pendingPayment, status: stripeStatus, stripePaymentIntentId: paymentIntent.id },
         paymentMethodSaved: false,
         subscriptionCreated: !!result.subscriptionId,
         commissionProcessed,
@@ -302,15 +426,13 @@ export async function POST(request: Request) {
 
     const { payment, paymentMethodId, subscriptionId } = result;
 
-    // Process affiliate commission if this patient was referred by an affiliate
     let commissionProcessed = false;
     try {
-      // Determine if this is the patient's first succeeded payment
       const priorPaymentCount = await prisma.payment.count({
         where: {
           patientId: patient.id,
           status: PaymentStatus.SUCCEEDED,
-          id: { not: payment.id }, // Exclude the payment we just created
+          id: { not: payment.id },
         },
       });
       const isFirstPayment = priorPaymentCount === 0;
@@ -318,10 +440,10 @@ export async function POST(request: Request) {
       const commissionResult = await processPaymentForCommission({
         clinicId: patient.clinicId,
         patientId: patient.id,
-        stripeEventId: `payment-${payment.id}`, // Idempotency key
+        stripeEventId: `payment-${payment.id}`,
         stripeObjectId: payment.id.toString(),
         stripeEventType: 'payment.succeeded',
-        amountCents: Math.round(amount * 100), // Convert dollars to cents if needed
+        amountCents: Math.round(amount * 100),
         occurredAt: new Date(),
         isFirstPayment,
         isRecurring: !!subscription,
@@ -339,7 +461,6 @@ export async function POST(request: Request) {
         });
       }
     } catch (commissionError) {
-      // Commission failure should never block the payment response
       logger.warn('[PaymentProcess] Affiliate commission processing failed (non-blocking)', {
         paymentId: payment.id,
         patientId: patient.id,
@@ -355,14 +476,6 @@ export async function POST(request: Request) {
       commissionProcessed,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(
-      'Error processing payment:',
-      error instanceof Error ? error : new Error(errorMessage)
-    );
-    return NextResponse.json(
-      { error: errorMessage || 'Failed to process payment' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/stripe/payments/process' });
   }
 }

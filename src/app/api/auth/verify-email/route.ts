@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { handleApiError } from '@/domains/shared/errors';
 import {
   generateOTP,
   storeVerificationCode,
@@ -116,11 +117,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       ...(process.env.NODE_ENV === 'development' && { code }),
     });
   } catch (error: unknown) {
-    logger.error(
-      'Error sending verification email:',
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });
+    return handleApiError(error, { route: 'POST /api/auth/verify-email' });
   }
 });
 
@@ -153,10 +150,6 @@ export const PUT = standardRateLimit(async (req: NextRequest) => {
       email: result.email,
     });
   } catch (error: unknown) {
-    logger.error(
-      'Error verifying email:',
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json({ error: 'Failed to verify email' }, { status: 500 });
+    return handleApiError(error, { route: 'PUT /api/auth/verify-email' });
   }
 });

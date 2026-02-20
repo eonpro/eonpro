@@ -1,0 +1,210 @@
+// ==========================================================================
+// NOTIFICATION DOMAIN
+// ==========================================================================
+// Bounded context: notification
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+enum NotificationCategory {
+  PRESCRIPTION // RX queue, prescription status changes
+  PATIENT // New intake, patient updates
+  ORDER // Shipping, delivery, tracking updates
+  SYSTEM // Alerts, maintenance, system notifications
+  APPOINTMENT // Scheduling, reminders
+  MESSAGE // Internal messages, chat
+  PAYMENT // Payment received, failed, refunds
+  REFILL // Refill requests, approvals
+  SHIPMENT // Multi-shipment scheduling reminders (BUD)
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Recipient
+  userId   Int
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinicId Int?
+  clinic   Clinic? @relation(fields: [clinicId], references: [id])
+
+  // Content
+  category  NotificationCategory
+  priority  NotificationPriority @default(NORMAL)
+  title     String
+  message   String
+  actionUrl String? // Link to relevant page/resource
+  metadata  Json? // Additional context (patientId, orderId, etc.)
+
+  // Status
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  isArchived Boolean   @default(false)
+  archivedAt DateTime?
+
+  // Source tracking (for deduplication and audit)
+  sourceType String? // 'webhook', 'system', 'user', 'cron'
+  sourceId   String? // External reference (webhook ID, order ID, etc.)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, isArchived])
+  @@index([clinicId, category])
+  @@index([sourceType, sourceId])
+}
+
+enum EmailLogStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  COMPLAINED
+  FAILED
+  SUPPRESSED
+}
+
+model EmailLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Recipient
+  recipientEmail  String
+  recipientUserId Int?
+  recipientUser   User?   @relation(fields: [recipientUserId], references: [id])
+  clinicId        Int?
+  clinic          Clinic? @relation(fields: [clinicId], references: [id])
+
+  // Email Details
+  subject      String
+  template     String? // EmailTemplate enum value
+  templateData Json? // Template variables (anonymized - no PHI)
+
+  // Delivery Status
+  status       EmailLogStatus @default(PENDING)
+  messageId    String?        @unique // AWS SES Message ID
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  bouncedAt    DateTime?
+  complainedAt DateTime?
+
+  // Error Tracking
+  errorMessage String?
+  errorCode    String?
+  retryCount   Int     @default(0)
+
+  // Bounce/Complaint Details
+  bounceType    String? // "Permanent", "Transient", "Undetermined"
+  bounceSubType String? // "General", "NoEmail", "Suppressed", etc.
+  complaintType String? // "abuse", "auth-failure", "fraud", etc.
+
+  // Source Tracking
+  sourceType String? // "automation", "manual", "notification", "digest"
+  sourceId   String? // notificationId, automationTrigger, etc.
+
+  @@index([recipientEmail])
+  @@index([recipientUserId])
+  @@index([status])
+  @@index([messageId])
+  @@index([createdAt(sort: Desc)])
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([sourceType, sourceId])
+}
+
+enum ScheduledEmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model ScheduledEmail {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Recipient
+  recipientEmail  String
+  recipientUserId Int?
+  recipientUser   User?   @relation(fields: [recipientUserId], references: [id])
+  clinicId        Int?
+  clinic          Clinic? @relation(fields: [clinicId], references: [id])
+
+  // Email Content
+  subject      String?
+  template     String // EmailTemplate enum value
+  templateData Json
+  priority     String  @default("NORMAL")
+
+  // Scheduling
+  scheduledFor DateTime
+  status       ScheduledEmailStatus @default(PENDING)
+  processedAt  DateTime?
+
+  // Result
+  emailLogId   Int? // Link to EmailLog when sent
+  errorMessage String?
+  retryCount   Int     @default(0)
+  maxRetries   Int     @default(3)
+
+  // Source
+  automationTrigger String? // AutomationTrigger enum value
+  sourceId          String?
+
+  @@index([status, scheduledFor])
+  @@index([recipientUserId])
+  @@index([clinicId])
+  @@index([createdAt(sort: Desc)])
+}
+
+model UserNotificationPreference {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Sound Settings
+  soundEnabled       Boolean @default(true)
+  soundVolume        Int     @default(50) // 0-100
+  soundForPriorities Json    @default("[\"HIGH\", \"URGENT\"]")
+
+  // Toast Settings
+  toastEnabled  Boolean @default(true)
+  toastDuration Int     @default(5000) // milliseconds
+  toastPosition String  @default("top-right") // top-right, top-left, bottom-right, bottom-left
+
+  // Browser Notifications
+  browserNotificationsEnabled Boolean @default(false)
+
+  // Do Not Disturb
+  dndEnabled         Boolean @default(false)
+  dndScheduleEnabled Boolean @default(false)
+  dndStartTime       String  @default("22:00") // HH:MM
+  dndEndTime         String  @default("08:00") // HH:MM
+  dndDays            Json    @default("[0,1,2,3,4,5,6]") // 0-6, Sunday = 0
+
+  // Category Preferences
+  mutedCategories Json @default("[]") // NotificationCategory values
+
+  // Display Settings
+  groupSimilar     Boolean @default(true)
+  showDesktopBadge Boolean @default(true)
+
+  @@index([userId])
+}

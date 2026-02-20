@@ -72,6 +72,9 @@
     "test:overtime-intake": "tsx scripts/test-overtime-intake.ts",
     "sync:overtime": "tsx -e \"fetch('http://localhost:3000/api/integrations/overtime/sync', {method:'POST',headers:{'Authorization':'Bearer '+process.env.OVERTIME_SYNC_API_KEY}}).then(r=>r.json()).then(console.log)\""
   },
+  "prisma": {
+    "schema": "prisma/schema"
+  },
   "lint-staged": {
     "*.{ts,tsx}": [
       "eslint --fix --max-warnings 0",

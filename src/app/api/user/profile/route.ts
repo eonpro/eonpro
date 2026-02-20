@@ -15,6 +15,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { decryptPatientPHI, encryptPHI } from '@/lib/security/phi-encryption';
+import { handleApiError } from '@/domains/shared/errors';
 
 const addressSchema = z.object({
   street: z.string().max(200).optional(),
@@ -119,11 +120,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       address,
     });
   } catch (error) {
-    logger.error('[User Profile] GET error', {
-      userId: user.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return NextResponse.json({ error: 'Failed to get profile' }, { status: 500 });
+    return handleApiError(error, { route: 'GET /api/user/profile' });
   }
 }
 
@@ -241,11 +238,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error('[User Profile] PATCH error', {
-      userId: user.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    return handleApiError(error, { route: 'PATCH /api/user/profile' });
   }
 }
 

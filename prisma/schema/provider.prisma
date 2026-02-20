@@ -1,0 +1,291 @@
+// ==========================================================================
+// PROVIDER DOMAIN
+// ==========================================================================
+// Bounded context: provider
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model Provider {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Provider status for archive/suspend functionality
+  status     ProviderStatus @default(ACTIVE)
+  archivedAt DateTime? // When the provider was archived
+  archivedBy Int? // User ID who archived the provider
+
+  // Legacy single clinic assignment (deprecated, use ProviderClinic)
+  clinicId Int? // Multi-clinic support - nullable for shared providers
+  clinic   Clinic? @relation(fields: [clinicId], references: [id])
+
+  // ENTERPRISE: Multi-clinic support (like User.clinicId/activeClinicId pattern)
+  primaryClinicId Int? // Provider's primary/default clinic
+  activeClinicId  Int? // Currently active clinic for this session
+
+  // PLATFORM BILLING: Distinguish internal EONPRO providers from clinic-brought providers
+  // true = EONPRO internal provider (clinic charged medical prescription fee)
+  // false = clinic's own provider (clinic charged transmission fee only)
+  isEonproProvider Boolean @default(false)
+
+  firstName            String
+  lastName             String
+  titleLine            String?
+  npi                  String    @unique
+  licenseState         String?
+  licenseNumber        String?
+  dea                  String?
+  email                String?
+  phone                String?
+  signatureDataUrl     String?
+  npiVerifiedAt        DateTime?
+  npiRawResponse       Json?
+  lastLogin            DateTime?
+  user                 User?
+  passwordHash         String?
+  passwordResetExpires DateTime?
+  passwordResetToken   String?
+
+  // Relations
+  orders              Order[]
+  auditEntries        ProviderAudit[]
+  approvedSoapNotes   SOAPNote[]
+  intakeFormTemplates IntakeFormTemplate[]
+  appointments        Appointment[]
+  availability        ProviderAvailability[]
+  timeOff             ProviderTimeOff[]
+  superbills          Superbill[]
+  carePlans           CarePlan[]
+
+  // ENTERPRISE: Multi-clinic assignments (like UserClinic pattern)
+  providerClinics ProviderClinic[]
+
+  // ENTERPRISE: Provider Compensation System
+  compensationPlans  ProviderCompensationPlan[]
+  compensationEvents ProviderCompensationEvent[]
+
+  // PLATFORM BILLING: Fee events for this provider
+  platformFeeEvents PlatformFeeEvent[]
+
+  // Telehealth & Calendar
+  telehealthSessions    TelehealthSession[]
+  calendarSubscriptions CalendarSubscription[]
+
+  @@index([status])
+  @@index([isEonproProvider])
+}
+
+// ENTERPRISE: Junction table for providers belonging to multiple clinics
+// Mirrors UserClinic pattern for consistent multi-tenant architecture
+model ProviderClinic {
+  id         Int      @id @default(autoincrement())
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  clinicId   Int
+  clinic     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  // Per-clinic provider metadata
+  isPrimary     Boolean @default(false) // Is this the provider's primary clinic?
+  isActive      Boolean @default(true) // Is this assignment active?
+  titleLine     String? // Clinic-specific title (e.g., different role per clinic)
+  deaNumber     String? // State/clinic-specific DEA number
+  licenseNumber String? // State-specific license number
+  licenseState  String? // State of license for this clinic
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerId, clinicId]) // Provider can only be assigned once per clinic
+  @@index([providerId])
+  @@index([clinicId])
+  @@index([isActive])
+}
+
+enum ProviderStatus {
+  ACTIVE
+  ARCHIVED
+  SUSPENDED
+}
+
+model ProviderAvailability {
+  id               Int      @id @default(autoincrement())
+  providerId       Int
+  provider         Provider @relation(fields: [providerId], references: [id])
+  clinicId         Int?
+  clinic           Clinic?  @relation(fields: [clinicId], references: [id])
+  dayOfWeek        Int // 0 = Sunday, 6 = Saturday
+  startTime        String // "09:00"
+  endTime          String // "17:00"
+  isActive         Boolean  @default(true)
+  locationId       Int?
+  appointmentTypes Json? // Array of allowed appointment type IDs
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([providerId])
+  @@index([dayOfWeek])
+}
+
+model ProviderTimeOff {
+  id          Int       @id @default(autoincrement())
+  providerId  Int
+  provider    Provider  @relation(fields: [providerId], references: [id])
+  clinicId    Int?
+  clinic      Clinic?   @relation(fields: [clinicId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  startTime   DateTime?
+  endTime     DateTime?
+  reason      String?
+  isApproved  Boolean   @default(true)
+  isAllDay    Boolean   @default(false)
+  isRecurring Boolean   @default(false)
+  source      String? // 'manual', 'calendar_sync'
+  createdAt   DateTime  @default(now())
+
+  @@index([providerId])
+  @@index([startDate, endDate])
+}
+
+model ProviderCalendarIntegration {
+  id            Int       @id @default(autoincrement())
+  providerId    Int
+  provider      String // 'google', 'outlook'
+  clinicId      Int?
+  accessToken   String?
+  refreshToken  String?
+  expiresAt     DateTime?
+  accountId     String?
+  calendarId    String?   @default("primary")
+  isActive      Boolean   @default(true)
+  syncEnabled   Boolean   @default(true)
+  syncDirection String    @default("both") // 'to_external', 'from_external', 'both'
+  lastSyncAt    DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([providerId, provider], name: "providerId_provider")
+  @@index([providerId])
+}
+
+enum CompensationEventStatus {
+  PENDING // Prescription completed, awaiting approval
+  APPROVED // Approved for payout
+  PAID // Payment processed
+  VOIDED // Cancelled/voided (e.g., order cancelled)
+}
+
+enum CompensationType {
+  FLAT_RATE // Fixed amount per prescription
+  PERCENTAGE // Percentage of order/invoice total
+  HYBRID // Both flat rate + percentage
+}
+
+// Clinic-level routing configuration
+model ProviderRoutingConfig {
+  id       Int    @id @default(autoincrement())
+  clinicId Int    @unique
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // Feature enable flags - this is an optional feature per clinic
+  routingEnabled      Boolean @default(false)
+  compensationEnabled Boolean @default(false)
+
+  // Routing strategy
+  routingStrategy RoutingStrategy @default(PROVIDER_CHOICE)
+
+  // SOAP note approval requirement
+  soapApprovalMode SoapApprovalMode @default(ADVISORY)
+
+  // Round-robin state tracking
+  lastAssignedIndex      Int  @default(0)
+  lastAssignedProviderId Int?
+
+  // Auto-assignment settings
+  autoAssignOnPayment Boolean @default(false) // Auto-assign when invoice paid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Per-clinic, per-provider compensation rates
+model ProviderCompensationPlan {
+  id         Int      @id @default(autoincrement())
+  clinicId   Int
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id])
+
+  // Compensation type (flat rate, percentage, or both)
+  compensationType CompensationType @default(FLAT_RATE)
+
+  // Compensation rates
+  flatRatePerScript Int @default(500) // Amount in cents (e.g., 500 = $5.00)
+  percentBps        Int @default(0) // Basis points (e.g., 1000 = 10%, 500 = 5%)
+
+  // Effective dates for rate changes
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime? // null = currently active
+  isActive      Boolean   @default(true)
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int? // User who created/modified
+  notes     String? // Admin notes about this rate
+
+  // Relations
+  compensationEvents ProviderCompensationEvent[]
+
+  @@unique([clinicId, providerId]) // One active plan per provider per clinic
+  @@index([clinicId])
+  @@index([providerId])
+  @@index([isActive])
+}
+
+// Per-prescription compensation event
+model ProviderCompensationEvent {
+  id         Int      @id @default(autoincrement())
+  clinicId   Int
+  clinic     Clinic   @relation(fields: [clinicId], references: [id])
+  providerId Int
+  provider   Provider @relation(fields: [providerId], references: [id])
+  orderId    Int      @unique // One compensation event per order
+  order      Order    @relation(fields: [orderId], references: [id])
+
+  // Link to the plan used for calculation
+  planId Int
+  plan   ProviderCompensationPlan @relation(fields: [planId], references: [id])
+
+  // Compensation details
+  amountCents        Int // Total amount earned in cents
+  prescriptionCount  Int   @default(1) // Number of prescriptions in order
+  orderTotalCents    Int? // Order/invoice total used for percentage calculation
+  calculationDetails Json? // Breakdown: { flatAmount, percentAmount, percentBps, etc. }
+
+  // Status workflow
+  status CompensationEventStatus @default(PENDING)
+
+  // Payment tracking (for future payment integration)
+  approvedAt      DateTime?
+  approvedBy      Int? // User who approved
+  paidAt          DateTime?
+  payoutReference String? // External payment reference (Stripe, check #, etc.)
+  payoutBatchId   String? // For batch payouts
+
+  // Voiding
+  voidedAt     DateTime?
+  voidedBy     Int?
+  voidedReason String?
+
+  // Audit
+  createdAt DateTime @default(now())
+  metadata  Json? // Additional context (medication name, patient state, etc.)
+
+  @@index([clinicId, providerId])
+  @@index([clinicId, createdAt])
+  @@index([providerId, status])
+  @@index([status])
+  @@index([createdAt])
+}

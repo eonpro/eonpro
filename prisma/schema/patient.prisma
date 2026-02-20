@@ -1,0 +1,287 @@
+// ==========================================================================
+// PATIENT DOMAIN
+// ==========================================================================
+// Bounded context: patient
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model Patient {
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
+  // REQUIRED: All patients must belong to a clinic for multi-tenant data isolation
+  // Migration: Run scripts/fix-orphaned-patients.ts before deploying this change
+  clinicId         Int
+  clinic           Clinic   @relation(fields: [clinicId], references: [id])
+  firstName        String
+  lastName         String
+  dob              String
+  gender           String
+  phone            String
+  email            String
+  address1         String
+  city             String
+  state            String
+  zip              String
+  lifefileId       String?
+  notes            String?
+  tags             Json?
+  address2         String?
+  patientId        String? // Unique within clinic (see @@unique below)
+  stripeCustomerId String?  @unique
+  source           String   @default("manual") // "webhook", "api", "manual", "referral", "import", "stripe"
+  sourceMetadata   Json? // Additional source details (e.g., webhook URL, referrer ID, import batch)
+
+  // Profile completion status - tracks patients auto-created from payments that need additional info
+  profileStatus ProfileStatus @default(ACTIVE)
+
+  // Affiliate Attribution (HIPAA-safe: only used for commission tracking, not in clinical notes)
+  attributionAffiliateId  Int? // The affiliate who referred this patient
+  attributionAffiliate    Affiliate?                  @relation(fields: [attributionAffiliateId], references: [id])
+  attributionRefCode      String? // The ref code used (e.g., "infl_xxx")
+  attributionFirstTouchAt DateTime? // When the attribution was first recorded
+  aiConversations         AIConversation[]
+  invoices                Invoice[]
+  orders                  Order[]
+  auditEntries            PatientAudit[]
+  documents               PatientDocument[]
+  payments                Payment[]
+  paymentMethods          PaymentMethod[]
+  soapNotes               SOAPNote[]
+  subscriptions           Subscription[]
+  referrals               ReferralTracking[]
+  reconciliations         PaymentReconciliation[]
+  user                    User?
+  portalInvites           PatientPortalInvite[] // One-time portal invite tokens (manual, first_payment, first_order)
+  intakeSubmissions       IntakeFormSubmission[]
+  weightLogs              PatientWeightLog[]
+  medicationReminders     PatientMedicationReminder[]
+  waterLogs               PatientWaterLog[]
+  exerciseLogs            PatientExerciseLog[]
+  sleepLogs               PatientSleepLog[]
+  nutritionLogs           PatientNutritionLog[]
+  tickets                 Ticket[]
+  appointments            Appointment[]
+  superbills              Superbill[]
+  carePlans               CarePlan[]
+  smsLogs                 SmsLog[]
+  smsOptOuts              SmsOptOut[]
+
+  // SMS Consent (TCPA Compliance)
+  smsConsent       Boolean   @default(true)
+  smsConsentAt     DateTime?
+  smsConsentSource String? // webhook, patient_portal, admin, etc.
+
+  discountUsages          DiscountUsage[]
+  affiliateReferrals      AffiliateReferral[]
+  chatMessages            PatientChatMessage[]
+  shippingUpdates         PatientShippingUpdate[]
+  pushSubscriptions       PushSubscription[]
+  streaks                 PatientStreak[]
+  achievements            PatientAchievement[]
+  points                  PatientPoints?
+  pointsHistory           PointsHistory[]
+  challengeParticipations ChallengeParticipant[]
+  refillQueue             RefillQueue[]
+  telehealthSessions      TelehealthSession[]
+  salesRepAssignments     PatientSalesRepAssignment[]
+
+  // PLATFORM BILLING: Prescription cycle tracking and fee events
+  prescriptionCycles PatientPrescriptionCycle[]
+  platformFeeEvents  PlatformFeeEvent[]
+
+  // PATIENT PORTAL: Progress photos, ID verification, medical images
+  photos PatientPhoto[]
+
+  // BLOODWORK: Parsed lab reports (e.g. Quest PDF upload)
+  labReports LabReport[]
+
+  // WEARABLE DEVICES: Terra API device connections (Fitbit, Garmin, Apple Watch, etc.)
+  deviceConnections PatientDeviceConnection[]
+
+  // SEARCH INDEX: Lowercased plain-text of searchable fields for DB-level full-text search.
+  // Contains: "firstname lastname email phone_digits patientid"
+  // Enables SQL LIKE queries via pg_trgm GIN index for O(1) substring matching at any scale.
+  // Original PHI fields remain AES-256-GCM encrypted; DB provides encryption-at-rest.
+  searchIndex String?
+
+  // PATIENT PORTAL: Notification preferences (email reminders, sms, shipments, etc.)
+  portalNotificationPrefs Json?
+
+  @@unique([clinicId, patientId])
+  @@index([clinicId])
+  @@index([profileStatus]) // For efficiently querying pending profiles
+}
+
+model PatientDocument {
+  id                 Int                     @id @default(autoincrement())
+  createdAt          DateTime                @default(now())
+  clinicId           Int? // Multi-clinic support
+  clinic             Clinic?                 @relation(fields: [clinicId], references: [id])
+  patientId          Int
+  filename           String
+  mimeType           String
+  source             String?
+  data               Bytes? // PDF binary data (or legacy JSON)
+  externalUrl        String?
+  /// S3 key for externalized intake JSON data (Phase 3.3 blob migration).
+  /// When set, reads prefer S3 over the `data` column. Dual-write keeps both in sync.
+  s3DataKey          String?
+  sourceSubmissionId String?                 @unique
+  category           PatientDocumentCategory @default(OTHER)
+  /// SHA-256 of file content for idempotent bloodwork uploads (dedupe same PDF).
+  contentHash        String?
+  patient            Patient                 @relation(fields: [patientId], references: [id])
+  soapNotes          SOAPNote[]
+  labReport          LabReport?
+  // Future fields (require DB migration):
+  // intakeData         Json?                   // Structured intake form answers
+  // pdfGeneratedAt     DateTime?               // When the PDF was generated
+  // intakeVersion      String?                 // Track intake form version
+}
+
+model PatientCounter {
+  id       Int    @id @default(autoincrement())
+  clinicId Int    @unique // Each clinic has its own counter
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+  current  Int    @default(0)
+}
+
+// Profile completion status for patients created from Stripe payments
+// Used to track patients that need additional information or merging
+enum ProfileStatus {
+  ACTIVE // Complete profile, normal patient
+  PENDING_COMPLETION // Auto-created from payment with incomplete info (missing email/name)
+  MERGED // Profile was merged into another patient (retained for audit)
+  ARCHIVED // Soft deleted or archived
+}
+
+enum PatientDocumentCategory {
+  MEDICAL_INTAKE_FORM
+  MEDICAL_RECORDS
+  LAB_RESULTS
+  INSURANCE
+  CONSENT_FORMS
+  PRESCRIPTIONS
+  IMAGING
+  ID_PHOTO
+  OTHER
+}
+
+// Sales Rep Patient Assignment - Tracks which sales rep is assigned to which patient
+// Maintains history of assignments for audit trail and bulk reassignment
+model PatientSalesRepAssignment {
+  id         Int @id @default(autoincrement())
+  patientId  Int
+  salesRepId Int // User ID with SALES_REP role
+  clinicId   Int // Multi-tenant isolation
+
+  // Assignment tracking
+  assignedAt   DateTime @default(now())
+  assignedById Int? // Admin who made assignment
+
+  // Removal tracking (for history)
+  removedAt   DateTime?
+  removedById Int? // Admin who removed assignment
+  removalNote String? // Reason for reassignment
+
+  isActive Boolean @default(true)
+
+  // Relations
+  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  salesRep   User    @relation("SalesRepAssignments", fields: [salesRepId], references: [id])
+  clinic     Clinic  @relation(fields: [clinicId], references: [id])
+  assignedBy User?   @relation("AssignmentsMadeBy", fields: [assignedById], references: [id])
+  removedBy  User?   @relation("AssignmentsRemovedBy", fields: [removedById], references: [id])
+
+  @@index([salesRepId, clinicId, isActive])
+  @@index([patientId, isActive])
+  @@index([clinicId])
+}
+
+model PatientPhoto {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenant isolation
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id])
+  clinicId  Int
+  clinic    Clinic  @relation(fields: [clinicId], references: [id])
+
+  // Photo type and category
+  type     PatientPhotoType // PROGRESS_FRONT, PROGRESS_SIDE, ID_FRONT, MEDICAL, etc.
+  category String?          // Additional categorization (e.g., "week-1", "skin-condition")
+
+  // S3 Storage
+  s3Key        String  // Full S3 key path
+  s3Url        String  // Signed URL (regenerated on access)
+  thumbnailKey String? // Thumbnail S3 key
+  thumbnailUrl String? // Thumbnail signed URL
+  fileSize     Int?    // File size in bytes
+  mimeType     String? // Image MIME type (image/jpeg, image/png, etc.)
+  width        Int?    // Image width in pixels
+  height       Int?    // Image height in pixels
+
+  // Photo context
+  title   String? // User-provided title
+  notes   String? // User-provided notes/description
+  weight  Float?  // Weight at time of photo (for progress tracking)
+  takenAt DateTime @default(now()) // When photo was taken (may differ from upload)
+
+  // ID Verification (for ID_FRONT, ID_BACK types)
+  verificationStatus PatientPhotoVerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  verifiedBy         Int? // User ID of verifier
+  verificationNotes  String? // Admin notes on verification
+
+  // Privacy & Access
+  isPrivate     Boolean @default(true) // Only patient and care team can view
+  isDeleted     Boolean @default(false) // Soft delete for audit trail
+  deletedAt     DateTime?
+  deletedBy     Int?
+  deletionReason String?
+
+  // Metadata
+  uploadedFrom String? // "web", "mobile", "camera"
+  deviceInfo   String? // Device/browser info
+  ipAddress    String? // For audit (hashed)
+
+  @@index([patientId, type])
+  @@index([patientId, createdAt])
+  @@index([clinicId])
+  @@index([type, verificationStatus])
+  @@index([isDeleted])
+}
+
+enum PatientPhotoType {
+  // Progress photos (weight loss journey)
+  PROGRESS_FRONT // Front view
+  PROGRESS_SIDE  // Side view
+  PROGRESS_BACK  // Back view
+
+  // ID Verification
+  ID_FRONT  // Front of ID card/driver's license
+  ID_BACK   // Back of ID card
+  SELFIE    // Selfie for ID verification matching
+
+  // Medical images
+  MEDICAL_SKIN       // Skin conditions
+  MEDICAL_INJURY     // Injuries
+  MEDICAL_SYMPTOM    // General symptoms
+  MEDICAL_BEFORE     // Before treatment
+  MEDICAL_AFTER      // After treatment
+  MEDICAL_OTHER      // Other medical images
+
+  // Profile
+  PROFILE_AVATAR // Profile picture
+}
+
+enum PatientPhotoVerificationStatus {
+  NOT_APPLICABLE // For non-ID photos
+  PENDING        // Awaiting review
+  IN_REVIEW      // Currently being reviewed
+  VERIFIED       // ID verified successfully
+  REJECTED       // ID rejected (blurry, wrong document, etc.)
+  EXPIRED        // Verification expired, needs re-upload
+}

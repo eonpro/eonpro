@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { handleApiError } from '@/domains/shared/errors';
 import {
   generateOTP,
   storeVerificationCode,
@@ -123,13 +124,6 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       ...(process.env.NODE_ENV === 'development' && { code }),
     });
   } catch (error: unknown) {
-    logger.error(
-      'Error in send-email-otp endpoint',
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/auth/send-email-otp' });
   }
 });

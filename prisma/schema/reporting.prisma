@@ -1,0 +1,146 @@
+// ==========================================================================
+// REPORTING DOMAIN
+// ==========================================================================
+// Bounded context: reporting
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+// Type of saved report
+enum ReportType {
+  REVENUE
+  PATIENTS
+  PAYOUTS
+  RECONCILIATION
+  SUBSCRIPTIONS
+  CUSTOM
+}
+
+// Granularity for time-based reports
+enum ReportGranularity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// Daily aggregated financial metrics for fast reporting
+model FinancialMetrics {
+  id       Int      @id @default(autoincrement())
+  clinicId Int
+  clinic   Clinic   @relation(fields: [clinicId], references: [id])
+  date     DateTime @db.Date
+
+  // Daily revenue aggregates (in cents)
+  grossRevenue Int @default(0) // Total before fees/refunds
+  netRevenue   Int @default(0) // After fees
+  refunds      Int @default(0) // Total refunds
+  fees         Int @default(0) // Stripe fees + platform fees
+
+  // Subscription metrics (MRR in cents)
+  newMrr         Int @default(0) // MRR from new subscriptions
+  churnedMrr     Int @default(0) // MRR lost from cancellations
+  expansionMrr   Int @default(0) // MRR from upgrades
+  contractionMrr Int @default(0) // MRR lost from downgrades
+
+  // Counts
+  newSubscriptions      Int @default(0) // New subscriptions created
+  canceledSubscriptions Int @default(0) // Subscriptions canceled
+  newCustomers          Int @default(0) // New patients with payments
+  activeSubscriptions   Int @default(0) // Total active at end of day
+
+  // Payment metrics
+  successfulPayments Int @default(0) // Count of successful payments
+  failedPayments     Int @default(0) // Count of failed payments
+  averageOrderValue  Int @default(0) // Average payment amount (cents)
+
+  // Invoice metrics
+  invoicesSent        Int @default(0)
+  invoicesPaid        Int @default(0)
+  invoicesOutstanding Int @default(0)
+  outstandingAmount   Int @default(0) // Total outstanding (cents)
+
+  // Dispute metrics
+  disputesOpened Int @default(0)
+  disputesWon    Int @default(0)
+  disputesLost   Int @default(0)
+  disputeAmount  Int @default(0) // Total disputed amount (cents)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clinicId, date])
+  @@index([clinicId])
+  @@index([date])
+  @@index([clinicId, date])
+}
+
+// User-saved report configurations
+model SavedReport {
+  id        Int    @id @default(autoincrement())
+  clinicId  Int
+  clinic    Clinic @relation(fields: [clinicId], references: [id])
+  createdBy Int
+  user      User   @relation(fields: [createdBy], references: [id])
+
+  // Report metadata
+  name        String
+  description String?
+  type        ReportType
+  isPublic    Boolean    @default(false) // Shared with all clinic users
+
+  // Report configuration (metrics, filters, grouping, chart type)
+  config Json
+
+  // Scheduling
+  isScheduled  Boolean   @default(false)
+  schedule     String? // Cron expression (e.g., "0 9 * * 1" for Monday 9am)
+  recipients   String[] // Email addresses for delivery
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  lastRunError String? // Error message from last run if failed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([createdBy])
+  @@index([type])
+  @@index([isScheduled, nextRunAt])
+}
+
+// Export job tracking for async report generation
+model ReportExport {
+  id        Int    @id @default(autoincrement())
+  clinicId  Int
+  clinic    Clinic @relation(fields: [clinicId], references: [id])
+  createdBy Int
+  user      User   @relation(fields: [createdBy], references: [id])
+
+  // Export configuration
+  reportType     ReportType
+  format         String // 'csv', 'excel', 'pdf'
+  config         Json // Report configuration used
+  dateRangeStart DateTime
+  dateRangeEnd   DateTime
+
+  // Status tracking
+  status       String    @default("pending") // pending, processing, completed, failed
+  progress     Int       @default(0) // 0-100 percentage
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorMessage String?
+
+  // File storage
+  fileUrl   String? // S3 URL when completed
+  fileName  String?
+  fileSize  Int? // File size in bytes
+  expiresAt DateTime? // When the download link expires
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clinicId])
+  @@index([status])
+  @@index([createdBy])
+}

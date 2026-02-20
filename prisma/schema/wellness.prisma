@@ -1,0 +1,332 @@
+// ==========================================================================
+// WELLNESS DOMAIN
+// ==========================================================================
+// Bounded context: wellness
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+model PatientWeightLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  patientId  Int
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  weight     Float // Weight in pounds
+  unit       String   @default("lbs") // "lbs" or "kg"
+  notes      String? // Optional notes from patient
+  source     String   @default("patient") // "patient", "provider", "device", "import"
+  recordedAt DateTime @default(now()) // When the measurement was taken
+
+  @@index([patientId, recordedAt])
+}
+
+model PatientMedicationReminder {
+  id             Int       @id @default(autoincrement())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  patientId      Int
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  medicationName String // e.g., "Semaglutide 0.5mg"
+  dayOfWeek      Int // 0=Sunday, 1=Monday, etc.
+  timeOfDay      String    @default("08:00") // HH:MM format
+  isActive       Boolean   @default(true)
+  lastTriggered  DateTime? // Last time reminder was sent
+  metadata       Json? // Additional reminder settings
+
+  @@unique([patientId, medicationName, dayOfWeek]) // One reminder per medication per day
+  @@index([patientId, isActive])
+}
+
+model PatientWaterLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId  Int
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  amount     Float // Amount in ounces
+  unit       String   @default("oz") // "oz" or "ml"
+  source     String   @default("patient") // "patient", "device", "import"
+  recordedAt DateTime @default(now())
+  notes      String?
+
+  @@index([patientId, recordedAt])
+  @@index([clinicId])
+}
+
+model PatientExerciseLog {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  clinicId     Int?
+  clinic       Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId    Int
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  activityType String // "walking", "running", "cycling", "strength", "yoga", etc.
+  duration     Int // Duration in minutes
+  intensity    String   @default("moderate") // "light", "moderate", "vigorous"
+  calories     Int? // Estimated calories burned
+  steps        Int? // Step count if applicable
+  distance     Float? // Distance in miles
+  heartRateAvg Int? // Average heart rate
+  notes        String?
+  source       String   @default("patient") // "patient", "device", "import"
+  recordedAt   DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+  @@index([clinicId])
+}
+
+model PatientSleepLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  clinicId   Int?
+  clinic     Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId  Int
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  sleepStart DateTime // When they went to bed
+  sleepEnd   DateTime // When they woke up
+  duration   Int // Total sleep duration in minutes
+  quality    Int? // Sleep quality rating 1-10
+  deepSleep  Int? // Deep sleep minutes
+  remSleep   Int? // REM sleep minutes
+  lightSleep Int? // Light sleep minutes
+  awakeTime  Int? // Time awake during sleep in minutes
+  notes      String?
+  source     String   @default("patient") // "patient", "device", "import"
+  recordedAt DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+  @@index([clinicId])
+}
+
+model PatientNutritionLog {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  clinicId    Int?
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
+  patientId   Int
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  mealType    String // "breakfast", "lunch", "dinner", "snack"
+  description String? // What they ate
+  calories    Int? // Total calories
+  protein     Float? // Grams of protein
+  carbs       Float? // Grams of carbohydrates
+  fat         Float? // Grams of fat
+  fiber       Float? // Grams of fiber
+  sugar       Float? // Grams of sugar
+  sodium      Float? // Milligrams of sodium
+  photoUrl    String? // Optional photo of meal
+  notes       String?
+  source      String   @default("patient") // "patient", "device", "import"
+  recordedAt  DateTime @default(now())
+
+  @@index([patientId, recordedAt])
+  @@index([clinicId])
+}
+
+model PatientDeviceConnection {
+  id          Int       @id @default(autoincrement())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id])
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  terraUserId String    @unique
+  provider    String // "FITBIT", "GARMIN", "OURA", "APPLE", "WITHINGS", "POLAR", "WHOOP", etc.
+  isActive    Boolean   @default(true)
+  lastSyncAt  DateTime?
+  metadata    Json?
+
+  @@index([patientId])
+  @@index([terraUserId])
+  @@index([clinicId, patientId])
+}
+
+model PatientStreak {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Streak tracking
+  streakType      StreakType // DAILY_CHECK_IN, WEIGHT_LOG, WATER_LOG, EXERCISE, etc.
+  currentStreak   Int        @default(0)
+  longestStreak   Int        @default(0)
+  lastActivityAt  DateTime?
+  streakStartedAt DateTime?
+
+  // Streak freeze (one per month)
+  freezesUsed    Int       @default(0)
+  freezesAllowed Int       @default(1) // Resets monthly
+  lastFreezeAt   DateTime?
+
+  @@unique([patientId, streakType])
+  @@index([patientId])
+}
+
+enum StreakType {
+  DAILY_CHECK_IN
+  WEIGHT_LOG
+  WATER_LOG
+  EXERCISE_LOG
+  MEAL_LOG
+  MEDICATION_TAKEN
+  SLEEP_LOG
+}
+
+model Achievement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  // Achievement definition
+  code        String              @unique // e.g., "first_weigh_in", "streak_7_day"
+  name        String
+  description String
+  category    AchievementCategory
+  icon        String? // Icon name or URL
+  points      Int                 @default(10)
+
+  // Unlock criteria
+  criteria Json // { type: "streak", streakType: "WEIGHT_LOG", value: 7 }
+  isSecret Boolean @default(false) // Hidden until unlocked
+
+  // Display
+  tier      AchievementTier @default(BRONZE)
+  sortOrder Int             @default(0)
+
+  // Relations
+  unlockedBy PatientAchievement[]
+}
+
+enum AchievementCategory {
+  GETTING_STARTED
+  CONSISTENCY
+  WEIGHT_LOSS
+  HEALTH_TRACKING
+  ENGAGEMENT
+  MILESTONES
+  SPECIAL
+}
+
+enum AchievementTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  DIAMOND
+}
+
+model PatientAchievement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  patientId     Int
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  achievementId Int
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  // When earned
+  unlockedAt DateTime @default(now())
+  seen       Boolean  @default(false) // Has patient seen the notification?
+
+  // Progress toward achievement (for partial progress display)
+  progress Int @default(100) // 0-100
+
+  @@unique([patientId, achievementId])
+  @@index([patientId])
+}
+
+model PatientPoints {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId Int     @unique
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  totalPoints  Int    @default(0)
+  currentLevel Int    @default(1)
+  levelName    String @default("Beginner")
+
+  // Points breakdown
+  achievementPoints Int @default(0)
+  streakPoints      Int @default(0)
+  activityPoints    Int @default(0)
+}
+
+model PointsHistory {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  points      Int
+  reason      String // "achievement_unlocked", "streak_bonus", "daily_log"
+  description String?
+  referenceId String? // Achievement ID, etc.
+
+  @@index([patientId])
+  @@index([createdAt])
+}
+
+model Challenge {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId Int?
+  clinic   Clinic? @relation(fields: [clinicId], references: [id])
+
+  // Challenge details
+  name        String
+  description String
+  type        ChallengeType
+  imageUrl    String?
+
+  // Duration
+  startDate DateTime
+  endDate   DateTime
+
+  // Goals
+  targetValue Int // e.g., 30 days, 100 oz water
+  targetUnit  String // "days", "oz", "minutes", etc.
+
+  // Rewards
+  points Int     @default(100)
+  badge  String? // Achievement code to unlock
+
+  // Status
+  isActive Boolean @default(true)
+  isPublic Boolean @default(true) // Visible to all patients
+
+  participants ChallengeParticipant[]
+}
+
+enum ChallengeType {
+  STREAK // Complete X consecutive days
+  CUMULATIVE // Accumulate X total
+  MILESTONE // Reach specific goal
+  COMPETITION // Compare with others
+}
+
+model ChallengeParticipant {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  challengeId Int
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // Progress
+  currentValue Int       @default(0)
+  completedAt  DateTime?
+  rank         Int?
+
+  @@unique([challengeId, patientId])
+  @@index([patientId])
+}

@@ -1,0 +1,305 @@
+// ==========================================================================
+// CLINIC DOMAIN
+// ==========================================================================
+// Bounded context: clinic
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+// Settings & Configuration System
+model SystemSettings {
+  id          Int      @id @default(autoincrement())
+  clinicId    Int? // Multi-clinic support (null for global settings)
+  clinic      Clinic?  @relation(fields: [clinicId], references: [id])
+  category    String // general, security, integrations, notifications, etc.
+  key         String
+  value       Json
+  description String?
+  isPublic    Boolean  @default(false) // Can be exposed to non-admins
+  isEncrypted Boolean  @default(false) // Should be encrypted at rest
+  updatedAt   DateTime @updatedAt
+  updatedById Int?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+
+  @@unique([category, key])
+  @@index([category])
+}
+
+model Clinic {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Basic Information
+  name         String
+  subdomain    String       @unique
+  customDomain String?      @unique
+  status       ClinicStatus @default(ACTIVE)
+
+  // Configuration
+  settings        Json // UI settings, themes, branding
+  features        Json // Enabled features per clinic
+  integrations    Json // API keys, webhooks per clinic
+  patientIdPrefix String? // e.g., "EON", "WEL", "OT" - prefix for patient IDs
+
+  // Stripe Connect Integration
+  stripeAccountId          String?   @unique // Connected account ID (acct_xxx)
+  stripeAccountStatus      String? // 'pending', 'active', 'restricted', 'rejected'
+  stripeOnboardingComplete Boolean   @default(false) // Has completed Stripe onboarding
+  stripeChargesEnabled     Boolean   @default(false) // Can accept charges
+  stripePayoutsEnabled     Boolean   @default(false) // Can receive payouts
+  stripeDetailsSubmitted   Boolean   @default(false) // Has submitted account details
+  stripePlatformAccount    Boolean   @default(false) // Is this the platform account (EONmeds)?
+  stripeConnectedAt        DateTime? // When they connected their Stripe account
+
+  // Lifefile Integration (per-clinic credentials - encrypted)
+  lifefileBaseUrl          String? // API base URL
+  lifefileUsername         String? // API username (encrypted)
+  lifefilePassword         String? // API password (encrypted)
+  lifefileVendorId         String? // Vendor ID
+  lifefilePracticeId       String? // Practice ID
+  lifefileLocationId       String? // Location ID (e.g., 110396 for logospharmacy)
+  lifefileNetworkId        String? // Network ID
+  lifefilePracticeName     String? // Practice name for prescriptions
+  lifefilePracticeAddress  String? // Practice address
+  lifefilePracticePhone    String? // Practice phone
+  lifefilePracticeFax      String? // Practice fax
+  lifefileWebhookSecret    String? // Webhook verification secret
+  lifefileDatapushUsername String? // Data push webhook username
+  lifefileDatapushPassword String? // Data push webhook password (encrypted)
+  lifefileEnabled          Boolean @default(false) // Is Lifefile integration enabled?
+
+  // Lifefile Inbound Webhook (per-clinic credentials - for receiving data FROM Lifefile)
+  lifefileInboundEnabled   Boolean @default(false) // Enable receiving webhooks from Lifefile
+  lifefileInboundPath      String? @unique // Unique webhook path, e.g., "wellmedr" for /api/webhooks/lifefile/inbound/wellmedr
+  lifefileInboundUsername  String? // Basic Auth username (encrypted)
+  lifefileInboundPassword  String? // Basic Auth password (encrypted)
+  lifefileInboundSecret    String? // HMAC signature secret (encrypted)
+  lifefileInboundAllowedIPs String? // Optional: comma-separated allowed IP addresses
+  lifefileInboundEvents    String[] @default([]) // Allowed event types: ["shipping", "prescription", "order", "rx"]
+
+  // Zoom Telehealth Integration (per-clinic OAuth)
+  zoomAccountId          String?   @unique // Zoom account ID
+  zoomAccountEmail       String? // Zoom account email
+  zoomClientId           String? // OAuth client ID (encrypted)
+  zoomClientSecret       String? // OAuth client secret (encrypted)
+  zoomAccessToken        String? // OAuth access token (encrypted)
+  zoomRefreshToken       String? // OAuth refresh token (encrypted)
+  zoomTokenExpiresAt     DateTime? // When access token expires
+  zoomWebhookSecret      String? // Webhook verification secret
+  zoomSdkKey             String? // Web SDK key (for client-side)
+  zoomSdkSecret          String? // Web SDK secret (encrypted)
+  zoomEnabled            Boolean   @default(false) // Is Zoom integration enabled?
+  zoomOnboardingComplete Boolean   @default(false) // Has completed Zoom OAuth
+  zoomConnectedAt        DateTime? // When they connected Zoom
+  zoomWaitingRoomEnabled Boolean   @default(true) // Enable waiting room by default
+  zoomRecordingEnabled   Boolean   @default(true) // Enable cloud recording
+  zoomHipaaCompliant     Boolean   @default(true) // Use HIPAA-compliant settings
+
+  // Billing & Limits
+  billingPlan   String @default("starter")
+  patientLimit  Int    @default(100)
+  providerLimit Int    @default(5)
+  storageLimit  Int    @default(5000) // MB
+
+  // Contact Information
+  adminEmail   String
+  supportEmail String?
+  phone        String?
+  address      Json? // {address1, address2, city, state, zip, country}
+  timezone     String  @default("America/New_York")
+
+  // Branding
+  logoUrl         String?
+  iconUrl         String? // App icon for PWA/mobile (192x192)
+  faviconUrl      String?
+  primaryColor    String  @default("#3B82F6")
+  secondaryColor  String  @default("#10B981")
+  accentColor     String  @default("#d3f931") // Third brand color for highlights
+  backgroundColor String  @default("#F9FAFB") // Page background color
+  buttonTextColor String  @default("auto") // 'auto', 'light', 'dark' - controls text color on buttons
+  customCss       String? // Custom CSS overrides
+
+  // Database Configuration (for future isolation)
+  databaseUrl String? // Optional: for dedicated databases
+  schemaName  String? // Optional: for schema-per-clinic
+
+  // Relations
+  users           User[]
+  providers       Provider[]
+  patients        Patient[]
+  inviteCodes     ClinicInviteCode[]
+  orders          Order[]
+  tickets         Ticket[]
+  intakeTemplates IntakeFormTemplate[]
+
+  // Enterprise Ticket System
+  ticketTeams           TicketTeam[]
+  slaPolicies           SlaPolicyConfig[]
+  ticketBusinessHours   TicketBusinessHours[]
+  ticketMacros          TicketMacro[]
+  ticketTemplates       TicketTemplate[]
+  ticketAutomationRules TicketAutomationRule[]
+  ticketSavedViews      TicketSavedView[]
+  invoices              Invoice[]
+  payments              Payment[]
+  paymentMethods        PaymentMethod[]
+  subscriptions         Subscription[]
+  soapNotes             SOAPNote[]
+  documents             PatientDocument[]
+  labReports            LabReport[]
+  auditLogs             ClinicAuditLog[]
+  aiConversations       AIConversation[]
+  influencers           Influencer[]
+  referralTrackings     ReferralTracking[]
+  commissions           Commission[]
+  internalMessages      InternalMessage[]
+  webhookLogs           WebhookLog[]
+  integrationConfigs    Integration[]
+  apiKeys               ApiKey[]
+  webhookConfigs        WebhookConfig[]
+  systemSettings        SystemSettings[]
+  userClinics           UserClinic[] // Multi-clinic user assignments
+  providerClinics       ProviderClinic[] // ENTERPRISE: Multi-clinic provider assignments
+  salesRepAssignments   PatientSalesRepAssignment[] // Sales rep patient assignments
+  reconciliations       PaymentReconciliation[]
+  patientCounter        PatientCounter? // Clinic-specific patient numbering
+
+  // Scheduling & Care Plan Relations
+  appointments         Appointment[]
+  appointmentTypes     AppointmentTypeConfig[]
+  providerAvailability ProviderAvailability[]
+  providerTimeOff      ProviderTimeOff[]
+  superbills           Superbill[]
+  billingCodes         BillingCode[]
+  carePlans            CarePlan[]
+  carePlanTemplates    CarePlanTemplate[]
+  smsLogs              SmsLog[]
+  smsOptOuts           SmsOptOut[]
+  smsQuietHours        SmsQuietHours[]
+  smsRateLimits        SmsRateLimit[]
+  patientChatMessages  PatientChatMessage[]
+
+  // Health Tracking Logs
+  waterLogs         PatientWaterLog[]
+  exerciseLogs      PatientExerciseLog[]
+  sleepLogs         PatientSleepLog[]
+  nutritionLogs     PatientNutritionLog[]
+  deviceConnections PatientDeviceConnection[]
+
+  // Product Catalog
+  products Product[]
+
+  // Pricing & Promotions
+  discountCodes        DiscountCode[]
+  promotions           Promotion[]
+  productBundles       ProductBundle[]
+  pricingRules         PricingRule[]
+  rxOrderSets          RxOrderSet[]
+  affiliateProgram     AffiliateProgram?
+  affiliateReferrals   AffiliateReferral[]
+  affiliateCommissions AffiliateCommission[]
+  retentionOffers      RetentionOffer[]
+
+  // New Affiliate Portal System
+  affiliates                Affiliate[]
+  affiliateApplications     AffiliateApplication[]
+  affiliateRefCodes         AffiliateRefCode[]
+  affiliateCommissionPlans  AffiliateCommissionPlan[]
+  affiliatePlanAssignments  AffiliatePlanAssignment[]
+  affiliateCommissionEvents AffiliateCommissionEvent[]
+
+  // Enterprise Affiliate System
+  affiliateTouches           AffiliateTouch[]
+  affiliateAttributionConfig AffiliateAttributionConfig?
+  affiliatePayouts           AffiliatePayout[]
+  affiliateFraudAlerts       AffiliateFraudAlert[]
+  affiliateFraudConfig       AffiliateFraudConfig?
+  affiliateCompetitions      AffiliateCompetition[]
+
+  // Lifefile Shipping Updates
+  shippingUpdates PatientShippingUpdate[]
+
+  // Medication Beyond Use Date Configuration
+  defaultBudDays Int @default(90) // Default Beyond Use Date in days for multi-shipment scheduling
+
+  // Gamification
+  challenges Challenge[]
+
+  // Prescription Refill Queue
+  refillQueue RefillQueue[]
+
+  // Financial Analytics
+  financialMetrics FinancialMetrics[]
+  savedReports     SavedReport[]
+  reportExports    ReportExport[]
+
+  // Provider Routing & Compensation (Enterprise feature)
+  providerRoutingConfig      ProviderRoutingConfig?
+  providerCompensationPlans  ProviderCompensationPlan[]
+  providerCompensationEvents ProviderCompensationEvent[]
+
+  // SOC 2 Policy Management
+  policyAcknowledgments PolicyAcknowledgment[]
+
+  // Telehealth & Calendar
+  telehealthSessions    TelehealthSession[]
+  calendarSubscriptions CalendarSubscription[]
+
+  // In-App Notifications
+  notifications Notification[]
+
+  // Email System
+  emailLogs       EmailLog[]
+  scheduledEmails ScheduledEmail[]
+
+  // PLATFORM BILLING: Per-clinic fee configuration and invoicing
+  platformFeeConfig          ClinicPlatformFeeConfig?
+  platformFeeEvents          PlatformFeeEvent[]
+  platformInvoices           ClinicPlatformInvoice[]
+  patientPrescriptionCycles  PatientPrescriptionCycle[]
+
+  // PATIENT PORTAL: Progress photos, ID verification, medical images
+  patientPhotos PatientPhoto[]
+
+  @@index([subdomain])
+  @@index([status])
+  @@index([customDomain])
+}
+
+model ClinicAuditLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+  action    String // CREATE, UPDATE, DELETE, STATUS_CHANGE, BILLING_CHANGE, etc.
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  details   Json? // Detailed change information
+  ipAddress String?
+  userAgent String?
+
+  @@index([clinicId, createdAt])
+  @@index([action])
+}
+
+enum ClinicStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+  EXPIRED
+  PENDING_SETUP
+}
+
+enum RoutingStrategy {
+  STATE_LICENSE_MATCH // Match provider's license state to patient's state
+  ROUND_ROBIN // Rotate among available providers
+  MANUAL_ASSIGNMENT // Admin manually assigns prescriptions
+  PROVIDER_CHOICE // Providers self-select from shared queue
+}
+
+enum SoapApprovalMode {
+  REQUIRED // Block prescribing without approved SOAP note
+  ADVISORY // Show warning but allow provider to proceed
+  DISABLED // No SOAP approval check
+}

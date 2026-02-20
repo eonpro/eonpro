@@ -1,0 +1,317 @@
+// ==========================================================================
+// AUTH DOMAIN
+// ==========================================================================
+// Bounded context: auth
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+// Unified User Management System
+model User {
+  id                  Int        @id @default(autoincrement())
+  clinicId            Int? // Primary clinic (nullable for super admins)
+  clinic              Clinic?    @relation(fields: [clinicId], references: [id])
+  activeClinicId      Int? // Currently active clinic for multi-clinic users
+  email               String     @unique
+  phone               String? // Phone number for SMS login and notifications
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                UserRole
+  status              UserStatus @default(ACTIVE)
+  permissions         Json? // Custom permissions override
+  features            Json? // Enabled features for this user
+  metadata            Json? // Additional user metadata
+  lastLogin           DateTime?
+  lastPasswordChange  DateTime?
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+
+  // Two-Factor Authentication fields
+  twoFactorEnabled     Boolean   @default(false)
+  twoFactorSecret      String? // Encrypted TOTP secret
+  twoFactorBackupCodes Json?     @default("[]") // Hashed backup codes (stored as JSON array)
+  twoFactorVerifiedAt  DateTime? // When 2FA was last verified
+
+  // Email Verification fields
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+
+  // Email Notification Preferences
+  emailNotificationsEnabled Boolean   @default(true)
+  emailDigestEnabled        Boolean   @default(false)
+  emailDigestFrequency      String?   @default("weekly") // "daily", "weekly", "never"
+  lastEmailDigestSentAt     DateTime?
+
+  // Profile Picture
+  avatarUrl String? // URL to user's profile picture in S3
+
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  createdById             Int?
+  createdBy               User?                    @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers            User[]                   @relation("UserCreatedBy")
+  auditLogs               UserAuditLog[]
+  sessions                UserSession[]
+  apiKeys                 ApiKey[]
+  systemSettings          SystemSettings[]
+  integrations            Integration[]
+  intakeTemplates         IntakeFormTemplate[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+
+  // Multi-clinic support
+  userClinics UserClinic[] // All clinics this user belongs to
+
+  // Relations to existing models
+  providerId   Int?        @unique
+  influencerId Int?        @unique
+  patientId    Int?        @unique
+  provider     Provider?   @relation(fields: [providerId], references: [id])
+  influencer   Influencer? @relation(fields: [influencerId], references: [id])
+  patient      Patient?    @relation(fields: [patientId], references: [id])
+  patientPortalInvitesCreated PatientPortalInvite[] // Portal invites sent by this user (manual)
+
+  // Affiliate Portal relation
+  affiliateProfile Affiliate?
+
+  // Internal Communication Relations
+  sentMessages        InternalMessage[]     @relation("SentMessages")
+  receivedMessages    InternalMessage[]     @relation("ReceivedMessages")
+  messageReactions    MessageReaction[]     @relation("MessageReactions")
+  ticketsCreated      Ticket[]              @relation("TicketsCreated")
+  ticketsAssigned     Ticket[]              @relation("TicketsAssigned")
+  ticketsResolved     Ticket[]              @relation("TicketsResolved")
+  ticketsOwned        Ticket[]              @relation("TicketsOwned")
+  ticketsLastWorked   Ticket[]              @relation("TicketsLastWorked")
+  ticketsLastReopened Ticket[]              @relation("TicketsLastReopened")
+  ticketsLockedBy     Ticket[]              @relation("TicketsLockedBy")
+  ticketsClosedBy     Ticket[]              @relation("TicketsClosedBy")
+  assignmentsMade     TicketAssignment[]    @relation("AssignmentsMade")
+  assignmentsReceived TicketAssignment[]    @relation("AssignmentsReceived")
+  ticketComments      TicketComment[]       @relation("TicketComments")
+  statusChanges       TicketStatusHistory[] @relation("StatusChanges")
+  ticketWorkLogs      TicketWorkLog[]       @relation("TicketWorkLogs")
+  escalationsMade     TicketEscalation[]    @relation("EscalationsMade")
+  escalationsReceived TicketEscalation[]    @relation("EscalationsReceived")
+  clinicAuditLogs     ClinicAuditLog[] // Multi-clinic audit logs
+
+  // Enterprise Ticket System Relations
+  ticketTeamMemberships     TicketTeamMember[]
+  ticketWatching            TicketWatcher[]
+  ticketWatchersAdded       TicketWatcher[]        @relation("WatcherAddedBy")
+  ticketRelationsCreated    TicketRelation[]
+  ticketAttachmentsUploaded TicketAttachment[]
+  ticketActivities          TicketActivity[]
+  ticketMerges              TicketMerge[]
+  ticketMacros              TicketMacro[]
+  ticketTemplates           TicketTemplate[]
+  ticketAutomationRules     TicketAutomationRule[]
+  ticketSavedViews          TicketSavedView[]
+
+  // Scheduling & Care Plan Relations
+  appointmentsCreated Appointment[]      @relation("AppointmentCreatedBy")
+  carePlanTemplates   CarePlanTemplate[]
+  carePlanProgress    CarePlanProgress[]
+
+  // Financial Analytics Relations
+  savedReports  SavedReport[]
+  reportExports ReportExport[]
+
+  // SOC 2 Policy Management Relations
+  policyApprovals       PolicyApproval[]
+  policyAcknowledgments PolicyAcknowledgment[]
+
+  // Sales Rep Assignment Relations
+  salesRepAssignments   PatientSalesRepAssignment[] @relation("SalesRepAssignments")
+  assignmentsMadeByUser PatientSalesRepAssignment[] @relation("AssignmentsMadeBy")
+  assignmentsRemovedBy  PatientSalesRepAssignment[] @relation("AssignmentsRemovedBy")
+
+  // In-App Notifications
+  notifications Notification[]
+
+  // Email System Relations
+  emailLogs               EmailLog[]
+  scheduledEmails         ScheduledEmail[]
+  notificationPreferences UserNotificationPreference?
+
+  @@index([email])
+  @@index([role, status])
+  @@index([createdAt(sort: Desc)])
+  @@index([clinicId])
+  @@index([activeClinicId])
+}
+
+// Junction table for users belonging to multiple clinics
+model UserClinic {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  role      UserRole // Role can be different per clinic
+  isPrimary Boolean  @default(false) // Is this the user's primary clinic?
+  isActive  Boolean  @default(true) // Is this assignment active?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, clinicId]) // User can only be assigned once per clinic
+  @@index([userId])
+  @@index([clinicId])
+}
+
+model UserSession {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id])
+  token             String   @unique
+  refreshToken      String   @unique  // Legacy: truncated; prefer refreshTokenHash for rotation
+  refreshTokenHash  String?  @unique  // SHA-256 hash for rotation + reuse detection
+  ipAddress         String?
+  userAgent         String?
+  deviceFingerprint String?
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  lastActivity      DateTime @default(now())
+
+  @@index([token])
+  @@index([userId, expiresAt])
+  @@index([refreshTokenHash])
+}
+
+// Enterprise: Login audit (PII-safe: no password, no token)
+model LoginAudit {
+  id                Int      @id @default(autoincrement())
+  email             String   // Redacted: first 3 chars + *** (e.g. gsi***)
+  outcome           String   // SUCCESS, FAILURE, PASSWORD_RESET, LOCKOUT
+  failureReason     String?  // Invalid credentials, rate limit, etc.
+  ipAddress         String?
+  userAgent         String?
+  clinicId          Int?     // Tenant context
+  deviceFingerprint String?
+  requestId         String?  // x-request-id for correlation
+  userId            Int?     // Set on success; null on failure
+  createdAt         DateTime @default(now())
+
+  @@index([email, createdAt(sort: Desc)])
+  @@index([outcome, createdAt(sort: Desc)])
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([requestId])
+}
+
+model UserAuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  action    String // LOGIN, LOGOUT, PASSWORD_CHANGE, PERMISSION_CHANGE, etc.
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}
+
+// Password Reset Token
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique // Hashed token
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId, expiresAt])
+}
+
+// Email verification tokens for patient self-registration
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique // Hashed token (SHA-256)
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+// Clinic invite codes for patient self-registration
+model ClinicInviteCode {
+  id          Int       @id @default(autoincrement())
+  clinicId    Int
+  clinic      Clinic    @relation(fields: [clinicId], references: [id])
+  code        String    @unique // e.g., "CLINIC123" (uppercase, alphanumeric)
+  description String? // e.g., "Website registration", "Marketing campaign"
+  usageLimit  Int? // null = unlimited
+  usageCount  Int       @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  createdById Int?
+
+  @@index([code])
+  @@index([clinicId])
+}
+
+// Patient-specific portal invite (one-time token). Used for "Send portal invite" and auto-invite on first payment/order.
+model PatientPortalInvite {
+  id          Int       @id @default(autoincrement())
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique // SHA-256 hash of the one-time token (plain token sent in email only)
+  expiresAt   DateTime
+  usedAt      DateTime? // null until patient completes registration
+  createdById Int?      // User who sent (null for system-triggered: first_payment, first_order)
+  createdBy   User?     @relation(fields: [createdById], references: [id])
+  trigger     String    // "manual" | "first_payment" | "first_order"
+  createdAt   DateTime  @default(now())
+
+  @@index([patientId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+// Phone OTP for SMS-based authentication
+model PhoneOtp {
+  id        Int       @id @default(autoincrement())
+  phone     String // Formatted phone number
+  code      String // 6-digit OTP code
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  usedAt    DateTime?
+  userId    Int? // If associated with a User
+  patientId Int? // If associated with a Patient
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([phone, code, expiresAt])
+  @@index([phone])
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  PROVIDER
+  INFLUENCER
+  AFFILIATE
+  PATIENT
+  STAFF
+  SUPPORT
+  SALES_REP
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  LOCKED
+}

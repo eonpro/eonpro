@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { handleApiError } from '@/domains/shared/errors';
 
 const portalSchema = z.object({
   patientId: z.number().optional(),
@@ -30,22 +31,7 @@ async function createPortalHandler(request: NextRequest, user: AuthUser) {
       url: portalUrl,
     });
   } catch (error: unknown) {
-    logger.error(
-      '[API] Error creating customer portal session:',
-      error instanceof Error ? error : new Error(String(error))
-    );
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to create customer portal session' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/stripe/customer-portal' });
   }
 }
 

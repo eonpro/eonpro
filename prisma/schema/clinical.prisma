@@ -1,0 +1,272 @@
+// ==========================================================================
+// CLINICAL DOMAIN
+// ==========================================================================
+// Bounded context: clinical
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+/// Parsed bloodwork/lab report (e.g. from Quest Diagnostics PDF). One per upload.
+model LabReport {
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now())
+  patientId    Int
+  clinicId     Int
+  /// Source PDF document (LAB_RESULTS)
+  documentId   Int?      @unique
+  document     PatientDocument? @relation(fields: [documentId], references: [id])
+  patient      Patient   @relation(fields: [patientId], references: [id])
+  clinic       Clinic    @relation(fields: [clinicId], references: [id])
+  labName      String    @default("Quest Diagnostics")
+  /// Parser/interpretation version for re-process and audit (e.g. quest-2025-02).
+  parserVersion String?
+  specimenId   String?
+  collectedAt  DateTime?
+  reportedAt   DateTime?
+  fasting      Boolean?  // true/false when known
+  results      LabReportResult[]
+
+  @@index([patientId])
+  @@index([clinicId])
+}
+
+/// Single biomarker/test result within a lab report. PHI: do not log values.
+model LabReportResult {
+  id             Int       @id @default(autoincrement())
+  labReportId     Int
+  labReport      LabReport @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+  testName       String
+  value          String   // e.g. "176", "<30", "163"
+  valueNumeric    Float?    // For charting when value is numeric
+  unit           String?
+  referenceRange String?
+  flag           String?   // "H", "L" for high/low
+  category       String?   // "heart", "metabolic", "hormones", "liver", "kidney", etc.
+  sortOrder      Int       @default(0)
+
+  @@index([labReportId])
+}
+
+model SOAPNote {
+  id                 Int                @id @default(autoincrement())
+  createdAt          DateTime           @default(now())
+  clinicId           Int? // Multi-clinic support
+  clinic             Clinic?            @relation(fields: [clinicId], references: [id])
+  updatedAt          DateTime           @updatedAt
+  patientId          Int
+  subjective         String
+  objective          String
+  assessment         String
+  plan               String
+  sourceType         SOAPSourceType     @default(MANUAL)
+  intakeDocumentId   Int?
+  generatedByAI      Boolean            @default(false)
+  aiModelVersion     String?
+  status             SOAPNoteStatus     @default(DRAFT)
+  approvedBy         Int?
+  approvedAt         DateTime?
+  lockedAt           DateTime?
+  editPasswordHash   String?
+  promptTokens       Int?
+  completionTokens   Int?
+  estimatedCost      Float?
+  medicalNecessity   String?
+  approvedByProvider Provider?          @relation(fields: [approvedBy], references: [id])
+  intakeDocument     PatientDocument?   @relation(fields: [intakeDocumentId], references: [id])
+  patient            Patient            @relation(fields: [patientId], references: [id])
+  revisions          SOAPNoteRevision[]
+
+  @@index([patientId, status])
+}
+
+model SOAPNoteRevision {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  soapNoteId      Int
+  editorEmail     String?
+  editorRole      String?
+  previousContent Json
+  newContent      Json
+  changeReason    String?
+  soapNote        SOAPNote @relation(fields: [soapNoteId], references: [id])
+
+  @@index([soapNoteId])
+}
+
+model AIConversation {
+  id            Int         @id @default(autoincrement())
+  createdAt     DateTime    @default(now())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?     @relation(fields: [clinicId], references: [id])
+  updatedAt     DateTime    @updatedAt
+  patientId     Int?
+  userEmail     String
+  sessionId     String
+  isActive      Boolean     @default(true)
+  lastMessageAt DateTime?
+  patient       Patient?    @relation(fields: [patientId], references: [id])
+  messages      AIMessage[]
+
+  @@index([sessionId])
+  @@index([patientId])
+}
+
+model AIMessage {
+  id               Int            @id @default(autoincrement())
+  createdAt        DateTime       @default(now())
+  conversationId   Int
+  role             String
+  content          String
+  queryType        String?
+  citations        Json?
+  confidence       Float?
+  promptTokens     Int?
+  completionTokens Int?
+  estimatedCost    Float?
+  responseTimeMs   Int?
+  conversation     AIConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+}
+
+enum SOAPNoteStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  LOCKED
+  ARCHIVED
+}
+
+enum SOAPSourceType {
+  MANUAL
+  MEDLINK_INTAKE
+  AI_GENERATED
+  IMPORTED
+  INVOICE_METADATA
+}
+
+enum CarePlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+  CANCELLED
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+model CarePlan {
+  id                Int                @id @default(autoincrement())
+  clinicId          Int?
+  clinic            Clinic?            @relation(fields: [clinicId], references: [id])
+  patientId         Int
+  patient           Patient            @relation(fields: [patientId], references: [id])
+  providerId        Int?
+  provider          Provider?          @relation(fields: [providerId], references: [id])
+  title             String
+  description       String?
+  status            CarePlanStatus     @default(DRAFT)
+  startDate         DateTime?
+  endDate           DateTime?
+  templateId        Int?
+  template          CarePlanTemplate?  @relation(fields: [templateId], references: [id])
+  pdfUrl            String?
+  patientSignature  String? // Base64 signature
+  patientSignedAt   DateTime?
+  providerSignature String?
+  providerSignedAt  DateTime?
+  activatedAt       DateTime?
+  completedAt       DateTime?
+  notes             String?
+  metadata          Json?
+  goals             CarePlanGoal[]
+  activities        CarePlanActivity[]
+  progress          CarePlanProgress[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model CarePlanTemplate {
+  id                  Int        @id @default(autoincrement())
+  clinicId            Int?
+  clinic              Clinic?    @relation(fields: [clinicId], references: [id])
+  name                String
+  description         String?
+  treatmentType       String? // e.g., "weight-loss", "hormone-therapy"
+  defaultDurationDays Int?       @default(90)
+  isActive            Boolean    @default(true)
+  content             Json // Template structure with goals, activities
+  createdById         Int?
+  createdBy           User?      @relation(fields: [createdById], references: [id])
+  carePlans           CarePlan[]
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@index([clinicId])
+}
+
+model CarePlanGoal {
+  id           Int                @id @default(autoincrement())
+  carePlanId   Int
+  carePlan     CarePlan           @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  targetValue  String? // e.g., "180" for target weight
+  currentValue String? // e.g., "200" for current weight
+  unit         String? // e.g., "lbs", "mg/dL"
+  status       GoalStatus         @default(NOT_STARTED)
+  targetDate   DateTime?
+  completedAt  DateTime?
+  orderIndex   Int                @default(0)
+  activities   CarePlanActivity[]
+  progress     CarePlanProgress[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([carePlanId])
+}
+
+model CarePlanActivity {
+  id           Int                @id @default(autoincrement())
+  carePlanId   Int
+  carePlan     CarePlan           @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  goalId       Int?
+  goal         CarePlanGoal?      @relation(fields: [goalId], references: [id])
+  title        String
+  description  String?
+  frequency    String? // e.g., "daily", "weekly", "3x per week"
+  instructions String?
+  orderIndex   Int                @default(0)
+  progress     CarePlanProgress[]
+  createdAt    DateTime           @default(now())
+
+  @@index([carePlanId])
+}
+
+model CarePlanProgress {
+  id                Int               @id @default(autoincrement())
+  carePlanId        Int
+  carePlan          CarePlan          @relation(fields: [carePlanId], references: [id], onDelete: Cascade)
+  goalId            Int?
+  goal              CarePlanGoal?     @relation(fields: [goalId], references: [id])
+  activityId        Int?
+  activity          CarePlanActivity? @relation(fields: [activityId], references: [id])
+  value             String? // Recorded value
+  notes             String?
+  recordedById      Int?
+  recordedBy        User?             @relation(fields: [recordedById], references: [id])
+  recordedByPatient Boolean           @default(false)
+  recordedAt        DateTime          @default(now())
+
+  @@index([carePlanId])
+  @@index([recordedAt])
+}

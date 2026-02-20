@@ -102,53 +102,65 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     // Get available appointment types for self-scheduling
     if (action === 'appointment-types') {
-      // Use user's clinicId for multi-tenant isolation
       const clinicId = user.clinicId;
 
-      const types = await prisma.appointmentTypeConfig.findMany({
-        where: {
-          isActive: true,
-          allowSelfScheduling: true,
-          ...(clinicId && { clinicId }),
-        },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          duration: true,
-          price: true,
-          requiresVideoLink: true,
-        },
-        orderBy: { name: 'asc' },
-      });
+      try {
+        const types = await prisma.appointmentTypeConfig.findMany({
+          where: {
+            isActive: true,
+            allowSelfScheduling: true,
+            ...(clinicId && { clinicId }),
+          },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            duration: true,
+            price: true,
+            requiresVideoLink: true,
+          },
+          orderBy: { name: 'asc' },
+        });
 
-      return NextResponse.json({ appointmentTypes: types });
+        return NextResponse.json({ appointmentTypes: types });
+      } catch (err) {
+        logger.warn('AppointmentTypeConfig query failed (table may not exist yet)', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+        return NextResponse.json({ appointmentTypes: [] });
+      }
     }
 
     // Get available providers
     if (action === 'providers') {
-      // Use user's clinicId for multi-tenant isolation
       const clinicId = user.clinicId;
 
-      const providers = await prisma.provider.findMany({
-        where: {
-          ...(clinicId && { clinicId }),
-          availability: {
-            some: {
-              isActive: true,
+      try {
+        const providers = await prisma.provider.findMany({
+          where: {
+            ...(clinicId && { clinicId }),
+            availability: {
+              some: {
+                isActive: true,
+              },
             },
           },
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          titleLine: true,
-        },
-        orderBy: { lastName: 'asc' },
-      });
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            titleLine: true,
+          },
+          orderBy: { lastName: 'asc' },
+        });
 
-      return NextResponse.json({ providers });
+        return NextResponse.json({ providers });
+      } catch (err) {
+        logger.warn('Provider availability query failed', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+        return NextResponse.json({ providers: [] });
+      }
     }
 
     // Default: Get patient's appointments

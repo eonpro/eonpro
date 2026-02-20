@@ -18,6 +18,7 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { handleApiError } from '@/domains/shared/errors';
 // Circuit breaker removed from this endpoint — it must stay consistent with the /count
 // endpoint (which uses raw Prisma). The circuit breaker was causing the data query to fail
 // while the count succeeded, resulting in a misleading "All caught up!" empty state.
@@ -1398,10 +1399,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       providerId: user.providerId,
       clinicId: user.clinicId,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch prescription queue', details: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'GET /api/provider/prescription-queue' });
   }
 }
 
@@ -1608,10 +1606,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to mark prescription as processed' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'PATCH /api/provider/prescription-queue' });
   }
 }
 
@@ -1753,7 +1748,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       error: errorMessage,
       userId: user.id,
     });
-    return NextResponse.json({ error: 'Failed to decline prescription' }, { status: 500 });
+    return handleApiError(error, { route: 'POST /api/provider/prescription-queue' });
   }
 }
 

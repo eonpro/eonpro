@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { basePrisma as prisma } from '@/lib/db';
+import { handleApiError } from '@/domains/shared/errors';
 import {
   generateOTP,
   storeVerificationCode,
@@ -124,14 +125,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       }),
     });
   } catch (error: unknown) {
-    logger.error(
-      'Error sending password reset:',
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json(
-      { error: 'Failed to process password reset request' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/auth/reset-password' });
   }
 });
 
@@ -267,10 +261,6 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
       message: 'Password reset successfully',
     });
   } catch (error: unknown) {
-    logger.error(
-      'Error resetting password:',
-      error instanceof Error ? error : new Error(String(error))
-    );
-    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
+    return handleApiError(error, { route: 'PUT /api/auth/reset-password' });
   }
 });

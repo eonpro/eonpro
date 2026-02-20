@@ -1,0 +1,202 @@
+// ==========================================================================
+// INTEGRATION DOMAIN
+// ==========================================================================
+// Bounded context: integration
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+enum WebhookStatus {
+  SUCCESS
+  ERROR
+  INVALID_AUTH
+  INVALID_PAYLOAD
+  PROCESSING_ERROR
+}
+
+model WebhookLog {
+  id               Int           @id @default(autoincrement())
+  clinicId         Int? // Multi-clinic support
+  clinic           Clinic?       @relation(fields: [clinicId], references: [id])
+  source           String? // "stripe", "heyflow", etc.
+  eventId          String? // Stripe event ID for deduplication
+  eventType        String? // "payment_intent.succeeded", etc.
+  endpoint         String?
+  method           String?
+  headers          Json?
+  payload          Json?
+  status           WebhookStatus
+  statusCode       Int?
+  errorMessage     String?
+  responseData     Json?
+  ipAddress        String?
+  userAgent        String?
+  processingTimeMs Int?
+  retryCount       Int           @default(0)
+  lastRetryAt      DateTime?
+  processedAt      DateTime?
+  metadata         Json?
+  createdAt        DateTime      @default(now())
+
+  @@unique([source, eventId])
+  @@index([endpoint, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@index([source, eventId])
+  @@index([source, status])
+}
+
+model Integration {
+  id          Int               @id @default(autoincrement())
+  clinicId    Int? // Multi-clinic support
+  clinic      Clinic?           @relation(fields: [clinicId], references: [id])
+  name        String            @unique
+  provider    String // stripe, lifefile, twilio, sendgrid, etc.
+  status      IntegrationStatus @default(INACTIVE)
+  config      Json // Encrypted configuration
+  credentials Json? // Encrypted credentials
+  webhookUrl  String?
+  lastSyncAt  DateTime?
+  errorCount  Int               @default(0)
+  lastError   String?
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdById Int?
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  apiKeys     ApiKey[]
+  webhooks    WebhookConfig[]
+  logs        IntegrationLog[]
+
+  @@index([provider, status])
+}
+
+model ApiKey {
+  id            Int           @id @default(autoincrement())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?       @relation(fields: [clinicId], references: [id])
+  name          String
+  key           String        @unique
+  hashedKey     String // Store hashed version for security
+  prefix        String // First 7 chars for identification
+  permissions   Json // Specific permissions for this key
+  rateLimit     Int           @default(1000) // Requests per hour
+  expiresAt     DateTime?
+  lastUsedAt    DateTime?
+  lastUsedIp    String?
+  status        ApiKeyStatus  @default(ACTIVE)
+  integrationId Int?
+  integration   Integration?  @relation(fields: [integrationId], references: [id])
+  userId        Int
+  user          User          @relation(fields: [userId], references: [id])
+  createdAt     DateTime      @default(now())
+  usageLogs     ApiUsageLog[]
+
+  @@index([key])
+  @@index([userId])
+  @@index([status])
+}
+
+model ApiUsageLog {
+  id           Int      @id @default(autoincrement())
+  apiKeyId     Int
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id])
+  endpoint     String
+  method       String
+  statusCode   Int
+  responseTime Int // in milliseconds
+  ipAddress    String
+  userAgent    String?
+  requestBody  Json?
+  responseBody Json?
+  createdAt    DateTime @default(now())
+
+  @@index([apiKeyId, createdAt(sort: Desc)])
+  @@index([endpoint, createdAt(sort: Desc)])
+}
+
+model WebhookConfig {
+  id            Int               @id @default(autoincrement())
+  clinicId      Int? // Multi-clinic support
+  clinic        Clinic?           @relation(fields: [clinicId], references: [id])
+  name          String
+  url           String
+  events        Json // Array of event types to trigger
+  headers       Json? // Custom headers
+  secret        String? // For webhook signature verification
+  isActive      Boolean           @default(true)
+  retryPolicy   Json? // Retry configuration
+  integrationId Int?
+  integration   Integration?      @relation(fields: [integrationId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deliveries    WebhookDelivery[]
+
+  @@index([isActive])
+}
+
+model WebhookDelivery {
+  id          Int                   @id @default(autoincrement())
+  webhookId   Int
+  webhook     WebhookConfig         @relation(fields: [webhookId], references: [id])
+  event       String
+  payload     Json
+  status      WebhookDeliveryStatus
+  attempts    Int                   @default(1)
+  statusCode  Int?
+  response    Json?
+  error       String?
+  deliveredAt DateTime?
+  createdAt   DateTime              @default(now())
+
+  @@index([webhookId, status])
+  @@index([createdAt(sort: Desc)])
+}
+
+model IntegrationLog {
+  id            Int         @id @default(autoincrement())
+  integrationId Int
+  integration   Integration @relation(fields: [integrationId], references: [id])
+  action        String // sync, webhook_received, api_call, etc.
+  status        String // success, error, warning
+  message       String
+  details       Json?
+  createdAt     DateTime    @default(now())
+
+  @@index([integrationId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+model DeveloperTool {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  category     String // database, cache, queue, monitoring, etc.
+  status       String // enabled, disabled, error
+  config       Json
+  lastCheckAt  DateTime?
+  healthStatus Json? // Latest health check results
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([category])
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  MAINTENANCE
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+}

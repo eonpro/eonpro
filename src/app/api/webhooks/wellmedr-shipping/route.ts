@@ -21,6 +21,7 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 import { decrypt } from '@/lib/security/encryption';
 import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 import { findPatientForShipping } from '@/lib/shipping/find-patient';
+import { handleApiError } from '@/domains/shared/errors';
 import crypto from 'crypto';
 
 /**
@@ -541,13 +542,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/webhooks/wellmedr-shipping' });
   }
 }
 

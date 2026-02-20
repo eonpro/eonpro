@@ -477,19 +477,29 @@ export function withAuthParams<T extends { params: any }>(
       let effectiveClinicId: number | undefined =
         user.clinicId != null && user.role !== 'super_admin' ? Number(user.clinicId) : undefined;
 
-      // Fallback: x-clinic-id header from Edge middleware
+      // Fallback: x-clinic-id header from Edge middleware — validate user access first
       if (effectiveClinicId == null && user.role !== 'super_admin') {
         const headerClinicId = req.headers.get('x-clinic-id');
         if (headerClinicId) {
           const parsed = parseInt(headerClinicId, 10);
           if (!isNaN(parsed) && parsed > 0) {
-            effectiveClinicId = parsed;
-            logger.info('[AuthParams] Using x-clinic-id header as clinicId fallback', {
-              userId: user.id,
-              clinicId: parsed,
-              jwtClinicId: user.clinicId ?? null,
-              requestId,
-            });
+            const accessGranted = await hasClinicAccess(user.id, parsed, user.providerId);
+            if (accessGranted) {
+              effectiveClinicId = parsed;
+              logger.info('[AuthParams] Using x-clinic-id header as clinicId fallback (access verified)', {
+                userId: user.id,
+                clinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+                requestId,
+              });
+            } else {
+              logger.security('[AuthParams] BLOCKED: x-clinic-id header fallback denied — user lacks access', {
+                userId: user.id,
+                headerClinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+                requestId,
+              });
+            }
           }
         }
       }

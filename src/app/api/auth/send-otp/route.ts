@@ -14,6 +14,7 @@ import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService
 import { isTwilioConfigured } from '@/lib/integrations/twilio/config';
 import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
+import { handleApiError } from '@/domains/shared/errors';
 
 const sendOtpSchema = z.object({
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
@@ -220,10 +221,6 @@ export async function POST(req: NextRequest): Promise<Response> {
       expiresIn: OTP_EXPIRY_MINUTES * 60, // in seconds
     });
   } catch (error: any) {
-    logger.error('Error in send-otp endpoint', { error: error.message });
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.', debug: error.message },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/auth/send-otp' });
   }
 }

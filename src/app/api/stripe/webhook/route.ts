@@ -311,7 +311,57 @@ async function processWebhookEvent(
       // ================================================================
       // Invoice Events
       // ================================================================
-      case 'invoice.payment_succeeded':
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        await StripeInvoiceService.updateFromWebhook(invoice);
+
+        // If this invoice is for a subscription renewal, trigger Rx refill
+        const invoiceSubscriptionId = typeof invoice.subscription === 'string'
+          ? invoice.subscription
+          : invoice.subscription?.id;
+
+        if (invoiceSubscriptionId && invoice.billing_reason !== 'subscription_create') {
+          try {
+            const { triggerRefillForSubscriptionPayment } =
+              await import('@/services/refill/refillQueueService');
+
+            const localSub = await prisma.subscription.findUnique({
+              where: { stripeSubscriptionId: invoiceSubscriptionId },
+              select: { id: true, patientId: true, clinicId: true },
+            });
+
+            if (localSub) {
+              const refill = await triggerRefillForSubscriptionPayment(
+                localSub.id,
+                undefined,
+                undefined
+              );
+
+              logger.info('[STRIPE WEBHOOK] Triggered refill for subscription renewal', {
+                subscriptionId: localSub.id,
+                stripeSubscriptionId: invoiceSubscriptionId,
+                refillId: refill?.id,
+                patientId: localSub.patientId,
+              });
+            }
+          } catch (refillErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to trigger refill for subscription renewal', {
+              stripeSubscriptionId: invoiceSubscriptionId,
+              error: refillErr instanceof Error ? refillErr.message : 'Unknown',
+            });
+          }
+        }
+
+        return {
+          success: true,
+          details: {
+            invoiceId: invoice.id,
+            status: invoice.status,
+            subscriptionRefillTriggered: !!invoiceSubscriptionId && invoice.billing_reason !== 'subscription_create',
+          },
+        };
+      }
+
       case 'invoice.payment_failed':
       case 'invoice.marked_uncollectible':
       case 'invoice.voided':
@@ -683,6 +733,25 @@ async function processWebhookEvent(
           ? new Date(subscription.canceled_at * 1000)
           : new Date();
         const result = await cancelSubscriptionFromStripe(subscription.id, canceledAt);
+
+        // Cancel all active refills for this subscription
+        let refillsCanceled = 0;
+        if (result.subscriptionId) {
+          try {
+            const { cancelRefillsForSubscription } =
+              await import('@/services/refill/refillQueueService');
+            refillsCanceled = await cancelRefillsForSubscription(
+              result.subscriptionId,
+              'Subscription deleted in Stripe'
+            );
+          } catch (refillErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to cancel refills for deleted subscription', {
+              subscriptionId: result.subscriptionId,
+              error: refillErr instanceof Error ? refillErr.message : 'Unknown',
+            });
+          }
+        }
+
         if (!result.success) {
           return {
             success: false,
@@ -696,30 +765,92 @@ async function processWebhookEvent(
             stripeSubscriptionId: subscription.id,
             subscriptionId: result.subscriptionId,
             skipped: result.skipped,
+            refillsCanceled,
           },
         };
       }
 
-      case 'customer.subscription.paused':
-      case 'customer.subscription.resumed':
-      case 'customer.subscription.trial_will_end': {
-        // Paused/resumed: re-sync to update status; trial_will_end: no DB change, just for notifications
-        if (
-          event.type === 'customer.subscription.paused' ||
-          event.type === 'customer.subscription.resumed'
-        ) {
-          const subscription = event.data.object as Stripe.Subscription;
-          const { syncSubscriptionFromStripe } =
-            await import('@/services/stripe/subscriptionSyncService');
-          const result = await syncSubscriptionFromStripe(subscription, event.id);
-          if (!result.success) {
-            return {
-              success: false,
-              error: result.error ?? 'Subscription sync failed',
-              details: { stripeSubscriptionId: subscription.id },
-            };
+      case 'customer.subscription.paused': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const { syncSubscriptionFromStripe } =
+          await import('@/services/stripe/subscriptionSyncService');
+        const syncResult = await syncSubscriptionFromStripe(subscription, event.id);
+        if (!syncResult.success) {
+          return {
+            success: false,
+            error: syncResult.error ?? 'Subscription sync failed',
+            details: { stripeSubscriptionId: subscription.id },
+          };
+        }
+
+        // Hold all active refills
+        let refillsHeld = 0;
+        if (syncResult.subscriptionId) {
+          try {
+            const { holdRefillsForSubscription } =
+              await import('@/services/refill/refillQueueService');
+            refillsHeld = await holdRefillsForSubscription(
+              syncResult.subscriptionId,
+              'Subscription paused'
+            );
+          } catch (refillErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to hold refills for paused subscription', {
+              subscriptionId: syncResult.subscriptionId,
+              error: refillErr instanceof Error ? refillErr.message : 'Unknown',
+            });
           }
         }
+
+        return {
+          success: true,
+          details: {
+            eventType: event.type,
+            subscriptionId: syncResult.subscriptionId,
+            refillsHeld,
+          },
+        };
+      }
+
+      case 'customer.subscription.resumed': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const { syncSubscriptionFromStripe } =
+          await import('@/services/stripe/subscriptionSyncService');
+        const syncResult = await syncSubscriptionFromStripe(subscription, event.id);
+        if (!syncResult.success) {
+          return {
+            success: false,
+            error: syncResult.error ?? 'Subscription sync failed',
+            details: { stripeSubscriptionId: subscription.id },
+          };
+        }
+
+        // Schedule a new refill for the resumed subscription
+        let refillTriggered = false;
+        if (syncResult.subscriptionId) {
+          try {
+            const { triggerRefillForSubscriptionPayment } =
+              await import('@/services/refill/refillQueueService');
+            const refill = await triggerRefillForSubscriptionPayment(syncResult.subscriptionId);
+            refillTriggered = !!refill;
+          } catch (refillErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to trigger refill for resumed subscription', {
+              subscriptionId: syncResult.subscriptionId,
+              error: refillErr instanceof Error ? refillErr.message : 'Unknown',
+            });
+          }
+        }
+
+        return {
+          success: true,
+          details: {
+            eventType: event.type,
+            subscriptionId: syncResult.subscriptionId,
+            refillTriggered,
+          },
+        };
+      }
+
+      case 'customer.subscription.trial_will_end': {
         return { success: true, details: { eventType: event.type } };
       }
 

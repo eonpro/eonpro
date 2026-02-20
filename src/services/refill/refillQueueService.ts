@@ -1093,3 +1093,193 @@ export async function hasPendingRefillsAwaitingPayment(
   });
   return count > 0;
 }
+
+// ============================================================================
+// Subscription Payment → Refill Trigger (Auto-skip to Provider Queue)
+// ============================================================================
+
+/**
+ * Trigger a refill entry when a subscription payment is confirmed.
+ *
+ * This creates a RefillQueue entry that skips both payment verification
+ * and admin approval, going straight to PENDING_PROVIDER so the provider
+ * can prescribe immediately.
+ *
+ * Called by:
+ * - Stripe webhook on invoice.payment_succeeded (for subscription renewals)
+ * - SubscriptionLifecycleService on subscription creation (first refill)
+ * - SubscriptionLifecycleService on subscription resume
+ *
+ * @param subscriptionId - The local Subscription ID
+ * @param stripePaymentId - Optional Stripe payment intent/charge ID
+ * @param invoiceId - Optional local Invoice ID
+ * @returns The created RefillQueue entry, or null if skipped
+ */
+export async function triggerRefillForSubscriptionPayment(
+  subscriptionId: number,
+  stripePaymentId?: string,
+  invoiceId?: number
+): Promise<RefillQueue | null> {
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+    include: { patient: true },
+  });
+
+  if (!subscription) {
+    logger.warn('[RefillQueue] Cannot trigger refill: subscription not found', {
+      subscriptionId,
+    });
+    return null;
+  }
+
+  if (!subscription.clinicId) {
+    logger.warn('[RefillQueue] Cannot trigger refill: subscription has no clinicId', {
+      subscriptionId,
+    });
+    return null;
+  }
+
+  // Guard: don't create a duplicate if there's already an active refill
+  const existingActive = await prisma.refillQueue.findFirst({
+    where: {
+      subscriptionId,
+      status: { in: ACTIVE_REFILL_STATUSES },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (existingActive) {
+    logger.info('[RefillQueue] Active refill already exists for subscription, skipping', {
+      subscriptionId,
+      existingRefillId: existingActive.id,
+      existingStatus: existingActive.status,
+    });
+    return existingActive;
+  }
+
+  const vialCount =
+    subscription.vialCount || vialCountFromPlanCategory(subscription.planId) || DEFAULT_VIAL_COUNT;
+  const intervalDays = calculateIntervalDays(vialCount);
+  const now = new Date();
+
+  const refill = await prisma.refillQueue.create({
+    data: {
+      clinicId: subscription.clinicId,
+      patientId: subscription.patientId,
+      subscriptionId: subscription.id,
+      vialCount,
+      refillIntervalDays: intervalDays,
+      nextRefillDate: now,
+      status: 'PENDING_PROVIDER',
+      // Auto-verified payment (Stripe confirmed)
+      paymentVerified: true,
+      paymentVerifiedAt: now,
+      paymentVerifiedBy: 0,
+      paymentMethod: 'STRIPE_AUTO',
+      stripePaymentId: stripePaymentId || undefined,
+      invoiceId: invoiceId || undefined,
+      // Auto-approved (skip admin review)
+      adminApproved: true,
+      adminApprovedAt: now,
+      adminApprovedBy: 0,
+      adminNotes: 'Auto-approved: subscription payment confirmed',
+      providerQueuedAt: now,
+      // Medication info from subscription/plan
+      planName: subscription.planName,
+      medicationName: extractMedicationName(subscription.planName),
+    },
+  });
+
+  // Update subscription with last refill queue ID
+  await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      lastRefillQueueId: refill.id,
+      vialCount,
+      refillIntervalDays: intervalDays,
+    },
+  });
+
+  logger.info('[RefillQueue] Triggered refill for subscription payment (auto → provider queue)', {
+    refillId: refill.id,
+    subscriptionId,
+    patientId: subscription.patientId,
+    clinicId: subscription.clinicId,
+    stripePaymentId,
+  });
+
+  return refill;
+}
+
+/**
+ * Cancel all active refills for a subscription.
+ * Used when a subscription is canceled or deleted.
+ */
+export async function cancelRefillsForSubscription(
+  subscriptionId: number,
+  reason?: string
+): Promise<number> {
+  const result = await prisma.refillQueue.updateMany({
+    where: {
+      subscriptionId,
+      status: { in: ACTIVE_REFILL_STATUSES },
+    },
+    data: {
+      status: 'CANCELLED',
+      adminNotes: reason || 'Subscription canceled',
+    },
+  });
+
+  if (result.count > 0) {
+    logger.info('[RefillQueue] Canceled refills for subscription', {
+      subscriptionId,
+      canceledCount: result.count,
+      reason,
+    });
+  }
+
+  return result.count;
+}
+
+/**
+ * Hold all active refills for a subscription.
+ * Used when a subscription is paused.
+ */
+export async function holdRefillsForSubscription(
+  subscriptionId: number,
+  reason?: string
+): Promise<number> {
+  const result = await prisma.refillQueue.updateMany({
+    where: {
+      subscriptionId,
+      status: { in: ACTIVE_REFILL_STATUSES },
+    },
+    data: {
+      status: 'ON_HOLD',
+      adminNotes: reason || 'Subscription paused',
+    },
+  });
+
+  if (result.count > 0) {
+    logger.info('[RefillQueue] Held refills for subscription pause', {
+      subscriptionId,
+      heldCount: result.count,
+      reason,
+    });
+  }
+
+  return result.count;
+}
+
+/**
+ * Extract medication name from plan name string.
+ * e.g., "Semaglutide 2.5mg/2mL" → "Semaglutide"
+ *       "Tirzepatide 10mg/3mL"  → "Tirzepatide"
+ */
+function extractMedicationName(planName: string | null): string | undefined {
+  if (!planName) return undefined;
+  const lower = planName.toLowerCase();
+  if (lower.includes('semaglutide')) return 'Semaglutide';
+  if (lower.includes('tirzepatide')) return 'Tirzepatide';
+  return undefined;
+}
