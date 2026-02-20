@@ -29,6 +29,60 @@ interface SubscriptionInfo {
   intervalCount: number;
 }
 
+import type Stripe from 'stripe';
+
+/**
+ * Finds an existing Stripe Price that matches the plan, or creates a new
+ * Product + Price pair. Uses plan ID as lookup key for idempotency.
+ */
+async function getOrCreateStripePrice(
+  stripe: Stripe,
+  sub: SubscriptionInfo,
+  amountCents: number,
+  stripeAccountId?: string | null,
+) {
+  const connectOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
+
+  // Try to find existing price by lookup_key (our planId)
+  const listParams = { lookup_keys: [sub.planId], limit: 1 };
+  const existing = connectOpts
+    ? await stripe.prices.list(listParams, connectOpts)
+    : await stripe.prices.list(listParams);
+
+  if (existing.data.length > 0) return existing.data[0];
+
+  // Create a product + price
+  const productParams = {
+    name: sub.planName,
+    metadata: { planId: sub.planId },
+  };
+  const product = connectOpts
+    ? await stripe.products.create(productParams, connectOpts)
+    : await stripe.products.create(productParams);
+
+  const intervalMap: Record<string, Stripe.PriceCreateParams.Recurring.Interval> = {
+    month: 'month',
+    year: 'year',
+    week: 'week',
+    day: 'day',
+  };
+
+  const priceParams: Stripe.PriceCreateParams = {
+    product: product.id,
+    unit_amount: amountCents,
+    currency: 'usd',
+    recurring: {
+      interval: intervalMap[sub.interval] || 'month',
+      interval_count: sub.intervalCount,
+    },
+    lookup_key: sub.planId,
+  };
+
+  return connectOpts
+    ? await stripe.prices.create(priceParams, connectOpts)
+    : await stripe.prices.create(priceParams);
+}
+
 async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
     const body = await request.json();
@@ -121,7 +175,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           ? await stripe.paymentIntents.create(intentParams as any, connectOpts)
           : await stripe.paymentIntents.create(intentParams as any);
 
-        // Create a PENDING payment record
+        // Create a PENDING payment record with full subscription data for the confirm step
         await prisma.payment.create({
           data: {
             patientId: patient.id,
@@ -135,7 +189,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               cardBrand,
               localPaymentMethodId,
               requiresStripeConfirmation: true,
-              planId: subscription?.planId,
+              subscription: subscription || null,
             } as any,
           },
         });
@@ -241,7 +295,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           ? PaymentStatus.PROCESSING
           : PaymentStatus.FAILED;
 
-      // Update payment record and create subscription inside a transaction
+      // Update payment record, create local + Stripe subscription inside a transaction
+      let stripeSubscriptionId: string | null = null;
       const result = await prisma.$transaction(async (tx) => {
         let subscriptionId: number | null = null;
 
@@ -305,6 +360,58 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
 
         return { subscriptionId };
       }, { timeout: 15000 });
+
+      // Create a real Stripe Subscription for recurring plans
+      if (subscription && stripeStatus === PaymentStatus.SUCCEEDED && stripePaymentMethodId && stripeCustomerId) {
+        try {
+          const subscriptionInfo = subscription as SubscriptionInfo;
+          const stripePrice = await getOrCreateStripePrice(
+            stripe,
+            subscriptionInfo,
+            amount,
+            stripeContext.stripeAccountId
+          );
+
+          const subParams: Record<string, unknown> = {
+            customer: stripeCustomerId,
+            items: [{ price: stripePrice.id }],
+            default_payment_method: stripePaymentMethodId,
+            metadata: {
+              patientId: patient.id.toString(),
+              planId: subscriptionInfo.planId,
+              localSubscriptionId: result.subscriptionId?.toString() || '',
+            },
+          };
+
+          const connectSubOpts = stripeContext.stripeAccountId
+            ? { stripeAccount: stripeContext.stripeAccountId }
+            : undefined;
+
+          const stripeSub = connectSubOpts
+            ? await stripe.subscriptions.create(subParams as any, connectSubOpts)
+            : await stripe.subscriptions.create(subParams as any);
+
+          stripeSubscriptionId = stripeSub.id;
+
+          if (result.subscriptionId) {
+            await prisma.subscription.update({
+              where: { id: result.subscriptionId },
+              data: { stripeSubscriptionId: stripeSub.id },
+            });
+          }
+
+          logger.info('[PaymentProcess] Stripe Subscription created', {
+            stripeSubscriptionId: stripeSub.id,
+            patientId: patient.id,
+            planId: subscriptionInfo.planId,
+          });
+        } catch (subErr) {
+          logger.error('[PaymentProcess] Failed to create Stripe Subscription (non-blocking)', {
+            patientId: patient.id,
+            error: subErr instanceof Error ? subErr.message : String(subErr),
+          });
+        }
+      }
 
       if (stripeStatus !== PaymentStatus.SUCCEEDED) {
         return NextResponse.json(
