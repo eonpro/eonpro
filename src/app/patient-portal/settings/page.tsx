@@ -414,7 +414,7 @@ export default function SettingsPage() {
         <div className="lg:col-span-3">
           {/* Profile Section */}
           {activeSection === 'profile' && profile && (
-            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('personalInfo')}</h2>
 
               <div className="mb-6 grid gap-4 md:grid-cols-2">
@@ -502,7 +502,7 @@ export default function SettingsPage() {
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
                     style={ringColorStyle(primaryColor)}
                   />
-                  <div className="grid gap-3 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <input
                       type="text"
                       placeholder={t('city') || 'City'}
@@ -544,7 +544,7 @@ export default function SettingsPage() {
 
           {/* Language Section */}
           {activeSection === 'language' && (
-            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">{t('settingsLanguage')}</h2>
               <p className="mb-6 text-sm text-gray-500">{t('settingsLanguageDesc')}</p>
               <div className="flex flex-wrap gap-3">
@@ -578,7 +578,7 @@ export default function SettingsPage() {
 
           {/* Password Section */}
           {activeSection === 'password' && (
-            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('changePassword')}</h2>
 
               <div className="mb-6 space-y-4">
@@ -683,7 +683,7 @@ export default function SettingsPage() {
 
           {/* Notifications Section */}
           {activeSection === 'notifications' && (
-            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">
                 {t('notificationPreferences')}
               </h2>
@@ -752,7 +752,7 @@ export default function SettingsPage() {
 
           {/* Privacy Section */}
           {activeSection === 'privacy' && (
-            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('privacyData')}</h2>
 
               <div className="mb-6 space-y-4">

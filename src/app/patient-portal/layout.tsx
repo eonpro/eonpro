@@ -260,7 +260,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-[100dvh]" style={{ backgroundColor: `${primaryColor}0A` }}>
+    <div className="flex min-h-[100dvh] overflow-x-hidden" style={{ backgroundColor: `${primaryColor}0A` }}>
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside
         className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 lg:flex ${
@@ -428,11 +428,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main
-        className={`flex-1 transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
+        className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        {/* Content padding accounts for header and bottom nav on mobile; no horizontal overflow.
-           Chat page is full-bleed so it gets no padding. */}
-        <div className={`min-h-[100dvh] w-full min-w-0 overflow-x-hidden ${isChatPage ? '' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
+        <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${isChatPage ? '' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
           {children}
         </div>
       </main>

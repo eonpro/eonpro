@@ -32,7 +32,13 @@ import {
   Sun,
   Sunset,
   Camera,
+  PersonStanding,
+  Bike,
+  Waves,
+  Zap,
+  Crosshair,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 
 interface WeightLog {
@@ -52,15 +58,15 @@ const TAB_META: Record<TabType, { labelKey: string; icon: typeof Scale }> = {
   nutrition: { labelKey: 'progressTabNutrition', icon: Utensils },
 };
 
-const exerciseTypes = [
-  { value: 'walking', label: 'Walking', icon: '🚶' },
-  { value: 'running', label: 'Running', icon: '🏃' },
-  { value: 'cycling', label: 'Cycling', icon: '🚴' },
-  { value: 'swimming', label: 'Swimming', icon: '🏊' },
-  { value: 'strength', label: 'Strength', icon: '💪' },
-  { value: 'yoga', label: 'Yoga', icon: '🧘' },
-  { value: 'hiit', label: 'HIIT', icon: '⚡' },
-  { value: 'other', label: 'Other', icon: '🎯' },
+const exerciseTypes: { value: string; label: string; icon: LucideIcon }[] = [
+  { value: 'walking', label: 'Walking', icon: PersonStanding },
+  { value: 'running', label: 'Running', icon: Footprints },
+  { value: 'cycling', label: 'Cycling', icon: Bike },
+  { value: 'swimming', label: 'Swimming', icon: Waves },
+  { value: 'strength', label: 'Strength', icon: Dumbbell },
+  { value: 'yoga', label: 'Yoga', icon: Activity },
+  { value: 'hiit', label: 'HIIT', icon: Zap },
+  { value: 'other', label: 'Other', icon: Crosshair },
 ];
 
 const mealTypes = [
@@ -76,6 +82,15 @@ export default function ProgressPage() {
   const { t } = usePatientPortalLanguage();
   const accentColor = branding?.accentColor || '#d3f931';
   const primaryColor = branding?.primaryColor || '#4fa77e';
+
+  const darkenHex = (hex: string, amount: number): string => {
+    const h = hex.replace('#', '');
+    const r = Math.max(0, parseInt(h.substring(0, 2), 16) - amount);
+    const g = Math.max(0, parseInt(h.substring(2, 4), 16) - amount);
+    const b = Math.max(0, parseInt(h.substring(4, 6), 16) - amount);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  };
+  const brandGradient = `linear-gradient(135deg, ${primaryColor} 0%, ${darkenHex(primaryColor, 40)} 100%)`;
 
   // Tabs driven by clinic feature flags and treatment (registry); fallback to weight if none enabled
   const tabs = useMemo(() => {
@@ -542,10 +557,10 @@ export default function ProgressPage() {
 
       {/* Tab Navigation - Scrollable within viewport, no page overflow */}
       <div
-        className="mb-4 w-full min-w-0 overflow-x-auto overflow-y-hidden"
+        className="mb-4 max-w-full overflow-x-auto overflow-y-hidden"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="flex min-w-max gap-2 pb-1">
+        <div className="inline-flex gap-2 pb-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -649,63 +664,47 @@ export default function ProgressPage() {
       )}
 
       {activeTab === 'water' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Water Progress Card */}
           <div
-            className="rounded-3xl p-6 shadow-lg"
-            style={{ background: `linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)` }}
+            className="overflow-hidden rounded-3xl p-4 shadow-lg sm:p-6"
+            style={{ background: brandGradient }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-white/80">Today's Intake</p>
-                <p className="text-5xl font-semibold text-white">{todayWater}</p>
-                <p className="text-lg text-white/80">/ {waterGoal} oz</p>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white/80">Today&apos;s Intake</p>
+                <p className="text-3xl font-semibold text-white sm:text-5xl">{todayWater}</p>
+                <p className="text-base text-white/80 sm:text-lg">/ {waterGoal} oz</p>
               </div>
-              <div className="relative h-24 w-24">
-                <svg className="h-24 w-24 -rotate-90 transform">
-                  <circle
-                    cx="48"
-                    cy="48"
-                    r="40"
-                    stroke="rgba(255,255,255,0.2)"
-                    strokeWidth="8"
-                    fill="none"
-                  />
-                  <circle
-                    cx="48"
-                    cy="48"
-                    r="40"
-                    stroke="white"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${(todayWater / waterGoal) * 251.2} 251.2`}
-                    strokeLinecap="round"
-                  />
+              <div className="relative h-20 w-20 shrink-0 sm:h-24 sm:w-24">
+                <svg className="h-20 w-20 -rotate-90 transform sm:h-24 sm:w-24" viewBox="0 0 96 96">
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.2)" strokeWidth="8" fill="none" />
+                  <circle cx="48" cy="48" r="40" stroke="white" strokeWidth="8" fill="none" strokeDasharray={`${(todayWater / waterGoal) * 251.2} 251.2`} strokeLinecap="round" />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Droplets className="h-8 w-8 text-white" />
+                  <Droplets className="h-6 w-6 text-white sm:h-8 sm:w-8" />
                 </div>
               </div>
             </div>
-
             <p className="text-sm text-white/70">
-              {todayWater >= waterGoal ? '🎉 Goal reached!' : `${waterGoal - todayWater} oz to go`}
+              {todayWater >= waterGoal ? 'Goal reached!' : `${waterGoal - todayWater} oz to go`}
             </p>
           </div>
 
           {/* Quick Add Buttons */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <h3 className="mb-4 font-semibold text-gray-900">Quick Add</h3>
-            <div className="grid grid-cols-4 gap-3">
+          <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
+            <h3 className="mb-3 font-semibold text-gray-900 sm:mb-4">Quick Add</h3>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
               {[8, 12, 16, 24].map((amount) => (
                 <button
                   key={amount}
                   onClick={() => handleQuickWater(amount)}
                   disabled={saving}
-                  className="flex flex-col items-center gap-2 rounded-2xl border-2 border-gray-100 bg-gray-50 p-4 transition-all hover:border-blue-500 hover:bg-blue-50 active:scale-95 disabled:opacity-50"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border-2 border-gray-100 bg-gray-50 p-3 transition-all active:scale-95 disabled:opacity-50 sm:gap-2 sm:p-4"
+                  style={{ ['--tw-border-opacity' as string]: undefined }}
                 >
-                  <Droplets className="h-6 w-6 text-blue-500" />
-                  <span className="text-lg font-semibold text-gray-900">{amount}</span>
+                  <Droplets className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: primaryColor }} />
+                  <span className="text-base font-semibold text-gray-900 sm:text-lg">{amount}</span>
                   <span className="text-xs text-gray-500">oz</span>
                 </button>
               ))}
@@ -713,7 +712,7 @@ export default function ProgressPage() {
           </div>
 
           {/* Custom Amount */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
             <h3 className="mb-4 font-semibold text-gray-900">Custom Amount</h3>
             <form
               onSubmit={(e) => {
@@ -723,7 +722,7 @@ export default function ProgressPage() {
                   setWaterAmount('');
                 }
               }}
-              className="flex gap-3"
+              className="flex gap-2 sm:gap-3"
             >
               <input
                 type="text"
@@ -732,13 +731,14 @@ export default function ProgressPage() {
                 value={waterAmount}
                 onChange={(e) => setWaterAmount(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="Enter ounces"
-                className="min-h-[48px] flex-1 rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-blue-500 focus:bg-white"
-                style={{ fontSize: '16px' }}
+                className="min-h-[48px] min-w-0 flex-1 rounded-xl border-2 border-gray-100 bg-gray-50 px-3 py-3 text-lg font-medium outline-none focus:bg-white sm:px-4"
+                style={{ fontSize: '16px', borderColor: undefined }}
               />
               <button
                 type="submit"
                 disabled={!waterAmount || saving}
-                className="min-h-[48px] rounded-xl bg-blue-500 px-6 py-3 font-semibold text-white transition-all hover:bg-blue-600 disabled:opacity-50"
+                className="min-h-[48px] shrink-0 rounded-xl px-5 py-3 font-semibold text-white transition-all disabled:opacity-50 sm:px-6"
+                style={{ backgroundColor: primaryColor }}
               >
                 Add
               </button>
@@ -748,20 +748,20 @@ export default function ProgressPage() {
       )}
 
       {activeTab === 'exercise' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Weekly Progress Card */}
           <div
-            className="rounded-3xl p-6 shadow-lg"
-            style={{ background: `linear-gradient(135deg, #10B981 0%, #059669 100%)` }}
+            className="overflow-hidden rounded-3xl p-4 shadow-lg sm:p-6"
+            style={{ background: brandGradient }}
           >
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-white/80">This Week</p>
-                <p className="text-5xl font-semibold text-white">{weeklyMinutes}</p>
-                <p className="text-lg text-white/80">/ 150 min goal</p>
+                <p className="text-3xl font-semibold text-white sm:text-5xl">{weeklyMinutes}</p>
+                <p className="text-base text-white/80 sm:text-lg">/ 150 min goal</p>
               </div>
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20">
-                <Dumbbell className="h-10 w-10 text-white" />
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/20 sm:h-20 sm:w-20">
+                <Dumbbell className="h-8 w-8 text-white sm:h-10 sm:w-10" />
               </div>
             </div>
             <div className="mt-4">
@@ -775,27 +775,31 @@ export default function ProgressPage() {
           </div>
 
           {/* Log Exercise */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <h3 className="mb-4 font-semibold text-gray-900">Log Exercise</h3>
+          <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
+            <h3 className="mb-3 font-semibold text-gray-900 sm:mb-4">Log Exercise</h3>
 
             {/* Activity Type */}
             <div className="mb-4">
               <label className="mb-2 block text-sm font-medium text-gray-500">Activity</label>
-              <div className="grid grid-cols-4 gap-2">
-                {exerciseTypes.map((type) => (
-                  <button
-                    key={type.value}
-                    onClick={() => setExerciseType(type.value)}
-                    className={`flex flex-col items-center gap-1 rounded-xl p-3 transition-all ${
-                      exerciseType === type.value
-                        ? 'bg-emerald-500 text-white shadow-lg'
-                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <span className="text-xl">{type.icon}</span>
-                    <span className="text-xs font-medium">{type.label}</span>
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {exerciseTypes.map((type) => {
+                  const Icon = type.icon;
+                  return (
+                    <button
+                      key={type.value}
+                      onClick={() => setExerciseType(type.value)}
+                      className={`flex flex-col items-center gap-1 rounded-xl p-3 transition-all ${
+                        exerciseType === type.value
+                          ? 'text-white shadow-lg'
+                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                      }`}
+                      style={exerciseType === type.value ? { backgroundColor: primaryColor } : {}}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-xs font-medium">{type.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -811,7 +815,7 @@ export default function ProgressPage() {
                 value={exerciseDuration}
                 onChange={(e) => setExerciseDuration(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="30"
-                className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:bg-white"
                 style={{ fontSize: '16px' }}
               />
             </div>
@@ -826,9 +830,10 @@ export default function ProgressPage() {
                     onClick={() => setExerciseIntensity(intensity)}
                     className={`flex-1 rounded-xl py-3 text-sm font-semibold capitalize transition-all ${
                       exerciseIntensity === intensity
-                        ? 'bg-gray-900 text-white'
+                        ? 'text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
+                    style={exerciseIntensity === intensity ? { backgroundColor: primaryColor } : {}}
                   >
                     {intensity}
                   </button>
@@ -840,7 +845,8 @@ export default function ProgressPage() {
               type="button"
               onClick={handleLogExercise}
               disabled={!exerciseDuration || saving}
-              className="min-h-[48px] w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-50"
+              className="min-h-[48px] w-full rounded-xl py-4 font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              style={{ backgroundColor: primaryColor }}
             >
               {saving ? 'Saving...' : 'Log Exercise'}
             </button>
@@ -849,46 +855,46 @@ export default function ProgressPage() {
       )}
 
       {activeTab === 'sleep' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Sleep Stats Card */}
           <div
-            className="rounded-3xl p-6 shadow-lg"
-            style={{ background: `linear-gradient(135deg, #4fa77e 0%, #3B8C64 100%)` }}
+            className="overflow-hidden rounded-3xl p-4 shadow-lg sm:p-6"
+            style={{ background: brandGradient }}
           >
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-white/80">Weekly Average</p>
-                <p className="text-5xl font-semibold text-white">{avgSleepHours || '--'}</p>
-                <p className="text-lg text-white/80">hours / night</p>
+                <p className="text-3xl font-semibold text-white sm:text-5xl">{avgSleepHours || '--'}</p>
+                <p className="text-base text-white/80 sm:text-lg">hours / night</p>
               </div>
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20">
-                <Moon className="h-10 w-10 text-white" />
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/20 sm:h-20 sm:w-20">
+                <Moon className="h-8 w-8 text-white sm:h-10 sm:w-10" />
               </div>
             </div>
           </div>
 
           {/* Log Sleep */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <h3 className="mb-4 font-semibold text-gray-900">Log Last Night's Sleep</h3>
+          <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
+            <h3 className="mb-4 font-semibold text-gray-900">Log Last Night&apos;s Sleep</h3>
 
-            <div className="mb-4 grid grid-cols-2 gap-4">
-              <div>
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:gap-4">
+              <div className="min-w-0">
                 <label className="mb-2 block text-sm font-medium text-gray-500">Bedtime</label>
                 <input
                   type="time"
                   value={sleepStart}
                   onChange={(e) => setSleepStart(e.target.value)}
-                  className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                  className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-2 py-3 text-base font-medium outline-none focus:bg-white sm:px-4 sm:text-lg"
                   style={{ fontSize: '16px' }}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="mb-2 block text-sm font-medium text-gray-500">Wake Time</label>
                 <input
                   type="time"
                   value={sleepEnd}
                   onChange={(e) => setSleepEnd(e.target.value)}
-                  className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-emerald-500 focus:bg-white"
+                  className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-2 py-3 text-base font-medium outline-none focus:bg-white sm:px-4 sm:text-lg"
                   style={{ fontSize: '16px' }}
                 />
               </div>
@@ -905,7 +911,8 @@ export default function ProgressPage() {
                 max="10"
                 value={sleepQuality}
                 onChange={(e) => setSleepQuality(parseInt(e.target.value))}
-                className="w-full accent-emerald-500"
+                className="w-full"
+                style={{ accentColor: primaryColor }}
               />
               <div className="mt-1 flex justify-between text-xs text-gray-400">
                 <span>Poor</span>
@@ -917,7 +924,8 @@ export default function ProgressPage() {
               type="button"
               onClick={handleLogSleep}
               disabled={saving}
-              className="min-h-[48px] w-full rounded-xl bg-emerald-500 py-4 font-semibold text-white transition-all hover:bg-emerald-600 active:scale-[0.98] disabled:opacity-50"
+              className="min-h-[48px] w-full rounded-xl py-4 font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              style={{ backgroundColor: primaryColor }}
             >
               {saving ? 'Saving...' : 'Log Sleep'}
             </button>
@@ -926,32 +934,32 @@ export default function ProgressPage() {
       )}
 
       {activeTab === 'nutrition' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Today's Calories Card */}
           <div
-            className="rounded-3xl p-6 shadow-lg"
-            style={{ background: `linear-gradient(135deg, #F59E0B 0%, #D97706 100%)` }}
+            className="overflow-hidden rounded-3xl p-4 shadow-lg sm:p-6"
+            style={{ background: brandGradient }}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-white/80">Today's Calories</p>
-                <p className="text-5xl font-semibold text-white">{todayCalories}</p>
-                <p className="text-lg text-white/80">kcal consumed</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white/80">Today&apos;s Calories</p>
+                <p className="text-3xl font-semibold text-white sm:text-5xl">{todayCalories}</p>
+                <p className="text-base text-white/80 sm:text-lg">kcal consumed</p>
               </div>
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20">
-                <Utensils className="h-10 w-10 text-white" />
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white/20 sm:h-20 sm:w-20">
+                <Utensils className="h-8 w-8 text-white sm:h-10 sm:w-10" />
               </div>
             </div>
           </div>
 
           {/* Log Meal */}
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <h3 className="mb-4 font-semibold text-gray-900">Log Meal</h3>
+          <div className="overflow-hidden rounded-2xl bg-white p-3 shadow-sm sm:p-5">
+            <h3 className="mb-3 font-semibold text-gray-900 sm:mb-4">Log Meal</h3>
 
             {/* Meal Type */}
             <div className="mb-4">
               <label className="mb-2 block text-sm font-medium text-gray-500">Meal Type</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {mealTypes.map((type) => {
                   const Icon = type.icon;
                   return (
@@ -960,9 +968,10 @@ export default function ProgressPage() {
                       onClick={() => setMealType(type.value)}
                       className={`flex flex-col items-center gap-1 rounded-xl p-3 transition-all ${
                         mealType === type.value
-                          ? 'bg-amber-500 text-white shadow-lg'
+                          ? 'text-white shadow-lg'
                           : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                       }`}
+                      style={mealType === type.value ? { backgroundColor: primaryColor } : {}}
                     >
                       <Icon className="h-5 w-5" />
                       <span className="text-xs font-medium">{type.label}</span>
@@ -982,7 +991,7 @@ export default function ProgressPage() {
                 value={mealDescription}
                 onChange={(e) => setMealDescription(e.target.value)}
                 placeholder="e.g., Grilled chicken salad"
-                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 font-medium outline-none focus:border-amber-500 focus:bg-white"
+                className="w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 font-medium outline-none focus:bg-white"
               />
             </div>
 
@@ -998,7 +1007,7 @@ export default function ProgressPage() {
                 value={mealCalories}
                 onChange={(e) => setMealCalories(e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="500"
-                className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:border-amber-500 focus:bg-white"
+                className="min-h-[48px] w-full rounded-xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-lg font-medium outline-none focus:bg-white"
                 style={{ fontSize: '16px' }}
               />
             </div>
@@ -1007,7 +1016,8 @@ export default function ProgressPage() {
               type="button"
               onClick={handleLogMeal}
               disabled={saving}
-              className="min-h-[48px] w-full rounded-xl bg-amber-500 py-4 font-semibold text-white transition-all hover:bg-amber-600 active:scale-[0.98] disabled:opacity-50"
+              className="min-h-[48px] w-full rounded-xl py-4 font-semibold text-white transition-all active:scale-[0.98] disabled:opacity-50"
+              style={{ backgroundColor: primaryColor }}
             >
               {saving ? 'Saving...' : 'Log Meal'}
             </button>
@@ -1016,24 +1026,27 @@ export default function ProgressPage() {
       )}
 
       {/* Tips Card - compact on mobile */}
-      <div className="mt-4 rounded-xl bg-gradient-to-br from-blue-50 to-emerald-50 p-4 md:mt-6 md:rounded-2xl md:p-5">
+      <div
+        className="mt-4 overflow-hidden rounded-xl p-4 md:mt-6 md:rounded-2xl md:p-5"
+        style={{ backgroundColor: `${primaryColor}10` }}
+      >
         <div className="mb-2 flex items-center gap-2 md:mb-3">
-          <Award className="h-4 w-4 text-blue-600 md:h-5 md:w-5" />
+          <Award className="h-4 w-4 md:h-5 md:w-5" style={{ color: primaryColor }} />
           <h3 className="text-sm font-semibold text-gray-900 md:text-base">
             {t('progressWellnessTips')}
           </h3>
         </div>
         <ul className="space-y-1.5 text-xs text-gray-600 md:space-y-2 md:text-sm">
           <li className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
             {t('progressTipConsistent')}
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
             {t('progressTipHabits')}
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-blue-500" />
+            <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
             {t('progressTipCelebrate')}
           </li>
         </ul>

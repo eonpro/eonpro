@@ -144,8 +144,8 @@ export default function CareTeamPage() {
         )}
 
         {/* Book a Visit Card */}
-        <div className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
-          <h2 className="mb-2 text-xl font-semibold">{t('careTeamBookVisit')}</h2>
+        <div className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white sm:p-6">
+          <h2 className="mb-2 text-lg font-semibold sm:text-xl">{t('careTeamBookVisit')}</h2>
           <p className="mb-4 text-sm text-blue-100">{t('careTeamScheduleNext')}</p>
 
           <div className="flex gap-3">
@@ -189,23 +189,23 @@ export default function CareTeamPage() {
                 key={member.id}
                 className="rounded-xl border border-black/5 bg-white/40 p-4 transition-shadow hover:shadow-md"
               >
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 sm:gap-4">
                   {/* Avatar */}
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 font-semibold text-white">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-semibold text-white sm:h-14 sm:w-14 sm:text-base">
                     {member.avatar}
                   </div>
 
                   {/* Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{member.name}</h3>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold text-gray-900">{member.name}</h3>
                         <p className="text-sm text-gray-600">{member.role}</p>
                         {member.specialty && (
                           <p className="text-xs text-gray-500">{member.specialty}</p>
                         )}
                       </div>
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                      <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
                     </div>
 
                     {/* Availability */}
@@ -247,13 +247,13 @@ export default function CareTeamPage() {
         </div>
 
         {/* Concierge Card */}
-        <div className="rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
+        <div className="rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4 sm:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <h3 className="font-semibold text-gray-900">{t('careTeamConcierge')}</h3>
               <p className="mt-1 text-sm text-gray-600">{t('careTeamConciergeDesc')}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand-primary)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]">
               <MessageCircle className="h-5 w-5 text-white" />
             </div>
           </div>

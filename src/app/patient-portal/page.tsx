@@ -447,20 +447,20 @@ export default function PatientPortalDashboard() {
 
       {/* Intake Vitals Section - Shows initial measurements from intake form */}
       {intakeVitals && (intakeVitals.height || intakeVitals.weight || intakeVitals.bmi) && (
-        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
+          <div className="mb-3 flex items-center gap-2 sm:mb-4">
             <Zap className="h-5 w-5 text-gray-600" />
             <h2 className="text-lg font-semibold text-gray-900">Vitals</h2>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {/* Height */}
-            <div className="rounded-xl bg-[#efece7] p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Ruler className="h-4 w-4 text-gray-500" />
-                <p className="text-xs font-medium text-gray-500">Height</p>
+            <div className="rounded-xl bg-[#efece7] p-2.5 sm:p-4">
+              <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
+                <Ruler className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
+                <p className="text-[10px] font-medium text-gray-500 sm:text-xs">Height</p>
               </div>
-              <p className="text-xl font-bold text-gray-900">{intakeVitals.height || '—'}</p>
+              <p className="text-base font-bold text-gray-900 sm:text-xl">{intakeVitals.height || '—'}</p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
                 <div
                   className="h-full rounded-full bg-gray-500"
@@ -470,12 +470,12 @@ export default function PatientPortalDashboard() {
             </div>
 
             {/* Initial Weight from Intake */}
-            <div className="rounded-xl bg-[#efece7] p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Scale className="h-4 w-4 text-gray-500" />
-                <p className="text-xs font-medium text-gray-500">Initial Weight</p>
+            <div className="rounded-xl bg-[#efece7] p-2.5 sm:p-4">
+              <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
+                <Scale className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
+                <p className="text-[10px] font-medium text-gray-500 sm:text-xs">Weight</p>
               </div>
-              <p className={`text-xl font-bold ${getBmiWeightColor(intakeVitals.bmi).text}`}>
+              <p className={`text-base font-bold sm:text-xl ${getBmiWeightColor(intakeVitals.bmi).text}`}>
                 {intakeVitals.weight ? `${intakeVitals.weight}lbs` : '—'}
               </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
@@ -487,12 +487,12 @@ export default function PatientPortalDashboard() {
             </div>
 
             {/* BMI */}
-            <div className="rounded-xl bg-[#efece7] p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <Activity className="h-4 w-4 text-gray-500" />
-                <p className="text-xs font-medium text-gray-500">BMI</p>
+            <div className="rounded-xl bg-[#efece7] p-2.5 sm:p-4">
+              <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
+                <Activity className="h-3.5 w-3.5 text-gray-500 sm:h-4 sm:w-4" />
+                <p className="text-[10px] font-medium text-gray-500 sm:text-xs">BMI</p>
               </div>
-              <p className={`text-xl font-bold ${getBmiColor(intakeVitals.bmi).text}`}>
+              <p className={`text-base font-bold sm:text-xl ${getBmiColor(intakeVitals.bmi).text}`}>
                 {intakeVitals.bmi || '—'}
               </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300">
@@ -513,25 +513,25 @@ export default function PatientPortalDashboard() {
       {features.showWeightTracking && (
         <Link href={`${PATIENT_PORTAL_PATH}/progress`} className="mb-6 block">
           <div
-            className="rounded-2xl p-6 text-white shadow-lg"
+            className="rounded-2xl p-4 text-white shadow-lg sm:p-6"
             style={{ backgroundColor: accentColor }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium" style={{ color: weightCardTextColor, opacity: 0.8 }}>
+            <div className="mb-3 flex items-center justify-between sm:mb-4">
+              <div className="min-w-0">
+                <p className="text-xs font-medium sm:text-sm" style={{ color: weightCardTextColor, opacity: 0.8 }}>
                   {t('dashboardCurrentWeight')}
                 </p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-5xl font-semibold" style={{ color: weightCardTextColor }}>
+                  <span className="text-3xl font-semibold sm:text-5xl" style={{ color: weightCardTextColor }}>
                     {currentWeight || '---'}
                   </span>
-                  <span className="text-xl font-medium" style={{ color: weightCardTextColor, opacity: 0.7 }}>
+                  <span className="text-base font-medium sm:text-xl" style={{ color: weightCardTextColor, opacity: 0.7 }}>
                     {t('dashboardLbs')}
                   </span>
                 </div>
               </div>
-              <div className="rounded-2xl p-4" style={{ backgroundColor: weightCardTextColor === '#ffffff' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}>
-                <Scale className="h-8 w-8" style={{ color: weightCardTextColor }} />
+              <div className="shrink-0 rounded-2xl p-3 sm:p-4" style={{ backgroundColor: weightCardTextColor === '#ffffff' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}>
+                <Scale className="h-6 w-6 sm:h-8 sm:w-8" style={{ color: weightCardTextColor }} />
               </div>
             </div>
 
@@ -577,20 +577,20 @@ export default function PatientPortalDashboard() {
       )}
 
       {/* Quick Stats Row */}
-      <div className="mb-6 grid grid-cols-2 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         {/* Next Medication */}
         {features.showMedicationReminders && nextReminder && (
           <Link
             href={`${PATIENT_PORTAL_PATH}/medications`}
-            className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
           >
             <div className="mb-2 flex items-center gap-3">
-              <div className="rounded-xl p-2" style={{ backgroundColor: `${primaryColor}15` }}>
+              <div className="shrink-0 rounded-xl p-2" style={{ backgroundColor: `${primaryColor}15` }}>
                 <Pill className="h-5 w-5" style={{ color: primaryColor }} />
               </div>
               <span className="text-xs font-medium text-gray-500">{t('dashboardNextDose')}</span>
             </div>
-            <p className="font-semibold text-gray-900">{nextReminder.medication}</p>
+            <p className="truncate font-semibold text-gray-900">{nextReminder.medication}</p>
             <p className="text-sm text-gray-500">
               {nextReminder.nextDose} at {nextReminder.time}
             </p>
@@ -601,18 +601,18 @@ export default function PatientPortalDashboard() {
         {features.showShipmentTracking && recentShipment && (
           <Link
             href={`${PATIENT_PORTAL_PATH}/shipments`}
-            className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
           >
             <div className="mb-2 flex items-center gap-3">
-              <div className="rounded-xl bg-blue-50 p-2">
+              <div className="shrink-0 rounded-xl bg-blue-50 p-2">
                 <Package className="h-5 w-5 text-blue-600" />
               </div>
               <span className="text-xs font-medium text-gray-500">{t('dashboardShipment')}</span>
             </div>
-            <p className="font-semibold capitalize text-gray-900">
+            <p className="truncate font-semibold capitalize text-gray-900">
               {recentShipment.statusLabel || recentShipment.status || 'Processing'}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="truncate text-sm text-gray-500">
               {recentShipment.estimatedDelivery
                 ? `${t('dashboardEst')} ${new Date(String(recentShipment.estimatedDelivery)).toLocaleDateString()}`
                 : recentShipment.orderNumber
@@ -626,14 +626,14 @@ export default function PatientPortalDashboard() {
       {/* Photos Widget */}
       <div className="mb-6">
         <Link href={`${PATIENT_PORTAL_PATH}/photos`} className="block">
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm transition-all hover:shadow-md sm:p-5">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-[var(--brand-primary)] p-3">
-                  <Camera className="h-6 w-6 text-white" />
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="shrink-0 rounded-xl bg-[var(--brand-primary)] p-2.5 sm:p-3">
+                  <Camera className="h-5 w-5 text-white sm:h-6 sm:w-6" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{t('dashboardProgressPhotos')}</h3>
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold text-gray-900">{t('dashboardProgressPhotos')}</h3>
                   <p className="text-sm text-gray-500">
                     {photoStats?.totalPhotos
                       ? `${photoStats.totalPhotos} photo${photoStats.totalPhotos !== 1 ? 's' : ''} uploaded`
@@ -790,35 +790,35 @@ export default function PatientPortalDashboard() {
       {/* BMI Calculator Preview */}
       {features.showBMICalculator && (
         <Link href={`${PATIENT_PORTAL_PATH}/calculators/bmi`} className="mb-6 block">
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-[var(--brand-primary-light)] p-3">
-                  <Activity className="h-6 w-6 text-[var(--brand-primary)]" />
+              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                <div className="shrink-0 rounded-xl bg-[var(--brand-primary-light)] p-2.5 sm:p-3">
+                  <Activity className="h-5 w-5 text-[var(--brand-primary)] sm:h-6 sm:w-6" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">BMI Calculator</h3>
-                  <p className="text-sm text-gray-500">Check your body mass index</p>
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold text-gray-900">BMI Calculator</h3>
+                  <p className="truncate text-sm text-gray-500">Check your body mass index</p>
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
+              <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
             </div>
           </div>
         </Link>
       )}
 
       {/* Notifications / Reminders */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-3">
+      <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center gap-3 sm:mb-4">
           <Bell className="h-5 w-5 text-gray-400" />
           <h2 className="font-semibold text-gray-900">{t('dashboardReminders')}</h2>
         </div>
         {nextReminder ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3 rounded-xl bg-amber-50 p-3">
-              <Clock className="h-5 w-5 text-amber-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">{nextReminder.medication} — {t('dashboardNextDose')}</p>
+              <Clock className="h-5 w-5 shrink-0 text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="break-words text-sm font-medium text-gray-900">{nextReminder.medication} — {t('dashboardNextDose')}</p>
                 <p className="text-xs text-gray-500">{nextReminder.nextDose} {t('dashboardAt')} {nextReminder.time}</p>
               </div>
             </div>

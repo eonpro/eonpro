@@ -374,7 +374,7 @@ END:VCALENDAR`;
   }
 
   return (
-    <div className="min-h-[100dvh] px-4 py-6">
+    <div className="min-h-[100dvh] px-3 py-4 sm:px-4 sm:py-6">
       {/* Success Toast */}
       {showSuccess && (
         <div className="animate-in slide-in-from-top-2 fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl">
@@ -411,48 +411,52 @@ END:VCALENDAR`;
       {billingPlan && (
         <div className="mb-8 overflow-hidden rounded-3xl shadow-xl shadow-gray-200/50">
           <div
-            className="relative overflow-hidden p-6"
+            className="relative overflow-hidden p-4 sm:p-6"
             style={{
               background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 100%)`,
             }}
           >
             <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10" />
             <div className="absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/5" />
-            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-                  <CreditCard className="h-7 w-7 text-white" />
+            <div className="relative">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm sm:h-14 sm:w-14">
+                  <CreditCard className="h-6 w-6 text-white sm:h-7 sm:w-7" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-white/70">Your Plan</p>
-                  <h2 className="text-2xl font-bold text-white">{billingPlan.name}</h2>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-white/70 sm:text-sm">Your Plan</p>
+                  <h2 className="break-words text-xl font-bold leading-tight text-white sm:text-2xl">
+                    {billingPlan.name}
+                  </h2>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm sm:px-4 sm:py-1.5 sm:text-sm">
                   {billingPlan.vialCount} {billingPlan.vialCount === 1 ? 'vial' : 'vials'}
                 </span>
-                <span className="rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm sm:px-4 sm:py-1.5 sm:text-sm">
                   {formatCurrency(billingPlan.amount)}/{billingPlan.interval === 'annual' ? 'yr' : billingPlan.interval === '6-month' ? '6mo' : billingPlan.interval === 'quarterly' ? 'qtr' : 'mo'}
                 </span>
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3">
-            <div className="bg-white p-4 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Status</p>
-              <p className="mt-1 text-sm font-bold text-emerald-600">{billingPlan.status}</p>
+            <div className="bg-white p-3 text-center sm:p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">Status</p>
+              <p className="mt-0.5 text-xs font-bold sm:mt-1 sm:text-sm" style={{ color: primaryColor }}>
+                {billingPlan.status}
+              </p>
             </div>
             {billingPlan.nextBillingDate && (
-              <div className="bg-white p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Next Billing</p>
-                <p className="mt-1 text-sm font-bold text-gray-900">{formatDate(billingPlan.nextBillingDate)}</p>
+              <div className="bg-white p-3 text-center sm:p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">Next Billing</p>
+                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">{formatDate(billingPlan.nextBillingDate)}</p>
               </div>
             )}
             {billingPlan.startDate && (
-              <div className="bg-white p-4 text-center">
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Started</p>
-                <p className="mt-1 text-sm font-bold text-gray-900">{formatDate(billingPlan.startDate)}</p>
+              <div className="col-span-2 bg-white p-3 text-center sm:col-span-1 sm:p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">Started</p>
+                <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">{formatDate(billingPlan.startDate)}</p>
               </div>
             )}
           </div>
@@ -463,7 +467,7 @@ END:VCALENDAR`;
       {allActiveMeds.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Syringe className="h-5 w-5" style={{ color: primaryColor }} />
+            <Syringe className="h-5 w-5 shrink-0" style={{ color: primaryColor }} />
             Active Medications
             <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
               {allActiveMeds.length}
@@ -475,72 +479,76 @@ END:VCALENDAR`;
                 key={`${med.prescription.id}-${med.id}`}
                 className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40"
               >
-                <div className="flex items-start gap-4 p-5">
-                  <div
-                    className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: `${primaryColor}15` }}
-                  >
-                    <Pill className="h-6 w-6" style={{ color: primaryColor }} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{med.name}</h3>
-                        {med.strength && (
-                          <p className="text-sm text-gray-500">
-                            {med.strength} &middot; {med.form}
-                          </p>
-                        )}
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase ${statusColor(med.prescription.status)}`}
-                      >
-                        {med.prescription.status}
-                      </span>
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12"
+                      style={{ backgroundColor: `${primaryColor}15` }}
+                    >
+                      <Pill className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: primaryColor }} />
                     </div>
-
-                    {med.directions && (
-                      <div className="mt-3 rounded-xl bg-gray-50 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                          Directions
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="break-words text-base font-semibold leading-tight text-gray-900 sm:text-lg">
+                          {med.name}
+                        </h3>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:px-3 sm:py-1 sm:text-xs ${statusColor(med.prescription.status)}`}
+                        >
+                          {med.prescription.status}
+                        </span>
+                      </div>
+                      {med.strength && (
+                        <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
+                          {med.strength} &middot; {med.form}
                         </p>
-                        <p className="mt-1 text-sm font-medium text-gray-700">{med.directions}</p>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                  </div>
 
-                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-                      {med.quantity && (
-                        <span className="flex items-center gap-1">
-                          <Package className="h-3.5 w-3.5" /> Qty: {med.quantity}
-                        </span>
-                      )}
-                      {med.daysSupply > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" /> {med.daysSupply}-day supply
-                        </span>
-                      )}
-                      {med.prescription.provider && (
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3.5 w-3.5" /> Dr. {med.prescription.provider.name}
-                        </span>
-                      )}
+                  {med.directions && (
+                    <div className="mt-3 rounded-xl bg-gray-50 p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:text-xs">
+                        Directions
+                      </p>
+                      <p className="mt-1 text-xs font-medium leading-relaxed text-gray-700 sm:text-sm">
+                        {med.directions}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-gray-500 sm:gap-4 sm:text-xs">
+                    {med.quantity && (
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" /> {formatDate(med.prescription.prescribedDate)}
+                        <Package className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Qty: {med.quantity}
+                      </span>
+                    )}
+                    {med.daysSupply > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {med.daysSupply}d supply
+                      </span>
+                    )}
+                    {med.prescription.provider && (
+                      <span className="flex items-center gap-1">
+                        <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Dr. {med.prescription.provider.name}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {formatDate(med.prescription.prescribedDate)}
+                    </span>
+                  </div>
+
+                  {med.prescription.shipping.trackingNumber && (
+                    <div
+                      className="mt-3 flex items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-xs sm:text-sm"
+                      style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                    >
+                      <Truck className="h-4 w-4 shrink-0" />
+                      <span className="truncate font-medium">
+                        Tracking: {med.prescription.shipping.trackingNumber}
                       </span>
                     </div>
-
-                    {med.prescription.shipping.trackingNumber && (
-                      <div
-                        className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-                        style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
-                      >
-                        <Truck className="h-4 w-4" />
-                        <span className="font-medium">
-                          Tracking: {med.prescription.shipping.trackingNumber}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -556,16 +564,16 @@ END:VCALENDAR`;
             className="mb-4 flex w-full items-center justify-between text-left"
           >
             <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <Clock className="h-5 w-5 text-gray-400" />
-              Prescription History
+              <Clock className="h-5 w-5 shrink-0 text-gray-400" />
+              <span>Prescription History</span>
               <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
                 {pastPrescriptions.length}
               </span>
             </h2>
             {showHistory ? (
-              <ChevronUp className="h-5 w-5 text-gray-400" />
+              <ChevronUp className="h-5 w-5 shrink-0 text-gray-400" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-gray-400" />
+              <ChevronDown className="h-5 w-5 shrink-0 text-gray-400" />
             )}
           </button>
           {showHistory && (
@@ -573,35 +581,33 @@ END:VCALENDAR`;
               {pastPrescriptions.map((rx) => (
                 <div
                   key={rx.id}
-                  className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {rx.medications.map((m) => m.name).join(', ') || 'Prescription'}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {formatDate(rx.prescribedDate)}
-                        {rx.provider && <> &middot; Dr. {rx.provider.name}</>}
-                      </p>
-                    </div>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500">
+                      {formatDate(rx.prescribedDate)}
+                      {rx.provider && <> &middot; Dr. {rx.provider.name}</>}
+                    </p>
                     <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase ${statusColor(rx.status)}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:text-xs ${statusColor(rx.status)}`}
                     >
                       {rx.status}
                     </span>
                   </div>
                   {rx.medications.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {rx.medications.map((m) => (
                         <span
                           key={m.id}
-                          className="rounded-lg bg-gray-50 px-2 py-1 text-xs text-gray-600"
+                          className="break-words rounded-lg bg-gray-50 px-2 py-1 text-xs leading-tight text-gray-700"
                         >
                           {m.name} {m.strength}
                         </span>
                       ))}
                     </div>
+                  )}
+                  {rx.medications.length === 0 && (
+                    <p className="text-sm font-medium text-gray-900">Prescription</p>
                   )}
                 </div>
               ))}
@@ -613,31 +619,31 @@ END:VCALENDAR`;
       {/* ── Invoice History ── */}
       {invoiceHistory.length > 0 && (
         <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
-          <div className="border-b border-gray-100 p-5">
+          <div className="border-b border-gray-100 px-4 py-4 sm:p-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <FileText className="h-5 w-5 text-gray-400" />
+              <FileText className="h-5 w-5 shrink-0 text-gray-400" />
               Payment History
             </h2>
           </div>
           <div className="divide-y divide-gray-50">
             {invoiceHistory.map((inv) => (
-              <div key={inv.id} className="flex items-center justify-between px-5 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">
+              <div key={inv.id} className="px-4 py-3 sm:px-5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 flex-1 break-words text-sm font-medium leading-tight text-gray-900">
                     {inv.description || inv.invoiceNumber}
                   </p>
-                  <p className="text-xs text-gray-400">{formatDate(inv.date)}</p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(inv.amountPaid || inv.amount)}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold sm:text-xs ${statusColor(inv.status)}`}
+                    >
+                      {inv.status}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 pl-4">
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formatCurrency(inv.amountPaid || inv.amount)}
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor(inv.status)}`}
-                  >
-                    {inv.status}
-                  </span>
-                </div>
+                <p className="mt-0.5 text-xs text-gray-400">{formatDate(inv.date)}</p>
               </div>
             ))}
           </div>

@@ -302,16 +302,27 @@ function extractToken(req: NextRequest): ExtractedToken {
     }
   }
 
-  // Priority 3: Query parameter (only for specific use cases like email links)
-  // Security: This should be avoided when possible
+  // Priority 3: Query parameter — RESTRICTED to explicit email-link verification paths only.
+  // Tokens in URLs leak via Referer headers, browser history, and server logs.
+  const QUERY_TOKEN_ALLOWED_PATHS = [
+    '/api/auth/verify-email',
+    '/api/auth/reset-password',
+    '/api/patient-portal/verify',
+  ];
   const url = new URL(req.url);
   const queryToken = url.searchParams.get('token');
   if (queryToken) {
-    logger.warn('Token passed via query parameter', {
+    if (QUERY_TOKEN_ALLOWED_PATHS.some((p) => url.pathname.startsWith(p))) {
+      logger.info('Token passed via query parameter (allowed path)', {
+        path: url.pathname,
+        ip: getClientIP(req),
+      });
+      return { token: queryToken, source: 'query-parameter' };
+    }
+    logger.security('BLOCKED: Token passed via query parameter on non-allowed path', {
       path: url.pathname,
       ip: getClientIP(req),
     });
-    return { token: queryToken, source: 'query-parameter' };
   }
 
   return { token: null, source: null };

@@ -15,6 +15,19 @@ import {
 } from '@/lib/encryption';
 import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
+import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
+
+interface SavedCard {
+  id: number | string;
+  last4: string;
+  brand: string;
+  expiryMonth: number;
+  expiryYear: number;
+  cardholderName: string;
+  isDefault: boolean;
+  source?: 'local' | 'stripe';
+  stripePaymentMethodId?: string;
+}
 
 interface ProcessPaymentFormProps {
   patientId: number;
@@ -28,6 +41,12 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState<string>('');
   const [isRecurring, setIsRecurring] = useState(false);
+
+  // Payment method selection
+  const [paymentMode, setPaymentMode] = useState<'saved' | 'new'>('new');
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string | number | null>(null);
+  const [loadingCards, setLoadingCards] = useState(true);
 
   // Credit card fields
   const [cardNumber, setCardNumber] = useState('');
@@ -45,8 +64,31 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [cardErrors, setCardErrors] = useState<{ [key: string]: string }>({});
-  const [formSubmitted, setFormSubmitted] = useState(false); // Track if form has been submitted
+  const [formSubmitted, setFormSubmitted] = useState(false);
   const groupedPlans = getGroupedPlans(clinicSubdomain);
+
+  useEffect(() => {
+    const fetchSavedCards = async () => {
+      try {
+        const response = await apiFetch(`/api/payment-methods?patientId=${patientId}`);
+        if (response.ok) {
+          const data = await response.json();
+          const cards: SavedCard[] = data.data || [];
+          setSavedCards(cards);
+          if (cards.length > 0) {
+            setPaymentMode('saved');
+            const defaultCard = cards.find((c) => c.isDefault) || cards[0];
+            setSelectedCardId(defaultCard.id);
+          }
+        }
+      } catch {
+        // Non-blocking: if cards can't be fetched, fall back to new card entry
+      } finally {
+        setLoadingCards(false);
+      }
+    };
+    fetchSavedCards();
+  }, [patientId]);
 
   useEffect(() => {
     if (selectedPlanId) {
@@ -133,33 +175,49 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setAmount(isNaN(parsed) ? 0 : parsed);
   };
 
+  const isCardExpired = (month: number, year: number) => {
+    const now = new Date();
+    return year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1);
+  };
+
   const validateForm = (): boolean => {
     const errors: { [key: string]: string } = {};
 
-    if (!cardNumber || cardNumber.trim().length === 0) {
-      errors.cardNumber = 'Card number is required';
-    } else if (!validateCardNumber(cardNumber)) {
-      errors.cardNumber = 'Invalid card number';
-    }
+    if (paymentMode === 'saved') {
+      if (!selectedCardId) {
+        errors.savedCard = 'Please select a payment method';
+      } else {
+        const card = savedCards.find((c) => c.id === selectedCardId);
+        if (card && isCardExpired(card.expiryMonth, card.expiryYear)) {
+          errors.savedCard = 'Selected card is expired. Please choose another or enter a new card.';
+        }
+      }
+    } else {
+      if (!cardNumber || cardNumber.trim().length === 0) {
+        errors.cardNumber = 'Card number is required';
+      } else if (!validateCardNumber(cardNumber)) {
+        errors.cardNumber = 'Invalid card number';
+      }
 
-    if (!cardholderName || cardholderName.trim().length === 0) {
-      errors.cardholderName = 'Cardholder name is required';
-    }
+      if (!cardholderName || cardholderName.trim().length === 0) {
+        errors.cardholderName = 'Cardholder name is required';
+      }
 
-    if (!expiryMonth || !expiryYear) {
-      errors.expiry = 'Expiry date is required';
-    } else if (!validateExpiryDate(expiryMonth, expiryYear)) {
-      errors.expiry = 'Card has expired or invalid date';
-    }
+      if (!expiryMonth || !expiryYear) {
+        errors.expiry = 'Expiry date is required';
+      } else if (!validateExpiryDate(expiryMonth, expiryYear)) {
+        errors.expiry = 'Card has expired or invalid date';
+      }
 
-    if (!cvv || cvv.trim().length === 0) {
-      errors.cvv = 'CVV is required';
-    } else if (!validateCVV(cvv, cardBrand)) {
-      errors.cvv = 'Invalid CVV';
-    }
+      if (!cvv || cvv.trim().length === 0) {
+        errors.cvv = 'CVV is required';
+      } else if (!validateCVV(cvv, cardBrand)) {
+        errors.cvv = 'Invalid CVV';
+      }
 
-    if (!billingZip || billingZip.trim().length === 0) {
-      errors.billingZip = 'Billing ZIP code is required';
+      if (!billingZip || billingZip.trim().length === 0) {
+        errors.billingZip = 'Billing ZIP code is required';
+      }
     }
 
     if (!amount || amount <= 0) {
@@ -188,33 +246,40 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setSubmitting(true);
 
     try {
+      const payload: Record<string, unknown> = {
+        patientId,
+        amount: Math.round(amount * 100),
+        description: description || getPlanById(selectedPlanId, clinicSubdomain)?.description || 'Custom Payment',
+        subscription: isRecurring
+          ? {
+              planId: selectedPlanId,
+              planName: getPlanById(selectedPlanId, clinicSubdomain)?.name || '',
+              interval: 'month',
+              intervalCount: 1,
+            }
+          : null,
+        notes,
+      };
+
+      if (paymentMode === 'saved' && selectedCardId) {
+        payload.paymentMethodId = selectedCardId;
+      } else {
+        payload.paymentDetails = {
+          cardNumber: cardNumber.replace(/\s/g, ''),
+          cardholderName,
+          expiryMonth: parseInt(expiryMonth),
+          expiryYear: parseInt(expiryYear),
+          cvv,
+          billingZip,
+          cardBrand,
+          saveCard,
+        };
+      }
+
       const res = await apiFetch('/api/stripe/payments/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientId,
-          amount: Math.round(amount * 100), // Convert to cents
-          description: description || getPlanById(selectedPlanId, clinicSubdomain)?.description || 'Custom Payment',
-          paymentDetails: {
-            cardNumber: cardNumber.replace(/\s/g, ''),
-            cardholderName,
-            expiryMonth: parseInt(expiryMonth),
-            expiryYear: parseInt(expiryYear),
-            cvv,
-            billingZip,
-            cardBrand,
-            saveCard,
-          },
-          subscription: isRecurring
-            ? {
-                planId: selectedPlanId,
-                planName: getPlanById(selectedPlanId, clinicSubdomain)?.name || '',
-                interval: 'month',
-                intervalCount: 1,
-              }
-            : null,
-          notes,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -277,7 +342,15 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setIsRecurring(false);
     setSaveCard(true);
     setCardBrand('');
-    setFormSubmitted(false); // Reset form submission state
+    setFormSubmitted(false);
+    if (savedCards.length > 0) {
+      setPaymentMode('saved');
+      const defaultCard = savedCards.find((c) => c.isDefault) || savedCards[0];
+      setSelectedCardId(defaultCard.id);
+    } else {
+      setPaymentMode('new');
+      setSelectedCardId(null);
+    }
   };
 
   // Generate year options (current year + next 10 years)
@@ -376,160 +449,267 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           </div>
         </div>
 
-        {/* Credit Card Information */}
+        {/* Payment Method Selection */}
         <div className="border-t pt-4">
-          <h4 className="mb-4 text-lg font-medium text-gray-900">Credit Card Information</h4>
+          <h4 className="mb-4 text-lg font-medium text-gray-900">Payment Method</h4>
 
-          {/* Card Number */}
-          <div className="mb-4">
-            <label htmlFor="cardNumber" className="mb-1 block text-sm font-medium text-gray-700">
-              Card Number
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                id="cardNumber"
-                value={cardNumber}
-                onChange={(e: any) => handleCardNumberChange(e.target.value)}
-                className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                  formSubmitted && cardErrors.cardNumber ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="1234 5678 9012 3456"
-                maxLength={19}
-                required
-              />
-              {cardBrand && (
-                <span className="absolute right-3 top-2.5 text-sm font-medium text-gray-600">
-                  {cardBrand}
-                </span>
-              )}
+          {loadingCards ? (
+            <div className="animate-pulse space-y-3">
+              <div className="h-10 rounded bg-gray-100" />
+              <div className="h-16 rounded bg-gray-100" />
             </div>
-            {formSubmitted && cardErrors.cardNumber && (
-              <p className="mt-1 text-sm text-red-600">{cardErrors.cardNumber}</p>
-            )}
-          </div>
+          ) : (
+            <>
+              {savedCards.length > 0 && (
+                <div className="mb-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('saved')}
+                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                      paymentMode === 'saved'
+                        ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    Use Saved Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode('new')}
+                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                      paymentMode === 'new'
+                        ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}
+                  >
+                    Enter New Card
+                  </button>
+                </div>
+              )}
 
-          {/* Cardholder Name */}
-          <div className="mb-4">
-            <label
-              htmlFor="cardholderName"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Cardholder Name
-            </label>
-            <input
-              type="text"
-              id="cardholderName"
-              value={cardholderName}
-              onChange={(e: any) => setCardholderName(e.target.value)}
-              className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                formSubmitted && cardErrors.cardholderName ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="John Doe"
-              required
-            />
-            {formSubmitted && cardErrors.cardholderName && (
-              <p className="mt-1 text-sm text-red-600">{cardErrors.cardholderName}</p>
-            )}
-          </div>
+              {/* Saved Card Selection */}
+              {paymentMode === 'saved' && savedCards.length > 0 && (
+                <div className="space-y-2">
+                  {formSubmitted && cardErrors.savedCard && (
+                    <p className="mb-2 text-sm text-red-600">{cardErrors.savedCard}</p>
+                  )}
+                  {savedCards.map((card) => {
+                    const expired = isCardExpired(card.expiryMonth, card.expiryYear);
+                    const logo = getCardNetworkLogo(card.brand);
+                    return (
+                      <label
+                        key={card.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
+                          selectedCardId === card.id
+                            ? 'border-[#4fa77e] bg-green-50'
+                            : expired
+                              ? 'border-gray-200 bg-gray-50 opacity-60'
+                              : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="savedCard"
+                          value={String(card.id)}
+                          checked={selectedCardId === card.id}
+                          onChange={() => setSelectedCardId(card.id)}
+                          disabled={expired}
+                          className="h-4 w-4 border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                        />
+                        <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
+                          {logo ? (
+                            <img src={logo} alt={card.brand} className="h-6 w-10 object-contain" />
+                          ) : (
+                            <svg className="h-5 w-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <rect x="1" y="4" width="22" height="16" rx="2" strokeWidth="2" />
+                              <line x1="1" y1="10" x2="23" y2="10" strokeWidth="2" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              •••• {card.last4}
+                            </span>
+                            {card.isDefault && (
+                              <span className="rounded bg-[#4fa77e] px-1.5 py-0.5 text-[10px] font-medium text-white">
+                                Default
+                              </span>
+                            )}
+                            {expired && (
+                              <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                                Expired
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {card.cardholderName ? `${card.cardholderName} • ` : ''}
+                            Expires {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
 
-          {/* Expiry Date, CVV, ZIP */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Expiry Date</label>
-              <div className="flex gap-2">
-                <select
-                  value={expiryMonth}
-                  onChange={(e: any) => handleExpiryMonthChange(e.target.value)}
-                  className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                    formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">MM</option>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month: any) => (
-                    <option key={month} value={month.toString().padStart(2, '0')}>
-                      {month.toString().padStart(2, '0')}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={expiryYear}
-                  onChange={(e: any) => handleExpiryYearChange(e.target.value)}
-                  className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                    formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">YYYY</option>
-                  {yearOptions.map((year: any) => (
-                    <option key={year} value={year.toString()}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {formSubmitted && cardErrors.expiry && (
-                <p className="mt-1 text-sm text-red-600">{cardErrors.expiry}</p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="cvv" className="mb-1 block text-sm font-medium text-gray-700">
-                CVV
-              </label>
-              <input
-                type="text"
-                id="cvv"
-                value={cvv}
-                onChange={(e: any) => handleCVVChange(e.target.value)}
-                className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                  formSubmitted && cardErrors.cvv ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder={cardBrand === 'American Express' ? '1234' : '123'}
-                maxLength={cardBrand === 'American Express' ? 4 : 3}
-                required
-              />
-              {formSubmitted && cardErrors.cvv && (
-                <p className="mt-1 text-sm text-red-600">{cardErrors.cvv}</p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="billingZip" className="mb-1 block text-sm font-medium text-gray-700">
-                Billing ZIP
-              </label>
-              <input
-                type="text"
-                id="billingZip"
-                value={billingZip}
-                onChange={(e: any) => setBillingZip(e.target.value)}
-                className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                  formSubmitted && cardErrors.billingZip ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="12345"
-                required
-              />
-              {formSubmitted && cardErrors.billingZip && (
-                <p className="mt-1 text-sm text-red-600">{cardErrors.billingZip}</p>
-              )}
-            </div>
-          </div>
+              {/* New Card Entry */}
+              {paymentMode === 'new' && (
+                <>
+                  {/* Card Number */}
+                  <div className="mb-4">
+                    <label htmlFor="cardNumber" className="mb-1 block text-sm font-medium text-gray-700">
+                      Card Number
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="cardNumber"
+                        value={cardNumber}
+                        onChange={(e: any) => handleCardNumberChange(e.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
+                          formSubmitted && cardErrors.cardNumber ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="1234 5678 9012 3456"
+                        maxLength={19}
+                        required
+                      />
+                      {cardBrand && (
+                        <span className="absolute right-3 top-2.5 text-sm font-medium text-gray-600">
+                          {cardBrand}
+                        </span>
+                      )}
+                    </div>
+                    {formSubmitted && cardErrors.cardNumber && (
+                      <p className="mt-1 text-sm text-red-600">{cardErrors.cardNumber}</p>
+                    )}
+                  </div>
 
-          {/* Save Card Checkbox */}
-          <div className="mt-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={saveCard}
-                onChange={(e: any) => setSaveCard(e.target.checked)}
-                disabled={isRecurring} // Always save for recurring
-                className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
-              />
-              <span className="text-sm text-gray-700">
-                Save card for future payments
-                {isRecurring && ' (required for recurring subscription)'}
-              </span>
-            </label>
-          </div>
+                  {/* Cardholder Name */}
+                  <div className="mb-4">
+                    <label
+                      htmlFor="cardholderName"
+                      className="mb-1 block text-sm font-medium text-gray-700"
+                    >
+                      Cardholder Name
+                    </label>
+                    <input
+                      type="text"
+                      id="cardholderName"
+                      value={cardholderName}
+                      onChange={(e: any) => setCardholderName(e.target.value)}
+                      className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
+                        formSubmitted && cardErrors.cardholderName ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="John Doe"
+                      required
+                    />
+                    {formSubmitted && cardErrors.cardholderName && (
+                      <p className="mt-1 text-sm text-red-600">{cardErrors.cardholderName}</p>
+                    )}
+                  </div>
+
+                  {/* Expiry Date, CVV, ZIP */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Expiry Date</label>
+                      <div className="flex gap-2">
+                        <select
+                          value={expiryMonth}
+                          onChange={(e: any) => handleExpiryMonthChange(e.target.value)}
+                          className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
+                            formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          required
+                        >
+                          <option value="">MM</option>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((month: any) => (
+                            <option key={month} value={month.toString().padStart(2, '0')}>
+                              {month.toString().padStart(2, '0')}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={expiryYear}
+                          onChange={(e: any) => handleExpiryYearChange(e.target.value)}
+                          className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
+                            formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          required
+                        >
+                          <option value="">YYYY</option>
+                          {yearOptions.map((year: any) => (
+                            <option key={year} value={year.toString()}>
+                              {year}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {formSubmitted && cardErrors.expiry && (
+                        <p className="mt-1 text-sm text-red-600">{cardErrors.expiry}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="cvv" className="mb-1 block text-sm font-medium text-gray-700">
+                        CVV
+                      </label>
+                      <input
+                        type="text"
+                        id="cvv"
+                        value={cvv}
+                        onChange={(e: any) => handleCVVChange(e.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
+                          formSubmitted && cardErrors.cvv ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder={cardBrand === 'American Express' ? '1234' : '123'}
+                        maxLength={cardBrand === 'American Express' ? 4 : 3}
+                        required
+                      />
+                      {formSubmitted && cardErrors.cvv && (
+                        <p className="mt-1 text-sm text-red-600">{cardErrors.cvv}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="billingZip" className="mb-1 block text-sm font-medium text-gray-700">
+                        Billing ZIP
+                      </label>
+                      <input
+                        type="text"
+                        id="billingZip"
+                        value={billingZip}
+                        onChange={(e: any) => setBillingZip(e.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
+                          formSubmitted && cardErrors.billingZip ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="12345"
+                        required
+                      />
+                      {formSubmitted && cardErrors.billingZip && (
+                        <p className="mt-1 text-sm text-red-600">{cardErrors.billingZip}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Save Card Checkbox */}
+                  <div className="mt-4">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={saveCard}
+                        onChange={(e: any) => setSaveCard(e.target.checked)}
+                        disabled={isRecurring}
+                        className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Save card for future payments
+                        {isRecurring && ' (required for recurring subscription)'}
+                      </span>
+                    </label>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         {/* Notes */}
@@ -563,7 +743,18 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
               <span className="font-medium text-amber-600">Monthly Recurring</span>
             </div>
           )}
-          {saveCard && !isRecurring && (
+          {paymentMode === 'saved' && selectedCardId && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Card:</span>
+              <span className="font-medium">
+                {(() => {
+                  const card = savedCards.find((c) => c.id === selectedCardId);
+                  return card ? `•••• ${card.last4}` : 'Saved card';
+                })()}
+              </span>
+            </div>
+          )}
+          {paymentMode === 'new' && saveCard && !isRecurring && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Card:</span>
               <span className="font-medium">Will be saved</span>

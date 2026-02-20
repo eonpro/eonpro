@@ -230,13 +230,13 @@ export default function BillingPage() {
       {/* Subscription Card */}
       {data?.subscription && (
         <div
-          className="mb-6 rounded-2xl p-6 text-white"
+          className="mb-6 rounded-2xl p-4 text-white sm:p-6"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
         >
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
               <p className="text-sm text-white/80">{t('billingCurrentPlan')}</p>
-              <h2 className="mt-1 text-2xl font-bold">{data.subscription.planName}</h2>
+              <h2 className="mt-1 break-words text-xl font-bold sm:text-2xl">{data.subscription.planName}</h2>
               <p className="mt-2 text-white/90">
                 {formatCurrency(data.subscription.amount)} / {data.subscription.interval}
               </p>
@@ -309,22 +309,22 @@ export default function BillingPage() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
               <div className="mb-1 flex items-center gap-2">
-                <Receipt className="h-5 w-5 text-blue-500" />
+                <Receipt className="h-5 w-5 shrink-0 text-blue-500" />
                 <span className="text-sm text-gray-600">{t('billingTotalPaid')}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-xl font-bold text-gray-900 sm:text-2xl">
                 {formatCurrency(totalPaid)}
               </p>
             </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
+            <div className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
               <div className="mb-1 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-green-500" />
+                <Calendar className="h-5 w-5 shrink-0 text-green-500" />
                 <span className="text-sm text-gray-600">{t('billingMemberSince')}</span>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{memberSince}</p>
+              <p className="text-xl font-bold text-gray-900 sm:text-2xl">{memberSince}</p>
             </div>
           </div>
 
@@ -337,24 +337,24 @@ export default function BillingPage() {
                 const StatusIcon = status.icon;
 
                 return (
-                  <div key={invoice.id} className="rounded-xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                  <div key={invoice.id} className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-start gap-3">
                         <div
-                          className={`h-10 w-10 rounded-full ${status.bg} flex items-center justify-center`}
+                          className={`h-9 w-9 shrink-0 rounded-full sm:h-10 sm:w-10 ${status.bg} flex items-center justify-center`}
                         >
-                          <StatusIcon className={`h-5 w-5 ${status.color}`} />
+                          <StatusIcon className={`h-4 w-4 sm:h-5 sm:w-5 ${status.color}`} />
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{invoice.description}</p>
-                          <p className="text-sm text-gray-500">{formatDate(invoice.date)}</p>
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-medium leading-tight text-gray-900">{invoice.description}</p>
+                          <p className="text-xs text-gray-500 sm:text-sm">{formatDate(invoice.date)}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-semibold text-gray-900 sm:text-base">
                           {formatCurrency(invoice.amount)}
                         </p>
-                        <span className={`text-xs font-medium ${status.color}`}>
+                        <span className={`text-[10px] font-medium sm:text-xs ${status.color}`}>
                           {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                         </span>
                       </div>

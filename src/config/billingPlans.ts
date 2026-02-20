@@ -186,6 +186,44 @@ export const EONMEDS_BILLING_PLANS: BillingPlan[] = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // SEMAGLUTIDE - 12 Month Plans
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'sema_12month_default',
+    name: 'Semaglutide 2.5mg/2mL',
+    category: 'semaglutide_12month',
+    price: 179900,
+    description: '12 month subscription - Semaglutide 2.5mg/1mL or 2.5mg/2mL',
+    subcategory: '12 Month Package',
+    dose: '2.5mg/1mL or 2.5mg/2mL',
+    months: 12,
+    isRecurring: true,
+  },
+  {
+    id: 'sema_12month_3ml',
+    name: 'Semaglutide 2.5mg/3mL',
+    category: 'semaglutide_12month',
+    price: 239900,
+    description: '12 month subscription - Semaglutide 2.5mg/3mL (dose >1mg/week)',
+    subcategory: '12 Month Package',
+    dose: '2.5mg/3mL',
+    months: 12,
+    isRecurring: true,
+  },
+  {
+    id: 'sema_12month_4ml',
+    name: 'Semaglutide 2.5mg/4mL',
+    category: 'semaglutide_12month',
+    price: 269900,
+    description: '12 month subscription - Semaglutide 2.5mg/4mL (dose >1.75mg/week)',
+    subcategory: '12 Month Package',
+    dose: '2.5mg/4mL',
+    months: 12,
+    isRecurring: true,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TIRZEPATIDE - Default Dose (10mg/1mL or 10mg/2mL)
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -378,6 +416,55 @@ export const EONMEDS_BILLING_PLANS: BillingPlan[] = [
     subcategory: '6 Month Package',
     dose: '30mg/2mL',
     months: 6,
+    isRecurring: true,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TIRZEPATIDE - 12 Month Plans
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  {
+    id: 'tirz_12month_default',
+    name: 'Tirzepatide 10mg/2mL',
+    category: 'tirzepatide_12month',
+    price: 279900,
+    description: '12 month subscription - Tirzepatide 10mg/1mL or 10mg/2mL',
+    subcategory: '12 Month Package',
+    dose: '10mg/1mL or 10mg/2mL',
+    months: 12,
+    isRecurring: true,
+  },
+  {
+    id: 'tirz_12month_3ml',
+    name: 'Tirzepatide 10mg/3mL',
+    category: 'tirzepatide_12month',
+    price: 369900,
+    description: '12 month subscription - Tirzepatide 10mg/3mL (dose >5mg/week)',
+    subcategory: '12 Month Package',
+    dose: '10mg/3mL',
+    months: 12,
+    isRecurring: true,
+  },
+  {
+    id: 'tirz_12month_4ml',
+    name: 'Tirzepatide 10mg/4mL',
+    category: 'tirzepatide_12month',
+    price: 389900,
+    description: '12 month subscription - Tirzepatide 10mg/4mL (dose >7.5mg/week)',
+    subcategory: '12 Month Package',
+    dose: '10mg/4mL',
+    months: 12,
+    isRecurring: true,
+  },
+  {
+    id: 'tirz_12month_high',
+    name: 'Tirzepatide 30mg/2mL',
+    category: 'tirzepatide_12month',
+    price: 439900,
+    description: '12 month subscription - Tirzepatide 30mg/2mL (dose >10mg/week)',
+    subcategory: '12 Month Package',
+    dose: '30mg/2mL',
+    months: 12,
     isRecurring: true,
   },
 
