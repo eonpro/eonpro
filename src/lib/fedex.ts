@@ -211,6 +211,7 @@ function buildShipmentPayload(
 
   return {
     labelResponseOptions: 'LABEL',
+    accountNumber: { value: credentials.accountNumber },
     requestedShipment: {
       shipper: {
         contact: {
@@ -263,6 +264,11 @@ function buildShipmentPayload(
         : {}),
       shippingChargesPayment: {
         paymentType: 'SENDER',
+        payor: {
+          responsibleParty: {
+            accountNumber: { value: credentials.accountNumber },
+          },
+        },
       },
       labelSpecification: {
         imageType: 'PDF',
