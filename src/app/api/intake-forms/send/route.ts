@@ -87,7 +87,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     // Build the form URL
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL || `http://localhost:${process.env.PORT || 3001}`;
-    const formUrl = `${baseUrl}/intake/${formLink.id}`;
+    const formUrl = `${baseUrl}/intake/link/${formLink.id}`;
 
     // Default message
     const defaultMessage =

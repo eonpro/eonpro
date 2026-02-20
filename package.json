@@ -92,7 +92,6 @@
     "@aws-sdk/s3-request-presigner": "^3.980.0",
     "@azure/msal-node": "^3.8.4",
     "@headlessui/react": "^2.2.9",
-    "@heroicons/react": "^2.2.0",
     "@lottiefiles/dotlottie-react": "^0.17.8",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "@napi-rs/canvas": "^0.1.80",

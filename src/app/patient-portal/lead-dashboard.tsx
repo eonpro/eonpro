@@ -3,13 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ClipboardDocumentListIcon,
-  SparklesIcon,
-  BookOpenIcon,
-  GiftIcon,
-  ArrowRightIcon,
-  CheckCircleIcon,
-} from '@heroicons/react/24/outline';
+  ClipboardList,
+  Sparkles,
+  BookOpen,
+  Gift,
+  ArrowRight,
+  CheckCircle2,
+} from 'lucide-react';
 
 interface DraftInfo {
   sessionId: string;
@@ -65,7 +65,7 @@ export default function LeadDashboard({
       <div className="rounded-2xl border-2 border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-6">
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-xl bg-indigo-100">
-            <ClipboardDocumentListIcon className="w-7 h-7 text-indigo-600" />
+            <ClipboardList className="w-7 h-7 text-indigo-600" />
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -100,7 +100,7 @@ export default function LeadDashboard({
               "
             >
               {draft ? 'Continue' : 'Start Now'}
-              <ArrowRightIcon className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
@@ -135,21 +135,21 @@ export default function LeadDashboard({
           href="/patient-portal/treatments"
           className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
         >
-          <SparklesIcon className="w-5 h-5 text-amber-500" />
+          <Sparkles className="w-5 h-5 text-amber-500" />
           <span className="text-sm font-medium text-gray-700">Treatments</span>
         </Link>
         <Link
           href="/patient-portal/specials"
           className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
         >
-          <GiftIcon className="w-5 h-5 text-rose-500" />
+          <Gift className="w-5 h-5 text-rose-500" />
           <span className="text-sm font-medium text-gray-700">Specials</span>
         </Link>
         <Link
           href="/patient-portal/resources"
           className="flex items-center gap-3 p-4 rounded-xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors"
         >
-          <BookOpenIcon className="w-5 h-5 text-teal-500" />
+          <BookOpen className="w-5 h-5 text-teal-500" />
           <span className="text-sm font-medium text-gray-700">Resources</span>
         </Link>
       </div>
@@ -166,7 +166,7 @@ export default function LeadDashboard({
           'Personalized treatment plans',
         ].map((item) => (
           <div key={item} className="flex items-center gap-2">
-            <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
             <span className="text-sm text-gray-600">{item}</span>
           </div>
         ))}

@@ -176,7 +176,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       `${req.headers.get('x-forwarded-proto') || 'http'}://${req.headers.get('host')}`;
-    const fullLink = `${baseUrl}/intake/${link.id}`;
+    const fullLink = `${baseUrl}/intake/link/${link.id}`;
 
     // Template should be included based on the service
     const templateName = (link as any).template?.name || `Form Template #${templateId}`;

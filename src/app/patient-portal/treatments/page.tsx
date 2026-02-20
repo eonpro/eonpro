@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import { ArrowRight } from 'lucide-react';
 
 const TREATMENT_CARDS = [
   {
@@ -90,7 +90,7 @@ export default function TreatmentsPage() {
           "
         >
           Start Intake
-          <ArrowRightIcon className="w-4 h-4" />
+          <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     </div>

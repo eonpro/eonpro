@@ -2,11 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {
-  ClipboardDocumentListIcon,
-  ArrowRightIcon,
-  ClockIcon,
-} from '@heroicons/react/24/outline';
+import { ClipboardList, ArrowRight, Clock } from 'lucide-react';
 
 interface IntakeDraft {
   sessionId: string;
@@ -92,13 +88,13 @@ export default function PatientPortalIntakePage() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
-                  <ClipboardDocumentListIcon className="w-5 h-5 text-indigo-500 mt-0.5" />
+                  <ClipboardList className="w-5 h-5 text-indigo-500 mt-0.5" />
                   <div>
                     <h3 className="font-medium text-gray-900">
                       {draft.templateName}
                     </h3>
                     <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
-                      <ClockIcon className="w-3.5 h-3.5" />
+                      <Clock className="w-3.5 h-3.5" />
                       <span>
                         Last saved{' '}
                         {new Date(draft.lastSavedAt).toLocaleDateString()}
@@ -115,7 +111,7 @@ export default function PatientPortalIntakePage() {
                   "
                 >
                   Continue
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
 
@@ -161,7 +157,7 @@ export default function PatientPortalIntakePage() {
                     </p>
                   )}
                 </div>
-                <ArrowRightIcon className="w-5 h-5 text-gray-300" />
+                <ArrowRight className="w-5 h-5 text-gray-300" />
               </div>
             </Link>
           ))}
@@ -171,7 +167,7 @@ export default function PatientPortalIntakePage() {
       {/* Empty state */}
       {drafts.length === 0 && templates.length === 0 && (
         <div className="text-center py-12">
-          <ClipboardDocumentListIcon className="w-12 h-12 text-gray-200 mx-auto" />
+          <ClipboardList className="w-12 h-12 text-gray-200 mx-auto" />
           <h3 className="mt-4 text-base font-medium text-gray-700">
             No intake forms available
           </h3>
