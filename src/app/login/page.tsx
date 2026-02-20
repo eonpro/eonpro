@@ -159,22 +159,38 @@ export default function LoginPage() {
   // OTP input refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Proactively clear stale auth cookies when the login page loads.
-  // Cookies from a previous session (especially hostname-scoped ones created by
-  // client-side token refresh) can shadow the new server-set cookies and cause
-  // "Invalid session" 401 errors immediately after login.
+  // Proactively clear ALL stale auth state when the login page loads.
+  // This ensures a clean slate after logout, preventing auto-login from
+  // surviving localStorage tokens or httpOnly cookies.
   useEffect(() => {
     if (!isBrowser) return;
+
+    // 1. Clear all auth-related localStorage (handleLoginSuccess sets ~14 keys;
+    //    logout functions historically missed some, allowing stale session reuse)
+    const authLocalStorageKeys = [
+      'auth-token', 'token', 'access_token',
+      'refresh-token', 'refresh_token', 'token_timestamp',
+      'admin-token', 'provider-token', 'super_admin-token',
+      'staff-token', 'patient-token', 'support-token', 'affiliate-token',
+      'user', 'clinics', 'activeClinicId',
+    ];
+    authLocalStorageKeys.forEach((key) => localStorage.removeItem(key));
+
+    // 2. Clear non-httpOnly cookies on both hostname and .eonpro.io domain
     const staleCookieNames = [
       'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
       'patient-token', 'staff-token', 'support-token', 'affiliate-token',
+      'selected-clinic',
     ];
     staleCookieNames.forEach((name) => {
-      // Clear on current hostname (e.g. ot.eonpro.io)
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      // Clear on shared parent domain (.eonpro.io)
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
     });
+
+    // 3. Call server logout to clear httpOnly cookies via Set-Cookie headers.
+    //    JavaScript cannot clear httpOnly cookies — only the server can.
+    //    Best-effort, non-blocking; failures are fine (cookies may already be gone).
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   }, []);
 
   // Pre-login health check (fail-open: only block when /api/ready explicitly returns 503)

@@ -19,7 +19,7 @@ export function createAppointmentService(): AppointmentService {
     async listByPatient(patientId: number, clinicId: number) {
       const appointments = await prisma.appointment.findMany({
         where: { patientId, clinicId },
-        orderBy: { scheduledAt: 'desc' },
+        orderBy: { startTime: 'desc' },
         include: { provider: { select: { id: true, firstName: true, lastName: true } } },
       });
       return appointments as unknown as Record<string, unknown>[];
@@ -28,11 +28,11 @@ export function createAppointmentService(): AppointmentService {
     async listByProvider(providerId: number, clinicId: number, dateRange?) {
       const where: any = { providerId, clinicId };
       if (dateRange) {
-        where.scheduledAt = { gte: dateRange.start, lte: dateRange.end };
+        where.startTime = { gte: dateRange.start, lte: dateRange.end };
       }
       const appointments = await prisma.appointment.findMany({
         where,
-        orderBy: { scheduledAt: 'asc' },
+        orderBy: { startTime: 'asc' },
         include: { patient: { select: { id: true, firstName: true, lastName: true } } },
       });
       return appointments as unknown as Record<string, unknown>[];
@@ -46,7 +46,7 @@ export function createAppointmentService(): AppointmentService {
     async cancel(id: number, reason?: string) {
       const updated = await prisma.appointment.update({
         where: { id },
-        data: { status: 'cancelled', cancelReason: reason ?? null },
+        data: { status: 'CANCELLED', cancellationReason: reason ?? null },
       });
       return updated as unknown as Record<string, unknown>;
     },

@@ -43,7 +43,7 @@ export function createAffiliateService(): AffiliateService {
       const [totalCommissions, pendingPayouts, totalReferrals] = await Promise.all([
         basePrisma.affiliateCommissionEvent.aggregate({
           where: { affiliateId },
-          _sum: { amountCents: true },
+          _sum: { commissionAmountCents: true },
         }),
         basePrisma.affiliatePayout.count({
           where: { affiliateId, status: 'PENDING' },
@@ -54,7 +54,7 @@ export function createAffiliateService(): AffiliateService {
       ]);
 
       return {
-        totalCommissionsCents: totalCommissions._sum.amountCents ?? 0,
+        totalCommissionsCents: totalCommissions._sum?.commissionAmountCents ?? 0,
         pendingPayouts,
         totalReferrals,
       };

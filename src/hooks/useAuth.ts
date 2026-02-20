@@ -99,10 +99,14 @@ export function useAuth(requiredRole?: string | string[]) {
   };
 
   const clearAuth = () => {
-    removeLocalStorageItem('auth-token');
-    removeLocalStorageItem('super_admin-token');
-    removeLocalStorageItem('admin-token');
-    removeLocalStorageItem('user');
+    const keys = [
+      'auth-token', 'token', 'access_token',
+      'refresh-token', 'refresh_token', 'token_timestamp',
+      'super_admin-token', 'admin-token', 'provider-token',
+      'staff-token', 'patient-token', 'support-token', 'affiliate-token',
+      'user', 'clinics', 'activeClinicId',
+    ];
+    keys.forEach((k) => removeLocalStorageItem(k));
     setState({
       user: null,
       token: null,

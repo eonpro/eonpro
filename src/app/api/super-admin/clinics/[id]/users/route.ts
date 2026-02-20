@@ -539,10 +539,17 @@ export const POST = withSuperAdminAuth(
       }
 
       // TODO: Send invitation email if sendInvite is true
-      // This would integrate with your email service (SES, SendGrid, etc.)
       if (sendInvite) {
         // TODO: Implement invitation email via SES/SendGrid
         // await sendInvitationEmail({ email, firstName, password, clinicName: clinic.name });
+      }
+
+      // TODO: Send invitation text if sendInviteText is true
+      const { sendInviteText } = body;
+      if (sendInviteText && phone) {
+        // TODO: Implement invitation SMS via Twilio
+        // await sendInvitationSms({ phone, firstName, password, clinicName: clinic.name });
+        logger.info('SMS invitation requested', { userId: newUser.id, clinicId });
       }
 
       return NextResponse.json({

@@ -207,8 +207,8 @@ export function createPrescriptionService(): PrescriptionService {
           medication: med.name,
           strength: med.strength,
           sig: rx.sig,
-          quantity: rx.quantity,
-          refills: rx.refills,
+          quantity: String(rx.quantity),
+          refills: String(rx.refills),
           daysSupply: Number(rx.daysSupply) || 30,
         })),
         shipping: {
@@ -265,7 +265,7 @@ export function createPrescriptionService(): PrescriptionService {
             city: input.patient.city,
             state: input.patient.state,
             zipCode: input.patient.zip,
-            service: input.shippingMethod,
+            service: Number(input.shippingMethod),
           },
           billing: { payorType: 'pat' },
           rxs: rxsWithMeds.map(({ rx, med }) => ({
@@ -274,7 +274,7 @@ export function createPrescriptionService(): PrescriptionService {
             drugStrength: med.strength,
             drugForm: med.formLabel ?? med.form,
             lfProductID: med.id,
-            quantity: rx.quantity,
+            quantity: String(rx.quantity),
             quantityUnits: 'EA',
             directions: rx.sig,
             refills: Number(rx.refills ?? '0'),

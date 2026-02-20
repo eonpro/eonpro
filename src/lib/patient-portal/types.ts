@@ -46,6 +46,13 @@ export type PortalFeatureFlagKey =
 /** Feature flags shape from branding API (Clinic.settings.patientPortal) */
 export type PortalFeatures = Partial<Record<PortalFeatureFlagKey, boolean>>;
 
+/**
+ * Portal mode — determines which portal experience the patient sees.
+ * 'lead' = conversion-focused (intake CTA, treatments, specials)
+ * 'patient' = health-tracking (prescriptions, billing, progress)
+ */
+export type PortalMode = 'lead' | 'patient';
+
 /** Where the module appears in nav: main sidebar, mobile only, or both */
 export type NavSlot = 'main' | 'mobile' | 'both';
 

@@ -131,6 +131,7 @@ model Clinic {
   orders          Order[]
   tickets         Ticket[]
   intakeTemplates IntakeFormTemplate[]
+  intakeDrafts    IntakeFormDraft[]
 
   // Enterprise Ticket System
   ticketTeams           TicketTeam[]

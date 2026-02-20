@@ -36,6 +36,8 @@ import {
   Package,
   ClipboardList,
   AlertCircle,
+  Phone,
+  MessageSquare,
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 import { apiFetch } from '@/lib/api/fetch';
@@ -372,12 +374,13 @@ export default function ClinicDetailPage() {
 
   const [newUser, setNewUser] = useState({
     email: '',
+    phone: '',
     firstName: '',
     lastName: '',
-    role: 'ADMIN', // Uppercase to match dropdown values
+    role: 'ADMIN',
     password: '',
     sendInvite: true,
-    // Provider-specific fields
+    sendInviteText: false,
     npi: '',
     deaNumber: '',
     licenseNumber: '',
@@ -574,11 +577,13 @@ export default function ClinicDetailPage() {
         setShowAddUserModal(false);
         setNewUser({
           email: '',
+          phone: '',
           firstName: '',
           lastName: '',
           role: 'admin',
           password: '',
           sendInvite: true,
+          sendInviteText: false,
           npi: '',
           deaNumber: '',
           licenseNumber: '',
@@ -587,9 +592,13 @@ export default function ClinicDetailPage() {
         });
         setNpiError('');
         fetchClinicUsers();
-        alert(
-          `User created successfully!${newUser.sendInvite ? ' An invitation email has been sent.' : ''}`
-        );
+        const inviteMethods: string[] = [];
+        if (newUser.sendInvite) inviteMethods.push('email');
+        if (newUser.sendInviteText) inviteMethods.push('text message');
+        const inviteMsg = inviteMethods.length > 0
+          ? ` An invitation has been sent via ${inviteMethods.join(' and ')}.`
+          : '';
+        alert(`User created successfully!${inviteMsg}`);
       } else {
         alert(data.error || 'Failed to create user');
       }
@@ -1250,12 +1259,13 @@ export default function ClinicDetailPage() {
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link
-                href="/super-admin/clinics"
+              <button
+                type="button"
+                onClick={() => { window.location.href = '/super-admin/clinics'; }}
                 className="rounded-lg p-2 transition-colors hover:bg-gray-100"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
-              </Link>
+              </button>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-gray-900">{clinic.name}</h1>
@@ -3343,6 +3353,28 @@ export default function ClinicDetailPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={newUser.phone}
+                    onChange={(e) => {
+                      const formatted = e.target.value.replace(/[^\d+\-() ]/g, '');
+                      setNewUser({ ...newUser, phone: formatted });
+                    }}
+                    className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Used for SMS authentication and text notifications
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
                   Temporary Password *
                 </label>
                 <div className="relative">
@@ -3368,17 +3400,38 @@ export default function ClinicDetailPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="sendInvite"
-                  checked={newUser.sendInvite}
-                  onChange={(e) => setNewUser({ ...newUser, sendInvite: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                />
-                <label htmlFor="sendInvite" className="text-sm text-gray-700">
-                  Send invitation email with login details
-                </label>
+              <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Send Invitation</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="sendInvite"
+                    checked={newUser.sendInvite}
+                    onChange={(e) => setNewUser({ ...newUser, sendInvite: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <Mail className="h-4 w-4 text-gray-400" />
+                  <label htmlFor="sendInvite" className="text-sm text-gray-700">
+                    Send invitation via email
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="sendInviteText"
+                    checked={newUser.sendInviteText}
+                    onChange={(e) => setNewUser({ ...newUser, sendInviteText: e.target.checked })}
+                    disabled={!newUser.phone}
+                    className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 disabled:opacity-40"
+                  />
+                  <MessageSquare className={`h-4 w-4 ${newUser.phone ? 'text-gray-400' : 'text-gray-300'}`} />
+                  <label htmlFor="sendInviteText" className={`text-sm ${newUser.phone ? 'text-gray-700' : 'text-gray-400'}`}>
+                    Send invitation via text message
+                  </label>
+                </div>
+                {!newUser.phone && newUser.sendInviteText === false && (
+                  <p className="text-xs text-gray-400 pl-6">Add a phone number above to enable text invitations</p>
+                )}
               </div>
 
               <div className="flex gap-3 border-t border-gray-200 pt-4">
