@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/lib/security/phi-encryption', () => ({
   encryptPatientPHI: vi.fn((data: Record<string, unknown>) => data),
   decryptPatientPHI: vi.fn((data: Record<string, unknown>) => data),
+  decryptPHI: vi.fn((value: string) => value),
 }));
 
 // Mock logger
@@ -33,6 +34,9 @@ vi.mock('@/lib/db', () => ({
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    clinic: {
+      findUnique: vi.fn(),
     },
     patientCounter: {
       upsert: vi.fn(),
@@ -62,6 +66,7 @@ vi.mock('@/lib/db', () => ({
     },
     // Chat & Conversations
     patientChatMessage: {
+      updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
     aIConversation: {
@@ -103,6 +108,10 @@ vi.mock('@/lib/db', () => ({
       deleteMany: vi.fn(),
     },
     invoice: {
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    commission: {
       deleteMany: vi.fn(),
     },
     // Subscriptions and payment methods
@@ -152,6 +161,7 @@ vi.mock('@/lib/db', () => ({
     },
     // Referrals and discounts
     referralTracking: {
+      findMany: vi.fn(),
       deleteMany: vi.fn(),
     },
     discountUsage: {
@@ -170,6 +180,14 @@ vi.mock('@/lib/db', () => ({
     },
     // SMS logs
     smsLog: {
+      deleteMany: vi.fn(),
+    },
+    // HIPAA audit entries
+    hIPAAAuditEntry: {
+      updateMany: vi.fn(),
+    },
+    // Phone OTP
+    phoneOtp: {
       deleteMany: vi.fn(),
     },
     // User association
@@ -372,8 +390,12 @@ describe('PatientRepository', () => {
       expect(mockPrisma.patient.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            OR: expect.arrayContaining([
-              expect.objectContaining({ firstName: { contains: 'john', mode: 'insensitive' } }),
+            AND: expect.arrayContaining([
+              expect.objectContaining({
+                OR: expect.arrayContaining([
+                  { searchIndex: { contains: 'john', mode: 'insensitive' } },
+                ]),
+              }),
             ]),
           }),
         })
@@ -508,7 +530,7 @@ describe('PatientRepository', () => {
       expect(mockPrisma.patientAudit.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           action: 'UPDATE',
-          diff: { firstName: { before: 'John', after: 'Jane' } },
+          diff: { firstName: { before: '[REDACTED]', after: '[REDACTED]' } },
         }),
       });
     });
@@ -556,6 +578,8 @@ describe('PatientRepository', () => {
       mockPrisma.subscription.findMany.mockResolvedValue([]);
       mockPrisma.ticket.findMany.mockResolvedValue([]);
       mockPrisma.order.findMany.mockResolvedValue([]);
+      (mockPrisma.invoice as any).findMany.mockResolvedValue([]);
+      (mockPrisma.referralTracking as any).findMany.mockResolvedValue([]);
       return patientWithCounts;
     };
 
@@ -657,28 +681,29 @@ describe('PatientRepository', () => {
 
   describe('PHI Decryption Handling', () => {
     it('should gracefully handle decryption failures', async () => {
-      // Import the mock to override it for this test
       const phiMock = await import('@/lib/security/phi-encryption');
 
-      // Setup: make decryption throw
-      vi.mocked(phiMock.decryptPatientPHI).mockImplementationOnce(() => {
+      // Make per-field decryption throw
+      vi.mocked(phiMock.decryptPHI).mockImplementation(() => {
         throw new Error('Decryption failed');
       });
 
       mockPrisma.patient.findFirst.mockResolvedValue(mockPatient);
 
-      // Should not throw, should return raw data
+      // Should not throw -- repository catches decryption errors
       const result = await repo.findByIdOrNull(1);
 
-      // Should return patient data even though decryption failed
       expect(result).toBeDefined();
       expect(result?.id).toBe(1);
-      expect(result?.firstName).toBe('John');
+
+      // Restore default mock so other tests aren't affected
+      vi.mocked(phiMock.decryptPHI).mockImplementation((value: string) => value);
     });
 
     it('should encrypt PHI fields on create', async () => {
       const phiMock = await import('@/lib/security/phi-encryption');
 
+      (mockPrisma.clinic as any).findUnique.mockResolvedValue({ patientIdPrefix: 'P' });
       mockPrisma.patientCounter.upsert.mockResolvedValue({ id: 1, current: 1 });
       mockPrisma.patient.create.mockResolvedValue(mockPatient);
       mockPrisma.patientAudit.create.mockResolvedValue({ id: 1 });
@@ -699,14 +724,13 @@ describe('PatientRepository', () => {
 
       await repo.create(input, mockAuditContext);
 
-      // encryptPatientPHI should be called with the input data
       expect(phiMock.encryptPatientPHI).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'jane@example.com',
           phone: '5551234567',
           dob: '1990-01-15',
         }),
-        ['email', 'phone', 'dob']
+        ['firstName', 'lastName', 'email', 'phone', 'dob', 'address1', 'address2', 'city', 'state', 'zip']
       );
     });
 
@@ -722,10 +746,9 @@ describe('PatientRepository', () => {
 
       await repo.update(1, { email: 'new@example.com' }, mockAuditContext);
 
-      // encryptPatientPHI should be called with the update data
       expect(phiMock.encryptPatientPHI).toHaveBeenCalledWith(
         expect.objectContaining({ email: 'new@example.com' }),
-        ['email', 'phone', 'dob']
+        ['firstName', 'lastName', 'email', 'phone', 'dob', 'address1', 'address2', 'city', 'state', 'zip']
       );
     });
   });

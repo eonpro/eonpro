@@ -72,6 +72,7 @@ vi.mock('@/lib/logger', () => ({
 
 vi.mock('@/lib/security/phi-encryption', () => ({
   decryptPatientPHI: vi.fn((patient: Record<string, unknown>) => patient),
+  encryptPatientPHI: vi.fn((data: Record<string, unknown>) => data),
 }));
 
 // Helper to create fresh mock prisma for each test

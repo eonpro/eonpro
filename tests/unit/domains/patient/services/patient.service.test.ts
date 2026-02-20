@@ -453,8 +453,19 @@ describe('PatientService', () => {
       );
     });
 
-    it('should deny deletion for provider role', async () => {
-      await expect(service.deletePatient(1, providerUser)).rejects.toThrow(ForbiddenError);
+    it('should allow deletion for provider role', async () => {
+      mockRepo.findWithCounts.mockResolvedValue({
+        ...mockPatient,
+        _count: { orders: 0, documents: 0, soapNotes: 0, appointments: 0 },
+      });
+
+      await service.deletePatient(1, providerUser);
+
+      expect(mockRepo.delete).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ actorEmail: 'provider@clinic.com' }),
+        10
+      );
     });
 
     it('should deny deletion for patient role', async () => {

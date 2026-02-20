@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { formatPlanPrice } from '@/config/billingPlans';
-import { Patient, Provider, Order } from '@/types/models';
+import { formatPlanPrice, getGroupedPlans } from '@/config/billingPlans';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface Subscription {
@@ -19,6 +18,7 @@ interface Subscription {
   canceledAt: string | null;
   pausedAt: string | null;
   resumeAt: string | null;
+  stripeSubscriptionId: string | null;
 }
 
 interface ShipmentEntry {
@@ -35,17 +35,31 @@ interface ShipmentEntry {
 interface PatientSubscriptionManagerProps {
   patientId: number;
   patientName: string;
+  clinicSubdomain?: string | null;
 }
 
 export function PatientSubscriptionManager({
   patientId,
   patientName,
+  clinicSubdomain,
 }: PatientSubscriptionManagerProps) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [shipmentSchedules, setShipmentSchedules] = useState<ShipmentEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
+
+  // Manual enrollment form state
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualPlanId, setManualPlanId] = useState('');
+  const [manualStartDate, setManualStartDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [manualNotes, setManualNotes] = useState('');
+  const [manualQueueRefill, setManualQueueRefill] = useState(true);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [manualSuccess, setManualSuccess] = useState<string | null>(null);
 
   // IMPORTANT: Do NOT send explicit Authorization headers from localStorage.
   // For same-origin requests, apiFetch relies on httpOnly cookies set by the server.
@@ -142,6 +156,50 @@ export function PatientSubscriptionManager({
     }
   };
 
+  const handleManualEnroll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualPlanId) {
+      setManualError('Please select a plan');
+      return;
+    }
+
+    setManualSubmitting(true);
+    setManualError(null);
+    setManualSuccess(null);
+
+    try {
+      const res = await apiFetch(`/api/patients/${patientId}/subscriptions/manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: manualPlanId,
+          startDate: manualStartDate || undefined,
+          notes: manualNotes || undefined,
+          queueRefill: manualQueueRefill,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to enroll');
+
+      setManualSuccess(
+        `Enrolled in ${data.subscription.planName}` +
+          (data.refill ? ' — refill queued for admin review' : '')
+      );
+      setManualPlanId('');
+      setManualNotes('');
+      setManualQueueRefill(true);
+      setShowManualForm(false);
+      await fetchSubscriptions();
+    } catch (err: unknown) {
+      setManualError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
+  const groupedPlans = getGroupedPlans(clinicSubdomain);
+
   const getStatusBadge = (subscription: Subscription) => {
     const status = subscription.status.toUpperCase();
     let className = 'px-2 py-1 text-xs font-medium rounded-full ';
@@ -216,11 +274,110 @@ export function PatientSubscriptionManager({
 
   const hasShipments = Object.keys(shipmentSeries).length > 0;
 
+  const manualEnrollmentForm = (
+    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+      <form onSubmit={handleManualEnroll} className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold text-gray-700">Manual Enrollment</h4>
+          <button
+            type="button"
+            onClick={() => { setShowManualForm(false); setManualError(null); setManualSuccess(null); }}
+            className="text-xs text-gray-400 hover:text-gray-600"
+          >
+            Cancel
+          </button>
+        </div>
+
+        {manualError && (
+          <div className="rounded bg-red-50 p-2 text-sm text-red-700">{manualError}</div>
+        )}
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Plan</label>
+          <select
+            value={manualPlanId}
+            onChange={(e) => setManualPlanId(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+            required
+          >
+            <option value="">Select a plan...</option>
+            {Object.entries(groupedPlans).map(([key, group]) => (
+              <optgroup key={key} label={group.label}>
+                {group.plans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.name} — {formatPlanPrice(plan.price)}
+                    {plan.isRecurring ? ' /recurring' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">Start Date</label>
+          <input
+            type="date"
+            value={manualStartDate}
+            onChange={(e) => setManualStartDate(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">
+            Notes <span className="font-normal text-gray-400">(e.g., &quot;Paid via old EMR through 03/2026&quot;)</span>
+          </label>
+          <textarea
+            value={manualNotes}
+            onChange={(e) => setManualNotes(e.target.value)}
+            rows={2}
+            className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+            placeholder="Migration notes..."
+          />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={manualQueueRefill}
+            onChange={(e) => setManualQueueRefill(e.target.checked)}
+            className="rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+          />
+          Queue refill for admin review now
+        </label>
+
+        <button
+          type="submit"
+          disabled={manualSubmitting || !manualPlanId}
+          className="w-full rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660] disabled:opacity-50"
+        >
+          {manualSubmitting ? 'Enrolling...' : 'Enroll Patient'}
+        </button>
+      </form>
+    </div>
+  );
+
   if (subscriptions.length === 0 && !hasShipments) {
     return (
       <div className="rounded-lg bg-white p-6 shadow">
-        <h3 className="mb-4 text-lg font-semibold">Subscriptions & Treatment Plans</h3>
-        <p className="text-gray-500">No active subscriptions or prepaid treatment plans</p>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Subscriptions & Treatment Plans</h3>
+          {!showManualForm && (
+            <button
+              onClick={() => setShowManualForm(true)}
+              className="rounded-lg border border-[#4fa77e] px-3 py-1.5 text-sm font-medium text-[#4fa77e] hover:bg-[#4fa77e]/5"
+            >
+              + Manual Enrollment
+            </button>
+          )}
+        </div>
+        {manualSuccess && (
+          <div className="mb-4 rounded bg-green-50 p-2 text-sm text-green-700">{manualSuccess}</div>
+        )}
+        {showManualForm ? manualEnrollmentForm : (
+          <p className="text-gray-500">No active subscriptions or prepaid treatment plans</p>
+        )}
       </div>
     );
   }
@@ -228,7 +385,23 @@ export function PatientSubscriptionManager({
   return (
     <div className="rounded-lg bg-white shadow">
       <div className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">Subscriptions & Treatment Plans</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Subscriptions & Treatment Plans</h3>
+          {!showManualForm && (
+            <button
+              onClick={() => setShowManualForm(true)}
+              className="rounded-lg border border-[#4fa77e] px-3 py-1.5 text-sm font-medium text-[#4fa77e] hover:bg-[#4fa77e]/5"
+            >
+              + Manual Enrollment
+            </button>
+          )}
+        </div>
+
+        {manualSuccess && (
+          <div className="mb-4 rounded bg-green-50 p-2 text-sm text-green-700">{manualSuccess}</div>
+        )}
+
+        {showManualForm && <div className="mb-6">{manualEnrollmentForm}</div>}
 
         {/* Prepaid Shipment Schedules (WellMedR multi-month plans) */}
         {hasShipments && (
@@ -306,7 +479,14 @@ export function PatientSubscriptionManager({
                   <h4 className="font-medium text-gray-900">{subscription.planName}</h4>
                   <p className="text-sm text-gray-600">{subscription.planDescription}</p>
                 </div>
-                <div className="ml-4">{getStatusBadge(subscription)}</div>
+                <div className="ml-4 flex items-center gap-2">
+                  {getStatusBadge(subscription)}
+                  {!subscription.stripeSubscriptionId && (
+                    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                      Manual
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="mb-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">

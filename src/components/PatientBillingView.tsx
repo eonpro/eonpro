@@ -948,7 +948,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
       {/* Subscriptions Tab */}
       {activeTab === 'subscriptions' && (
-        <PatientSubscriptionManager patientId={patientId} patientName={patientName} />
+        <PatientSubscriptionManager patientId={patientId} patientName={patientName} clinicSubdomain={clinicSubdomain} />
       )}
 
       {/* Refund Modal */}

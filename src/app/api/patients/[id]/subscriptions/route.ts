@@ -49,6 +49,7 @@ const getSubscriptionsHandler = withAuthParams(
         canceledAt: sub.canceledAt?.toISOString() || null,
         pausedAt: sub.pausedAt?.toISOString() || null,
         resumeAt: sub.resumeAt?.toISOString() || null,
+        stripeSubscriptionId: sub.stripeSubscriptionId || null,
       }));
 
       return NextResponse.json(formattedSubscriptions);

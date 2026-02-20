@@ -1099,26 +1099,28 @@ export async function hasPendingRefillsAwaitingPayment(
 // ============================================================================
 
 /**
- * Trigger a refill entry when a subscription payment is confirmed.
+ * Trigger a refill entry when a subscription payment is confirmed (or manually enrolled).
  *
- * This creates a RefillQueue entry that skips both payment verification
- * and admin approval, going straight to PENDING_PROVIDER so the provider
- * can prescribe immediately.
+ * Creates a RefillQueue entry at PENDING_ADMIN with payment auto-verified.
+ * Admin must still review and approve before it goes to provider queue.
  *
  * Called by:
  * - Stripe webhook on invoice.payment_succeeded (for subscription renewals)
  * - SubscriptionLifecycleService on subscription creation (first refill)
  * - SubscriptionLifecycleService on subscription resume
+ * - Manual enrollment API (with paymentMethod='MANUAL_VERIFIED')
  *
  * @param subscriptionId - The local Subscription ID
  * @param stripePaymentId - Optional Stripe payment intent/charge ID
  * @param invoiceId - Optional local Invoice ID
+ * @param paymentMethodOverride - Override payment method label (defaults to 'STRIPE_AUTO')
  * @returns The created RefillQueue entry, or null if skipped
  */
 export async function triggerRefillForSubscriptionPayment(
   subscriptionId: number,
   stripePaymentId?: string,
-  invoiceId?: number
+  invoiceId?: number,
+  paymentMethodOverride?: string
 ): Promise<RefillQueue | null> {
   const subscription = await prisma.subscription.findUnique({
     where: { id: subscriptionId },
@@ -1174,7 +1176,7 @@ export async function triggerRefillForSubscriptionPayment(
       paymentVerified: true,
       paymentVerifiedAt: now,
       paymentVerifiedBy: 0,
-      paymentMethod: 'STRIPE_AUTO',
+      paymentMethod: paymentMethodOverride || 'STRIPE_AUTO',
       stripePaymentId: stripePaymentId || undefined,
       invoiceId: invoiceId || undefined,
       adminApproved: false,

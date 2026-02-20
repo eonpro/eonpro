@@ -77,10 +77,10 @@ export function createWebhookService(): WebhookService {
           .createHmac('sha256', options.secret)
           .update(options.rawBody)
           .digest('hex');
-        return crypto.timingSafeEqual(
-          Buffer.from(options.signature),
-          Buffer.from(expected),
-        );
+        const sigBuf = Buffer.from(options.signature);
+        const expBuf = Buffer.from(expected);
+        if (sigBuf.length !== expBuf.length) return false;
+        return crypto.timingSafeEqual(sigBuf, expBuf);
       }
 
       if (options.algorithm === 'hmac-sha1') {
@@ -88,10 +88,10 @@ export function createWebhookService(): WebhookService {
           .createHmac('sha1', options.secret)
           .update(options.rawBody)
           .digest('hex');
-        return crypto.timingSafeEqual(
-          Buffer.from(options.signature),
-          Buffer.from(expected),
-        );
+        const sigBuf = Buffer.from(options.signature);
+        const expBuf = Buffer.from(expected);
+        if (sigBuf.length !== expBuf.length) return false;
+        return crypto.timingSafeEqual(sigBuf, expBuf);
       }
 
       // Stripe signature handled separately by Stripe SDK
