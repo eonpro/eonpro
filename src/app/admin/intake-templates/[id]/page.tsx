@@ -27,6 +27,7 @@ export default function IntakeTemplateEditorPage() {
   const [configJson, setConfigJson] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'config' | 'preview'>('overview');
+  const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
 
   useEffect(() => {
     fetch(`/api/admin/intake-templates/${templateId}`)
@@ -245,18 +246,134 @@ export default function IntakeTemplateEditorPage() {
 
       {/* Preview tab */}
       {activeTab === 'preview' && (
-        <div className="rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-            <p className="text-sm text-gray-600">
-              Preview opens the form in an iframe. Changes must be saved first.
-            </p>
+        <PreviewTab
+          template={template}
+          configJson={configJson}
+          device={previewDevice}
+          onDeviceChange={setPreviewDevice}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Preview Tab
+// ---------------------------------------------------------------------------
+
+function PreviewTab({
+  template,
+  configJson,
+  device,
+  onDeviceChange,
+}: {
+  template: TemplateDetail;
+  configJson: string;
+  device: 'mobile' | 'desktop';
+  onDeviceChange: (d: 'mobile' | 'desktop') => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState(0);
+
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    const clinicSlug = parts.length >= 3 ? parts[0] : 'app';
+    const slug = template.treatmentType || String(template.id);
+
+    let startStep = 'start';
+    if (configJson.trim()) {
+      try {
+        const cfg = JSON.parse(configJson);
+        if (cfg.startStep) startStep = cfg.startStep;
+      } catch { /* use default */ }
+    }
+
+    setPreviewUrl(`/intake/${clinicSlug}/${slug}/${startStep}`);
+  }, [template, configJson]);
+
+  const iframeWidth = device === 'mobile' ? 390 : '100%';
+  const iframeHeight = device === 'mobile' ? 700 : 800;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            {(['mobile', 'desktop'] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => onDeviceChange(d)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  device === d
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {d === 'mobile' ? '📱 Mobile' : '🖥 Desktop'}
+              </button>
+            ))}
           </div>
-          <div className="bg-white p-4 text-center py-16 text-gray-400">
-            Preview functionality coming soon. Save the template and visit the
-            form URL to preview.
-          </div>
+          <span className="text-xs text-gray-400">
+            {device === 'mobile' ? '390 × 700' : 'Full width'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {previewUrl && (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-indigo-600 hover:underline"
+            >
+              Open in new tab ↗
+            </a>
+          )}
+          <button
+            onClick={() => setPreviewKey((k) => k + 1)}
+            className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Reload
+          </button>
+        </div>
+      </div>
+
+      {!template.isActive && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+          This template is inactive. Activate it before previewing — the config
+          API will return 404 for inactive templates.
         </div>
       )}
+
+      <div className="rounded-xl border border-gray-200 bg-gray-100 overflow-hidden flex justify-center p-4">
+        {previewUrl ? (
+          <div
+            className={`bg-white rounded-xl overflow-hidden shadow-lg ${
+              device === 'mobile' ? 'border border-gray-300' : 'w-full'
+            }`}
+            style={device === 'mobile' ? { width: iframeWidth } : undefined}
+          >
+            <iframe
+              key={previewKey}
+              src={previewUrl}
+              width="100%"
+              height={iframeHeight}
+              className="border-0"
+              title="Intake form preview"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+            />
+          </div>
+        ) : (
+          <div className="py-16 text-gray-400 text-center">
+            Loading preview URL...
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-gray-400">
+        Preview renders the live form. Save your changes first — the preview
+        uses the last-saved configuration.
+      </p>
     </div>
   );
 }
