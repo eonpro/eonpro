@@ -61,7 +61,10 @@ type TokenEntry = {
 
 const tokenCache = new Map<string, TokenEntry>();
 
-const FEDEX_API_BASE = 'https://apis.fedex.com';
+const FEDEX_API_BASE =
+  process.env.FEDEX_SANDBOX === 'true'
+    ? 'https://apis-sandbox.fedex.com'
+    : 'https://apis.fedex.com';
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 min before expiry
 
 async function getAccessToken(credentials: FedExCredentials): Promise<string> {
