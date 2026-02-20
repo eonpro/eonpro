@@ -179,12 +179,19 @@ async function ensureValidToken(): Promise<string | null> {
 export function clearAuthTokens() {
   if (typeof window === 'undefined') return;
 
+  // Clear localStorage
   const tokenKeys = [
-    'auth-token', 'token', 'access_token',
-    'refresh-token', 'refresh_token', 'token_timestamp',
-    'super_admin-token', 'admin-token', 'provider-token',
-    'staff-token', 'patient-token', 'support-token', 'affiliate-token',
-    'user', 'clinics', 'activeClinicId',
+    'auth-token',
+    'access_token',
+    'refresh-token',
+    'refresh_token',
+    'super_admin-token',
+    'admin-token',
+    'provider-token',
+    'affiliate-token',
+    'patient-token',
+    'token_timestamp',
+    'user',
   ];
 
   tokenKeys.forEach((key) => localStorage.removeItem(key));
@@ -193,13 +200,20 @@ export function clearAuthTokens() {
   // Cookies are identified by (name, domain, path) — clearing without domain only
   // removes hostname-scoped cookies, leaving .eonpro.io ones intact.
   const cookieNames = [
-    'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
-    'affiliate-token', 'patient-token', 'staff-token', 'support-token',
-    'selected-clinic',
+    'auth-token',
+    'admin-token',
+    'super_admin-token',
+    'provider-token',
+    'affiliate-token',
+    'patient-token',
+    'staff-token',
+    'support-token',
   ];
 
   cookieNames.forEach((name) => {
+    // Clear on current hostname (e.g. ot.eonpro.io)
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    // Clear on shared parent domain (.eonpro.io)
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
   });
 }

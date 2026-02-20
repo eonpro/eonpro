@@ -116,25 +116,26 @@ export function createWebhookService(): WebhookService {
         return { id: 0, status: 'duplicate' };
       }
 
-      // Step 2: Persist raw payload to WebhookLog for audit trail and replay
-      const logEntry = await basePrisma.webhookLog.create({
+      // Step 2: Persist raw payload for audit trail and replay capability
+      const delivery = await basePrisma.webhookDelivery.create({
         data: {
           source: options.source,
           eventType: options.eventType,
           payload: options.payload as any,
-          status: 'SUCCESS',
-          metadata: { rawBody: options.rawBody, signature: options.signature ?? null },
-          ...(options.clinicId ? { clinicId: options.clinicId } : {}),
+          rawBody: options.rawBody,
+          signature: options.signature ?? null,
+          idempotencyKey,
+          status: 'RECEIVED',
+          receivedAt: new Date(),
         },
       });
 
-      // Step 3: Record idempotency key
+      // Step 3: Record idempotency key (7-day TTL)
       await basePrisma.idempotencyRecord.create({
         data: {
           key: idempotencyKey,
-          resource: `webhook_${options.source}`,
-          responseStatus: 200,
-          responseBody: { logId: logEntry.id } as any,
+          response: JSON.stringify({ deliveryId: delivery.id }),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       });
 
@@ -146,7 +147,7 @@ export function createWebhookService(): WebhookService {
           method: 'POST',
           headers: options.headers ?? {},
           body: JSON.stringify({
-            logId: logEntry.id,
+            deliveryId: delivery.id,
             source: options.source,
             eventType: options.eventType,
             payload: options.payload,
@@ -155,35 +156,38 @@ export function createWebhookService(): WebhookService {
         });
       } catch (err) {
         logger.warn('[WebhookService] BullMQ enqueue failed, processing synchronously', {
-          logId: logEntry.id,
+          deliveryId: delivery.id,
           error: err instanceof Error ? err.message : 'Unknown',
         });
 
+        // Fallback: process synchronously if queue unavailable
         const handler = getWebhookHandler(options.source);
         if (handler) {
           try {
-            await handler(logEntry.id, options.payload);
+            await handler(delivery.id, options.payload);
           } catch (handlerErr) {
             logger.error('[WebhookService] Synchronous handler failed', {
-              logId: logEntry.id,
+              deliveryId: delivery.id,
               source: options.source,
               error: handlerErr instanceof Error ? handlerErr.message : 'Unknown',
-            });
-            await basePrisma.webhookLog.update({
-              where: { id: logEntry.id },
-              data: { status: 'PROCESSING_ERROR', errorMessage: handlerErr instanceof Error ? handlerErr.message : 'Unknown' },
             });
           }
         }
       }
 
+      // Step 5: Mark as processing
+      await basePrisma.webhookDelivery.update({
+        where: { id: delivery.id },
+        data: { status: 'PROCESSING' },
+      });
+
       logger.info('[WebhookService] Webhook accepted', {
         source: options.source,
         eventType: options.eventType,
-        logId: logEntry.id,
+        deliveryId: delivery.id,
       });
 
-      return { id: logEntry.id, status: 'accepted', deliveryId: logEntry.id };
+      return { id: delivery.id, status: 'accepted', deliveryId: delivery.id };
     },
   };
 }

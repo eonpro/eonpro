@@ -108,30 +108,23 @@ export default function PatientLoginPage() {
   const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
   const [isMainApp, setIsMainApp] = useState(false);
 
-  // Clear all stale auth state on mount to prevent auto-login from previous session
+  // Proactively clear stale auth cookies
   useEffect(() => {
     if (!isBrowser) return;
-
-    const authLocalStorageKeys = [
-      'auth-token', 'token', 'access_token',
-      'refresh-token', 'refresh_token', 'token_timestamp',
-      'admin-token', 'provider-token', 'super_admin-token',
-      'staff-token', 'patient-token', 'support-token', 'affiliate-token',
-      'user', 'clinics', 'activeClinicId',
-    ];
-    authLocalStorageKeys.forEach((key) => localStorage.removeItem(key));
-
     const staleCookieNames = [
-      'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
-      'patient-token', 'staff-token', 'support-token', 'affiliate-token',
-      'selected-clinic',
+      'auth-token',
+      'admin-token',
+      'super_admin-token',
+      'provider-token',
+      'patient-token',
+      'staff-token',
+      'support-token',
+      'affiliate-token',
     ];
     staleCookieNames.forEach((name) => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
     });
-
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   }, []);
 
   // Resolve clinic branding

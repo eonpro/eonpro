@@ -64,30 +64,6 @@ export default function AffiliateLoginPage() {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  // Clear all stale auth state on mount to prevent auto-login from previous session
-  useEffect(() => {
-    const authLocalStorageKeys = [
-      'auth-token', 'token', 'access_token',
-      'refresh-token', 'refresh_token', 'token_timestamp',
-      'admin-token', 'provider-token', 'super_admin-token',
-      'staff-token', 'patient-token', 'support-token', 'affiliate-token',
-      'user', 'clinics', 'activeClinicId',
-    ];
-    authLocalStorageKeys.forEach((key) => localStorage.removeItem(key));
-
-    const staleCookieNames = [
-      'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
-      'patient-token', 'staff-token', 'support-token', 'affiliate-token',
-      'selected-clinic',
-    ];
-    staleCookieNames.forEach((name) => {
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
-    });
-
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-  }, []);
-
   // Resolve clinic from domain and load branding
   useEffect(() => {
     const resolveClinic = async () => {

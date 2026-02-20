@@ -53,7 +53,6 @@ model Patient {
   user                    User?
   portalInvites           PatientPortalInvite[] // One-time portal invite tokens (manual, first_payment, first_order)
   intakeSubmissions       IntakeFormSubmission[]
-  intakeDrafts            IntakeFormDraft[]
   weightLogs              PatientWeightLog[]
   medicationReminders     PatientMedicationReminder[]
   waterLogs               PatientWaterLog[]
@@ -151,7 +150,6 @@ model PatientCounter {
 // Used to track patients that need additional information or merging
 enum ProfileStatus {
   ACTIVE // Complete profile, normal patient
-  LEAD // Created account but has not completed intake
   PENDING_COMPLETION // Auto-created from payment with incomplete info (missing email/name)
   MERGED // Profile was merged into another patient (retained for audit)
   ARCHIVED // Soft deleted or archived

@@ -75,7 +75,7 @@ export function createAuthService(): AuthService {
       }
 
       // Check account lockout
-      if (user.lockedUntil && user.lockedUntil > new Date()) {
+      if (user.isLocked) {
         return {
           success: false,
           error: 'Account is locked. Please contact your administrator.',

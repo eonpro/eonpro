@@ -110,24 +110,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearTokens = useCallback(() => {
-    const keys = [
-      'access_token', 'refresh_token', 'token_timestamp',
-      'auth-token', 'token', 'refresh-token',
-      'admin-token', 'provider-token', 'super_admin-token',
-      'staff-token', 'patient-token', 'support-token', 'affiliate-token',
-      'user', 'clinics', 'activeClinicId',
-    ];
-    keys.forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('token_timestamp');
 
-    const cookieNames = [
-      'auth-token', 'admin-token', 'provider-token', 'affiliate-token',
-      'patient-token', 'super_admin-token', 'staff-token', 'support-token',
-      'selected-clinic',
-    ];
-    cookieNames.forEach((name) => {
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
-    });
+    // Clear all role-specific cookies
+    document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'admin-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'provider-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'affiliate-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'patient-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   }, []);
 
   /**
