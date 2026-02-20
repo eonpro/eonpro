@@ -46,15 +46,11 @@ import { portalFetch } from '@/lib/api/patient-portal-client';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import {
   NAV_MODULES,
-  LEAD_NAV_MODULES,
   MOBILE_LABEL_OVERRIDE,
-  LEAD_MOBILE_LABEL_OVERRIDE,
   getEnabledNavModuleIds,
   getNavModuleIdForPath,
   isPortalPath,
-  getPortalMode,
 } from '@/lib/patient-portal';
-import type { PortalMode } from '@/lib/patient-portal';
 import type { LucideIcon } from 'lucide-react';
 
 // Icon mapping for nav (registry holds data; icons stay here for tree-shaking)
@@ -76,13 +72,6 @@ const NAV_ICON_MAP: Record<string, LucideIcon> = {
   billing: CreditCard,
   devices: Watch,
   settings: Settings,
-  // Lead nav icons
-  'lead-home': Home,
-  'lead-intake': Activity,
-  'lead-treatments': HeartPulse,
-  'lead-specials': Scale,
-  'lead-resources': BookOpen,
-  'lead-settings': Settings,
 };
 
 function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
@@ -98,40 +87,25 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState(0);
-  const [portalMode, setPortalMode] = useState<PortalMode>('patient');
 
   // Build nav from registry (single source of truth; clinic features + treatment gate visibility)
   const enabledNavIds = getEnabledNavModuleIds(features, branding?.primaryTreatment);
-  const activeModules = portalMode === 'lead' ? LEAD_NAV_MODULES : NAV_MODULES;
-  const activeLabelOverrides = portalMode === 'lead' ? LEAD_MOBILE_LABEL_OVERRIDE : MOBILE_LABEL_OVERRIDE;
-
-  const mainNavItems = (portalMode === 'lead'
-    ? [...activeModules]
-    : activeModules.filter(
-        (m) => (m.navSlot === 'main' || m.navSlot === 'both') && enabledNavIds.includes(m.id)
-      )
-  )
-    .filter((m) => m.navSlot === 'main' || m.navSlot === 'both')
-    .map((m) => ({
-      icon: NAV_ICON_MAP[m.id] ?? Settings,
-      path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
-      labelKey: m.labelKey,
-      exact: m.exact ?? false,
-    }));
-
-  const mobileNavItems = (portalMode === 'lead'
-    ? [...activeModules]
-    : activeModules.filter(
-        (m) => m.navSlot === 'both' && enabledNavIds.includes(m.id)
-      )
-  )
-    .filter((m) => m.navSlot === 'both')
-    .map((m) => ({
-      icon: m.id === 'settings' || m.id === 'lead-settings' ? User : (NAV_ICON_MAP[m.id] ?? Settings),
-      path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
-      labelKey: activeLabelOverrides[m.id] ?? m.labelKey,
-      exact: m.exact ?? false,
-    }));
+  const mainNavItems = NAV_MODULES.filter(
+    (m) => (m.navSlot === 'main' || m.navSlot === 'both') && enabledNavIds.includes(m.id)
+  ).map((m) => ({
+    icon: NAV_ICON_MAP[m.id] ?? Settings,
+    path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
+    labelKey: m.labelKey,
+    exact: m.exact ?? false,
+  }));
+  const mobileNavItems = NAV_MODULES.filter(
+    (m) => m.navSlot === 'both' && enabledNavIds.includes(m.id)
+  ).map((m) => ({
+    icon: m.id === 'settings' ? User : (NAV_ICON_MAP[m.id] ?? Settings),
+    path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
+    labelKey: MOBILE_LABEL_OVERRIDE[m.id] ?? m.labelKey,
+    exact: m.exact ?? false,
+  }));
 
   // Check if chat should be shown
   const showChat = features.showChat !== false;
@@ -213,30 +187,6 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [userData?.id]);
-
-  // Detect portal mode (lead vs patient) based on profile status
-  useEffect(() => {
-    if (!userData?.patientId) return;
-    let cancelled = false;
-    portalFetch('/api/patient-portal/profile/status')
-      .then((res) => {
-        if (!res.ok || cancelled) return;
-        return safeParseJson(res);
-      })
-      .then((data) => {
-        if (cancelled || !data || typeof data !== 'object') return;
-        const d = data as { profileStatus?: string; hasCompletedIntake?: boolean };
-        const mode = getPortalMode(
-          d.profileStatus ?? 'ACTIVE',
-          d.hasCompletedIntake ?? true,
-        );
-        setPortalMode(mode);
-      })
-      .catch(() => {
-        // Default to patient mode on error
-      });
-    return () => { cancelled = true; };
-  }, [userData?.patientId]);
 
   // Route guard: redirect if user landed on a disabled module URL (e.g. bookmark)
   useEffect(() => {

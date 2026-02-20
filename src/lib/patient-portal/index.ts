@@ -7,12 +7,9 @@
 export * from './types';
 export {
   NAV_MODULES,
-  LEAD_NAV_MODULES,
   PROGRESS_TRACKING_MODULES,
   MOBILE_LABEL_OVERRIDE,
-  LEAD_MOBILE_LABEL_OVERRIDE,
   type NavModuleId,
-  type LeadNavModuleId,
   type ProgressTabId,
 } from './registry';
 export {
@@ -32,8 +29,3 @@ export {
   getTreatmentTypeFromMedicationName,
   getTreatmentTypeFromOrder,
 } from './treatment-from-prescription';
-export {
-  getPortalMode,
-  isLeadMode,
-  isPatientMode,
-} from './portal-mode';
