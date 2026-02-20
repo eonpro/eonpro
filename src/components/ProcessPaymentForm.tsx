@@ -145,13 +145,10 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     if (selectedPlanId) {
       const plan = getPlanById(selectedPlanId, clinicSubdomain);
       if (plan) {
-        setAmount(plan.price / 100); // Convert cents to dollars
+        setAmount(plan.price / 100);
         setDescription(plan.description);
-
-        // Check if it's a monthly plan and set recurring
-        const isMonthlyPlan = plan.category.includes('monthly');
-        setIsRecurring(isMonthlyPlan);
-        setSaveCard(true); // Always save card, required for recurring
+        setIsRecurring(!!plan.isRecurring);
+        if (plan.isRecurring) setSaveCard(true);
       }
     } else {
       setAmount(0);
@@ -301,14 +298,17 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
         patientId,
         amount: Math.round(amount * 100),
         description: description || getPlanById(selectedPlanId, clinicSubdomain)?.description || 'Custom Payment',
-        subscription: isRecurring
-          ? {
-              planId: selectedPlanId,
-              planName: getPlanById(selectedPlanId, clinicSubdomain)?.name || '',
-              interval: 'month',
-              intervalCount: 1,
-            }
-          : null,
+        subscription: (() => {
+          if (!isRecurring) return null;
+          const plan = getPlanById(selectedPlanId, clinicSubdomain);
+          const months = plan?.months || 1;
+          return {
+            planId: selectedPlanId,
+            planName: plan?.name || '',
+            interval: 'month',
+            intervalCount: months,
+          };
+        })(),
         notes,
       };
 
@@ -539,7 +539,12 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           </select>
           {isRecurring && (
             <p className="mt-1 text-sm text-amber-600">
-              ⚡ This will set up a recurring monthly subscription
+              ⚡ This will set up a recurring subscription
+              {(() => {
+                const plan = getPlanById(selectedPlanId, clinicSubdomain);
+                const m = plan?.months || 1;
+                return m === 1 ? ' (billed monthly)' : ` (billed every ${m} months)`;
+              })()}
             </p>
           )}
         </div>
@@ -881,7 +886,13 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           {isRecurring && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Billing:</span>
-              <span className="font-medium text-amber-600">Monthly Recurring</span>
+              <span className="font-medium text-amber-600">
+                {(() => {
+                  const plan = getPlanById(selectedPlanId, clinicSubdomain);
+                  const m = plan?.months || 1;
+                  return m === 1 ? 'Monthly Recurring' : `Every ${m} Months Recurring`;
+                })()}
+              </span>
             </div>
           )}
           {paymentMode === 'saved' && selectedCardId && (
