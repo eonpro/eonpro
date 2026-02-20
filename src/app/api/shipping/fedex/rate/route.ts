@@ -82,11 +82,7 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
       });
     } catch (fedexErr: any) {
       const msg = fedexErr?.message || 'FedEx rate quote failed';
-      const isFedExApiError = msg.includes('FedEx API error');
-      return NextResponse.json(
-        { error: msg },
-        { status: isFedExApiError ? 502 : 500 },
-      );
+      return NextResponse.json({ error: msg }, { status: 502 });
     }
 
     return NextResponse.json(rate);
