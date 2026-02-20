@@ -313,7 +313,7 @@ export default function SymptomCheckerPage() {
                     <h3 className="font-semibold text-gray-900">{category.name}</h3>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4">
                   {category.symptoms.map((symptom) => (
                     <button
                       key={symptom.id}

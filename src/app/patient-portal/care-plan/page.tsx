@@ -237,7 +237,7 @@ export default function CarePlanPage() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="mb-1 flex items-center gap-2">
                 <Target className="h-5 w-5 text-blue-500" />

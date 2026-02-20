@@ -26,7 +26,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
-    // Fetch all relevant data
+    const safeQuery = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try { return await fn(); } catch { return fallback; }
+    };
+    const pid = user.patientId;
+    const empty: never[] = [];
+
     const [
       weightLogs,
       previousWeightLogs,
@@ -38,37 +43,35 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       previousSleepLogs,
       streaks,
     ] = await Promise.all([
-      // Current week
-      prisma.patientWeightLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
+      safeQuery(() => prisma.patientWeightLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: weekAgo } },
         orderBy: { recordedAt: 'desc' },
-      }),
-      // Previous week
-      prisma.patientWeightLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientWeightLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
         orderBy: { recordedAt: 'desc' },
-      }),
-      prisma.patientWaterLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
-      }),
-      prisma.patientWaterLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
-      }),
-      prisma.patientExerciseLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
-      }),
-      prisma.patientExerciseLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
-      }),
-      prisma.patientSleepLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: weekAgo } },
-      }),
-      prisma.patientSleepLog.findMany({
-        where: { patientId: user.patientId, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
-      }),
-      prisma.patientStreak.findMany({
-        where: { patientId: user.patientId },
-      }),
+      }), empty),
+      safeQuery(() => prisma.patientWaterLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientWaterLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientExerciseLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientExerciseLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientSleepLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientSleepLog.findMany({
+        where: { patientId: pid, recordedAt: { gte: twoWeeksAgo, lt: weekAgo } },
+      }), empty),
+      safeQuery(() => prisma.patientStreak.findMany({
+        where: { patientId: pid },
+      }), empty),
     ]);
 
     // Calculate metrics
@@ -82,10 +85,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     if (weightLogs.length > 0) {
       // Get first ever weight
-      const firstWeight = await prisma.patientWeightLog.findFirst({
-        where: { patientId: user.patientId },
+      const firstWeight = await safeQuery(() => prisma.patientWeightLog.findFirst({
+        where: { patientId: pid },
         orderBy: { recordedAt: 'asc' },
-      });
+      }), null);
 
       if (firstWeight) {
         const latestWeight = weightLogs[0].weight;

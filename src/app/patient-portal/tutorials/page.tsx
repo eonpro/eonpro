@@ -126,7 +126,7 @@ export default function TutorialVideosPage() {
           <h2 className="mb-2 text-xl font-semibold">Featured: Weight Loss Journey</h2>
           <p className="mb-4 text-sm text-orange-100">Get started from anywhere</p>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-xl bg-white/20 p-4 backdrop-blur">
               <div className="relative mb-2 aspect-video overflow-hidden rounded-lg bg-black/20">
                 <Play className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-white/80" />

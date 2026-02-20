@@ -108,7 +108,7 @@ export default function DietaryPlansPage() {
             <TrendingDown className="h-8 w-8 text-green-200" />
           </div>
 
-          <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-lg bg-white/20 p-3 text-center backdrop-blur">
               <p className="text-2xl font-semibold">107g</p>
               <p className="text-xs text-green-100">Protein</p>

@@ -518,7 +518,7 @@ export default function AppointmentsPage() {
 
               {/* Appointment Details */}
               <div className="p-5">
-                <div className="mb-4 grid grid-cols-2 gap-4">
+                <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
                     <User className="h-5 w-5 text-gray-400" />
                     <div>

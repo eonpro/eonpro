@@ -248,7 +248,7 @@ export default function PhotosHubPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="mb-6 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="rounded-xl bg-white p-4 text-center shadow-sm">
           <p className="text-2xl font-bold text-gray-900">{stats?.progress || 0}</p>
           <p className="text-xs text-gray-500">Progress</p>
@@ -310,7 +310,7 @@ export default function PhotosHubPage() {
       {stats && stats.recent.length > 0 && (
         <div className="mb-6">
           <h3 className="mb-3 text-sm font-semibold text-gray-700">Recent Uploads</h3>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {stats.recent.map((photo) => (
               <div key={photo.id} className="aspect-square overflow-hidden rounded-xl bg-gray-100">
                 {photo.thumbnailUrl ? (
