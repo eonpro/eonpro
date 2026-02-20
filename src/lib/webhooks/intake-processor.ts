@@ -19,6 +19,8 @@ import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
+import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
 

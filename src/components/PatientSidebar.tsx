@@ -727,16 +727,22 @@ export default function PatientSidebar({
 
         {/* Actions */}
         <div className="space-y-1 border-t pt-4">
-          {/* FedEx Label — admin only, requires patient address */}
+          {/* FedEx Label — admin only */}
           {userRole &&
-            ['super_admin', 'admin'].includes(userRole.toLowerCase()) &&
-            patient.address1 &&
-            patient.city &&
-            patient.state &&
-            patient.zip && (
+            ['super_admin', 'admin'].includes(userRole.toLowerCase()) && (
               <button
                 onClick={() => setShowFedExModal(true)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#4D148C] transition-colors hover:bg-purple-50"
+                disabled={!patient.address1 || !patient.city || !patient.state || !patient.zip}
+                title={
+                  !patient.address1 || !patient.city || !patient.state || !patient.zip
+                    ? 'Patient address is required to print a FedEx label'
+                    : 'Print a FedEx shipping label for this patient'
+                }
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  !patient.address1 || !patient.city || !patient.state || !patient.zip
+                    ? 'cursor-not-allowed text-gray-400'
+                    : 'text-[#4D148C] hover:bg-purple-50'
+                }`}
               >
                 <Truck className="h-4 w-4" />
                 Print FedEx Label
