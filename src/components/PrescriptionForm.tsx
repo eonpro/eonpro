@@ -204,12 +204,15 @@ export default function PrescriptionForm({
       }
     }
 
-    const wellmedr =
-      typeof window !== 'undefined' &&
-      window.location.hostname.toLowerCase().includes('wellmedr');
+    const hostname =
+      typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+    const wellmedr = hostname.includes('wellmedr');
+    const eonmeds = hostname.includes('eonmeds');
     setIsWellmedr(wellmedr);
     if (wellmedr) {
       setForm((f: any) => ({ ...f, shippingMethod: 8234 }));
+    } else if (eonmeds) {
+      setForm((f: any) => ({ ...f, shippingMethod: 8233 }));
     }
   }, []);
 
