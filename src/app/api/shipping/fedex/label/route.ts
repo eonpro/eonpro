@@ -32,6 +32,7 @@ const createLabelSchema = z.object({
   length: z.number().positive().optional(),
   width: z.number().positive().optional(),
   height: z.number().positive().optional(),
+  oneRate: z.boolean().default(false),
 });
 
 function encryptAddressJson(addr: Record<string, unknown>): Record<string, unknown> {
@@ -60,7 +61,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height } = parsed.data;
+    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height, oneRate } = parsed.data;
 
     const validService = FEDEX_SERVICE_TYPES.find((s) => s.code === serviceType);
     if (!validService) {
@@ -108,6 +109,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       shipper: origin,
       recipient: destination,
       packages: [{ weightLbs, length, width, height }],
+      oneRate,
     });
 
     const label = await prisma.shipmentLabel.create({

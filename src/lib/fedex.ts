@@ -41,6 +41,7 @@ export type CreateShipmentInput = {
   recipient: FedExAddress;
   packages: FedExPackageDetails[];
   shipDate?: string; // YYYY-MM-DD, defaults to today
+  oneRate?: boolean;
 };
 
 export type CreateShipmentResult = {
@@ -253,6 +254,13 @@ function buildShipmentPayload(
       packagingType: input.packagingType,
       pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
       blockInsightVisibility: false,
+      ...(input.oneRate
+        ? {
+            shipmentSpecialServices: {
+              specialServiceTypes: ['FEDEX_ONE_RATE'],
+            },
+          }
+        : {}),
       shippingChargesPayment: {
         paymentType: 'SENDER',
       },

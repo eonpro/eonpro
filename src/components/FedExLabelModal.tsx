@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { X, Loader2, Printer, Package, Truck, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { FEDEX_SERVICE_TYPES, FEDEX_PACKAGING_TYPES } from '@/lib/fedex-services';
 
@@ -69,14 +69,42 @@ export default function FedExLabelModal({
     zip: patientAddress.zip,
   });
 
-  const [serviceType, setServiceType] = useState('FEDEX_GROUND');
-  const [packagingType, setPackagingType] = useState('YOUR_PACKAGING');
+  const [oneRate, setOneRate] = useState(false);
+  const [serviceType, setServiceType] = useState('STANDARD_OVERNIGHT');
+  const [packagingType, setPackagingType] = useState('FEDEX_PAK');
   const [weightLbs, setWeightLbs] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ trackingNumber: string } | null>(null);
-
   const [submitted, setSubmitted] = useState(false);
+
+  const availableServices = useMemo(
+    () => (oneRate ? FEDEX_SERVICE_TYPES.filter((s) => s.oneRateEligible) : FEDEX_SERVICE_TYPES),
+    [oneRate]
+  );
+
+  const availablePackaging = useMemo(
+    () => (oneRate ? FEDEX_PACKAGING_TYPES.filter((p) => p.oneRateEligible) : FEDEX_PACKAGING_TYPES),
+    [oneRate]
+  );
+
+  const selectedPackaging = FEDEX_PACKAGING_TYPES.find((p) => p.code === packagingType);
+  const maxWeight = oneRate && selectedPackaging?.oneRateMaxLbs ? selectedPackaging.oneRateMaxLbs : 150;
+
+  const handleOneRateToggle = (enabled: boolean) => {
+    setOneRate(enabled);
+    if (enabled) {
+      const currentServiceValid = FEDEX_SERVICE_TYPES.find(
+        (s) => s.code === serviceType && s.oneRateEligible
+      );
+      if (!currentServiceValid) setServiceType('STANDARD_OVERNIGHT');
+
+      const currentPkgValid = FEDEX_PACKAGING_TYPES.find(
+        (p) => p.code === packagingType && p.oneRateEligible
+      );
+      if (!currentPkgValid) setPackagingType('FEDEX_PAK');
+    }
+  };
 
   const handleSubmit = async () => {
     if (submitted) return;
@@ -94,6 +122,7 @@ export default function FedExLabelModal({
           serviceType,
           packagingType,
           weightLbs,
+          oneRate,
         }),
       });
 
@@ -105,7 +134,6 @@ export default function FedExLabelModal({
 
       setSuccess({ trackingNumber: data.trackingNumber });
 
-      // Decode base64 PDF and open in new tab for printing
       const pdfBytes = Uint8Array.from(atob(data.labelPdf), (c) => c.charCodeAt(0));
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
@@ -129,6 +157,9 @@ export default function FedExLabelModal({
     destination.state &&
     destination.zip &&
     destination.phoneNumber;
+
+  const inputCls =
+    'rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -188,46 +219,46 @@ export default function FedExLabelModal({
                     value={origin.personName}
                     onChange={(e) => setOrigin({ ...origin, personName: e.target.value })}
                     placeholder="Name / Company"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                   <input
                     value={origin.phoneNumber}
                     onChange={(e) => setOrigin({ ...origin, phoneNumber: e.target.value })}
                     placeholder="Phone"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                 </div>
                 <input
                   value={origin.address1}
                   onChange={(e) => setOrigin({ ...origin, address1: e.target.value })}
                   placeholder="Address Line 1"
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                  className={`w-full ${inputCls}`}
                 />
                 <input
                   value={origin.address2 || ''}
                   onChange={(e) => setOrigin({ ...origin, address2: e.target.value })}
                   placeholder="Address Line 2 (optional)"
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                  className={`w-full ${inputCls}`}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <input
                     value={origin.city}
                     onChange={(e) => setOrigin({ ...origin, city: e.target.value })}
                     placeholder="City"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                   <input
                     value={origin.state}
                     onChange={(e) => setOrigin({ ...origin, state: e.target.value })}
                     placeholder="State"
                     maxLength={2}
-                    className="rounded-lg border px-3 py-2 text-sm uppercase focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={`uppercase ${inputCls}`}
                   />
                   <input
                     value={origin.zip}
                     onChange={(e) => setOrigin({ ...origin, zip: e.target.value })}
                     placeholder="ZIP"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                 </div>
               </fieldset>
@@ -243,46 +274,46 @@ export default function FedExLabelModal({
                     value={destination.personName}
                     onChange={(e) => setDestination({ ...destination, personName: e.target.value })}
                     placeholder="Recipient Name"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                   <input
                     value={destination.phoneNumber}
                     onChange={(e) => setDestination({ ...destination, phoneNumber: e.target.value })}
                     placeholder="Phone"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                 </div>
                 <input
                   value={destination.address1}
                   onChange={(e) => setDestination({ ...destination, address1: e.target.value })}
                   placeholder="Address Line 1"
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                  className={`w-full ${inputCls}`}
                 />
                 <input
                   value={destination.address2 || ''}
                   onChange={(e) => setDestination({ ...destination, address2: e.target.value })}
                   placeholder="Address Line 2 (optional)"
-                  className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                  className={`w-full ${inputCls}`}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <input
                     value={destination.city}
                     onChange={(e) => setDestination({ ...destination, city: e.target.value })}
                     placeholder="City"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                   <input
                     value={destination.state}
                     onChange={(e) => setDestination({ ...destination, state: e.target.value })}
                     placeholder="State"
                     maxLength={2}
-                    className="rounded-lg border px-3 py-2 text-sm uppercase focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={`uppercase ${inputCls}`}
                   />
                   <input
                     value={destination.zip}
                     onChange={(e) => setDestination({ ...destination, zip: e.target.value })}
                     placeholder="ZIP"
-                    className="rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={inputCls}
                   />
                 </div>
               </fieldset>
@@ -294,14 +325,46 @@ export default function FedExLabelModal({
                   Shipping Options
                 </legend>
 
+                {/* One Rate Toggle */}
+                <div
+                  className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
+                    oneRate ? 'border-[#4D148C] bg-purple-50' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className={`h-4 w-4 ${oneRate ? 'text-[#4D148C]' : 'text-gray-400'}`} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Ship with FedEx One Rate</p>
+                      <p className="text-xs text-gray-500">
+                        Flat-rate pricing by package size — no fuel or residential surcharges
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={oneRate}
+                    onClick={() => handleOneRateToggle(!oneRate)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                      oneRate ? 'bg-[#4D148C]' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform ${
+                        oneRate ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">Service Type</label>
                   <select
                     value={serviceType}
                     onChange={(e) => setServiceType(e.target.value)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                    className={`w-full ${inputCls}`}
                   >
-                    {FEDEX_SERVICE_TYPES.map((s) => (
+                    {availableServices.map((s) => (
                       <option key={s.code} value={s.code}>
                         {s.label} — {s.estimatedDays}
                       </option>
@@ -311,15 +374,18 @@ export default function FedExLabelModal({
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Packaging</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500">
+                      Packaging{oneRate ? ' (One Rate)' : ''}
+                    </label>
                     <select
                       value={packagingType}
                       onChange={(e) => setPackagingType(e.target.value)}
-                      className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                      className={`w-full ${inputCls}`}
                     >
-                      {FEDEX_PACKAGING_TYPES.map((p) => (
+                      {availablePackaging.map((p) => (
                         <option key={p.code} value={p.code}>
                           {p.label}
+                          {oneRate && p.oneRateMaxLbs ? ` (up to ${p.oneRateMaxLbs} lbs)` : ''}
                         </option>
                       ))}
                     </select>
@@ -329,10 +395,11 @@ export default function FedExLabelModal({
                     <input
                       type="number"
                       min={0.1}
+                      max={maxWeight}
                       step={0.1}
                       value={weightLbs}
                       onChange={(e) => setWeightLbs(parseFloat(e.target.value) || 1)}
-                      className="w-full rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]"
+                      className={`w-full ${inputCls}`}
                     />
                   </div>
                 </div>
