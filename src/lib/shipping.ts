@@ -14,4 +14,6 @@ export const SHIPPING_METHODS: ShippingMethod[] = [
   { id: 8117, label: 'UPS - OVERNIGHT SAVER' },
   { id: 8152, label: 'UPS - NEXT DAY - OUTSIDE FLORIDA' },
   { id: 8200, label: 'UPS - 2nd Day Air' },
+  { id: 8233, label: 'FEDEX-STANDARD OVERNIGHT' },
+  { id: 8234, label: 'FEDEX- 2 DAY' },
 ];
