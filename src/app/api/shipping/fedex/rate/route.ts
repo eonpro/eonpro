@@ -70,14 +70,24 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const rate = await getRateQuote(credentials, {
-      serviceType,
-      packagingType,
-      shipper: { personName: '', phoneNumber: '', ...origin },
-      recipient: { personName: '', phoneNumber: '', ...destination },
-      packages: [{ weightLbs }],
-      oneRate,
-    });
+    let rate;
+    try {
+      rate = await getRateQuote(credentials, {
+        serviceType,
+        packagingType,
+        shipper: { personName: '', phoneNumber: '', ...origin },
+        recipient: { personName: '', phoneNumber: '', ...destination },
+        packages: [{ weightLbs }],
+        oneRate,
+      });
+    } catch (fedexErr: any) {
+      const msg = fedexErr?.message || 'FedEx rate quote failed';
+      const isFedExApiError = msg.includes('FedEx API error');
+      return NextResponse.json(
+        { error: msg },
+        { status: isFedExApiError ? 502 : 500 },
+      );
+    }
 
     return NextResponse.json(rate);
   } catch (error) {

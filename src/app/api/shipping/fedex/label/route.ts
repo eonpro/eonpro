@@ -103,14 +103,24 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const result = await createShipment(credentials, {
-      serviceType,
-      packagingType,
-      shipper: origin,
-      recipient: destination,
-      packages: [{ weightLbs, length, width, height }],
-      oneRate,
-    });
+    let result;
+    try {
+      result = await createShipment(credentials, {
+        serviceType,
+        packagingType,
+        shipper: origin,
+        recipient: destination,
+        packages: [{ weightLbs, length, width, height }],
+        oneRate,
+      });
+    } catch (fedexErr: any) {
+      const msg = fedexErr?.message || 'FedEx shipment creation failed';
+      const isFedExApiError = msg.includes('FedEx API error');
+      return NextResponse.json(
+        { error: msg },
+        { status: isFedExApiError ? 502 : 500 },
+      );
+    }
 
     const label = await prisma.shipmentLabel.create({
       data: {
