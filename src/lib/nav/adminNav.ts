@@ -12,6 +12,7 @@ export interface AdminNavItemConfig {
 export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/', label: 'Home', iconKey: 'Home' },
   { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
+  { path: '/admin/intake-templates', label: 'Form Templates', iconKey: 'FileText' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
   { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck' },
@@ -26,7 +27,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
 
-/** Clinics tab: shown for super_admin only, inserted after Pending Profiles (index 5). */
+/** Clinics tab: shown for super_admin only, inserted after Pending Profiles (index 6). */
 export const clinicsNavConfig: AdminNavItemConfig = {
   path: '/admin/clinics',
   label: 'Clinics',
@@ -47,7 +48,7 @@ export const controlCenterNavConfig: AdminNavItemConfig = {
 export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
   const items = [...baseAdminNavConfig];
   if (role === 'super_admin') {
-    items.splice(5, 0, clinicsNavConfig);
+    items.splice(6, 0, clinicsNavConfig);
     items.push(controlCenterNavConfig);
   }
   return items;

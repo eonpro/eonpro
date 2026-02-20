@@ -23,6 +23,7 @@ import {
   Key,
   Building2,
   ClipboardCheck,
+  FileText,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getStoredUserRole } from '@/lib/auth/stored-role';
@@ -48,6 +49,7 @@ const adminNavIconMap = {
   Settings,
   Building2,
   ClipboardList,
+  FileText,
 } as const;
 
 function navConfigToItems(config: { path: string; label: string; iconKey: string }[]) {

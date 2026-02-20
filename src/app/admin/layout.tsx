@@ -27,6 +27,7 @@ import {
   Ticket,
   Gauge,
   ClipboardCheck,
+  FileText,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -127,6 +128,7 @@ const adminNavIconMap = {
   Settings,
   Building2,
   Gauge,
+  FileText,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
