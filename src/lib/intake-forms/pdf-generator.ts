@@ -74,27 +74,34 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     // Generate HTML content for the PDF
     const html = generateHTML(submission, { includeLogo, includeTimestamp });
 
-    // Launch puppeteer and generate PDF
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const PDF_TIMEOUT_MS = 30_000;
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+    let pdfBuffer: Uint8Array;
 
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    try {
+      browser = await Promise.race([
+        puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Puppeteer launch timed out after 30s')), PDF_TIMEOUT_MS)
+        ),
+      ]);
 
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm',
-      },
-    });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0', timeout: PDF_TIMEOUT_MS });
 
-    await browser.close();
+      pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+      });
+    } finally {
+      if (browser) {
+        await browser.close().catch(() => {});
+      }
+    }
 
     // Save PDF to patient documents
     const fileName = `intake_form_${submission.template.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;

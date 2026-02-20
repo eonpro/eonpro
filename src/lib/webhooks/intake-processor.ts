@@ -307,24 +307,49 @@ export class IntakeProcessor {
   }
 
   /**
-   * Generate PDF and store document
+   * Generate PDF and store document.
+   *
+   * Storage strategy:
+   *   PDF binary  → S3 (externalUrl) for download
+   *   Intake JSON → DB data column + S3 (s3DataKey) for intake tab display
    */
   private async generateAndStoreDocument(
     normalized: NormalizedIntake,
     patient: any,
     clinicId: number | null
   ): Promise<{ id: number; filename: string; pdfSizeBytes: number }> {
-    // Generate PDF
     logger.debug(`[INTAKE ${this.requestId}] Generating PDF...`);
     const pdfBuffer = await generateIntakePdf(normalized, patient);
     logger.debug(`[INTAKE ${this.requestId}] PDF generated: ${pdfBuffer.length} bytes`);
 
-    // Generate filename
     const timestamp = Date.now();
-    const cleanSubmissionId = normalized.submissionId.replace(/[^a-zA-Z0-9-_]/g, '').slice(0, 30);
     const filename = `patient_${patient.id}_${this.source}-intake-${timestamp}.pdf`;
 
-    // Store intake data for display
+    // Upload PDF binary to S3 for downloads
+    let pdfExternalUrl: string | null = null;
+    try {
+      if (isS3Enabled()) {
+        const s3Result = await uploadToS3({
+          file: pdfBuffer,
+          fileName: filename,
+          category: FileCategory.INTAKE_FORMS,
+          patientId: patient.id,
+          contentType: 'application/pdf',
+          metadata: {
+            submissionId: normalized.submissionId,
+            source: this.source,
+          },
+        });
+        pdfExternalUrl = s3Result.key;
+        logger.debug(`[INTAKE ${this.requestId}] PDF uploaded to S3: ${s3Result.key}`);
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[INTAKE ${this.requestId}] PDF S3 upload failed (non-fatal):`, { error: errMsg });
+      this.errors.push(`PDF S3 upload failed: ${errMsg}`);
+    }
+
+    // Store intake JSON for display in the Intake tab
     const intakeDataToStore = {
       submissionId: normalized.submissionId,
       sections: normalized.sections,
@@ -334,13 +359,11 @@ export class IntakeProcessor {
       receivedAt: new Date().toISOString(),
     };
 
-    // Check for existing document
     const existingDocument = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
-      select: { id: true },
+      select: { id: true, externalUrl: true },
     });
 
-    // Dual-write: S3 + DB `data` column (Phase 3.3)
     const { s3DataKey, dataBuffer: intakeDataBuffer } = await storeIntakeData(
       intakeDataToStore,
       { documentId: existingDocument?.id, patientId: patient.id, clinicId }
@@ -354,6 +377,7 @@ export class IntakeProcessor {
           filename,
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: pdfExternalUrl || existingDocument.externalUrl,
         },
       });
     } else {
@@ -368,11 +392,15 @@ export class IntakeProcessor {
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: pdfExternalUrl,
         },
       });
     }
 
-    logger.info(`[INTAKE ${this.requestId}] Document stored: ${document.id}`);
+    logger.info(`[INTAKE ${this.requestId}] Document stored: ${document.id}`, {
+      pdfInS3: !!pdfExternalUrl,
+      jsonInS3: !!s3DataKey,
+    });
     return { id: document.id, filename, pdfSizeBytes: pdfBuffer.length };
   }
 

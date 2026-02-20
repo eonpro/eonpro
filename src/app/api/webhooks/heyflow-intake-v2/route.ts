@@ -318,21 +318,22 @@ export async function POST(req: NextRequest) {
       const pdfContent = await generateIntakePdf(normalized, patient);
       logger.debug(`[HEYFLOW V2] PDF generated: ${pdfContent.byteLength} bytes`);
 
-      // Prepare PDF for database storage
-      logger.debug('[HEYFLOW V2] Preparing PDF for storage...');
+      // Store PDF in S3 and prepare filename
+      logger.debug('[HEYFLOW V2] Storing PDF...');
       const stored = await storeIntakePdf({
         patientId: patient.id,
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
+        source: 'heyflow',
       });
       logger.debug(
-        `[HEYFLOW V2] PDF prepared: ${stored.filename}, ${stored.pdfBuffer.length} bytes`
+        `[HEYFLOW V2] PDF stored: ${stored.filename}, ${stored.pdfBuffer.length} bytes, s3: ${stored.s3Key ? 'yes' : 'no'}`
       );
 
       // Check for existing document
       const existingDocument = await prisma.patientDocument.findUnique({
         where: { sourceSubmissionId: normalized.submissionId },
-        select: { id: true },
+        select: { id: true, externalUrl: true },
       });
 
       // Dual-write: S3 + DB `data` column (Phase 3.3)
@@ -350,6 +351,7 @@ export async function POST(req: NextRequest) {
             filename: stored.filename,
             data: intakeDataBuffer,
             ...(s3DataKey != null ? { s3DataKey } : {}),
+            externalUrl: stored.s3Key || existingDocument.externalUrl,
           },
         });
       } else {
@@ -364,6 +366,7 @@ export async function POST(req: NextRequest) {
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
             data: intakeDataBuffer,
             ...(s3DataKey != null ? { s3DataKey } : {}),
+            externalUrl: stored.s3Key,
           },
         });
       }

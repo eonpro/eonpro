@@ -5,6 +5,8 @@ import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import type { NormalizedIntake } from '@/lib/heyflow/types';
 import { readIntakeData } from '@/lib/storage/document-data-store';
+import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 
 /**
  * POST /api/admin/regenerate-pdf
@@ -162,17 +164,37 @@ export const POST = withAuthParams(
             answers: intakeDataSource.answers || [],
           };
 
-          // Generate new PDF
           logger.debug(`[PDF REGENERATION] Generating PDF for document ${doc.id}...`);
           const pdfBuffer = await generateIntakePdf(intake, doc.patient);
 
-          // Update document with new PDF
-          // Note: intakeData, pdfGeneratedAt, intakeVersion require DB migration
+          // Upload regenerated PDF to S3; preserve intake JSON in data column
+          let pdfExternalUrl: string | null = null;
+          try {
+            if (isS3Enabled()) {
+              const s3Result = await uploadToS3({
+                file: pdfBuffer,
+                fileName: doc.filename || `patient_${doc.patientId}_regen-${Date.now()}.pdf`,
+                category: FileCategory.INTAKE_FORMS,
+                patientId: doc.patientId,
+                contentType: 'application/pdf',
+                metadata: {
+                  regeneratedAt: new Date().toISOString(),
+                  documentId: String(doc.id),
+                  source: doc.source || 'regeneration',
+                },
+              });
+              pdfExternalUrl = s3Result.key;
+              logger.debug(`[PDF REGENERATION] PDF uploaded to S3: ${s3Result.key}`);
+            }
+          } catch (s3Err) {
+            const s3ErrMsg = s3Err instanceof Error ? s3Err.message : String(s3Err);
+            logger.warn(`[PDF REGENERATION] S3 upload failed (non-fatal):`, { error: s3ErrMsg });
+          }
+
           await prisma.patientDocument.update({
             where: { id: doc.id },
             data: {
-              data: pdfBuffer,
-              externalUrl: null, // Clear any legacy external URL
+              ...(pdfExternalUrl ? { externalUrl: pdfExternalUrl } : {}),
             },
           });
 

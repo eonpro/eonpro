@@ -156,9 +156,9 @@ export async function POST(req: NextRequest) {
         patientId: patient.id,
         submissionId: normalized.submissionId,
         pdfBuffer: pdfContent,
+        source: 'v1-intakes',
       });
 
-      // Prepare intake data to store
       const intakeDataToStore = {
         submissionId: normalized.submissionId,
         sections: normalized.sections,
@@ -182,6 +182,7 @@ export async function POST(req: NextRequest) {
           mimeType: 'application/pdf',
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: stored.s3Key,
           sourceSubmissionId: normalized.submissionId,
         },
       });

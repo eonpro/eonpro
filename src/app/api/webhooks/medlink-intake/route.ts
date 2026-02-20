@@ -130,17 +130,18 @@ export async function POST(req: NextRequest) {
     // Generate PDF
     const pdfContent = await generateIntakePdf(normalized, patient);
 
-    // Prepare PDF for storage
+    // Store PDF in S3 and prepare filename
     const stored = await storeIntakePdf({
       patientId: patient.id,
       submissionId: normalized.submissionId,
       pdfBuffer: pdfContent,
+      source: 'medlink',
     });
 
     // Check if this intake document already exists
     const existingDocument = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
-      select: { id: true },
+      select: { id: true, externalUrl: true },
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
@@ -157,6 +158,7 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: stored.s3Key || existingDocument.externalUrl,
         },
       });
     } else {
@@ -170,6 +172,7 @@ export async function POST(req: NextRequest) {
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: stored.s3Key,
         },
       });
     }

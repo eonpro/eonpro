@@ -223,21 +223,23 @@ export async function POST(req: NextRequest) {
     const pdfContent = await generateIntakePdf(normalized, patient);
     logger.debug(`[EONPRO INTAKE ${requestId}] PDF generated`);
 
-    // Prepare PDF for storage
+    // Store PDF in S3 and prepare filename
     const stored = await storeIntakePdf({
       patientId: patient.id,
       submissionId: normalized.submissionId,
       pdfBuffer: pdfContent,
+      source: 'eonpro',
     });
-    logger.debug(`[EONPRO INTAKE ${requestId}] PDF prepared`, {
+    logger.debug(`[EONPRO INTAKE ${requestId}] PDF stored`, {
       filename: stored.filename,
       size: stored.pdfBuffer.length,
+      s3Key: stored.s3Key || 'none',
     });
 
     // Check for existing document with same submission ID
     const existingDocument = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
-      select: { id: true },
+      select: { id: true, externalUrl: true },
     });
 
     // Dual-write: S3 + DB `data` column (Phase 3.3)
@@ -254,6 +256,7 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: stored.s3Key || existingDocument.externalUrl,
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document updated`, {
@@ -271,6 +274,7 @@ export async function POST(req: NextRequest) {
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           data: intakeDataBuffer,
           ...(s3DataKey != null ? { s3DataKey } : {}),
+          externalUrl: stored.s3Key,
         },
       });
       logger.debug(`[EONPRO INTAKE ${requestId}] Document created`, {

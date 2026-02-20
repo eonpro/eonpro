@@ -119,13 +119,24 @@ const PDF_SECTION_CONFIG: SectionConfig[] = [
   },
 ];
 
+const FONT_SOURCE =
+  process.env.INTAKE_PDF_FONT_URL ??
+  path.join(process.cwd(), 'public', 'fonts', 'Sofia-Pro-Regular.ttf');
+
 let cachedFont: Uint8Array | null = null;
 let cachedLogo: Uint8Array | null = null;
 
 async function loadFont(): Promise<Uint8Array> {
   if (cachedFont) return cachedFont;
-  const fontPath = path.join(process.cwd(), 'public', 'fonts', 'Sofia-Pro-Regular.ttf');
-  cachedFont = await fs.readFile(fontPath);
+
+  const isUrl = FONT_SOURCE.startsWith('http://') || FONT_SOURCE.startsWith('https://');
+  if (isUrl) {
+    const res = await fetch(FONT_SOURCE);
+    if (!res.ok) throw new Error(`Font fetch failed: ${res.status}`);
+    cachedFont = new Uint8Array(await res.arrayBuffer());
+  } else {
+    cachedFont = await fs.readFile(FONT_SOURCE);
+  }
   return cachedFont;
 }
 
