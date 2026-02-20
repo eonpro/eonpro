@@ -392,6 +392,7 @@ function buildRatePayload(
       returnTransitTimes: true,
     },
     requestedShipment: {
+      rateRequestType: ['ACCOUNT'],
       shipper: {
         address: {
           streetLines: [input.shipper.address1],
