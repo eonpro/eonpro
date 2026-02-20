@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PaymentStatus } from '@prisma/client';
 import { encryptCardData } from '@/lib/encryption';
@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { handleApiError } from '@/domains/shared/errors';
 import { getStripeForClinic } from '@/lib/stripe/connect';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
 interface PaymentDetails {
   cardNumber: string;
@@ -27,7 +28,7 @@ interface SubscriptionInfo {
   intervalCount: number;
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
     const body = await request.json();
     const { patientId, amount, description, paymentDetails, paymentMethodId: savedPaymentMethodId, subscription, notes } = body;
@@ -479,3 +480,5 @@ export async function POST(request: Request) {
     return handleApiError(error, { route: 'POST /api/stripe/payments/process' });
   }
 }
+
+export const POST = withAuth(handlePost);
