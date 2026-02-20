@@ -31,11 +31,6 @@ import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrand
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import dynamic from 'next/dynamic';
-import { getPortalMode } from '@/lib/patient-portal/portal-mode';
-import type { PortalMode } from '@/lib/patient-portal/types';
-
-const LeadDashboard = dynamic(() => import('./lead-dashboard'), { ssr: false });
 
 interface WeightEntry {
   dateInput: string;
@@ -90,7 +85,6 @@ export default function PatientPortalDashboard() {
     idVerificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' | null;
   } | null>(null);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [portalMode, setPortalMode] = useState<PortalMode | null>(null);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -187,26 +181,6 @@ export default function PatientPortalDashboard() {
       });
     return () => { cancelled = true; };
   }, [patient?.id]);
-
-  // Detect portal mode (lead vs patient)
-  useEffect(() => {
-    if (!patient?.patientId) return;
-    let cancelled = false;
-    portalFetch('/api/patient-portal/profile/status')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const mode = getPortalMode(
-          data.profileStatus ?? 'ACTIVE',
-          data.hasCompletedIntake ?? true,
-        );
-        setPortalMode(mode);
-      })
-      .catch(() => {
-        if (!cancelled) setPortalMode('patient');
-      });
-    return () => { cancelled = true; };
-  }, [patient?.patientId]);
 
   const loadPatientData = async (patientId: number) => {
     setDataError(null);
@@ -429,17 +403,6 @@ export default function PatientPortalDashboard() {
     if (!bmi) return { text: 'text-gray-900', bar: 'bg-gray-400', width: '50%' };
     return bmiColor;
   };
-
-  // Lead portal: conversion-focused dashboard
-  if (portalMode === 'lead') {
-    return (
-      <LeadDashboard
-        displayName={displayName !== 'Patient' ? displayName : ''}
-        clinicName={branding?.clinicName ?? ''}
-        clinicSlug={branding?.subdomain ?? ''}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8">
