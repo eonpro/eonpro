@@ -359,6 +359,132 @@ export async function cancelShipment(
 }
 
 // ---------------------------------------------------------------------------
+// Rate API — Get Rate Quote
+// ---------------------------------------------------------------------------
+
+export type RateQuoteInput = {
+  serviceType: string;
+  packagingType: string;
+  shipper: FedExAddress;
+  recipient: FedExAddress;
+  packages: FedExPackageDetails[];
+  oneRate?: boolean;
+};
+
+export type RateQuoteResult = {
+  serviceType: string;
+  serviceName: string;
+  totalCharge: number;
+  currency: string;
+  surcharges: { type: string; description: string; amount: number }[];
+  transitDays: string | null;
+};
+
+function buildRatePayload(
+  credentials: FedExCredentials,
+  input: RateQuoteInput
+) {
+  const shipDate = new Date().toISOString().split('T')[0];
+
+  return {
+    accountNumber: { value: credentials.accountNumber },
+    rateRequestControlParameters: {
+      returnTransitTimes: true,
+    },
+    requestedShipment: {
+      shipper: {
+        address: {
+          streetLines: [input.shipper.address1],
+          city: input.shipper.city,
+          stateOrProvinceCode: input.shipper.state,
+          postalCode: input.shipper.zip,
+          countryCode: input.shipper.countryCode || 'US',
+        },
+      },
+      recipient: {
+        address: {
+          streetLines: [input.recipient.address1],
+          city: input.recipient.city,
+          stateOrProvinceCode: input.recipient.state,
+          postalCode: input.recipient.zip,
+          countryCode: input.recipient.countryCode || 'US',
+          residential: input.recipient.residential ?? true,
+        },
+      },
+      serviceType: input.serviceType,
+      packagingType: input.packagingType,
+      pickupType: 'DROPOFF_AT_FEDEX_LOCATION',
+      shipDateStamp: shipDate,
+      ...(input.oneRate
+        ? {
+            shipmentSpecialServices: {
+              specialServiceTypes: ['FEDEX_ONE_RATE'],
+            },
+          }
+        : {}),
+      requestedPackageLineItems: input.packages.map((pkg) => ({
+        weight: { units: 'LB', value: pkg.weightLbs },
+        ...(pkg.length && pkg.width && pkg.height
+          ? {
+              dimensions: {
+                length: Math.round(pkg.length),
+                width: Math.round(pkg.width),
+                height: Math.round(pkg.height),
+                units: 'IN',
+              },
+            }
+          : {}),
+      })),
+    },
+  };
+}
+
+export async function getRateQuote(
+  credentials: FedExCredentials,
+  input: RateQuoteInput
+): Promise<RateQuoteResult> {
+  const payload = buildRatePayload(credentials, input);
+
+  const result = await fedexRequest<any>(
+    credentials,
+    'POST',
+    '/rate/v1/rates/quotes',
+    payload
+  );
+
+  const rateDetail = result.output?.rateReplyDetails?.[0];
+  if (!rateDetail) {
+    throw new Error('No rate quote returned from FedEx');
+  }
+
+  const rated = rateDetail.ratedShipmentDetails?.[0];
+  const totalCharge = rated?.totalNetCharge ?? rated?.totalNetFedExCharge ?? 0;
+  const currency = rated?.currency ?? 'USD';
+
+  const surcharges = (rated?.shipmentRateDetail?.surCharges || []).map(
+    (s: any) => ({
+      type: s.type || s.surchargeType || 'UNKNOWN',
+      description: s.description || s.type || '',
+      amount: s.amount ?? 0,
+    })
+  );
+
+  const transitDays =
+    rateDetail.commit?.transitDays?.description ||
+    rateDetail.commit?.dateDetail?.dayFormat ||
+    null;
+
+  return {
+    serviceType: rateDetail.serviceType || input.serviceType,
+    serviceName: rateDetail.serviceName || input.serviceType,
+    totalCharge: typeof totalCharge === 'number' ? totalCharge : parseFloat(totalCharge) || 0,
+    currency,
+    surcharges,
+    transitDays,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Integration Adapter Registration
 // ---------------------------------------------------------------------------
 

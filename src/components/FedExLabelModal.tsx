@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap, DollarSign } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { FEDEX_SERVICE_TYPES, FEDEX_PACKAGING_TYPES } from '@/lib/fedex-services';
 
@@ -14,6 +14,15 @@ type Address = {
   city: string;
   state: string;
   zip: string;
+};
+
+type RateQuote = {
+  serviceType: string;
+  serviceName: string;
+  totalCharge: number;
+  currency: string;
+  surcharges: { type: string; description: string; amount: number }[];
+  transitDays: string | null;
 };
 
 type Props = {
@@ -73,6 +82,10 @@ export default function FedExLabelModal({
   const [serviceType, setServiceType] = useState('STANDARD_OVERNIGHT');
   const [packagingType, setPackagingType] = useState('FEDEX_PAK');
   const [weightLbs, setWeightLbs] = useState(1);
+
+  const [rateQuote, setRateQuote] = useState<RateQuote | null>(null);
+  const [rateLoading, setRateLoading] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ trackingNumber: string } | null>(null);
@@ -93,6 +106,7 @@ export default function FedExLabelModal({
 
   const handleOneRateToggle = (enabled: boolean) => {
     setOneRate(enabled);
+    setRateQuote(null);
     if (enabled) {
       const currentServiceValid = FEDEX_SERVICE_TYPES.find(
         (s) => s.code === serviceType && s.oneRateEligible
@@ -103,6 +117,48 @@ export default function FedExLabelModal({
         (p) => p.code === packagingType && p.oneRateEligible
       );
       if (!currentPkgValid) setPackagingType('FEDEX_PAK');
+    }
+  };
+
+  const clearRate = useCallback(() => setRateQuote(null), []);
+
+  const handleGetRate = async () => {
+    setError(null);
+    setRateLoading(true);
+    setRateQuote(null);
+
+    try {
+      const res = await apiFetch('/api/shipping/fedex/rate', {
+        method: 'POST',
+        body: JSON.stringify({
+          patientId,
+          origin: {
+            address1: origin.address1,
+            city: origin.city,
+            state: origin.state,
+            zip: origin.zip,
+          },
+          destination: {
+            address1: destination.address1,
+            city: destination.city,
+            state: destination.state,
+            zip: destination.zip,
+            residential: true,
+          },
+          serviceType,
+          packagingType,
+          weightLbs,
+          oneRate,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to get rate');
+      setRateQuote(data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to get rate quote');
+    } finally {
+      setRateLoading(false);
     }
   };
 
@@ -127,10 +183,7 @@ export default function FedExLabelModal({
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create label');
-      }
+      if (!res.ok) throw new Error(data.error || 'Failed to create label');
 
       setSuccess({ trackingNumber: data.trackingNumber });
 
@@ -160,6 +213,9 @@ export default function FedExLabelModal({
 
   const inputCls =
     'rounded-lg border px-3 py-2 text-sm focus:border-[#4D148C] focus:outline-none focus:ring-1 focus:ring-[#4D148C]';
+
+  const formatCurrency = (amount: number, currency: string) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -217,46 +273,46 @@ export default function FedExLabelModal({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     value={origin.personName}
-                    onChange={(e) => setOrigin({ ...origin, personName: e.target.value })}
+                    onChange={(e) => { setOrigin({ ...origin, personName: e.target.value }); clearRate(); }}
                     placeholder="Name / Company"
                     className={inputCls}
                   />
                   <input
                     value={origin.phoneNumber}
-                    onChange={(e) => setOrigin({ ...origin, phoneNumber: e.target.value })}
+                    onChange={(e) => { setOrigin({ ...origin, phoneNumber: e.target.value }); clearRate(); }}
                     placeholder="Phone"
                     className={inputCls}
                   />
                 </div>
                 <input
                   value={origin.address1}
-                  onChange={(e) => setOrigin({ ...origin, address1: e.target.value })}
+                  onChange={(e) => { setOrigin({ ...origin, address1: e.target.value }); clearRate(); }}
                   placeholder="Address Line 1"
                   className={`w-full ${inputCls}`}
                 />
                 <input
                   value={origin.address2 || ''}
-                  onChange={(e) => setOrigin({ ...origin, address2: e.target.value })}
+                  onChange={(e) => { setOrigin({ ...origin, address2: e.target.value }); clearRate(); }}
                   placeholder="Address Line 2 (optional)"
                   className={`w-full ${inputCls}`}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <input
                     value={origin.city}
-                    onChange={(e) => setOrigin({ ...origin, city: e.target.value })}
+                    onChange={(e) => { setOrigin({ ...origin, city: e.target.value }); clearRate(); }}
                     placeholder="City"
                     className={inputCls}
                   />
                   <input
                     value={origin.state}
-                    onChange={(e) => setOrigin({ ...origin, state: e.target.value })}
+                    onChange={(e) => { setOrigin({ ...origin, state: e.target.value }); clearRate(); }}
                     placeholder="State"
                     maxLength={2}
                     className={`uppercase ${inputCls}`}
                   />
                   <input
                     value={origin.zip}
-                    onChange={(e) => setOrigin({ ...origin, zip: e.target.value })}
+                    onChange={(e) => { setOrigin({ ...origin, zip: e.target.value }); clearRate(); }}
                     placeholder="ZIP"
                     className={inputCls}
                   />
@@ -272,46 +328,46 @@ export default function FedExLabelModal({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     value={destination.personName}
-                    onChange={(e) => setDestination({ ...destination, personName: e.target.value })}
+                    onChange={(e) => { setDestination({ ...destination, personName: e.target.value }); clearRate(); }}
                     placeholder="Recipient Name"
                     className={inputCls}
                   />
                   <input
                     value={destination.phoneNumber}
-                    onChange={(e) => setDestination({ ...destination, phoneNumber: e.target.value })}
+                    onChange={(e) => { setDestination({ ...destination, phoneNumber: e.target.value }); clearRate(); }}
                     placeholder="Phone"
                     className={inputCls}
                   />
                 </div>
                 <input
                   value={destination.address1}
-                  onChange={(e) => setDestination({ ...destination, address1: e.target.value })}
+                  onChange={(e) => { setDestination({ ...destination, address1: e.target.value }); clearRate(); }}
                   placeholder="Address Line 1"
                   className={`w-full ${inputCls}`}
                 />
                 <input
                   value={destination.address2 || ''}
-                  onChange={(e) => setDestination({ ...destination, address2: e.target.value })}
+                  onChange={(e) => { setDestination({ ...destination, address2: e.target.value }); clearRate(); }}
                   placeholder="Address Line 2 (optional)"
                   className={`w-full ${inputCls}`}
                 />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <input
                     value={destination.city}
-                    onChange={(e) => setDestination({ ...destination, city: e.target.value })}
+                    onChange={(e) => { setDestination({ ...destination, city: e.target.value }); clearRate(); }}
                     placeholder="City"
                     className={inputCls}
                   />
                   <input
                     value={destination.state}
-                    onChange={(e) => setDestination({ ...destination, state: e.target.value })}
+                    onChange={(e) => { setDestination({ ...destination, state: e.target.value }); clearRate(); }}
                     placeholder="State"
                     maxLength={2}
                     className={`uppercase ${inputCls}`}
                   />
                   <input
                     value={destination.zip}
-                    onChange={(e) => setDestination({ ...destination, zip: e.target.value })}
+                    onChange={(e) => { setDestination({ ...destination, zip: e.target.value }); clearRate(); }}
                     placeholder="ZIP"
                     className={inputCls}
                   />
@@ -361,7 +417,7 @@ export default function FedExLabelModal({
                   <label className="mb-1 block text-xs font-medium text-gray-500">Service Type</label>
                   <select
                     value={serviceType}
-                    onChange={(e) => setServiceType(e.target.value)}
+                    onChange={(e) => { setServiceType(e.target.value); clearRate(); }}
                     className={`w-full ${inputCls}`}
                   >
                     {availableServices.map((s) => (
@@ -379,7 +435,7 @@ export default function FedExLabelModal({
                     </label>
                     <select
                       value={packagingType}
-                      onChange={(e) => setPackagingType(e.target.value)}
+                      onChange={(e) => { setPackagingType(e.target.value); clearRate(); }}
                       className={`w-full ${inputCls}`}
                     >
                       {availablePackaging.map((p) => (
@@ -398,7 +454,7 @@ export default function FedExLabelModal({
                       max={maxWeight}
                       step={0.1}
                       value={weightLbs}
-                      onChange={(e) => setWeightLbs(parseFloat(e.target.value) || 1)}
+                      onChange={(e) => { setWeightLbs(parseFloat(e.target.value) || 1); clearRate(); }}
                       className={`w-full ${inputCls}`}
                     />
                   </div>
@@ -411,32 +467,81 @@ export default function FedExLabelModal({
                 )}
               </fieldset>
 
+              {/* Rate Quote Display */}
+              {rateQuote && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-blue-600" />
+                      <p className="text-sm font-medium text-blue-800">Estimated Shipping Cost</p>
+                    </div>
+                    <p className="text-xl font-bold text-blue-900">
+                      {formatCurrency(rateQuote.totalCharge, rateQuote.currency)}
+                    </p>
+                  </div>
+                  {rateQuote.transitDays && (
+                    <p className="mt-1 text-xs text-blue-600">Transit time: {rateQuote.transitDays}</p>
+                  )}
+                  {rateQuote.surcharges.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {rateQuote.surcharges.map((s, i) => (
+                        <div key={i} className="flex justify-between text-xs text-blue-700">
+                          <span>{s.description || s.type}</span>
+                          <span>{formatCurrency(s.amount, rateQuote.currency)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex items-center justify-end gap-3 border-t pt-4">
                 <button
                   onClick={onClose}
-                  disabled={loading}
+                  disabled={loading || rateLoading}
                   className="rounded-lg border px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading || !isOriginValid || !isDestValid}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#4D148C] px-5 py-2 text-sm font-medium text-white transition hover:bg-[#3a0f6a] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Creating Label...
-                    </>
-                  ) : (
-                    <>
-                      <Printer className="h-4 w-4" />
-                      Generate & Print Label
-                    </>
-                  )}
-                </button>
+
+                {!rateQuote ? (
+                  <button
+                    onClick={handleGetRate}
+                    disabled={rateLoading || !origin.address1 || !origin.zip || !destination.address1 || !destination.zip}
+                    className="inline-flex items-center gap-2 rounded-lg border-2 border-[#4D148C] px-5 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {rateLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Getting Rate...
+                      </>
+                    ) : (
+                      <>
+                        <DollarSign className="h-4 w-4" />
+                        Get Rate Quote
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || !isOriginValid || !isDestValid}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#4D148C] px-5 py-2 text-sm font-medium text-white transition hover:bg-[#3a0f6a] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Creating Label...
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="h-4 w-4" />
+                        Confirm & Print Label — {formatCurrency(rateQuote.totalCharge, rateQuote.currency)}
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </>
           )}
