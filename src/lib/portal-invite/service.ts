@@ -17,11 +17,11 @@ const INVITE_EXPIRY_DAYS = 7;
 
 export type PortalInviteTrigger = 'manual' | 'first_payment' | 'first_order';
 
-export type PortalInviteChannel = 'email' | 'sms';
+export type PortalInviteChannel = 'email' | 'sms' | 'both';
 
 export interface CreatePortalInviteOptions {
   createdById?: number;
-  /** Delivery channel. Default 'email'. Auto-triggers use email when not specified. */
+  /** Delivery channel. Default 'email'. 'both' sends email first, then SMS. */
   channel?: PortalInviteChannel;
   /** Base URL for the invite link (e.g. from request origin). Overrides env when set. */
   baseUrlOverride?: string;
@@ -105,7 +105,12 @@ export async function createAndSendPortalInvite(
     const email = (decrypted.email || '').trim().toLowerCase();
     const phone = (decrypted.phone || '').trim();
 
-    if (channel === 'sms') {
+    if (channel === 'both') {
+      if (!email && !phone) {
+        logger.warn('[PortalInvite] Patient has no email or phone', { patientId });
+        return { success: false, error: 'Patient has no email or phone number' };
+      }
+    } else if (channel === 'sms') {
       if (!phone) {
         logger.warn('[PortalInvite] Patient has no phone for SMS invite', { patientId });
         return { success: false, error: 'Patient has no phone number' };
@@ -162,58 +167,10 @@ export async function createAndSendPortalInvite(
     const firstName = (decrypted.firstName || 'Patient').trim();
     const clinicName = patient.clinic?.name || 'Your Clinic';
 
-    if (channel === 'sms') {
-      const smsBody = `${clinicName}: Create your patient portal account. This link expires in ${INVITE_EXPIRY_DAYS} days. ${inviteLink}`;
-      const smsResult = await sendSMS({
-        to: formatPhoneNumber(phone),
-        body: smsBody,
-        clinicId: patient.clinicId,
-        patientId: patient.id,
-        templateType: 'PORTAL_INVITE',
-      });
-      if (!smsResult.success) {
-        const errMsg = smsResult.blocked
-          ? (smsResult.blockReason ?? smsResult.error)
-          : (smsResult.error ?? 'SMS send failed');
-        logger.warn('[PortalInvite] SMS send failed', {
-          patientId,
-          error: errMsg,
-        });
-        return { success: false, error: errMsg };
-      }
+    const sendEmail = (channel === 'email' || channel === 'both') && !!email;
+    const sendSms = (channel === 'sms' || channel === 'both') && !!phone;
 
-      // Record in chat so staff can see the sent invite
-      try {
-        await prisma.patientChatMessage.create({
-          data: {
-            patientId,
-            clinicId: patient.clinicId,
-            message: smsBody,
-            direction: 'OUTBOUND',
-            channel: 'SMS',
-            senderType: 'SYSTEM',
-            senderId: options?.createdById ?? null,
-            senderName: 'System',
-            status: smsResult.messageId ? 'DELIVERED' : 'SENT',
-            externalId: smsResult.messageId ?? null,
-            deliveredAt: smsResult.messageId ? new Date() : null,
-            metadata: { trigger, type: 'portal_invite' },
-          },
-        });
-      } catch (chatErr) {
-        const msg = chatErr instanceof Error ? chatErr.message : 'Unknown error';
-        logger.warn('[PortalInvite] Failed to create chat record (non-fatal)', {
-          patientId,
-          error: msg,
-        });
-      }
-
-      logger.info('[PortalInvite] Invite created and SMS sent', {
-        patientId,
-        trigger,
-        clinicId: patient.clinicId,
-      });
-    } else {
+    if (sendEmail) {
       const emailResult = await sendTemplatedEmail({
         to: email,
         template: EmailTemplate.PATIENT_PORTAL_INVITE,
@@ -229,13 +186,68 @@ export async function createAndSendPortalInvite(
           patientId,
           error: emailResult.error,
         });
-        return { success: false, error: emailResult.error ?? 'Failed to send email.' };
+        if (!sendSms) {
+          return { success: false, error: emailResult.error ?? 'Failed to send email.' };
+        }
+      } else {
+        logger.info('[PortalInvite] Invite email sent', {
+          patientId,
+          trigger,
+          clinicId: patient.clinicId,
+        });
       }
-      logger.info('[PortalInvite] Invite created and email sent', {
-        patientId,
-        trigger,
+    }
+
+    if (sendSms) {
+      const smsBody = `${clinicName}: Create your patient portal account. This link expires in ${INVITE_EXPIRY_DAYS} days. ${inviteLink}`;
+      const smsResult = await sendSMS({
+        to: formatPhoneNumber(phone),
+        body: smsBody,
         clinicId: patient.clinicId,
+        patientId: patient.id,
+        templateType: 'PORTAL_INVITE',
       });
+      if (!smsResult.success) {
+        const errMsg = smsResult.blocked
+          ? (smsResult.blockReason ?? smsResult.error)
+          : (smsResult.error ?? 'SMS send failed');
+        logger.warn('[PortalInvite] SMS send failed', { patientId, error: errMsg });
+        if (!sendEmail) {
+          return { success: false, error: errMsg };
+        }
+      } else {
+        // Record in chat so staff can see the sent invite
+        try {
+          await prisma.patientChatMessage.create({
+            data: {
+              patientId,
+              clinicId: patient.clinicId,
+              message: smsBody,
+              direction: 'OUTBOUND',
+              channel: 'SMS',
+              senderType: 'SYSTEM',
+              senderId: options?.createdById ?? null,
+              senderName: 'System',
+              status: smsResult.messageId ? 'DELIVERED' : 'SENT',
+              externalId: smsResult.messageId ?? null,
+              deliveredAt: smsResult.messageId ? new Date() : null,
+              metadata: { trigger, type: 'portal_invite' },
+            },
+          });
+        } catch (chatErr) {
+          const msg = chatErr instanceof Error ? chatErr.message : 'Unknown error';
+          logger.warn('[PortalInvite] Failed to create chat record (non-fatal)', {
+            patientId,
+            error: msg,
+          });
+        }
+
+        logger.info('[PortalInvite] Invite SMS sent', {
+          patientId,
+          trigger,
+          clinicId: patient.clinicId,
+        });
+      }
     }
 
     return { success: true, expiresAt };
@@ -247,6 +259,42 @@ export async function createAndSendPortalInvite(
       error: message,
     });
     return { success: false, error: message };
+  }
+}
+
+/**
+ * Fire-and-forget portal invite on payment/invoice.
+ * Always-on across all brands — no per-clinic setting required.
+ * Safe to call from any payment path; never throws, never blocks the caller.
+ */
+export async function triggerPortalInviteOnPayment(patientId: number): Promise<void> {
+  try {
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { id: true, user: { select: { id: true } } },
+    });
+
+    if (!patient) return;
+    if (patient.user) return; // Already has portal access
+
+    const result = await createAndSendPortalInvite(patientId, 'first_payment', {
+      channel: 'both',
+    });
+
+    if (result.success) {
+      logger.info('[PortalInvite] Auto-invite sent on payment', { patientId });
+    } else if (result.error !== 'Patient already has portal access') {
+      logger.warn('[PortalInvite] Auto-invite on payment skipped', {
+        patientId,
+        reason: result.error,
+      });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    logger.warn('[PortalInvite] Auto-invite on payment failed (non-fatal)', {
+      patientId,
+      error: msg,
+    });
   }
 }
 

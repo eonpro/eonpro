@@ -1013,26 +1013,12 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         });
       }
 
-      // ENTERPRISE: Auto-send portal invite on first order (patient portal)
+      // Auto-send portal invite on first order (always-on, all brands)
       try {
-        const orderCount = await prisma.order.count({
-          where: { patientId: patientRecord.id },
-        });
-        if (orderCount === 1) {
-          const clinic = await prisma.clinic.findUnique({
-            where: { id: (patientRecord as any).clinicId },
-            select: { settings: true },
-          });
-          const settings = (
-            clinic?.settings as { patientPortal?: { autoInviteOnFirstOrder?: boolean } }
-          )?.patientPortal;
-          if (settings?.autoInviteOnFirstOrder) {
-            const { createAndSendPortalInvite } = await import('@/lib/portal-invite/service');
-            await createAndSendPortalInvite(patientRecord.id, 'first_order');
-          }
-        }
+        const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
+        await triggerPortalInviteOnPayment(patientRecord.id);
       } catch (inviteErr) {
-        logger.warn('[PRESCRIPTIONS] Portal invite on first order failed (non-fatal)', {
+        logger.warn('[PRESCRIPTIONS] Portal invite on order failed (non-fatal)', {
           patientId: patientRecord.id,
           error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
         });

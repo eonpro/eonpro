@@ -172,6 +172,11 @@ export default async function PatientDetailPage({
       attributionAffiliate: {
         select: { id: true, displayName: true, status: true },
       },
+      portalInvites: {
+        orderBy: { createdAt: 'desc' } as const,
+        take: 1,
+        select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
+      },
     };
 
     let patient;
@@ -813,6 +818,16 @@ export default async function PatientDetailPage({
                     !!(
                       patientWithDecryptedPHI.phone && String(patientWithDecryptedPHI.phone).trim()
                     )
+                  }
+                  lastInvite={
+                    (patientWithDecryptedPHI as any).portalInvites?.[0]
+                      ? {
+                          sentAt: (patientWithDecryptedPHI as any).portalInvites[0].createdAt.toISOString(),
+                          trigger: (patientWithDecryptedPHI as any).portalInvites[0].trigger as string,
+                          used: !!(patientWithDecryptedPHI as any).portalInvites[0].usedAt,
+                          expired: new Date((patientWithDecryptedPHI as any).portalInvites[0].expiresAt) < new Date(),
+                        }
+                      : null
                   }
                 />
 

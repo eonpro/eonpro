@@ -923,6 +923,20 @@ export class InvoiceManager {
       });
     }
 
+    // Auto-send portal invite on payment (non-blocking, all brands)
+    if (isPaid) {
+      try {
+        const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
+        await triggerPortalInviteOnPayment(invoice.patientId);
+      } catch (inviteErr) {
+        logger.warn('[InvoiceManager] Portal invite on payment failed (non-blocking)', {
+          invoiceId,
+          patientId: invoice.patientId,
+          error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+        });
+      }
+    }
+
     return {
       invoice: updatedInvoice,
       payment,

@@ -317,6 +317,18 @@ export async function POST(request: NextRequest, { params }: Params) {
           amount: paidAmount,
         });
 
+        // Auto-send portal invite on payment (non-blocking, all brands)
+        try {
+          const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
+          await triggerPortalInviteOnPayment(invoice.patientId);
+        } catch (inviteErr) {
+          logger.warn('[API] Portal invite on external payment failed (non-blocking)', {
+            invoiceId: id,
+            patientId: invoice.patientId,
+            error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+          });
+        }
+
         return NextResponse.json({
           success: true,
           message: 'Invoice marked as paid',

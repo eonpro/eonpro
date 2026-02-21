@@ -1419,21 +1419,12 @@ export async function processStripePayment(
       clinicId: patient.clinicId,
     });
 
-    // Optional: auto-send portal invite on first payment (enterprise patient portal)
+    // Auto-send portal invite on payment (always-on, all brands)
     try {
-      const clinic = await prisma.clinic.findUnique({
-        where: { id: patient.clinicId },
-        select: { settings: true },
-      });
-      const settings = (
-        clinic?.settings as { patientPortal?: { autoInviteOnFirstPayment?: boolean } }
-      )?.patientPortal;
-      if (settings?.autoInviteOnFirstPayment) {
-        const { createAndSendPortalInvite } = await import('@/lib/portal-invite/service');
-        await createAndSendPortalInvite(patient.id, 'first_payment');
-      }
+      const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
+      await triggerPortalInviteOnPayment(patient.id);
     } catch (inviteErr) {
-      logger.warn('[PaymentMatching] Portal invite on first payment failed (non-fatal)', {
+      logger.warn('[PaymentMatching] Portal invite on payment failed (non-fatal)', {
         patientId: patient.id,
         error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
       });

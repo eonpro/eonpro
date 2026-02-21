@@ -190,8 +190,8 @@ const getBrandingHandler = async (request: NextRequest) => {
       emergencyContact: patientPortalSettings.emergencyContact || null,
 
       // Auto-invite (enterprise patient portal)
-      autoInviteOnFirstPayment: patientPortalSettings.autoInviteOnFirstPayment ?? false,
-      autoInviteOnFirstOrder: patientPortalSettings.autoInviteOnFirstOrder ?? false,
+      autoInviteOnFirstPayment: patientPortalSettings.autoInviteOnFirstPayment ?? true,
+      autoInviteOnFirstOrder: patientPortalSettings.autoInviteOnFirstOrder ?? true,
     };
 
     return NextResponse.json(branding);

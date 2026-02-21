@@ -507,20 +507,10 @@ export function createPrescriptionService(): PrescriptionService {
         'platform fee'
       );
 
-      // Portal invite on first order
+      // Portal invite on first order (always-on, all brands)
       await safeAsync(async () => {
-        const orderCount = await prisma.order.count({ where: { patientId: patientRecord.id } });
-        if (orderCount === 1) {
-          const clinic = await prisma.clinic.findUnique({
-            where: { id: patientRecord.clinicId },
-            select: { settings: true },
-          });
-          const settings = (clinic?.settings as any)?.patientPortal;
-          if (settings?.autoInviteOnFirstOrder) {
-            const { createAndSendPortalInvite } = await import('@/lib/portal-invite/service');
-            await createAndSendPortalInvite(patientRecord.id, 'first_order');
-          }
-        }
+        const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
+        await triggerPortalInviteOnPayment(patientRecord.id);
       }, 'portal invite');
 
       return {

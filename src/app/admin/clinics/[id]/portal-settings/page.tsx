@@ -108,8 +108,8 @@ const defaultSettings: PortalSettings = {
   accentColor: '#d3f931',
   customCss: null,
   features: { ...defaultFeatures },
-  autoInviteOnFirstPayment: false,
-  autoInviteOnFirstOrder: false,
+  autoInviteOnFirstPayment: true,
+  autoInviteOnFirstOrder: true,
   resourceVideos: [],
 };
 
@@ -152,8 +152,8 @@ export default function ClinicPortalSettingsPage() {
           accentColor: data.accentColor || '#d3f931',
           customCss: data.customCss,
           features: { ...defaultFeatures, ...data.features } as Record<PortalFeatureKey, boolean>,
-          autoInviteOnFirstPayment: data.autoInviteOnFirstPayment ?? false,
-          autoInviteOnFirstOrder: data.autoInviteOnFirstOrder ?? false,
+          autoInviteOnFirstPayment: data.autoInviteOnFirstPayment ?? true,
+          autoInviteOnFirstOrder: data.autoInviteOnFirstOrder ?? true,
           resourceVideos: data.resourceVideos || [],
         });
       }
