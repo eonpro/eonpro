@@ -127,7 +127,7 @@ function IntakeStepContent() {
   }
 
   const logoElement = branding?.logo ? (
-    <div className="px-6 lg:px-8 pt-4 max-w-md lg:max-w-2xl mx-auto w-full">
+    <div className="px-6 lg:px-8 pt-4 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={branding.logo}
@@ -141,9 +141,12 @@ function IntakeStepContent() {
     <div
       style={
         {
-          '--intake-primary': branding?.primaryColor ?? '#413d3d',
+          '--intake-primary': branding?.primaryColor ?? '#10b981',
           '--intake-accent': branding?.accentColor ?? '#f0feab',
           '--intake-secondary': branding?.secondaryColor ?? '#4fa87f',
+          '--intake-text': '#1f2937',
+          '--intake-text-secondary': '#6b7280',
+          '--intake-border': '#e5e7eb',
         } as React.CSSProperties
       }
     >

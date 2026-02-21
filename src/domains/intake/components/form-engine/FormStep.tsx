@@ -268,16 +268,16 @@ export default function FormStep({
           />
         </div>
         {logoElement}
-        <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-md lg:max-w-2xl mx-auto w-full">
+        <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
           <div className="space-y-8">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--intake-primary,#413d3d)]">
+              <h1 className="text-[clamp(1.75rem,5vw,2.5rem)] font-semibold text-[var(--intake-text,#1f2937)]">
                 {getText(config.title)}
               </h1>
             </div>
             <div className="space-y-4 animate-pulse">
               {config.fields.map((_, i) => (
-                <div key={i} className="h-14 bg-gray-100 rounded-full" />
+                <div key={i} className="h-14 bg-gray-100 rounded-2xl" />
               ))}
             </div>
           </div>
@@ -439,7 +439,10 @@ export default function FormStep({
     }
   };
 
-  // ---- Layout ----
+  // ---- Layout (matches eonmeds weightlossintake UI/UX) ----
+
+  const contentMaxWidth = 'max-w-[480px] lg:max-w-[560px]';
+  const contentPadding = 'px-6 lg:px-8';
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -451,26 +454,16 @@ export default function FormStep({
         />
       </div>
 
-      {/* Back button */}
+      {/* Back button - ghost style */}
       {config.prevStep && (
-        <div className="px-6 lg:px-8 pt-6 max-w-md lg:max-w-2xl mx-auto w-full">
+        <div className={`${contentPadding} pt-6 ${contentMaxWidth} mx-auto w-full`}>
           <button
             onClick={handleBack}
-            className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg"
+            className="inline-flex items-center justify-center gap-2 py-2 px-4 -ml-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label={isSpanish ? 'Volver' : 'Go back'}
           >
-            <svg
-              className="w-6 h-6 text-[var(--intake-primary,#413d3d)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M15 19l-7-7 7-7"
-              />
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
         </div>
@@ -479,16 +472,16 @@ export default function FormStep({
       {/* Logo */}
       {logoElement}
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-md lg:max-w-2xl mx-auto w-full">
+      {/* Main content - match eonmeds .content-container */}
+      <div className={`flex-1 flex flex-col ${contentPadding} py-8 ${contentMaxWidth} mx-auto w-full`}>
         <div className="space-y-8">
-          {/* Title */}
+          {/* Title - match .page-title / .page-subtitle */}
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-[var(--intake-primary,#413d3d)]">
+            <h1 className="text-[clamp(1.75rem,5vw,2.5rem)] font-semibold leading-tight tracking-tight text-[var(--intake-text,#1f2937)]">
               {getText(config.title)}
             </h1>
             {config.subtitle && (
-              <p className="mt-3 text-base text-gray-500">
+              <p className="mt-3 text-[clamp(0.9375rem,2vw,1.0625rem)] font-normal text-[var(--intake-text-secondary,#6b7280)] leading-snug">
                 {getText(config.subtitle)}
               </p>
             )}
@@ -499,33 +492,46 @@ export default function FormStep({
         </div>
       </div>
 
-      {/* Continue button */}
+      {/* Continue button - eonmeds .continue-button (dark gradient, rounded-full, hover lift) */}
       {config.showContinueButton && (
-        <div className="px-6 lg:px-8 pb-6 max-w-md lg:max-w-2xl mx-auto w-full">
+        <div className={`${contentPadding} pb-6 ${contentMaxWidth} mx-auto w-full space-y-4`}>
           <button
             onClick={handleContinue}
             className="
-              w-full flex items-center justify-center gap-2 px-6 py-4
-              rounded-full font-semibold text-base transition-all
-              bg-[var(--intake-primary,#413d3d)] text-white
-              hover:opacity-90 active:scale-[0.98]
+              w-full flex items-center justify-center gap-3 py-4 px-8
+              text-white text-[1.0625rem] font-medium
+              rounded-full transition-all duration-200
+              bg-[linear-gradient(135deg,#1f2937_0%,#111827_100%)]
+              hover:-translate-y-0.5 hover:shadow-lg
+              active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
             "
           >
             <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 5l7 7-7 7"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
+          {/* Copyright - match eonmeds */}
+          <p className="text-center text-xs text-gray-500">
+            {isSpanish ? (
+              <>© 2026 EONPro, LLC. Todos los derechos reservados. Proceso exclusivo y protegido.</>
+            ) : (
+              <>© 2026 EONPro, LLC. All rights reserved. Exclusive and protected process.</>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/* Copyright when no continue button (e.g. auto-advance steps) */}
+      {!config.showContinueButton && (
+        <div className={`${contentPadding} pb-6 ${contentMaxWidth} mx-auto w-full`}>
+          <p className="text-center text-xs text-gray-500">
+            {isSpanish ? (
+              <>© 2026 EONPro, LLC. Todos los derechos reservados. Proceso exclusivo y protegido.</>
+            ) : (
+              <>© 2026 EONPro, LLC. All rights reserved. Exclusive and protected process.</>
+            )}
+          </p>
         </div>
       )}
     </div>

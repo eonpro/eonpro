@@ -25,7 +25,7 @@ const createSchema = z.object({
 export const GET = withAuth(
   async (_req: NextRequest, user: AuthUser) => {
     try {
-      const templates = await prisma.intakeFormTemplate.findMany({
+      const rows = await prisma.intakeFormTemplate.findMany({
         where: { clinicId: user.clinicId },
         orderBy: { createdAt: 'desc' },
         select: {
@@ -40,6 +40,13 @@ export const GET = withAuth(
           _count: { select: { submissions: true, drafts: true } },
         },
       });
+
+      const templates = rows.map((t) => ({
+        ...t,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
+        _count: { submissions: t._count?.submissions ?? 0, drafts: t._count?.drafts ?? 0 },
+      }));
 
       return NextResponse.json({ templates });
     } catch (error) {
@@ -83,7 +90,11 @@ export const POST = withAuth(
         fromLibrary: fromLibrary ?? 'blank',
       });
 
-      return NextResponse.json({ template }, { status: 201 });
+      const templateWithCount = {
+        ...template,
+        _count: { submissions: 0, drafts: 0 },
+      };
+      return NextResponse.json({ template: templateWithCount }, { status: 201 });
     } catch (error) {
       return handleApiError(error, { context: { route: 'POST /api/admin/intake-templates' } });
     }

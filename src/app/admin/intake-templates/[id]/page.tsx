@@ -194,7 +194,7 @@ export default function IntakeTemplateEditorPage() {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {template.questions.length}
+                  {template.questions?.length ?? 0}
                 </p>
                 <p className="text-xs text-gray-500">Questions</p>
               </div>

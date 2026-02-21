@@ -23,10 +23,34 @@ export default function IntakeTemplatesPage() {
   const [fromLibrary, setFromLibrary] = useState('weight-loss');
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/admin/intake-templates')
       .then((r) => (r.ok ? r.json() : { templates: [] }))
-      .then((d) => setTemplates(d.templates ?? []))
-      .finally(() => setLoading(false));
+      .then((d) => {
+        if (cancelled) return;
+        const raw = Array.isArray(d?.templates) ? d.templates : [];
+        const normalized: TemplateRow[] = raw.map((t: Record<string, unknown>) => ({
+          id: Number(t.id),
+          name: String(t.name ?? ''),
+          description: t.description != null ? String(t.description) : null,
+          treatmentType: String(t.treatmentType ?? ''),
+          isActive: Boolean(t.isActive),
+          version: Number(t.version ?? 1),
+          createdAt: t.createdAt != null ? String(t.createdAt) : '',
+          _count: {
+            submissions: Number((t._count as Record<string, unknown>)?.submissions ?? 0),
+            drafts: Number((t._count as Record<string, unknown>)?.drafts ?? 0),
+          },
+        }));
+        setTemplates(normalized);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const handleCreate = async () => {
@@ -41,7 +65,23 @@ export default function IntakeTemplatesPage() {
     });
     if (res.ok) {
       const data = await res.json();
-      setTemplates((prev) => [data.template, ...prev]);
+      const t = data?.template;
+      if (t) {
+        const row: TemplateRow = {
+          id: Number(t.id),
+          name: String(t.name ?? ''),
+          description: t.description != null ? String(t.description) : null,
+          treatmentType: String(t.treatmentType ?? ''),
+          isActive: Boolean(t.isActive),
+          version: Number(t.version ?? 1),
+          createdAt: t.createdAt != null ? String(t.createdAt) : '',
+          _count: {
+            submissions: Number(t._count?.submissions ?? 0),
+            drafts: Number(t._count?.drafts ?? 0),
+          },
+        };
+        setTemplates((prev) => [row, ...prev]);
+      }
       setShowCreate(false);
       setNewName('');
     }
@@ -177,8 +217,8 @@ export default function IntakeTemplatesPage() {
                   </div>
                   <p className="text-sm text-gray-500 mt-0.5">
                     {t.treatmentType} &middot;{' '}
-                    {t._count.submissions} submissions &middot;{' '}
-                    {t._count.drafts} active drafts
+                    {t._count?.submissions ?? 0} submissions &middot;{' '}
+                    {t._count?.drafts ?? 0} active drafts
                   </p>
                 </div>
                 <svg

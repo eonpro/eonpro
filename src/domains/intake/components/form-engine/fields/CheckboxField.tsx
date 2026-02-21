@@ -36,8 +36,21 @@ export default function CheckboxField({
             border-[1.5px] border-[var(--intake-primary,#413d3d)] transition-all
             ${checked ? 'bg-[var(--intake-accent,#f0feab)]' : 'bg-transparent'}
           `}
-          onClick={() => !disabled && onChange(!checked)}
-          role="presentation"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!disabled) onChange(!checked);
+          }}
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          onKeyDown={(e) => {
+            if (disabled) return;
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              onChange(!checked);
+            }
+          }}
+          aria-pressed={checked}
         >
           {checked && (
             <svg

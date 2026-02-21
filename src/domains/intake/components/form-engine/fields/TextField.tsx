@@ -51,11 +51,11 @@ export default function TextField({
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
         className={`
-          w-full px-5 py-4 rounded-full border-2 text-[16px]
-          font-medium outline-none transition-all
-          placeholder:text-gray-400 placeholder:font-normal
-          focus:border-[var(--intake-primary,#413d3d)] focus:ring-1 focus:ring-[var(--intake-primary,#413d3d)]
-          ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200'}
+          w-full px-5 py-4 rounded-[7px] border text-base
+          font-semibold outline-none transition-all
+          placeholder:font-normal placeholder:opacity-50
+          focus:border-[var(--intake-primary,#10b981)] focus:ring-4 focus:ring-[var(--intake-primary,#10b981)]/10
+          ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' : 'border-[var(--intake-border,#e5e7eb)]'}
           ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'bg-white'}
         `}
       />
