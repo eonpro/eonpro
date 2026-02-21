@@ -144,9 +144,9 @@ function OrderSetModal({
       setError('Name is required');
       return;
     }
-    const validItems = items.filter((i) => i.medicationKey && i.sig);
+    const validItems = items.filter((i) => i.medicationKey);
     if (validItems.length === 0) {
-      setError('At least one medication with directions is required');
+      setError('At least one medication is required');
       return;
     }
 

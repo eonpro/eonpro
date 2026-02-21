@@ -11,11 +11,11 @@ const createOrderSetSchema = z.object({
     .array(
       z.object({
         medicationKey: z.string().min(1),
-        sig: z.string().min(1),
-        quantity: z.string().min(1),
-        refills: z.string(),
-        daysSupply: z.number().int().min(1).max(365).default(30),
-        sortOrder: z.number().int().min(0).default(0),
+        sig: z.string().optional().default(''),
+        quantity: z.string().optional().default('1'),
+        refills: z.string().optional().default('0'),
+        daysSupply: z.coerce.number().int().min(1).max(365).default(30),
+        sortOrder: z.coerce.number().int().min(0).default(0),
       })
     )
     .min(1, 'At least one medication is required'),
@@ -79,10 +79,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         items: {
           create: items.map((item, idx) => ({
             medicationKey: item.medicationKey,
-            sig: item.sig,
-            quantity: item.quantity,
-            refills: item.refills,
-            daysSupply: item.daysSupply,
+            sig: item.sig ?? '',
+            quantity: item.quantity || '1',
+            refills: item.refills ?? '0',
+            daysSupply: item.daysSupply ?? 30,
             sortOrder: item.sortOrder ?? idx,
           })),
         },
@@ -101,8 +101,13 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json({ orderSet }, { status: 201 });
   } catch (err) {
-    logger.error('[ORDER_SETS/POST] Failed', { error: err instanceof Error ? err.message : String(err) });
-    return NextResponse.json({ error: 'Failed to create order set' }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error('[ORDER_SETS/POST] Failed', { error: message });
+    const body: { error: string; details?: string } = { error: 'Failed to create order set' };
+    if (process.env.NODE_ENV === 'development') {
+      body.details = message;
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }
 
