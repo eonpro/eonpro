@@ -1000,6 +1000,7 @@ async function loginHandler(req: NextRequest) {
       'super_admin-token',
       'staff-token',
       'support-token',
+      'sales_rep-token',
       'selected-clinic',
     ];
 

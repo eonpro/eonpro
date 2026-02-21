@@ -184,7 +184,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       const parsedUser = JSON.parse(user);
       const role = parsedUser.role?.toLowerCase();
-      if (role !== 'admin' && role !== 'super_admin') {
+      const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff'];
+      if (!role || !allowedAdminRoles.includes(role)) {
         router.push('/login');
         return;
       }
@@ -277,7 +278,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     const token =
       localStorage.getItem('auth-token') ||
       localStorage.getItem('admin-token') ||
-      localStorage.getItem('super_admin-token');
+      localStorage.getItem('super_admin-token') ||
+      localStorage.getItem('provider-token') ||
+      localStorage.getItem('staff-token') ||
+      localStorage.getItem('sales_rep-token');
     if (token)
       fetch('/api/auth/logout', {
         method: 'POST',

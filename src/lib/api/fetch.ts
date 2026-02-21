@@ -34,13 +34,15 @@ export function dispatchSessionExpired(reason: string = 'session_expired') {
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
 
-  // Check all possible token locations
+  // Check all possible token locations (include role-specific keys used by login)
   return (
     localStorage.getItem('auth-token') ||
     localStorage.getItem('access_token') ||
     localStorage.getItem('super_admin-token') ||
     localStorage.getItem('admin-token') ||
     localStorage.getItem('provider-token') ||
+    localStorage.getItem('staff-token') ||
+    localStorage.getItem('sales_rep-token') ||
     null
   );
 }
@@ -188,6 +190,8 @@ export function clearAuthTokens() {
     'super_admin-token',
     'admin-token',
     'provider-token',
+    'staff-token',
+    'sales_rep-token',
     'affiliate-token',
     'patient-token',
     'token_timestamp',
@@ -204,10 +208,11 @@ export function clearAuthTokens() {
     'admin-token',
     'super_admin-token',
     'provider-token',
-    'affiliate-token',
-    'patient-token',
     'staff-token',
     'support-token',
+    'sales_rep-token',
+    'affiliate-token',
+    'patient-token',
   ];
 
   cookieNames.forEach((name) => {

@@ -24,8 +24,8 @@ import { parseTakeFromParams } from '@/lib/pagination';
 import { splitSearchTerms, buildPatientSearchWhere } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
 
-// Roles that can access this endpoint
-const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep'] as const;
+// Roles that can access this endpoint (provider/staff may use admin Patients page)
+const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep', 'provider', 'staff'] as const;
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {

@@ -274,6 +274,7 @@ function extractToken(req: NextRequest): ExtractedToken {
         'patient-token',
         'staff-token',
         'support-token',
+        'sales_rep-token',
       ]
     : [
         // All other routes: prefer general auth / role-specific cookies
@@ -284,6 +285,7 @@ function extractToken(req: NextRequest): ExtractedToken {
         'patient-token',
         'staff-token',
         'support-token',
+        'sales_rep-token',
         // Affiliate cookies last — only used as fallback for non-affiliate routes
         'affiliate_session',
         'affiliate-token',

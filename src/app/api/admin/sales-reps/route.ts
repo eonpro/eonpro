@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
@@ -106,4 +106,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
   }
 }
 
-export const GET = withAdminAuth(handleGet);
+// Allow admin, sales_rep, provider, staff to list sales reps (e.g. for Patients page filter)
+export const GET = withAuth(handleGet, {
+  roles: ['super_admin', 'admin', 'sales_rep', 'provider', 'staff'],
+});
