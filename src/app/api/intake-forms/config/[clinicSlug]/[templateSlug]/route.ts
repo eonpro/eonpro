@@ -11,6 +11,7 @@ import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import type { FormConfig, FormBranding } from '@/domains/intake/types/form-engine';
+import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
 
 interface RouteParams {
   params: Promise<{ clinicSlug: string; templateSlug: string }>;
@@ -39,7 +40,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     }
 
     return runWithClinicContext(clinic.id, async () => {
-      const template = await prisma.intakeFormTemplate.findFirst({
+      const candidates = await prisma.intakeFormTemplate.findMany({
         where: {
           clinicId: clinic.id,
           isActive: true,
@@ -49,6 +50,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
           ],
         },
         orderBy: { updatedAt: 'desc' },
+        take: 20,
         include: {
           questions: {
             orderBy: { orderIndex: 'asc' },
@@ -56,9 +58,15 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         },
       });
 
-      if (!template) {
+      if (candidates.length === 0) {
         return NextResponse.json({ error: 'Template not found' }, { status: 404 });
       }
+
+      const template = candidates.find((t) => {
+        const meta = t.metadata as Record<string, unknown> | null;
+        const cfg = meta?.formConfig as FormConfig | undefined;
+        return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
+      }) ?? candidates[0];
 
       const metadata = template.metadata as Record<string, unknown> | null;
       const formConfig = metadata?.formConfig as FormConfig | undefined;
@@ -77,6 +85,22 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
         return NextResponse.json({
           config: formConfig,
+          branding,
+          clinicName: clinic.name,
+        });
+      }
+
+      if (templateSlug === 'weight-loss') {
+        const settings = clinic.settings as Record<string, unknown> | null;
+        const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
+        const branding: FormBranding = {
+          logo: (portalSettings?.logoUrl as string) ?? undefined,
+          primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+          accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+          secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+        };
+        return NextResponse.json({
+          config: { ...weightLossIntakeConfig, id: `template-${template.id}` },
           branding,
           clinicName: clinic.name,
         });
