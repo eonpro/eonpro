@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -66,6 +67,7 @@ interface ClinicInfo {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
   const [activeClinic, setActiveClinic] = useState<ClinicInfo | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -275,8 +277,19 @@ export default function AdminPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search patients"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const q = searchQuery.trim();
+                const url = q
+                  ? `/admin/patients?search=${encodeURIComponent(q)}`
+                  : '/admin/patients';
+                router.push(url);
+              }
+            }}
+            placeholder="Search patients (Enter for full search)"
             className="w-full rounded-full border border-gray-200 bg-white py-3 pl-4 pr-4 text-sm transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            aria-label="Search patients"
           />
         </div>
       </div>

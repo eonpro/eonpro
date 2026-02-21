@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import {
   Clock,
@@ -50,6 +51,7 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboard({ userName }: AdminDashboardProps) {
+  const router = useRouter();
   const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
   const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,14 +192,25 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
           </p>
         </div>
 
-        {/* Search */}
+        {/* Search — filters table below; Enter opens full patient search */}
         <div className="relative w-96">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search patients"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const q = searchQuery.trim();
+                const url = q
+                  ? `/admin/patients?search=${encodeURIComponent(q)}`
+                  : '/admin/patients';
+                router.push(url);
+              }
+            }}
+            placeholder="Search patients (Enter for full search)"
             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-4 pr-4 transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
+            aria-label="Search patients"
           />
         </div>
       </div>
