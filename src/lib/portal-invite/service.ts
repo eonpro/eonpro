@@ -169,6 +169,7 @@ export async function createAndSendPortalInvite(
         body: smsBody,
         clinicId: patient.clinicId,
         patientId: patient.id,
+        templateType: 'PORTAL_INVITE',
       });
       if (!smsResult.success) {
         const errMsg = smsResult.blocked
@@ -180,6 +181,33 @@ export async function createAndSendPortalInvite(
         });
         return { success: false, error: errMsg };
       }
+
+      // Record in chat so staff can see the sent invite
+      try {
+        await prisma.patientChatMessage.create({
+          data: {
+            patientId,
+            clinicId: patient.clinicId,
+            message: smsBody,
+            direction: 'OUTBOUND',
+            channel: 'SMS',
+            senderType: 'SYSTEM',
+            senderId: options?.createdById ?? null,
+            senderName: 'System',
+            status: smsResult.messageId ? 'DELIVERED' : 'SENT',
+            externalId: smsResult.messageId ?? null,
+            deliveredAt: smsResult.messageId ? new Date() : null,
+            metadata: { trigger, type: 'portal_invite' },
+          },
+        });
+      } catch (chatErr) {
+        const msg = chatErr instanceof Error ? chatErr.message : 'Unknown error';
+        logger.warn('[PortalInvite] Failed to create chat record (non-fatal)', {
+          patientId,
+          error: msg,
+        });
+      }
+
       logger.info('[PortalInvite] Invite created and SMS sent', {
         patientId,
         trigger,

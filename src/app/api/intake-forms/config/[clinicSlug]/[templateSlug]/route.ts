@@ -101,6 +101,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       clinicName: clinic.name,
     });
   } catch (error) {
+    logger.error('Intake config API error', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+    });
     return handleApiError(error, { route: 'GET /api/intake-forms/config' });
   }
 }
