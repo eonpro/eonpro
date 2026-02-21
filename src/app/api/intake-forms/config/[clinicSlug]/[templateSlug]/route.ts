@@ -48,6 +48,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
             { name: templateSlug },
           ],
         },
+        orderBy: { updatedAt: 'desc' },
         include: {
           questions: {
             orderBy: { orderIndex: 'asc' },
