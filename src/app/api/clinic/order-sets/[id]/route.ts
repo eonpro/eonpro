@@ -10,10 +10,10 @@ const updateOrderSetSchema = z.object({
   items: z
     .array(
       z.object({
-        medicationKey: z.string().min(1),
-        sig: z.string().optional().default(''),
-        quantity: z.string().optional().default('1'),
-        refills: z.string().optional().default('0'),
+        medicationKey: z.union([z.string(), z.number()]).transform(String).pipe(z.string().min(1)),
+        sig: z.union([z.string(), z.number()]).optional().default('').transform((v) => (v == null || v === '' ? '' : String(v))),
+        quantity: z.union([z.string(), z.number()]).optional().default('1').transform((v) => String(v ?? '1')),
+        refills: z.union([z.string(), z.number()]).optional().default('0').transform((v) => String(v ?? '0')),
         daysSupply: z.coerce.number().int().min(1).max(365).default(30),
         sortOrder: z.coerce.number().int().min(0).default(0),
       })
@@ -72,7 +72,18 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid JSON body';
+      logger.error('[ORDER_SETS/PUT] Invalid body', { error: msg });
+      return NextResponse.json(
+        { error: 'Invalid request body', details: msg },
+        { status: 400 }
+      );
+    }
+
     const result = updateOrderSetSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
@@ -84,27 +95,33 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     const { name, description, items } = result.data;
 
     const orderSet = await prisma.$transaction(async (tx) => {
-      if (items) {
+      if (items && items.length > 0) {
         await tx.rxOrderSetItem.deleteMany({ where: { orderSetId: id } });
-        await tx.rxOrderSetItem.createMany({
-          data: items.map((item, idx) => ({
-            orderSetId: id,
-            medicationKey: item.medicationKey,
-            sig: item.sig ?? '',
-            quantity: item.quantity || '1',
-            refills: item.refills ?? '0',
-            daysSupply: item.daysSupply ?? 30,
-            sortOrder: item.sortOrder ?? idx,
-          })),
-        });
+        const rows = items.map((item, idx) => ({
+          orderSetId: id,
+          medicationKey: String(item.medicationKey).slice(0, 500),
+          sig: String(item.sig ?? '').slice(0, 2000),
+          quantity: String(item.quantity ?? '1').slice(0, 50),
+          refills: String(item.refills ?? '0').slice(0, 50),
+          daysSupply: Math.min(365, Math.max(1, Number(item.daysSupply) || 30)),
+          sortOrder: Math.max(0, Number(item.sortOrder) ?? idx),
+        }));
+        try {
+          await tx.rxOrderSetItem.createMany({ data: rows });
+        } catch (createErr) {
+          const createMsg = createErr instanceof Error ? createErr.message : String(createErr);
+          logger.error('[ORDER_SETS/PUT] createMany failed', { error: createMsg, rowCount: rows.length });
+          throw createErr;
+        }
       }
+
+      const updateData: { name?: string; description?: string | null } = {};
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description ?? null;
 
       return tx.rxOrderSet.update({
         where: { id },
-        data: {
-          ...(name !== undefined ? { name } : {}),
-          ...(description !== undefined ? { description } : {}),
-        },
+        data: updateData,
         include: { items: { orderBy: { sortOrder: 'asc' } } },
       });
     });
@@ -115,11 +132,10 @@ async function handlePut(req: NextRequest, user: AuthUser) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error('[ORDER_SETS/PUT] Failed', { error: message });
-    const body: { error: string; details?: string } = { error: 'Failed to update order set' };
-    if (process.env.NODE_ENV === 'development') {
-      body.details = message;
-    }
-    return NextResponse.json(body, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to update order set', details: message },
+      { status: 500 }
+    );
   }
 }
 

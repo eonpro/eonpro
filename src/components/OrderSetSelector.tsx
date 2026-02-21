@@ -158,11 +158,11 @@ function OrderSetModal({
         name: name.trim(),
         description: description.trim() || undefined,
         items: validItems.map((i, idx) => ({
-          medicationKey: i.medicationKey,
-          sig: i.sig,
-          quantity: i.quantity,
-          refills: i.refills,
-          daysSupply: i.daysSupply,
+          medicationKey: String(i.medicationKey),
+          sig: i.sig != null && i.sig !== '' ? String(i.sig) : '',
+          quantity: String(i.quantity ?? '1'),
+          refills: String(i.refills ?? '0'),
+          daysSupply: Number(i.daysSupply) || 30,
           sortOrder: idx,
         })),
       };
@@ -177,8 +177,14 @@ function OrderSetModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to save');
+        let data: { error?: string; details?: string } = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = { error: `Request failed (${res.status})` };
+        }
+        const message = data.details ? `${data.error || 'Failed to save'}: ${data.details}` : (data.error || 'Failed to save');
+        throw new Error(message);
       }
 
       onSaved();
