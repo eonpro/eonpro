@@ -36,17 +36,12 @@ export default function SalesRepsPage() {
   const fetchSalesReps = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       const params = new URLSearchParams();
       if (searchTerm) {
         params.set('search', searchTerm);
       }
 
-      const response = await apiFetch(`/api/admin/sales-reps?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/sales-reps?${params.toString()}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -283,12 +278,8 @@ function BulkReassignModal({
 
     const fetchPreview = async () => {
       try {
-        const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
         const response = await apiFetch(
-          `/api/admin/sales-reps/bulk-reassign?fromSalesRepId=${fromSalesRepId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          `/api/admin/sales-reps/bulk-reassign?fromSalesRepId=${fromSalesRepId}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -317,13 +308,8 @@ function BulkReassignModal({
     setError(null);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       const response = await apiFetch('/api/admin/sales-reps/bulk-reassign', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           fromSalesRepId,
           toSalesRepId,

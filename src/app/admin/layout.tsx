@@ -158,10 +158,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   // Fetch user's clinic assignments
   const fetchUserClinics = async () => {
     try {
-      const token = localStorage.getItem('auth-token');
-      const response = await apiFetch('/api/user/clinics', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const response = await apiFetch('/api/user/clinics');
       if (response.ok) {
         const data = await response.json();
         setUserClinics(data.clinics || []);
@@ -246,13 +243,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       }
 
       // Then switch clinic
-      const token = localStorage.getItem('auth-token');
       const switchResponse = await apiFetch('/api/user/clinics', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
         body: JSON.stringify({ clinicId: selectedClinicId }),
       });
 

@@ -98,12 +98,9 @@ export default function AffiliateReportsPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await apiFetch(`/api/admin/affiliates/reports?period=${period}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/admin/affiliates/reports?period=${period}`);
 
       if (response.ok) {
         setData(await response.json());
@@ -136,12 +133,10 @@ export default function AffiliateReportsPage() {
 
   const fetchLeaderboard = useCallback(async () => {
     setLeaderboardLoading(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch(
-        `/api/admin/affiliates/leaderboard?metric=${leaderboardMetric}&period=${period}&limit=10`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        `/api/admin/affiliates/leaderboard?metric=${leaderboardMetric}&period=${period}&limit=10`
       );
 
       if (response.ok) {

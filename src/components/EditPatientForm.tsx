@@ -103,47 +103,8 @@ export default function EditPatientForm({ patient, documents }: Props) {
         tags: parseTags(tagsInput),
       };
 
-      // Get auth token (check all possible storage keys)
-      const tokenSources = [
-        'auth-token',
-        'token',
-        'super_admin-token',
-        'SUPER_ADMIN-token',
-        'admin-token',
-        'provider-token',
-        'staff-token',
-      ];
-
-      let token: string | null = null;
-      for (const key of tokenSources) {
-        const val = localStorage.getItem(key);
-        if (val) {
-          token = val;
-          break;
-        }
-      }
-
-      // Also try sessionStorage as fallback
-      if (!token) {
-        token = sessionStorage.getItem('auth-token') || sessionStorage.getItem('token');
-      }
-
-      if (!token) {
-        setMessage('Session expired. Please log in again.');
-        // Redirect to login after a brief delay
-        setTimeout(() => {
-          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-        }, 1500);
-        return;
-      }
-
       const res = await apiFetch(`/api/patients/${patient.id}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(payload),
       });
 
@@ -178,21 +139,8 @@ export default function EditPatientForm({ patient, documents }: Props) {
       setUploading(true);
       const formData = new FormData();
       formData.append('file', file);
-      // Get auth token (check all possible storage keys)
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('SUPER_ADMIN-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('provider-token') ||
-        localStorage.getItem('staff-token');
-      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
       const res = await apiFetch(`/api/patients/${patient.id}/documents`, {
         method: 'POST',
-        credentials: 'include',
-        headers: authHeaders,
         body: formData,
       });
       const data = await res.json();
@@ -355,13 +303,8 @@ export default function EditPatientForm({ patient, documents }: Props) {
                 <button
                   onClick={async () => {
                     try {
-                      const token = localStorage.getItem('auth-token') || '';
                       const response = await apiFetch(
-                        `/api/patients/${patient.id}/documents/${doc.id}`,
-                        {
-                          credentials: 'include',
-                          headers: { Authorization: `Bearer ${token}` },
-                        }
+                        `/api/patients/${patient.id}/documents/${doc.id}`
                       );
                       if (response.ok) {
                         const blob = await response.blob();

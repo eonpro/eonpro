@@ -122,15 +122,11 @@ export default function UserManagementPage() {
   // Fetch clinics for dropdown
   const fetchClinics = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
-      // Try super admin endpoint first, then public
       const endpoints = ['/api/super-admin/clinics', '/api/clinics'];
 
       for (const endpoint of endpoints) {
         try {
-          const res = await fetch(endpoint, { headers });
+          const res = await apiFetch(endpoint);
           if (res.ok) {
             const data = await res.json();
             const clinicList = data.clinics || (Array.isArray(data) ? data : []);
@@ -152,16 +148,8 @@ export default function UserManagementPage() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
 
-      if (!token) {
-        setError('Not authenticated');
-        return;
-      }
-
-      const res = await apiFetch('/api/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch('/api/users');
 
       if (!res.ok) {
         throw new Error('Failed to fetch users');
@@ -187,14 +175,6 @@ export default function UserManagementPage() {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
-      // Build payload
       const payload: any = {
         email: formData.email,
         password: formData.password,
@@ -203,12 +183,10 @@ export default function UserManagementPage() {
         role: formData.role,
       };
 
-      // Add clinic ID for super admin
       if (isSuperAdmin && formData.clinicId) {
         payload.clinicId = parseInt(formData.clinicId);
       }
 
-      // Add provider-specific fields
       if (formData.role === 'PROVIDER' || formData.role === 'provider') {
         payload.npi = formData.npi;
         payload.licenseNumber = formData.licenseNumber;
@@ -220,10 +198,6 @@ export default function UserManagementPage() {
 
       const res = await apiFetch('/api/users/create', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(payload),
       });
 
@@ -250,35 +224,22 @@ export default function UserManagementPage() {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
       const payload: any = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         role: formData.role,
       };
 
-      // Add clinic ID for super admin
       if (isSuperAdmin && formData.clinicId) {
         payload.clinicId = parseInt(formData.clinicId);
       }
 
-      // Add password if provided
       if (formData.password) {
         payload.password = formData.password;
       }
 
       const res = await apiFetch(`/api/users/${editingUser.id}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(payload),
       });
 
@@ -310,14 +271,8 @@ export default function UserManagementPage() {
     }
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-
       const res = await apiFetch(`/api/users/${user.id}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           status: user.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED',
         }),

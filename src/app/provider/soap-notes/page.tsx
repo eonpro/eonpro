@@ -67,16 +67,8 @@ export default function ProviderSOAPNotesPage() {
 
     setActionLoading(true);
     try {
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('provider-token');
       const response = await apiFetch(`/api/soap-notes/${noteId}/sign`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
 
       if (!response.ok) {
@@ -97,16 +89,7 @@ export default function ProviderSOAPNotesPage() {
   // Handler for exporting a note as PDF
   const handleExportPDF = async (noteId: number) => {
     try {
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('provider-token');
-      const response = await apiFetch(`/api/soap-notes/${noteId}/export`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch(`/api/soap-notes/${noteId}/export`);
 
       if (!response.ok) {
         throw new Error('Failed to generate PDF');

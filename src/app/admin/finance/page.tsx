@@ -86,27 +86,10 @@ export default function FinanceOverviewPage() {
       if (showRefresh) setRefreshing(true);
 
       try {
-        const token =
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('super_admin-token') ||
-          localStorage.getItem('admin-token') ||
-          localStorage.getItem('token');
-
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
         // Fetch KPIs from the finance metrics endpoint
         const [metricsRes, activityRes] = await Promise.all([
-          apiFetch(`/api/finance/metrics?range=${dateRange}`, {
-            credentials: 'include',
-            headers,
-          }),
-          apiFetch('/api/finance/activity?limit=10', {
-            credentials: 'include',
-            headers,
-          }),
+          apiFetch(`/api/finance/metrics?range=${dateRange}`),
+          apiFetch('/api/finance/activity?limit=10'),
         ]);
 
         if (metricsRes.ok) {
@@ -134,18 +117,8 @@ export default function FinanceOverviewPage() {
     setSyncingFromStripe(true);
     setSyncMessage(null);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
       const res = await apiFetch('/api/finance/sync-subscriptions', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
@@ -166,18 +139,8 @@ export default function FinanceOverviewPage() {
     setSyncingPayments(true);
     setSyncMessage(null);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
       const res = await apiFetch('/api/finance/sync-payments', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ sinceDate: '2026-02-01' }),
       });
       const data = await res.json().catch(() => ({}));

@@ -122,16 +122,10 @@ export default function AdminAffiliatesPage() {
   }, []);
 
   const fetchData = async () => {
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     try {
       const [affiliatesRes, plansRes] = await Promise.all([
-        apiFetch('/api/admin/affiliates', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        apiFetch('/api/admin/commission-plans', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        apiFetch('/api/admin/affiliates'),
+        apiFetch('/api/admin/commission-plans'),
       ]);
 
       if (affiliatesRes.ok) {
@@ -155,15 +149,9 @@ export default function AdminAffiliatesPage() {
     setCreating(true);
     setCreateError(null);
 
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     try {
       const response = await apiFetch('/api/admin/affiliates', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           ...createForm,
           commissionPlanId: createForm.commissionPlanId

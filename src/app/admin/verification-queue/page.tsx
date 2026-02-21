@@ -118,7 +118,6 @@ export default function VerificationQueuePage() {
 
   const fetchVerifications = useCallback(async () => {
     setLoading(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const params = new URLSearchParams({
@@ -130,9 +129,7 @@ export default function VerificationQueuePage() {
         params.set('status', statusFilter);
       }
 
-      const response = await apiFetch(`/api/admin/verification-queue?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/admin/verification-queue?${params}`);
 
       if (response.ok) {
         setData(await response.json());
@@ -153,15 +150,10 @@ export default function VerificationQueuePage() {
     action: 'approve' | 'reject' | 'request_resubmit'
   ) => {
     setProcessing(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch('/api/admin/verification-queue', {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           photoId,
           action,
@@ -210,17 +202,12 @@ export default function VerificationQueuePage() {
 
   const handleApproveAll = async (verification: Verification) => {
     setProcessing(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     for (const photo of verification.photos) {
       if (photo.verificationStatus === 'PENDING' || photo.verificationStatus === 'IN_REVIEW') {
         try {
           await apiFetch('/api/admin/verification-queue', {
             method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
               photoId: photo.id,
               action: 'approve',

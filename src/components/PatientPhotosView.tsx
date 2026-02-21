@@ -139,12 +139,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
     setLoading(true);
     setError(null);
 
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     try {
-      const response = await apiFetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`);
 
       if (!response.ok) {
         throw new Error('Failed to load photos');

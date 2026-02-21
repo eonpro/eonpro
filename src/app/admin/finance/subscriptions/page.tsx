@@ -74,18 +74,7 @@ export default function SubscriptionsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await apiFetch(`/api/finance/subscriptions?status=${statusFilter}`, {
-        credentials: 'include',
-        headers,
-      });
+      const response = await apiFetch(`/api/finance/subscriptions?status=${statusFilter}`);
 
       if (response.ok) {
         const data = await response.json();

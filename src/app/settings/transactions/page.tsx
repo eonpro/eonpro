@@ -126,11 +126,7 @@ export default function TransactionsPage() {
           ...(append && lastId && { starting_after: lastId }),
         });
 
-        const response = await apiFetch(`/api/stripe/transactions?${params}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await apiFetch(`/api/stripe/transactions?${params}`);
 
         if (!response.ok) {
           const data = await response.json();

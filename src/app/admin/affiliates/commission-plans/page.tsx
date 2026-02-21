@@ -112,12 +112,8 @@ export default function CommissionPlansPage() {
   }, []);
 
   const fetchPlans = async () => {
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     try {
-      const response = await apiFetch('/api/admin/commission-plans', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/admin/commission-plans');
 
       if (response.ok) {
         const data = await response.json();
@@ -173,8 +169,6 @@ export default function CommissionPlansPage() {
     setSaving(true);
     setError(null);
 
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     try {
       // Build the request body
       const body: Record<string, unknown> = {
@@ -228,12 +222,8 @@ export default function CommissionPlansPage() {
 
       const method = editingPlan ? 'PATCH' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(body),
       });
 
@@ -254,12 +244,10 @@ export default function CommissionPlansPage() {
 
   const handleDelete = async (planId: number) => {
     setDeleting(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch(`/api/admin/commission-plans/${planId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {

@@ -30,6 +30,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface RevenueData {
   overview: {
@@ -127,20 +128,8 @@ export default function RevenuePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await fetch(
-        `/api/finance/revenue?${dateRangeParam}&granularity=${granularity}`,
-        { credentials: 'include', headers }
+      const response = await apiFetch(
+        `/api/finance/revenue?${dateRangeParam}&granularity=${granularity}`
       );
 
       if (response.ok) {
@@ -157,14 +146,6 @@ export default function RevenuePage() {
   const loadTransactions = useCallback(async () => {
     setTransactionsLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       let start: string;
       let end: string;
       if (dateRange === 'custom' && customStart && customEnd) {
@@ -189,9 +170,8 @@ export default function RevenuePage() {
         start = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
       }
 
-      const res = await fetch(
-        `/api/finance/revenue/transactions?startDate=${start}&endDate=${end}&limit=200`,
-        { credentials: 'include', headers }
+      const res = await apiFetch(
+        `/api/finance/revenue/transactions?startDate=${start}&endDate=${end}&limit=200`
       );
       if (res.ok) {
         const json = await res.json();
@@ -231,12 +211,8 @@ export default function RevenuePage() {
       else startDate.setDate(startDate.getDate() - 30);
       start = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
     }
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token') || localStorage.getItem('admin-token') || localStorage.getItem('token');
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const res = await fetch(
-      `/api/finance/revenue/transactions?startDate=${start}&endDate=${end}&format=csv`,
-      { credentials: 'include', headers }
+    const res = await apiFetch(
+      `/api/finance/revenue/transactions?startDate=${start}&endDate=${end}&format=csv`
     );
     if (res.ok) {
       const blob = await res.blob();

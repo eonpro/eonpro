@@ -111,7 +111,6 @@ export default function ProviderPrescriptionsPage() {
   const fetchPrescriptions = useCallback(async (page: number, search: string) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const offset = (page - 1) * PAGE_SIZE;
       const params = new URLSearchParams({
         limit: String(PAGE_SIZE),
@@ -120,11 +119,7 @@ export default function ProviderPrescriptionsPage() {
       if (search.trim()) {
         params.set('search', search.trim());
       }
-      const response = await apiFetch(`/api/orders?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch(`/api/orders?${params.toString()}`);
 
       if (response.ok) {
         const data = await response.json();

@@ -92,36 +92,17 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     fetchBillingData();
   }, [patientId]);
 
-  // Helper to get auth headers for API calls
-  const getAuthHeaders = (): HeadersInit => {
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('admin-token') ||
-      localStorage.getItem('provider-token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
   const fetchBillingData = async () => {
     try {
       setLoading(true);
-      const headers = getAuthHeaders();
 
-      // Fetch invoices
-      const invoicesRes = await apiFetch(`/api/stripe/invoices?patientId=${patientId}`, {
-        credentials: 'include',
-        headers,
-      });
+      const invoicesRes = await apiFetch(`/api/stripe/invoices?patientId=${patientId}`);
       if (invoicesRes.ok) {
         const data = await invoicesRes.json();
         setInvoices(data.invoices || []);
       }
 
-      // Fetch payments
-      const paymentsRes = await apiFetch(`/api/stripe/payments?patientId=${patientId}`, {
-        credentials: 'include',
-        headers,
-      });
+      const paymentsRes = await apiFetch(`/api/stripe/payments?patientId=${patientId}`);
       if (paymentsRes.ok) {
         const data = await paymentsRes.json();
         setPayments(data.payments || []);
@@ -136,11 +117,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
   const handleSendInvoice = async (invoiceId: number) => {
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'send' }),
       });
 
@@ -160,11 +138,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     if (!confirm('Are you sure you want to void this invoice?')) return;
 
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'void' }),
       });
 
@@ -189,11 +164,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       return;
 
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers,
       });
 
       if (res.ok) {
@@ -214,11 +186,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     if (reason === null) return; // User clicked cancel on prompt
 
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/v2/invoices/${invoiceId}/actions`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel', reason: reason || undefined }),
       });
 
@@ -242,15 +211,12 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     stripeInvoiceId?: string | null
   ) => {
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch('/api/stripe/refunds', {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentId,
-          stripeInvoiceId, // For invoice-based refunds
-          amount, // Amount in cents
+          stripeInvoiceId,
+          amount,
           reason,
         }),
       });
@@ -288,17 +254,14 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     paymentDate: string
   ) => {
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'mark_paid',
           paymentMethod,
           paymentNotes,
           paymentDate,
-          amount: Math.round(amount * 100), // Convert to cents
+          amount: Math.round(amount * 100),
         }),
       });
 
@@ -319,11 +282,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
   const handleOpenCustomerPortal = async () => {
     try {
-      const headers = getAuthHeaders();
       const res = await apiFetch('/api/stripe/customer-portal', {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
           returnUrl: window.location.href,
@@ -1345,19 +1305,10 @@ function CreateInvoiceForm({
 
     setSubmitting(true);
 
-    // Get auth token for API calls
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('admin-token') ||
-      localStorage.getItem('provider-token');
-    const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
     const createPayload = {
       patientId,
       lineItems: validItems,
-      autoSend: markAsPaidExternally ? false : autoSend, // Don't auto-send if marking as paid
-      // External payment fields
+      autoSend: markAsPaidExternally ? false : autoSend,
       markAsPaidExternally,
       ...(markAsPaidExternally && {
         externalPaymentMethod,
@@ -1369,8 +1320,6 @@ function CreateInvoiceForm({
     const doFetch = () =>
       apiFetch('/api/stripe/invoices', {
         method: 'POST',
-        credentials: 'include',
-        headers: { ...authHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify(createPayload),
       });
 

@@ -105,8 +105,6 @@ export default function SuperAdminCodePerformancePage() {
     setLoading(true);
     setError(null);
 
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     try {
       const params = new URLSearchParams({
         period,
@@ -116,9 +114,7 @@ export default function SuperAdminCodePerformancePage() {
         ...(search ? { search } : {}),
       });
 
-      const response = await apiFetch(`/api/admin/affiliates/code-performance?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/admin/affiliates/code-performance?${params}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch data');

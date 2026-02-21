@@ -224,26 +224,10 @@ export default function TicketDetailPage() {
   const [editPriority, setEditPriority] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Auth token for API calls (login stores in localStorage, not cookies)
-  const getAuthHeaders = useCallback((): HeadersInit => {
-    if (typeof window === 'undefined') return {};
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('admin-token') ||
-      localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('provider-token') ||
-      localStorage.getItem('staff-token') ||
-      localStorage.getItem('support-token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   // Fetch ticket
   const fetchTicket = useCallback(async () => {
     try {
-      const response = await apiFetch(`/api/tickets/${ticketId}`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      });
+      const response = await apiFetch(`/api/tickets/${ticketId}`);
       if (!response.ok) {
         if (response.status === 401) {
           setError('Session expired. Please log in again.');
@@ -256,37 +240,31 @@ export default function TicketDetailPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }
-  }, [ticketId, getAuthHeaders]);
+  }, [ticketId]);
 
   // Fetch comments
   const fetchComments = useCallback(async () => {
     try {
-      const response = await apiFetch(`/api/tickets/${ticketId}/comments`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      });
+      const response = await apiFetch(`/api/tickets/${ticketId}/comments`);
       if (!response.ok) throw new Error('Failed to fetch comments');
       const data = await response.json();
       setComments(data.comments);
     } catch (err) {
       console.error('Failed to fetch comments:', err);
     }
-  }, [ticketId, getAuthHeaders]);
+  }, [ticketId]);
 
   // Fetch activity
   const fetchActivity = useCallback(async () => {
     try {
-      const response = await apiFetch(`/api/tickets/${ticketId}/activity`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      });
+      const response = await apiFetch(`/api/tickets/${ticketId}/activity`);
       if (!response.ok) throw new Error('Failed to fetch activity');
       const data = await response.json();
       setActivities(data.activities);
     } catch (err) {
       console.error('Failed to fetch activity:', err);
     }
-  }, [ticketId, getAuthHeaders]);
+  }, [ticketId]);
 
   // Initial load
   useEffect(() => {
@@ -315,11 +293,11 @@ export default function TicketDetailPage() {
     const params = new URLSearchParams({ limit: '100' });
     if (cid) params.set('clinicId', cid);
     ['staff', 'admin', 'provider', 'support'].forEach((r) => params.append('role', r));
-    apiFetch(`/api/users?${params.toString()}`, { credentials: 'include', headers: getAuthHeaders() })
+    apiFetch(`/api/users?${params.toString()}`)
       .then((r) => r.ok ? r.json() : { users: [] })
       .then((data) => setAssignUsers(data.users || []))
       .catch(() => setAssignUsers([]));
-  }, [ticket?.id, getAuthHeaders]);
+  }, [ticket?.id]);
 
   // Add comment
   const handleAddComment = async (e: React.FormEvent) => {
@@ -330,11 +308,6 @@ export default function TicketDetailPage() {
     try {
       const response = await apiFetch(`/api/tickets/${ticketId}/comments`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
         body: JSON.stringify({
           content: newComment,
           isInternal: isInternalComment,
@@ -362,8 +335,6 @@ export default function TicketDetailPage() {
     try {
       const response = await apiFetch(`/api/tickets/${ticketId}/status`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ status: newStatus }),
       });
       if (!response.ok) throw new Error('Failed to update status');
@@ -385,8 +356,6 @@ export default function TicketDetailPage() {
     try {
       const response = await apiFetch(`/api/tickets/${ticketId}/assign`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ assignedToId: value }),
       });
       if (!response.ok) throw new Error('Failed to assign');
@@ -417,8 +386,6 @@ export default function TicketDetailPage() {
     try {
       const response = await apiFetch(`/api/tickets/${ticketId}`, {
         method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({
           title: editTitle.trim(),
           description: editDescription.trim(),
@@ -449,11 +416,6 @@ export default function TicketDetailPage() {
     try {
       const response = await apiFetch(`/api/tickets/${ticketId}/resolve`, {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
         body: JSON.stringify({
           disposition: resolveDisposition,
           resolutionNotes: resolveNotes.trim(),

@@ -85,19 +85,8 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
   const loadDashboardData = async () => {
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
       // Fetch recent patient intakes (last 24 hours)
-      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h', {
-        credentials: 'include',
-        headers,
-      });
+      const intakesResponse = await apiFetch('/api/patients?limit=20&recent=24h');
 
       if (intakesResponse.ok) {
         const intakesData = await intakesResponse.json();
@@ -106,11 +95,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
       // Fetch recent Stripe payments
       const paymentsResponse = await apiFetch(
-        '/api/stripe/transactions?limit=10&type=charges&status=succeeded',
-        {
-          credentials: 'include',
-          headers,
-        }
+        '/api/stripe/transactions?limit=10&type=charges&status=succeeded'
       );
 
       if (paymentsResponse.ok) {

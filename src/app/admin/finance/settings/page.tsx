@@ -54,19 +54,8 @@ export default function FinanceSettingsPage() {
   const loadSettings = async () => {
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       // Fetch Stripe status
-      const stripeRes = await apiFetch('/api/stripe/status', {
-        credentials: 'include',
-        headers,
-      });
+      const stripeRes = await apiFetch('/api/stripe/status');
 
       if (stripeRes.ok) {
         const data = await stripeRes.json();

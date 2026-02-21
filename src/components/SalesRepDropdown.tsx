@@ -23,11 +23,6 @@ interface SalesRepDropdownProps {
   onAssigned?: (rep: SalesRep | null) => void;
 }
 
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-}
-
 export default function SalesRepDropdown({
   patientId,
   currentSalesRep,
@@ -69,16 +64,7 @@ export default function SalesRepDropdown({
     setLoading(true);
     setError(null);
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated. Please log in again.');
-      }
-
-      const response = await apiFetch('/api/admin/sales-reps', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch('/api/admin/sales-reps');
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -104,19 +90,9 @@ export default function SalesRepDropdown({
     setError(null);
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('Not authenticated. Please log in again.');
-      }
-
       if (rep) {
-        // Assign new sales rep
         const response = await apiFetch(`/api/admin/patients/${patientId}/sales-rep`, {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({ salesRepId: rep.id }),
         });
 
@@ -125,12 +101,8 @@ export default function SalesRepDropdown({
           throw new Error(data.detail || data.error || 'Failed to assign sales rep');
         }
       } else {
-        // Remove assignment
         const response = await apiFetch(`/api/admin/patients/${patientId}/sales-rep`, {
           method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
         });
 
         if (!response.ok) {

@@ -77,11 +77,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
       const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       if (!token) return;
 
-      const response = await apiFetch('/api/provider/prescription-queue/count', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch('/api/provider/prescription-queue/count');
 
       if (response.ok) {
         const data = await response.json();

@@ -115,19 +115,7 @@ export default function IncomingPaymentsPage() {
       });
       if (statusFilter) params.set('status', statusFilter);
 
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const res = await apiFetch(`/api/finance/incoming-payments?${params}`, {
-        credentials: 'include',
-        headers,
-      });
+      const res = await apiFetch(`/api/finance/incoming-payments?${params}`);
 
       const data = (await res.json()) as ApiResponse | { error: string };
 

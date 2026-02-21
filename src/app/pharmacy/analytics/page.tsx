@@ -25,10 +25,7 @@ export default function PharmacyAnalyticsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await apiFetch('/api/pharmacy/analytics', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await apiFetch('/api/pharmacy/analytics');
 
       if (res.ok) {
         const data = await res.json();

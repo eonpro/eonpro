@@ -194,22 +194,8 @@ export default function AffiliateDashboardLayout({ children }: { children: React
       }
 
       // Strategy B: authenticated affiliate branding endpoint (richer data)
-      // Pass the Bearer token explicitly from localStorage -- the original portal
-      // did this and it worked. The cookie-only approach fails because apiFetch
-      // skips the Authorization header for same-origin requests, and the clinic
-      // middleware skips /api/affiliate routes (PUBLIC_ROUTES), so x-clinic-id
-      // is never set and the tenant-scoped Prisma query returns null.
       try {
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('affiliate-token') ||
-              localStorage.getItem('auth-token') ||
-              localStorage.getItem('access_token')
-            : null;
-        const brandingRes = await apiFetch('/api/affiliate/branding', {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          credentials: 'include',
-        });
+        const brandingRes = await apiFetch('/api/affiliate/branding');
         if (brandingRes.ok && !cancelled) {
           const data = await brandingRes.json();
           brandingData = data;

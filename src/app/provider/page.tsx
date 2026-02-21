@@ -77,11 +77,8 @@ export default function ProviderDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       // Fetch intakes (records become patients only when they have prescriptions)
-      const patientsRes = await apiFetch('/api/patients?limit=5', { headers });
+      const patientsRes = await apiFetch('/api/patients?limit=5');
       if (patientsRes.ok) {
         const patientsData = await patientsRes.json();
         setRecentPatients(patientsData.patients || []);
@@ -92,7 +89,7 @@ export default function ProviderDashboard() {
       }
 
       // Fetch orders/prescriptions count
-      const ordersRes = await apiFetch('/api/orders?limit=100', { headers });
+      const ordersRes = await apiFetch('/api/orders?limit=100');
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
         setStats((prev) => ({
@@ -104,9 +101,7 @@ export default function ProviderDashboard() {
       // Fetch appointments for today
       const today = new Date().toISOString().split('T')[0];
       try {
-        const appointmentsRes = await apiFetch(`/api/scheduling/appointments?date=${today}`, {
-          headers,
-        });
+        const appointmentsRes = await apiFetch(`/api/scheduling/appointments?date=${today}`);
         if (appointmentsRes.ok) {
           const appointmentsData = await appointmentsRes.json();
           const todayAppts = appointmentsData.appointments || [];

@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Plus,
 } from 'lucide-react';
+import { apiFetch } from '@/lib/api/fetch';
 
 interface Consultation {
   id: number;
@@ -82,22 +83,12 @@ export default function ProviderConsultationsPage() {
     async function fetchConsultations() {
       try {
         setLoading(true);
-        const token =
-          localStorage.getItem('token') ||
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('provider-token');
-
         const today = new Date();
         const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString();
         const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0).toISOString();
 
-        const response = await fetch(
-          `/api/scheduling/appointments?startDate=${startDate}&endDate=${endDate}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const response = await apiFetch(
+          `/api/scheduling/appointments?startDate=${startDate}&endDate=${endDate}`
         );
 
         if (response.ok) {

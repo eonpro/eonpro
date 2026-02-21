@@ -124,22 +124,11 @@ export default function SuperAdminAffiliateDetailPage() {
     }
   }, [affiliateId]);
 
-  const getAuthToken = () => {
-    return (
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('SUPER_ADMIN-token')
-    );
-  };
-
   const fetchAffiliate = async () => {
-    const token = getAuthToken();
     setError(null);
 
     try {
-      const res = await apiFetch(`/api/super-admin/affiliates/${affiliateId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/super-admin/affiliates/${affiliateId}`);
 
       const data = await res.json();
 
@@ -168,13 +157,8 @@ export default function SuperAdminAffiliateDetailPage() {
   };
 
   const fetchAffiliateStats = async () => {
-    const token = getAuthToken();
-
     try {
-      // Try to fetch stats from the main affiliates endpoint
-      const res = await apiFetch(`/api/super-admin/affiliates`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/super-admin/affiliates`);
 
       if (res.ok) {
         const data = await res.json();
@@ -195,12 +179,8 @@ export default function SuperAdminAffiliateDetailPage() {
   };
 
   const fetchAvailablePlans = async (clinicId: number) => {
-    const token = getAuthToken();
-
     try {
-      const res = await apiFetch(`/api/super-admin/affiliates`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/super-admin/affiliates`);
 
       if (res.ok) {
         const data = await res.json();
@@ -219,15 +199,9 @@ export default function SuperAdminAffiliateDetailPage() {
     setSaving(true);
     setError(null);
 
-    const token = getAuthToken();
-
     try {
       const res = await apiFetch(`/api/super-admin/affiliates/${affiliateId}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(editForm),
       });
 

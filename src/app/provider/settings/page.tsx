@@ -114,12 +114,7 @@ export default function ProviderSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      const response = await apiFetch('/api/provider/settings', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch('/api/provider/settings');
 
       if (!response.ok) {
         throw new Error('Failed to fetch settings');
@@ -289,13 +284,8 @@ export default function ProviderSettingsPage() {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           firstName,
           lastName,
@@ -326,13 +316,8 @@ export default function ProviderSettingsPage() {
     try {
       const signatureDataUrl = saveSignature();
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           signatureDataUrl,
         }),
@@ -369,13 +354,8 @@ export default function ProviderSettingsPage() {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           currentPassword,
           newPassword,
@@ -498,13 +478,8 @@ export default function ProviderSettingsPage() {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const response = await apiFetch('/api/provider/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           firstName,
           lastName,

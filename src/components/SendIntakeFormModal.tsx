@@ -38,10 +38,7 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
 
   const fetchTemplates = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await apiFetch('/api/intake-forms/templates', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await apiFetch('/api/intake-forms/templates');
 
       if (res.ok) {
         const data = await res.json();
@@ -64,13 +61,8 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
     setMessage('');
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const res = await apiFetch('/api/intake-forms/send-link', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({
           templateId: selectedTemplate,
           patientEmail: patient.email,

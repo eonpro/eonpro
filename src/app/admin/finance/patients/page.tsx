@@ -117,21 +117,7 @@ export default function PatientFinancePage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await apiFetch('/api/finance/patients', {
-        credentials: 'include',
-        headers,
-      });
+      const response = await apiFetch('/api/finance/patients');
 
       if (response.ok) {
         const result = await response.json();

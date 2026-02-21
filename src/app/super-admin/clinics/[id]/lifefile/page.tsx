@@ -89,11 +89,7 @@ export default function ClinicLifefileSettingsPage() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-
-      const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`);
 
       if (!res.ok) {
         throw new Error('Failed to fetch Lifefile settings');
@@ -143,14 +139,8 @@ export default function ClinicLifefileSettingsPage() {
       setError(null);
       setSuccess(null);
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-
       const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({
           // Outbound
           lifefileEnabled: form.lifefileEnabled,
@@ -200,11 +190,8 @@ export default function ClinicLifefileSettingsPage() {
       setError(null);
       setSuccess(null);
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-
       const res = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       const data = await res.json();

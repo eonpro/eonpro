@@ -222,8 +222,6 @@ export default function NewPatientPage() {
     }
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
       // Format phone to just numbers
       const phoneNumbers = formData.phone.replace(/\D/g, '');
 
@@ -249,10 +247,6 @@ export default function NewPatientPage() {
 
       const response = await apiFetch('/api/patients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(payload),
       });
 

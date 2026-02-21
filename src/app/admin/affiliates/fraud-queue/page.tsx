@@ -94,7 +94,6 @@ export default function FraudQueuePage() {
 
   const fetchAlerts = async () => {
     setLoading(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const params = new URLSearchParams({
@@ -105,9 +104,7 @@ export default function FraudQueuePage() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (severityFilter !== 'all') params.set('severity', severityFilter);
 
-      const response = await apiFetch(`/api/admin/affiliates/fraud-queue?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/admin/affiliates/fraud-queue?${params}`);
 
       if (response.ok) {
         setData(await response.json());
@@ -121,15 +118,10 @@ export default function FraudQueuePage() {
 
   const handleResolve = async (alertId: number, action: string, resolutionAction?: string) => {
     setResolving(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch('/api/admin/affiliates/fraud-queue', {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           alertId,
           action,

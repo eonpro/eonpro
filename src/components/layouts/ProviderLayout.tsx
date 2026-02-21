@@ -126,13 +126,8 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
 
     setSwitchingClinic(true);
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
       const response = await apiFetch('/api/auth/switch-clinic', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ clinicId: clinic.id }),
       });
 

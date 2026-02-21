@@ -213,22 +213,14 @@ export default function AdminRefillQueuePage() {
     fetchRefills();
   }, [statusFilter]);
 
-  const getToken = () => {
-    return localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-  };
-
   const fetchRefills = async () => {
-    const token = getToken();
-
     try {
       const params = new URLSearchParams();
       if (statusFilter !== 'ALL') {
         params.append('status', statusFilter);
       }
 
-      const response = await apiFetch(`/api/admin/refill-queue?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/admin/refill-queue?${params}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -247,15 +239,10 @@ export default function AdminRefillQueuePage() {
 
     setProcessing(true);
     setActionError(null);
-    const token = getToken();
 
     try {
       const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           method: paymentForm.method,
           paymentReference: paymentForm.paymentReference || undefined,
@@ -285,15 +272,10 @@ export default function AdminRefillQueuePage() {
 
     setProcessing(true);
     setActionError(null);
-    const token = getToken();
 
     try {
       const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/verify-payment`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ autoMatch: true }),
       });
 
@@ -318,15 +300,10 @@ export default function AdminRefillQueuePage() {
 
     setProcessing(true);
     setActionError(null);
-    const token = getToken();
 
     try {
       const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/approve`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({}),
       });
 
@@ -351,15 +328,10 @@ export default function AdminRefillQueuePage() {
 
     setProcessing(true);
     setActionError(null);
-    const token = getToken();
 
     try {
       const response = await apiFetch(`/api/admin/refill-queue/${selectedRefill.id}/reject`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ reason: rejectReason }),
       });
 
@@ -386,17 +358,12 @@ export default function AdminRefillQueuePage() {
 
     setProcessing(true);
     setActionError(null);
-    const token = getToken();
 
     try {
       const response = await apiFetch(
         `/api/subscriptions/${selectedRefill.subscription.id}/${action}`,
         {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify(
             action === 'cancel' ? { cancelAtPeriodEnd: false } : {}
           ),

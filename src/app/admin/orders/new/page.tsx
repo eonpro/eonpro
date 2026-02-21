@@ -49,12 +49,9 @@ export default function NewOrderPage() {
 
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
       const [patientsRes, providersRes] = await Promise.all([
-        apiFetch('/api/patients', { headers }),
-        apiFetch('/api/providers', { headers }),
+        apiFetch('/api/patients'),
+        apiFetch('/api/providers'),
       ]);
 
       if (patientsRes.ok) {
@@ -114,14 +111,8 @@ export default function NewOrderPage() {
         throw new Error('Please fill in all medication details');
       }
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
       const response = await apiFetch('/api/orders', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
         body: JSON.stringify({
           patientId: parseInt(form.patientId),
           providerId: parseInt(form.providerId),

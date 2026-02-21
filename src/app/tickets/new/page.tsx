@@ -109,19 +109,6 @@ export default function NewTicketPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientSearch, setPatientSearch] = useState('');
 
-  // Auth token for API calls (login stores in localStorage, not cookies)
-  const getAuthHeaders = (): HeadersInit => {
-    if (typeof window === 'undefined') return {};
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('admin-token') ||
-      localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('provider-token') ||
-      localStorage.getItem('staff-token') ||
-      localStorage.getItem('support-token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
   // Fetch users for assignment dropdown (clinic-scoped so assignees are from current clinic only)
   useEffect(() => {
     const fetchUsers = async () => {
@@ -140,10 +127,7 @@ export default function NewTicketPage() {
         const params = new URLSearchParams({ limit: '100' });
         if (clinicId) params.set('clinicId', clinicId);
         ['staff', 'admin', 'provider', 'support'].forEach((r) => params.append('role', r));
-        const response = await apiFetch(`/api/users?${params.toString()}`, {
-          credentials: 'include',
-          headers: getAuthHeaders(),
-        });
+        const response = await apiFetch(`/api/users?${params.toString()}`);
         if (response.ok) {
           const data = await response.json();
           setUsers(data.users || []);
@@ -165,8 +149,7 @@ export default function NewTicketPage() {
     const searchPatients = async () => {
       try {
         const response = await apiFetch(
-          `/api/patients?search=${encodeURIComponent(patientSearch)}&limit=10`,
-          { credentials: 'include', headers: getAuthHeaders() }
+          `/api/patients?search=${encodeURIComponent(patientSearch)}&limit=10`
         );
         if (response.ok) {
           const data = await response.json();
@@ -216,11 +199,6 @@ export default function NewTicketPage() {
 
       const response = await apiFetch('/api/tickets', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders(),
-        },
         body: JSON.stringify(payload),
       });
 

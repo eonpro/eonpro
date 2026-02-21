@@ -287,18 +287,8 @@ export default function SigBuilder({
     setError(null);
 
     try {
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('provider-token') ||
-        localStorage.getItem('admin-token');
-
       const response = await apiFetch('/api/ai/generate-sig', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: token ? `Bearer ${token}` : '',
-        },
         body: JSON.stringify({
           medicationKey,
           medicationName: med.name,

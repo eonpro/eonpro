@@ -27,6 +27,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { apiFetch } from '@/lib/api/fetch';
 
 const DATE_RANGES = [
   { id: 'this_month', label: 'This Month' },
@@ -72,18 +73,8 @@ export default function DemographicsReportPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
-      const response = await fetch(
-        `/api/reports/patients?type=demographics&range=${dateRange}`,
-        { credentials: 'include', headers }
+      const response = await apiFetch(
+        `/api/reports/patients?type=demographics&range=${dateRange}`
       );
 
       if (response.ok) {

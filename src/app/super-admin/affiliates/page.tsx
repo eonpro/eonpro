@@ -240,12 +240,10 @@ export default function SuperAdminAffiliatesPage() {
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
-    const token = localStorage.getItem('auth-token');
 
     try {
-      const response = await fetch(
-        `/api/super-admin/affiliates/analytics?period=${analyticsPeriod}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await apiFetch(
+        `/api/super-admin/affiliates/analytics?period=${analyticsPeriod}`
       );
 
       if (response.ok) {
@@ -260,7 +258,6 @@ export default function SuperAdminAffiliatesPage() {
 
   const fetchDiagnostics = useCallback(async () => {
     setDiagnosticsLoading(true);
-    const token = localStorage.getItem('auth-token');
 
     try {
       const response = await apiFetch('/api/super-admin/affiliates/diagnostics');
@@ -284,7 +281,6 @@ export default function SuperAdminAffiliatesPage() {
   }, [fetchAnalytics]);
 
   const fetchData = async () => {
-    const token = localStorage.getItem('auth-token');
     setFetchError(null);
     setMigrationNeeded(false);
 
@@ -330,14 +326,9 @@ export default function SuperAdminAffiliatesPage() {
     setCreating(true);
     setCreateError(null);
 
-    const token = localStorage.getItem('auth-token');
-
     try {
       const response = await apiFetch('/api/super-admin/affiliates', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           ...createForm,
           clinicId: parseInt(createForm.clinicId),
@@ -406,14 +397,9 @@ export default function SuperAdminAffiliatesPage() {
     setUpdating(true);
     setEditError(null);
 
-    const token = localStorage.getItem('auth-token');
-
     try {
       const response = await apiFetch(`/api/super-admin/affiliates/${editingAffiliate.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           displayName: editForm.displayName,
           status: editForm.status,
@@ -452,13 +438,9 @@ export default function SuperAdminAffiliatesPage() {
     setDeleting(true);
     setDeleteError(null);
 
-    const token = localStorage.getItem('auth-token');
-
     try {
       const response = await apiFetch(`/api/super-admin/affiliates/${deletingAffiliate.id}`, {
         method: 'DELETE',
-        headers: {
-        },
       });
 
       if (!response.ok) {

@@ -83,14 +83,7 @@ export default function MonitoringDashboard() {
   const fetchHealth = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-
-      const response = await apiFetch('/api/health?full=true', {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        credentials: 'include',
-      });
+      const response = await apiFetch('/api/health?full=true');
 
       if (response.ok) {
         const data = await response.json();
@@ -110,18 +103,7 @@ export default function MonitoringDashboard() {
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const response = await apiFetch('/api/admin/dashboard', {
-        credentials: 'include',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const response = await apiFetch('/api/admin/dashboard');
 
       if (response.ok) {
         const data = await response.json();

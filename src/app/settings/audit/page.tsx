@@ -25,17 +25,8 @@ export default function AuditLogsPage() {
   const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('super_admin-token');
 
-      const response = await apiFetch('/api/admin/audit-logs?limit=100', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch('/api/admin/audit-logs?limit=100');
 
       if (response.ok) {
         const data = await response.json();

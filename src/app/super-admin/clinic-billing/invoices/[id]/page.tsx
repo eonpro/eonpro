@@ -108,9 +108,7 @@ export default function InvoiceDetailPage() {
         return;
       }
 
-      const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -136,13 +134,8 @@ export default function InvoiceDetailPage() {
   const performAction = async (action: string, extraData?: Record<string, unknown>) => {
     setActionLoading(action);
     try {
-      const token = localStorage.getItem('auth-token');
       const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ action, ...extraData }),
       });
 
@@ -172,10 +165,8 @@ export default function InvoiceDetailPage() {
 
     setActionLoading('delete');
     try {
-      const token = localStorage.getItem('auth-token');
       const response = await apiFetch(`/api/super-admin/clinic-invoices/${invoiceId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.ok) {

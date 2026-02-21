@@ -70,11 +70,8 @@ export default function AffiliateSettingsPage() {
   useEffect(() => {
     // Fetch current settings
     const fetchSettings = async () => {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       try {
-        const response = await apiFetch('/api/admin/affiliate-settings', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await apiFetch('/api/admin/affiliate-settings');
         if (response.ok) {
           const data = await response.json();
           if (data.settings) {
@@ -92,15 +89,10 @@ export default function AffiliateSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch('/api/admin/affiliate-settings', {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(settings),
       });
 

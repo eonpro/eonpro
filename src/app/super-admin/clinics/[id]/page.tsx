@@ -137,10 +137,7 @@ function PatientPortalPresetBlock({ clinicId }: { clinicId: number }) {
     if (!preset || Object.keys(preset).length === 0) return;
     setApplying(true);
     try {
-      const token = localStorage.getItem('auth-token');
-      const getRes = await apiFetch(`/api/patient-portal/branding?clinicId=${clinicId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const getRes = await apiFetch(`/api/patient-portal/branding?clinicId=${clinicId}`);
       const current = getRes.ok ? ((await getRes.json()).features ?? {}) : {};
       const merged = applyPresetToFeatures(
         current as Record<PortalFeatureFlagKey, boolean>,
@@ -148,9 +145,6 @@ function PatientPortalPresetBlock({ clinicId }: { clinicId: number }) {
       );
       const putRes = await apiFetch('/api/patient-portal/branding', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ clinicId, features: merged }),
       });
       if (putRes.ok)
@@ -655,15 +649,10 @@ export default function ClinicDetailPage() {
 
     setEditingUser(true);
     try {
-      const token = localStorage.getItem('auth-token');
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/super-admin/clinics/${clinicId}/users/${editUserModal.user.id}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
           body: JSON.stringify(editUserData),
         }
       );
@@ -698,15 +687,10 @@ export default function ClinicDetailPage() {
 
     setResettingPassword(true);
     try {
-      const token = localStorage.getItem('auth-token');
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/super-admin/clinics/${clinicId}/users/${resetPasswordModal.userId}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
           body: JSON.stringify({ password: newPassword }),
         }
       );
@@ -1887,13 +1871,9 @@ export default function ClinicDetailPage() {
                 onClick={async () => {
                   if (!clinicId) return;
                   try {
-                    const token = localStorage.getItem('auth-token');
-                    const res = await fetch(
+                    const res = await apiFetch(
                       `/api/super-admin/clinics/${clinicId}/sync-feature-defaults`,
-                      {
-                        method: 'POST',
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
-                      }
+                      { method: 'POST' }
                     );
                     const data = await res.json();
                     if (res.ok) {

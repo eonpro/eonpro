@@ -209,11 +209,6 @@ export default function ProvidersPage() {
         localStorage.getItem('admin-token') ||
         localStorage.getItem('token');
 
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
       // Try multiple endpoints with auth
       const authenticatedEndpoints = [
         '/api/super-admin/clinics', // Super admin - returns { clinics: [...] }
@@ -224,7 +219,7 @@ export default function ProvidersPage() {
       for (const endpoint of authenticatedEndpoints) {
         if (!token) continue; // Skip auth endpoints if no token
         try {
-          const res = await apiFetch(endpoint, { headers });
+          const res = await apiFetch(endpoint);
 
           if (res.ok) {
             const data = await res.json();
@@ -264,19 +259,8 @@ export default function ProvidersPage() {
   const fetchProviders = async () => {
     try {
       setLoading(true);
-      // Get auth token from localStorage
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('super_admin-token');
 
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const res = await apiFetch('/api/providers', { headers });
+      const res = await apiFetch('/api/providers');
       const data = await res.json();
       setProviders(data.providers ?? []);
     } catch (err: any) {

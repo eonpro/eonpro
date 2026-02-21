@@ -128,12 +128,9 @@ export default function AffiliateDetailPage() {
   const fetchAffiliate = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
-      const response = await apiFetch(`/api/admin/affiliates/${affiliateId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch(`/api/admin/affiliates/${affiliateId}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -186,15 +183,10 @@ export default function AffiliateDetailPage() {
     e.preventDefault();
     setSaving(true);
     setSaveError(null);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch(`/api/admin/affiliates/${affiliateId}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(editForm),
       });
 
@@ -248,15 +240,10 @@ export default function AffiliateDetailPage() {
 
     setAddingCode(true);
     setAddCodeError(null);
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
     try {
       const response = await apiFetch(`/api/admin/affiliates/${affiliateId}/ref-codes`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           refCode: newRefCode.toUpperCase(),
           description: newRefDescription || undefined,

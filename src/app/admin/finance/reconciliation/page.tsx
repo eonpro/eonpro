@@ -70,19 +70,7 @@ export default function ReconciliationPage() {
   useEffect(() => {
     const loadReconciliationData = async () => {
       try {
-        const token =
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('super_admin-token') ||
-          localStorage.getItem('admin-token') ||
-          localStorage.getItem('token');
-
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const response = await apiFetch('/api/finance/reconciliation', {
-          credentials: 'include',
-          headers,
-        });
+        const response = await apiFetch('/api/finance/reconciliation');
 
         if (response.ok) {
           const data = await response.json();

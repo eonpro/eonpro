@@ -48,16 +48,7 @@ export default function ProviderMessagesPage() {
       try {
         setLoading(true);
         setError(null);
-        const token =
-          localStorage.getItem('token') ||
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('provider-token');
-
-        const response = await apiFetch('/api/messages/conversations', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await apiFetch('/api/messages/conversations');
 
         if (response.ok) {
           const data = await response.json();
@@ -91,16 +82,7 @@ export default function ProviderMessagesPage() {
 
     async function fetchThread() {
       try {
-        const token =
-          localStorage.getItem('token') ||
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('provider-token');
-
-        const response = await apiFetch(`/api/messages/conversations/${selectedMessage?.patientId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await apiFetch(`/api/messages/conversations/${selectedMessage?.patientId}`);
 
         if (response.ok) {
           const data = await response.json();
@@ -130,17 +112,8 @@ export default function ProviderMessagesPage() {
     if (!messageContent.trim() || !selectedMessage) return;
 
     try {
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('provider-token');
-
       const response = await apiFetch(`/api/messages/send`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           patientId: selectedMessage.patientId,
           content: messageContent,

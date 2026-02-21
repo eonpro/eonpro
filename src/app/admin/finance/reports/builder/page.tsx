@@ -144,16 +144,8 @@ export default function ReportBuilderPage() {
     }
 
     try {
-      const token =
-        localStorage.getItem('token') ||
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('admin-token');
       const response = await apiFetch('/api/admin/reports', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({
           name: reportName,
           type: 'custom',

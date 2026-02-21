@@ -43,19 +43,7 @@ export default function PreviewIntakeFormPage({ params }: { params: Promise<{ id
   const fetchTemplate = async (id: number) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-
-      if (!token) {
-        setError('Please log in to preview forms');
-        setLoading(false);
-        return;
-      }
-
-      const res = await apiFetch(`/api/intake-forms/templates/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await apiFetch(`/api/intake-forms/templates/${id}`);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

@@ -21,19 +21,7 @@ export default function AdminAnalyticsPage() {
 
   const loadAnalytics = async () => {
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-      const response = await apiFetch('/api/admin/dashboard', {
-        credentials: 'include',
-        headers: token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {},
-      });
+      const response = await apiFetch('/api/admin/dashboard');
 
       if (response.ok) {
         const result = await response.json();

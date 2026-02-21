@@ -126,14 +126,8 @@ const getClinicBadgeColor = (subdomain?: string) => {
 };
 
 function getAuthHeaders(): Record<string, string> {
-  const token =
-    localStorage.getItem('auth-token') ||
-    localStorage.getItem('super_admin-token') ||
-    localStorage.getItem('admin-token') ||
-    localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
   };
 }
 

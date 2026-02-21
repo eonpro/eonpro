@@ -143,27 +143,13 @@ export default function PatientsPage() {
   const fetchPatients = async (search?: string) => {
     try {
       setLoading(true);
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('provider-token') ||
-        localStorage.getItem('SUPER_ADMIN-token') ||
-        sessionStorage.getItem('auth-token');
-
       const params = new URLSearchParams();
       if (search && search.trim()) {
         params.set('search', search.trim());
       }
       const url = params.toString() ? `/api/patients?${params.toString()}` : '/api/patients';
 
-      const res = await apiFetch(url, {
-        headers: token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {},
-      });
+      const res = await apiFetch(url);
 
       if (!res.ok) {
         if (res.status === 401) {
@@ -187,23 +173,15 @@ export default function PatientsPage() {
 
   const fetchClinics = async () => {
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token');
-
-      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-
-      // Try multiple endpoints in order of preference
       const endpoints = [
-        '/api/user/clinics', // User's assigned clinics
-        '/api/admin/clinics', // Admin endpoint (returns array)
-        '/api/clinic/list', // Public clinic list (returns array)
+        '/api/user/clinics',
+        '/api/admin/clinics',
+        '/api/clinic/list',
       ];
 
       for (const endpoint of endpoints) {
         try {
-          const res = await apiFetch(endpoint, { headers });
+          const res = await apiFetch(endpoint);
 
           if (res.ok) {
             const data = await res.json();
@@ -273,21 +251,8 @@ export default function PatientsPage() {
         clinicId: clinicId ? parseInt(clinicId) : userClinicId || undefined,
       };
 
-      // Get token from localStorage or cookies (check all possible token storage locations)
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('provider-token') ||
-        localStorage.getItem('SUPER_ADMIN-token') ||
-        sessionStorage.getItem('auth-token');
-
       const res = await apiFetch('/api/patients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify(payload),
       });
 

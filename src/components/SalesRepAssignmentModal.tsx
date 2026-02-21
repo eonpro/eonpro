@@ -54,13 +54,8 @@ export default function SalesRepAssignmentModal({
     setError(null);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       const response = await apiFetch(`/api/admin/patients/${patient.id}/sales-rep`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ salesRepId: selectedSalesRepId }),
       });
 
@@ -84,12 +79,8 @@ export default function SalesRepAssignmentModal({
     setError(null);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
       const response = await apiFetch(`/api/admin/patients/${patient.id}/sales-rep`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       if (!response.ok) {

@@ -44,20 +44,7 @@ export default function SettingsDashboard() {
 
   const fetchDashboard = async () => {
     try {
-      const token =
-        localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || 'demo-token'; // Allow demo access
-
-      // Temporarily disabled authentication redirect for demo
-      // if (!token) {
-      //   router.push('/auth/login');
-      //   return;
-      // }
-
-      const response = await apiFetch('/api/settings/dashboard', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch('/api/settings/dashboard');
 
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard');

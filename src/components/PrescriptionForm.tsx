@@ -408,20 +408,7 @@ export default function PrescriptionForm({
     if (patientContext) return;
     async function loadPatients() {
       try {
-        // Get auth token from localStorage - include provider-token
-        const token =
-          localStorage.getItem('token') ||
-          localStorage.getItem('auth-token') ||
-          localStorage.getItem('provider-token') ||
-          localStorage.getItem('admin-token') ||
-          localStorage.getItem('super_admin-token');
-
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const res = await apiFetch('/api/patients', { headers });
+        const res = await apiFetch('/api/patients');
         const data = await res.json();
         setPatients(data.patients ?? []);
       } catch (err: any) {

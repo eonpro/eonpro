@@ -94,15 +94,6 @@ export default function InvoicesPage() {
   const loadInvoices = useCallback(async () => {
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const params = new URLSearchParams({
         limit: '100', // Get more to calculate stats
         offset: ((page - 1) * 20).toString(),
@@ -112,10 +103,7 @@ export default function InvoicesPage() {
         params.set('search', debouncedSearch.trim());
       }
 
-      const response = await apiFetch(`/api/invoices?${params}`, {
-        credentials: 'include',
-        headers,
-      });
+      const response = await apiFetch(`/api/invoices?${params}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -171,19 +159,8 @@ export default function InvoicesPage() {
   const syncInvoice = async (invoiceId: number) => {
     setSyncingId(invoiceId);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('super_admin-token') ||
-        localStorage.getItem('admin-token') ||
-        localStorage.getItem('token');
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-
       const response = await apiFetch(`/api/invoices/${invoiceId}/sync`, {
         method: 'POST',
-        credentials: 'include',
-        headers,
       });
 
       if (response.ok) {

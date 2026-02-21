@@ -87,13 +87,7 @@ export default function EmailAnalyticsPage() {
     setError(null);
 
     try {
-      const token = localStorage.getItem('admin-token') || localStorage.getItem('auth-token');
-
-      const response = await apiFetch(`/api/admin/email-analytics?days=${days}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/email-analytics?days=${days}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch analytics');

@@ -95,14 +95,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     try {
       if (showLoading) setLoading(true);
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-
-      const res = await apiFetch(`/api/patient-chat?patientId=${patient.id}&limit=100`, {
-        credentials: 'include',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      });
+      const res = await apiFetch(`/api/patient-chat?patientId=${patient.id}&limit=100`);
 
       if (res.ok) {
         const data = await res.json();
@@ -151,15 +144,8 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
     setError(null);
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-
       const res = await apiFetch('/api/patient-chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        credentials: 'include',
         body: JSON.stringify({
           patientId: patient.id,
           message: messageText,

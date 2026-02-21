@@ -74,14 +74,11 @@ export default function ProductCatalogPage() {
 
   const loadProducts = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const params = new URLSearchParams();
       if (filterCategory) params.append('category', filterCategory);
       if (filterBillingType) params.append('billingType', filterBillingType);
 
-      const res = await apiFetch(`/api/products?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/api/products?${params}`);
 
       if (res.ok) {
         const data = await res.json();
@@ -100,7 +97,6 @@ export default function ProductCatalogPage() {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
 
@@ -119,10 +115,6 @@ export default function ProductCatalogPage() {
 
       const res = await apiFetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(body),
       });
 
@@ -146,10 +138,8 @@ export default function ProductCatalogPage() {
     if (!confirm('Are you sure you want to archive this product?')) return;
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const res = await apiFetch(`/api/products/${productId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {

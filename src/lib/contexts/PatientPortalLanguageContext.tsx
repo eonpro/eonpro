@@ -7,6 +7,7 @@ import {
   getStoredPatientPortalLanguage,
   setStoredPatientPortalLanguage,
 } from '@/lib/i18n/patient-portal';
+import { apiFetch } from '@/lib/api/fetch';
 
 type PatientPortalLanguageContextValue = {
   language: PatientPortalLang;
@@ -30,16 +31,8 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
     setStoredPatientPortalLanguage(lang);
     setLoading(true);
     try {
-      const token =
-        localStorage.getItem('auth-token') ||
-        localStorage.getItem('patient-token') ||
-        localStorage.getItem('access_token');
-      await fetch('/api/user/profile', {
+      await apiFetch('/api/user/profile', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ preferredLanguage: lang }),
       });
     } catch {
@@ -52,17 +45,7 @@ export function PatientPortalLanguageProvider({ children }: { children: React.Re
   useEffect(() => {
     let cancelled = false;
 
-    const token =
-      localStorage.getItem('auth-token') ||
-      localStorage.getItem('patient-token') ||
-      localStorage.getItem('access_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    fetch('/api/user/profile', {
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    })
+    apiFetch('/api/user/profile')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled) return;

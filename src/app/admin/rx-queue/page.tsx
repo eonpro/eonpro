@@ -56,18 +56,13 @@ export default function AdminRxQueuePage() {
   const fetchQueue = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
 
       const params = new URLSearchParams({
         filter,
         ...(searchTerm && { search: searchTerm }),
       });
 
-      const response = await apiFetch(`/api/admin/rx-queue?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await apiFetch(`/api/admin/rx-queue?${params.toString()}`);
 
       if (response.ok) {
         const data = await response.json();

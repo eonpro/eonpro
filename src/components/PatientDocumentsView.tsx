@@ -37,12 +37,7 @@ export default function PatientDocumentsView({
     const fetchDocuments = async () => {
       try {
         setIsLoading(true);
-        const token =
-          localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-        const response = await apiFetch(`/api/patients/${patientId}/documents`, {
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const response = await apiFetch(`/api/patients/${patientId}/documents`);
 
         if (response.ok) {
           const data = await response.json();
@@ -126,11 +121,8 @@ export default function PatientDocumentsView({
         });
       }, 200);
 
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
       const response = await apiFetch(`/api/patients/${patientId}/documents`, {
         method: 'POST',
-        credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
@@ -174,11 +166,8 @@ export default function PatientDocumentsView({
     }
 
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
       const response = await apiFetch(`/api/patients/${patientId}/documents/${documentId}`, {
         method: 'DELETE',
-        credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (response.ok) {
@@ -195,14 +184,8 @@ export default function PatientDocumentsView({
   };
 
   const handleView = async (doc: Document, skipRegeneratePrompt?: boolean) => {
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-    const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
     try {
-      const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}`, {
-        credentials: 'include',
-        headers: authHeaders,
-      });
+      const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}`);
 
       if (response.ok) {
         const blob = await response.blob();
@@ -223,8 +206,6 @@ export default function PatientDocumentsView({
           `/api/patients/${patientId}/documents/${doc.id}/regenerate`,
           {
             method: 'POST',
-            credentials: 'include',
-            headers: { ...authHeaders, 'Content-Type': 'application/json' },
           }
         );
         if (!regenRes.ok) {
@@ -250,11 +231,7 @@ export default function PatientDocumentsView({
 
   const handleDownload = async (doc: Document) => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || '';
-      const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}/download`, {
-        credentials: 'include',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const response = await apiFetch(`/api/patients/${patientId}/documents/${doc.id}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

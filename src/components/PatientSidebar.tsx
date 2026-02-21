@@ -574,14 +574,8 @@ export default function PatientSidebar({
   };
 
   const handleDeletePatient = async () => {
-    // Get auth token from localStorage
-    const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
-
     const response = await apiFetch(`/api/patients/${patient.id}`, {
       method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     if (!response.ok) {

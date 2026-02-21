@@ -117,13 +117,10 @@ export default function PricingManagementPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-
       const [discountsRes, promotionsRes, bundlesRes] = await Promise.all([
-        apiFetch('/api/discounts', { headers }),
-        apiFetch('/api/promotions', { headers }),
-        apiFetch('/api/bundles', { headers }),
+        apiFetch('/api/discounts'),
+        apiFetch('/api/promotions'),
+        apiFetch('/api/bundles'),
       ]);
 
       if (discountsRes.ok) {
@@ -147,10 +144,7 @@ export default function PricingManagementPage() {
 
   const loadProducts = async () => {
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
-      const res = await apiFetch('/api/products?activeOnly=true', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch('/api/products?activeOnly=true');
       if (res.ok) {
         const data = await res.json();
         setProducts(data.products || []);
@@ -176,10 +170,8 @@ export default function PricingManagementPage() {
     e.preventDefault();
     setError('');
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const res = await apiFetch('/api/discounts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...discountForm,
           discountValue: parseFloat(discountForm.discountValue),
@@ -228,10 +220,8 @@ export default function PricingManagementPage() {
     e.preventDefault();
     setError('');
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const res = await apiFetch('/api/promotions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...promotionForm,
           discountValue: parseFloat(promotionForm.discountValue),
@@ -257,10 +247,8 @@ export default function PricingManagementPage() {
     e.preventDefault();
     setError('');
     try {
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('token');
       const res = await apiFetch('/api/bundles', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name: bundleForm.name,
           description: bundleForm.description,
