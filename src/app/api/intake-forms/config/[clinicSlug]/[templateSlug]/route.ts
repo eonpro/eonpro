@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import type { FormConfig, FormBranding } from '@/domains/intake/types/form-engine';
@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   try {
     const { clinicSlug, templateSlug } = await params;
 
-    const clinic = await prisma.clinic.findFirst({
+    const clinic = await basePrisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: clinicSlug },
@@ -38,73 +38,71 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
-    const template = await prisma.intakeFormTemplate.findFirst({
-      where: {
-        clinicId: clinic.id,
-        isActive: true,
-        OR: [
-          { treatmentType: templateSlug },
-          { name: templateSlug },
-        ],
-      },
-      include: {
-        questions: {
-          orderBy: { orderIndex: 'asc' },
+    return runWithClinicContext(clinic.id, async () => {
+      const template = await prisma.intakeFormTemplate.findFirst({
+        where: {
+          clinicId: clinic.id,
+          isActive: true,
+          OR: [
+            { treatmentType: templateSlug },
+            { name: templateSlug },
+          ],
         },
-      },
-    });
+        include: {
+          questions: {
+            orderBy: { orderIndex: 'asc' },
+          },
+        },
+      });
 
-    if (!template) {
-      return NextResponse.json({ error: 'Template not found' }, { status: 404 });
-    }
+      if (!template) {
+        return NextResponse.json({ error: 'Template not found' }, { status: 404 });
+      }
 
-    const metadata = template.metadata as Record<string, unknown> | null;
-    const formConfig = metadata?.formConfig as FormConfig | undefined;
+      const metadata = template.metadata as Record<string, unknown> | null;
+      const formConfig = metadata?.formConfig as FormConfig | undefined;
 
-    if (formConfig) {
-      const settings = clinic.settings as Record<string, unknown> | null;
-      const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
+      if (formConfig) {
+        const settings = clinic.settings as Record<string, unknown> | null;
+        const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
 
-      const branding: FormBranding = {
-        logo: (portalSettings?.logoUrl as string) ?? undefined,
-        primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
-        accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
-        secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
-        ...(formConfig.branding ?? {}),
+        const branding: FormBranding = {
+          logo: (portalSettings?.logoUrl as string) ?? undefined,
+          primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+          accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+          secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+          ...(formConfig.branding ?? {}),
+        };
+
+        return NextResponse.json({
+          config: formConfig,
+          branding,
+          clinicName: clinic.name,
+        });
+      }
+
+      const fallbackConfig: FormConfig = {
+        id: `template-${template.id}`,
+        name: template.name,
+        version: String(template.version),
+        description: template.description ?? undefined,
+        treatmentType: template.treatmentType ?? undefined,
+        steps: [],
+        startStep: '',
+        languages: ['en'],
+        defaultLanguage: 'en',
+        integrations: [{ type: 'platform', triggers: ['complete'] }],
+        createdAt: template.createdAt.toISOString(),
+        updatedAt: template.updatedAt.toISOString(),
       };
 
       return NextResponse.json({
-        config: formConfig,
-        branding,
+        config: fallbackConfig,
+        branding: {},
         clinicName: clinic.name,
       });
-    }
-
-    const fallbackConfig: FormConfig = {
-      id: `template-${template.id}`,
-      name: template.name,
-      version: String(template.version),
-      description: template.description ?? undefined,
-      treatmentType: template.treatmentType ?? undefined,
-      steps: [],
-      startStep: '',
-      languages: ['en'],
-      defaultLanguage: 'en',
-      integrations: [{ type: 'platform', triggers: ['complete'] }],
-      createdAt: template.createdAt.toISOString(),
-      updatedAt: template.updatedAt.toISOString(),
-    };
-
-    return NextResponse.json({
-      config: fallbackConfig,
-      branding: {},
-      clinicName: clinic.name,
     });
   } catch (error) {
-    logger.error('Intake config API error', {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
-    });
     return handleApiError(error, { route: 'GET /api/intake-forms/config' });
   }
 }
