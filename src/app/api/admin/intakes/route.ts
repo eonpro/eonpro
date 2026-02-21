@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
+import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
@@ -247,4 +247,5 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAdminAuth(handleGet);
+// Clinical roles (admin, provider, staff) can list intakes; matches admin layout allowedAdminRoles.
+export const GET = withClinicalAuth(handleGet);
