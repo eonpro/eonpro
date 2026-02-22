@@ -87,14 +87,27 @@ export async function upsertPatientFromIntake(
       submissionId: intake.submissionId,
     });
 
+    // Don't overwrite address fields with empty — preserve existing zip/city/state when intake omits them
+    const addressKeys = ['address1', 'address2', 'city', 'state', 'zip'] as const;
+    const mergedForUpdate = { ...normalized };
+    for (const key of addressKeys) {
+      const value = mergedForUpdate[key];
+      if (value === '' || value == null) {
+        const existingValue = (existing as Record<string, unknown>)[key];
+        if (existingValue != null && String(existingValue).trim() !== '') {
+          (mergedForUpdate as Record<string, string>)[key] = String(existingValue);
+        }
+      }
+    }
+
     const updateSearchIndex = buildPatientSearchIndex({
-      ...normalized,
+      ...mergedForUpdate,
       patientId: existing.patientId,
     });
     const updated = await prisma.patient.update({
       where: { id: existing.id },
       data: {
-        ...normalized,
+        ...mergedForUpdate,
         // NOTE: Do NOT update clinicId - this would violate multi-tenant isolation
         // Patients should only be moved between clinics via explicit admin action
         tags: mergeTags(existing.tags, allTags),

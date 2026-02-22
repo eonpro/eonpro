@@ -348,29 +348,179 @@ export default function RegisterPage() {
               </form>
             )}
 
-            {/* STEP 2: Registration Details */}
-            {step === 'details' && clinic && (
+            {/* STEP 2: Registration Details (full form) or Invite: Set password only */}
+            {step === 'details' && clinic && inviteToken && (
               <form onSubmit={handleRegistrationSubmit} className="space-y-5">
-                {/* Clinic Display */}
-                <div
-                  className={`flex items-center ${inviteToken ? 'flex-col' : 'justify-between'} ${inviteToken ? 'mb-2 py-2' : 'mb-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3'}`}
-                >
-                  {inviteToken ? (
-                    <>
-                      <p className="mb-3 text-sm font-medium text-emerald-600">Invited by</p>
-                      {clinic.logoUrl ? (
-                        <img
-                          src={clinic.logoUrl}
-                          alt={clinic.name}
-                          className="h-14 max-w-[200px] object-contain object-center"
-                        />
-                      ) : (
-                        <p className="font-semibold text-gray-900">{clinic.name}</p>
+                {/* Invite flow: clinic + pre-filled identity summary, then password only */}
+                <div className="mb-4 text-center">
+                  <p className="text-sm font-medium text-emerald-600">Invited by</p>
+                  {clinic.logoUrl ? (
+                    <img
+                      src={clinic.logoUrl}
+                      alt={clinic.name}
+                      className="mx-auto mt-2 h-14 max-w-[200px] object-contain object-center"
+                    />
+                  ) : (
+                    <p className="mt-2 font-semibold text-gray-900">{clinic.name}</p>
+                  )}
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-center">
+                  <p className="text-sm text-gray-600">
+                    Create your password for <strong className="text-gray-900">{firstName} {lastName}</strong>
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">{email}</p>
+                </div>
+                {/* Password */}
+                <div>
+                  <label
+                    htmlFor="password-invite"
+                    className="mb-1 block text-sm font-medium text-gray-700"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      id="password-invite"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {password && (
+                    <div className="mt-2 space-y-1">
+                      {passwordRequirements.map((req, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          {req.met ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : (
+                            <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
+                          )}
+                          <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
+                            {req.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label
+                    htmlFor="confirmPassword-invite"
+                    className="mb-1 block text-sm font-medium text-gray-700"
+                  >
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      id="confirmPassword-invite"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                        confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-200'
+                      }`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {confirmPassword && !passwordsMatch && (
+                    <p className="mt-1 text-xs text-red-500">Passwords do not match</p>
+                  )}
+                </div>
+                <div className="flex items-start gap-3">
+                  <label
+                    htmlFor="terms-checkbox-invite"
+                    className="flex min-h-[44px] min-w-[44px] flex-shrink-0 cursor-pointer items-center justify-center"
+                  >
+                    <input
+                      id="terms-checkbox-invite"
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={() => setAgreedToTerms(!agreedToTerms)}
+                      className="sr-only"
+                      aria-label="I agree to the Terms of Service and Privacy Policy"
+                    />
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-all ${
+                        agreedToTerms
+                          ? 'border-emerald-600 bg-emerald-600'
+                          : 'border-gray-300 bg-white'
+                      }`}
+                    >
+                      {agreedToTerms ? <Check className="h-4 w-4 text-white" /> : null}
+                    </span>
+                  </label>
+                  <label
+                    htmlFor="terms-checkbox-invite"
+                    className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-gray-600"
+                  >
+                    I agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline" onClick={(e) => e.stopPropagation()}>
+                      Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline" onClick={(e) => e.stopPropagation()}>
+                      Privacy Policy
+                    </a>
+                  </label>
+                </div>
+                {error && (
+                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+                    <div className="text-sm text-red-600">
+                      <p>{error}</p>
+                      {(error.toLowerCase().includes('already exists') || error.toLowerCase().includes('log in')) && (
+                        <Link
+                          href="/patient-login"
+                          className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" />
+                          Go to login
+                        </Link>
                       )}
-                    </>
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-all hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? (
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                   ) : (
                     <>
-                      <div className="flex items-center gap-3">
+                      Create account
+                      <ArrowRight className="h-5 w-5" />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* STEP 2: Full registration form (clinic code flow, no invite) */}
+            {step === 'details' && clinic && !inviteToken && (
+              <form onSubmit={handleRegistrationSubmit} className="space-y-5">
+                {/* Clinic Display */}
+                <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                  <div className="flex items-center gap-3">
                         {clinic.logoUrl ? (
                           <img
                             src={clinic.logoUrl}
@@ -394,8 +544,6 @@ export default function RegisterPage() {
                       >
                         Change
                       </button>
-                    </>
-                  )}
                 </div>
 
                 {/* Name Fields */}

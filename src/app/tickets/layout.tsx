@@ -27,7 +27,6 @@ import {
   Shield,
   UserCog,
   Activity,
-  Receipt,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -163,6 +162,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Build navigation: super_admin uses its own nav, admin uses shared adminNav, others get role-specific
   const navItems = useMemo(() => {
+    // Super-admin nav: Clinic Billing lives only under /super-admin (see super-admin/layout.tsx)
     if (userRole === 'super_admin') {
       return [
         { icon: Shield, path: '/super-admin', label: 'Dashboard' },
@@ -172,7 +172,6 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         { icon: Ticket, path: '/tickets', label: 'Tickets' },
         { icon: Activity, path: '/super-admin/user-activity', label: 'User Activity' },
         { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
-        { icon: Receipt, path: '/super-admin/clinic-billing', label: 'Clinic Billing' },
         { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
       ];
     }

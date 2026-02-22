@@ -49,6 +49,7 @@ import {
   extractCityState,
 } from '@/lib/address/client';
 import type { ParsedAddress } from '@/lib/address/client';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
 import { smartSearch } from '@/lib/utils/search';
 
@@ -341,8 +342,8 @@ interface PrescriptionFormState {
 const SEMAGLUTIDE_NEW_USER_KEY = '203448971'; // Semaglutide 2.5mg/1ml
 const TIRZEPATIDE_NEW_USER_KEY = '203448972'; // Tirzepatide 10mg/1ml
 
-// WellMedR default: 2-day shipping
-const WELLMEDR_DEFAULT_SHIPPING_ID = '8200'; // UPS - 2nd Day Air
+// WellMedR default: FedEx 2 Day (not UPS 2 Day)
+const WELLMEDR_DEFAULT_SHIPPING_ID = '8234'; // FEDEX- 2 DAY
 
 // Helper to create a new empty medication
 const createEmptyMedication = (): MedicationItem => ({
@@ -377,7 +378,7 @@ export default function PrescriptionQueuePage() {
   } | null>(null);
   const [prescriptionForm, setPrescriptionForm] = useState<PrescriptionFormState>({
     medications: [createEmptyMedication()],
-    shippingMethod: '8115', // UPS - OVERNIGHT (numeric string, will be parsed)
+    shippingMethod: '8115', // Default UPS Overnight; Wellmedr → FedEx 2 Day (8234) set in useEffect
     pharmacyGender: '',
     address1: '',
     address2: '',
@@ -416,6 +417,14 @@ export default function PrescriptionQueuePage() {
       }
     };
     checkUserRole();
+  }, []);
+
+  // Wellmedr RX queue: preselect FedEx 2 Day (8234), not UPS 2 Day
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hostname.toLowerCase().includes('wellmedr')) {
+      setPrescriptionForm((prev) => ({ ...prev, shippingMethod: WELLMEDR_DEFAULT_SHIPPING_ID }));
+    }
   }, []);
 
   const getAuthToken = () => {
@@ -699,7 +708,9 @@ export default function PrescriptionQueuePage() {
     if (details) {
       setPrescriptionPanel({ item, details });
       const parsedAddress = getPatientAddress(details.patient);
-      const isWellmedr = item.clinic?.subdomain?.toLowerCase().includes('wellmedr');
+      const isWellmedr =
+        item.clinic?.subdomain?.toLowerCase().includes('wellmedr') ||
+        (typeof window !== 'undefined' && window.location.hostname.toLowerCase().includes('wellmedr'));
 
       // Determine pharmacy gender: Lifefile only accepts 'm' or 'f'
       const patientGender = (details.patient.gender || '').toLowerCase().trim();
@@ -2661,20 +2672,26 @@ export default function PrescriptionQueuePage() {
                             <label className="mb-1 block text-xs font-medium text-gray-600">
                               Street Address *
                             </label>
-                            <input
-                              type="text"
+                            <AddressInput
                               value={prescriptionForm.address1}
-                              onChange={(e) =>
-                                setPrescriptionForm((prev) => ({
-                                  ...prev,
-                                  address1: e.target.value,
-                                }))
-                              }
+                              onChange={(value: string, parsed?: AddressData) => {
+                                if (parsed) {
+                                  setPrescriptionForm((prev) => ({
+                                    ...prev,
+                                    address1: parsed.address1,
+                                    city: parsed.city,
+                                    state: parsed.state,
+                                    zip: parsed.zip,
+                                  }));
+                                } else {
+                                  setPrescriptionForm((prev) => ({ ...prev, address1: value }));
+                                }
+                              }}
                               placeholder="123 Main Street"
-                              className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
+                              className={`w-full ${
                                 !prescriptionForm.address1
-                                  ? 'border-red-300 bg-red-50'
-                                  : 'border-gray-300'
+                                  ? '[&_input]:border-red-300 [&_input]:bg-red-50'
+                                  : ''
                               }`}
                             />
                           </div>

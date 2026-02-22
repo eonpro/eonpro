@@ -18,7 +18,7 @@ const reportQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v) : undefined)),
-  periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
+  periodType: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
   startDate: z
     .string()
     .optional()
@@ -175,7 +175,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
 // Validation schema for report generation
 const generateReportSchema = z.object({
   clinicId: z.number().int().positive().optional(),
-  periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']),
+  periodType: z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']),
   startDate: z.string().transform((v) => new Date(v)),
   endDate: z.string().transform((v) => new Date(v)),
   format: z.enum(['json', 'csv']).default('json'),
@@ -198,11 +198,14 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     }
 
     const { clinicId, periodType, startDate, endDate, format } = result.data;
+    // Service enum has no DAILY; use CUSTOM for date-based query
+    const periodTypeForService =
+      periodType === 'DAILY' ? 'CUSTOM' : periodType;
 
     // Generate report
     const report = await clinicInvoiceService.getFeeReport({
       clinicId,
-      periodType,
+      periodType: periodTypeForService,
       startDate,
       endDate,
     });

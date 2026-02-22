@@ -9,6 +9,7 @@
 export type Permission =
   | 'patient:view'
   | 'patient:edit'
+  | 'patient:delete'
   | 'order:view'
   | 'order:create'
   | 'invoice:view'
@@ -108,7 +109,7 @@ export function hasPermission(
   if (normalizedRole === 'super_admin') return true;
   if (resource?.clinicId != null && ctx.clinicId != null && resource.clinicId !== ctx.clinicId)
     return false;
-  if (permission === 'patient:view' || permission === 'patient:edit') {
+  if (permission === 'patient:view' || permission === 'patient:edit' || permission === 'patient:delete') {
     if (normalizedRole === 'patient' && resource?.patientId != null && ctx.patientId !== resource.patientId)
       return false;
     if (normalizedRole === 'provider' && resource?.ownerId != null && ctx.providerId !== resource.ownerId)
@@ -158,6 +159,7 @@ export const PERMISSION_MATRIX: Record<string, Record<Permission, boolean>> = (
   acc[role] = {
     'patient:view': perms.includes('patient:view'),
     'patient:edit': perms.includes('patient:edit'),
+    'patient:delete': perms.includes('patient:delete'),
     'order:view': perms.includes('order:view'),
     'order:create': perms.includes('order:create'),
     'invoice:view': perms.includes('invoice:view'),

@@ -716,11 +716,12 @@ function parseMaybeJson(value: unknown): unknown {
 const firstNonEmpty = (...values: Array<string | undefined | null>) =>
   values.find((value: any) => typeof value === 'string' && value.trim().length > 0)?.trim();
 
-// Type for parsed address JSON
+// Type for parsed address JSON (supports EONPRO/nested address with zipCode)
 interface AddressJson {
   street?: string;
   address1?: string;
   street_1?: string;
+  streetAddress?: string;
   address?: string;
   house?: string;
   apartment?: string;
@@ -730,6 +731,7 @@ interface AddressJson {
   state_code?: string;
   zip?: string;
   zip_code?: string;
+  zipCode?: string;
   postal_code?: string;
   zipcode?: string;
   postalCode?: string;
@@ -743,10 +745,14 @@ function applyDerivedFields(
 ) {
   const index = buildEntryIndex(entries);
 
-  const addressJson = getEntryJson(index, 'id-38a5bae0') as AddressJson | undefined;
+  // Heyflow address component id and EONPRO-style nested "address" object
+  const addressJson =
+    (getEntryJson(index, 'id-38a5bae0') as AddressJson | undefined) ??
+    (getEntryJson(index, 'address') as AddressJson | undefined);
   const street = firstNonEmpty(
     getEntryValue(index, 'id-38a5bae0-street'),
     addressJson?.street,
+    addressJson?.streetAddress,
     addressJson?.address1,
     addressJson?.street_1,
     addressJson?.address
@@ -796,7 +802,7 @@ function applyDerivedFields(
     patient.city = city;
   }
 
-  // Extract zip code from multiple possible sources
+  // Extract zip code from multiple possible sources (including EONPRO zipCode)
   const zip = firstNonEmpty(
     // Heyflow address component sub-fields
     getEntryValue(index, 'id-38a5bae0-zip'),
@@ -805,9 +811,10 @@ function applyDerivedFields(
     getEntryValue(index, 'id-38a5bae0-zipcode'),
     getEntryValue(index, 'id-38a5bae0-postal'),
     getEntryValue(index, 'id-38a5bae0-postalCode'),
-    // JSON address object fields
+    // JSON address object fields (EONPRO uses zipCode)
     addressJson?.zip,
     addressJson?.zip_code,
+    addressJson?.zipCode,
     addressJson?.postal_code,
     addressJson?.zipcode,
     addressJson?.postalCode,

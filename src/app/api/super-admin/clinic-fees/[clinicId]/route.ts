@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma as prisma } from '@/lib/db';
+import { basePrisma as prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { platformFeeService } from '@/services/billing';
@@ -19,6 +19,51 @@ function withSuperAdminAuth(
   };
 }
 
+// Custom fee rule schema for complicated per-clinic logic
+const customFeeRuleConditionSchema = z.object({
+  field: z.enum([
+    'feeType',
+    'orderTotalCents',
+    'medicationKey',
+    'medName',
+    'form',
+    'rxCount',
+    'providerType',
+  ]),
+  operator: z.enum([
+    'eq',
+    'neq',
+    'gte',
+    'lte',
+    'gt',
+    'lt',
+    'in',
+    'notIn',
+    'contains',
+    'startsWith',
+    'endsWith',
+  ]),
+  value: z.union([z.string(), z.number(), z.array(z.union([z.string(), z.number()]))]),
+});
+
+const customFeeRuleChargeSchema = z.object({
+  type: z.enum(['FLAT', 'PERCENTAGE']),
+  amountCents: z.number().int().min(0).optional(),
+  basisPoints: z.number().int().min(0).max(10000).optional(),
+  minCents: z.number().int().min(0).optional(),
+  maxCents: z.number().int().min(0).optional(),
+});
+
+const customFeeRuleSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().max(255).optional(),
+  priority: z.number().int().min(0),
+  appliesTo: z.enum(['PRESCRIPTION', 'TRANSMISSION', 'BOTH']).optional(),
+  conditions: z.array(customFeeRuleConditionSchema).min(0).max(50),
+  action: z.enum(['WAIVE', 'CHARGE']),
+  charge: customFeeRuleChargeSchema.optional(),
+});
+
 // Validation schema for fee configuration update
 const feeConfigSchema = z.object({
   prescriptionFeeType: z.enum(['FLAT', 'PERCENTAGE']).optional(),
@@ -34,6 +79,7 @@ const feeConfigSchema = z.object({
   paymentTermsDays: z.number().int().min(1).max(90).optional(),
   isActive: z.boolean().optional(),
   notes: z.string().max(1000).optional().nullable(),
+  customFeeRules: z.array(customFeeRuleSchema).max(100).optional().nullable(),
 });
 
 /**
@@ -59,16 +105,15 @@ export const GET = withSuperAdminAuth(
         return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
       }
 
-      // Get or create fee config
-      const config = await platformFeeService.getOrCreateFeeConfig(clinicId, user.id);
-
-      // Get fee summary
-      const summary = await platformFeeService.getFeeSummary(clinicId);
-
-      return NextResponse.json({
-        clinic,
-        config,
-        summary,
+      return await runWithClinicContext(clinicId, async () => {
+        // Get or create fee config (tenant-scoped prisma requires clinic context)
+        const config = await platformFeeService.getOrCreateFeeConfig(clinicId, user.id);
+        const summary = await platformFeeService.getFeeSummary(clinicId);
+        return NextResponse.json({
+          clinic,
+          config,
+          summary,
+        });
       });
     } catch (error) {
       logger.error('[SuperAdmin] Error getting clinic fee config', {
@@ -114,18 +159,21 @@ export const PUT = withSuperAdminAuth(
         );
       }
 
-      // Update fee config
-      const config = await platformFeeService.updateFeeConfig(clinicId, result.data as any, user.id);
-
-      logger.info('[SuperAdmin] Updated clinic fee config', {
-        clinicId,
-        updatedBy: user.id,
-        changes: result.data,
-      });
-
-      return NextResponse.json({
-        success: true,
-        config,
+      return await runWithClinicContext(clinicId, async () => {
+        const config = await platformFeeService.updateFeeConfig(
+          clinicId,
+          result.data as Parameters<typeof platformFeeService.updateFeeConfig>[1],
+          user.id
+        );
+        logger.info('[SuperAdmin] Updated clinic fee config', {
+          clinicId,
+          updatedBy: user.id,
+          changes: result.data,
+        });
+        return NextResponse.json({
+          success: true,
+          config,
+        });
       });
     } catch (error) {
       logger.error('[SuperAdmin] Error updating clinic fee config', {
@@ -153,60 +201,58 @@ export const DELETE = withSuperAdminAuth(
         return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
       }
 
-      // Check if config exists
-      const existingConfig = await platformFeeService.getFeeConfig(clinicId);
+      return await runWithClinicContext(clinicId, async () => {
+        const existingConfig = await platformFeeService.getFeeConfig(clinicId);
+        if (!existingConfig) {
+          return NextResponse.json(
+            { error: 'No fee configuration exists for this clinic' },
+            { status: 404 }
+          );
+        }
 
-      if (!existingConfig) {
-        return NextResponse.json(
-          { error: 'No fee configuration exists for this clinic' },
-          { status: 404 }
-        );
-      }
-
-      // Check if there are any pending or invoiced fees
-      const pendingFees = await prisma.platformFeeEvent.count({
-        where: {
-          configId: existingConfig.id,
-          status: { in: ['PENDING', 'INVOICED'] },
-        },
-      });
-
-      if (pendingFees > 0) {
-        return NextResponse.json(
-          {
-            error:
-              'Cannot reset configuration with pending fees. Please process or void pending fees first.',
+        const pendingFees = await prisma.platformFeeEvent.count({
+          where: {
+            configId: existingConfig.id,
+            status: { in: ['PENDING', 'INVOICED'] },
           },
-          { status: 400 }
+        });
+
+        if (pendingFees > 0) {
+          return NextResponse.json(
+            {
+              error:
+                'Cannot reset configuration with pending fees. Please process or void pending fees first.',
+            },
+            { status: 400 }
+          );
+        }
+
+        const config = await platformFeeService.updateFeeConfig(
+          clinicId,
+          {
+            prescriptionFeeType: 'FLAT',
+            prescriptionFeeAmount: 2000,
+            transmissionFeeType: 'FLAT',
+            transmissionFeeAmount: 500,
+            adminFeeType: 'NONE',
+            adminFeeAmount: 0,
+            prescriptionCycleDays: 90,
+            paymentTermsDays: 30,
+            isActive: true,
+            notes: `Reset to defaults by user ${user.id} on ${new Date().toISOString()}`,
+          },
+          user.id
         );
-      }
 
-      // Reset to defaults
-      const config = await platformFeeService.updateFeeConfig(
-        clinicId,
-        {
-          prescriptionFeeType: 'FLAT',
-          prescriptionFeeAmount: 2000,
-          transmissionFeeType: 'FLAT',
-          transmissionFeeAmount: 500,
-          adminFeeType: 'NONE',
-          adminFeeAmount: 0,
-          prescriptionCycleDays: 90,
-          paymentTermsDays: 30,
-          isActive: true,
-          notes: `Reset to defaults by user ${user.id} on ${new Date().toISOString()}`,
-        },
-        user.id
-      );
+        logger.info('[SuperAdmin] Reset clinic fee config to defaults', {
+          clinicId,
+          resetBy: user.id,
+        });
 
-      logger.info('[SuperAdmin] Reset clinic fee config to defaults', {
-        clinicId,
-        resetBy: user.id,
-      });
-
-      return NextResponse.json({
-        success: true,
-        config,
+        return NextResponse.json({
+          success: true,
+          config,
+        });
       });
     } catch (error) {
       logger.error('[SuperAdmin] Error resetting clinic fee config', {

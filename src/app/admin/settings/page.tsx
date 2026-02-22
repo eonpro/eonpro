@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api/fetch';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { normalizedIncludes } from '@/lib/utils/search';
 import {
   Settings,
@@ -1064,12 +1065,23 @@ export default function AdminSettingsPage() {
                     <label className="mb-1 block text-sm font-medium text-gray-700">
                       Street Address
                     </label>
-                    <input
-                      type="text"
-                      value={address.address1}
-                      onChange={(e) => setAddress({ ...address, address1: e.target.value })}
+                    <AddressInput
+                      value={address.address1 || ''}
+                      onChange={(value: string, parsed?: AddressData) => {
+                        if (parsed) {
+                          setAddress((prev) => ({
+                            ...prev,
+                            address1: parsed.address1,
+                            city: parsed.city,
+                            state: parsed.state,
+                            zip: parsed.zip,
+                          }));
+                        } else {
+                          setAddress((prev) => ({ ...prev, address1: value }));
+                        }
+                      }}
                       placeholder="123 Main Street"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-emerald-500"
+                      className="w-full"
                     />
                   </div>
                   <div className="md:col-span-2">

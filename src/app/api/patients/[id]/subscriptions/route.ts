@@ -64,7 +64,8 @@ const getSubscriptionsHandler = withAuthParams(
         { status: 500 }
       );
     }
-  }
+  },
+  { roles: ['super_admin', 'admin', 'provider', 'patient'] }
 );
 
 export const GET = getSubscriptionsHandler;

@@ -172,6 +172,14 @@ export default function PatientLoginPage() {
     resolveClinic();
   }, []);
 
+  // Invite link: patient-login?invite=TOKEN → send to register to set password
+  useEffect(() => {
+    const invite = searchParams.get('invite');
+    if (invite && invite.length >= 32) {
+      router.replace(`/register?invite=${encodeURIComponent(invite)}`);
+    }
+  }, [searchParams, router]);
+
   // Check for session/registration messages
   useEffect(() => {
     const reason = searchParams.get('reason');

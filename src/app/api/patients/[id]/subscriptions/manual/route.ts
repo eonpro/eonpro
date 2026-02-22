@@ -6,7 +6,7 @@
  * Creates a local-only subscription (no Stripe) for EMR transition patients.
  * Optionally queues a refill entry for admin review.
  *
- * @security Admin or Super Admin only
+ * @security Admin, Super Admin, or Provider
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -91,7 +91,7 @@ const manualEnrollHandler = withAuthParams(
             reason: notes
               ? `Manual enrollment: ${notes}`
               : 'Manual enrollment (EMR transition)',
-            performedBy: `admin:${user.id}`,
+            performedBy: `${user.role}:${user.id}`,
           },
         });
 
@@ -139,7 +139,7 @@ const manualEnrollHandler = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin'] }
+  { roles: ['super_admin', 'admin', 'provider'] }
 );
 
 export const POST = manualEnrollHandler;

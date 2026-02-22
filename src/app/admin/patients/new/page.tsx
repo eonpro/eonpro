@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, User, Mail, Phone, Calendar, MapPin, FileText } from 'lucide-react';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
 
 // US States for dropdown
@@ -65,7 +66,6 @@ export default function NewPatientPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const addressInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -81,100 +81,6 @@ export default function NewPatientPage() {
     zip: '',
     notes: '',
   });
-
-  // Initialize Google Maps Autocomplete with proper loading checks
-  useEffect(() => {
-    let autocompleteInstance: any = null;
-    let intervalId: NodeJS.Timeout | null = null;
-    let timeoutId: NodeJS.Timeout | null = null;
-
-    const initializeAutocomplete = () => {
-      // Check if Google Maps Places API is fully loaded
-      if (
-        typeof window === 'undefined' ||
-        !(window as any).google?.maps?.places?.Autocomplete ||
-        !addressInputRef.current
-      ) {
-        return false;
-      }
-
-      try {
-        autocompleteInstance = new (window as any).google.maps.places.Autocomplete(
-          addressInputRef.current,
-          {
-            componentRestrictions: { country: 'us' },
-            fields: ['address_components', 'formatted_address'],
-            types: ['address'],
-          }
-        );
-
-        autocompleteInstance.addListener('place_changed', () => {
-          const place = autocompleteInstance.getPlace();
-          if (place.address_components) {
-            let streetNumber = '';
-            let streetName = '';
-            let city = '';
-            let state = '';
-            let zip = '';
-
-            place.address_components.forEach((component: any) => {
-              const types = component.types;
-              if (types.includes('street_number')) {
-                streetNumber = component.long_name;
-              }
-              if (types.includes('route')) {
-                streetName = component.long_name;
-              }
-              if (types.includes('locality')) {
-                city = component.long_name;
-              }
-              if (types.includes('administrative_area_level_1')) {
-                state = component.short_name;
-              }
-              if (types.includes('postal_code')) {
-                zip = component.long_name;
-              }
-            });
-
-            setFormData((prev) => ({
-              ...prev,
-              address1: `${streetNumber} ${streetName}`.trim(),
-              city,
-              state,
-              zip,
-            }));
-          }
-        });
-
-        return true;
-      } catch (error) {
-        console.error('Error initializing Google Maps Autocomplete:', error);
-        return false;
-      }
-    };
-
-    // Try immediately
-    if (!initializeAutocomplete()) {
-      // Poll for Google Maps to be loaded
-      intervalId = setInterval(() => {
-        if (initializeAutocomplete()) {
-          if (intervalId) clearInterval(intervalId);
-          if (timeoutId) clearTimeout(timeoutId);
-        }
-      }, 500);
-
-      // Timeout after 10 seconds
-      timeoutId = setTimeout(() => {
-        if (intervalId) clearInterval(intervalId);
-      }, 10000);
-    }
-
-    // Cleanup
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -433,19 +339,25 @@ export default function NewPatientPage() {
               <label className="mb-2 block text-sm font-medium text-gray-700">
                 Street Address *
               </label>
-              <input
-                ref={addressInputRef}
-                type="text"
-                name="address1"
+              <AddressInput
                 value={formData.address1}
-                onChange={handleChange}
-                required
+                onChange={(value: string, parsed?: AddressData) => {
+                  if (parsed) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      address1: parsed.address1,
+                      city: parsed.city,
+                      state: parsed.state,
+                      zip: parsed.zip,
+                    }));
+                  } else {
+                    setFormData((prev) => ({ ...prev, address1: value }));
+                  }
+                }}
                 placeholder="Start typing to search..."
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full"
+                required
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Start typing to use Google Maps address autocomplete
-              </p>
             </div>
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-medium text-gray-700">Apt/Suite/Unit</label>

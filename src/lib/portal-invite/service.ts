@@ -11,9 +11,14 @@ import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
+import { getClinicUrl } from '@/lib/clinic/utils';
 
 const TOKEN_BYTES = 32;
 const INVITE_EXPIRY_DAYS = 7;
+
+/** Production base domain for invite links. Never send localhost to patients. */
+const INVITE_LINK_BASE_DOMAIN =
+  process.env.PATIENT_PORTAL_INVITE_BASE_DOMAIN || process.env.NEXT_PUBLIC_BASE_DOMAIN || 'eonpro.io';
 
 export type PortalInviteTrigger = 'manual' | 'first_payment' | 'first_order';
 
@@ -73,7 +78,7 @@ export async function createAndSendPortalInvite(
       where: { id: patientId },
       include: {
         user: { select: { id: true } },
-        clinic: { select: { name: true } },
+        clinic: { select: { name: true, subdomain: true, customDomain: true } },
       },
     });
 
@@ -155,17 +160,41 @@ export async function createAndSendPortalInvite(
       },
     });
 
-    // Prefer request origin (baseUrlOverride) so invite link matches the domain the user is on.
+    // Use the patient's clinic subdomain only (e.g. wellmedr.eonpro.io). Do not use customDomain
+    // for invite links so we never send unreachable domains like portal.wellmedr.com.
+    let clinicPortalBase =
+      patient.clinic?.subdomain
+        ? getClinicUrl(patient.clinic.subdomain, undefined)
+        : undefined;
+    // Never send localhost to patients. If we got localhost (dev or misconfigured env), use production subdomain URL.
+    if (clinicPortalBase && clinicPortalBase.includes('localhost')) {
+      const baseDomain = INVITE_LINK_BASE_DOMAIN.includes('localhost')
+        ? 'eonpro.io'
+        : INVITE_LINK_BASE_DOMAIN;
+      clinicPortalBase = baseDomain.includes(':')
+        ? `https://${patient.clinic?.subdomain ?? 'app'}.eonpro.io`
+        : `https://${patient.clinic?.subdomain ?? 'app'}.${baseDomain}`;
+    }
     const baseUrl =
+      (clinicPortalBase && clinicPortalBase.replace(/\/$/, '')) ||
       (options?.baseUrlOverride && options.baseUrlOverride.replace(/\/$/, '')) ||
       process.env.APP_URL ||
       process.env.NEXTAUTH_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
       (typeof window !== 'undefined' ? `${window.location.origin}` : 'https://app.eonpro.io');
-    const inviteLink = `${baseUrl}/register?invite=${encodeURIComponent(plainToken)}`;
+    // Final safety: if baseUrl is still localhost, force production patient portal URL for known subdomains
+    const finalBaseUrl = (() => {
+      if (baseUrl.includes('localhost')) {
+        const sub = patient.clinic?.subdomain ?? 'app';
+        return `https://${sub}.eonpro.io`;
+      }
+      return baseUrl;
+    })();
+    const inviteLink = `${finalBaseUrl}/patient-login?invite=${encodeURIComponent(plainToken)}`;
 
     const firstName = (decrypted.firstName || 'Patient').trim();
-    const clinicName = patient.clinic?.name || 'Your Clinic';
+    // Strip " LLC" from clinic name for patient-facing copy (e.g. "Wellmedr LLC" → "Wellmedr").
+    const clinicName = (patient.clinic?.name || 'Your Clinic').replace(/\s+LLC\.?$/i, '').trim() || patient.clinic?.name || 'Your Clinic';
 
     const sendEmail = (channel === 'email' || channel === 'both') && !!email;
     const sendSms = (channel === 'sms' || channel === 'both') && !!phone;

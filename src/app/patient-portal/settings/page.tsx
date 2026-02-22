@@ -11,6 +11,7 @@ import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/p
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import { logger } from '@/lib/logger';
 import { toast } from '@/components/Toast';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import {
   User,
   Mail,
@@ -494,13 +495,30 @@ export default function SettingsPage() {
               <div className="mb-6">
                 <h3 className="mb-3 text-sm font-semibold text-gray-700">{t('address') || 'Address'}</h3>
                 <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder={t('street') || 'Street address'}
+                  <AddressInput
                     value={profile.address?.street || ''}
-                    onChange={(e) => setProfile({ ...profile, address: { ...(profile.address || { street: '', city: '', state: '', zip: '' }), street: e.target.value } })}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                    style={ringColorStyle(primaryColor)}
+                    onChange={(value: string, parsed?: AddressData) => {
+                      const base = profile.address || { street: '', city: '', state: '', zip: '' };
+                      if (parsed) {
+                        setProfile({
+                          ...profile,
+                          address: {
+                            ...base,
+                            street: parsed.address1,
+                            city: parsed.city,
+                            state: parsed.state,
+                            zip: parsed.zip,
+                          },
+                        });
+                      } else {
+                        setProfile({
+                          ...profile,
+                          address: { ...base, street: value },
+                        });
+                      }
+                    }}
+                    placeholder={t('street') || 'Street address'}
+                    className="w-full"
                   />
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <input

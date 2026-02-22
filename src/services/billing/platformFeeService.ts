@@ -28,6 +28,12 @@ import type {
   PlatformFeeEvent,
   PatientPrescriptionCycle,
 } from '@prisma/client';
+import {
+  evaluateCustomFeeRules,
+  parseCustomFeeRules,
+  type CustomFeeRule,
+  type CustomFeeRuleContext,
+} from './customFeeRules';
 
 // ============================================================================
 // Types
@@ -52,6 +58,8 @@ export interface FeeConfigInput {
   paymentTermsDays?: number;
   isActive?: boolean;
   notes?: string;
+  /** Optional custom rules for complicated per-clinic logic; evaluated before default fee config */
+  customFeeRules?: CustomFeeRule[] | null;
 }
 
 export interface FeeCalculationDetails {
@@ -447,28 +455,71 @@ export const platformFeeService = {
       return null;
     }
 
-    // Calculate fee amount
     const orderTotalCents = invoice?.amountPaid || invoice?.amount || null;
-    const amountCents = this.calculateFeeAmount(
-      feeTypeConfig.type,
-      feeTypeConfig.amount,
-      orderTotalCents
-    );
 
-    const calculationDetails: FeeCalculationDetails = {
+    // Custom rules: evaluate first when configured; first match determines WAIVE or CHARGE
+    const customRules = parseCustomFeeRules(config.customFeeRules as unknown);
+    const ruleContext: CustomFeeRuleContext = {
       feeType,
-      calculationType: feeTypeConfig.type,
-      rate: feeTypeConfig.amount,
-      orderTotalCents: orderTotalCents ?? undefined,
+      orderTotalCents,
       medicationKey,
-      isWithinCycle: false,
-      cycleInfo: cycleInfo
-        ? {
-            lastChargedAt: cycleInfo.lastChargedAt,
-            nextEligibleAt: cycleInfo.nextEligibleAt,
-          }
-        : undefined,
+      medName: primaryRx.medName ?? '',
+      form: primaryRx.form ?? '',
+      rxCount: order.rxs?.length ?? 1,
+      providerType: provider.isEonproProvider ? 'EONPRO' : 'CLINIC',
     };
+    const ruleResult = evaluateCustomFeeRules(customRules, ruleContext);
+
+    if (ruleResult?.action === 'WAIVE') {
+      logger.info('[PlatformFeeService] Custom rule waived fee', {
+        orderId,
+        clinicId: order.clinicId,
+        feeType,
+      });
+      return null;
+    }
+
+    let amountCents: number;
+    let calculationDetails: FeeCalculationDetails;
+
+    if (ruleResult?.action === 'CHARGE' && ruleResult.charge) {
+      amountCents = ruleResult.amountCents;
+      calculationDetails = {
+        feeType,
+        calculationType: ruleResult.charge.type,
+        rate: ruleResult.charge.type === 'FLAT' ? (ruleResult.charge.amountCents ?? 0) : (ruleResult.charge.basisPoints ?? 0),
+        orderTotalCents: orderTotalCents ?? undefined,
+        medicationKey,
+        isWithinCycle: false,
+        cycleInfo: cycleInfo
+          ? {
+              lastChargedAt: cycleInfo.lastChargedAt,
+              nextEligibleAt: cycleInfo.nextEligibleAt,
+            }
+          : undefined,
+      };
+    } else {
+      // Default: use standard prescription/transmission config
+      amountCents = this.calculateFeeAmount(
+        feeTypeConfig.type,
+        feeTypeConfig.amount,
+        orderTotalCents
+      );
+      calculationDetails = {
+        feeType,
+        calculationType: feeTypeConfig.type,
+        rate: feeTypeConfig.amount,
+        orderTotalCents: orderTotalCents ?? undefined,
+        medicationKey,
+        isWithinCycle: false,
+        cycleInfo: cycleInfo
+          ? {
+              lastChargedAt: cycleInfo.lastChargedAt,
+              nextEligibleAt: cycleInfo.nextEligibleAt,
+            }
+          : undefined,
+      };
+    }
 
     // Create fee event
     const feeEvent = await prisma.platformFeeEvent.create({

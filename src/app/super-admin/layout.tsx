@@ -34,6 +34,7 @@ const navItems = [
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Activity, path: '/super-admin/user-activity', label: 'User Activity' },
   { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
+  // Clinic Billing (config, invoices, reports) — super-admin only; do not add to tickets or admin nav
   { icon: Receipt, path: '/super-admin/clinic-billing', label: 'Clinic Billing' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
 ];

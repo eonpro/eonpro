@@ -88,6 +88,11 @@ model ClinicPlatformFeeConfig {
   updatedBy Int?
   notes     String? // Admin notes about this configuration
 
+  // Custom fee rules: optional array of { priority, conditions[], action, charge? } for complicated per-clinic logic.
+  // When present, rules are evaluated in priority order; first match determines WAIVE or CHARGE (with optional min/max/cap).
+  // Fallback: if no rule matches, standard prescriptionFee/transmissionFee config is used.
+  customFeeRules Json? // @see CustomFeeRule[] in services/billing/platformFeeService
+
   // Relations
   feeEvents PlatformFeeEvent[]
   invoices  ClinicPlatformInvoice[]

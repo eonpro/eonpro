@@ -10,8 +10,8 @@
 ## Overview
 
 Wellmedr is a GLP-1 weight loss clinic using EONPRO for patient management. They have a custom
-intake form at https://intake.wellmedr.com that sends patient data to EONPRO via Airtable
-automation.
+intake form at https://intake.wellmedr.com (Fillout). Intake data can reach EONPRO in two ways:
+**direct Fillout webhook** (recommended) or **via Airtable** (legacy).
 
 ---
 
@@ -20,8 +20,9 @@ automation.
 | Field              | Value                         |
 | ------------------ | ----------------------------- |
 | **URL**            | `https://intake.wellmedr.com` |
-| **Airtable Base**  | `app3usm1VtzcWOvZW`           |
-| **Airtable Table** | `tbln93c69GlrNGEqa`           |
+| **Form provider**  | Fillout                       |
+| **Airtable Base**  | `app3usm1VtzcWOvZW` (optional) |
+| **Airtable Table** | `tbln93c69GlrNGEqa` (optional) |
 
 ---
 
@@ -35,7 +36,66 @@ automation.
 
 **Webhook Endpoint**: `https://app.eonpro.io/api/webhooks/wellmedr-intake`
 
-### Airtable Automation Side
+The same endpoint accepts **both** Fillout payloads (questions array) and Airtable payloads (flat kebab-case JSON).
+
+### Option A: Direct Fillout webhook (no Airtable)
+
+To avoid Airtable, configure Fillout to send submissions directly to EONPRO:
+
+1. In Fillout: open your intake form → **Integrations** / **Connect** → **Webhooks**.
+2. Add webhook: **URL** `https://app.eonpro.io/api/webhooks/wellmedr-intake`, **Method** POST.
+3. Add header `x-webhook-secret` with value = `WELLMEDR_INTAKE_WEBHOOK_SECRET` (from EONPRO env).
+4. Fillout sends `submissionId`, `submissionTime`, and `questions` array; EONPRO converts this automatically.
+
+Use the same question IDs as Wellmedr fields where possible (e.g. `first-name`, `last-name`, `email`, `Checkout Completed`).
+
+#### How to verify Fillout intakes are reaching the platform
+
+1. **Application logs (Vercel / log aggregator)**  
+   Search for:
+   - `[WELLMEDR-INTAKE ...] Webhook received` — any wellmedr-intake request.
+   - `[WELLMEDR-INTAKE ...] Fillout payload detected, converting to flat format` — **Fillout only** (Airtable sends flat JSON, so this line appears only for Fillout).
+
+2. **Audit logs (database)**  
+   Query `AuditLog` where:
+   - `action IN ('PATIENT_INTAKE_RECEIVED', 'PARTIAL_INTAKE_RECEIVED')`
+   - `details->>'source' = 'wellmedr-intake'`  
+   To see **Fillout only**: also filter `details->>'payloadSource' = 'fillout'`.  
+   (Airtable submissions have `payloadSource: 'airtable'`.)
+
+3. **Admin Intakes page**  
+   On **wellmedr.eonpro.io** → **Admin** → **Intakes**: new patients from the webhook appear here (source `webhook`, `sourceMetadata.type: 'wellmedr-intake'`). This does not distinguish Fillout vs Airtable in the UI.
+
+4. **Test script**  
+   Send a mock Fillout payload to confirm the endpoint and adapter:
+   ```bash
+   BASE_URL=https://wellmedr.eonpro.io WELLMEDR_INTAKE_WEBHOOK_SECRET=your-secret npx tsx scripts/test-fillout-wellmedr-intake.ts
+   ```
+   A 200 response and a new test patient in Admin → Intakes means Fillout → EONPRO is working.
+
+#### Fillout webhook not working – checklist
+
+1. **Webhook fires on real submissions**  
+   Fillout only sends when a form is **submitted**. "Test fetch" uses a fixed payload and may return `"status": "duplicate"`; that only confirms the URL and secret work. Do a **new** submission (new name + email) on the live form and check Admin → Intakes in 1–2 minutes.
+
+2. **Correct form**  
+   The webhook must be on the **same** form patients use (e.g. the live Intake form). If you have multiple forms or a copy, ensure the one with the webhook is the one linked from intake.wellmedr.com.
+
+3. **Body format**  
+   EONPRO accepts:
+   - **Default Fillout payload** (recommended): `submissionId`, `submissionTime`, `questions: [{ id, value }, ...]`. Do **not** replace the body with a custom mapping if you want best compatibility; use the default so the Fillout adapter runs.
+   - **Custom / flat body**: flat JSON with keys like `First Name`, `Last Name`, `Email` (or `first-name`, `last-name`, `email`) also works. If you use custom Body mapping, include at least first name, last name, email, and (if applicable) `Checkout Completed`.
+
+4. **Fillout delivery logs**  
+   In Fillout, check the webhook’s delivery or logs (if available). Look for requests to `app.eonpro.io` and the response code (200 = OK, 401 = wrong secret, 4xx/5xx = other error).
+
+5. **EONPRO logs**  
+   In your host (e.g. Vercel) logs, search for `[WELLMEDR-INTAKE]`. You should see "Webhook received" when a request hits. "Authentication FAILED" = wrong or missing `x-webhook-secret`. "Fillout payload detected" = payload is in Fillout format and was converted.
+
+6. **Secret match**  
+   The value in Fillout’s **Headers** → `x-webhook-secret` must match **exactly** the env var `WELLMEDR_INTAKE_WEBHOOK_SECRET` in EONPRO (no extra spaces, same character set). Regenerating the secret in one place requires updating it in the other.
+
+### Option B: Airtable automation (legacy)
 
 Configure the Airtable automation to send a POST request with:
 
@@ -44,27 +104,15 @@ Configure the Airtable automation to send a POST request with:
 | **URL**     | `https://app.eonpro.io/api/webhooks/wellmedr-intake` |
 | **Method**  | `POST`                                               |
 | **Headers** | `x-webhook-secret: <your-secret>`                    |
-| **Body**    | JSON with all intake form fields                     |
+| **Body**    | JSON with all intake form fields (flat, kebab-case)  |
 
 ---
 
 ## Data Flow
 
-```
-Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa)
-                                         ↓
-                              Airtable Automation
-                                         ↓
-                    app.eonpro.io/api/webhooks/wellmedr-intake
-                                         ↓
-                    ┌────────────────────────────────────────┐
-                    │ Wellmedr Clinic                        │
-                    │ - Create/Update Patient                │
-                    │ - Generate PDF Intake Form             │
-                    │ - Generate SOAP Note (if checkout done)│
-                    │ - Track Referral Codes                 │
-                    └────────────────────────────────────────┘
-```
+**Direct Fillout:** Patient → intake.wellmedr.com (Fillout) → `app.eonpro.io/api/webhooks/wellmedr-intake` → Wellmedr clinic (create patient, PDF, SOAP, referrals).
+
+**Via Airtable:** Patient → intake.wellmedr.com → Airtable (tbln93c69GlrNGEqa) → Airtable Automation → same webhook URL → same Wellmedr processing.
 
 ### ⚠️ TWO Automations Required for Prescription Queue
 

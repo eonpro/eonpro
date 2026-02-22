@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { PatientDocumentCategory, Clinic, Patient, Prisma } from '@prisma/client';
 import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { normalizeWellmedrPayload, isCheckoutComplete } from '@/lib/wellmedr/intakeNormalizer';
+import { isFilloutPayload, filloutToWellmedrPayload } from '@/lib/wellmedr/filloutAdapter';
 import type { WellmedrPayload } from '@/lib/wellmedr/types';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { storeIntakePdf } from '@/services/storage/intakeStorage';
@@ -35,7 +36,8 @@ function safeDecrypt(value: string | null | undefined): string | null {
  * WELLMEDR INTAKE Webhook - WELLMEDR CLINIC ONLY
  *
  * This webhook receives patient intake form submissions from https://intake.wellmedr.com
- * via Airtable automation.
+ * either via Airtable automation (flat JSON) or directly from Fillout (questions array).
+ * Fillout payloads are converted to the same flat shape before processing.
  *
  * CRITICAL: ALL data is isolated to the WELLMEDR clinic - no other clinic can access these patients.
  *
@@ -288,9 +290,18 @@ export async function POST(req: NextRequest) {
   // STEP 3: PARSE PAYLOAD (with graceful handling)
   // ═══════════════════════════════════════════════════════════════════
   let payload: WellmedrPayload = {};
+  let payloadSource: 'fillout' | 'airtable' = 'airtable';
   try {
     const text = rawBody;
-    payload = (safeParseJSON(text) || {}) as WellmedrPayload;
+    const parsed = safeParseJSON(text) || {};
+    // Accept Fillout webhook format (questions array) and convert to flat Wellmedr shape
+    if (isFilloutPayload(parsed)) {
+      payloadSource = 'fillout';
+      logger.info(`[WELLMEDR-INTAKE ${requestId}] Fillout payload detected, converting to flat format`);
+      payload = filloutToWellmedrPayload(parsed);
+    } else {
+      payload = parsed as WellmedrPayload;
+    }
 
     // Log payload structure
     const allKeys = Object.keys(payload);
@@ -1007,6 +1018,7 @@ export async function POST(req: NextRequest) {
         userId: 0,
         details: {
           source: 'wellmedr-intake',
+          payloadSource, // 'fillout' | 'airtable' — so you can query Fillout intakes in audit logs
           submissionId: normalized.submissionId,
           checkoutCompleted: isComplete,
           clinicId,

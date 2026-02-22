@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 
 interface ClinicBranding {
   clinicId: number;
@@ -508,13 +509,24 @@ export default function AffiliateApplyPage() {
                     <label className="mb-1 block text-sm font-medium text-gray-700">
                       Address Line 1 *
                     </label>
-                    <input
-                      type="text"
+                    <AddressInput
                       value={formData.addressLine1}
-                      onChange={(e) => handleInputChange('addressLine1', e.target.value)}
+                      onChange={(value: string, parsed?: AddressData) => {
+                        if (parsed) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            addressLine1: parsed.address1,
+                            city: parsed.city,
+                            state: parsed.state,
+                            zipCode: parsed.zip,
+                          }));
+                          setError(null);
+                        } else {
+                          handleInputChange('addressLine1', value);
+                        }
+                      }}
                       placeholder="Street address"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      className="w-full"
                     />
                   </div>
 

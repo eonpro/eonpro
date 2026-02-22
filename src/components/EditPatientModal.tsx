@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 
 interface EditPatientModalProps {
   patient: {
@@ -245,12 +246,23 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           {/* Address */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">Street Address</label>
-            <input
-              type="text"
+            <AddressInput
               value={formData.address1}
-              onChange={(e) => handleChange('address1', e.target.value)}
+              onChange={(value: string, parsed?: AddressData) => {
+                if (parsed) {
+                  setFormData((prev) => ({
+                    ...prev,
+                    address1: parsed.address1,
+                    city: parsed.city,
+                    state: parsed.state,
+                    zip: parsed.zip,
+                  }));
+                } else {
+                  handleChange('address1', value);
+                }
+              }}
               placeholder="Street address"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+              className="w-full"
             />
           </div>
 

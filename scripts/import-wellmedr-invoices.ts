@@ -14,10 +14,23 @@
  *   # Execute import
  *   npx tsx scripts/import-wellmedr-invoices.ts --execute
  *
+ *   # Import only data rows 1071–1103 (1-based; e.g. after Airtable recovery)
+ *   npx tsx scripts/import-wellmedr-invoices.ts --startRow 1071 --endRow 1103
+ *   npx tsx scripts/import-wellmedr-invoices.ts --execute --startRow 1071 --endRow 1103
+ *
+ *   # Use a recovered CSV file (same column names as Airtable Orders export)
+ *   npx tsx scripts/import-wellmedr-invoices.ts --csv path/to/recovered-orders.csv --startRow 1071 --endRow 1103 --execute
+ *
  * For production:
  *   env $(grep -v '^#' .env.production.local | grep -v '^\s*$' | tr -d '\r' | xargs) \
  *     npx tsx scripts/import-wellmedr-invoices.ts
  */
+
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.production.local' });
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -139,7 +152,7 @@ function parseCSV(csvPath: string): CSVRow[] {
   if (lines.length < 2) throw new Error('CSV has no data');
 
   const rawHeader = lines[0].replace(/^\uFEFF/, '');
-  const headers = parseCSVLine(rawHeader);
+  const headers = parseCSVLine(rawHeader).map((h) => h.replace(/^\uFEFF/, '').trim());
 
   const rows: CSVRow[] = [];
   for (let i = 1; i < lines.length; i++) {
@@ -147,7 +160,8 @@ function parseCSV(csvPath: string): CSVRow[] {
     if (values.length < 3) continue;
     const row: Record<string, string> = {};
     for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = values[j] || '';
+      const key = headers[j].replace(/\uFEFF/g, '').trim();
+      row[key] = values[j] ?? '';
     }
     rows.push(row as CSVRow);
   }
@@ -328,6 +342,7 @@ async function importInvoice(
   clinicId: number,
   patientCache: DecryptedPatientCache[],
   existingPmIds: Set<string>,
+  existingSubmissionIds: Set<string>,
   patientsWithRx: Set<number>,
   dryRun: boolean,
   invoiceCounter: { count: number }
@@ -338,6 +353,7 @@ async function importInvoice(
   const medicationType = row.medication_type || '';
   const plan = row.plan || '';
   const pmId = (row.payment_method_id || '').trim();
+  const submissionId = (row.submission_id || '').trim();
   const price = row.price || '';
 
   const result: ImportResult = {
@@ -350,14 +366,18 @@ async function importInvoice(
     hasPrescription: false,
   };
 
-  // Skip if no payment method ID
-  if (!pmId || !pmId.startsWith('pm_')) {
+  // Dedup: require either payment_method_id (pm_) or submission_id (recovery export)
+  const hasPm = pmId && pmId.startsWith('pm_');
+  const hasSubmissionId = submissionId.length > 0;
+  if (!hasPm && !hasSubmissionId) {
     result.action = 'skipped-no-pm';
     return result;
   }
-
-  // Skip if already exists
-  if (existingPmIds.has(pmId)) {
+  if (hasPm && existingPmIds.has(pmId)) {
+    result.action = 'skipped-duplicate';
+    return result;
+  }
+  if (hasSubmissionId && existingSubmissionIds.has(submissionId)) {
     result.action = 'skipped-duplicate';
     return result;
   }
@@ -481,12 +501,12 @@ async function importInvoice(
             invoiceNumber,
             source: 'wellmedr-csv-import',
             batchId: IMPORT_BATCH_ID,
-            stripePaymentMethodId: pmId,
+            ...(hasPm && { stripePaymentMethodId: pmId }),
+            ...(hasSubmissionId && { submissionId }),
             stripeCustomerId: row.stripe_customer_id || '',
             stripeSubscriptionId: row.stripe_subscription_id || '',
             stripePriceId: row.stripe_price_id || '',
             paymentIntentId: row.payment_intent_id || '',
-            submissionId: row.submission_id || '',
             orderStatus: row.order_status || '',
             subscriptionStatus: row.subscription_status || '',
             customerName: name,
@@ -521,8 +541,8 @@ async function importInvoice(
       result.invoiceId = invoice.id;
       result.action = result.action === 'patient-created' ? 'patient-created' : 'created';
 
-      // Track this PM ID as used
-      existingPmIds.add(pmId);
+      if (hasPm) existingPmIds.add(pmId);
+      if (hasSubmissionId) existingSubmissionIds.add(submissionId);
     }
   } catch (err) {
     result.action = 'error';
@@ -639,15 +659,37 @@ async function sendProviderNotifications(
 // Main
 // ============================================================================
 
+function parseOptionalInt(value: string | undefined): number | undefined {
+  if (value === undefined || value === '') return undefined;
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const execute = args.includes('--execute');
   const dryRun = !execute;
 
+  const csvIdx = args.indexOf('--csv');
+  const csvPath = csvIdx >= 0 && args[csvIdx + 1] ? args[csvIdx + 1] : CSV_PATH;
+
+  const startRowArg = args.includes('--startRow')
+    ? args[args.indexOf('--startRow') + 1]
+    : undefined;
+  const endRowArg = args.includes('--endRow') ? args[args.indexOf('--endRow') + 1] : undefined;
+  const startRow = parseOptionalInt(startRowArg);
+  const endRow = parseOptionalInt(endRowArg);
+
   console.log('===============================================================');
   console.log('  WellMedR Invoice CSV Import');
   console.log(`  Mode: ${dryRun ? 'DRY RUN' : 'EXECUTE'}`);
   console.log(`  Batch: ${IMPORT_BATCH_ID}`);
+  if (startRow != null || endRow != null) {
+    console.log(`  Row range: ${startRow ?? 1}–${endRow ?? 'end'}`);
+  }
+  if (csvPath !== CSV_PATH) {
+    console.log(`  CSV: ${csvPath}`);
+  }
   console.log('===============================================================\n');
 
   // Connect
@@ -674,7 +716,18 @@ async function main() {
 
   // Phase 1: Parse CSV
   console.log('--- Phase 1: Parse CSV ---');
-  const allRows = parseCSV(CSV_PATH);
+  if (!fs.existsSync(csvPath)) {
+    console.error(`CSV not found: ${csvPath}`);
+    process.exit(1);
+  }
+  let allRows = parseCSV(csvPath);
+  const totalBeforeSlice = allRows.length;
+  if (startRow != null || endRow != null) {
+    const from = startRow != null ? Math.max(1, startRow) - 1 : 0;
+    const to = endRow != null ? Math.min(totalBeforeSlice, endRow) : totalBeforeSlice;
+    allRows = allRows.slice(from, to);
+    console.log(`  Row range applied: data rows ${from + 1}–${to} (${allRows.length} rows)`);
+  }
   const succeededRows = allRows.filter(
     (r) => r.payment_status?.trim().toLowerCase() === 'succeeded'
   );
@@ -700,13 +753,17 @@ async function main() {
     select: { id: true, metadata: true },
   });
   const existingPmIds = new Set<string>();
+  const existingSubmissionIds = new Set<string>();
   for (const inv of existingInvoices) {
     const meta = inv.metadata as Record<string, unknown> | null;
     const pmId = meta?.stripePaymentMethodId as string | undefined;
     if (pmId) existingPmIds.add(pmId);
+    const subId = meta?.submissionId as string | undefined;
+    if (subId) existingSubmissionIds.add(String(subId).trim());
   }
   console.log(`  Existing invoices: ${existingInvoices.length}`);
   console.log(`  Unique payment method IDs tracked: ${existingPmIds.size}`);
+  console.log(`  Unique submission IDs tracked: ${existingSubmissionIds.size}`);
 
   // Load patients who have orders with Rx (have prescriptions)
   console.log('  Loading patients with prescriptions...');
@@ -730,11 +787,18 @@ async function main() {
 
   for (const row of succeededRows) {
     const pmId = (row.payment_method_id || '').trim();
-    if (!pmId || !pmId.startsWith('pm_')) {
+    const submissionId = (row.submission_id || '').trim();
+    const hasPm = pmId && pmId.startsWith('pm_');
+    const hasSubmissionId = submissionId.length > 0;
+    if (!hasPm && !hasSubmissionId) {
       noPmCount++;
       continue;
     }
-    if (existingPmIds.has(pmId)) {
+    if (hasPm && existingPmIds.has(pmId)) {
+      duplicateCount++;
+      continue;
+    }
+    if (hasSubmissionId && existingSubmissionIds.has(submissionId)) {
       duplicateCount++;
       continue;
     }
@@ -749,8 +813,8 @@ async function main() {
 
   console.log(`  Will match to existing patient: ${matchedCount}`);
   console.log(`  Will create stub patient: ${unmatchedCount}`);
-  console.log(`  Already in DB (duplicate PM ID): ${duplicateCount}`);
-  console.log(`  No payment method ID: ${noPmCount}`);
+  console.log(`  Already in DB (duplicate): ${duplicateCount}`);
+  console.log(`  No PM ID or submission ID skipped: ${noPmCount}`);
   console.log(`  Invoices to create: ${matchedCount + unmatchedCount}`);
 
   // Phase 4: Execute
@@ -762,7 +826,10 @@ async function main() {
     let hasRx = 0;
     for (const row of succeededRows) {
       const pmId = (row.payment_method_id || '').trim();
-      if (!pmId.startsWith('pm_') || existingPmIds.has(pmId)) continue;
+      const submissionId = (row.submission_id || '').trim();
+      const hasPm = pmId && pmId.startsWith('pm_');
+      const hasSub = submissionId.length > 0;
+      if ((!hasPm && !hasSub) || (hasPm && existingPmIds.has(pmId)) || (hasSub && existingSubmissionIds.has(submissionId))) continue;
       const email = (row.customer_email || '').trim().toLowerCase();
       const match = findPatientByEmail(email, patientCache);
       if (match && patientsWithRx.has(match.id)) {
@@ -789,7 +856,7 @@ async function main() {
       const batch = succeededRows.slice(i, i + BATCH_SIZE);
       const batchResults = await Promise.all(
         batch.map((row) =>
-          importInvoice(row, clinicId, patientCache, existingPmIds, patientsWithRx, false, invoiceCounter)
+          importInvoice(row, clinicId, patientCache, existingPmIds, existingSubmissionIds, patientsWithRx, false, invoiceCounter)
         )
       );
 

@@ -12,9 +12,36 @@ import {
   Check,
   X,
   AlertCircle,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
+
+/** Custom fee rule for complicated per-clinic logic (evaluated in priority order) */
+export interface CustomFeeRuleCondition {
+  field: string;
+  operator: string;
+  value: string | number | (string | number)[];
+}
+export interface CustomFeeRuleCharge {
+  type: 'FLAT' | 'PERCENTAGE';
+  amountCents?: number;
+  basisPoints?: number;
+  minCents?: number;
+  maxCents?: number;
+}
+export interface CustomFeeRuleForm {
+  id: string;
+  name?: string;
+  priority: number;
+  appliesTo?: 'PRESCRIPTION' | 'TRANSMISSION' | 'BOTH';
+  conditions: CustomFeeRuleCondition[];
+  action: 'WAIVE' | 'CHARGE';
+  charge?: CustomFeeRuleCharge;
+}
 
 interface ClinicFeeConfig {
   id: number;
@@ -27,6 +54,7 @@ interface ClinicFeeConfig {
   adminFeeAmount: number;
   prescriptionCycleDays: number;
   isActive: boolean;
+  customFeeRules?: CustomFeeRuleForm[] | null;
 }
 
 interface ClinicWithConfig {
@@ -68,6 +96,7 @@ export default function ClinicBillingPage() {
     adminFeeAmount: number;
     prescriptionCycleDays: number;
     isActive: boolean;
+    customFeeRules: CustomFeeRuleForm[];
   }>({
     prescriptionFeeType: 'FLAT',
     prescriptionFeeAmount: 2000,
@@ -77,7 +106,9 @@ export default function ClinicBillingPage() {
     adminFeeAmount: 0,
     prescriptionCycleDays: 90,
     isActive: true,
+    customFeeRules: [],
   });
+  const [customRulesExpanded, setCustomRulesExpanded] = useState(false);
 
   useEffect(() => {
     fetchClinics();
@@ -121,6 +152,9 @@ export default function ClinicBillingPage() {
         adminFeeAmount: clinic.config.adminFeeAmount,
         prescriptionCycleDays: clinic.config.prescriptionCycleDays,
         isActive: clinic.config.isActive,
+        customFeeRules: Array.isArray(clinic.config.customFeeRules)
+          ? clinic.config.customFeeRules
+          : [],
       });
     } else {
       setFormData({
@@ -132,6 +166,7 @@ export default function ClinicBillingPage() {
         adminFeeAmount: 0,
         prescriptionCycleDays: 90,
         isActive: true,
+        customFeeRules: [],
       });
     }
 
@@ -149,7 +184,28 @@ export default function ClinicBillingPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          prescriptionFeeType: formData.prescriptionFeeType,
+          prescriptionFeeAmount: formData.prescriptionFeeAmount,
+          transmissionFeeType: formData.transmissionFeeType,
+          transmissionFeeAmount: formData.transmissionFeeAmount,
+          adminFeeType: formData.adminFeeType,
+          adminFeeAmount: formData.adminFeeAmount,
+          prescriptionCycleDays: formData.prescriptionCycleDays,
+          isActive: formData.isActive,
+          customFeeRules: formData.customFeeRules.length
+            ? formData.customFeeRules.map((r) => ({
+                ...r,
+                conditions: r.conditions.map((c) => ({
+                  ...c,
+                  value:
+                    (c.operator === 'in' || c.operator === 'notIn') && typeof c.value === 'string'
+                      ? c.value.split(',').map((s) => s.trim()).filter(Boolean)
+                      : c.value,
+                })),
+              }))
+            : null,
+        }),
       });
 
       if (response.ok) {
@@ -195,13 +251,22 @@ export default function ClinicBillingPage() {
           <h1 className="text-2xl font-bold text-gray-900">Clinic Billing</h1>
           <p className="mt-1 text-gray-500">Configure platform fees and manage clinic invoices</p>
         </div>
-        <button
-          onClick={() => router.push('/super-admin/clinic-billing/invoices')}
-          className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2 text-white shadow-sm transition-colors hover:bg-[#3d9268]"
-        >
-          <FileText className="h-5 w-5" />
-          View Invoices
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => router.push('/super-admin/clinic-billing/reports')}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <FileText className="h-5 w-5" />
+            Billing Reports
+          </button>
+          <button
+            onClick={() => router.push('/super-admin/clinic-billing/invoices')}
+            className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2 text-white shadow-sm transition-colors hover:bg-[#3d9268]"
+          >
+            <FileText className="h-5 w-5" />
+            View Invoices
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -578,6 +643,356 @@ export default function ClinicBillingPage() {
                   }
                   className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
                 />
+              </div>
+
+              {/* Custom rules: complicated per-clinic logic */}
+              <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                <button
+                  type="button"
+                  onClick={() => setCustomRulesExpanded(!customRulesExpanded)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <span className="text-sm font-medium text-gray-700">
+                    Custom fee rules (optional)
+                  </span>
+                  {customRulesExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  )}
+                </button>
+                <p className="mt-1 text-xs text-gray-500">
+                  Priority-ordered rules: first match wins. Use for waiving by medication, tiered
+                  fees, min/max caps, etc. Leave empty to use only the standard fees above.
+                </p>
+                {customRulesExpanded && (
+                  <div className="mt-4 space-y-4">
+                    {formData.customFeeRules.map((rule, idx) => (
+                      <div
+                        key={rule.id}
+                        className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                      >
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-xs font-medium text-gray-500">
+                            Rule {idx + 1} (priority {rule.priority})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData({
+                                ...formData,
+                                customFeeRules: formData.customFeeRules.filter((r) => r.id !== rule.id),
+                              })
+                            }
+                            className="rounded p-1 text-red-600 hover:bg-red-50"
+                            title="Remove rule"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <label className="block text-xs text-gray-500">Name (optional)</label>
+                            <input
+                              type="text"
+                              value={rule.name ?? ''}
+                              onChange={(e) => {
+                                const next = [...formData.customFeeRules];
+                                next[idx] = { ...rule, name: e.target.value || undefined };
+                                setFormData({ ...formData, customFeeRules: next });
+                              }}
+                              placeholder="e.g. GLP-1 waiver"
+                              className="mt-0.5 w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500">Priority (lower first)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={rule.priority}
+                              onChange={(e) => {
+                                const next = [...formData.customFeeRules];
+                                next[idx] = { ...rule, priority: parseInt(e.target.value, 10) || 0 };
+                                setFormData({ ...formData, customFeeRules: next });
+                              }}
+                              className="mt-0.5 w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-500">Applies to</label>
+                            <select
+                              value={rule.appliesTo ?? 'BOTH'}
+                              onChange={(e) => {
+                                const next = [...formData.customFeeRules];
+                                next[idx] = {
+                                  ...rule,
+                                  appliesTo: e.target.value as 'PRESCRIPTION' | 'TRANSMISSION' | 'BOTH',
+                                };
+                                setFormData({ ...formData, customFeeRules: next });
+                              }}
+                              className="mt-0.5 w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                            >
+                              <option value="BOTH">Prescription &amp; Transmission</option>
+                              <option value="PRESCRIPTION">Prescription only</option>
+                              <option value="TRANSMISSION">Transmission only</option>
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-500">Then</label>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                              <select
+                                value={rule.action}
+                                onChange={(e) => {
+                                  const next = [...formData.customFeeRules];
+                                  const action = e.target.value as 'WAIVE' | 'CHARGE';
+                                  next[idx] = {
+                                    ...rule,
+                                    action,
+                                    charge:
+                                      action === 'CHARGE'
+                                        ? { type: 'FLAT', amountCents: rule.charge?.amountCents ?? 0 }
+                                        : undefined,
+                                  };
+                                  setFormData({ ...formData, customFeeRules: next });
+                                }}
+                                className="rounded border border-gray-200 px-2 py-1 text-xs"
+                              >
+                                <option value="WAIVE">Waive fee</option>
+                                <option value="CHARGE">Charge</option>
+                              </select>
+                              {rule.action === 'CHARGE' && (
+                                <>
+                                  <select
+                                    value={rule.charge?.type ?? 'FLAT'}
+                                    onChange={(e) => {
+                                      const next = [...formData.customFeeRules];
+                                      const type = e.target.value as 'FLAT' | 'PERCENTAGE';
+                                      next[idx] = {
+                                        ...rule,
+                                        charge: {
+                                          ...rule.charge,
+                                          type,
+                                          amountCents: rule.charge?.amountCents ?? 0,
+                                          basisPoints: rule.charge?.basisPoints ?? 0,
+                                        },
+                                      };
+                                      setFormData({ ...formData, customFeeRules: next });
+                                    }}
+                                    className="rounded border border-gray-200 px-2 py-1 text-xs"
+                                  >
+                                    <option value="FLAT">Flat $</option>
+                                    <option value="PERCENTAGE">% of order</option>
+                                  </select>
+                                  {rule.charge?.type === 'FLAT' ? (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      value={((rule.charge?.amountCents ?? 0) / 100).toFixed(2)}
+                                      onChange={(e) => {
+                                        const next = [...formData.customFeeRules];
+                                        next[idx] = {
+                                          ...rule,
+                                          charge: {
+                                            ...rule.charge,
+                                            type: 'FLAT',
+                                            amountCents: Math.round(parseFloat(e.target.value || '0') * 100),
+                                          },
+                                        };
+                                        setFormData({ ...formData, customFeeRules: next });
+                                      }}
+                                      className="w-20 rounded border border-gray-200 px-2 py-1 text-xs"
+                                    />
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step={0.1}
+                                      value={((rule.charge?.basisPoints ?? 0) / 100).toFixed(1)}
+                                      onChange={(e) => {
+                                        const next = [...formData.customFeeRules];
+                                        next[idx] = {
+                                          ...rule,
+                                          charge: {
+                                            ...rule.charge,
+                                            type: 'PERCENTAGE',
+                                            basisPoints: Math.round(parseFloat(e.target.value || '0') * 100),
+                                          },
+                                        };
+                                        setFormData({ ...formData, customFeeRules: next });
+                                      }}
+                                      className="w-16 rounded border border-gray-200 px-2 py-1 text-xs"
+                                    />
+                                  )}
+                                  <span className="text-xs text-gray-500">
+                                    Min $ <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      value={((rule.charge?.minCents ?? 0) / 100).toFixed(2)}
+                                      onChange={(e) => {
+                                        const next = [...formData.customFeeRules];
+                                        next[idx] = {
+                                          ...rule,
+                                          charge: {
+                                            ...rule.charge,
+                                            minCents: Math.round(parseFloat(e.target.value || '0') * 100),
+                                          },
+                                        };
+                                        setFormData({ ...formData, customFeeRules: next });
+                                      }}
+                                      className="w-16 rounded border border-gray-200 px-1 py-0.5 text-xs"
+                                    />
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    Max $ <input
+                                      type="number"
+                                      min={0}
+                                      step={0.01}
+                                      value={((rule.charge?.maxCents ?? 0) / 100).toFixed(2)}
+                                      onChange={(e) => {
+                                        const next = [...formData.customFeeRules];
+                                        const v = e.target.value;
+                                        next[idx] = {
+                                          ...rule,
+                                          charge: {
+                                            ...rule.charge,
+                                            maxCents: v === '' ? undefined : Math.round(parseFloat(v || '0') * 100),
+                                          },
+                                        };
+                                        setFormData({ ...formData, customFeeRules: next });
+                                      }}
+                                      className="w-16 rounded border border-gray-200 px-1 py-0.5 text-xs"
+                                    />
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-500">Conditions (all must match)</label>
+                            <div className="mt-1 space-y-1">
+                              {rule.conditions.map((cond, cidx) => (
+                                <div key={cidx} className="flex flex-wrap items-center gap-1">
+                                  <select
+                                    value={cond.field}
+                                    onChange={(e) => {
+                                      const next = [...formData.customFeeRules];
+                                      const conds = [...rule.conditions];
+                                      conds[cidx] = { ...cond, field: e.target.value };
+                                      next[idx] = { ...rule, conditions: conds };
+                                      setFormData({ ...formData, customFeeRules: next });
+                                    }}
+                                    className="rounded border border-gray-200 px-1 py-0.5 text-xs"
+                                  >
+                                    <option value="feeType">Fee type</option>
+                                    <option value="orderTotalCents">Order total (cents)</option>
+                                    <option value="medicationKey">Medication key</option>
+                                    <option value="medName">Med name</option>
+                                    <option value="form">Form</option>
+                                    <option value="rxCount">RX count</option>
+                                    <option value="providerType">Provider type</option>
+                                  </select>
+                                  <select
+                                    value={cond.operator}
+                                    onChange={(e) => {
+                                      const next = [...formData.customFeeRules];
+                                      const conds = [...rule.conditions];
+                                      conds[cidx] = { ...cond, operator: e.target.value };
+                                      next[idx] = { ...rule, conditions: conds };
+                                      setFormData({ ...formData, customFeeRules: next });
+                                    }}
+                                    className="rounded border border-gray-200 px-1 py-0.5 text-xs"
+                                  >
+                                    <option value="eq">equals</option>
+                                    <option value="neq">not equals</option>
+                                    <option value="gte">≥</option>
+                                    <option value="lte">≤</option>
+                                    <option value="gt">&gt;</option>
+                                    <option value="lt">&lt;</option>
+                                    <option value="contains">contains</option>
+                                    <option value="startsWith">starts with</option>
+                                    <option value="endsWith">ends with</option>
+                                    <option value="in">in list</option>
+                                    <option value="notIn">not in list</option>
+                                  </select>
+                                  <input
+                                    type="text"
+                                    value={Array.isArray(cond.value) ? cond.value.join(',') : String(cond.value)}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      const isNum = cond.field === 'orderTotalCents' || cond.field === 'rxCount';
+                                      const value = isNum ? (parseInt(raw, 10) || 0) : raw;
+                                      const next = [...formData.customFeeRules];
+                                      const conds = [...rule.conditions];
+                                      conds[cidx] = { ...cond, value };
+                                      next[idx] = { ...rule, conditions: conds };
+                                      setFormData({ ...formData, customFeeRules: next });
+                                    }}
+                                    placeholder="Value"
+                                    className="w-24 rounded border border-gray-200 px-1 py-0.5 text-xs"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = [...formData.customFeeRules];
+                                      const conds = rule.conditions.filter((_, i) => i !== cidx);
+                                      next[idx] = { ...rule, conditions: conds };
+                                      setFormData({ ...formData, customFeeRules: next });
+                                    }}
+                                    className="rounded p-0.5 text-red-600 hover:bg-red-50"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = [...formData.customFeeRules];
+                                  const conds = [...rule.conditions, { field: 'medName', operator: 'contains', value: '' }];
+                                  next[idx] = { ...rule, conditions: conds };
+                                  setFormData({ ...formData, customFeeRules: next });
+                                }}
+                                className="flex items-center gap-1 rounded border border-dashed border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                              >
+                                <Plus className="h-3 w-3" /> Add condition
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          customFeeRules: [
+                            ...formData.customFeeRules,
+                            {
+                              id: `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                              priority: formData.customFeeRules.length * 10,
+                              conditions: [],
+                              action: 'CHARGE',
+                              charge: { type: 'FLAT', amountCents: 0 },
+                            },
+                          ],
+                        })
+                      }
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm hover:bg-gray-50"
+                    >
+                      <Plus className="h-4 w-4" /> Add rule
+                    </button>
+                  </div>
+                )}
+                {!customRulesExpanded && formData.customFeeRules.length > 0 && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    {formData.customFeeRules.length} rule(s) configured
+                  </p>
+                )}
               </div>
 
               {/* Active Toggle */}

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap, DollarSign } from 'lucide-react';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
 import { FEDEX_SERVICE_TYPES, FEDEX_PACKAGING_TYPES } from '@/lib/fedex-services';
 
@@ -284,11 +285,25 @@ export default function FedExLabelModal({
                     className={inputCls}
                   />
                 </div>
-                <input
+                <AddressInput
                   value={origin.address1}
-                  onChange={(e) => { setOrigin({ ...origin, address1: e.target.value }); clearRate(); }}
+                  onChange={(value: string, parsed?: AddressData) => {
+                    if (parsed) {
+                      setOrigin((prev) => ({
+                        ...prev,
+                        address1: parsed.address1,
+                        city: parsed.city,
+                        state: parsed.state,
+                        zip: parsed.zip,
+                      }));
+                      clearRate();
+                    } else {
+                      setOrigin((prev) => ({ ...prev, address1: value }));
+                      clearRate();
+                    }
+                  }}
                   placeholder="Address Line 1"
-                  className={`w-full ${inputCls}`}
+                  className="w-full"
                 />
                 <input
                   value={origin.address2 || ''}
@@ -339,11 +354,25 @@ export default function FedExLabelModal({
                     className={inputCls}
                   />
                 </div>
-                <input
+                <AddressInput
                   value={destination.address1}
-                  onChange={(e) => { setDestination({ ...destination, address1: e.target.value }); clearRate(); }}
+                  onChange={(value: string, parsed?: AddressData) => {
+                    if (parsed) {
+                      setDestination((prev) => ({
+                        ...prev,
+                        address1: parsed.address1,
+                        city: parsed.city,
+                        state: parsed.state,
+                        zip: parsed.zip,
+                      }));
+                      clearRate();
+                    } else {
+                      setDestination((prev) => ({ ...prev, address1: value }));
+                      clearRate();
+                    }
+                  }}
                   placeholder="Address Line 1"
-                  className={`w-full ${inputCls}`}
+                  className="w-full"
                 />
                 <input
                   value={destination.address2 || ''}

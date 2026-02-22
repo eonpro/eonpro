@@ -26,6 +26,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 
 // ============================================================================
 // Types
@@ -914,14 +915,23 @@ export default function PendingProfilesPage() {
                   <label className="mb-1 block text-sm font-medium text-gray-700">
                     Street Address
                   </label>
-                  <input
-                    type="text"
+                  <AddressInput
                     value={completeForm.address1}
-                    onChange={(e) =>
-                      setCompleteForm({ ...completeForm, address1: e.target.value })
-                    }
+                    onChange={(value: string, parsed?: AddressData) => {
+                      if (parsed) {
+                        setCompleteForm((prev) => ({
+                          ...prev,
+                          address1: parsed.address1,
+                          city: parsed.city,
+                          state: parsed.state,
+                          zip: parsed.zip,
+                        }));
+                      } else {
+                        setCompleteForm((prev) => ({ ...prev, address1: value }));
+                      }
+                    }}
                     placeholder="Enter street address"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full"
                   />
                 </div>
 

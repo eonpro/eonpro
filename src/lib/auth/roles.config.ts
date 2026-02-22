@@ -290,7 +290,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
   features: {
     viewAllPatients: true, // Only assigned patients
     editPatients: true,
-    deletePatients: false,
+    deletePatients: true,
     viewPatientPHI: true,
     exportPatientData: true,
     createSoapNotes: true,
@@ -302,7 +302,7 @@ export const PROVIDER_CONFIG: RoleConfig = {
     manageClinics: false,
     viewAnalytics: false,
     viewFinancials: false,
-    manageSubscriptions: false,
+    manageSubscriptions: true,
     internalMessaging: true,
     patientMessaging: true,
     ticketManagement: true,
@@ -354,7 +354,6 @@ export const PROVIDER_CONFIG: RoleConfig = {
     { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 5 },
   ],
   restrictions: [
-    'Cannot delete patients (except via merge)',
     'Cannot access financial data',
     'Cannot manage other users',
     'Can merge duplicate patient profiles within their clinic',

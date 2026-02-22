@@ -548,13 +548,17 @@ export default function PatientSidebar({
       .join(' ');
   };
 
-  // Format city/state/zip - keeps state abbreviation uppercase
+  // Format city/state/zip - keeps state abbreviation uppercase; label zip when city/state missing
   const formatCityStateZip = (city: string, state: string, zip: string): string => {
     const formattedCity = toTitleCase(city);
-    // State abbreviations should stay uppercase (e.g., OR, CA, NY)
     const formattedState = state ? state.toUpperCase() : '';
-    const parts = [formattedCity, `${formattedState} ${zip}`.trim()].filter(Boolean);
-    return parts.join(' , ');
+    const hasCityOrState = !!(formattedCity || formattedState);
+    if (hasCityOrState) {
+      const parts = [formattedCity, `${formattedState} ${zip}`.trim()].filter(Boolean);
+      return parts.join(', ');
+    }
+    if (zip && !isEncryptedData(zip)) return `ZIP: ${zip}`;
+    return zip || '';
   };
 
   const handleSavePatient = async (data: any) => {
@@ -583,8 +587,9 @@ export default function PatientSidebar({
       throw new Error(error.message || 'Failed to delete patient');
     }
 
-    // Redirect to patients list
-    router.push('/admin/patients');
+    // Redirect to the correct patients list (provider vs admin)
+    const listPath = patientDetailBasePath?.startsWith('/provider') ? '/provider/patients' : '/admin/patients';
+    router.push(listPath);
   };
 
   const age = calculateAge(patient.dob);
