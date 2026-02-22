@@ -39,6 +39,14 @@ export async function GET(request: NextRequest) {
 
     const user = authResult.user!;
 
+    // Sales reps see only assigned patients; they must not access the full orders list
+    if (user.role === 'sales_rep') {
+      return NextResponse.json(
+        { error: 'Access denied. Orders are not available for sales rep accounts.' },
+        { status: 403 }
+      );
+    }
+
     // Convert auth user to service UserContext
     const userContext: UserContext = {
       id: user.id,

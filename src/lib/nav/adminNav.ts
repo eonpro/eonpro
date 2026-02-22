@@ -45,7 +45,27 @@ export const controlCenterNavConfig: AdminNavItemConfig = {
  * Returns admin nav config for the given role. Inserts Clinics after Membership/Refills for super_admin;
  * adds Control Center at the end for super_admin only.
  */
+/** Sales rep intake links (sales_rep only). */
+export const salesRepLinksNavConfig: AdminNavItemConfig = {
+  path: '/admin/sales-rep/links',
+  label: 'My Intake Links',
+  iconKey: 'Link',
+};
+
+/**
+ * Nav for sales reps: only Home, My Patients (assigned), and My Intake Links.
+ * No intake-templates, orders, products, analytics, affiliates, finance, stripe, registration codes.
+ */
+export const salesRepNavConfig: AdminNavItemConfig[] = [
+  { path: '/', label: 'Home', iconKey: 'Home' },
+  { path: '/admin/patients', label: 'My Patients', iconKey: 'Users' },
+  salesRepLinksNavConfig,
+];
+
 export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
+  if (role === 'sales_rep') {
+    return [...salesRepNavConfig];
+  }
   const items = [...baseAdminNavConfig];
   if (role === 'super_admin') {
     items.splice(6, 0, clinicsNavConfig);

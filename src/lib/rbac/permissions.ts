@@ -89,7 +89,7 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'message:view',
     'message:send',
   ],
-  sales_rep: ['patient:view', 'order:view', 'report:run'],
+  sales_rep: ['patient:view', 'report:run'], // no order:view — reps see only assigned patients, not orders list
   patient: ['patient:view', 'patient:edit'], // only own
   affiliate: ['affiliate:view'],
 };

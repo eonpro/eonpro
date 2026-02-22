@@ -50,6 +50,8 @@ interface DashboardStats {
   newRevenue: number;
   recurringRevenue: number;
   newPrescriptions: number;
+  /** Sales rep only: commissions earned in cents */
+  commissionsEarnedCents?: number;
 }
 
 // Match order and items from lib/nav/adminNav (baseAdminNavConfig) for consistent sidebar
@@ -85,6 +87,7 @@ function HomePageInner() {
     newRevenue: 0,
     recurringRevenue: 0,
     newPrescriptions: 0,
+    commissionsEarnedCents: 0,
   });
   const [geoData, setGeoData] = useState<{
     stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
@@ -271,9 +274,51 @@ function HomePageInner() {
 
   const loadDashboardData = async () => {
     try {
-      // Stagger API calls to reduce concurrent DB connection pressure.
-      // Each call needs a DB connection; firing all at once can exhaust the pool.
+      let isSalesRep = false;
+      try {
+        const user = localStorage.getItem('user');
+        if (user) {
+          const parsed = JSON.parse(user);
+          isSalesRep = parsed?.role?.toLowerCase() === 'sales_rep';
+        }
+      } catch {
+        // ignore
+      }
 
+      if (isSalesRep) {
+        // Sales rep: only assigned-patient stats and commissions (no orders, no clinic-wide revenue)
+        try {
+          const [statsResponse, patientsResponse] = await Promise.all([
+            fetchWithRetry('/api/sales-rep/stats'),
+            fetchWithRetry('/api/admin/patients?limit=100&includeContact=true'),
+          ]);
+          if (statsResponse.ok) {
+            const statsData = await statsResponse.json();
+            setStats((prev) => ({
+              ...prev,
+              newIntakes: statsData.assignedPatientCount ?? 0,
+              newRevenue: 0,
+              recurringRevenue: 0,
+              newPrescriptions: 0,
+              commissionsEarnedCents: statsData.commissionsEarnedCents ?? 0,
+            }));
+          }
+          if (patientsResponse.ok) {
+            const patientsData = await patientsResponse.json();
+            const patients = patientsData.patients || [];
+            setRecentIntakes(patients);
+          }
+        } catch (e: any) {
+          if (e.isAuthError) throw e;
+          console.warn('[Dashboard] Sales rep stats fetch failed:', e.message);
+        } finally {
+          setIntakesLoading(false);
+          setGeoLoading(false);
+        }
+        return;
+      }
+
+      // Stagger API calls to reduce concurrent DB connection pressure.
       // 1. Fetch recent patient intakes (most important for dashboard)
       try {
         const intakesResponse = await fetchWithRetry(
@@ -295,9 +340,7 @@ function HomePageInner() {
         const metricsResponse = await fetchWithRetry('/api/finance/metrics?range=7d');
         if (metricsResponse.ok) {
           const metricsData = await metricsResponse.json();
-          // grossRevenue is in cents, convert to dollars
           const newRevenue = (metricsData.grossRevenue || 0) / 100;
-          // mrr (Monthly Recurring Revenue) is also in cents
           const recurringRevenue = (metricsData.mrr || 0) / 100;
           setStats((prev) => ({ ...prev, newRevenue, recurringRevenue }));
         }
@@ -335,10 +378,7 @@ function HomePageInner() {
 
       setIntakesLoading(false);
     } catch (error: any) {
-      // If auth error, the SessionExpirationHandler will show the modal
-      if (error.isAuthError) {
-        return;
-      }
+      if (error.isAuthError) return;
       console.error('Failed to load dashboard data:', error);
       setIntakesLoading(false);
       setGeoLoading(false);
@@ -562,76 +602,109 @@ function HomePageInner() {
 
           {/* Stats Cards */}
           <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {/* Intakes (24h) */}
-            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
-                <UserPlus className="h-6 w-6" style={{ color: primaryColor }} />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
-                <p className="text-sm text-gray-500">Intakes (24h)</p>
-              </div>
-            </div>
-
-            {/* Revenue (7 days) */}
-            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
-                <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {formatCurrency(stats.newRevenue)}
-                </p>
-                <p className="text-sm text-gray-500">Revenue (7 days)</p>
-              </div>
-            </div>
-
-            {/* Recurring Revenue */}
-            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
-                <RefreshCw className="h-6 w-6 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">
-                  {formatCurrency(stats.recurringRevenue)}
-                </p>
-                <p className="text-sm text-gray-500">Recurring</p>
-              </div>
-            </div>
-
-            {/* Scripts (24h) */}
-            <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
-                <FileText className="h-6 w-6 text-rose-500" />
-              </div>
-              <div>
-                <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions}</p>
-                <p className="text-sm text-gray-500">Scripts (24h)</p>
-              </div>
-            </div>
+            {userData?.role?.toLowerCase() === 'sales_rep' ? (
+              <>
+                {/* Assigned profiles (sales rep only) */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <Users className="h-6 w-6" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
+                    <p className="text-sm text-gray-500">Assigned profiles</p>
+                  </div>
+                </div>
+                {/* Commissions earned (sales rep only) */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
+                    <DollarSign className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatCurrency((stats.commissionsEarnedCents ?? 0) / 100)}
+                    </p>
+                    <p className="text-sm text-gray-500">Commissions earned</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Intakes (24h) */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <UserPlus className="h-6 w-6" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">{stats.newIntakes}</p>
+                    <p className="text-sm text-gray-500">Intakes (24h)</p>
+                  </div>
+                </div>
+                {/* Revenue (7 days) */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatCurrency(stats.newRevenue)}
+                    </p>
+                    <p className="text-sm text-gray-500">Revenue (7 days)</p>
+                  </div>
+                </div>
+                {/* Recurring Revenue */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
+                    <RefreshCw className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatCurrency(stats.recurringRevenue)}
+                    </p>
+                    <p className="text-sm text-gray-500">Recurring</p>
+                  </div>
+                </div>
+                {/* Scripts (24h) */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
+                    <FileText className="h-6 w-6 text-rose-500" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions}</p>
+                    <p className="text-sm text-gray-500">Scripts (24h)</p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* US Map - Client Distribution */}
-          <div className="mb-8">
-            <USMapChart
-              stateData={geoData?.stateData ?? {}}
-              clinics={geoData?.clinics ?? []}
-              isLoading={geoLoading}
-            />
-          </div>
+          {/* US Map - Client Distribution (hidden for sales rep; they see assigned-only stats) */}
+          {userData?.role?.toLowerCase() !== 'sales_rep' && (
+            <div className="mb-8">
+              <USMapChart
+                stateData={geoData?.stateData ?? {}}
+                clinics={geoData?.clinics ?? []}
+                isLoading={geoLoading}
+              />
+            </div>
+          )}
 
           {/* Patient Intakes Card */}
           <div className="rounded-2xl border border-gray-200 bg-white">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5">
               <h2 className="text-lg font-semibold text-gray-900">
-                Patient Intakes (Last 24 Hours)
+                {userData?.role?.toLowerCase() === 'sales_rep'
+                  ? 'My assigned patients'
+                  : 'Patient Intakes (Last 24 Hours)'}
               </h2>
               <Link
                 href="/admin/patients"

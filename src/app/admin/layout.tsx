@@ -28,6 +28,7 @@ import {
   Gauge,
   ClipboardCheck,
   FileText,
+  Link as LinkIcon,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -129,6 +130,7 @@ const adminNavIconMap = {
   Building2,
   Gauge,
   FileText,
+  Link: LinkIcon,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
@@ -194,6 +196,17 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         router.push('/super-admin');
         return;
       }
+      // Sales rep must not access intake-templates or orders (assigned patients only)
+      if (role === 'sales_rep') {
+        if (pathname === '/admin/intake-templates' || pathname?.startsWith('/admin/intake-templates/')) {
+          window.location.href = '/';
+          return;
+        }
+        if (pathname === '/admin/orders' || pathname?.startsWith('/admin/orders/')) {
+          window.location.href = '/';
+          return;
+        }
+      }
       // Ensure userId is always a number (might be string from localStorage)
       setUserId(parsedUser.id ? Number(parsedUser.id) : null);
       setUserRole(role);
@@ -209,6 +222,19 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       router.push('/login');
     }
   }, [router]);
+
+  // Redirect sales rep away from restricted routes (e.g. direct URL or client nav)
+  useEffect(() => {
+    if (loading || userRole !== 'sales_rep') return;
+    if (pathname === '/admin/intake-templates' || pathname?.startsWith('/admin/intake-templates/')) {
+      window.location.href = '/';
+      return;
+    }
+    if (pathname === '/admin/orders' || pathname?.startsWith('/admin/orders/')) {
+      window.location.href = '/';
+      return;
+    }
+  }, [loading, userRole, pathname]);
 
   // Build navigation items from shared config (same as patients layout for consistency)
   const navItems = useMemo(() => {
