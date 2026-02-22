@@ -329,7 +329,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                       className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} mb-3`}
                     >
                       <div
-                        className={`max-w-xs rounded-2xl px-4 py-3 lg:max-w-md ${
+                        className={`min-w-0 max-w-xs overflow-hidden rounded-2xl px-4 py-3 lg:max-w-md ${
                           isOutgoing
                             ? 'rounded-br-md bg-blue-600 text-white'
                             : 'rounded-bl-md border bg-white shadow-sm'
@@ -364,7 +364,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                           </div>
                         )}
 
-                        <p className="whitespace-pre-wrap text-sm">{message.message}</p>
+                        <p className="break-all whitespace-pre-wrap text-sm">
+                          {message.message}
+                        </p>
 
                         <div
                           className={`mt-1.5 flex items-center gap-1.5 ${
