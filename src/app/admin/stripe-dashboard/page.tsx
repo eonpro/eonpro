@@ -592,6 +592,12 @@ export default function StripeDashboard() {
   };
 
   const selectedClinic = clinics.find((c) => c.id === selectedClinicId);
+  // Admin users don't have clinics list loaded; use connect status clinic name when available
+  const displayAccountLabel =
+    selectedClinic?.name ||
+    (selectedClinicId && connectStatus?.clinic?.name ? connectStatus.clinic.name : null) ||
+    (selectedClinicId ? `Clinic #${selectedClinicId}` : null) ||
+    'Platform Account (EONmeds)';
 
   // For non-super-admin users, check if their clinic has Stripe
   if (userRole === 'admin' && clinicStripeStatus.checked && !clinicStripeStatus.hasStripe) {
@@ -653,8 +659,7 @@ export default function StripeDashboard() {
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Stripe Dashboard</h1>
                 <p className="text-sm text-gray-500">
-                  {selectedClinic ? `${selectedClinic.name}` : 'Platform Account (EONmeds)'} -
-                  Real-time financial data
+                  {displayAccountLabel} - Real-time financial data
                 </p>
               </div>
             </div>
