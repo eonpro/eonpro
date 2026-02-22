@@ -339,6 +339,12 @@ export default function StripeDashboard() {
     checked: boolean;
   }>({ hasStripe: false, isPlatform: false, checked: false });
 
+  // Avoid hydration mismatch: label depends on client-only state (selectedClinicId, connectStatus)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Auth check & load clinics
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -659,7 +665,7 @@ export default function StripeDashboard() {
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Stripe Dashboard</h1>
                 <p className="text-sm text-gray-500">
-                  {displayAccountLabel} - Real-time financial data
+                  {mounted ? displayAccountLabel : '—'} - Real-time financial data
                 </p>
               </div>
             </div>
