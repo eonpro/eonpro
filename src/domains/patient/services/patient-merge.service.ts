@@ -761,7 +761,7 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           recordsMoved: preview.totalRecordsToMove,
           auditId: auditEntry.id,
         };
-      }, { isolationLevel: 'Serializable', timeout: 30000 });
+      }, { timeout: 60000 });
     },
   };
 }

@@ -13,7 +13,13 @@ import { z } from 'zod';
 
 import { withAuth } from '@/lib/auth/middleware';
 import { patientMergeService, type UserContext } from '@/domains/patient';
-import { handleApiError, BadRequestError, ValidationError, isAppError } from '@/domains/shared/errors';
+import {
+  handleApiError,
+  BadRequestError,
+  ValidationError,
+  InternalError,
+  isAppError,
+} from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 
 /**
@@ -108,12 +114,25 @@ const mergeHandler = withAuth(
     } catch (error) {
       // Log raw error for 500 debugging (merge touches many relations; failures often from missing model or encryption)
       if (!isAppError(error)) {
+        const msg = error instanceof Error ? error.message : String(error);
         logger.error('Patient merge failed', {
           route: 'POST /api/patients/merge',
           errorName: error instanceof Error ? error.name : 'unknown',
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: msg,
           stack: error instanceof Error ? error.stack : undefined,
         });
+        // Surface encryption/setup hints to client (safe message)
+        if (
+          typeof msg === 'string' &&
+          (msg.includes('ENCRYPTION_KEY') || msg.includes('encrypt') || msg.includes('key'))
+        ) {
+          return handleApiError(
+            new InternalError(
+              'Merge failed: encryption is not configured. Ensure ENCRYPTION_KEY is set in server environment.'
+            ),
+            { context: { route: 'POST /api/patients/merge' } }
+          );
+        }
       }
       return handleApiError(error, {
         context: { route: 'POST /api/patients/merge' },
