@@ -331,6 +331,26 @@ function findPayloadKeyCaseInsensitive(
 }
 
 /**
+ * Last-resort: find first payload value whose key contains any of the given substrings (case-insensitive).
+ * Catches any Airtable/form field name that includes "phone", "mobile", etc.
+ */
+function findFirstValueForKeyContaining(
+  payload: Record<string, unknown>,
+  substrings: string[]
+): string | undefined {
+  const subs = substrings.map((s) => s.toLowerCase());
+  for (const [key, value] of Object.entries(payload)) {
+    if (value == null || value === '') continue;
+    const keyLower = key.toLowerCase();
+    if (subs.some((sub) => keyLower.includes(sub))) {
+      const str = typeof value === 'string' ? value : String(value);
+      if (str.trim()) return str;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Split a full name into first and last name
  */
 function splitFullName(fullName: string): { firstName: string; lastName: string } {
@@ -489,7 +509,8 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     payload['phone (from contacts)'] ||
     payload['Mobile (from Contacts)'] ||
     payload['Cell (from Contacts)'] ||
-    findPayloadKeyCaseInsensitive(payload, ['phone', 'phone number', 'mobile', 'cell', 'telephone']);
+    findPayloadKeyCaseInsensitive(payload, ['phone', 'phone number', 'mobile', 'cell', 'telephone']) ||
+    findFirstValueForKeyContaining(payload, ['phone', 'mobile', 'cell', 'telephone']);
   if (phoneField && String(phoneField).trim()) {
     patient.phone = sanitizePhone(String(phoneField));
   }

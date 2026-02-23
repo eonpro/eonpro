@@ -435,6 +435,12 @@ export async function POST(req: NextRequest) {
 
   const patientData = normalizePatientData(normalized.patient);
 
+  if (patientData.phone) {
+    logger.info(`[WELLMEDR-INTAKE ${requestId}] Phone present for profile (digits: ${patientData.phone.length})`);
+  } else {
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] No phone in normalized payload; keys with "phone": ${Object.keys(payload).filter((k) => k.toLowerCase().includes('phone')).join(', ') || 'none'}`);
+  }
+
   // Build tags
   const baseTags = ['wellmedr-intake', 'wellmedr', 'glp1'];
   const submissionTags = isPartialSubmission

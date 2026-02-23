@@ -50,6 +50,39 @@ const CHECKOUT_FIELD_NAMES = [
 const WELLMEDR_FIELDS = [
     'submission-id', 'submission-date',
     'first-name', 'last-name', 'email', 'phone', 'state', 'dob', 'sex',
+];
+
+// Airtable column names often differ (e.g. "Phone Number" vs "phone"). For each Wellmedr key, try these aliases when reading.
+const FIELD_ALIASES = {
+    'phone': ['phone', 'Phone', 'Phone Number', 'Mobile', 'Cell', 'Telephone', 'Phone (from Contacts)', 'Phone Number (from Contacts)'],
+    'first-name': ['first-name', 'First Name', 'FirstName', 'first_name'],
+    'last-name': ['last-name', 'Last Name', 'LastName', 'last_name'],
+    'email': ['email', 'Email', 'Email Address', 'E-mail'],
+    'dob': ['dob', 'DOB', 'Date of Birth', 'Date of birth', 'date-of-birth', 'Birth date'],
+    'state': ['state', 'State', 'Address [State]'],
+};
+
+function getCellValueWithAliases(record, wellmedrFieldName) {
+    const aliases = FIELD_ALIASES[wellmedrFieldName];
+    if (aliases) {
+        for (const alias of aliases) {
+            try {
+                const val = record.getCellValue(alias);
+                if (val !== null && val !== undefined && val !== '') return val;
+            } catch (_) { /* column doesn't exist */ }
+        }
+        return null;
+    }
+    try {
+        return record.getCellValue(wellmedrFieldName);
+    } catch (_) {
+        return null;
+    }
+}
+
+const WELLMEDR_FIELDS = [
+    'submission-id', 'submission-date',
+    'first-name', 'last-name', 'email', 'phone', 'state', 'dob', 'sex',
     'feet', 'inches', 'weight', 'goal-weight', 'bmi',
     'avg-blood-pressure-range', 'avg-resting-heart-rate', 'weight-related-symptoms',
     'health-conditions', 'health-conditions-2', 'type-2-diabetes', 'men2-history', 'bariatric', 'bariatric-details',
@@ -124,7 +157,7 @@ async function main() {
     let fieldCount = 0;
     for (const fieldName of WELLMEDR_FIELDS) {
         try {
-            const value = record.getCellValue(fieldName);
+            const value = getCellValueWithAliases(record, fieldName);
             if (value !== null && value !== undefined && value !== '') {
                 if (typeof value === 'object' && value.name) {
                     payload[fieldName] = value.name;

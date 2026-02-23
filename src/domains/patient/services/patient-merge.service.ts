@@ -404,6 +404,12 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           data: { patientId: targetPatientId },
         });
 
+        // SMS Opt-outs (TCPA compliance - re-point so target keeps opt-out record)
+        await tx.smsOptOut.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
         // Affiliate Referrals
         await tx.affiliateReferral.updateMany({
           where: { referredPatientId: sourcePatientId },
