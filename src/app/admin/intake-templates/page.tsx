@@ -110,6 +110,7 @@ export default function IntakeTemplatesPage() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setShowCreate(true)}
           className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
         >
@@ -117,66 +118,81 @@ export default function IntakeTemplatesPage() {
         </button>
       </div>
 
-      {/* Create modal */}
+      {/* Create modal overlay */}
       {showCreate && (
-        <div className="rounded-xl border border-gray-200 p-6 bg-white space-y-4">
-          <h2 className="text-lg font-semibold">Create Intake Template</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Template Name
-              </label>
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. Weight Loss Intake"
-                className="w-full px-3 py-2 border rounded-lg text-sm"
-              />
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-template-title"
+          onClick={() => setShowCreate(false)}
+        >
+          <div
+            className="rounded-xl border border-gray-200 p-6 bg-white space-y-4 w-full max-w-lg shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="create-template-title" className="text-lg font-semibold">
+              Create Intake Template
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  Template Name
+                </label>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Weight Loss Intake"
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  Treatment Type
+                </label>
+                <select
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                >
+                  <option value="weight-loss">Weight Loss</option>
+                  <option value="hormone-therapy">Hormone Therapy</option>
+                  <option value="general">General Wellness</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">
-                Treatment Type
+                Start From
               </label>
               <select
-                value={newType}
-                onChange={(e) => setNewType(e.target.value)}
+                value={fromLibrary}
+                onChange={(e) => setFromLibrary(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg text-sm"
               >
-                <option value="weight-loss">Weight Loss</option>
-                <option value="hormone-therapy">Hormone Therapy</option>
-                <option value="general">General Wellness</option>
-                <option value="custom">Custom</option>
+                <option value="weight-loss">
+                  Weight Loss Template (Library)
+                </option>
+                <option value="">Blank Template</option>
               </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              Start From
-            </label>
-            <select
-              value={fromLibrary}
-              onChange={(e) => setFromLibrary(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="weight-loss">
-                Weight Loss Template (Library)
-              </option>
-              <option value="">Blank Template</option>
-            </select>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-            >
-              Create
-            </button>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="px-4 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100"
-            >
-              Cancel
-            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleCreate}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCreate(false)}
+                className="px-4 py-2 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -198,7 +214,7 @@ export default function IntakeTemplatesPage() {
             <Link
               key={t.id}
               href={`/admin/intake-templates/${t.id}`}
-              className="block rounded-xl border border-gray-100 p-5 hover:border-gray-200 transition-colors bg-white"
+              className="block rounded-xl border border-gray-100 p-5 hover:border-gray-200 transition-colors bg-white cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <div>

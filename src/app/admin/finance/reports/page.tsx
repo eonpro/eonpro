@@ -138,7 +138,7 @@ export default function ReportsPage() {
               <Link
                 key={report.id}
                 href={report.href}
-                className={`group relative flex flex-col gap-4 rounded-xl border bg-gradient-to-br p-6 transition-all duration-200 ${accent} hover:shadow-lg`}
+                className={`group relative flex cursor-pointer flex-col gap-4 rounded-xl border bg-gradient-to-br p-6 transition-all duration-200 ${accent} hover:shadow-lg`}
               >
                 <div className="flex items-start justify-between">
                   <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconBg}`}>
@@ -175,7 +175,7 @@ export default function ReportsPage() {
               <Link
                 key={report.id}
                 href={report.href}
-                className={`group relative flex items-center gap-4 rounded-xl border bg-white p-5 transition-all duration-200 ${accent} hover:shadow-md`}
+                className={`group relative flex cursor-pointer items-center gap-4 rounded-xl border bg-white p-5 transition-all duration-200 ${accent} hover:shadow-md`}
               >
                 <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
                   <Icon className="h-5 w-5" />

@@ -11,6 +11,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { findPatientByEmail } from '@/services/stripe/paymentMatchingService';
 import type Stripe from 'stripe';
 
 // Map Stripe subscription status to our enum
@@ -181,6 +182,114 @@ export async function syncSubscriptionFromStripe(
     logger.error('[SubscriptionSync] Failed to upsert subscription', {
       stripeSubscriptionId,
       patientId,
+      error: message,
+    });
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Sync a Stripe subscription to our Subscription model by matching customer email to a patient.
+ * Use for backfills (e.g. Wellmedr) when subscriptions exist in Stripe but patients are matched by email.
+ * Idempotent: upserts by stripeSubscriptionId. Does not log PHI (email).
+ */
+export async function syncSubscriptionFromStripeByEmail(
+  stripeSubscription: Stripe.Subscription,
+  customerEmail: string,
+  clinicId: number
+): Promise<SyncSubscriptionResult> {
+  const stripeSubscriptionId = stripeSubscription.id;
+  const normalizedEmail = customerEmail?.trim().toLowerCase();
+  if (!normalizedEmail) {
+    logger.warn('[SubscriptionSync] No customer email provided', { stripeSubscriptionId });
+    return { success: true, skipped: true, reason: 'No customer email' };
+  }
+
+  const patient = await findPatientByEmail(normalizedEmail, clinicId);
+  if (!patient) {
+    logger.info('[SubscriptionSync] No patient match for subscription (email match)', {
+      stripeSubscriptionId,
+      clinicId,
+    });
+    return { success: true, skipped: true, reason: 'No patient match for email' };
+  }
+
+  const customerId =
+    typeof stripeSubscription.customer === 'string'
+      ? stripeSubscription.customer
+      : stripeSubscription.customer?.id;
+
+  const status = STRIPE_STATUS_TO_OUR[stripeSubscription.status] ?? 'ACTIVE';
+  const details = extractSubscriptionDetails(stripeSubscription);
+
+  const currentPeriodStart = new Date(((stripeSubscription as any).current_period_start ?? 0) * 1000);
+  const currentPeriodEnd = new Date(((stripeSubscription as any).current_period_end ?? 0) * 1000);
+  const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
+  const canceledAt = stripeSubscription.canceled_at
+    ? new Date(stripeSubscription.canceled_at * 1000)
+    : null;
+  const endedAt = stripeSubscription.ended_at ? new Date(stripeSubscription.ended_at * 1000) : null;
+
+  try {
+    const subscription = await prisma.$transaction(async (tx) => {
+      if (customerId && !patient.stripeCustomerId) {
+        await tx.patient.update({
+          where: { id: patient.id },
+          data: { stripeCustomerId: customerId },
+        });
+      }
+      return tx.subscription.upsert({
+        where: { stripeSubscriptionId },
+        create: {
+          clinicId,
+          patientId: patient.id,
+          stripeSubscriptionId,
+          planId: details.planId,
+          planName: details.planName,
+          planDescription: details.planDescription,
+          status,
+          amount: details.amount,
+          currency: details.currency,
+          interval: details.interval,
+          intervalCount: details.intervalCount,
+          startDate,
+          currentPeriodStart,
+          currentPeriodEnd,
+          nextBillingDate: status === 'ACTIVE' ? currentPeriodEnd : null,
+          canceledAt,
+          endedAt,
+          metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
+        },
+        update: {
+          status,
+          amount: details.amount,
+          currency: details.currency,
+          interval: details.interval,
+          intervalCount: details.intervalCount,
+          currentPeriodStart,
+          currentPeriodEnd,
+          nextBillingDate: status === 'ACTIVE' ? currentPeriodEnd : null,
+          canceledAt,
+          endedAt,
+          metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
+        },
+      });
+    });
+
+    logger.info('[SubscriptionSync] Upserted subscription (email match)', {
+      subscriptionId: subscription.id,
+      stripeSubscriptionId,
+      patientId: patient.id,
+      clinicId,
+      status,
+    });
+
+    return { success: true, subscriptionId: subscription.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('[SubscriptionSync] Failed to upsert subscription (email match)', {
+      stripeSubscriptionId,
+      patientId: patient.id,
       error: message,
     });
     return { success: false, error: message };
