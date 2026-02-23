@@ -347,6 +347,24 @@ export function createPrescriptionService(): PrescriptionService {
               });
             }
 
+            // Self-heal: ensure existing patient has searchIndex so admin search finds them
+            if (patientRecord && (!patientRecord.searchIndex || !String(patientRecord.searchIndex).trim())) {
+              const searchIndex = buildPatientSearchIndex({
+                firstName: input.patient.firstName,
+                lastName: input.patient.lastName,
+                email: input.patient.email,
+                phone: input.patient.phone,
+                patientId: patientRecord.patientId,
+              });
+              if (searchIndex) {
+                await tx.patient.update({
+                  where: { id: patientRecord.id },
+                  data: { searchIndex },
+                });
+                patientRecord = { ...patientRecord, searchIndex };
+              }
+            }
+
             if (!patientRecord) {
               const searchIndex = buildPatientSearchIndex({
                 firstName: input.patient.firstName,

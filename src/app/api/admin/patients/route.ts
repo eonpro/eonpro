@@ -21,7 +21,7 @@ import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
-import { splitSearchTerms, buildPatientSearchWhere } from '@/lib/utils/search';
+import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -219,7 +219,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Phase 2: Fallback for patients with NULL/empty searchIndex
     // These patients were created before searchIndex was added, or through
-    // code paths that didn't populate it. We decrypt PHI and filter in-memory.
+    // code paths that didn't populate it. We scan ALL unindexed in chunks
+    // (not just the first 500 by createdAt) so every patient is findable.
+    // Matched patients are self-healed: searchIndex is backfilled so next search uses the fast path.
+    const FALLBACK_CHUNK_SIZE = 500;
+    const FALLBACK_MAX_SCAN = 10_000; // Cap total scanned to avoid timeouts; log if hit
     let fallbackPatients: typeof indexedPatients = [];
     if (search) {
       const fallbackWhere: Prisma.PatientWhereInput = {
@@ -230,56 +234,104 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const unindexedCount = await db.patient.count({ where: fallbackWhere });
 
       if (unindexedCount > 0) {
-        const MAX_FALLBACK = 500;
-        if (unindexedCount > MAX_FALLBACK) {
-          logger.warn('[ADMIN-PATIENTS] Large number of unindexed patients — run backfill', {
-            count: unindexedCount,
-            max: MAX_FALLBACK,
-            recommendation: 'POST /api/admin/backfill-search-index',
-          });
-        }
-
-        const unindexed = await db.patient.findMany({
-          where: fallbackWhere,
-          select: patientSelect,
-          orderBy: { createdAt: 'desc' },
-          take: Math.min(unindexedCount, MAX_FALLBACK),
-        });
-
-        // Decrypt PHI and filter in-memory
         const terms = splitSearchTerms(search);
         const searchLower = search.toLowerCase().trim();
         const searchDigits = search.replace(/\D/g, '');
 
-        fallbackPatients = unindexed.filter((p) => {
-          const fn = safeDecrypt(p.firstName)?.toLowerCase() || '';
-          const ln = safeDecrypt(p.lastName)?.toLowerCase() || '';
-          const em = safeDecrypt(p.email)?.toLowerCase() || '';
-          const ph = (safeDecrypt(p.phone) || '').replace(/\D/g, '');
-          const pid = (p.patientId || '').toLowerCase();
+        const matches: typeof indexedPatients = [];
+        const selfHealUpdates: Array<{ id: number; searchIndex: string }> = [];
+        let cursorId: number | undefined;
+        let totalScanned = 0;
 
-          if (terms.length === 1) {
-            const t = terms[0];
-            return (
-              fn.includes(t) ||
-              ln.includes(t) ||
-              em.includes(t) ||
-              pid.includes(t) ||
-              (searchDigits.length >= 3 && ph.includes(searchDigits))
-            );
+        while (totalScanned < FALLBACK_MAX_SCAN) {
+          const chunk = await db.patient.findMany({
+            where: {
+              ...fallbackWhere,
+              ...(cursorId !== undefined ? { id: { gt: cursorId } } : {}),
+            },
+            select: patientSelect,
+            orderBy: { id: 'asc' },
+            take: FALLBACK_CHUNK_SIZE,
+          });
+
+          if (chunk.length === 0) break;
+          totalScanned += chunk.length;
+          cursorId = chunk[chunk.length - 1]?.id;
+
+          for (const p of chunk) {
+            const fn = safeDecrypt(p.firstName)?.toLowerCase() || '';
+            const ln = safeDecrypt(p.lastName)?.toLowerCase() || '';
+            const em = safeDecrypt(p.email)?.toLowerCase() || '';
+            const ph = (safeDecrypt(p.phone) || '').replace(/\D/g, '');
+            const pid = (p.patientId || '').toLowerCase();
+
+            let matchesSearch: boolean;
+            if (terms.length === 1) {
+              const t = terms[0];
+              matchesSearch =
+                fn.includes(t) ||
+                ln.includes(t) ||
+                em.includes(t) ||
+                pid.includes(t) ||
+                (searchDigits.length >= 3 && ph.includes(searchDigits));
+            } else {
+              const fullName = `${fn} ${ln}`;
+              matchesSearch =
+                fullName.includes(searchLower) ||
+                terms.every(
+                  (t) => fn.includes(t) || ln.includes(t) || pid.includes(t) || em.includes(t)
+                );
+            }
+
+            if (matchesSearch) {
+              matches.push(p);
+              const idx = buildPatientSearchIndex({
+                firstName: fn || null,
+                lastName: ln || null,
+                email: em || null,
+                phone: ph || null,
+                patientId: pid || null,
+              });
+              if (idx) selfHealUpdates.push({ id: p.id, searchIndex: idx });
+            }
           }
 
-          // Multi-term: try full name match or all-terms match
-          const fullName = `${fn} ${ln}`;
-          if (fullName.includes(searchLower)) return true;
-          return terms.every(
-            (t) => fn.includes(t) || ln.includes(t) || pid.includes(t) || em.includes(t)
-          );
-        });
+          if (chunk.length < FALLBACK_CHUNK_SIZE) break;
+        }
+
+        if (totalScanned >= FALLBACK_MAX_SCAN && totalScanned < unindexedCount) {
+          logger.warn('[ADMIN-PATIENTS] Fallback scan cap reached — run backfill for full coverage', {
+            unindexedCount,
+            scanned: totalScanned,
+            recommendation: 'POST /api/admin/backfill-search-index',
+          });
+        }
+
+        fallbackPatients = matches;
+
+        // Self-heal: backfill searchIndex for matched unindexed patients (fire-and-forget)
+        if (selfHealUpdates.length > 0) {
+          Promise.all(
+            selfHealUpdates.map(({ id, searchIndex }) =>
+              db.patient.update({ where: { id }, data: { searchIndex } }).catch((err) => {
+                logger.warn('[ADMIN-PATIENTS] Self-heal searchIndex failed', { patientId: id, error: String(err) });
+              })
+            )
+          ).then(() => {
+            if (selfHealUpdates.length > 0) {
+              logger.info('[ADMIN-PATIENTS] Self-healed searchIndex for patients', {
+                count: selfHealUpdates.length,
+                ids: selfHealUpdates.map((u) => u.id),
+              });
+            }
+          });
+        }
 
         logger.info('[ADMIN-PATIENTS] Fallback search completed', {
           unindexedCount,
+          totalScanned,
           matchesFound: fallbackPatients.length,
+          selfHealed: selfHealUpdates.length,
           searchQuery: search,
         });
       }
