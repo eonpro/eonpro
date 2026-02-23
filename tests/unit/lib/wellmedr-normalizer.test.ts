@@ -79,4 +79,82 @@ describe('Wellmedr Intake Normalizer', () => {
     expect(ids.has('height')).toBe(true);
     expect(ids.has('Checkout Completed')).toBe(true);
   });
+
+  describe('phone extraction (recorded on patient profile)', () => {
+    it('extracts phone from standard keys', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        phone: '5551234567',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5551234567');
+    });
+
+    it('extracts phone from "Phone Number" (Fillout/Airtable)', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        'Phone Number': ' (555) 987-6543 ',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5559876543');
+    });
+
+    it('extracts phone from "Phone (from Contacts)" (Airtable linked field)', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        'Phone (from Contacts)': '+1 555-111-2222',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5551112222');
+    });
+
+    it('extracts phone from any key containing "phone" (fallback)', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        'Primary Phone': '5554443333',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5554443333');
+    });
+
+    it('extracts phone from key containing "mobile"', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        'Mobile Number': '5557778888',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5557778888');
+    });
+
+    it('strips leading 1 and non-digits', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        phone: '1-555-123-4567',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5551234567');
+    });
+
+    it('leaves phone empty when no phone field in payload', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('');
+    });
+  });
 });

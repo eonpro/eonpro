@@ -75,86 +75,37 @@ export async function POST(req: NextRequest) {
     // Extract patient data from normalized intake
     const patientData = normalized.patient;
 
-    // Create or update patient: same email + same DOB = merge (no new profile)
-    const normalizedDob =
-      patientData.dob && patientData.dob !== '1900-01-01' ? patientData.dob : null;
-    let patient = await (async () => {
-      if (!patientData.email) return null;
-      if (normalizedDob) {
-        const byEmailAndDob = await prisma.patient.findFirst({
-          where: { clinicId, email: patientData.email, dob: normalizedDob },
-        });
-        if (byEmailAndDob) return byEmailAndDob;
-      }
-      return prisma.patient.findFirst({
-        where: { clinicId, email: patientData.email },
-      });
-    })();
+    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
+    const patientCount = await prisma.patient.count();
+    const patientId = String(patientCount + 1).padStart(6, '0');
+    const searchIndex = buildPatientSearchIndex({
+      firstName: patientData.firstName || 'Unknown',
+      lastName: patientData.lastName || 'Patient',
+      email: patientData.email,
+      phone: patientData.phone,
+      patientId,
+    });
 
-    const isNewPatient = !patient;
-
-    if (patient) {
-      // Get existing tags safely
-      const existingTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
-      const updatedTags = existingTags.includes('v1-intake')
-        ? existingTags
-        : [...existingTags, 'v1-intake'];
-
-      const updateSearchIndex = buildPatientSearchIndex({
-        firstName: patientData.firstName || patient.firstName,
-        lastName: patientData.lastName || patient.lastName,
-        email: patient.email,
-        phone: patientData.phone || patient.phone,
-        patientId: patient.patientId,
-      });
-      patient = await prisma.patient.update({
-        where: { id: patient.id },
-        data: {
-          firstName: patientData.firstName || patient.firstName,
-          lastName: patientData.lastName || patient.lastName,
-          phone: patientData.phone || patient.phone,
-          dob: patientData.dob || patient.dob,
-          gender: patientData.gender || patient.gender,
-          address1: patientData.address1 || patient.address1,
-          city: patientData.city || patient.city,
-          state: patientData.state || patient.state,
-          zip: patientData.zip || patient.zip,
-          clinicId,
-          tags: updatedTags,
-          searchIndex: updateSearchIndex,
-        },
-      });
-    } else {
-      const patientCount = await prisma.patient.count();
-      const patientId = String(patientCount + 1).padStart(6, '0');
-      const searchIndex = buildPatientSearchIndex({
+    const patient = await prisma.patient.create({
+      data: {
+        patientId,
         firstName: patientData.firstName || 'Unknown',
         lastName: patientData.lastName || 'Patient',
-        email: patientData.email,
-        phone: patientData.phone,
-        patientId,
-      });
-
-      patient = await prisma.patient.create({
-        data: {
-          patientId,
-          firstName: patientData.firstName || 'Unknown',
-          lastName: patientData.lastName || 'Patient',
-          email: patientData.email || `unknown-${Date.now()}@intake.local`,
-          phone: patientData.phone || '',
-          dob: patientData.dob || '1900-01-01',
-          gender: patientData.gender || 'Unknown',
-          address1: patientData.address1 || '',
-          city: patientData.city || '',
-          state: patientData.state || '',
-          zip: patientData.zip || '',
-          clinicId,
-          source: 'api',
-          searchIndex,
-          tags: ['v1-intake', 'complete-intake'],
-        },
-      });
-    }
+        email: patientData.email || `unknown-${Date.now()}@intake.local`,
+        phone: patientData.phone || '',
+        dob: patientData.dob || '1900-01-01',
+        gender: patientData.gender || 'Unknown',
+        address1: patientData.address1 || '',
+        city: patientData.city || '',
+        state: patientData.state || '',
+        zip: patientData.zip || '',
+        clinicId,
+        source: 'api',
+        searchIndex,
+        tags: ['v1-intake', 'complete-intake'],
+      },
+    });
+    const isNewPatient = true;
 
     // Generate PDF
     let documentId: number | null = null;

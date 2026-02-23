@@ -213,47 +213,6 @@ export class IntakeProcessor {
   ): Promise<{ patient: any; isNew: boolean }> {
     const patientData = this.normalizePatientData(normalized.patient);
 
-    // Build match filters: same email + same DOB = same person (merge, do not create new)
-    const matchFilters: Prisma.PatientWhereInput[] = [];
-
-    if (
-      patientData.email &&
-      patientData.email !== 'unknown@example.com' &&
-      patientData.dob &&
-      patientData.dob !== '1900-01-01'
-    ) {
-      matchFilters.push({ email: patientData.email, dob: patientData.dob });
-    }
-    if (patientData.email && patientData.email !== 'unknown@example.com') {
-      matchFilters.push({ email: patientData.email });
-    }
-    if (patientData.phone && patientData.phone !== '0000000000') {
-      matchFilters.push({ phone: patientData.phone });
-    }
-    if (
-      patientData.firstName !== 'Unknown' &&
-      patientData.lastName !== 'Unknown' &&
-      patientData.dob &&
-      patientData.dob !== '1900-01-01'
-    ) {
-      matchFilters.push({
-        firstName: patientData.firstName,
-        lastName: patientData.lastName,
-        dob: patientData.dob,
-      });
-    }
-
-    // Find existing patient
-    let existingPatient = null;
-    if (matchFilters.length > 0) {
-      const whereClause: Prisma.PatientWhereInput = { OR: matchFilters };
-      if (clinicId) {
-        whereClause.clinicId = clinicId;
-      }
-
-      existingPatient = await prisma.patient.findFirst({ where: whereClause });
-    }
-
     // Build tags
     const baseTags = [this.source];
     const allTags = [...baseTags, ...(options.tags || [])];
@@ -261,59 +220,34 @@ export class IntakeProcessor {
       allTags.push('partial-lead', 'needs-followup');
     }
 
-    if (existingPatient) {
-      // Update existing patient
-      const existingTags = Array.isArray(existingPatient.tags)
-        ? (existingPatient.tags as string[])
-        : [];
-      const mergedTags = [...new Set([...existingTags, ...allTags])];
+    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
+    const patientNumber = await this.getNextPatientId(clinicId ?? undefined);
+    const searchIndex = buildPatientSearchIndex({
+      ...patientData,
+      patientId: patientNumber,
+    });
 
-      const updateSearchIndex = buildPatientSearchIndex({
-        ...patientData,
-        patientId: existingPatient.patientId,
-      });
-      const patient = await prisma.patient.update({
-        where: { id: existingPatient.id },
-        data: {
-          ...patientData,
-          tags: mergedTags,
-          notes: this.appendNotes(existingPatient.notes, normalized.submissionId),
-          searchIndex: updateSearchIndex,
-        },
-      });
-
-      logger.info(`[INTAKE ${this.requestId}] Updated patient: ${patient.id}`);
-      return { patient, isNew: false };
-    } else {
-      // Create new patient - use clinic-specific counter
-      const patientNumber = await this.getNextPatientId(clinicId ?? undefined);
-      const searchIndex = buildPatientSearchIndex({
+    const patient = await prisma.patient.create({
+      data: {
         ...patientData,
         patientId: patientNumber,
-      });
-
-      const patient = await prisma.patient.create({
-        data: {
-          ...patientData,
-          patientId: patientNumber,
-          clinicId: clinicId!,
-          tags: allTags,
-          notes: `Created via ${this.source} intake ${normalized.submissionId}`,
-          source: 'webhook',
-          searchIndex,
-          sourceMetadata: {
-            type: this.source,
-            submissionId: normalized.submissionId,
-            timestamp: new Date().toISOString(),
-          },
+        clinicId: clinicId!,
+        tags: allTags,
+        notes: `Created via ${this.source} intake ${normalized.submissionId}`,
+        source: 'webhook',
+        searchIndex,
+        sourceMetadata: {
+          type: this.source,
+          submissionId: normalized.submissionId,
+          timestamp: new Date().toISOString(),
         },
-      });
+      },
+    });
 
-      logger.info(
-        `[INTAKE ${this.requestId}] Created patient: ${patient.id} (${patient.patientId})`
-      );
-      return { patient, isNew: true };
-    }
+    logger.info(
+      `[INTAKE ${this.requestId}] Created patient: ${patient.id} (${patient.patientId})`
+    );
+    return { patient, isNew: true };
   }
 
   /**

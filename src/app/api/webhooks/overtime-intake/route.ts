@@ -425,89 +425,7 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // Build comprehensive lookup conditions: same email + same DOB = merge (no new profile)
-    const lookupConditions: Prisma.PatientWhereInput[] = [];
-
-    if (
-      patientData.email &&
-      patientData.email !== 'unknown@example.com' &&
-      patientData.dob &&
-      patientData.dob !== '1900-01-01'
-    ) {
-      lookupConditions.push({
-        email: { equals: patientData.email, mode: 'insensitive' },
-        dob: patientData.dob,
-      });
-    }
-
-    if (patientData.email && patientData.email !== 'unknown@example.com') {
-      lookupConditions.push({ email: { equals: patientData.email, mode: 'insensitive' } });
-    }
-
-    if (patientData.phone && patientData.phone !== '0000000000') {
-      lookupConditions.push({ phone: patientData.phone });
-    }
-
-    if (
-      patientData.firstName !== 'Unknown' &&
-      patientData.lastName !== 'Unknown' &&
-      patientData.dob !== '1900-01-01'
-    ) {
-      lookupConditions.push({
-        firstName: { equals: patientData.firstName, mode: 'insensitive' },
-        lastName: { equals: patientData.lastName, mode: 'insensitive' },
-        dob: patientData.dob,
-      });
-    }
-
-    let existingPatient: any = null;
-
-    if (lookupConditions.length > 0) {
-      existingPatient = await withRetry(() =>
-        prisma.patient.findFirst({
-          where: {
-            clinicId: clinicId,
-            OR: lookupConditions,
-          },
-        })
-      );
-    }
-
-    if (existingPatient) {
-      // Update existing patient
-      const existingTags = Array.isArray(existingPatient.tags)
-        ? (existingPatient.tags as string[])
-        : [];
-      let updatedTags = mergeTags(existingPatient.tags, submissionTags);
-
-      // Remove partial tags if upgrading to complete
-      if (existingTags.includes('partial-lead') && !isPartialSubmission) {
-        updatedTags = updatedTags.filter(
-          (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
-        );
-        logger.info(`[OVERTIME-INTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
-      }
-
-      const updateSearchIndex = buildPatientSearchIndex({
-        ...patientData,
-        patientId: existingPatient!.patientId,
-      });
-      patient = await withRetry(() =>
-        prisma.patient.update({
-          where: { id: existingPatient!.id },
-          data: {
-            ...patientData,
-            tags: updatedTags,
-            notes: buildNotes(existingPatient!.notes),
-            searchIndex: updateSearchIndex,
-          },
-        })
-      );
-      logger.info(
-        `[OVERTIME-INTAKE ${requestId}] ✓ Updated patient: ${patient.id} → OVERTIME CLINIC ONLY (clinicId=${clinicId})`
-      );
-    } else {
-      // Create new patient with retry on patientId conflict
+    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
       const MAX_RETRIES = 5;
       let retryCount = 0;
       let created = false;
@@ -552,35 +470,6 @@ export async function POST(req: NextRequest) {
               `[OVERTIME-INTAKE ${requestId}] PatientId conflict, retrying (${retryCount}/${MAX_RETRIES})...`
             );
             await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
-
-            if (retryCount >= 3 && lookupConditions.length > 0) {
-              const refetchPatient = await prisma.patient.findFirst({
-                where: {
-                  clinicId: clinicId,
-                  OR: lookupConditions,
-                },
-              });
-
-              if (refetchPatient) {
-                const retrySearchIndex = buildPatientSearchIndex({
-                  ...patientData,
-                  patientId: refetchPatient.patientId,
-                });
-                patient = await prisma.patient.update({
-                  where: { id: refetchPatient.id },
-                  data: {
-                    ...patientData,
-                    tags: mergeTags(refetchPatient.tags, submissionTags),
-                    notes: buildNotes(refetchPatient.notes),
-                    searchIndex: retrySearchIndex,
-                  },
-                });
-                created = true;
-                logger.info(
-                  `[OVERTIME-INTAKE ${requestId}] ✓ Found and updated patient on retry: ${patient.id}`
-                );
-              }
-            }
           } else {
             throw createErr;
           }
@@ -592,7 +481,6 @@ export async function POST(req: NextRequest) {
           `Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`
         );
       }
-    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[OVERTIME-INTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {

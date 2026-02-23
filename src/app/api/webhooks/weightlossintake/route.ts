@@ -314,102 +314,40 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // Find existing patient (with retry)
-    const existingPatient = await withRetry<Patient | null>(() =>
-      prisma.patient.findFirst({
-        where: {
+    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
+    const patientNumber = await getNextPatientId(clinicId);
+    // Build search index from plain-text data BEFORE it gets encrypted
+    const searchIndex = buildPatientSearchIndex({
+      ...patientData,
+      patientId: patientNumber,
+    });
+    patient = await withRetry(() =>
+      prisma.patient.create({
+        data: {
+          ...patientData,
+          patientId: patientNumber,
           clinicId: clinicId,
-          OR: [
-            patientData.email !== 'unknown@example.com' &&
-            patientData.dob &&
-            patientData.dob !== '1900-01-01'
-              ? { email: patientData.email, dob: patientData.dob }
-              : null,
-            patientData.email !== 'unknown@example.com' ? { email: patientData.email } : null,
-            patientData.phone && patientData.phone !== '0000000000'
-              ? { phone: patientData.phone }
-              : null,
-            patientData.firstName !== 'Unknown' && patientData.lastName !== 'Unknown'
-              ? {
-                  firstName: patientData.firstName,
-                  lastName: patientData.lastName,
-                  dob: patientData.dob,
-                }
-              : null,
-          ].filter(Boolean) as Prisma.PatientWhereInput[],
+          tags: submissionTags,
+          notes: buildNotes(null),
+          source: 'webhook',
+          searchIndex,
+          sourceMetadata: {
+            type: 'weightlossintake',
+            submissionId: normalized.submissionId,
+            submissionType,
+            qualified: qualifiedStatus,
+            intakeNotes,
+            timestamp: new Date().toISOString(),
+            clinicId,
+            clinicName: 'EONMEDS',
+          },
         },
       })
     );
-
-    if (existingPatient) {
-      // Update existing
-      const existingTags = Array.isArray(existingPatient.tags)
-        ? (existingPatient.tags as string[])
-        : [];
-      const wasPartial = existingTags.includes('partial-lead');
-      const upgradedFromPartial = wasPartial && !isPartialSubmission;
-
-      let updatedTags = mergeTags(existingPatient.tags, submissionTags);
-      if (upgradedFromPartial) {
-        updatedTags = updatedTags.filter(
-          (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
-        );
-        logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
-      }
-
-      // Rebuild search index with updated data
-      const updateSearchIndex = buildPatientSearchIndex({
-        ...patientData,
-        patientId: existingPatient.patientId,
-      });
-      patient = await withRetry(() =>
-        prisma.patient.update({
-          where: { id: existingPatient.id },
-          data: {
-            ...patientData,
-            tags: updatedTags,
-            notes: buildNotes(existingPatient.notes),
-            searchIndex: updateSearchIndex,
-          },
-        })
-      );
-      logger.info(`[WEIGHTLOSSINTAKE ${requestId}] ✓ Updated patient: ${patient.id}`);
-    } else {
-      // Create new - use clinic-specific counter
-      const patientNumber = await getNextPatientId(clinicId);
-      // Build search index from plain-text data BEFORE it gets encrypted
-      const searchIndex = buildPatientSearchIndex({
-        ...patientData,
-        patientId: patientNumber,
-      });
-      patient = await withRetry(() =>
-        prisma.patient.create({
-          data: {
-            ...patientData,
-            patientId: patientNumber,
-            clinicId: clinicId,
-            tags: submissionTags,
-            notes: buildNotes(null),
-            source: 'webhook',
-            searchIndex,
-            sourceMetadata: {
-              type: 'weightlossintake',
-              submissionId: normalized.submissionId,
-              submissionType,
-              qualified: qualifiedStatus,
-              intakeNotes,
-              timestamp: new Date().toISOString(),
-              clinicId,
-              clinicName: 'EONMEDS',
-            },
-          },
-        })
-      );
-      isNewPatient = true;
-      logger.info(
-        `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
-      );
-    }
+    isNewPatient = true;
+    logger.info(
+      `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
+    );
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {

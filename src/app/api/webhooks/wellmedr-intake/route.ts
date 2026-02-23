@@ -474,154 +474,8 @@ export async function POST(req: NextRequest) {
 
   try {
     // ═══════════════════════════════════════════════════════════════════
-    // ROBUST PATIENT LOOKUP - Check multiple criteria to avoid duplicates
+    // CREATE NEW PATIENT - No auto-merge. Duplicate profiles are merged manually.
     // ═══════════════════════════════════════════════════════════════════
-    // NOTE: Patient PHI (email, phone, name) is ENCRYPTED in the database.
-    // We must fetch patients and decrypt to compare, not use SQL WHERE clauses.
-
-    let existingPatient: Patient | null = null;
-
-    // Fetch recent patients from this clinic to check for duplicates
-    // (fetching all would be too slow, so limit to recent 500)
-    const recentPatients = await withRetry<Patient[]>(() =>
-      prisma.patient.findMany({
-        where: { clinicId: clinicId },
-        orderBy: { createdAt: 'desc' },
-        take: 500,
-      })
-    );
-
-    // Decrypt and compare each patient's PHI to find match
-    const searchEmail = patientData.email?.toLowerCase().trim();
-    const searchPhone = patientData.phone;
-    const searchFirstName = patientData.firstName?.toLowerCase().trim();
-    const searchLastName = patientData.lastName?.toLowerCase().trim();
-    const searchDob = patientData.dob;
-
-    for (const p of recentPatients) {
-      const decryptedEmail = safeDecrypt(p.email)?.toLowerCase().trim();
-      const decryptedPhone = safeDecrypt(p.phone);
-      const decryptedFirstName = safeDecrypt(p.firstName)?.toLowerCase().trim();
-      const decryptedLastName = safeDecrypt(p.lastName)?.toLowerCase().trim();
-      const decryptedDob = safeDecrypt(p.dob);
-
-      // 1. Match by email + DOB (same person: merge instead of creating new profile)
-      if (
-        searchEmail &&
-        searchEmail !== 'unknown@example.com' &&
-        searchDob &&
-        searchDob !== '1900-01-01' &&
-        decryptedEmail &&
-        decryptedEmail === searchEmail &&
-        decryptedDob === searchDob
-      ) {
-        existingPatient = p;
-        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by email+DOB: ${p.id}`);
-        break;
-      }
-
-      // 2. Match by email (skip placeholder emails)
-      if (
-        searchEmail &&
-        searchEmail !== 'unknown@example.com' &&
-        decryptedEmail &&
-        decryptedEmail === searchEmail
-      ) {
-        existingPatient = p;
-        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by email: ${p.id}`);
-        break;
-      }
-
-      // 3. Match by phone (skip placeholder phones)
-      if (
-        searchPhone &&
-        searchPhone !== '0000000000' &&
-        decryptedPhone &&
-        decryptedPhone === searchPhone
-      ) {
-        existingPatient = p;
-        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by phone: ${p.id}`);
-        break;
-      }
-
-      // 4. Match by name + DOB (for patients who changed email/phone)
-      if (
-        searchFirstName &&
-        searchFirstName !== 'unknown' &&
-        searchLastName &&
-        searchLastName !== 'unknown' &&
-        searchDob &&
-        searchDob !== '1900-01-01' &&
-        decryptedFirstName === searchFirstName &&
-        decryptedLastName === searchLastName &&
-        decryptedDob === searchDob
-      ) {
-        existingPatient = p;
-        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by name+DOB: ${p.id}`);
-        break;
-      }
-    }
-
-    if (!existingPatient) {
-      logger.debug(`[WELLMEDR-INTAKE ${requestId}] No existing patient found, will create new`);
-    }
-
-    if (existingPatient) {
-      // ═══════════════════════════════════════════════════════════════════
-      // UPDATE EXISTING PATIENT (or merge into stub from invoice webhook)
-      // ═══════════════════════════════════════════════════════════════════
-      const existingTags = Array.isArray(existingPatient.tags)
-        ? (existingPatient.tags as string[])
-        : [];
-      const wasPartial = existingTags.includes('partial-lead');
-      const wasStub = existingTags.includes('stub-from-invoice');
-      const upgradedFromPartial = wasPartial && !isPartialSubmission;
-
-      let updatedTags = mergeTags(existingPatient.tags, submissionTags);
-      if (upgradedFromPartial) {
-        updatedTags = updatedTags.filter(
-          (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
-        );
-        logger.info(`[WELLMEDR-INTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
-      }
-
-      // Merge stub patient: remove stub tags, add merge note
-      if (wasStub) {
-        updatedTags = updatedTags.filter(
-          (t: string) => t !== 'stub-from-invoice' && t !== 'needs-intake-merge'
-        );
-        updatedTags.push('merged-from-stub');
-        logger.info(
-          `[WELLMEDR-INTAKE ${requestId}] ⬆ MERGING stub patient (created by invoice webhook) with full intake data`
-        );
-      }
-
-      const updateSearchIndex = buildPatientSearchIndex({
-        ...patientData,
-        patientId: existingPatient!.patientId,
-      });
-      // When intake didn't provide a phone, don't overwrite existing patient phone with placeholder
-      const updatePayload = {
-        ...patientData,
-        profileStatus: 'ACTIVE' as const,
-        tags: updatedTags,
-        notes: buildNotes(existingPatient!.notes),
-        searchIndex: updateSearchIndex,
-      };
-      if (!updatePayload.phone) delete (updatePayload as { phone?: string }).phone;
-      patient = await withRetry(() =>
-        prisma.patient.update({
-          where: { id: existingPatient!.id },
-          data: updatePayload,
-        })
-      );
-      logger.info(
-        `[WELLMEDR-INTAKE ${requestId}] ✓ ${wasStub ? 'Merged stub → full' : 'Updated'} patient: ${patient.id} → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
-      );
-    } else {
-      // ═══════════════════════════════════════════════════════════════════
-      // CREATE NEW PATIENT - with retry on patientId conflict
-      // ═══════════════════════════════════════════════════════════════════
       const MAX_RETRIES = 5;
       let retryCount = 0;
       let created = false;
@@ -672,40 +526,6 @@ export async function POST(req: NextRequest) {
 
             // Wait a bit before retrying to avoid race conditions
             await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
-
-            // If this keeps happening, the patient might actually exist - try to find them again
-            if (retryCount >= 3) {
-              const refetchPatient = await prisma.patient.findFirst({
-                where: {
-                  clinicId: clinicId,
-                  OR: [{ email: patientData.email }, { phone: patientData.phone }],
-                },
-              });
-
-              if (refetchPatient) {
-                // Found the patient on re-check - update instead
-                const retrySearchIndex = buildPatientSearchIndex({
-                  ...patientData,
-                  patientId: refetchPatient.patientId,
-                });
-                const retryUpdatePayload = {
-                  ...patientData,
-                  profileStatus: 'ACTIVE' as const,
-                  tags: mergeTags(refetchPatient.tags, submissionTags),
-                  notes: buildNotes(refetchPatient.notes),
-                  searchIndex: retrySearchIndex,
-                };
-                if (!retryUpdatePayload.phone) delete (retryUpdatePayload as { phone?: string }).phone;
-                patient = await prisma.patient.update({
-                  where: { id: refetchPatient.id },
-                  data: retryUpdatePayload,
-                });
-                created = true;
-                logger.info(
-                  `[WELLMEDR-INTAKE ${requestId}] ✓ Found and updated patient on retry: ${patient.id}`
-                );
-              }
-            }
           } else {
             // Not a patientId conflict - rethrow
             throw createErr;
@@ -718,7 +538,6 @@ export async function POST(req: NextRequest) {
           `Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`
         );
       }
-    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     const errorStack = err instanceof Error ? err.stack : undefined;
