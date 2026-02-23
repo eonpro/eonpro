@@ -320,6 +320,11 @@ export async function POST(req: NextRequest) {
         where: {
           clinicId: clinicId,
           OR: [
+            patientData.email !== 'unknown@example.com' &&
+            patientData.dob &&
+            patientData.dob !== '1900-01-01'
+              ? { email: patientData.email, dob: patientData.dob }
+              : null,
             patientData.email !== 'unknown@example.com' ? { email: patientData.email } : null,
             patientData.phone && patientData.phone !== '0000000000'
               ? { phone: patientData.phone }

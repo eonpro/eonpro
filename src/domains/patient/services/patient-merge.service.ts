@@ -14,6 +14,7 @@ import {
   BadRequestError,
   ConflictError,
   ForbiddenError,
+  InternalError,
   NotFoundError,
 } from '@/domains/shared/errors';
 import type { UserContext } from '@/domains/shared/types';
@@ -439,6 +440,116 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           data: { patientId: targetPatientId },
         });
 
+        // Patient Notes (profile notes with author attribution)
+        await tx.patientNote.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Sales Rep assignments
+        await tx.patientSalesRepAssignment.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Refill queue
+        await tx.refillQueue.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Patient photos (portal progress/ID)
+        await tx.patientPhoto.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Lab reports
+        await tx.labReport.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Patient device connections (wellness/Terra)
+        await tx.patientDeviceConnection.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Wellness: streaks, achievements, points history, challenge participation
+        await tx.patientStreak.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+        await tx.patientAchievement.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+        await tx.pointsHistory.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+        await tx.challengeParticipant.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // PatientPoints is one-to-one (unique patientId) - move only if target has none
+        const sourcePoints = await tx.patientPoints.findUnique({
+          where: { patientId: sourcePatientId },
+        });
+        const targetPoints = await tx.patientPoints.findUnique({
+          where: { patientId: targetPatientId },
+        });
+        if (sourcePoints && !targetPoints) {
+          await tx.patientPoints.update({
+            where: { patientId: sourcePatientId },
+            data: { patientId: targetPatientId },
+          });
+        }
+
+        // Shipment labels (FedEx)
+        await tx.shipmentLabel.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Intake form drafts (optional patientId)
+        await tx.intakeFormDraft.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Portal invites
+        await tx.patientPortalInvite.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Telehealth sessions
+        await tx.telehealthSession.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Prescription cycles (platform billing)
+        await tx.patientPrescriptionCycle.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Platform fee events (optional patientId)
+        await tx.platformFeeEvent.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
+        // Push subscriptions (portal notifications)
+        await tx.pushSubscription.updateMany({
+          where: { patientId: sourcePatientId },
+          data: { patientId: targetPatientId },
+        });
+
         // =====================================================================
         // 2. HANDLE UNIQUE CONSTRAINT RELATIONS
         // =====================================================================
@@ -532,10 +643,23 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
             : preview.target.createdAt;
 
         // Encrypt PHI fields before writing to database
-        const encryptedMergedFields = encryptPatientPHI(
-          mergedFields as unknown as Record<string, unknown>,
-          [...PHI_FIELDS]
-        );
+        let encryptedMergedFields: Record<string, unknown>;
+        try {
+          encryptedMergedFields = encryptPatientPHI(
+            mergedFields as unknown as Record<string, unknown>,
+            [...PHI_FIELDS]
+          );
+        } catch (encErr) {
+          const msg = encErr instanceof Error ? encErr.message : String(encErr);
+          logger.error('Patient merge: encryption failed', {
+            sourcePatientId,
+            targetPatientId,
+            errorMessage: msg,
+          });
+          throw new InternalError(
+            'Merge could not encrypt profile data. Ensure ENCRYPTION_KEY is set and valid (see server logs).'
+          );
+        }
 
         // Rebuild search index from plain-text BEFORE encryption
         const searchIndex = buildPatientSearchIndex({

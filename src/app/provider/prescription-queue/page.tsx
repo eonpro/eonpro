@@ -1154,21 +1154,23 @@ export default function PrescriptionQueuePage() {
   const filteredItems = searchResult.matches;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#efece7' }}>
-      {/* Header */}
+    <div className="min-h-[100dvh]" style={{ backgroundColor: '#efece7' }}>
+      {/* Header - mobile-optimized: compact on small screens */}
       <div
         className="sticky top-0 z-10 border-b border-gray-200"
         style={{ backgroundColor: '#efece7' }}
       >
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* MedLink Logo */}
+        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+              {/* MedLink Logo - hide on very small, show compact on sm+ */}
               <svg
+                className="hidden h-8 w-24 flex-shrink-0 sm:block"
                 width="120"
                 height="32"
                 viewBox="0 0 1975.06 435.89"
                 xmlns="http://www.w3.org/2000/svg"
+                aria-hidden
               >
                 <g>
                   <path
@@ -1202,10 +1204,10 @@ export default function PrescriptionQueuePage() {
                   />
                 </g>
               </svg>
-              <div className="border-l border-gray-300 pl-4">
-                <h1 className="text-xl font-bold text-gray-900">Rx Queue</h1>
-                <p className="text-sm text-gray-500">
-                  {loading ? 'Loading...' : fetchFailed ? 'Failed to load' : `${total} patient${total !== 1 ? 's' : ''} awaiting prescriptions`}
+              <div className="min-w-0 flex-1 border-l border-gray-300 pl-3 sm:pl-4">
+                <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Rx Queue</h1>
+                <p className="truncate text-sm text-gray-500">
+                  {loading ? 'Loading...' : fetchFailed ? 'Failed to load' : `${total} patient${total !== 1 ? 's' : ''} awaiting`}
                 </p>
               </div>
             </div>
@@ -1214,7 +1216,7 @@ export default function PrescriptionQueuePage() {
                 setLoading(true);
                 fetchQueue();
               }}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-gray-600 transition-all hover:bg-white/50 hover:text-gray-900"
+              className="flex min-h-[44px] touch-manipulation items-center justify-center gap-2 self-end rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-gray-600 transition-all hover:bg-white/80 hover:text-gray-900 active:bg-gray-100 sm:self-auto"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -1223,7 +1225,7 @@ export default function PrescriptionQueuePage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 pb-28 sm:px-6 sm:pb-6 lg:px-8">
         {/* Success/Error Messages */}
         {successMessage && (
           <div className="animate-in slide-in-from-top flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4 duration-300">
@@ -1247,7 +1249,7 @@ export default function PrescriptionQueuePage() {
           </div>
         )}
 
-        {/* Search */}
+        {/* Search - touch-friendly height on mobile */}
         <div className="relative">
           <input
             type="text"
@@ -1259,12 +1261,12 @@ export default function PrescriptionQueuePage() {
               const pasted = e.clipboardData.getData('text');
               setSearchTerm(pasted.replace(/\s+/g, ' ').trim());
             }}
-            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-10 shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+            className="min-h-[48px] w-full touch-manipulation rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-10 text-base shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              className="absolute right-3 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 touch-manipulation items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />
@@ -1406,11 +1408,11 @@ export default function PrescriptionQueuePage() {
                       : 'border-gray-100 bg-white'
                   }`}
                 >
-                  {/* Main Card Content - Grid for alignment */}
+                  {/* Main Card Content - stacked on mobile, grid on xl */}
                   <div className="p-3 sm:p-4">
-                    <div className="grid grid-cols-[200px_180px_100px_100px_100px_auto] items-center gap-2">
+                    <div className="flex flex-col gap-3 xl:grid xl:grid-cols-[200px_180px_100px_100px_100px_auto] xl:items-center xl:gap-2">
                       {/* Patient Info - Col 1 */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isQueuedOrder
                             ? 'bg-gradient-to-br from-amber-100 to-amber-200'
@@ -1418,9 +1420,9 @@ export default function PrescriptionQueuePage() {
                         }`}>
                           <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-rose-600'}`} />
                         </div>
-                        <div className="min-w-0 overflow-hidden">
-                          <div className="flex flex-wrap items-center gap-1">
-                            <h3 className="truncate text-xs font-semibold text-gray-900">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <h3 className="truncate text-base font-semibold text-gray-900 sm:text-xs xl:text-xs">
                               {item.patientName}
                             </h3>
                             {isQueuedOrder && (
@@ -1430,25 +1432,33 @@ export default function PrescriptionQueuePage() {
                               </span>
                             )}
                             <span
-                              className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600"
+                              className="hidden items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 xl:inline-flex"
                               title="Clinic"
                             >
                               {item.clinic?.name || 'Unknown clinic'}
                             </span>
                           </div>
-                          <span className="rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400">
+                          <span className="hidden rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-400 xl:inline">
                             {item.patientDisplayId}
                           </span>
-                          <p className="truncate text-[10px] text-gray-500">
+                          <p className="hidden truncate text-[10px] text-gray-500 xl:block">
                             {item.patientEmail && !item.patientEmail.includes('unknown')
                               ? item.patientEmail
                               : ''}
                           </p>
+                          {/* Mobile: one-line summary (treatment • plan • amount) */}
+                          <p className="mt-0.5 text-sm text-gray-600 xl:mt-0 xl:hidden">
+                            {item.treatment}
+                            <span className="mx-1.5 text-gray-400">•</span>
+                            <span className="font-medium text-gray-700">{item.plan}</span>
+                            <span className="mx-1.5 text-gray-400">•</span>
+                            <span className="text-green-600">{item.amountFormatted}</span>
+                          </p>
                         </div>
                       </div>
 
-                      {/* Treatment & Plan - Col 2 */}
-                      <div className="flex items-center gap-2">
+                      {/* Treatment & Plan - Col 2 (hidden on mobile; summary in patient block) */}
+                      <div className="hidden min-w-0 items-center gap-2 xl:flex">
                         {/* Medication type icon - color coded */}
                         <div
                           className={`flex-shrink-0 rounded p-1 ${
@@ -1499,8 +1509,8 @@ export default function PrescriptionQueuePage() {
                         </div>
                       </div>
 
-                      {/* GLP-1 History - Col 3 */}
-                      <div className="flex items-center gap-1.5">
+                      {/* GLP-1 History - Col 3 (hidden on mobile to reduce density) */}
+                      <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
                         <div
                           className={`rounded p-1 ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}
                         >
@@ -1529,8 +1539,8 @@ export default function PrescriptionQueuePage() {
                         </div>
                       </div>
 
-                      {/* Clinic - Col 4 */}
-                      <div className="flex items-center gap-1.5">
+                      {/* Clinic - Col 4 (hidden on mobile) */}
+                      <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
                         <Building2 className="h-3 w-3 flex-shrink-0 text-gray-400" />
                         <div className="min-w-0 overflow-hidden">
                           <p className="truncate text-[10px] text-gray-700">
@@ -1549,21 +1559,23 @@ export default function PrescriptionQueuePage() {
                         </div>
                       </div>
 
-                      {/* Amount & Date - Col 5 */}
-                      <div className="text-right">
+                      {/* Amount & Date - Col 5 (hidden on mobile; amount in patient summary) */}
+                      <div className="hidden xl:contents">
+                        <div className="xl:text-right">
                         <p className="text-xs font-semibold text-green-600">
                           {item.amountFormatted}
                         </p>
                         <p className="text-[10px] text-gray-400">{formatDate(item.paidAt)}</p>
+                        </div>
                       </div>
 
-                      {/* Actions - Col 6 */}
-                      <div className="flex items-center justify-end gap-1">
+                      {/* Actions - Col 6 - full-width touch-friendly on mobile */}
+                      <div className="flex flex-wrap items-stretch justify-end gap-2 border-t border-gray-100 pt-3 xl:border-t-0 xl:pt-0">
                         {!isQueuedOrder && (
                           <>
                             <button
                               onClick={() => handleExpandItem(item.invoiceId!)}
-                              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
                               title="View patient details"
                             >
                               {expandedItem === item.invoiceId ? (
@@ -1575,32 +1587,32 @@ export default function PrescriptionQueuePage() {
                             <button
                               onClick={() => handleOpenPrescriptionPanel(item)}
                               disabled={!item.clinic?.lifefileEnabled}
-                              className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-rose-500 to-rose-600 px-2 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
                               title={
                                 item.clinic?.lifefileEnabled
                                   ? 'Write and send prescription'
                                   : 'Lifefile not configured for this clinic'
                               }
                             >
-                              <Send className="h-4 w-4" />
-                              <span className="hidden 2xl:inline">Write Rx</span>
+                              <Send className="h-4 w-4 flex-shrink-0" />
+                              <span>Write Rx</span>
                             </button>
                             <button
                               onClick={() => handleMarkProcessed(item)}
                               disabled={processing === (item.refillId || item.invoiceId || item.orderId)}
-                              className="flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-200 disabled:opacity-50"
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-200 disabled:opacity-50 sm:flex-initial"
                               title="Mark as done"
                             >
                               {processing === (item.refillId || item.invoiceId || item.orderId) ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
                               ) : (
-                                <CheckIcon className="h-4 w-4" />
+                                <CheckIcon className="h-4 w-4 flex-shrink-0" />
                               )}
-                              <span className="hidden 2xl:inline">Done</span>
+                              <span>Done</span>
                             </button>
                             <button
                               onClick={() => setDeclineModal({ item })}
-                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
                               title="Decline prescription request"
                             >
                               <X className="h-4 w-4" />
@@ -1611,7 +1623,7 @@ export default function PrescriptionQueuePage() {
                           <>
                             <button
                               onClick={() => item.orderId && handleExpandOrderItem(item.orderId)}
-                              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
                               title="View prescription details"
                             >
                               {expandedOrderId === item.orderId ? (
@@ -1634,19 +1646,19 @@ export default function PrescriptionQueuePage() {
                               disabled={
                                 !item.clinic?.lifefileEnabled || approvingOrderId === item.orderId
                               }
-                              className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2 py-1.5 text-sm font-medium text-white shadow-sm transition-all hover:from-amber-600 hover:to-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-amber-600 hover:to-amber-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
                               title="Approve and send to pharmacy (queued by admin)"
                             >
                               {approvingOrderId === item.orderId ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
                               ) : (
-                                <ClipboardCheck className="h-4 w-4" />
+                                <ClipboardCheck className="h-4 w-4 flex-shrink-0" />
                               )}
-                              <span className="hidden 2xl:inline">Approve & Send</span>
+                              <span>Approve & Send</span>
                             </button>
                             <button
                               onClick={() => setDeclineModal({ item })}
-                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
                               title="Decline this queued prescription"
                             >
                               <X className="h-4 w-4" />
@@ -2233,8 +2245,8 @@ export default function PrescriptionQueuePage() {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-6 py-4">
+            {/* Modal Footer - touch-friendly on mobile */}
+            <div className="flex flex-col gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:px-6">
               <button
                 type="button"
                 onMouseDown={(e) => {
@@ -2242,7 +2254,7 @@ export default function PrescriptionQueuePage() {
                   setDeclineModal(null);
                   setDeclineReason('');
                 }}
-                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
               >
                 Cancel
               </button>
@@ -2255,7 +2267,7 @@ export default function PrescriptionQueuePage() {
                   }
                 }}
                 disabled={declining || declineReason.trim().length < 10}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 font-medium text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-base font-medium text-white transition-all hover:bg-red-700 active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {declining ? (
                   <>
@@ -2289,48 +2301,50 @@ export default function PrescriptionQueuePage() {
           />
           {/* Panel container - stops ALL event propagation to prevent backdrop interference */}
           <div
-            className="absolute inset-y-0 right-0 z-10 flex max-w-full pl-10"
+            className="absolute inset-y-0 right-0 z-10 flex max-w-full pl-4 sm:pl-10"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
           >
-            <div className="w-screen max-w-lg transform transition-transform duration-300 ease-in-out">
+            <div className="w-full max-w-lg transform transition-transform duration-300 ease-in-out sm:w-screen">
               <div className="flex h-full flex-col bg-white shadow-xl">
-                {/* Panel Header */}
+                {/* Panel Header - touch-friendly close on mobile */}
                 <div
-                  className={`px-6 py-5 ${prescriptionPanel.item.queueType === 'queued_order' ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-rose-500 to-rose-600'}`}
+                  className={`px-4 py-4 sm:px-6 sm:py-5 ${prescriptionPanel.item.queueType === 'queued_order' ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-rose-500 to-rose-600'}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-white/20 p-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white/20">
                         {prescriptionPanel.item.queueType === 'queued_order' ? (
                           <ClipboardCheck className="h-5 w-5 text-white" />
                         ) : (
                           <Send className="h-5 w-5 text-white" />
                         )}
                       </div>
-                      <div>
-                        <h2 className="text-lg font-semibold text-white">
+                      <div className="min-w-0">
+                        <h2 className="text-base font-semibold text-white sm:text-lg">
                           {prescriptionPanel.item.queueType === 'queued_order'
                             ? 'Approve & send to pharmacy'
                             : 'Write Prescription'}
                         </h2>
-                        <p className="text-sm text-rose-100">
+                        <p className="truncate text-sm text-rose-100">
                           {prescriptionPanel.item.patientName}
                         </p>
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => setPrescriptionPanel(null)}
-                      className="rounded-lg p-2 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                      className="flex min-h-[44px] min-w-[44px] touch-manipulation flex-shrink-0 items-center justify-center rounded-xl text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                      aria-label="Close"
                     >
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
 
-                {/* Panel Content */}
-                <div className="flex-1 space-y-6 overflow-y-auto p-6">
+                {/* Panel Content - safe scroll, touch-friendly padding */}
+                <div className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
                   {prescriptionPanel.item.queueType === 'queued_order' ? (
                     <div className="space-y-6">
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -2387,11 +2401,11 @@ export default function PrescriptionQueuePage() {
                       {error && (
                         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
                       )}
-                      <div className="flex gap-3 pt-4">
+                      <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                         <button
                           type="button"
                           onClick={() => setPrescriptionPanel(null)}
-                          className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 font-medium text-gray-700 hover:bg-gray-50"
+                          className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
                         >
                           Cancel
                         </button>
@@ -2408,7 +2422,7 @@ export default function PrescriptionQueuePage() {
                             approvingOrderId === prescriptionPanel.item.orderId ||
                             !prescriptionPanel.item.clinic?.lifefileEnabled
                           }
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-base font-medium text-white hover:bg-amber-600 active:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {approvingOrderId === prescriptionPanel.item.orderId ? (
                             <>

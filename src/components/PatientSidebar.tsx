@@ -53,10 +53,13 @@ interface PatientSidebarProps {
   showLabsTab?: boolean;
   /** Base path for patient detail links. Use /provider/patients when rendered from provider route. */
   patientDetailBasePath?: string;
+  /** When set, show an "Active membership" badge (e.g. from active subscription). */
+  activeMembership?: { planName?: string } | null;
 }
 
 const navItems = [
   { id: 'profile', label: 'Profile', icon: 'Pp' },
+  { id: 'notes', label: 'Notes', icon: 'Nt' },
   { id: 'lab', label: 'Labs', icon: 'Lb' },
   { id: 'intake', label: 'Intake', icon: 'Pi' },
   { id: 'prescriptions', label: 'Prescriptions', icon: 'Rx' },
@@ -453,6 +456,7 @@ export default function PatientSidebar({
   clinicInfo,
   showLabsTab = true,
   patientDetailBasePath = '/patients',
+  activeMembership = null,
 }: PatientSidebarProps) {
   const router = useRouter();
   const [showEditModal, setShowEditModal] = useState(false);
@@ -639,6 +643,18 @@ export default function PatientSidebar({
         <h2 className="text-xl font-bold text-gray-900">
           {patient.firstName} {patient.lastName}
         </h2>
+        {activeMembership && (
+          <span
+            className="mb-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: 'var(--brand-primary-light, #e8f5e9)',
+              color: 'var(--brand-primary, #4fa77e)',
+            }}
+          >
+            Active membership
+            {activeMembership.planName ? ` · ${activeMembership.planName}` : ''}
+          </span>
+        )}
         <p className="mb-3 text-sm text-gray-500">
           {age ? `${age}, ` : ''}
           {genderLabel}

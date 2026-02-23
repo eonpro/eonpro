@@ -18,6 +18,12 @@ export type LifefileCredentials = {
   practiceFax?: string;
 };
 
+// Request timeout for Lifefile API (createFullOrder can be slow). Override via LIFEFILE_REQUEST_TIMEOUT_MS (ms).
+const LIFEFILE_TIMEOUT_MS = Math.min(
+  120000,
+  Math.max(15000, parseInt(process.env.LIFEFILE_REQUEST_TIMEOUT_MS || '45000', 10))
+);
+
 // Required env vars (legacy - for backwards compatibility)
 const REQUIRED_ENV = [
   'LIFEFILE_BASE_URL',
@@ -74,7 +80,7 @@ function createClient(credentials: LifefileCredentials): AxiosInstance {
       'X-API-Network-ID': credentials.networkId,
       'Content-Type': 'application/json',
     },
-    timeout: 20000,
+    timeout: LIFEFILE_TIMEOUT_MS,
   });
 
   client.interceptors.response.use(

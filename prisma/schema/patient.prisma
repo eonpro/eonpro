@@ -100,6 +100,9 @@ model Patient {
   // WEARABLE DEVICES: Terra API device connections (Fitbit, Garmin, Apple Watch, etc.)
   deviceConnections PatientDeviceConnection[]
 
+  // Profile-level notes (staff/admin/provider) with author attribution
+  profileNotes PatientNote[]
+
   // SEARCH INDEX: Lowercased plain-text of searchable fields for DB-level full-text search.
   // Contains: "firstname lastname email phone_digits patientid"
   // Enables SQL LIKE queries via pg_trgm GIN index for O(1) substring matching at any scale.
@@ -287,4 +290,23 @@ enum PatientPhotoVerificationStatus {
   VERIFIED       // ID verified successfully
   REJECTED       // ID rejected (blurry, wrong document, etc.)
   EXPIRED        // Verification expired, needs re-upload
+}
+
+// Patient profile notes: staff/admin/provider notes with author and center
+model PatientNote {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  patientId   Int
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  clinicId    Int
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  createdById Int
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  content     String   @db.Text
+  noteType    String?  // Optional: "General", "Follow-up", etc.; UI may show "None"
+
+  @@index([patientId])
+  @@index([clinicId])
+  @@index([createdById])
 }

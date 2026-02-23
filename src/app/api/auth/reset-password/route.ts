@@ -77,23 +77,52 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
 
     if (userExists) {
       const code = generateOTP();
-      await storeVerificationCode(email.toLowerCase(), code, 'password_reset');
+      const stored = await storeVerificationCode(email.toLowerCase(), code, 'password_reset');
+      if (!stored) {
+        logger.error('Failed to store password reset code', { email, role });
+        return NextResponse.json(
+          { error: 'Unable to process reset request. Please try again in a few minutes.' },
+          { status: 503 }
+        );
+      }
 
       if (viaSMS && patientPhone) {
         const clinicBranding = await resolveClinicEmailBranding(
           typeof clinicId === 'number' ? clinicId : undefined
         );
-        await sendVerificationSMS(
+        const smsSent = await sendVerificationSMS(
           patientPhone,
           code,
           'password_reset',
           clinicBranding?.clinicName
         );
+        if (!smsSent) {
+          logger.error('Failed to send password reset SMS', { email, role });
+          return NextResponse.json(
+            { error: 'We could not send the reset code via text. Please try again or use email.' },
+            { status: 503 }
+          );
+        }
       } else {
         const clinic = await resolveClinicEmailBranding(
           typeof clinicId === 'number' ? clinicId : undefined
         );
-        await sendVerificationEmail(email.toLowerCase(), code, 'password_reset', clinic);
+        const emailSent = await sendVerificationEmail(
+          email.toLowerCase(),
+          code,
+          'password_reset',
+          clinic
+        );
+        if (!emailSent) {
+          logger.error('Failed to send password reset email', { email, role });
+          return NextResponse.json(
+            {
+              error:
+                'We could not send the reset code to your email. Please check your address and try again, or contact support if the problem continues.',
+            },
+            { status: 503 }
+          );
+        }
       }
 
       logger.info(`Password reset requested for ${email} (${role}) via ${method}`);
@@ -111,16 +140,15 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       ...(process.env.NODE_ENV === 'development' && {
         userExists,
         ...(userExists && {
-          code: await prisma.patientAudit
+          code: await prisma.emailVerificationCode
             .findFirst({
               where: {
-                patientId: 0,
-                action: 'PASSWORD_RESET',
-                actorEmail: email.toLowerCase(),
+                email: email.toLowerCase(),
+                type: 'PASSWORD_RESET',
               },
               orderBy: { createdAt: 'desc' },
             })
-            .then((r) => (r && typeof r.diff === 'string' ? JSON.parse(r.diff).code : undefined)),
+            .then((r) => r?.code),
         }),
       }),
     });

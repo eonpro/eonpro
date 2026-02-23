@@ -29,6 +29,7 @@ type Params = {
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientLabView from '@/components/PatientLabView';
+import PatientNotesView from '@/components/PatientNotesView';
 import PatientPhotosView from '@/components/PatientPhotosView';
 import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
 import PatientQuickSearch from '@/components/PatientQuickSearch';
@@ -176,6 +177,11 @@ export default async function PatientDetailPage({
         orderBy: { createdAt: 'desc' } as const,
         take: 1,
         select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
+      },
+      subscriptions: {
+        where: { status: 'ACTIVE' },
+        take: 1,
+        select: { id: true, planName: true },
       },
     };
 
@@ -432,6 +438,7 @@ export default async function PatientDetailPage({
     if (activeTab === 'labs') activeTab = 'lab';
     const validTabs = [
       'profile',
+      'notes',
       'intake',
       'prescriptions',
       'soap-notes',
@@ -767,6 +774,11 @@ export default async function PatientDetailPage({
             }
             showLabsTab={showLabsTab}
             patientDetailBasePath={PATIENTS_LIST_PATH}
+            activeMembership={
+              (patientWithDecryptedPHI.subscriptions as { id: number; planName: string }[])?.[0]
+                ? { planName: (patientWithDecryptedPHI.subscriptions as { id: number; planName: string }[])[0].planName }
+                : null
+            }
           />
 
           {/* Main Content Area */}
@@ -971,6 +983,8 @@ export default async function PatientDetailPage({
                   </div>
                 )}
               </div>
+            ) : currentTab === 'notes' ? (
+              <PatientNotesView patientId={patientWithDecryptedPHI.id} />
             ) : currentTab === 'intake' ? (
               <PatientIntakeView
                 patient={patientWithDecryptedPHI}

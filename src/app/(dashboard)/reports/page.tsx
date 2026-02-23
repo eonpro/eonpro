@@ -39,6 +39,29 @@ interface SubscriptionMetrics {
   monthlyRecurringRevenue: number;
   annualRecurringRevenue: number;
   churnRate: number;
+  retentionRate?: number;
+  averageLTV?: number;
+  medianLTV?: number;
+  totalLTV?: number;
+  patientsWithPayments?: number;
+  churnedMrr?: number;
+  newMrrInPeriod?: number;
+  netMrrChange?: number;
+  averageLifetimeBeforeChurnDays?: number;
+  churnReasons?: Array<{
+    reason: string;
+    count: number;
+    mrr: number;
+    percentageOfTotal: number;
+  }>;
+  byMedication?: Array<{ medication: string; count: number; mrr: number; percentageOfTotal: number }>;
+  byInterval?: Array<{ intervalLabel: string; count: number; mrr: number; percentageOfTotal: number }>;
+  byMedicationAndInterval?: Array<{
+    medication: string;
+    intervalLabel: string;
+    count: number;
+    mrr: number;
+  }>;
   subscriptionsByMonth: Record<number, number>;
   recentCancellations: Array<{
     patientName: string;
@@ -236,6 +259,49 @@ function StatIcon({ type }: { type: string }) {
   return icons[type] || icons.chart;
 }
 
+// Star-in-circle icon for interval badges (white star on colored circle)
+function IntervalStarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6L12 2z"
+        fill="white"
+        fillRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+const INTERVAL_BADGE_STYLES: Record<
+  string,
+  { bg: string; text: string; circle: string }
+> = {
+  Monthly: { bg: 'bg-blue-100', text: 'text-blue-800', circle: 'bg-blue-500' },
+  '3 months': { bg: 'bg-amber-100', text: 'text-amber-800', circle: 'bg-amber-500' },
+  '6 months': { bg: 'bg-violet-100', text: 'text-violet-800', circle: 'bg-violet-500' },
+  '12 months': { bg: 'bg-emerald-100', text: 'text-emerald-800', circle: 'bg-emerald-500' },
+};
+
+function IntervalBadge({ intervalLabel }: { intervalLabel: string }) {
+  const style = INTERVAL_BADGE_STYLES[intervalLabel] || {
+    bg: 'bg-gray-100',
+    text: 'text-gray-800',
+    circle: 'bg-gray-500',
+  };
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${style.bg} ${style.text}`}
+    >
+      <span
+        className={`inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full ${style.circle}`}
+      >
+        <IntervalStarIcon className="h-3 w-3" />
+      </span>
+      {intervalLabel}
+    </span>
+  );
+}
+
 function StatCard({
   title,
   value,
@@ -429,18 +495,72 @@ export default function ReportsPage() {
                 <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800">
                   Export ↓
                 </button>
-                <div className="invisible absolute right-0 mt-2 w-48 rounded-lg border bg-white opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100">
+                <div className="invisible absolute right-0 mt-2 w-56 rounded-lg border bg-white opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100">
+                  <div className="border-b px-3 py-2 text-xs font-semibold uppercase text-gray-400">
+                    Full report
+                  </div>
                   <button
                     onClick={() => handleExport('csv', 'comprehensive')}
-                    className="w-full rounded-t-lg px-4 py-2 text-left text-sm hover:bg-gray-50"
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
                   >
-                    📄 Export as CSV
+                    📄 Comprehensive CSV
                   </button>
                   <button
                     onClick={() => handleExport('json', 'comprehensive')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    📋 Comprehensive JSON
+                  </button>
+                  <div className="border-b px-3 py-2 text-xs font-semibold uppercase text-gray-400">
+                    Membership lists
+                  </div>
+                  <button
+                    onClick={() => handleExport('csv', 'memberships_active')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    Active memberships (CSV)
+                  </button>
+                  <button
+                    onClick={() => handleExport('csv', 'memberships_cancelled')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    Cancelled memberships (CSV)
+                  </button>
+                  <button
+                    onClick={() => handleExport('csv', 'memberships_paused')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    Paused memberships (CSV)
+                  </button>
+                  <div className="border-b px-3 py-2 text-xs font-semibold uppercase text-gray-400">
+                    Analytics
+                  </div>
+                  <button
+                    onClick={() => handleExport('csv', 'membership_analytics')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    Membership analytics (churn, LTV, MRR)
+                  </button>
+                  <div className="border-b px-3 py-2 text-xs font-semibold uppercase text-gray-400">
+                    By type
+                  </div>
+                  <button
+                    onClick={() => handleExport('csv', 'subscriptions_by_medication')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    By medication (CSV)
+                  </button>
+                  <button
+                    onClick={() => handleExport('csv', 'subscriptions_by_interval')}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
+                  >
+                    By interval (CSV)
+                  </button>
+                  <button
+                    onClick={() => handleExport('csv', 'subscriptions_by_medication_and_interval')}
                     className="w-full rounded-b-lg px-4 py-2 text-left text-sm hover:bg-gray-50"
                   >
-                    📋 Export as JSON
+                    By medication × interval (CSV)
                   </button>
                 </div>
               </div>
@@ -487,7 +607,10 @@ export default function ReportsPage() {
         {activeTab === 'revenue' && report?.revenue && <RevenueTab metrics={report.revenue} />}
 
         {activeTab === 'subscriptions' && report?.subscriptions && (
-          <SubscriptionsTab metrics={report.subscriptions} />
+          <SubscriptionsTab
+            metrics={report.subscriptions}
+            onExportMemberships={handleExport}
+          />
         )}
 
         {activeTab === 'payments' && report?.payments && <PaymentsTab metrics={report.payments} />}
@@ -764,9 +887,73 @@ function RevenueTab({ metrics }: { metrics: RevenueMetrics }) {
 }
 
 // Subscriptions Tab
-function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
+function SubscriptionsTab({
+  metrics,
+  onExportMemberships,
+}: {
+  metrics: SubscriptionMetrics;
+  onExportMemberships?: (format: 'csv' | 'json', reportType: string) => void;
+}) {
   return (
     <div className="space-y-6">
+      {/* Membership list exports */}
+      {onExportMemberships && (
+        <div className="rounded-xl border bg-white p-4">
+          <h3 className="mb-3 font-semibold text-gray-900">Export membership lists</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'memberships_active')}
+              className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-700 transition hover:bg-green-100"
+            >
+              Active memberships (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'memberships_cancelled')}
+              className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+            >
+              Cancelled memberships (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'memberships_paused')}
+              className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-100"
+            >
+              Paused memberships (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'membership_analytics')}
+              className="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+            >
+              Full analytics (churn, LTV, MRR)
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'subscriptions_by_medication')}
+              className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              By medication (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'subscriptions_by_interval')}
+              className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              By interval (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={() => onExportMemberships('csv', 'subscriptions_by_medication_and_interval')}
+              className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              By medication × interval (CSV)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-6">
         <StatCard
           title="Active Subscriptions"
@@ -794,6 +981,44 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
         />
       </div>
 
+      {/* LTV & Retention row */}
+      {(metrics.retentionRate != null || metrics.averageLTV != null) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          {metrics.retentionRate != null && (
+            <StatCard
+              title="Retention Rate"
+              value={`${metrics.retentionRate}%`}
+              icon="target"
+              color="green"
+            />
+          )}
+          {metrics.averageLTV != null && (
+            <StatCard
+              title="Average LTV"
+              value={formatCurrency(metrics.averageLTV)}
+              icon="dollar"
+              color="blue"
+            />
+          )}
+          {metrics.medianLTV != null && (
+            <StatCard
+              title="Median LTV"
+              value={formatCurrency(metrics.medianLTV)}
+              icon="chart"
+              color="purple"
+            />
+          )}
+          {metrics.totalLTV != null && (
+            <StatCard
+              title="Total LTV"
+              value={formatCurrency(metrics.totalLTV)}
+              icon="dollar"
+              color="green"
+            />
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-6">
         <div className="rounded-xl border bg-white p-6">
           <h3 className="mb-4 font-semibold text-gray-900">MRR & ARR</h3>
@@ -810,6 +1035,26 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
                 {formatCurrency(metrics.annualRecurringRevenue)}
               </p>
             </div>
+            {(metrics.churnedMrr != null || metrics.newMrrInPeriod != null) && (
+              <div className="mt-4 space-y-2 border-t pt-4">
+                <p className="text-sm font-medium text-gray-700">MRR in period</p>
+                {metrics.newMrrInPeriod != null && (
+                  <p className="text-sm text-green-600">
+                    New MRR: +{formatCurrency(metrics.newMrrInPeriod)}
+                  </p>
+                )}
+                {metrics.churnedMrr != null && (
+                  <p className="text-sm text-red-600">
+                    Churned MRR: −{formatCurrency(metrics.churnedMrr)}
+                  </p>
+                )}
+                {metrics.netMrrChange != null && (
+                  <p className="text-sm font-semibold text-gray-900">
+                    Net MRR change: {metrics.netMrrChange >= 0 ? '+' : ''}{formatCurrency(metrics.netMrrChange)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -829,6 +1074,141 @@ function SubscriptionsTab({ metrics }: { metrics: SubscriptionMetrics }) {
           </div>
         </div>
       </div>
+
+      {/* By medication */}
+      {metrics.byMedication && metrics.byMedication.length > 0 && (
+        <div className="rounded-xl border bg-white p-6">
+          <h3 className="mb-4 font-semibold text-gray-900">Subscriptions by medication</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="pb-2">Medication</th>
+                  <th className="pb-2 text-right">Count</th>
+                  <th className="pb-2 text-right">MRR</th>
+                  <th className="pb-2 text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.byMedication.map((r, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="py-2 font-medium text-gray-900">{r.medication}</td>
+                    <td className="py-2 text-right">{r.count}</td>
+                    <td className="py-2 text-right text-green-600">{formatCurrency(r.mrr)}</td>
+                    <td className="py-2 text-right text-gray-500">{r.percentageOfTotal}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* By interval */}
+      {metrics.byInterval && metrics.byInterval.length > 0 && (
+        <div className="rounded-xl border bg-white p-6">
+          <h3 className="mb-4 font-semibold text-gray-900">Subscriptions by interval</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="pb-2">Interval</th>
+                  <th className="pb-2 text-right">Count</th>
+                  <th className="pb-2 text-right">MRR</th>
+                  <th className="pb-2 text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.byInterval.map((r, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="py-2">
+                      <IntervalBadge intervalLabel={r.intervalLabel} />
+                    </td>
+                    <td className="py-2 text-right">{r.count}</td>
+                    <td className="py-2 text-right text-green-600">{formatCurrency(r.mrr)}</td>
+                    <td className="py-2 text-right text-gray-500">{r.percentageOfTotal}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* By medication × interval */}
+      {metrics.byMedicationAndInterval && metrics.byMedicationAndInterval.length > 0 && (
+        <div className="rounded-xl border bg-white p-6">
+          <h3 className="mb-4 font-semibold text-gray-900">Subscriptions by medication and interval</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="pb-2">Medication</th>
+                  <th className="pb-2">Interval</th>
+                  <th className="pb-2 text-right">Count</th>
+                  <th className="pb-2 text-right">MRR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.byMedicationAndInterval.map((r, i) => (
+                  <tr key={i} className="border-b last:border-0">
+                    <td className="py-2 font-medium text-gray-900">{r.medication}</td>
+                    <td className="py-2">
+                      <IntervalBadge intervalLabel={r.intervalLabel} />
+                    </td>
+                    <td className="py-2 text-right">{r.count}</td>
+                    <td className="py-2 text-right text-green-600">{formatCurrency(r.mrr)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Average lifetime before churn & Churn reasons */}
+      {(metrics.averageLifetimeBeforeChurnDays != null || (metrics.churnReasons && metrics.churnReasons.length > 0)) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {metrics.averageLifetimeBeforeChurnDays != null && (
+            <div className="rounded-xl border bg-white p-6">
+              <h3 className="mb-2 font-semibold text-gray-900">Avg. lifetime before churn</h3>
+              <p className="text-2xl font-bold text-gray-900">
+                {metrics.averageLifetimeBeforeChurnDays} days
+              </p>
+              <p className="text-sm text-gray-500">
+                Among subscriptions cancelled in the selected period
+              </p>
+            </div>
+          )}
+          {metrics.churnReasons && metrics.churnReasons.length > 0 && (
+            <div className="rounded-xl border bg-white p-6">
+              <h3 className="mb-4 font-semibold text-gray-900">Churn reasons (period)</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-gray-500">
+                      <th className="pb-2">Reason</th>
+                      <th className="pb-2 text-right">Count</th>
+                      <th className="pb-2 text-right">MRR lost</th>
+                      <th className="pb-2 text-right">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {metrics.churnReasons.slice(0, 10).map((r, i) => (
+                      <tr key={i} className="border-b last:border-0">
+                        <td className="py-2 font-medium text-gray-900">{r.reason}</td>
+                        <td className="py-2 text-right">{r.count}</td>
+                        <td className="py-2 text-right text-red-600">{formatCurrency(r.mrr)}</td>
+                        <td className="py-2 text-right text-gray-500">{r.percentageOfTotal}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Paused Subscriptions */}
       {metrics.recentPauses.length > 0 && (

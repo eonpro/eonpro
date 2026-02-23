@@ -75,13 +75,21 @@ export async function POST(req: NextRequest) {
     // Extract patient data from normalized intake
     const patientData = normalized.patient;
 
-    // Create or update patient
-    let patient = await prisma.patient.findFirst({
-      where: {
-        clinicId,
-        email: patientData.email,
-      },
-    });
+    // Create or update patient: same email + same DOB = merge (no new profile)
+    const normalizedDob =
+      patientData.dob && patientData.dob !== '1900-01-01' ? patientData.dob : null;
+    let patient = await (async () => {
+      if (!patientData.email) return null;
+      if (normalizedDob) {
+        const byEmailAndDob = await prisma.patient.findFirst({
+          where: { clinicId, email: patientData.email, dob: normalizedDob },
+        });
+        if (byEmailAndDob) return byEmailAndDob;
+      }
+      return prisma.patient.findFirst({
+        where: { clinicId, email: patientData.email },
+      });
+    })();
 
     const isNewPatient = !patient;
 

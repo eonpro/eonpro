@@ -795,7 +795,9 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     }
 
     if (invoice.payments && invoice.payments.length > 0) {
-      const paidPayments = invoice.payments.filter((p: any) => p.status === 'COMPLETED');
+      const paidPayments = invoice.payments.filter(
+        (p: { status: string }) => p.status === 'SUCCEEDED' || p.status === 'PROCESSING'
+      );
       if (paidPayments.length > 0) {
         return NextResponse.json(
           { error: 'Cannot delete an invoice with completed payments. Void or refund instead.' },

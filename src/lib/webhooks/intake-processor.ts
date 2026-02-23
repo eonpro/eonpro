@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { attributeFromIntake, tagPatientWithReferralCodeOnly } from '@/services/affiliate/attributionService';
+import { attributeFromIntakeSalesRep } from '@/services/sales-rep/attributionService';
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
@@ -212,9 +213,17 @@ export class IntakeProcessor {
   ): Promise<{ patient: any; isNew: boolean }> {
     const patientData = this.normalizePatientData(normalized.patient);
 
-    // Build match filters
+    // Build match filters: same email + same DOB = same person (merge, do not create new)
     const matchFilters: Prisma.PatientWhereInput[] = [];
 
+    if (
+      patientData.email &&
+      patientData.email !== 'unknown@example.com' &&
+      patientData.dob &&
+      patientData.dob !== '1900-01-01'
+    ) {
+      matchFilters.push({ email: patientData.email, dob: patientData.dob });
+    }
     if (patientData.email && patientData.email !== 'unknown@example.com') {
       matchFilters.push({ email: patientData.email });
     }
@@ -224,7 +233,8 @@ export class IntakeProcessor {
     if (
       patientData.firstName !== 'Unknown' &&
       patientData.lastName !== 'Unknown' &&
-      patientData.dob
+      patientData.dob &&
+      patientData.dob !== '1900-01-01'
     ) {
       matchFilters.push({
         firstName: patientData.firstName,
@@ -433,6 +443,22 @@ export class IntakeProcessor {
     }
 
     try {
+      // Try sales rep attribution first (shareable rep intake links)
+      const salesRepResult = await attributeFromIntakeSalesRep(
+        patientId,
+        normalizedCode,
+        clinicId,
+        this.source
+      );
+      if (salesRepResult) {
+        logger.info(`[INTAKE ${this.requestId}] Sales rep attribution created`, {
+          salesRepId: salesRepResult.salesRepId,
+          refCode: salesRepResult.refCode,
+          touchId: salesRepResult.touchId,
+        });
+        return;
+      }
+
       const attribution = await attributeFromIntake(
         patientId,
         normalizedCode,

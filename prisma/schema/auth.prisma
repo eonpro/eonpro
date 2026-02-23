@@ -126,8 +126,15 @@ model User {
   assignmentsMadeByUser PatientSalesRepAssignment[] @relation("AssignmentsMadeBy")
   assignmentsRemovedBy  PatientSalesRepAssignment[] @relation("AssignmentsRemovedBy")
 
+  // Sales Rep Ref Codes & Touch Tracking
+  salesRepRefCodes SalesRepRefCode[] @relation("SalesRepRefCodes")
+  salesRepTouches  SalesRepTouch[]   @relation("SalesRepTouches")
+
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
+
+  // Patient profile notes created by this user
+  patientNotesCreated PatientNote[]
 
   // In-App Notifications
   notifications Notification[]
@@ -297,6 +304,21 @@ model PhoneOtp {
 
   @@index([phone, code, expiresAt])
   @@index([phone])
+}
+
+// Email OTP for password reset, login OTP, and email verification (no Patient FK)
+model EmailVerificationCode {
+  id        Int       @id @default(autoincrement())
+  email     String // Lowercase email
+  code      String // 6-digit OTP
+  type      String // EMAIL_VERIFICATION | PASSWORD_RESET | LOGIN_OTP
+  expiresAt DateTime
+  verified  Boolean   @default(false)
+  verifiedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, type])
+  @@index([expiresAt])
 }
 
 enum UserRole {

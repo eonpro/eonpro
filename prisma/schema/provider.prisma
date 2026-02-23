@@ -71,8 +71,28 @@ model Provider {
   telehealthSessions    TelehealthSession[]
   calendarSubscriptions CalendarSubscription[]
 
+  // Per-state licenses with expiration (replaces single licenseState/licenseNumber for multi-state)
+  licenses ProviderLicense[]
+
   @@index([status])
   @@index([isEonproProvider])
+}
+
+// Per-state license with expiration date
+model ProviderLicense {
+  id            Int      @id @default(autoincrement())
+  providerId    Int
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  state         String   // 2-letter state code (e.g. CA, TX)
+  licenseNumber String
+  expiresAt     DateTime
+  issuedAt      DateTime? // Optional issue date
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerId, state])
+  @@index([providerId])
+  @@index([expiresAt])
 }
 
 // ENTERPRISE: Junction table for providers belonging to multiple clinics

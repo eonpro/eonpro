@@ -23,6 +23,9 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
 import { splitSearchTerms, buildPatientSearchWhere } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+
+const SALES_REP_VIEW_ALL_PATIENTS = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
 
 // Roles that can access this endpoint (provider/staff may use admin Patients page)
 const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep', 'provider', 'staff'] as const;
@@ -81,8 +84,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       whereClause.clinicId = clinicId;
     }
 
-    // Sales rep: use relation filter instead of separate ID-fetch query
-    if (user.role === 'sales_rep') {
+    // Sales rep: only assigned patients unless admin granted "view all patients"
+    const salesRepCanViewAll = Boolean(
+      user.permissions && user.permissions.includes(SALES_REP_VIEW_ALL_PATIENTS)
+    );
+    if (user.role === 'sales_rep' && !salesRepCanViewAll) {
       whereClause.salesRepAssignments = {
         some: {
           salesRepId: user.id,

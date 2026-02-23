@@ -112,16 +112,68 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     const clinicId = user.clinicId ?? undefined;
 
     const result = await runWithClinicContext(clinicId, async () => {
-      const shippingUpdates = await prisma.patientShippingUpdate.findMany({
-        where: { patientId },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-        include: {
-          order: {
+      const [shippingUpdates, ordersWithTracking, allRecentOrders, paidInvoicesAwaitingRx] =
+        await Promise.all([
+          prisma.patientShippingUpdate.findMany({
+            where: { patientId },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+            include: {
+              order: {
+                select: {
+                  id: true,
+                  lifefileOrderId: true,
+                  createdAt: true,
+                  primaryMedName: true,
+                  primaryMedStrength: true,
+                  rxs: {
+                    select: {
+                      medName: true,
+                      strength: true,
+                      quantity: true,
+                      form: true,
+                    },
+                  },
+                },
+              },
+            },
+          }),
+          prisma.order.findMany({
+            where: {
+              patientId,
+              trackingNumber: { not: null },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
             select: {
               id: true,
-              lifefileOrderId: true,
               createdAt: true,
+              lifefileOrderId: true,
+              trackingNumber: true,
+              trackingUrl: true,
+              shippingStatus: true,
+              primaryMedName: true,
+              primaryMedStrength: true,
+              status: true,
+              rxs: {
+                select: {
+                  medName: true,
+                  strength: true,
+                  quantity: true,
+                  form: true,
+                },
+              },
+            },
+          }),
+          prisma.order.findMany({
+            where: { patientId },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            select: {
+              id: true,
+              createdAt: true,
+              lifefileOrderId: true,
+              trackingNumber: true,
               primaryMedName: true,
               primaryMedStrength: true,
               rxs: {
@@ -133,39 +185,25 @@ async function getHandler(req: NextRequest, user: AuthUser) {
                 },
               },
             },
-          },
-        },
-      });
-
-      const ordersWithTracking = await prisma.order.findMany({
-        where: {
-          patientId,
-          trackingNumber: { not: null },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-        select: {
-          id: true,
-          createdAt: true,
-          lifefileOrderId: true,
-          trackingNumber: true,
-          trackingUrl: true,
-          shippingStatus: true,
-          primaryMedName: true,
-          primaryMedStrength: true,
-          status: true,
-          rxs: {
-            select: {
-              medName: true,
-              strength: true,
-              quantity: true,
-              form: true,
+          }),
+          prisma.invoice.findMany({
+            where: {
+              patientId,
+              status: 'PAID',
+              prescriptionProcessed: false,
             },
-          },
-        },
-      });
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+            select: { id: true, createdAt: true, description: true },
+          }),
+        ]);
 
-      return { shippingUpdates, ordersWithTracking };
+      return {
+        shippingUpdates,
+        ordersWithTracking,
+        allRecentOrders,
+        paidInvoicesAwaitingRx,
+      };
     });
 
     const shipmentMap = new Map<string, Record<string, unknown>>();
@@ -263,6 +301,68 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       (s) => s.status === 'delivered' || s.status === 'exception'
     );
 
+    // Build prescription journey (steps 1–4) for transparency before tracking exists
+    type JourneyStage = 1 | 2 | 3 | 4;
+    type PrescriptionJourney = {
+      stage: JourneyStage;
+      label: string;
+      message: string;
+      medicationName: string | null;
+      orderId?: number;
+      trackingNumber?: string | null;
+      trackingUrl?: string | null;
+      carrier?: string | null;
+      orderedAt?: string | null;
+    };
+
+    const hasTracking =
+      result.shippingUpdates.some((u) => u.trackingNumber?.trim()) ||
+      result.ordersWithTracking.some((o) => o.trackingNumber?.trim());
+    const orderSentNoTracking = result.allRecentOrders.find(
+      (o) => o.lifefileOrderId && !(o.trackingNumber?.trim())
+    );
+    const paidNoRx = result.paidInvoicesAwaitingRx.length > 0;
+
+    let prescriptionJourney: PrescriptionJourney | null = null;
+
+    if (hasTracking && activeShipments.length > 0) {
+      const s = activeShipments[0] as Record<string, unknown>;
+      const medName =
+        (Array.isArray(s.items) && (s.items[0] as { name?: string })?.name) || 'your medication';
+      prescriptionJourney = {
+        stage: 4,
+        label: 'On the way',
+        message: `Your prescription is on the way! Track your shipment below.`,
+        medicationName: String(medName),
+        trackingNumber: s.trackingNumber as string | null,
+        trackingUrl: (s.trackingUrl as string | null) ?? null,
+        carrier: (s.carrier as string) ?? null,
+        orderedAt: (s.orderedAt as string) ?? null,
+      };
+    } else if (orderSentNoTracking) {
+      const medName =
+        orderSentNoTracking.primaryMedName ||
+        orderSentNoTracking.rxs?.[0]?.medName ||
+        'your medication';
+      prescriptionJourney = {
+        stage: 3,
+        label: 'Pharmacy processing',
+        message: `Congratulations! Your prescription for "${medName}" has been approved and sent to the pharmacy. The pharmacy is currently processing your prescription. Tracking will appear here once your order ships.`,
+        medicationName: medName,
+        orderId: orderSentNoTracking.id,
+        orderedAt: safeDate(orderSentNoTracking.createdAt),
+      };
+    } else if (paidNoRx) {
+      prescriptionJourney = {
+        stage: 1,
+        label: 'Provider reviewing',
+        message:
+          'A licensed provider is reviewing your intake information. You will see updates here once your prescription is approved and sent to the pharmacy.',
+        medicationName: null,
+        orderedAt: safeDate(result.paidInvoicesAwaitingRx[0]?.createdAt),
+      };
+    }
+
     try {
       await auditLog(req, {
         userId: user.id,
@@ -289,6 +389,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       success: true,
       activeShipments,
       deliveredShipments,
+      prescriptionJourney,
       totalActive: activeShipments.length,
       totalDelivered: deliveredShipments.length,
     });

@@ -170,8 +170,13 @@ function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreat
 
 function buildMatchFilters(patient: NormalizedPatient) {
   const filters: Prisma.PatientWhereInput[] = [];
-  if (patient.email) {
-    filters.push({ email: patient.email.toLowerCase() });
+  const email = patient.email?.toLowerCase();
+  const dob = patient.dob && patient.dob !== '1900-01-01' ? patient.dob : null;
+  if (email && email !== 'unknown@example.com' && dob) {
+    filters.push({ email, dob });
+  }
+  if (email && email !== 'unknown@example.com') {
+    filters.push({ email });
   }
   if (patient.phone) {
     filters.push({ phone: sanitizePhone(patient.phone) });

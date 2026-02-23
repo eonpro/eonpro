@@ -72,18 +72,25 @@ export default function Error({
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Buttons - touch-friendly on mobile */}
         <div className="flex flex-col justify-center gap-3 sm:flex-row">
           <button
             onClick={reset}
-            className="inline-flex items-center justify-center gap-2.5 rounded-full bg-gray-900 px-7 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 hover:shadow-md active:scale-[0.98]"
+            className="inline-flex min-h-[48px] touch-manipulation items-center justify-center gap-2.5 rounded-full bg-gray-900 px-7 py-3 text-base font-medium text-white shadow-sm transition-all hover:bg-gray-800 hover:shadow-md active:scale-[0.98]"
           >
             <RefreshCw className="h-4 w-4" />
             Try Again
           </button>
           <a
+            href="/login"
+            className="inline-flex min-h-[48px] touch-manipulation items-center justify-center gap-2.5 rounded-full border border-gray-300/60 bg-white/80 px-7 py-3 text-base font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md active:scale-[0.98]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to login
+          </a>
+          <a
             href="/"
-            className="inline-flex items-center justify-center gap-2.5 rounded-full border border-gray-300/60 bg-white/80 px-7 py-3 text-sm font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md active:scale-[0.98]"
+            className="inline-flex min-h-[48px] touch-manipulation items-center justify-center gap-2.5 rounded-full border border-gray-300/60 bg-white/80 px-7 py-3 text-base font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md active:scale-[0.98]"
           >
             <Home className="h-4 w-4" />
             Go Home
@@ -93,7 +100,7 @@ export default function Error({
         {/* Back Link */}
         <button
           onClick={() => window.history.back()}
-          className="mt-6 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-600"
+          className="mt-6 inline-flex min-h-[44px] touch-manipulation items-center gap-2 px-2 text-sm text-gray-400 transition-colors hover:text-gray-600"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Go back to previous page

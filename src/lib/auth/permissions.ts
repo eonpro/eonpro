@@ -123,6 +123,9 @@ export const PERMISSIONS = {
   REPORT_GENERATE: 'report:generate',
   REPORT_EXPORT: 'report:export',
   REPORT_SCHEDULE: 'report:schedule',
+
+  // Sales Rep (admin-grantable; not in default role)
+  SALES_REP_VIEW_ALL_PATIENTS: 'sales_rep:view_all_patients',
 } as const;
 
 /**
@@ -190,6 +193,11 @@ export const PERMISSION_META: Record<string, { label: string; description: strin
   'report:generate': { label: 'Generate Reports', description: 'Create reports' },
   'report:export': { label: 'Export Reports', description: 'Download report files' },
   'report:schedule': { label: 'Schedule Reports', description: 'Set up recurring reports' },
+
+  'sales_rep:view_all_patients': {
+    label: 'View All Patients',
+    description: 'Sales rep can see all clinic patients (not only assigned)',
+  },
 };
 
 /**
@@ -285,6 +293,15 @@ export const PERMISSION_CATEGORIES: PermissionCategoryDef[] = [
     prefix: 'report:',
     permissions: Object.entries(PERMISSIONS)
       .filter(([, v]) => v.startsWith('report:'))
+      .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
+  },
+  {
+    id: 'sales_rep',
+    label: 'Sales Rep',
+    description: 'Sales rep extra permissions (grantable by admin)',
+    prefix: 'sales_rep:',
+    permissions: Object.entries(PERMISSIONS)
+      .filter(([, v]) => v.startsWith('sales_rep:'))
       .map(([k, v]) => ({ key: k, value: v, ...PERMISSION_META[v] })),
   },
 ];

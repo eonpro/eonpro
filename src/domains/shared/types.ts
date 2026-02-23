@@ -19,7 +19,7 @@ export interface UserContext {
   /** User email address */
   email: string;
   /** User role for authorization */
-  role: 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient';
+  role: 'super_admin' | 'admin' | 'provider' | 'staff' | 'patient' | 'sales_rep';
   /** Clinic ID the user belongs to (null for super_admin) */
   clinicId?: number | null;
   /** Patient ID if the user is a patient */

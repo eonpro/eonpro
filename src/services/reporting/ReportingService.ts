@@ -175,6 +175,30 @@ export interface SubscriptionMetrics {
   annualRecurringRevenue: number;
   averageSubscriptionValue: number;
   churnRate: number;
+  retentionRate: number;
+  /** Average lifetime value (total payments) per patient, in cents */
+  averageLTV: number;
+  /** Median LTV in cents */
+  medianLTV: number;
+  /** Total LTV across all patients in cents */
+  totalLTV: number;
+  /** Number of patients with at least one successful payment */
+  patientsWithPayments: number;
+  /** MRR lost from subscriptions cancelled in period (cents) */
+  churnedMrr: number;
+  /** MRR from new subscriptions started in period (cents) */
+  newMrrInPeriod: number;
+  /** Net MRR change in period (cents) */
+  netMrrChange: number;
+  /** Average days from start to cancel for subscriptions churned in period */
+  averageLifetimeBeforeChurnDays: number;
+  /** Top churn reasons with count, MRR, and percentage */
+  churnReasons: Array<{
+    reason: string;
+    count: number;
+    mrr: number;
+    percentageOfTotal: number;
+  }>;
   subscriptionsByMonth: Record<number, number>; // Month 1, 2, 3, etc.
   recentCancellations: Array<{
     patientId: number;
@@ -188,6 +212,17 @@ export interface SubscriptionMetrics {
     patientName: string;
     pausedAt: Date;
     resumeAt?: Date;
+  }>;
+  /** Breakdown by medication (e.g. Semaglutide, Tirzepatide, NAD). */
+  byMedication: Array<{ medication: string; count: number; mrr: number; percentageOfTotal: number }>;
+  /** Breakdown by interval (Monthly, 3 months, 6 months, 12 months). */
+  byInterval: Array<{ intervalLabel: string; count: number; mrr: number; percentageOfTotal: number }>;
+  /** Cross breakdown: medication × interval (e.g. Semaglutide Monthly, Tirzepatide 3 months). */
+  byMedicationAndInterval: Array<{
+    medication: string;
+    intervalLabel: string;
+    count: number;
+    mrr: number;
   }>;
 }
 
@@ -419,6 +454,74 @@ function calculateAge(dob: string): number {
  */
 function monthsBetween(start: Date, end: Date): number {
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+}
+
+/**
+ * Normalize subscription amount to monthly (MRR) in cents
+ */
+function subscriptionToMonthlyCents(amount: number, interval: string | null, intervalCount: number = 1): number {
+  const n = Math.max(1, intervalCount);
+  switch ((interval || 'month').toLowerCase()) {
+    case 'year':
+      return Math.round(amount / 12 / n);
+    case 'month':
+      return Math.round(amount / n);
+    case 'week':
+      return Math.round((amount * 52) / 12 / n);
+    default:
+      return amount;
+  }
+}
+
+/**
+ * Days between two dates
+ */
+function daysBetween(start: Date, end: Date): number {
+  return Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Known medication keywords (lowercase) for grouping planName. First match wins. */
+const MEDICATION_KEYWORDS: Array<{ key: string; label: string }> = [
+  { key: 'semaglutide', label: 'Semaglutide' },
+  { key: 'tirzepatide', label: 'Tirzepatide' },
+  { key: 'nad', label: 'NAD' },
+  { key: 'sermorelin', label: 'Sermorelin' },
+  { key: 'testosterone', label: 'Testosterone' },
+  { key: 'ozempic', label: 'Semaglutide' },
+  { key: 'wegovy', label: 'Semaglutide' },
+  { key: 'mounjaro', label: 'Tirzepatide' },
+  { key: 'zepbound', label: 'Tirzepatide' },
+  { key: 'glp-1', label: 'GLP-1' },
+];
+
+/**
+ * Normalize planName to a medication bucket for reporting (e.g. "Semaglutide 3 Month" → "Semaglutide").
+ */
+export function normalizeMedicationFromPlanName(planName: string | null): string {
+  if (!planName || !String(planName).trim()) return 'Other';
+  const lower = String(planName).toLowerCase();
+  for (const { key, label } of MEDICATION_KEYWORDS) {
+    if (lower.includes(key)) return label;
+  }
+  return 'Other';
+}
+
+/**
+ * Normalize interval + intervalCount to a display label (e.g. monthly, 3 months, 6 months, 12 months).
+ */
+export function normalizeIntervalLabel(interval: string | null, intervalCount: number): string {
+  const i = (interval || 'month').toLowerCase();
+  const n = Math.max(1, intervalCount);
+  if (i === 'year') return '12 months';
+  if (i === 'month') {
+    if (n === 1) return 'Monthly';
+    if (n === 3) return '3 months';
+    if (n === 6) return '6 months';
+    if (n === 12) return '12 months';
+    return `${n} months`;
+  }
+  if (i === 'week') return n === 4 ? 'Monthly' : `${n} weeks`;
+  return `${n} ${i}`;
 }
 
 // ============================================================================
@@ -920,12 +1023,13 @@ export class ReportingService {
         ...clinicFilter,
         status: 'ACTIVE',
       },
-      select: { amount: true, interval: true, intervalCount: true },
+      select: { amount: true, interval: true, intervalCount: true, planName: true },
     });
 
     const monthlyRecurringRevenue = activeSubscriptions.reduce(
-      (sum: number, s: SubscriptionMRRSelect) => {
-        if (s.interval === 'month') return sum + s.amount / s.intervalCount;
+      (sum: number, s: { amount: number; interval: string | null; intervalCount: number | null }) => {
+        const n = Math.max(1, s.intervalCount ?? 1);
+        if (s.interval === 'month') return sum + s.amount / n;
         if (s.interval === 'year') return sum + s.amount / 12;
         return sum + s.amount;
       },
@@ -981,6 +1085,77 @@ export class ReportingService {
       subscriptionsByMonth[months] = (subscriptionsByMonth[months] || 0) + 1;
     });
 
+    // Breakdown by medication, by interval, and by medication × interval
+    type SubForBreakdown = { amount: number; interval: string | null; intervalCount: number | null; planName: string | null };
+    const medicationMap = new Map<string, { count: number; mrr: number }>();
+    const intervalMap = new Map<string, { count: number; mrr: number }>();
+    const medicationIntervalMap = new Map<string, { count: number; mrr: number }>();
+
+    activeSubscriptions.forEach((s: SubForBreakdown) => {
+      const medication = normalizeMedicationFromPlanName(s.planName);
+      const intervalLabel = normalizeIntervalLabel(s.interval, s.intervalCount || 1);
+      const mrr = subscriptionToMonthlyCents(s.amount, s.interval, s.intervalCount || 1);
+
+      const medEntry = medicationMap.get(medication);
+      if (medEntry) {
+        medEntry.count += 1;
+        medEntry.mrr += mrr;
+      } else {
+        medicationMap.set(medication, { count: 1, mrr });
+      }
+
+      const intEntry = intervalMap.get(intervalLabel);
+      if (intEntry) {
+        intEntry.count += 1;
+        intEntry.mrr += mrr;
+      } else {
+        intervalMap.set(intervalLabel, { count: 1, mrr });
+      }
+
+      const key = `${medication}|${intervalLabel}`;
+      const crossEntry = medicationIntervalMap.get(key);
+      if (crossEntry) {
+        crossEntry.count += 1;
+        crossEntry.mrr += mrr;
+      } else {
+        medicationIntervalMap.set(key, { count: 1, mrr });
+      }
+    });
+
+    const totalCount = activeSubscriptions.length;
+    const totalMrrForPct = monthlyRecurringRevenue || 1;
+    const byMedication = Array.from(medicationMap.entries())
+      .map(([medication, data]) => ({
+        medication,
+        count: data.count,
+        mrr: Math.round(data.mrr),
+        percentageOfTotal: totalCount > 0 ? Math.round((data.count / totalCount) * 10000) / 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const byInterval = Array.from(intervalMap.entries())
+      .map(([intervalLabel, data]) => ({
+        intervalLabel,
+        count: data.count,
+        mrr: Math.round(data.mrr),
+        percentageOfTotal: totalCount > 0 ? Math.round((data.count / totalCount) * 10000) / 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const intervalOrder = ['Monthly', '3 months', '6 months', '12 months'];
+    const byMedicationAndInterval = Array.from(medicationIntervalMap.entries())
+      .map(([key, data]) => {
+        const [medication, intervalLabel] = key.split('|');
+        return { medication, intervalLabel, count: data.count, mrr: Math.round(data.mrr) };
+      })
+      .sort((a, b) => {
+        const medCmp = (b.medication === 'Other' ? 0 : 1) - (a.medication === 'Other' ? 0 : 1);
+        if (medCmp !== 0) return medCmp;
+        const aIdx = intervalOrder.indexOf(a.intervalLabel);
+        const bIdx = intervalOrder.indexOf(b.intervalLabel);
+        return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx) || b.count - a.count;
+      });
+
     // Recent cancellations
     const recentCancellations = await prisma.subscription.findMany({
       where: {
@@ -1013,6 +1188,105 @@ export class ReportingService {
       take: 20,
     });
 
+    const retentionRate = Math.round((100 - churnRate) * 10) / 10;
+
+    // LTV: sum of successful payments per patient
+    const patientsWithPaymentsList = await prisma.patient.findMany({
+      where: clinicFilter,
+      select: {
+        id: true,
+        payments: {
+          where: { status: 'SUCCEEDED' },
+          select: { amount: true },
+        },
+      },
+    });
+    const ltvs = patientsWithPaymentsList.map(
+      (p: { id: number; payments: Array<{ amount: number }> }) =>
+        p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0)
+    );
+    const patientsWithPayments = ltvs.filter((v: number) => v > 0).length;
+    const totalLTV = ltvs.reduce((a: number, b: number) => a + b, 0);
+    const averageLTV = patientsWithPaymentsList.length > 0 ? Math.round(totalLTV / patientsWithPaymentsList.length) : 0;
+    const sortedLtvs = [...ltvs].sort((a: number, b: number) => a - b);
+    const medianLTV =
+      sortedLtvs.length > 0 ? sortedLtvs[Math.floor(sortedLtvs.length / 2)] : 0;
+
+    // Churned in period (full list for MRR, lifetime, reasons)
+    const churnedInPeriodList = await prisma.subscription.findMany({
+      where: {
+        ...clinicFilter,
+        status: 'CANCELED',
+        canceledAt: { gte: start, lte: end },
+      },
+      select: {
+        amount: true,
+        interval: true,
+        intervalCount: true,
+        startDate: true,
+        canceledAt: true,
+        metadata: true,
+      },
+    });
+
+    type ChurnedRow = (typeof churnedInPeriodList)[number];
+    const churnedMrr = churnedInPeriodList.reduce(
+      (sum: number, s: ChurnedRow) =>
+        sum + subscriptionToMonthlyCents(s.amount, s.interval, s.intervalCount || 1),
+      0
+    );
+
+    const lifetimesDays = churnedInPeriodList
+      .filter((s: ChurnedRow) => s.canceledAt && s.startDate)
+      .map((s: ChurnedRow) => daysBetween(s.startDate, s.canceledAt!));
+    const averageLifetimeBeforeChurnDays =
+      lifetimesDays.length > 0
+        ? Math.round(
+            lifetimesDays.reduce((a: number, b: number) => a + b, 0) / lifetimesDays.length
+          )
+        : 0;
+
+    const churnReasonMap = new Map<string, { count: number; mrr: number }>();
+    churnedInPeriodList.forEach((s: ChurnedRow) => {
+      const meta = s.metadata as Record<string, unknown> | null;
+      const reason = (meta?.cancelReason as string) || (meta?.cancellation_reason as string) || 'Not specified';
+      const mrr = subscriptionToMonthlyCents(s.amount, s.interval, s.intervalCount || 1);
+      const existing = churnReasonMap.get(reason);
+      if (existing) {
+        existing.count += 1;
+        existing.mrr += mrr;
+      } else {
+        churnReasonMap.set(reason, { count: 1, mrr });
+      }
+    });
+    const churnReasons = Array.from(churnReasonMap.entries())
+      .map(([reason, data]: [string, { count: number; mrr: number }]) => ({
+        reason,
+        count: data.count,
+        mrr: data.mrr,
+        percentageOfTotal:
+          churnedInPeriodList.length > 0
+            ? Math.round((data.count / churnedInPeriodList.length) * 10000) / 100
+            : 0,
+      }))
+      .sort((a: { count: number }, b: { count: number }) => b.count - a.count);
+
+    // New MRR in period (subscriptions created in period; use current/previous amount as MRR)
+    const newSubsInPeriod = await prisma.subscription.findMany({
+      where: {
+        ...clinicFilter,
+        createdAt: { gte: start, lte: end },
+      },
+      select: { amount: true, interval: true, intervalCount: true },
+    });
+    type NewSubRow = (typeof newSubsInPeriod)[number];
+    const newMrrInPeriod = newSubsInPeriod.reduce(
+      (sum: number, s: NewSubRow) =>
+        sum + subscriptionToMonthlyCents(s.amount, s.interval, s.intervalCount || 1),
+      0
+    );
+    const netMrrChange = Math.round(newMrrInPeriod - churnedMrr);
+
     return {
       totalActiveSubscriptions,
       totalPausedSubscriptions,
@@ -1021,7 +1295,20 @@ export class ReportingService {
       annualRecurringRevenue: Math.round(annualRecurringRevenue),
       averageSubscriptionValue,
       churnRate,
+      retentionRate,
+      averageLTV,
+      medianLTV,
+      totalLTV,
+      patientsWithPayments,
+      churnedMrr: Math.round(churnedMrr),
+      newMrrInPeriod: Math.round(newMrrInPeriod),
+      netMrrChange,
+      averageLifetimeBeforeChurnDays,
+      churnReasons,
       subscriptionsByMonth,
+      byMedication,
+      byInterval,
+      byMedicationAndInterval,
       recentCancellations: recentCancellations.map((s: SubscriptionWithPatient) => ({
         patientId: s.patient.id,
         patientName:

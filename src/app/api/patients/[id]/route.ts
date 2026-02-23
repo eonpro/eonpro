@@ -8,17 +8,22 @@
  * @module api/patients/[id]
  */
 
-import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { patientService, type UserContext } from '@/domains/patient';
-import { handleApiError, BadRequestError, NotFoundError } from '@/domains/shared/errors';
+import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { tenantNotFoundResponse } from '@/lib/tenant-response';
-import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
-import { logger } from '@/lib/logger';
 
-type Params = {
+const SALES_REP_VIEW_ALL = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
+const ROLE_SALES_REP = 'sales_rep' as const;
+
+interface Params {
   params: Promise<{ id: string }>;
-};
+}
 
 /**
  * GET /api/patients/[id]
@@ -52,13 +57,27 @@ const getPatientHandler = withAuthParams(
       // Use patient service - handles authorization, PHI decryption, clinic isolation
       const patient = await patientService.getPatient(id, userContext);
 
+      // Sales rep: only allow if assigned or has view_all_patients
+      if (user.role === ROLE_SALES_REP && !user.permissions?.includes(SALES_REP_VIEW_ALL)) {
+        const assignment = await prisma.patientSalesRepAssignment.findFirst({
+          where: {
+            patientId: id,
+            salesRepId: user.id,
+            isActive: true,
+          },
+        });
+        if (!assignment) {
+          throw new ForbiddenError('You can only access patients assigned to you');
+        }
+      }
+
       await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'patient:view', { patientId: id, route: 'GET /api/patients/[id]' }));
 
       return Response.json({ patient });
     } catch (error) {
       if (error instanceof NotFoundError) return tenantNotFoundResponse();
       const err = error as Error & { statusCode?: number };
-      if (err && typeof err === 'object' && err.statusCode == null) {
+      if (err && typeof err === 'object' && err.statusCode === undefined) {
         const resolved = await params;
         logger.error('GET /api/patients/[id] unexpected error', {
           message: err?.message,
@@ -71,7 +90,7 @@ const getPatientHandler = withAuthParams(
       });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] }
+  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff', ROLE_SALES_REP] }
 );
 
 // Export directly - rate limiting breaks context passing for dynamic routes
@@ -101,6 +120,20 @@ const updatePatientHandler = withAuthParams(
 
       const body = await request.json();
 
+      // Sales rep: only allow update if assigned or has view_all_patients
+      if (user.role === ROLE_SALES_REP && !user.permissions?.includes(SALES_REP_VIEW_ALL)) {
+        const assignment = await prisma.patientSalesRepAssignment.findFirst({
+          where: {
+            patientId: id,
+            salesRepId: user.id,
+            isActive: true,
+          },
+        });
+        if (!assignment) {
+          throw new ForbiddenError('You can only update patients assigned to you');
+        }
+      }
+
       // Convert auth user to service UserContext
       const userContext: UserContext = {
         id: user.id,
@@ -123,7 +156,7 @@ const updatePatientHandler = withAuthParams(
       });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff'] }
+  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff', ROLE_SALES_REP] }
 );
 
 // Export directly - rate limiting breaks context passing for dynamic routes

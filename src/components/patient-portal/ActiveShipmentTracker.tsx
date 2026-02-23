@@ -11,9 +11,8 @@ import {
   MapPin,
   ExternalLink,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
-  Box,
-  Home,
   Sparkles,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
@@ -36,6 +35,18 @@ interface ActiveShipment {
   lastLocation: string | null;
   isRefill: boolean;
   refillNumber: number | null;
+}
+
+export interface PrescriptionJourney {
+  stage: 1 | 2 | 3 | 4;
+  label: string;
+  message: string;
+  medicationName: string | null;
+  orderId?: number;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  carrier?: string | null;
+  orderedAt?: string | null;
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -80,6 +91,7 @@ export default function ActiveShipmentTracker({
   onShipmentLoaded,
 }: ActiveShipmentTrackerProps) {
   const [activeShipments, setActiveShipments] = useState<ActiveShipment[]>([]);
+  const [prescriptionJourney, setPrescriptionJourney] = useState<PrescriptionJourney | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
@@ -106,7 +118,10 @@ export default function ActiveShipmentTracker({
 
       const data = await response.json();
       setActiveShipments(data.activeShipments || []);
-      onShipmentLoaded?.((data.activeShipments || []).length > 0);
+      setPrescriptionJourney(data.prescriptionJourney ?? null);
+      const hasContent =
+        (data.activeShipments || []).length > 0 || (data.prescriptionJourney != null);
+      onShipmentLoaded?.(hasContent);
     } catch (err) {
       console.error('Error fetching shipments:', err);
       setError(err instanceof Error ? err.message : 'Failed to load');
@@ -122,7 +137,7 @@ export default function ActiveShipmentTracker({
     return () => clearInterval(interval);
   }, []);
 
-  if (!loading && activeShipments.length === 0) {
+  if (!loading && activeShipments.length === 0 && !prescriptionJourney) {
     return null;
   }
 
@@ -154,6 +169,132 @@ export default function ActiveShipmentTracker({
 
   if (error) return null;
 
+  // Show 4-step prescription journey when we have journey and no tracking yet (stage 1–3)
+  const showJourneyCard = prescriptionJourney && prescriptionJourney.stage <= 3;
+  const showShipmentCard = activeShipments.length > 0;
+
+  if (showJourneyCard) {
+    const journey = prescriptionJourney!;
+    const steps = [
+      {
+        step: 1,
+        label: 'Provider reviewing',
+        description: 'A licensed provider is reviewing your intake information.',
+      },
+      {
+        step: 2,
+        label: 'Prescription approved',
+        description: 'Your prescription has been approved and sent to the pharmacy.',
+      },
+      {
+        step: 3,
+        label: 'Pharmacy processing',
+        description: 'The pharmacy is currently processing your prescription.',
+      },
+      {
+        step: 4,
+        label: 'On the way',
+        description: 'Your prescription is on the way with tracking.',
+      },
+    ];
+
+    return (
+      <div className="mb-6">
+        <div
+          className="relative overflow-hidden rounded-3xl p-[3px] shadow-xl"
+          style={{
+            background: `linear-gradient(135deg, ${primaryColor}, ${brandDarker})`,
+            boxShadow: `0 25px 50px -12px ${withAlpha(primaryColor, 0.2)}`,
+          }}
+        >
+          <div className="relative overflow-hidden rounded-[21px] bg-white">
+            <div
+              className="px-6 py-5 text-white"
+              style={{
+                background: `linear-gradient(135deg, ${primaryColor}, ${brandDarker})`,
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"
+                >
+                  <Clock className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/90">{journey.label}</p>
+                  <p className="mt-0.5 text-lg font-bold text-white">Prescription status</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="mb-6 text-gray-700">{journey.message}</p>
+              <div className="space-y-4">
+                {steps.map((s) => {
+                  const isCompleted = journey.stage > s.step;
+                  const isCurrent = journey.stage === s.step;
+                  return (
+                    <div
+                      key={s.step}
+                      className="flex gap-4 rounded-2xl border p-4 transition-all"
+                      style={{
+                        borderColor: isCurrent
+                          ? withAlpha(primaryColor, 0.5)
+                          : isCompleted
+                            ? withAlpha(primaryColor, 0.2)
+                            : '#e5e7eb',
+                        backgroundColor: isCurrent
+                          ? withAlpha(primaryColor, 0.06)
+                          : isCompleted
+                            ? withAlpha(primaryColor, 0.04)
+                            : undefined,
+                      }}
+                    >
+                      <div
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
+                        style={{
+                          backgroundColor:
+                            isCompleted || isCurrent ? primaryColor : '#e5e7eb',
+                          color: isCompleted || isCurrent ? 'white' : '#9ca3af',
+                        }}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          s.step
+                        )}
+                      </div>
+                      <div>
+                        <p
+                          className="font-semibold"
+                          style={
+                            isCurrent ? { color: primaryColor } : undefined
+                          }
+                        >
+                          Step {s.step}. {s.label}
+                        </p>
+                        <p className="mt-0.5 text-sm text-gray-600">{s.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <Link
+                href="/patient-portal/shipments"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-semibold"
+                style={{ color: primaryColor }}
+              >
+                View all shipments
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!showShipmentCard) return null;
+
   const mainShipment = activeShipments[0];
   const meta = statusMeta[mainShipment.status] ?? statusMeta.shipped;
   const StatusIcon = meta.icon;
@@ -163,7 +304,7 @@ export default function ActiveShipmentTracker({
     ? 'linear-gradient(135deg, #EF4444, #F87171)'
     : `linear-gradient(135deg, ${primaryColor}, ${brandDarker})`;
 
-  const progressPercent = Math.min(100, ((mainShipment.step - 1) / 4) * 100);
+  const progressPercent = Math.min(100, (4 / 4) * 100);
 
   return (
     <div className="mb-6">
@@ -246,24 +387,24 @@ export default function ActiveShipmentTracker({
           {/* Expanded Content */}
           {expanded && (
             <div className="p-6">
-              {/* Visual Timeline */}
+              {/* 4-step prescription journey (replaces old Ordered → Shipped → Delivered timeline) */}
               <div className="mb-6">
                 <div className="flex items-center justify-between">
                   {[
-                    { icon: Box, label: 'Ordered', step: 1 },
-                    { icon: Package, label: 'Shipped', step: 2 },
-                    { icon: Truck, label: 'In Transit', step: 3 },
-                    { icon: Truck, label: 'Out for Delivery', step: 4 },
-                    { icon: Home, label: 'Delivered', step: 5 },
+                    { icon: Clock, label: 'Provider reviewing', step: 1 },
+                    { icon: CheckCircle2, label: 'Prescription approved', step: 2 },
+                    { icon: Package, label: 'Pharmacy processing', step: 3 },
+                    { icon: Truck, label: 'On the way', step: 4 },
                   ].map((item, idx) => {
-                    const isCompleted = mainShipment.step > item.step;
-                    const isCurrent = mainShipment.step === item.step;
+                    const journeyStep = 4;
+                    const isCompleted = journeyStep > item.step;
+                    const isCurrent = journeyStep === item.step;
                     const ItemIcon = item.icon;
 
                     return (
                       <div key={idx} className="relative flex flex-col items-center">
                         {/* Connector Line */}
-                        {idx < 4 && (
+                        {idx < 3 && (
                           <div className="absolute left-[50%] top-5 -z-10 h-1 w-full">
                             <div
                               className="h-full transition-all duration-500"

@@ -312,6 +312,25 @@ function buildWellmedrSections(payload: Record<string, unknown>): IntakeSection[
 }
 
 /**
+ * Find first payload value whose key matches one of the given names (case-insensitive).
+ * Used for Airtable/webhook fields that may use different casing or labels.
+ */
+function findPayloadKeyCaseInsensitive(
+  payload: Record<string, unknown>,
+  keyNames: string[]
+): string | undefined {
+  const keyLower = keyNames.map((k) => k.toLowerCase());
+  for (const [key, value] of Object.entries(payload)) {
+    if (value == null || value === '') continue;
+    const k = key.toLowerCase();
+    if (keyLower.some((name) => k === name || k.includes(name))) {
+      return typeof value === 'string' ? value : String(value);
+    }
+  }
+  return undefined;
+}
+
+/**
  * Split a full name into first and last name
  */
 function splitFullName(fullName: string): { firstName: string; lastName: string } {
@@ -452,7 +471,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     patient.email = String(emailField).trim().toLowerCase();
   }
 
-  // Phone (check multiple field variations)
+  // Phone (check multiple field variations including Airtable linked/labeled fields)
   const phoneField =
     payload['phone'] ||
     payload['Phone'] ||
@@ -464,8 +483,14 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     payload['cell'] ||
     payload['telephone'] ||
     payload['Phone Number'] ||
-    payload['Mobile Number'];
-  if (phoneField) {
+    payload['Mobile Number'] ||
+    payload['Phone (from Contacts)'] ||
+    payload['Phone Number (from Contacts)'] ||
+    payload['phone (from contacts)'] ||
+    payload['Mobile (from Contacts)'] ||
+    payload['Cell (from Contacts)'] ||
+    findPayloadKeyCaseInsensitive(payload, ['phone', 'phone number', 'mobile', 'cell', 'telephone']);
+  if (phoneField && String(phoneField).trim()) {
     patient.phone = sanitizePhone(String(phoneField));
   }
 

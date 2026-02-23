@@ -618,7 +618,29 @@ export function withAuth<T = unknown>(
       // instead of hitting basePrisma.clinic.findFirst on every request.
       // Clinic access check also uses Redis cache (5 min TTL) instead of
       // Promise.all([userClinic, providerClinic]) DB queries per request.
-      const subdomain = req.headers.get('x-clinic-subdomain');
+      // When x-clinic-subdomain is not set (e.g. multi-clinic middleware disabled),
+      // derive subdomain from request host so clinic context works on clinic subdomains.
+      let subdomain = req.headers.get('x-clinic-subdomain');
+      if (!subdomain) {
+        try {
+          const host =
+            req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ??
+            req.headers.get('host') ??
+            '';
+          const hostname = host ? host.split(':')[0] ?? '' : '';
+          if (hostname.includes('.')) {
+            const parts = hostname.split('.');
+            const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
+            const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+            const reserved = ['www', 'app', 'api', 'admin', 'staging'];
+            if (sub && !reserved.includes(sub.toLowerCase())) {
+              subdomain = sub;
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
       if (
         subdomain &&
         !['www', 'app', 'api', 'admin', 'staging'].includes(subdomain.toLowerCase())

@@ -657,7 +657,9 @@ export default function CalendarSync({ onClose }: CalendarSyncProps) {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700">HTTP URL</label>
+                    <label className="text-sm font-medium text-gray-700">
+                      HTTPS URL (use this on iPhone → Add Subscribed Calendar)
+                    </label>
                     <div className="mt-1 flex">
                       <input
                         type="text"

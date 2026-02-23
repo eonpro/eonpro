@@ -12,6 +12,7 @@
  * - refund: Issue a refund
  * - mark_uncollectible: Mark as uncollectible
  * - cancel: Cancel an invoice (works for any status)
+ * - delete: Permanently delete an invoice (DRAFT/OPEN/VOID only; paid invoices must be voided/refunded first)
  * - apply_credit: Apply a credit
  * - add_line_item: Add line item to draft
  * - remove_line_item: Remove line item from draft
@@ -29,6 +30,8 @@ import {
   InvoiceReminder,
 } from '@/services/billing/InvoiceManager';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
+import { isStripeConfigured, getStripeClient } from '@/lib/stripe';
 
 // Action schemas
 const sendActionSchema = z.object({
@@ -64,6 +67,10 @@ const markUncollectibleSchema = z.object({
 const cancelActionSchema = z.object({
   action: z.literal('cancel'),
   reason: z.string().optional(),
+});
+
+const deleteActionSchema = z.object({
+  action: z.literal('delete'),
 });
 
 const applyCreditSchema = z.object({
@@ -123,6 +130,7 @@ const actionSchema = z.discriminatedUnion('action', [
   refundActionSchema,
   markUncollectibleSchema,
   cancelActionSchema,
+  deleteActionSchema,
   applyCreditSchema,
   addLineItemSchema,
   removeLineItemSchema,
@@ -151,6 +159,24 @@ export async function POST(
 
     const body = await req.json();
     const validated = actionSchema.parse(body);
+
+    // Load invoice and enforce clinic access (fixes 500 and prevents cross-tenant access)
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { payments: true },
+    });
+    if (!invoice) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    }
+    const clinicId = user.clinicId ?? undefined;
+    if (
+      user.role !== 'super_admin' &&
+      clinicId != null &&
+      invoice.clinicId != null &&
+      invoice.clinicId !== clinicId
+    ) {
+      return NextResponse.json({ error: 'Access denied to this invoice' }, { status: 403 });
+    }
 
     const invoiceManager = createInvoiceManager(user.clinicId);
 
@@ -216,11 +242,59 @@ export async function POST(
       }
 
       case 'cancel': {
-        const invoice = await invoiceManager.cancelInvoice(invoiceId, validated.reason);
+        const updated = await invoiceManager.cancelInvoice(invoiceId, validated.reason);
         return NextResponse.json({
           success: true,
-          invoice,
+          invoice: updated,
           message: 'Invoice cancelled successfully',
+        });
+      }
+
+      case 'delete': {
+        if (invoice.status === 'PAID') {
+          return NextResponse.json(
+            { error: 'Cannot delete a paid invoice. Void or refund first, then delete.' },
+            { status: 400 }
+          );
+        }
+        // Allow VOID invoices to be deleted even if they have past payments (cleanup from profile)
+        const hasCompletedPayments =
+          invoice.status !== 'VOID' &&
+          (invoice.payments?.some(
+            (p) => p.status === 'SUCCEEDED' || p.status === 'PROCESSING'
+          ) ?? false);
+        if (hasCompletedPayments) {
+          return NextResponse.json(
+            {
+              error:
+                'Cannot delete an invoice with completed payments. Void or refund instead.',
+            },
+            { status: 400 }
+          );
+        }
+        if (invoice.stripeInvoiceId && isStripeConfigured()) {
+          try {
+            const stripe = getStripeClient()!;
+            if (invoice.status === 'DRAFT') {
+              await stripe.invoices.del(invoice.stripeInvoiceId);
+            } else {
+              await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
+            }
+          } catch (stripeErr: unknown) {
+            logger.warn('Stripe delete/void failed during invoice delete', {
+              error: stripeErr instanceof Error ? stripeErr.message : String(stripeErr),
+            });
+          }
+        }
+        await prisma.$transaction(async (tx) => {
+          await tx.invoiceItem.deleteMany({ where: { invoiceId } });
+          await tx.invoice.delete({ where: { id: invoiceId } });
+        }, { timeout: 15000 });
+        logger.info('Invoice deleted via v2 actions', { invoiceId });
+        return NextResponse.json({
+          success: true,
+          message: 'Invoice deleted successfully',
+          deletedId: invoiceId,
         });
       }
 

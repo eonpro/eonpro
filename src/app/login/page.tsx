@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
-import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 
 type LoginStep = 'identifier' | 'password' | 'otp' | 'email-otp' | 'clinic' | 'forgot' | 'reset';
 type LoginMethod = 'email' | 'phone';
@@ -95,7 +96,21 @@ function getLoginRoleFromRedirect(
   return undefined;
 }
 
-export default function LoginPage() {
+/** Loading fallback while search params are resolved (avoids error boundary on mobile). */
+function LoginFallback() {
+  return (
+    <div
+      className="flex min-h-[100dvh] flex-col items-center justify-center p-6"
+      style={{ backgroundColor: '#e8eeff' }}
+    >
+      <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+      <p className="mt-4 text-sm text-gray-500">Loading...</p>
+    </div>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1074,14 +1089,23 @@ export default function LoginPage() {
       : '#f0fdf4';
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
+    <div
+      className="min-h-[100dvh]"
+      style={{
+        backgroundColor: bgColor,
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingTop: 'env(safe-area-inset-top)',
+      }}
+    >
       {/* Content */}
-      <div className="flex min-h-screen flex-col">
-        {/* Header with X button */}
-        <div className="p-6">
+      <div className="flex min-h-[100dvh] flex-col">
+        {/* Header with X button - touch-friendly on mobile */}
+        <div className="p-4 sm:p-6">
           <button
             onClick={() => router.push('/')}
-            className="rounded-full p-2 transition-colors hover:bg-black/5"
+            className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors hover:bg-black/5 active:bg-black/10"
             aria-label="Close"
           >
             <X className="h-6 w-6 text-gray-700" />
@@ -1089,7 +1113,7 @@ export default function LoginPage() {
         </div>
 
         {/* Logo centered at top - uses clinic logo if available */}
-        <div className="flex flex-col items-center pb-8 pt-4">
+        <div className="flex flex-col items-center pb-6 pt-2 sm:pb-8 sm:pt-4">
           {branding && !isMainApp ? (
             <>
               {branding.logoUrl ? (
@@ -1123,7 +1147,7 @@ export default function LoginPage() {
         </div>
 
         {/* Main Content */}
-        <div className="flex flex-1 flex-col items-center px-6 pt-8">
+        <div className="flex flex-1 flex-col items-center px-4 pt-4 sm:px-6 sm:pt-8">
           {/* System unavailable banner (only when /api/ready explicitly returns 503) */}
           {systemUnavailable && (
             <div className="mb-6 w-full max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
@@ -1136,17 +1160,22 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Welcome Text */}
-          <h1 className="mb-4 text-5xl font-light tracking-tight text-gray-900 md:text-6xl">
+          {/* Welcome Text - mobile-friendly sizing */}
+          <h1 className="mb-3 text-4xl font-light tracking-tight text-gray-900 sm:mb-4 sm:text-5xl md:text-6xl">
             Welcome
           </h1>
-          <p className="mb-8 text-lg text-gray-600">
+          <p className="mb-6 text-base text-gray-600 sm:mb-8 sm:text-lg">
             {isProviderLogin
               ? 'Provider sign in'
               : branding && !isMainApp
                 ? `Sign in to ${branding.name}`
                 : 'Sign in to EONPRO'}
           </p>
+          {isProviderLogin && (
+            <p className="mb-4 max-w-sm text-center text-sm text-gray-500 sm:mb-6">
+              Sign in to review and approve prescriptions from the queue—even on the go.
+            </p>
+          )}
 
           {/* Patient login redirect banner on clinic subdomains */}
           {branding && !isMainApp && !isProviderLogin && step === 'identifier' && (
@@ -1180,7 +1209,7 @@ export default function LoginPage() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white py-4 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white py-4 pr-4 text-base text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ paddingLeft: '3.5rem', '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Email or phone number"
                     required
@@ -1204,8 +1233,8 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || systemUnavailable}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
-                    loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                    loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:opacity-95'
                   }`}
                   style={{
                     backgroundColor: loading || systemUnavailable ? '#9CA3AF' : primaryColor,
@@ -1280,7 +1309,7 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-base text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Password"
                     required
@@ -1290,7 +1319,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+                    className="absolute right-4 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 touch-manipulation items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -1375,10 +1404,10 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || retryAfterCountdown > 0 || systemUnavailable}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
                     loading || retryAfterCountdown > 0 || systemUnavailable
                       ? 'cursor-not-allowed opacity-50'
-                      : 'hover:opacity-90'
+                      : 'hover:opacity-90 active:opacity-95'
                   }`}
                   style={{
                     backgroundColor:
@@ -1405,7 +1434,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   disabled={loading}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-semibold text-gray-900 transition-all hover:bg-gray-50 disabled:opacity-50"
+                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-6 py-4 text-base font-semibold text-gray-900 transition-all hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
                   onClick={sendEmailOtp}
                 >
                   Email me a login code
@@ -1993,5 +2022,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
   );
 }

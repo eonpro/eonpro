@@ -115,6 +115,18 @@ export const GET = withSuperAdminAuth(
               approvedSoapNotes: true,
             },
           },
+          licenses: {
+            select: {
+              id: true,
+              state: true,
+              licenseNumber: true,
+              expiresAt: true,
+              issuedAt: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { state: 'asc' },
+          },
         },
       });
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   UserCog,
   Plus,
@@ -725,21 +724,35 @@ export default function SuperAdminProvidersPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Link
-                      href={`/super-admin/providers/${provider.id}`}
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/super-admin/providers/${provider.id}`)}
                       className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                       title="View details"
                     >
                       <Eye className="h-4 w-4" />
-                    </Link>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(`/super-admin/providers/${provider.id}?edit=1`)
+                      }
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#4fa77e]"
+                      title="Edit provider"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     {provider.status !== 'ARCHIVED' && (
-                      <Link
-                        href={`/super-admin/providers/${provider.id}?tab=clinics`}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/super-admin/providers/${provider.id}?tab=clinics`)
+                        }
                         className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#4fa77e]"
                         title="Manage clinics"
                       >
                         <Building2 className="h-4 w-4" />
-                      </Link>
+                      </button>
                     )}
                     <button
                       onClick={() => handleOpenArchive(provider)}

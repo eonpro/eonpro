@@ -821,6 +821,46 @@ export async function resumeRefill(refillId: number): Promise<RefillQueue> {
   return updated;
 }
 
+/**
+ * Update refill fields (e.g. next refill date, plan/medication name).
+ * Used when editing a prepaid shipment from the patient billing view.
+ */
+export interface UpdateRefillInput {
+  nextRefillDate?: Date;
+  planName?: string;
+  medicationName?: string;
+  medicationStrength?: string;
+  medicationForm?: string;
+}
+
+export async function updateRefill(
+  refillId: number,
+  data: UpdateRefillInput
+): Promise<RefillQueue> {
+  const payload: Record<string, unknown> = {};
+  if (data.nextRefillDate != null) payload.nextRefillDate = data.nextRefillDate;
+  if (data.planName != null) payload.planName = data.planName;
+  if (data.medicationName != null) payload.medicationName = data.medicationName;
+  if (data.medicationStrength != null) payload.medicationStrength = data.medicationStrength;
+  if (data.medicationForm != null) payload.medicationForm = data.medicationForm;
+
+  if (Object.keys(payload).length === 0) {
+    const existing = await prisma.refillQueue.findUnique({ where: { id: refillId } });
+    if (!existing) throw new Error('Refill not found');
+    return existing;
+  }
+
+  const updated = await prisma.refillQueue.update({
+    where: { id: refillId },
+    data: payload as any,
+  });
+
+  logger.info('[RefillQueue] Updated refill', { refillId, fields: Object.keys(payload) });
+  return updated;
+
+  return updated;
+}
+
 // ============================================================================
 // Query Functions
 // ============================================================================
@@ -1203,6 +1243,109 @@ export async function triggerRefillForSubscriptionPayment(
   });
 
   return refill;
+}
+
+/** Refill frequency in months for manual enrollment (monthly, quarterly, semester, annual) */
+export const REFILL_FREQUENCY_MONTHS: Record<string, number> = {
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  SEMESTER: 6,
+  ANNUAL: 12,
+};
+
+export type { RefillFrequencyKey, RefillDefaultsForPlan } from './refillPlanDefaults';
+export { getRefillDefaultsForPlanDuration } from './refillPlanDefaults';
+
+/**
+ * Create multiple refill queue entries for manual enrollment (e.g. 3 refills on a 12‑month plan).
+ * Each refill is PENDING_ADMIN so admin/provider can approve when the pharmacy sends.
+ * Refills are scheduled on the given frequency (startDate, startDate+interval, …) unless the
+ * subscription is later cancelled or paused.
+ * Bypasses the single-active-refill guard; used only for manual enrollment with refillCount > 1.
+ *
+ * @param subscriptionId - The local Subscription ID
+ * @param refillCount - Number of refills to queue (e.g. 4 for 12‑month plan quarterly)
+ * @param startDate - Plan start date; first refill = startDate, then startDate + interval, etc.
+ * @param refillIntervalMonths - Optional. 1=monthly, 3=quarterly, 6=semester, 12=annual. If omitted, derived from planMonths/refillCount.
+ * @returns Array of created RefillQueue entries
+ */
+export async function createManualRefillsForSubscription(
+  subscriptionId: number,
+  refillCount: number,
+  startDate: Date,
+  refillIntervalMonths?: number
+): Promise<RefillQueue[]> {
+  if (refillCount < 1) return [];
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+    include: { patient: true },
+  });
+
+  if (!subscription || !subscription.clinicId) {
+    logger.warn('[RefillQueue] Cannot create manual refills: subscription not found or no clinic', {
+      subscriptionId,
+    });
+    return [];
+  }
+
+  const vialCount =
+    subscription.vialCount ||
+    vialCountFromPlanCategory(subscription.planId) ||
+    DEFAULT_VIAL_COUNT;
+  const intervalDays = calculateIntervalDays(vialCount);
+  const planMonths = subscription.intervalCount || 1;
+  const intervalMonths =
+    refillIntervalMonths != null && refillIntervalMonths >= 1
+      ? Math.min(refillIntervalMonths, 12)
+      : Math.max(1, Math.floor(planMonths / refillCount));
+  const medicationName = extractMedicationName(subscription.planName);
+  const now = new Date();
+
+  const refills: RefillQueue[] = [];
+  for (let i = 0; i < refillCount; i++) {
+    const nextRefillDate = new Date(startDate);
+    nextRefillDate.setMonth(nextRefillDate.getMonth() + i * intervalMonths);
+
+    const refill = await prisma.refillQueue.create({
+      data: {
+        clinicId: subscription.clinicId,
+        patientId: subscription.patientId,
+        subscriptionId: subscription.id,
+        vialCount,
+        refillIntervalDays: intervalDays,
+        nextRefillDate,
+        status: 'PENDING_ADMIN',
+        paymentVerified: true,
+        paymentVerifiedAt: now,
+        paymentVerifiedBy: 0,
+        paymentMethod: 'MANUAL_VERIFIED',
+        adminApproved: false,
+        planName: subscription.planName,
+        medicationName,
+        shipmentNumber: i + 1,
+        totalShipments: refillCount,
+      },
+    });
+    refills.push(refill);
+  }
+
+  await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      lastRefillQueueId: refills[refills.length - 1]?.id ?? undefined,
+      vialCount,
+      refillIntervalDays: intervalDays,
+    },
+  });
+
+  logger.info('[RefillQueue] Created manual refills for subscription', {
+    subscriptionId,
+    refillCount: refills.length,
+    refillIds: refills.map((r) => r.id),
+  });
+
+  return refills;
 }
 
 /**

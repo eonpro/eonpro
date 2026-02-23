@@ -53,4 +53,7 @@ export {
   type ShipmentScheduleResult,
   type ScheduleRefillsFromInvoiceInput,
   type UpcomingShipment,
+
+  // Plan parsing (e.g. for WellMedR invoice to decide whether to schedule refills)
+  parsePackageMonthsFromPlan,
 } from './shipmentScheduleService';

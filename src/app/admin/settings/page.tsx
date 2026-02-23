@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api/fetch';
 import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
@@ -189,6 +189,13 @@ export default function AdminSettingsPage() {
   const [userError, setUserError] = useState('');
   const [savingUser, setSavingUser] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [userSectionsExpanded, setUserSectionsExpanded] = useState<
+    Record<'admin_staff' | 'provider' | 'patient', boolean>
+  >({ admin_staff: true, provider: true, patient: true });
+  const [userSectionPage, setUserSectionPage] = useState<
+    Record<'admin_staff' | 'provider' | 'patient', number>
+  >({ admin_staff: 1, provider: 1, patient: 1 });
+  const USER_LIST_PAGE_SIZE = 15;
 
   // Settings form
   const [settingsForm, setSettingsForm] = useState<Partial<ClinicSettings>>({});
@@ -606,12 +613,67 @@ export default function AdminSettingsPage() {
     { id: 'audit', name: 'Audit Logs', icon: FileText },
   ];
 
-  const filteredUsers = users.filter(
-    (u) =>
-      !userSearch ||
-      normalizedIncludes(u.email, userSearch) ||
-      normalizedIncludes(`${u.firstName} ${u.lastName}`, userSearch)
-  );
+  // Role order: admin/staff on top (like superadmin), then providers, then patients
+  const userRoleOrder: Record<string, number> = {
+    SUPER_ADMIN: 0,
+    ADMIN: 1,
+    STAFF: 2,
+    SUPPORT: 3,
+    SALES_REP: 4,
+    PROVIDER: 5,
+    INFLUENCER: 6,
+    AFFILIATE: 7,
+    PATIENT: 8,
+  };
+  const filteredUsers = users
+    .filter(
+      (u) =>
+        !userSearch ||
+        normalizedIncludes(u.email, userSearch) ||
+        normalizedIncludes(`${u.firstName} ${u.lastName}`, userSearch)
+    )
+    .slice()
+    .sort((a, b) => {
+      const orderA = userRoleOrder[a.role] ?? 9;
+      const orderB = userRoleOrder[b.role] ?? 9;
+      if (orderA !== orderB) return orderA - orderB;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+
+  // Group users by type for section headers (Administration & Staff | Providers | Patients)
+  const adminStaffRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'SUPPORT', 'SALES_REP']);
+  const providerRoles = new Set(['PROVIDER']);
+  const patientRoles = new Set(['PATIENT']);
+  const groupUserType = (role: string) =>
+    adminStaffRoles.has(role) ? 'admin_staff' : providerRoles.has(role) ? 'provider' : 'patient';
+  const usersByType = {
+    admin_staff: filteredUsers.filter((u) => groupUserType(u.role) === 'admin_staff'),
+    provider: filteredUsers.filter((u) => groupUserType(u.role) === 'provider'),
+    patient: filteredUsers.filter((u) => groupUserType(u.role) === 'patient'),
+  };
+  const sectionLabels: Record<keyof typeof usersByType, string> = {
+    admin_staff: 'Administration & Staff',
+    provider: 'Providers',
+    patient: 'Patients',
+  };
+
+  type SectionKey = keyof typeof usersByType;
+  const toggleUserSection = (key: SectionKey) => {
+    setUserSectionsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Per-section pagination
+  const getSectionPageSlice = (sectionKey: SectionKey) => {
+    const list = usersByType[sectionKey];
+    const totalPages = Math.max(1, Math.ceil(list.length / USER_LIST_PAGE_SIZE));
+    const page = Math.min(Math.max(1, userSectionPage[sectionKey]), totalPages);
+    const start = (page - 1) * USER_LIST_PAGE_SIZE;
+    return { list: list.slice(start, start + USER_LIST_PAGE_SIZE), page, totalPages, total: list.length };
+  };
+
+  const setSectionPage = (sectionKey: SectionKey, page: number) => {
+    setUserSectionPage((prev) => ({ ...prev, [sectionKey]: page }));
+  };
 
   const roleOptions = [
     { value: 'ADMIN', label: 'Admin' },
@@ -1220,69 +1282,135 @@ export default function AdminSettingsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {filteredUsers.map((u) => (
-                        <tr key={u.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                                <span className="font-medium text-emerald-700">
-                                  {u.firstName?.[0]}
-                                  {u.lastName?.[0]}
-                                </span>
-                              </div>
-                              <div className="ml-4">
-                                <div className="font-medium text-gray-900">
-                                  {u.firstName} {u.lastName}
-                                </div>
-                                <div className="text-sm text-gray-500">{u.email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                u.role === 'ADMIN'
-                                  ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
-                                  : u.role === 'PROVIDER'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {u.role}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                u.status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {u.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
-                            {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              onClick={() => openEditUser(u)}
-                              className="mr-3 text-emerald-600 hover:text-emerald-900"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            {u.status === 'ACTIVE' && (
-                              <button
-                                onClick={() => handleDeactivateUser(u.id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                      {(['admin_staff', 'provider', 'patient'] as const).map((sectionKey) => {
+                        const sectionUsers = usersByType[sectionKey];
+                        const isExpanded = userSectionsExpanded[sectionKey];
+                        const { list: pageList, page, totalPages, total } = getSectionPageSlice(sectionKey);
+                        return (
+                          <Fragment key={sectionKey}>
+                            <tr className="bg-gray-50/80">
+                              <td colSpan={5} className="p-0">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleUserSection(sectionKey)}
+                                  className="flex w-full items-center gap-2 px-6 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-100"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 shrink-0" />
+                                  )}
+                                  <span>
+                                    {sectionLabels[sectionKey]}
+                                    {sectionUsers.length > 0 && (
+                                      <span className="ml-1.5 font-normal normal-case text-gray-500">
+                                        ({sectionUsers.length})
+                                      </span>
+                                    )}
+                                  </span>
+                                </button>
+                              </td>
+                            </tr>
+                            {isExpanded &&
+                              pageList.map((u) => (
+                                <tr key={u.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center">
+                                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                                        <span className="font-medium text-emerald-700">
+                                          {u.firstName?.[0]}
+                                          {u.lastName?.[0]}
+                                        </span>
+                                      </div>
+                                      <div className="ml-4">
+                                        <div className="font-medium text-gray-900">
+                                          {u.firstName} {u.lastName}
+                                        </div>
+                                        <div className="text-sm text-gray-500">{u.email}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                        u.role === 'ADMIN'
+                                          ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
+                                          : u.role === 'PROVIDER'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {u.role}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span
+                                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                        u.status === 'ACTIVE'
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {u.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-sm text-gray-500">
+                                    {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <button
+                                      onClick={() => openEditUser(u)}
+                                      className="mr-3 text-emerald-600 hover:text-emerald-900"
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </button>
+                                    {u.status === 'ACTIVE' && (
+                                      <button
+                                        onClick={() => handleDeactivateUser(u.id)}
+                                        className="text-red-600 hover:text-red-900"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            {isExpanded && totalPages > 1 && (
+                              <tr className="bg-gray-50/50">
+                                <td colSpan={5} className="px-6 py-3">
+                                  <div className="flex items-center justify-between text-sm text-gray-600">
+                                    <span>
+                                      Showing {(page - 1) * USER_LIST_PAGE_SIZE + 1}–
+                                      {Math.min(page * USER_LIST_PAGE_SIZE, total)} of {total}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSectionPage(sectionKey, page - 1)}
+                                        disabled={page <= 1}
+                                        className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        Previous
+                                      </button>
+                                      <span className="px-2">
+                                        Page {page} of {totalPages}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSectionPage(sectionKey, page + 1)}
+                                        disabled={page >= totalPages}
+                                        className="rounded border border-gray-300 bg-white px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        Next
+                                      </button>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                          </td>
-                        </tr>
-                      ))}
+                          </Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

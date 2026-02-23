@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -102,6 +102,15 @@ interface Provider {
     appointments: number;
     approvedSoapNotes: number;
   };
+  licenses?: Array<{
+    id: number;
+    state: string;
+    licenseNumber: string;
+    expiresAt: string;
+    issuedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 }
 
 interface AuditEntry {
@@ -202,11 +211,46 @@ export default function SuperAdminProviderDetailPage() {
   } | null>(null);
   const [npiError, setNpiError] = useState<string | null>(null);
 
+  // Per-state licenses
+  const [licenses, setLicenses] = useState<
+    Array<{
+      id: number;
+      state: string;
+      licenseNumber: string;
+      expiresAt: string;
+      issuedAt: string | null;
+      createdAt?: string;
+      updatedAt?: string;
+    }>
+  >([]);
+  const [savingLicenses, setSavingLicenses] = useState(false);
+  const [licenseForm, setLicenseForm] = useState({
+    state: '',
+    licenseNumber: '',
+    expiresAt: '',
+    issuedAt: '',
+  });
+  const [showLicenseForm, setShowLicenseForm] = useState(false);
+
   useEffect(() => {
     if (providerId) {
       fetchProvider();
     }
   }, [providerId]);
+
+  const editFromUrlApplied = useRef(false);
+  // Open in edit mode when ?edit=1 is in the URL (once when provider has loaded)
+  useEffect(() => {
+    if (
+      searchParams.get('edit') === '1' &&
+      provider &&
+      !loading &&
+      !editFromUrlApplied.current
+    ) {
+      editFromUrlApplied.current = true;
+      setEditMode(true);
+    }
+  }, [searchParams, provider, loading]);
 
   const getAuthToken = () => {
     return (
@@ -227,6 +271,7 @@ export default function SuperAdminProviderDetailPage() {
       if (res.ok) {
         setProvider(data.provider);
         setAuditHistory(data.auditHistory || []);
+        setLicenses(data.provider?.licenses ?? []);
         setEditForm({
           firstName: data.provider.firstName || '',
           lastName: data.provider.lastName || '',
@@ -304,6 +349,66 @@ export default function SuperAdminProviderDetailPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveLicenses = async () => {
+    setSavingLicenses(true);
+    setError(null);
+    try {
+      const payload = licenses.map((l) => ({
+        state: l.state,
+        licenseNumber: l.licenseNumber,
+        expiresAt: l.expiresAt,
+        issuedAt: l.issuedAt || undefined,
+      }));
+      const res = await apiFetch(`/api/super-admin/providers/${providerId}/licenses`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenses: payload }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLicenses(data.licenses ?? []);
+        setShowLicenseForm(false);
+        setLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
+        setSuccessMessage('Licenses updated');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } else {
+        setError(data.error || 'Failed to update licenses');
+      }
+    } catch {
+      setError('Failed to update licenses');
+    } finally {
+      setSavingLicenses(false);
+    }
+  };
+
+  const handleAddLicenseRow = () => {
+    const state = licenseForm.state.trim().toUpperCase().slice(0, 2);
+    const licenseNumber = licenseForm.licenseNumber.trim();
+    const expiresAt = licenseForm.expiresAt;
+    if (!state || !licenseNumber || !expiresAt) return;
+    if (licenses.some((l) => l.state === state)) {
+      setError(`License for state ${state} already exists. Edit or remove it first.`);
+      return;
+    }
+    setLicenses((prev) => [
+      ...prev,
+      {
+        id: -Date.now(),
+        state,
+        licenseNumber,
+        expiresAt: new Date(expiresAt).toISOString(),
+        issuedAt: licenseForm.issuedAt ? new Date(licenseForm.issuedAt).toISOString() : null,
+      },
+    ]);
+    setLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
+    setShowLicenseForm(false);
+    setError(null);
+  };
+
+  const handleRemoveLicense = (state: string) => {
+    setLicenses((prev) => prev.filter((l) => l.state !== state));
   };
 
   const handleAddClinic = async (e: React.FormEvent) => {
@@ -1022,6 +1127,155 @@ export default function SuperAdminProviderDetailPage() {
                 </dl>
               )}
             </div>
+          </div>
+
+          {/* State Licenses */}
+          <div className="rounded-xl bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">State Licenses</h2>
+              <div className="flex items-center gap-2">
+                {!showLicenseForm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowLicenseForm(true)}
+                    className="inline-flex items-center gap-1 text-sm text-[#4fa77e] hover:text-[#3d8a66]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add license
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => handleSaveLicenses()}
+                  disabled={savingLicenses}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
+                >
+                  {savingLicenses ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {savingLicenses ? 'Saving...' : 'Save changes'}
+                </button>
+              </div>
+            </div>
+            {showLicenseForm && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAddLicenseRow();
+                }}
+                className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+              >
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">State</label>
+                  <input
+                    type="text"
+                    maxLength={2}
+                    value={licenseForm.state}
+                    onChange={(e) =>
+                      setLicenseForm((f) => ({ ...f, state: e.target.value.toUpperCase() }))
+                    }
+                    placeholder="e.g. CA"
+                    className="mt-0.5 w-20 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">License number</label>
+                  <input
+                    type="text"
+                    value={licenseForm.licenseNumber}
+                    onChange={(e) =>
+                      setLicenseForm((f) => ({ ...f, licenseNumber: e.target.value }))
+                    }
+                    placeholder="License number"
+                    className="mt-0.5 w-40 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">Expiration date</label>
+                  <input
+                    type="date"
+                    value={licenseForm.expiresAt}
+                    onChange={(e) => setLicenseForm((f) => ({ ...f, expiresAt: e.target.value }))}
+                    className="mt-0.5 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">Issued (optional)</label>
+                  <input
+                    type="date"
+                    value={licenseForm.issuedAt}
+                    onChange={(e) => setLicenseForm((f) => ({ ...f, issuedAt: e.target.value }))}
+                    className="mt-0.5 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="rounded bg-[#4fa77e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#3d8a66]"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLicenseForm(false);
+                    setLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
+                  }}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+              </form>
+            )}
+            {licenses.length === 0 ? (
+              <p className="text-sm text-gray-500">No state licenses added yet. Click &quot;Add license&quot; to add one.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-left text-xs font-medium uppercase text-gray-500">
+                      <th className="py-2 pr-4">State</th>
+                      <th className="py-2 pr-4">License number</th>
+                      <th className="py-2 pr-4">Expiration</th>
+                      <th className="py-2 pr-4">Issued</th>
+                      <th className="w-10 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {licenses.map((l) => (
+                      <tr key={l.state} className="border-b border-gray-100">
+                        <td className="py-2 font-medium text-gray-900">{l.state}</td>
+                        <td className="py-2 text-gray-700">{l.licenseNumber}</td>
+                        <td className="py-2 text-gray-700">
+                          {new Date(l.expiresAt).toLocaleDateString()}
+                          {new Date(l.expiresAt) < new Date() && (
+                            <span className="ml-1 rounded bg-red-100 px-1 text-xs text-red-700">
+                              Expired
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 text-gray-500">
+                          {l.issuedAt
+                            ? new Date(l.issuedAt).toLocaleDateString()
+                            : '—'}
+                        </td>
+                        <td className="py-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLicense(l.state)}
+                            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                            title="Remove license"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}

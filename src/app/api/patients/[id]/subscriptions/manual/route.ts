@@ -15,7 +15,12 @@ import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
 import { getPlanById } from '@/config/billingPlans';
-import { triggerRefillForSubscriptionPayment } from '@/services/refill/refillQueueService';
+import {
+  triggerRefillForSubscriptionPayment,
+  createManualRefillsForSubscription,
+  REFILL_FREQUENCY_MONTHS,
+  getRefillDefaultsForPlanDuration,
+} from '@/services/refill/refillQueueService';
 
 type Params = {
   params: Promise<{ id: string }>;
@@ -32,7 +37,14 @@ const manualEnrollHandler = withAuthParams(
       }
 
       const body = await request.json();
-      const { planId, startDate, notes, queueRefill = true } = body;
+      const {
+        planId,
+        startDate,
+        notes,
+        queueRefill = true,
+        refillCount: rawRefillCount,
+        refillFrequency,
+      } = body;
 
       if (!planId || typeof planId !== 'string') {
         return NextResponse.json({ error: 'planId is required' }, { status: 400 });
@@ -98,14 +110,41 @@ const manualEnrollHandler = withAuthParams(
         return sub;
       });
 
-      let refill = null;
+      // Smart defaults from plan duration when refill params omitted (6mo → 1 refill quarterly, 12mo → 3 refills quarterly, etc.)
+      const planMonths = plan.months ?? 1;
+      const defaults = getRefillDefaultsForPlanDuration(planMonths);
+      const resolvedRefillCount = Math.min(
+        24,
+        Math.max(
+          1,
+          typeof rawRefillCount === 'number' ? Math.floor(rawRefillCount) : defaults.refillCount
+        )
+      );
+      const resolvedRefillFrequency =
+        typeof refillFrequency === 'string' && refillFrequency in REFILL_FREQUENCY_MONTHS
+          ? refillFrequency
+          : defaults.refillFrequency;
+      const intervalMonths =
+        REFILL_FREQUENCY_MONTHS[resolvedRefillFrequency as keyof typeof REFILL_FREQUENCY_MONTHS];
+      let refills: { id: number; status: string }[] = [];
       if (queueRefill) {
-        refill = await triggerRefillForSubscriptionPayment(
-          subscription.id,
-          undefined,
-          undefined,
-          'MANUAL_VERIFIED'
-        );
+        if (resolvedRefillCount > 1) {
+          const created = await createManualRefillsForSubscription(
+            subscription.id,
+            resolvedRefillCount,
+            start,
+            intervalMonths
+          );
+          refills = created.map((r) => ({ id: r.id, status: r.status }));
+        } else {
+          const refill = await triggerRefillForSubscriptionPayment(
+            subscription.id,
+            undefined,
+            undefined,
+            'MANUAL_VERIFIED'
+          );
+          if (refill) refills = [{ id: refill.id, status: refill.status }];
+        }
       }
 
       logger.info('[ManualEnrollment] Subscription created', {
@@ -113,7 +152,7 @@ const manualEnrollHandler = withAuthParams(
         patientId,
         planId: plan.id,
         queueRefill,
-        refillId: refill?.id,
+        refillCount: refills.length,
         userId: user.id,
       });
 
@@ -126,7 +165,7 @@ const manualEnrollHandler = withAuthParams(
           startDate: subscription.startDate,
           currentPeriodEnd: subscription.currentPeriodEnd,
         },
-        refill: refill ? { id: refill.id, status: refill.status } : null,
+        refills,
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

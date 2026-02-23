@@ -13,7 +13,8 @@ import { z } from 'zod';
 
 import { withAuth } from '@/lib/auth/middleware';
 import { patientMergeService, type UserContext } from '@/domains/patient';
-import { handleApiError, BadRequestError, ValidationError } from '@/domains/shared/errors';
+import { handleApiError, BadRequestError, ValidationError, isAppError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
 
 /**
  * Request schema for merge execution
@@ -105,6 +106,15 @@ const mergeHandler = withAuth(
         auditId: result.auditId,
       });
     } catch (error) {
+      // Log raw error for 500 debugging (merge touches many relations; failures often from missing model or encryption)
+      if (!isAppError(error)) {
+        logger.error('Patient merge failed', {
+          route: 'POST /api/patients/merge',
+          errorName: error instanceof Error ? error.name : 'unknown',
+          errorMessage: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
       return handleApiError(error, {
         context: { route: 'POST /api/patients/merge' },
       });

@@ -425,8 +425,20 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // Build comprehensive lookup conditions
+    // Build comprehensive lookup conditions: same email + same DOB = merge (no new profile)
     const lookupConditions: Prisma.PatientWhereInput[] = [];
+
+    if (
+      patientData.email &&
+      patientData.email !== 'unknown@example.com' &&
+      patientData.dob &&
+      patientData.dob !== '1900-01-01'
+    ) {
+      lookupConditions.push({
+        email: { equals: patientData.email, mode: 'insensitive' },
+        dob: patientData.dob,
+      });
+    }
 
     if (patientData.email && patientData.email !== 'unknown@example.com') {
       lookupConditions.push({ email: { equals: patientData.email, mode: 'insensitive' } });

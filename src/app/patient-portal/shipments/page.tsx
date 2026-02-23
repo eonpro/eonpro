@@ -44,6 +44,18 @@ interface Shipment {
   refillNumber: number | null;
 }
 
+interface PrescriptionJourney {
+  stage: 1 | 2 | 3 | 4;
+  label: string;
+  message: string;
+  medicationName: string | null;
+  orderId?: number;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  carrier?: string | null;
+  orderedAt?: string | null;
+}
+
 const statusConfig = {
   processing: {
     label: 'Processing',
@@ -101,6 +113,7 @@ export default function ShipmentsPage() {
 
   const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
   const [deliveredShipments, setDeliveredShipments] = useState<Shipment[]>([]);
+  const [prescriptionJourney, setPrescriptionJourney] = useState<PrescriptionJourney | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
@@ -135,8 +148,13 @@ export default function ShipmentsPage() {
         data !== null && typeof data === 'object' && 'deliveredShipments' in data
           ? ((data as { deliveredShipments?: Shipment[] }).deliveredShipments ?? [])
           : [];
+      const journey =
+        data !== null && typeof data === 'object' && 'prescriptionJourney' in data
+          ? (data as { prescriptionJourney?: PrescriptionJourney | null }).prescriptionJourney ?? null
+          : null;
       setActiveShipments(Array.isArray(active) ? active : []);
       setDeliveredShipments(Array.isArray(delivered) ? delivered : []);
+      setPrescriptionJourney(journey);
 
       if (Array.isArray(active) && active.length > 0) {
         setSelectedShipment(active[0] as Shipment);
@@ -245,23 +263,125 @@ export default function ShipmentsPage() {
       </div>
 
       {currentShipments.length === 0 ? (
-        <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50">
-            {activeTab === 'active' ? (
-              <Package className="h-10 w-10 text-gray-400" />
-            ) : (
-              <History className="h-10 w-10 text-gray-400" />
-            )}
+        activeTab === 'active' &&
+        prescriptionJourney &&
+        prescriptionJourney.stage <= 3 ? (
+          <div
+            className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg"
+            style={{
+              borderColor: `${primaryColor}20`,
+            }}
+          >
+            <div
+              className="px-6 py-5 text-white"
+              style={{
+                background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`,
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                  <Clock className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/90">{prescriptionJourney.label}</p>
+                  <p className="mt-0.5 text-lg font-bold text-white">Prescription status</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="mb-6 text-gray-700">{prescriptionJourney.message}</p>
+              <div className="space-y-4">
+                {[
+                  {
+                    step: 1,
+                    label: 'Provider reviewing',
+                    description: 'A licensed provider is reviewing your intake information.',
+                  },
+                  {
+                    step: 2,
+                    label: 'Prescription approved',
+                    description: 'Your prescription has been approved and sent to the pharmacy.',
+                  },
+                  {
+                    step: 3,
+                    label: 'Pharmacy processing',
+                    description: 'The pharmacy is currently processing your prescription.',
+                  },
+                  {
+                    step: 4,
+                    label: 'On the way',
+                    description: 'Your prescription is on the way with tracking.',
+                  },
+                ].map((s) => {
+                  const isCompleted = prescriptionJourney.stage > s.step;
+                  const isCurrent = prescriptionJourney.stage === s.step;
+                  return (
+                    <div
+                      key={s.step}
+                      className="flex gap-4 rounded-2xl border p-4 transition-all"
+                      style={{
+                        borderColor: isCurrent
+                          ? `${primaryColor}80`
+                          : isCompleted
+                            ? `${primaryColor}30`
+                            : '#e5e7eb',
+                        backgroundColor: isCurrent
+                          ? `${primaryColor}0f`
+                          : isCompleted
+                            ? `${primaryColor}08`
+                            : undefined,
+                      }}
+                    >
+                      <div
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
+                        style={{
+                          backgroundColor:
+                            isCompleted || isCurrent ? primaryColor : '#e5e7eb',
+                          color: isCompleted || isCurrent ? 'white' : '#9ca3af',
+                        }}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-5 w-5" />
+                        ) : (
+                          s.step
+                        )}
+                      </div>
+                      <div>
+                        <p
+                          className="font-semibold"
+                          style={
+                            isCurrent ? { color: primaryColor } : undefined
+                          }
+                        >
+                          Step {s.step}. {s.label}
+                        </p>
+                        <p className="mt-0.5 text-sm text-gray-600">{s.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <h3 className="mb-2 text-xl font-bold text-gray-900">
-            {activeTab === 'active' ? 'No Active Shipments' : 'No Delivery History'}
-          </h3>
-          <p className="text-gray-500">
-            {activeTab === 'active'
-              ? 'Your orders will appear here once shipped.'
-              : 'Your past deliveries will be stored here.'}
-          </p>
-        </div>
+        ) : (
+          <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50">
+              {activeTab === 'active' ? (
+                <Package className="h-10 w-10 text-gray-400" />
+              ) : (
+                <History className="h-10 w-10 text-gray-400" />
+              )}
+            </div>
+            <h3 className="mb-2 text-xl font-bold text-gray-900">
+              {activeTab === 'active' ? 'No Active Shipments' : 'No Delivery History'}
+            </h3>
+            <p className="text-gray-500">
+              {activeTab === 'active'
+                ? 'Your orders will appear here once shipped.'
+                : 'Your past deliveries will be stored here.'}
+            </p>
+          </div>
+        )
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Shipment List */}

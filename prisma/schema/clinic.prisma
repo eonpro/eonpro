@@ -223,6 +223,10 @@ model Clinic {
   affiliateFraudConfig       AffiliateFraudConfig?
   affiliateCompetitions      AffiliateCompetition[]
 
+  // Sales Rep Ref Codes & Touch Tracking
+  salesRepRefCodes SalesRepRefCode[]
+  salesRepTouches  SalesRepTouch[]
+
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]
 
@@ -270,6 +274,9 @@ model Clinic {
 
   // PATIENT PORTAL: Progress photos, ID verification, medical images
   patientPhotos PatientPhoto[]
+
+  // Patient profile notes (author attribution, center = clinic)
+  patientNotes PatientNote[]
 
   @@index([subdomain])
   @@index([status])

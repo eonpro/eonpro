@@ -138,8 +138,11 @@ export async function setupAppleCalendar(
     } as any,
   });
 
-  // Generate URLs
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+  // Generate URLs — always use HTTPS so Apple Calendar (iOS) accepts the subscription
+  let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+  if (baseUrl.startsWith('http://')) {
+    baseUrl = 'https://' + baseUrl.slice(7);
+  }
   const feedUrl = `${baseUrl}/api/calendar/ical/${subscription.token}`;
   const webcalUrl = `webcal://${new URL(baseUrl).host}/api/calendar/ical/${subscription.token}`;
 

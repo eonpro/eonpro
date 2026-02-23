@@ -83,6 +83,7 @@ Thumbs.db
 # Build artifacts
 .turbo/.env.vercel
 .env.rds
+.env.migrate.rds
 test-results/
 .env.backup
 .env.local.backup

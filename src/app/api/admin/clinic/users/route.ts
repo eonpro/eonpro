@@ -90,6 +90,28 @@ export const GET = withAuth(
         };
       });
 
+      // Sort by role: admin/staff on top (like superadmin level), then providers, then patients
+      const roleOrder: Record<string, number> = {
+        SUPER_ADMIN: 0,
+        ADMIN: 1,
+        STAFF: 2,
+        SUPPORT: 3,
+        SALES_REP: 4,
+        PROVIDER: 5,
+        INFLUENCER: 6,
+        AFFILIATE: 7,
+        PATIENT: 8,
+      };
+      const byRoleThenName = (a: (typeof formattedUsers)[number], b: (typeof formattedUsers)[number]) => {
+        const orderA = roleOrder[a.role] ?? 9;
+        const orderB = roleOrder[b.role] ?? 9;
+        if (orderA !== orderB) return orderA - orderB;
+        const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+        const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      };
+      formattedUsers.sort(byRoleThenName);
+
       return NextResponse.json({ users: formattedUsers });
     } catch (error) {
       logger.error('Error fetching clinic users:', error);

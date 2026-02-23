@@ -32,7 +32,10 @@ import {
   normalizeZip,
   extractAddressFromPayload,
 } from '@/lib/address';
-import { scheduleFutureRefillsFromInvoice } from '@/lib/shipment-schedule';
+import {
+  scheduleFutureRefillsFromInvoice,
+  parsePackageMonthsFromPlan,
+} from '@/lib/shipment-schedule';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { PHISearchService } from '@/lib/security/phi-search';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
@@ -1010,10 +1013,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // STEP 7b: Schedule future refills for 6-month and 12-month packages
-    // Pharmacy ships 3 months at a time (90-day BUD). For longer plans, queue refills at 90, 180, 270 days.
-    const planLower = (plan || '').toLowerCase();
-    if (/6[\s-]*month|6month|12[\s-]*month|12month|annual|yearly|semi[\s-]*annual/.test(planLower)) {
+    // STEP 7b: Automatically schedule refills for all GLP-1 plan durations (WellMedR)
+    // 1-month: refill at 28 days, payment verification pending. 3-month: refill at 84 days, payment verification pending.
+    // 6-month: 1 refill at 90 days (pre-paid). 12-month: 3 refills at 90, 180, 270 days (pre-paid). Rebilling in 6/12 months respectively.
+    const planNameForRefill = plan || productName || '';
+    const packageMonths = parsePackageMonthsFromPlan(planNameForRefill);
+    if (packageMonths >= 1) {
       try {
         const medicationName =
           product && medicationType
@@ -1024,13 +1029,14 @@ export async function POST(req: NextRequest) {
           patientId: verifiedPatient.id,
           invoiceId: invoice.id,
           medicationName,
-          planName: plan || productName,
+          planName: planNameForRefill,
           prescriptionDate: parsePaymentDate(payload.payment_date),
         });
         if (refills.length > 0) {
-          logger.info(`[WELLMEDR-INVOICE ${requestId}] Scheduled ${refills.length} future refill(s)`, {
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] Scheduled ${refills.length} refill(s)`, {
             invoiceId: invoice.id,
-            plan,
+            plan: planNameForRefill,
+            packageMonths,
             nextDates: refills.map((r) => r.nextRefillDate),
           });
         }

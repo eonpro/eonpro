@@ -499,7 +499,22 @@ export async function POST(req: NextRequest) {
       const decryptedLastName = safeDecrypt(p.lastName)?.toLowerCase().trim();
       const decryptedDob = safeDecrypt(p.dob);
 
-      // 1. Match by email (strongest - skip placeholder emails)
+      // 1. Match by email + DOB (same person: merge instead of creating new profile)
+      if (
+        searchEmail &&
+        searchEmail !== 'unknown@example.com' &&
+        searchDob &&
+        searchDob !== '1900-01-01' &&
+        decryptedEmail &&
+        decryptedEmail === searchEmail &&
+        decryptedDob === searchDob
+      ) {
+        existingPatient = p;
+        logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by email+DOB: ${p.id}`);
+        break;
+      }
+
+      // 2. Match by email (skip placeholder emails)
       if (
         searchEmail &&
         searchEmail !== 'unknown@example.com' &&
@@ -511,7 +526,7 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      // 2. Match by phone (skip placeholder phones)
+      // 3. Match by phone (skip placeholder phones)
       if (
         searchPhone &&
         searchPhone !== '0000000000' &&
@@ -523,7 +538,7 @@ export async function POST(req: NextRequest) {
         break;
       }
 
-      // 3. Match by name + DOB (for patients who changed email/phone)
+      // 4. Match by name + DOB (for patients who changed email/phone)
       if (
         searchFirstName &&
         searchFirstName !== 'unknown' &&
@@ -579,16 +594,19 @@ export async function POST(req: NextRequest) {
         ...patientData,
         patientId: existingPatient!.patientId,
       });
+      // When intake didn't provide a phone, don't overwrite existing patient phone with placeholder
+      const updatePayload = {
+        ...patientData,
+        profileStatus: 'ACTIVE' as const,
+        tags: updatedTags,
+        notes: buildNotes(existingPatient!.notes),
+        searchIndex: updateSearchIndex,
+      };
+      if (!updatePayload.phone) delete (updatePayload as { phone?: string }).phone;
       patient = await withRetry(() =>
         prisma.patient.update({
           where: { id: existingPatient!.id },
-          data: {
-            ...patientData,
-            profileStatus: 'ACTIVE',
-            tags: updatedTags,
-            notes: buildNotes(existingPatient!.notes),
-            searchIndex: updateSearchIndex,
-          },
+          data: updatePayload,
         })
       );
       logger.info(
@@ -609,26 +627,29 @@ export async function POST(req: NextRequest) {
             ...patientData,
             patientId: patientNumber,
           });
-          patient = await prisma.patient.create({
-            data: {
-              ...patientData,
-              patientId: patientNumber,
-              clinicId: clinicId,
-              profileStatus: 'ACTIVE',
-              tags: submissionTags,
-              notes: buildNotes(null),
-              source: 'webhook',
-              searchIndex,
-              sourceMetadata: {
-                type: 'wellmedr-intake',
-                submissionId: normalized.submissionId,
-                checkoutCompleted: isComplete,
-                intakeUrl: 'https://intake.wellmedr.com',
-                timestamp: new Date().toISOString(),
-                clinicId,
-                clinicName: 'Wellmedr',
-              },
+          // DB requires non-empty phone; use placeholder only when intake didn't provide one
+          const createPayload = {
+            ...patientData,
+            phone: patientData.phone || '0000000000',
+            patientId: patientNumber,
+            clinicId: clinicId,
+            profileStatus: 'ACTIVE' as const,
+            tags: submissionTags,
+            notes: buildNotes(null),
+            source: 'webhook',
+            searchIndex,
+            sourceMetadata: {
+              type: 'wellmedr-intake',
+              submissionId: normalized.submissionId,
+              checkoutCompleted: isComplete,
+              intakeUrl: 'https://intake.wellmedr.com',
+              timestamp: new Date().toISOString(),
+              clinicId,
+              clinicName: 'Wellmedr',
             },
+          };
+          patient = await prisma.patient.create({
+            data: createPayload,
           });
           isNewPatient = true;
           created = true;
@@ -661,15 +682,17 @@ export async function POST(req: NextRequest) {
                   ...patientData,
                   patientId: refetchPatient.patientId,
                 });
+                const retryUpdatePayload = {
+                  ...patientData,
+                  profileStatus: 'ACTIVE' as const,
+                  tags: mergeTags(refetchPatient.tags, submissionTags),
+                  notes: buildNotes(refetchPatient.notes),
+                  searchIndex: retrySearchIndex,
+                };
+                if (!retryUpdatePayload.phone) delete (retryUpdatePayload as { phone?: string }).phone;
                 patient = await prisma.patient.update({
                   where: { id: refetchPatient.id },
-                  data: {
-                    ...patientData,
-                    profileStatus: 'ACTIVE',
-                    tags: mergeTags(refetchPatient.tags, submissionTags),
-                    notes: buildNotes(refetchPatient.notes),
-                    searchIndex: retrySearchIndex,
-                  },
+                  data: retryUpdatePayload,
                 });
                 created = true;
                 logger.info(
@@ -1188,13 +1211,14 @@ async function getNextPatientId(clinicId: number): Promise<string> {
   return generatePatientId(clinicId);
 }
 
-function sanitizePhone(value?: string) {
-  if (!value) return '0000000000';
+/** Returns digits-only phone, or empty string if none. Caller uses '0000000000' only when creating a new patient and phone is required. */
+function sanitizePhone(value?: string): string {
+  if (!value || !String(value).trim()) return '';
   const digits = String(value).replace(/\D/g, '');
   if (digits.length === 11 && digits.startsWith('1')) {
     return digits.slice(1);
   }
-  return digits || '0000000000';
+  return digits || '';
 }
 
 function normalizeGender(value?: string) {

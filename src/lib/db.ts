@@ -204,6 +204,7 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'platformfeeevent',
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
   'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
+  'salesreprefcode', // public track endpoint: lookup by refCode to resolve clinicId/salesRepId
 ];
 
 /**
@@ -878,6 +879,14 @@ class PrismaWithClinicFilter {
     return this.createModelProxy('patientSalesRepAssignment');
   }
 
+  // Sales rep ref codes and touch tracking (clinic-isolated)
+  get salesRepRefCode() {
+    return this.createModelProxy('salesRepRefCode');
+  }
+  get salesRepTouch() {
+    return this.createModelProxy('salesRepTouch');
+  }
+
   // ============================================================================
   // NON-ISOLATED MODELS (global or user-scoped, not clinic-scoped)
   // ============================================================================
@@ -905,6 +914,9 @@ class PrismaWithClinicFilter {
   }
   get emailVerificationToken() {
     return this.client.emailVerificationToken;
+  }
+  get emailVerificationCode() {
+    return this.client.emailVerificationCode;
   }
   get clinicInviteCode() {
     return this.client.clinicInviteCode;

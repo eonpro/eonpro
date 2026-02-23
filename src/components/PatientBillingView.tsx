@@ -164,8 +164,9 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       return;
 
     try {
-      const res = await apiFetch(`/api/stripe/invoices/${invoiceId}`, {
-        method: 'DELETE',
+      const res = await apiFetch(`/api/v2/invoices/${invoiceId}/actions`, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete' }),
       });
 
       if (res.ok) {

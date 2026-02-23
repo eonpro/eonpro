@@ -764,7 +764,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="group fixed bottom-6 right-6 z-50"
+        className="group fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6"
+        style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         title="Open Team Chat"
       >
         <div className="relative">
@@ -782,20 +783,20 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
             }`}
           />
 
-          {/* Button */}
+          {/* Button - smaller on mobile so it doesn't cover queue content */}
           <div
-            className={`relative transform rounded-full p-4 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl ${
+            className={`relative transform rounded-full p-3 text-white shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-2xl sm:p-4 ${
               unreadCount > 0
                 ? 'bg-gradient-to-r from-red-500 to-orange-500'
                 : 'bg-gradient-to-r from-[var(--brand-primary)] to-[var(--brand-primary)]'
             }`}
           >
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
 
           {/* Badge */}
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] animate-pulse items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-lg">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[18px] animate-pulse items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-lg sm:-right-1 sm:-top-1 sm:h-5 sm:min-w-[20px] sm:px-1.5 sm:text-[10px]">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -863,9 +864,12 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // ===========================================================================
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      {/* Container with Apple-style shadow and rounded corners */}
-      <div className="flex h-[580px] w-[380px] flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl">
+    <div
+      className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6"
+      style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+    >
+      {/* Container - full height on mobile, fixed height on sm+ */}
+      <div className="flex h-[min(85dvh,580px)] w-[min(100vw-2rem,380px)] flex-col overflow-hidden rounded-2xl border border-gray-200/50 bg-white/95 shadow-2xl backdrop-blur-xl sm:h-[580px] sm:w-[380px]">
         {/* ===== Header ===== */}
         <div className="flex-shrink-0 border-b border-gray-100 bg-gray-50/80 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between">

@@ -396,16 +396,16 @@ export interface ScheduleRefillsFromInvoiceInput {
 }
 
 /**
- * Schedule ALL RefillQueue entries for 6-month and 12-month packages paid via invoice (e.g. Airtable).
- * Pharmacy can only ship 3 months at a time (90-day BUD), so:
- * - 6-month package: 2 shipments (initial + month 3)
- * - 12-month package: 4 shipments (initial + months 3, 6, 9)
+ * Schedule RefillQueue entries for invoice-paid plans (WellMedR / Airtable).
  *
- * Creates an initial "COMPLETED" entry for the first shipment (handled by Invoice → Rx Queue)
- * plus SCHEDULED entries for future shipments. All are linked via parentRefillId.
+ * The original/first prescription is always handled manually (not queued). Only future refills are queued.
  *
- * Refill dates use same-day-of-month logic:
- *   Purchase Jan 15 → refills Apr 15, Jul 15, Oct 15
+ * - 1-month: One refill at 28 days; status PENDING_PAYMENT (admin verifies payment before refill).
+ * - 3-month: One refill at 84 days; status PENDING_PAYMENT (admin verifies payment before refill).
+ * - 6-month: 1 refill at 90 days (pre-paid, PENDING_ADMIN). Rebilling in 6 months.
+ * - 12-month: 3 refills at 90, 180, 270 days (pre-paid, PENDING_ADMIN). Rebilling in 12 months.
+ *
+ * Pharmacy ships 3 months at a time (90-day BUD). Same-day-of-month logic for 6/12: e.g. Jan 15 → refills Apr 15, Jul 15, Oct 15.
  */
 export async function scheduleFutureRefillsFromInvoice(
   input: ScheduleRefillsFromInvoiceInput
@@ -423,50 +423,95 @@ export async function scheduleFutureRefillsFromInvoice(
   } = input;
 
   const packageMonths = parsePackageMonthsFromPlan(planName);
-  if (packageMonths < 4) {
-    return [];
+
+  // 1-month: single refill at 28 days, payment verification pending by admin
+  if (packageMonths === 1) {
+    const nextRefillDate = new Date(prescriptionDate);
+    nextRefillDate.setDate(nextRefillDate.getDate() + REFILL_DAYS_1_MONTH);
+    const refill = await prisma.refillQueue.create({
+      data: {
+        clinicId,
+        patientId,
+        invoiceId,
+        vialCount: 1,
+        refillIntervalDays: REFILL_DAYS_1_MONTH,
+        nextRefillDate,
+        status: 'PENDING_PAYMENT',
+        medicationName,
+        medicationStrength,
+        medicationForm,
+        planName,
+        shipmentNumber: 1,
+        totalShipments: 1,
+        parentRefillId: null,
+        budDays: REFILL_DAYS_1_MONTH,
+        paymentVerified: false,
+        paymentMethod: null,
+      },
+    });
+    logger.info('[ShipmentSchedule] Scheduled 1-month refill (payment verification pending)', {
+      clinicId,
+      patientId,
+      invoiceId,
+      nextRefillDate: refill.nextRefillDate,
+    });
+    return [refill];
   }
 
-  const totalShipments = calculateShipmentsNeeded(packageMonths, budDays);
-  if (totalShipments <= 1) return [];
-
-  // Calculate dates using same-day-of-month logic (3-month intervals)
-  const shipmentDates = calculateShipmentDates(prescriptionDate, totalShipments, budDays);
-
-  const refills = await prisma.$transaction(async (tx) => {
-    const created: RefillQueue[] = [];
-
-    // Create the initial shipment entry (shipment 1) as the parent
-    // Status: PENDING_PROVIDER since the invoice is already PAID and Rx queue will process it
-    const initialRefill: any = await tx.refillQueue.create({
+  // 3-month: single refill at 84 days, payment verification pending by admin
+  if (packageMonths === 3) {
+    const nextRefillDate = new Date(prescriptionDate);
+    nextRefillDate.setDate(nextRefillDate.getDate() + REFILL_DAYS_3_MONTH);
+    const refill = await prisma.refillQueue.create({
       data: {
         clinicId,
         patientId,
         invoiceId,
         vialCount: 3,
         refillIntervalDays: budDays,
-        nextRefillDate: shipmentDates[0],
-        status: 'PENDING_PROVIDER',
+        nextRefillDate,
+        status: 'PENDING_PAYMENT',
         medicationName,
         medicationStrength,
         medicationForm,
         planName,
         shipmentNumber: 1,
-        totalShipments,
-        parentRefillId: null, // This IS the parent
+        totalShipments: 1,
+        parentRefillId: null,
         budDays,
-        paymentVerified: true,
-        paymentVerifiedAt: new Date(),
-        paymentMethod: 'invoice-prepaid',
+        paymentVerified: false,
+        paymentMethod: null,
       },
     });
+    logger.info('[ShipmentSchedule] Scheduled 3-month refill (payment verification pending)', {
+      clinicId,
+      patientId,
+      invoiceId,
+      nextRefillDate: refill.nextRefillDate,
+    });
+    return [refill];
+  }
 
-    const parentRefillId = initialRefill.id;
-    created.push(initialRefill);
+  // 6-month and 12-month: pre-paid; original prescription is handled manually (not queued).
+  // Queue only future refills: 6-month = 1 refill at 90 days; 12-month = 3 refills at 90, 180, 270 days.
+  if (packageMonths < 4) {
+    return [];
+  }
 
-    // Create future shipments (shipments 2, 3, 4)
+  const totalShipments = calculateShipmentsNeeded(packageMonths, budDays);
+  const futureRefillCount = totalShipments - 1; // exclude initial (handled manually)
+  if (futureRefillCount < 1) return [];
+
+  // Dates: index 0 = original (manual), 1 = 90d, 2 = 180d, 3 = 270d
+  const shipmentDates = calculateShipmentDates(prescriptionDate, totalShipments, budDays);
+
+  const refills = await prisma.$transaction(async (tx) => {
+    const created: RefillQueue[] = [];
+    let parentRefillId: number | null = null;
+
     for (let i = 1; i < totalShipments; i++) {
-      const shipmentNumber = i + 1;
+      const shipmentNumber = i; // 1, 2, 3 (first queued = 1, second = 2, third = 3)
+      const isFirstQueued = i === 1;
 
       const refill: any = await tx.refillQueue.create({
         data: {
@@ -476,13 +521,13 @@ export async function scheduleFutureRefillsFromInvoice(
           vialCount: 3,
           refillIntervalDays: budDays,
           nextRefillDate: shipmentDates[i],
-          status: 'SCHEDULED',
+          status: 'PENDING_ADMIN',
           medicationName,
           medicationStrength,
           medicationForm,
           planName,
           shipmentNumber,
-          totalShipments,
+          totalShipments: futureRefillCount,
           parentRefillId,
           budDays,
           paymentVerified: true,
@@ -491,26 +536,29 @@ export async function scheduleFutureRefillsFromInvoice(
         },
       });
 
+      if (isFirstQueued) {
+        parentRefillId = refill.id;
+      }
       created.push(refill);
     }
 
     return created;
   }, { timeout: 15000 });
 
-  logger.info('[ShipmentSchedule] Scheduled complete shipment series from invoice', {
+  logger.info('[ShipmentSchedule] Scheduled future refills from invoice (original handled manually)', {
     clinicId,
     patientId,
     invoiceId,
     packageMonths,
-    totalShipments: refills.length,
-    parentRefillId: refills[0]?.id,
+    futureRefillCount: refills.length,
     dates: refills.map((r) => ({ shipment: (r as any).shipmentNumber, date: r.nextRefillDate })),
   });
 
   return refills;
 }
 
-function parsePackageMonthsFromPlan(planName: string): number {
+/** Parse plan name to package duration in months (1, 3, 6, 12 or 0 if unknown). Exported for callers (e.g. WellMedR invoice). */
+export function parsePackageMonthsFromPlan(planName: string): number {
   const lower = (planName || '').toLowerCase();
   const m12 = /12\s*month|12month|annual|yearly|1\s*year/.exec(lower);
   if (m12) return 12;
@@ -522,6 +570,11 @@ function parsePackageMonthsFromPlan(planName: string): number {
   if (m1) return 1;
   return 0;
 }
+
+/** Days from prescription to next refill for 1-month plan (admin verifies payment before refill). */
+const REFILL_DAYS_1_MONTH = 28;
+/** Days from prescription to next refill for 3-month plan (admin verifies payment before refill). */
+const REFILL_DAYS_3_MONTH = 84;
 
 /**
  * Create a single refill (for packages that don't need multi-shipment)

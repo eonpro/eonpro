@@ -3,7 +3,7 @@
  * Handles OTP generation, storage, and verification for email authentication
  */
 
-import { prisma, basePrisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/email';
 import crypto from 'crypto';
@@ -59,8 +59,8 @@ export function generateVerificationToken(): string {
 }
 
 /**
- * Store verification code for an email
- * Uses the PatientAudit table temporarily (in production, use a dedicated table)
+ * Store verification code for an email.
+ * Uses EmailVerificationCode table (no Patient FK); safe for unauthenticated routes.
  */
 export async function storeVerificationCode(
   email: string,
@@ -68,24 +68,15 @@ export async function storeVerificationCode(
   type: 'email_verification' | 'password_reset' | 'login_otp'
 ): Promise<boolean> {
   try {
-    // Store verification code with 15-minute expiration
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-    // Using PatientAudit table as temporary storage for verification codes
-    // In production, create a dedicated VerificationCodes table
-    await prisma.patientAudit.create({
+    await basePrisma.emailVerificationCode.create({
       data: {
-        patientId: 0, // Special ID for verification codes
-        action: type.toUpperCase(),
-        actorEmail: email,
-        diff: JSON.stringify({
-          code,
-          expiresAt: expiresAt.toISOString(),
-          verified: false,
-        }),
+        email: email.toLowerCase(),
+        code,
+        type: type.toUpperCase(),
+        expiresAt,
       },
     });
-
     logger.info(`Verification code stored for ${email} (${type})`);
     return true;
   } catch (error) {
@@ -95,7 +86,7 @@ export async function storeVerificationCode(
 }
 
 /**
- * Verify an OTP code
+ * Verify an OTP code (uses EmailVerificationCode table).
  */
 export async function verifyOTPCode(
   email: string,
@@ -103,12 +94,10 @@ export async function verifyOTPCode(
   type: 'email_verification' | 'password_reset' | 'login_otp'
 ): Promise<VerificationResult> {
   try {
-    // Find the most recent verification code for this email
-    const verificationRecord: any = await prisma.patientAudit.findFirst({
+    const verificationRecord = await basePrisma.emailVerificationCode.findFirst({
       where: {
-        patientId: 0,
-        action: type.toUpperCase(),
-        actorEmail: email,
+        email: email.toLowerCase(),
+        type: type.toUpperCase(),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -120,27 +109,21 @@ export async function verifyOTPCode(
       };
     }
 
-    const data = JSON.parse(verificationRecord.diff as string);
-
-    // Check if code is expired
-    if (new Date() > new Date(data.expiresAt)) {
+    if (new Date() > verificationRecord.expiresAt) {
       return {
         success: false,
         message: 'Verification code has expired',
       };
     }
 
-    // Check if already verified
-    if (data.verified) {
+    if (verificationRecord.verified) {
       return {
         success: false,
         message: 'This code has already been used',
       };
     }
 
-    // Check if code matches
-    if (data.code !== code) {
-      // Log failed attempt
+    if (verificationRecord.code !== code) {
       logger.warn(`Invalid verification code attempt for ${email}`);
       return {
         success: false,
@@ -148,15 +131,11 @@ export async function verifyOTPCode(
       };
     }
 
-    // Mark as verified
-    await prisma.patientAudit.update({
+    await basePrisma.emailVerificationCode.update({
       where: { id: verificationRecord.id },
       data: {
-        diff: JSON.stringify({
-          ...data,
-          verified: true,
-          verifiedAt: new Date().toISOString(),
-        }),
+        verified: true,
+        verifiedAt: new Date(),
       },
     });
 
@@ -309,32 +288,17 @@ function generateEmailTemplate(
 }
 
 /**
- * Clean up expired verification codes
+ * Clean up expired verification codes (EmailVerificationCode table).
  */
 export async function cleanupExpiredCodes(): Promise<void> {
   try {
-    const expiredRecords = await prisma.patientAudit.findMany({
+    const result = await basePrisma.emailVerificationCode.deleteMany({
       where: {
-        patientId: 0,
-        action: {
-          in: ['EMAIL_VERIFICATION', 'PASSWORD_RESET', 'LOGIN_OTP'],
-        },
-        createdAt: {
-          lt: new Date(Date.now() - 24 * 60 * 60 * 1000), // Older than 24 hours
-        },
+        expiresAt: { lt: new Date() },
       },
     });
-
-    if (expiredRecords.length > 0) {
-      await prisma.patientAudit.deleteMany({
-        where: {
-          id: {
-            in: expiredRecords.map((r: any) => r.id),
-          },
-        },
-      });
-
-      logger.info(`Cleaned up ${expiredRecords.length} expired verification codes`);
+    if (result.count > 0) {
+      logger.info(`Cleaned up ${result.count} expired verification codes`);
     }
   } catch (error) {
     logger.error('Failed to cleanup expired codes:', error);

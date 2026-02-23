@@ -72,8 +72,11 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       orderBy: { createdAt: 'desc' },
     });
 
-    // Generate subscription URLs
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    // Generate subscription URLs — always HTTPS so Apple Calendar (iOS) accepts the subscription
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    if (baseUrl.startsWith('http://')) {
+      baseUrl = 'https://' + baseUrl.slice(7);
+    }
     const subscriptionsWithUrls = subscriptions.map((sub: any) => ({
       ...sub,
       feedUrl: `${baseUrl}/api/calendar/ical/${sub.token}`,
@@ -142,8 +145,11 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       syncRangeDays: parsed.data.syncRangeDays,
     });
 
-    // Generate URLs
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    // Generate URLs — always HTTPS so Apple Calendar (iOS) accepts the subscription
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    if (baseUrl.startsWith('http://')) {
+      baseUrl = 'https://' + baseUrl.slice(7);
+    }
     const feedUrl = `${baseUrl}/api/calendar/ical/${subscription.token}`;
     const webcalUrl = `webcal://${new URL(baseUrl).host}/api/calendar/ical/${subscription.token}`;
 

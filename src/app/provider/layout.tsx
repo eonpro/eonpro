@@ -19,8 +19,9 @@ import {
   Activity,
   Stethoscope,
   ClipboardList,
-  Bell,
   Ticket,
+  Menu,
+  X,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -59,6 +60,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
@@ -170,24 +172,54 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading || brandingLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
-        <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
-      </div>
-    );
-  }
+  // Close mobile nav on route change
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  const showLoading = loading || brandingLoading;
 
   return (
     <div className="flex min-h-screen bg-[#efece7]">
-      {/* Sidebar */}
+      {showLoading ? (
+        <div className="flex flex-1 items-center justify-center">
+          <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
+        </div>
+      ) : (
+        <>
+      {/* Mobile nav overlay */}
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 md:hidden"
+          aria-hidden
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - hidden below md; drawer when open on mobile; visible on md+ */}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
-          sidebarExpanded ? 'w-56' : 'w-20'
-        }`}
+        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300
+          md:translate-x-0
+          ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
+          ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
       >
-        {/* Logo */}
-        <div className="mb-6 flex flex-col items-center px-4">
+        {/* Mobile: close button (below md) */}
+        <div className="flex items-center justify-between px-4 pb-2 md:hidden">
+          <Link href="/provider" onClick={() => setMobileNavOpen(false)}>
+            <img src={clinicLogo} alt={clinicName} className="h-9 w-auto max-w-[140px] object-contain" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(false)}
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
+            aria-label="Close menu"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Logo - desktop (md+) */}
+        <div className="mb-6 hidden flex-col items-center px-4 md:flex">
           <Link href="/provider">
             {sidebarExpanded ? (
               <img
@@ -212,26 +244,28 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Expand Button */}
+        {/* Expand Button - desktop only */}
         <button
           onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
+          className={`absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none md:flex ${
             sidebarExpanded ? 'rotate-180' : ''
           }`}
         >
           <ChevronRight className="h-3 w-3 text-gray-400" />
         </button>
 
-        {/* Main Navigation */}
+        {/* Main Navigation - mobile: always show labels and touch-friendly (min 44px) */}
         <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path, item.exact);
             const showBadge = item.hasBadge && rxQueueCount > 0;
+            const showLabels = sidebarExpanded || mobileNavOpen;
 
             const handleNavClick = (e: React.MouseEvent) => {
               e.preventDefault();
               e.stopPropagation();
+              setMobileNavOpen(false);
               if (pathname === item.path) {
                 window.location.reload();
               } else {
@@ -244,27 +278,27 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 key={item.path}
                 onClick={handleNavClick}
                 title={
-                  !sidebarExpanded
+                  !showLabels
                     ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}`
                     : undefined
                 }
-                className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
-                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                className={`relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left transition-all touch-manipulation ${
+                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
-                <div className="relative">
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {showBadge && !sidebarExpanded && (
+                <div className="relative flex-shrink-0">
+                  <Icon className="h-5 w-5" />
+                  {showBadge && !showLabels && (
                     <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
                       {rxQueueCount > 99 ? '99+' : rxQueueCount}
                     </span>
                   )}
                 </div>
-                {sidebarExpanded && (
-                  <span className="flex-1 whitespace-nowrap text-sm font-medium">{item.label}</span>
+                {showLabels && (
+                  <span className="flex-1 whitespace-nowrap text-left text-sm font-medium">{item.label}</span>
                 )}
-                {sidebarExpanded && showBadge && (
+                {showLabels && showBadge && (
                   <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-orange-500 px-1.5 text-xs font-bold text-white">
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
@@ -273,8 +307,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          {/* Clinical Tools Section */}
-          {sidebarExpanded && (
+          {/* Clinical Tools Section - show when expanded or mobile drawer */}
+          {(sidebarExpanded || mobileNavOpen) && (
             <div className="mt-6 border-t border-gray-100 pt-6">
               <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
                 Clinical Tools
@@ -286,13 +320,14 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   <button
                     key={item.path}
                     onClick={() => {
+                      setMobileNavOpen(false);
                       if (active) {
                         window.location.reload();
                       } else {
                         window.location.href = item.path;
                       }
                     }}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-all ${
+                    className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
                     style={
@@ -307,8 +342,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          {/* Collapsed Clinical Tools */}
-          {!sidebarExpanded && (
+          {/* Collapsed Clinical Tools - desktop (md+) only when collapsed */}
+          {!sidebarExpanded && !mobileNavOpen && (
             <div className="mt-6 space-y-1 border-t border-gray-100 pt-6">
               {clinicalTools.map((item) => {
                 const Icon = item.icon;
@@ -341,35 +376,46 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
 
         {/* User Info & Logout */}
         <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-          {sidebarExpanded && userName && (
+          {(sidebarExpanded || mobileNavOpen) && userName && (
             <div className="truncate px-3 py-2 text-xs text-gray-500">{userName}</div>
           )}
           <button
             type="button"
-            onClick={handleLogout}
-            title={!sidebarExpanded ? 'Sign Out' : undefined}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+            onClick={(e) => {
+              setMobileNavOpen(false);
+              handleLogout(e);
+            }}
+            title={!sidebarExpanded && !mobileNavOpen ? 'Sign Out' : undefined}
+            className="flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600 active:bg-red-50"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
-            {sidebarExpanded && (
+            {(sidebarExpanded || mobileNavOpen) && (
               <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
             )}
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
-        {/* Top Left Notification Bar */}
-        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-6 py-3 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <NotificationCenter
-                notificationsPath="/provider/notifications"
-                dropdownPosition="left"
-              />
-              <span className="text-sm font-medium text-gray-600">Notifications</span>
-            </div>
+      {/* Main Content - full width below md, sidebar margin on md+ */}
+      <main
+        className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}
+      >
+        {/* Top bar: hamburger below md, notifications */}
+        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-3 backdrop-blur-sm md:px-6" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(true)}
+            className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 md:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+          <div className="flex flex-1 items-center justify-end gap-2 md:justify-start">
+            <NotificationCenter
+              notificationsPath="/provider/notifications"
+              dropdownPosition="left"
+            />
+            <span className="hidden text-sm font-medium text-gray-600 md:inline">Notifications</span>
           </div>
         </div>
 
@@ -378,6 +424,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Internal Team Chat */}
       {userId && <InternalChat currentUserId={userId} currentUserRole="provider" />}
+        </>
+      )}
     </div>
   );
 }

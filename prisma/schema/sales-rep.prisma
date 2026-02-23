@@ -1,0 +1,65 @@
+// ==========================================================================
+// SALES REP DOMAIN
+// ==========================================================================
+// Bounded context: sales rep (intake URLs, touch tracking, attribution)
+// Part of multi-file Prisma schema (prisma/schema/)
+// ==========================================================================
+
+// Shareable ref codes for sales rep intake URLs (like AffiliateRefCode)
+model SalesRepRefCode {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  clinicId    Int
+  clinic      Clinic   @relation(fields: [clinicId], references: [id])
+  salesRepId  Int // User ID with SALES_REP role
+  salesRep    User     @relation("SalesRepRefCodes", fields: [salesRepId], references: [id], onDelete: Cascade)
+  refCode     String
+  description String?
+  isActive    Boolean  @default(true)
+
+  @@unique([clinicId, refCode])
+  @@index([clinicId])
+  @@index([salesRepId])
+  @@index([refCode])
+}
+
+// Multi-touch attribution for sales rep links (HIPAA-safe: no names/medical data)
+model SalesRepTouch {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  visitorFingerprint String
+  cookieId           String?
+  ipAddressHash      String?
+  userAgent          String?
+
+  salesRepId Int
+  salesRep   User   @relation("SalesRepTouches", fields: [salesRepId], references: [id], onDelete: Cascade)
+  refCode    String
+
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+
+  landingPage String?
+  referrerUrl String?
+
+  touchType TouchType @default(CLICK)
+
+  convertedPatientId Int?
+  convertedAt        DateTime?
+
+  @@index([clinicId, visitorFingerprint])
+  @@index([clinicId, cookieId])
+  @@index([salesRepId])
+  @@index([createdAt])
+  @@index([refCode])
+  @@index([salesRepId, convertedAt])
+  @@index([refCode, createdAt])
+  @@index([salesRepId, createdAt])
+  @@index([salesRepId, touchType, createdAt])
+}

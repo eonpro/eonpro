@@ -378,10 +378,13 @@ export const circuitBreakers = {
     },
   }),
 
-  // ENTERPRISE: Lifefile pharmacy API circuit breaker
+  // ENTERPRISE: Lifefile pharmacy API circuit breaker (align with lifefile.ts axios timeout)
   lifefile: createCircuitBreaker({
     name: 'lifefile',
-    timeout: 20000,
+    timeout: Math.min(
+      120000,
+      Math.max(15000, parseInt(process.env.LIFEFILE_REQUEST_TIMEOUT_MS || '45000', 10))
+    ),
     errorThreshold: 40,
     volumeThreshold: 5,
     sleepWindow: 60000,

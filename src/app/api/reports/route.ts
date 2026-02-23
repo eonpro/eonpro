@@ -1,15 +1,22 @@
 /**
- * Saved Reports API
+ * Reports API
  *
- * GET /api/reports - List saved reports
+ * GET /api/reports - When range (or startDate) is provided: return comprehensive report (patients, revenue, subscriptions, payments).
+ *                     Otherwise: list saved reports.
  * POST /api/reports - Create new report
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getClinicContext } from '@/lib/db';
+import { prisma, getClinicContext, runWithClinicContext } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { logger } from '@/lib/logger';
+import {
+  ReportingService,
+  DateRange,
+  DateRangeParams,
+  calculateDateRange,
+} from '@/services/reporting/ReportingService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +29,26 @@ export async function GET(request: NextRequest) {
     const clinicId = getClinicContext();
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
+    }
+
+    const url = new URL(request.url);
+    const rangeParam = url.searchParams.get('range');
+    const startDateParam = url.searchParams.get('startDate');
+    const endDateParam = url.searchParams.get('endDate');
+
+    if (rangeParam || startDateParam) {
+      const dateRangeParams: DateRangeParams = {
+        range: (rangeParam || 'this_month') as DateRange,
+      };
+      if (dateRangeParams.range === 'custom' && startDateParam && endDateParam) {
+        dateRangeParams.startDate = new Date(startDateParam);
+        dateRangeParams.endDate = new Date(endDateParam);
+      }
+      const reportingService = new ReportingService(clinicId);
+      const report = await runWithClinicContext(clinicId, () =>
+        reportingService.generateComprehensiveReport(dateRangeParams)
+      );
+      return NextResponse.json(report);
     }
 
     const reports = await prisma.savedReport.findMany({
