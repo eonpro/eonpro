@@ -397,6 +397,16 @@ export interface PatientSearchFilter {
  * buildPatientSearchWhere('8132637844')
  * // → { searchIndex: { contains: '8132637844', mode: 'insensitive' } }
  */
+/**
+ * Returns true if searchIndex is null, empty, or only a single token (e.g. just "eon-7914").
+ * Such records are not findable by name/email/phone in admin search.
+ */
+export function isSearchIndexIncomplete(searchIndex: string | null | undefined): boolean {
+  if (searchIndex == null || searchIndex === '') return true;
+  const tokens = searchIndex.trim().split(/\s+/);
+  return tokens.length < 2;
+}
+
 export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter {
   const search = rawSearch.trim();
   if (!search) return {};

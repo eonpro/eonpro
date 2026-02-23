@@ -4,7 +4,7 @@
  * (invoice/order requirement) when combined with search filters.
  */
 import { describe, it, expect } from 'vitest';
-import { buildPatientSearchWhere, splitSearchTerms } from '../search';
+import { buildPatientSearchWhere, splitSearchTerms, isSearchIndexIncomplete, buildPatientSearchIndex } from '../search';
 
 describe('buildPatientSearchWhere', () => {
   it('returns empty object for empty search', () => {
@@ -124,5 +124,61 @@ describe('splitSearchTerms', () => {
   it('returns empty for blank input', () => {
     expect(splitSearchTerms('')).toEqual([]);
     expect(splitSearchTerms('   ')).toEqual([]);
+  });
+});
+
+describe('isSearchIndexIncomplete', () => {
+  it('returns true for null or empty', () => {
+    expect(isSearchIndexIncomplete(null)).toBe(true);
+    expect(isSearchIndexIncomplete(undefined)).toBe(true);
+    expect(isSearchIndexIncomplete('')).toBe(true);
+    expect(isSearchIndexIncomplete('   ')).toBe(true);
+  });
+
+  it('returns true for single token (patientId only)', () => {
+    expect(isSearchIndexIncomplete('eon-7914')).toBe(true);
+    expect(isSearchIndexIncomplete('EON-108')).toBe(true);
+    expect(isSearchIndexIncomplete('wel-78887152')).toBe(true);
+    expect(isSearchIndexIncomplete('ot-4352')).toBe(true);
+  });
+
+  it('returns false for two or more tokens', () => {
+    expect(isSearchIndexIncomplete('alexis adkins')).toBe(false);
+    expect(isSearchIndexIncomplete('john doe')).toBe(false);
+    expect(isSearchIndexIncomplete('alexis adkins alexisaadkins117@gmail.com 9417265935 eon-7914')).toBe(false);
+    expect(isSearchIndexIncomplete('a b')).toBe(false);
+  });
+
+  it('trims before counting tokens', () => {
+    expect(isSearchIndexIncomplete('  eon-7914  ')).toBe(true);
+    expect(isSearchIndexIncomplete('  alexis adkins  ')).toBe(false);
+  });
+});
+
+describe('buildPatientSearchIndex', () => {
+  it('produces at least two tokens when name or email present', () => {
+    const idx = buildPatientSearchIndex({
+      firstName: 'Alexis',
+      lastName: 'Adkins',
+      email: 'a@b.com',
+      phone: '9417265935',
+      patientId: 'EON-7914',
+    });
+    expect(idx).toContain('alexis');
+    expect(idx).toContain('adkins');
+    expect(idx).toContain('eon-7914');
+    expect(isSearchIndexIncomplete(idx)).toBe(false);
+  });
+
+  it('single patientId only yields one token', () => {
+    const idx = buildPatientSearchIndex({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      patientId: 'EON-7914',
+    });
+    expect(idx).toBe('eon-7914');
+    expect(isSearchIndexIncomplete(idx)).toBe(true);
   });
 });
