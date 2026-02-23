@@ -234,8 +234,7 @@ export default function MedicationSelector({
       '203449633', // Testosterone Cream
       '203194029', // Testosterone Gel
       '202851334', // Testosterone Cypionate 10ML
-      '203418861', // Testosterone Cypionate 5ML
-      '203666716', // Testosterone Cypionate 2ML
+      // 203418861 (Testosterone Cypionate 5ML) and 203666716 (Testosterone Cypionate 2ML) shown in prescription
       '203666723', // Testosterone Cypionate Injection
       '203194030', // Testosterone/Chrysin Gel
     ]);
