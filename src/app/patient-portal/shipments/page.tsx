@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
@@ -109,6 +110,7 @@ const statusConfig = {
 
 export default function ShipmentsPage() {
   const { branding } = useClinicBranding();
+  const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
   const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
@@ -283,35 +285,38 @@ export default function ShipmentsPage() {
                   <Clock className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white/90">{prescriptionJourney.label}</p>
-                  <p className="mt-0.5 text-lg font-bold text-white">Prescription status</p>
+                  <p className="text-sm font-medium text-white/90">
+                    {prescriptionJourney.stage === 1
+                      ? t('journeyStep1Label')
+                      : prescriptionJourney.stage === 3
+                        ? t('journeyStep3Label')
+                        : prescriptionJourney.stage === 4
+                          ? t('journeyStep4Label')
+                          : prescriptionJourney.label}
+                  </p>
+                  <p className="mt-0.5 text-lg font-bold text-white">{t('journeyPrescriptionStatus')}</p>
                 </div>
               </div>
             </div>
             <div className="p-6">
-              <p className="mb-6 text-gray-700">{prescriptionJourney.message}</p>
+              <p className="mb-6 text-gray-700">
+                {prescriptionJourney.stage === 1
+                  ? t('journeyMessageStage1')
+                  : prescriptionJourney.stage === 3
+                    ? t('journeyMessageStage3WithMed').replace(
+                        '{medName}',
+                        prescriptionJourney.medicationName || t('journeyYourMedication')
+                      )
+                    : prescriptionJourney.stage === 4
+                      ? t('journeyMessageStage4')
+                      : prescriptionJourney.message}
+              </p>
               <div className="space-y-4">
                 {[
-                  {
-                    step: 1,
-                    label: 'Provider reviewing',
-                    description: 'A licensed provider is reviewing your intake information.',
-                  },
-                  {
-                    step: 2,
-                    label: 'Prescription approved',
-                    description: 'Your prescription has been approved and sent to the pharmacy.',
-                  },
-                  {
-                    step: 3,
-                    label: 'Pharmacy processing',
-                    description: 'The pharmacy is currently processing your prescription.',
-                  },
-                  {
-                    step: 4,
-                    label: 'On the way',
-                    description: 'Your prescription is on the way with tracking.',
-                  },
+                  { step: 1, labelKey: 'journeyStep1Label', descKey: 'journeyStep1Desc' },
+                  { step: 2, labelKey: 'journeyStep2Label', descKey: 'journeyStep2Desc' },
+                  { step: 3, labelKey: 'journeyStep3Label', descKey: 'journeyStep3Desc' },
+                  { step: 4, labelKey: 'journeyStep4Label', descKey: 'journeyStep4Desc' },
                 ].map((s) => {
                   const isCompleted = prescriptionJourney.stage > s.step;
                   const isCurrent = prescriptionJourney.stage === s.step;
@@ -353,9 +358,9 @@ export default function ShipmentsPage() {
                             isCurrent ? { color: primaryColor } : undefined
                           }
                         >
-                          Step {s.step}. {s.label}
+                          {t('journeyStepPrefix')} {s.step}. {t(s.labelKey)}
                         </p>
-                        <p className="mt-0.5 text-sm text-gray-600">{s.description}</p>
+                        <p className="mt-0.5 text-sm text-gray-600">{t(s.descKey)}</p>
                       </div>
                     </div>
                   );

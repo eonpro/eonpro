@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import {
   Package,
   Truck,
@@ -90,6 +91,7 @@ export default function ActiveShipmentTracker({
   primaryColor = '#4fa77e',
   onShipmentLoaded,
 }: ActiveShipmentTrackerProps) {
+  const { t } = usePatientPortalLanguage();
   const [activeShipments, setActiveShipments] = useState<ActiveShipment[]>([]);
   const [prescriptionJourney, setPrescriptionJourney] = useState<PrescriptionJourney | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,26 +178,10 @@ export default function ActiveShipmentTracker({
   if (showJourneyCard) {
     const journey = prescriptionJourney!;
     const steps = [
-      {
-        step: 1,
-        label: 'Provider reviewing',
-        description: 'A licensed provider is reviewing your intake information.',
-      },
-      {
-        step: 2,
-        label: 'Prescription approved',
-        description: 'Your prescription has been approved and sent to the pharmacy.',
-      },
-      {
-        step: 3,
-        label: 'Pharmacy processing',
-        description: 'The pharmacy is currently processing your prescription.',
-      },
-      {
-        step: 4,
-        label: 'On the way',
-        description: 'Your prescription is on the way with tracking.',
-      },
+      { step: 1, labelKey: 'journeyStep1Label', descKey: 'journeyStep1Desc' },
+      { step: 2, labelKey: 'journeyStep2Label', descKey: 'journeyStep2Desc' },
+      { step: 3, labelKey: 'journeyStep3Label', descKey: 'journeyStep3Desc' },
+      { step: 4, labelKey: 'journeyStep4Label', descKey: 'journeyStep4Desc' },
     ];
 
     return (
@@ -221,13 +207,32 @@ export default function ActiveShipmentTracker({
                   <Clock className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white/90">{journey.label}</p>
-                  <p className="mt-0.5 text-lg font-bold text-white">Prescription status</p>
+                  <p className="text-sm font-medium text-white/90">
+                    {journey.stage === 1
+                      ? t('journeyStep1Label')
+                      : journey.stage === 3
+                        ? t('journeyStep3Label')
+                        : journey.stage === 4
+                          ? t('journeyStep4Label')
+                          : journey.label}
+                  </p>
+                  <p className="mt-0.5 text-lg font-bold text-white">{t('journeyPrescriptionStatus')}</p>
                 </div>
               </div>
             </div>
             <div className="p-6">
-              <p className="mb-6 text-gray-700">{journey.message}</p>
+              <p className="mb-6 text-gray-700">
+                {journey.stage === 1
+                  ? t('journeyMessageStage1')
+                  : journey.stage === 3
+                    ? t('journeyMessageStage3WithMed').replace(
+                        '{medName}',
+                        journey.medicationName || t('journeyYourMedication')
+                      )
+                    : journey.stage === 4
+                      ? t('journeyMessageStage4')
+                      : journey.message}
+              </p>
               <div className="space-y-4">
                 {steps.map((s) => {
                   const isCompleted = journey.stage > s.step;
@@ -270,9 +275,9 @@ export default function ActiveShipmentTracker({
                             isCurrent ? { color: primaryColor } : undefined
                           }
                         >
-                          Step {s.step}. {s.label}
+                          {t('journeyStepPrefix')} {s.step}. {t(s.labelKey)}
                         </p>
-                        <p className="mt-0.5 text-sm text-gray-600">{s.description}</p>
+                        <p className="mt-0.5 text-sm text-gray-600">{t(s.descKey)}</p>
                       </div>
                     </div>
                   );
@@ -283,7 +288,7 @@ export default function ActiveShipmentTracker({
                 className="mt-4 inline-flex items-center gap-2 text-sm font-semibold"
                 style={{ color: primaryColor }}
               >
-                View all shipments
+                {t('shipmentsViewAll')}
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
