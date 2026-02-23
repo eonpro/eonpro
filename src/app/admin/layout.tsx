@@ -332,6 +332,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       'staff-token',
       'support-token',
       'affiliate-token',
+      'selected-clinic',
     ].forEach((name) => {
       // Clear on current hostname (e.g. ot.eonpro.io)
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;

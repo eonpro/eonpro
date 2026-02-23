@@ -156,5 +156,40 @@ describe('Wellmedr Intake Normalizer', () => {
       const normalized = normalizeWellmedrPayload(payload);
       expect(normalized.patient.phone).toBe('');
     });
+
+    it('extracts phone from object (Airtable linked record shape)', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        phone: { phoneNumber: '+1 555-123-4567', name: 'Primary' },
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5551234567');
+    });
+
+    it('extracts phone when payload is wrapped in data', () => {
+      const payload = {
+        data: {
+          'first-name': 'Test',
+          'last-name': 'User',
+          email: 'test@example.com',
+          phone: '5558889999',
+        },
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5558889999');
+    });
+
+    it('last-resort: extracts phone from key containing "contact" with 10+ digits', () => {
+      const payload = {
+        'first-name': 'Test',
+        'last-name': 'User',
+        email: 'test@example.com',
+        'Contact Number': '(555) 111-2233',
+      };
+      const normalized = normalizeWellmedrPayload(payload);
+      expect(normalized.patient.phone).toBe('5551112233');
+    });
   });
 });

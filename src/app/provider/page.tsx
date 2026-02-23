@@ -88,13 +88,14 @@ export default function ProviderDashboard() {
         }));
       }
 
-      // Fetch orders/prescriptions count
-      const ordersRes = await apiFetch('/api/orders?limit=100');
+      // Fetch orders/prescriptions count (use total for full count; count is page size only)
+      const ordersRes = await apiFetch('/api/orders?limit=1');
       if (ordersRes.ok) {
         const ordersData = await ordersRes.json();
         setStats((prev) => ({
           ...prev,
-          recentPrescriptions: ordersData.count || ordersData.orders?.length || 0,
+          recentPrescriptions:
+            ordersData.total ?? ordersData.count ?? ordersData.orders?.length ?? 0,
         }));
       }
 

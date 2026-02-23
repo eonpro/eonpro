@@ -78,14 +78,29 @@ export async function upsertPatientFromIntake(
       submissionId: intake.submissionId,
     });
 
+    // Don't overwrite phone/email with placeholder — preserve existing when intake omits or sends placeholder
+    const dataForUpdate = { ...normalized };
+    if (!dataForUpdate.phone || dataForUpdate.phone === '0000000000') {
+      const existingPhone = existing.phone;
+      if (existingPhone?.trim() && existingPhone !== '0000000000') {
+        dataForUpdate.phone = existingPhone;
+      }
+    }
+    if (!dataForUpdate.email || dataForUpdate.email === 'unknown@example.com') {
+      const existingEmail = existing.email;
+      if (existingEmail?.trim() && existingEmail !== 'unknown@example.com') {
+        dataForUpdate.email = existingEmail;
+      }
+    }
+
     const updateSearchIndex = buildPatientSearchIndex({
-      ...normalized,
+      ...dataForUpdate,
       patientId: existing.patientId,
     });
     const updated = await prisma.patient.update({
       where: { id: existing.id },
       data: {
-        ...normalized,
+        ...dataForUpdate,
         tags: mergeTags(existing.tags, hashtags),
         notes: appendNotes(existing.notes, intake.submissionId),
         searchIndex: updateSearchIndex,
@@ -145,13 +160,8 @@ function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreat
 
 function buildMatchFilters(patient: NormalizedPatient) {
   const filters: Prisma.PatientWhereInput[] = [];
-  const email = patient.email?.toLowerCase();
-  const dob = patient.dob && patient.dob !== '1900-01-01' ? patient.dob : null;
-  if (email && email !== 'unknown@example.com' && dob) {
-    filters.push({ email, dob });
-  }
-  if (email && email !== 'unknown@example.com') {
-    filters.push({ email });
+  if (patient.email) {
+    filters.push({ email: patient.email.toLowerCase() });
   }
   if (patient.phone) {
     filters.push({ phone: sanitizePhone(patient.phone) });

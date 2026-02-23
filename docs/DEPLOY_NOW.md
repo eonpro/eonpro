@@ -48,6 +48,21 @@ Vercel will use the **Build Command** from `vercel.json`: `npm run vercel-build`
 
 ---
 
+## Why do I see multiple deployments for the same commit?
+
+You may see several production deployments all with the same commit hash (e.g. `33c0a25`). That usually means the same code was deployed more than once:
+
+| Cause | What to do |
+|-------|------------|
+| **Vercel Git** | Each push to `main` creates one deployment. Normal. |
+| **"Redeploy" in Vercel** | Each click creates a new deployment (same commit). Only use when you need to rebuild (e.g. env var change). |
+| **`vercel --prod` from CLI** | Each run creates a new deployment. Avoid running repeatedly for the same commit. |
+| **GitHub "Deploy Pipeline" run multiple times** | Each manual run deploys again. The workflow now skips deploy if production already has this commit. |
+
+**Recommendation:** Prefer **one** path: push to `main` (Vercel Git) **or** one manual run of the deploy workflow / one `vercel --prod`. Don’t push and then also run the workflow or CLI for the same commit.
+
+---
+
 ## Pre-deploy note (failed migration)
 
 Running `npm run deploy:safe` locally reported:

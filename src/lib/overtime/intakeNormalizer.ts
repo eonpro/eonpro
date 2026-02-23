@@ -434,11 +434,12 @@ export function normalizeOvertimePayload(
   const treatmentType = detectTreatmentType(payload);
   logger.info('[Overtime Normalizer] Detected treatment type', { treatmentType });
 
-  // Extract submission metadata
+  // Extract submission metadata (Airtable/Heyflow use "Response ID")
   const submissionId = String(
-    payload['submission-id'] ||
-      payload.submissionId ||
-      payload.submission_id ||
+    payload['Response ID'] ??
+      payload['submission-id'] ??
+      payload.submissionId ??
+      payload.submission_id ??
       `overtime-${treatmentType}-${Date.now()}`
   );
 

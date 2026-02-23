@@ -149,6 +149,25 @@ Configure the Airtable automation to send a POST request with:
 6. **Input variable**
    - The automation must pass `recordId` to the script. Map it to "Record ID" from the trigger step.
 
+### Phone number missing on patient profiles
+
+If patients are created but **phone is blank** (or shows as a placeholder):
+
+1. **Airtable column name**
+   - The intake script reads phone using a list of aliases (e.g. "Phone", "Phone Number", "Mobile", "Phone (from Contacts)", "Primary Phone", "Contact Phone"). If your Airtable column has a different name, add it to `FIELD_ALIASES['phone']` in `scripts/airtable/wellmedr-intake-automation.js` and redeploy the script in Airtable.
+
+2. **Linked record / lookup format**
+   - If the phone column is a linked record or lookup, the script now extracts from `phoneNumber`, `phone`, `number`, and `name`. If your base uses another field name, update the `stringCellValue()` logic in the same script.
+
+3. **Direct Fillout (no Airtable)**
+   - If you use the direct Fillout webhook, the form’s **question ID** for the phone field must map to `phone`. Add the exact question ID to `FILLOUT_KEY_TO_WELLMEDR` in `src/lib/wellmedr/filloutAdapter.ts` (e.g. `'Your Phone': 'phone'`).
+
+4. **Webhook response diagnostic**
+   - Every intake webhook response includes `_diagnostic`: `{ receivedKeys: [...], phoneReceived: true|false, hint?: "..." }`. When `phoneReceived` is false, check `receivedKeys` (key names only, no values). If you don’t see a phone-like key (e.g. `phone`, `Phone Number`, `Primary Phone`), the sender (Airtable or Fillout) is not sending that field — fix the column mapping or form question ID. If you see a phone-like key but `phoneReceived` is still false, the value may be empty or in an unsupported format; check EONPRO logs for `Phone-like key(s) present but no value extracted`.
+
+5. **Logs**
+   - In EONPRO logs, search for `No phone in normalized payload` and `Phone-like key(s) present but no value extracted` to see which keys were received and whether a phone-like key had no usable value.
+
 ### Script Location
 
 - `scripts/airtable/wellmedr-intake-automation.js`

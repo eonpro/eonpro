@@ -808,7 +808,11 @@ function HomePageInner() {
                             </p>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-600">{patient.phone || 'N/A'}</p>
+                            <p className="text-sm text-gray-600">
+                              {patient.phone && patient.phone.replace(/\D/g, '') !== '0000000000'
+                                ? patient.phone
+                                : '—'}
+                            </p>
                             <p className="max-w-[180px] truncate text-xs text-gray-400">
                               {patient.email || 'N/A'}
                             </p>

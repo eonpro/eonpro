@@ -121,18 +121,32 @@ const mergeHandler = withAuth(
           errorMessage: msg,
           stack: error instanceof Error ? error.stack : undefined,
         });
-        // Surface encryption/setup hints to client (safe message)
-        if (
-          typeof msg === 'string' &&
-          (msg.includes('ENCRYPTION_KEY') || msg.includes('encrypt') || msg.includes('key'))
-        ) {
-          return handleApiError(
-            new InternalError(
-              'Merge failed: encryption is not configured. Ensure ENCRYPTION_KEY is set in server environment.'
-            ),
-            { context: { route: 'POST /api/patients/merge' } }
-          );
+        // Surface safe, user-visible messages so the UI doesn't show generic "An unexpected error occurred"
+        if (typeof msg === 'string') {
+          if (msg.includes('ENCRYPTION_KEY') || msg.includes('encrypt') || msg.includes('key')) {
+            return handleApiError(
+              new InternalError(
+                'Merge failed: encryption is not configured. Ensure ENCRYPTION_KEY is set in server environment.'
+              ),
+              { context: { route: 'POST /api/patients/merge' } }
+            );
+          }
+          if (msg.includes('undefined') || msg.includes('updateMany') || msg.includes('is not a function')) {
+            return handleApiError(
+              new InternalError(
+                'Merge failed: server configuration issue. Contact support or try again after the next deployment.'
+              ),
+              { context: { route: 'POST /api/patients/merge' } }
+            );
+          }
         }
+        // Any other unexpected error: return a clear message so UI shows it instead of generic text
+        return handleApiError(
+          new InternalError(
+            'Merge failed. Please try again. If it keeps failing, contact support—the error has been logged.'
+          ),
+          { context: { route: 'POST /api/patients/merge' } }
+        );
       }
       return handleApiError(error, {
         context: { route: 'POST /api/patients/merge' },

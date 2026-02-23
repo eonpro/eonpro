@@ -115,8 +115,9 @@ const isEncryptedData = (value: string | null | undefined): boolean => {
   return parts.every((part) => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
 };
 
-const formatValue = (value: string | null | undefined): string => {
-  if (!value) return '-';
+const formatValue = (value: string | null | undefined, options?: { type?: 'phone' }): string => {
+  if (!value) return '—';
+  if (options?.type === 'phone' && value.replace(/\D/g, '') === '0000000000') return '—';
   if (isEncryptedData(value)) return '(encrypted)';
   return value;
 };
@@ -288,8 +289,13 @@ export default function MergePatientModal({
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || data.message || 'Failed to merge patients');
+        let data: { error?: string; message?: string } = {};
+        try {
+          data = await response.json();
+        } catch {
+          // e.g. 500 with HTML or empty body
+        }
+        throw new Error(data.error || data.message || `Merge failed (${response.status}). Please try again or contact support.`);
       }
 
       const data = await response.json();
@@ -467,7 +473,7 @@ export default function MergePatientModal({
                 <span className="text-gray-500">Email:</span> {formatValue(source.email)}
               </p>
               <p>
-                <span className="text-gray-500">Phone:</span> {formatValue(source.phone)}
+                <span className="text-gray-500">Phone:</span> {formatValue(source.phone, { type: 'phone' })}
               </p>
               <p>
                 <span className="text-gray-500">DOB:</span> {formatDate(source.dob)}
@@ -499,7 +505,7 @@ export default function MergePatientModal({
                 <span className="text-gray-500">Email:</span> {formatValue(target.email)}
               </p>
               <p>
-                <span className="text-gray-500">Phone:</span> {formatValue(target.phone)}
+                <span className="text-gray-500">Phone:</span> {formatValue(target.phone, { type: 'phone' })}
               </p>
               <p>
                 <span className="text-gray-500">DOB:</span> {formatDate(target.dob)}
@@ -540,7 +546,7 @@ export default function MergePatientModal({
                 <span className="text-gray-500">Email:</span> {formatValue(mergedProfile.email)}
               </p>
               <p>
-                <span className="text-gray-500">Phone:</span> {formatValue(mergedProfile.phone)}
+                <span className="text-gray-500">Phone:</span> {formatValue(mergedProfile.phone, { type: 'phone' })}
               </p>
             </div>
             <div className="space-y-2">

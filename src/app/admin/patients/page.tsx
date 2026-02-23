@@ -99,9 +99,17 @@ const isEncryptedData = (value: string | null | undefined): boolean => {
   return parts.every((part) => /^[A-Za-z0-9+/]+=*$/.test(part) && part.length > 10);
 };
 
-// Safely display contact info - hide encrypted data
-const displayContact = (value: string | null | undefined): string => {
-  if (!value) return '-';
+// Placeholder phone stored when intake had no phone - show as missing
+const isPlaceholderPhone = (value: string | null | undefined): boolean =>
+  !value || value === '0000000000' || value.replace(/\D/g, '') === '0000000000';
+
+// Safely display contact info - hide encrypted data and placeholder phone
+const displayContact = (
+  value: string | null | undefined,
+  options?: { type?: 'email' | 'phone' }
+): string => {
+  if (!value) return '—';
+  if (options?.type === 'phone' && isPlaceholderPhone(value)) return '—';
   if (isEncryptedData(value)) return '(encrypted)';
   return value;
 };
@@ -583,8 +591,8 @@ export default function AdminPatientsPage() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
-                      <div className="text-sm text-gray-900">{displayContact(patient.email)}</div>
-                      <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
+                      <div className="text-sm text-gray-900">{displayContact(patient.email, { type: 'email' })}</div>
+                      <div className="text-sm text-gray-500">{displayContact(patient.phone, { type: 'phone' })}</div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {(() => {

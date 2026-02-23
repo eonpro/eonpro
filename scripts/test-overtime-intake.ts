@@ -12,6 +12,10 @@
  *   --type=X      Treatment type: weight_loss, better_sex, peptides, trt, nad_plus, baseline
  */
 
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
+
 const args = process.argv.slice(2);
 const isDryRun = !args.includes('--live');
 const treatmentArg = args.find((a) => a.startsWith('--type='));

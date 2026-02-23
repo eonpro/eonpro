@@ -57,6 +57,7 @@ interface ProcessPaymentFormProps {
 export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, onSuccess }: ProcessPaymentFormProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
+  const [amountInputValue, setAmountInputValue] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [isRecurring, setIsRecurring] = useState(false);
 
@@ -165,13 +166,16 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     if (selectedPlanId) {
       const plan = getPlanById(selectedPlanId, clinicSubdomain);
       if (plan) {
-        setAmount(plan.price / 100);
+        const planAmount = plan.price / 100;
+        setAmount(planAmount);
+        setAmountInputValue(planAmount.toFixed(2));
         setDescription(plan.description);
         setIsRecurring(!!plan.isRecurring);
         if (plan.isRecurring) setSaveCard(true);
       }
     } else {
       setAmount(0);
+      setAmountInputValue('');
       setDescription('');
       setIsRecurring(false);
     }
@@ -239,8 +243,11 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   };
 
   const handleAmountChange = (value: string) => {
-    const parsed = parseFloat(value);
-    setAmount(isNaN(parsed) ? 0 : parsed);
+    // Allow typing intermediate values like "8." or "8.0" without normalizing to "8.00"
+    const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    setAmountInputValue(sanitized);
+    const parsed = parseFloat(sanitized);
+    setAmount(Number.isNaN(parsed) ? 0 : parsed);
   };
 
   const isCardExpired = (month: number, year: number) => {
@@ -578,10 +585,11 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
               Amount ($)
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               id="amount"
-              value={amount.toFixed(2)}
-              onChange={(e: any) => handleAmountChange(e.target.value)}
+              value={amountInputValue}
+              onChange={(e) => handleAmountChange(e.target.value)}
               className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                 formSubmitted && cardErrors.amount ? 'border-red-500' : 'border-gray-300'
               }`}

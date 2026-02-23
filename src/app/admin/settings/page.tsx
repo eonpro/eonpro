@@ -190,11 +190,11 @@ export default function AdminSettingsPage() {
   const [savingUser, setSavingUser] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [userSectionsExpanded, setUserSectionsExpanded] = useState<
-    Record<'admin_staff' | 'provider' | 'patient', boolean>
-  >({ admin_staff: true, provider: true, patient: true });
+    Record<'admin_staff' | 'provider' | 'affiliate' | 'patient', boolean>
+  >({ admin_staff: true, provider: true, affiliate: true, patient: true });
   const [userSectionPage, setUserSectionPage] = useState<
-    Record<'admin_staff' | 'provider' | 'patient', number>
-  >({ admin_staff: 1, provider: 1, patient: 1 });
+    Record<'admin_staff' | 'provider' | 'affiliate' | 'patient', number>
+  >({ admin_staff: 1, provider: 1, affiliate: 1, patient: 1 });
   const USER_LIST_PAGE_SIZE = 15;
 
   // Settings form
@@ -640,20 +640,29 @@ export default function AdminSettingsPage() {
       return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
     });
 
-  // Group users by type for section headers (Administration & Staff | Providers | Patients)
+  // Group users by type for section headers (Administration & Staff | Providers | Affiliates | Patients)
   const adminStaffRoles = new Set(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'SUPPORT', 'SALES_REP']);
   const providerRoles = new Set(['PROVIDER']);
+  const affiliateRoles = new Set(['AFFILIATE', 'INFLUENCER']);
   const patientRoles = new Set(['PATIENT']);
   const groupUserType = (role: string) =>
-    adminStaffRoles.has(role) ? 'admin_staff' : providerRoles.has(role) ? 'provider' : 'patient';
+    adminStaffRoles.has(role)
+      ? 'admin_staff'
+      : providerRoles.has(role)
+        ? 'provider'
+        : affiliateRoles.has(role)
+          ? 'affiliate'
+          : 'patient';
   const usersByType = {
     admin_staff: filteredUsers.filter((u) => groupUserType(u.role) === 'admin_staff'),
     provider: filteredUsers.filter((u) => groupUserType(u.role) === 'provider'),
+    affiliate: filteredUsers.filter((u) => groupUserType(u.role) === 'affiliate'),
     patient: filteredUsers.filter((u) => groupUserType(u.role) === 'patient'),
   };
   const sectionLabels: Record<keyof typeof usersByType, string> = {
     admin_staff: 'Administration & Staff',
     provider: 'Providers',
+    affiliate: 'Affiliates',
     patient: 'Patients',
   };
 
@@ -1282,7 +1291,7 @@ export default function AdminSettingsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {(['admin_staff', 'provider', 'patient'] as const).map((sectionKey) => {
+                      {(['admin_staff', 'provider', 'affiliate', 'patient'] as const).map((sectionKey) => {
                         const sectionUsers = usersByType[sectionKey];
                         const isExpanded = userSectionsExpanded[sectionKey];
                         const { list: pageList, page, totalPages, total } = getSectionPageSlice(sectionKey);
@@ -1337,7 +1346,9 @@ export default function AdminSettingsPage() {
                                           ? 'bg-[var(--brand-primary-light)] text-[var(--brand-primary)]'
                                           : u.role === 'PROVIDER'
                                             ? 'bg-blue-100 text-blue-800'
-                                            : 'bg-gray-100 text-gray-800'
+                                            : u.role === 'AFFILIATE' || u.role === 'INFLUENCER'
+                                              ? 'bg-violet-100 text-violet-800'
+                                              : 'bg-gray-100 text-gray-800'
                                       }`}
                                     >
                                       {u.role}

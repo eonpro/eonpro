@@ -324,7 +324,8 @@ function findPayloadKeyCaseInsensitive(
     if (value == null || value === '') continue;
     const k = key.toLowerCase();
     if (keyLower.some((name) => k === name || k.includes(name))) {
-      return typeof value === 'string' ? value : String(value);
+      const str = coerceToPhoneString(value);
+      return str || undefined;
     }
   }
   return undefined;
@@ -333,6 +334,7 @@ function findPayloadKeyCaseInsensitive(
 /**
  * Last-resort: find first payload value whose key contains any of the given substrings (case-insensitive).
  * Catches any Airtable/form field name that includes "phone", "mobile", etc.
+ * Extracts string from objects (e.g. { phoneNumber: '+1...' } from Airtable linked records).
  */
 function findFirstValueForKeyContaining(
   payload: Record<string, unknown>,
@@ -343,11 +345,51 @@ function findFirstValueForKeyContaining(
     if (value == null || value === '') continue;
     const keyLower = key.toLowerCase();
     if (subs.some((sub) => keyLower.includes(sub))) {
-      const str = typeof value === 'string' ? value : String(value);
-      if (str.trim()) return str;
+      const str = coerceToPhoneString(value);
+      if (str && str.trim()) return str;
     }
   }
   return undefined;
+}
+
+/**
+ * Coerce any value to a phone string. Handles Airtable/Fillout sending objects like
+ * { phoneNumber: '+1...', name: '...' } or arrays of same. Returns empty string if nothing usable.
+ * Exported for use in wellmedr-intake route last-chance extraction.
+ */
+function extractPhoneFromObject(obj: Record<string, unknown>): string {
+  const f = obj.fields as Record<string, unknown> | undefined;
+  const v =
+    obj.phoneNumber ??
+    obj.phone ??
+    obj.number ??
+    obj.name ??
+    obj.Phone ??
+    obj.PhoneNumber ??
+    (f && (f.phoneNumber ?? f.phone ?? f.number ?? f.name ?? f.Phone ?? f.PhoneNumber));
+  if (v != null && typeof v === 'string') return v.trim();
+  if (v != null && typeof v === 'number') return String(v);
+  return '';
+}
+
+export function coerceToPhoneString(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value).replace(/\D/g, '').length >= 10 ? String(value) : '';
+  if (Array.isArray(value) && value.length > 0) {
+    const first = value[0];
+    if (typeof first === 'string') return first.trim();
+    if (first && typeof first === 'object') {
+      const v = extractPhoneFromObject(first as Record<string, unknown>);
+      if (v) return v;
+    }
+  }
+  if (typeof value === 'object') {
+    const v = extractPhoneFromObject(value as Record<string, unknown>);
+    if (v) return v;
+  }
+  const str = String(value).trim();
+  return str.startsWith('[') || str === '[object Object]' ? '' : str;
 }
 
 /**
@@ -371,6 +413,13 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
  * Build patient data from Wellmedr payload
  */
 function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
+  // Flatten: some webhooks send { data: { phone: '...', ... } }; merge so we see all keys at top level
+  const raw = payload as Record<string, unknown>;
+  const p: Record<string, unknown> =
+    raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data)
+      ? { ...(raw.data as Record<string, unknown>), ...raw }
+      : raw;
+
   const patient: NormalizedPatient = {
     firstName: 'Unknown',
     lastName: 'Unknown',
@@ -387,28 +436,28 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
 
   // First Name (check multiple field variations)
   const firstName =
-    payload['first-name'] ||
-    payload['firstName'] ||
-    payload['first_name'] ||
-    payload['fname'] ||
-    payload['fName'] ||
-    payload['First Name'] ||
-    payload['First name'] ||
-    payload['FIRST NAME'];
+    p['first-name'] ||
+    p['firstName'] ||
+    p['first_name'] ||
+    p['fname'] ||
+    p['fName'] ||
+    p['First Name'] ||
+    p['First name'] ||
+    p['FIRST NAME'];
   if (firstName) {
     patient.firstName = capitalizeWords(String(firstName));
   }
 
   // Last Name (check multiple field variations)
   const lastName =
-    payload['last-name'] ||
-    payload['lastName'] ||
-    payload['last_name'] ||
-    payload['lname'] ||
-    payload['lName'] ||
-    payload['Last Name'] ||
-    payload['Last name'] ||
-    payload['LAST NAME'];
+    p['last-name'] ||
+    p['lastName'] ||
+    p['last_name'] ||
+    p['lname'] ||
+    p['lName'] ||
+    p['Last Name'] ||
+    p['Last name'] ||
+    p['LAST NAME'];
   if (lastName) {
     patient.lastName = capitalizeWords(String(lastName));
   }
@@ -417,32 +466,32 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   if (patient.firstName === 'Unknown' || patient.lastName === 'Unknown') {
     // Check for Heyflow-style "Whats your name" field first (common in OT forms)
     const fullName =
-      payload['whats-your-name'] ||
-      payload['whats_your_name'] ||
-      payload['Whats your name'] ||
-      payload['whatsYourName'] ||
-      payload['your-name'] ||
-      payload['your_name'] ||
-      payload['Your Name'] ||
-      payload['name'] ||
-      payload['Name'] ||
-      payload['full-name'] ||
-      payload['fullName'] ||
-      payload['full_name'] ||
-      payload['Full Name'] ||
-      payload['customer-name'] ||
-      payload['customerName'] ||
-      payload['customer_name'] ||
-      payload['patient-name'] ||
-      payload['patientName'] ||
-      payload['patient_name'] ||
-      payload['contact-name'] ||
-      payload['contactName'] ||
-      payload['contact_name'] ||
-      payload['Name (from Contacts)'] ||
-      payload['Contact Name'] ||
-      payload['Customer Name'] ||
-      payload['Patient Name'];
+      p['whats-your-name'] ||
+      p['whats_your_name'] ||
+      p['Whats your name'] ||
+      p['whatsYourName'] ||
+      p['your-name'] ||
+      p['your_name'] ||
+      p['Your Name'] ||
+      p['name'] ||
+      p['Name'] ||
+      p['full-name'] ||
+      p['fullName'] ||
+      p['full_name'] ||
+      p['Full Name'] ||
+      p['customer-name'] ||
+      p['customerName'] ||
+      p['customer_name'] ||
+      p['patient-name'] ||
+      p['patientName'] ||
+      p['patient_name'] ||
+      p['contact-name'] ||
+      p['contactName'] ||
+      p['contact_name'] ||
+      p['Name (from Contacts)'] ||
+      p['Contact Name'] ||
+      p['Customer Name'] ||
+      p['Patient Name'];
 
     if (fullName && typeof fullName === 'string' && fullName.trim()) {
       const { firstName: fn, lastName: ln } = splitFullName(fullName);
@@ -457,7 +506,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
 
   // Try to extract names from email if still Unknown (e.g., john.doe@email.com)
   if (patient.firstName === 'Unknown' && patient.lastName === 'Unknown') {
-    const emailField = payload['email'] || payload['Email'] || payload['EMAIL'];
+    const emailField = p['email'] || p['Email'] || p['EMAIL'];
     if (emailField && typeof emailField === 'string') {
       const emailParts = emailField.split('@')[0];
       if (emailParts && emailParts.includes('.')) {
@@ -479,67 +528,95 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
 
   // Email (check multiple field variations including Heyflow combined fields)
   const emailField =
-    payload['email'] ||
-    payload['Email'] ||
-    payload['EMAIL'] ||
-    payload['email-address'] ||
-    payload['emailAddress'] ||
-    payload['email_address'] ||
-    payload['e-mail'] ||
-    payload['Email Address'];
+    p['email'] ||
+    p['Email'] ||
+    p['EMAIL'] ||
+    p['email-address'] ||
+    p['emailAddress'] ||
+    p['email_address'] ||
+    p['e-mail'] ||
+    p['Email Address'];
   if (emailField) {
     patient.email = String(emailField).trim().toLowerCase();
   }
 
-  // Phone (check multiple field variations including Airtable linked/labeled fields)
-  const phoneField =
-    payload['phone'] ||
-    payload['Phone'] ||
-    payload['PHONE'] ||
-    payload['phone-number'] ||
-    payload['phoneNumber'] ||
-    payload['phone_number'] ||
-    payload['mobile'] ||
-    payload['cell'] ||
-    payload['telephone'] ||
-    payload['Phone Number'] ||
-    payload['Mobile Number'] ||
-    payload['Phone (from Contacts)'] ||
-    payload['Phone Number (from Contacts)'] ||
-    payload['phone (from contacts)'] ||
-    payload['Mobile (from Contacts)'] ||
-    payload['Cell (from Contacts)'] ||
-    findPayloadKeyCaseInsensitive(payload, ['phone', 'phone number', 'mobile', 'cell', 'telephone']) ||
-    findFirstValueForKeyContaining(payload, ['phone', 'mobile', 'cell', 'telephone']);
-  if (phoneField && String(phoneField).trim()) {
-    patient.phone = sanitizePhone(String(phoneField));
+  // Phone (check multiple field variations including Airtable linked/labeled fields and form renames)
+  const phoneRaw =
+    p['phone'] ??
+    p['Phone'] ??
+    p['PHONE'] ??
+    p['phone-number'] ??
+    p['phoneNumber'] ??
+    p['phone_number'] ??
+    p['mobile'] ??
+    p['cell'] ??
+    p['telephone'] ??
+    p['Phone Number'] ??
+    p['Mobile Number'] ??
+    p['Phone (from Contacts)'] ??
+    p['Phone Number (from Contacts)'] ??
+    p['phone (from contacts)'] ??
+    p['Mobile (from Contacts)'] ??
+    p['Cell (from Contacts)'] ??
+    p['Primary Phone'] ??
+    p['Contact Phone'] ??
+    p['Your Phone'] ??
+    p['Patient Phone'] ??
+    p['Contact Number'] ??
+    p['Primary Contact'] ??
+    p['Phone #'] ??
+    findPayloadKeyCaseInsensitive(p, ['phone', 'phone number', 'mobile', 'cell', 'telephone']) ??
+    findFirstValueForKeyContaining(p, ['phone', 'mobile', 'cell', 'telephone']);
+  const phoneStr = coerceToPhoneString(phoneRaw);
+  if (phoneStr) {
+    patient.phone = sanitizePhone(phoneStr);
+  } else {
+    // Last-resort: scan ALL keys for any phone-like key with a value that looks like a phone number
+    const phoneLikeSubstrings = ['phone', 'mobile', 'cell', 'tel', 'contact'];
+    for (const [key, value] of Object.entries(p)) {
+      if (value == null || value === '') continue;
+      const keyLower = key.toLowerCase();
+      if (!phoneLikeSubstrings.some((sub) => keyLower.includes(sub))) continue;
+      const str = coerceToPhoneString(value);
+      if (!str) continue;
+      const digits = sanitizePhone(str);
+      if (digits.length >= 10) {
+        patient.phone = digits;
+        break;
+      }
+    }
+    if (!patient.phone && Object.keys(p).some((k) => k.toLowerCase().includes('phone'))) {
+      logger.warn('[Wellmedr Normalizer] Phone-like key(s) present but no value extracted', {
+        phoneLikeKeys: Object.keys(p).filter((k) => k.toLowerCase().includes('phone')),
+      });
+    }
   }
 
   // Date of Birth (check Heyflow naming: "Date of birth" -> date-of-birth)
   const dob =
-    payload['dob'] ||
-    payload['DOB'] ||
-    payload['dateOfBirth'] ||
-    payload['date_of_birth'] ||
-    payload['date-of-birth'] ||
-    payload['Date of birth'] ||
-    payload['Date of Birth'] ||
-    payload['birthday'] ||
-    payload['birthdate'] ||
-    payload['birth-date'] ||
-    payload['birth_date'];
+    p['dob'] ||
+    p['DOB'] ||
+    p['dateOfBirth'] ||
+    p['date_of_birth'] ||
+    p['date-of-birth'] ||
+    p['Date of birth'] ||
+    p['Date of Birth'] ||
+    p['birthday'] ||
+    p['birthdate'] ||
+    p['birth-date'] ||
+    p['birth_date'];
   if (dob) {
     patient.dob = normalizeDateInput(String(dob));
   }
 
   // Gender/Sex (check Heyflow naming)
   const gender =
-    payload['sex'] ||
-    payload['Sex'] ||
-    payload['gender'] ||
-    payload['Gender'] ||
-    payload['GENDER'] ||
-    payload['SEX'];
+    p['sex'] ||
+    p['Sex'] ||
+    p['gender'] ||
+    p['Gender'] ||
+    p['GENDER'] ||
+    p['SEX'];
   if (gender) {
     patient.gender = normalizeGenderInput(String(gender));
   }
@@ -560,7 +637,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   const heyflowAddressFields = ['id-38a5bae0', 'Address', 'address'] as const;
 
   for (const field of heyflowAddressFields) {
-    const rawAddress = payload[field];
+    const rawAddress = p[field];
     if (!rawAddress) continue;
 
     // Check if it's a JSON object with address components
@@ -663,7 +740,7 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
     ] as const;
 
     for (const field of combinedAddressFields) {
-      const rawAddress = payload[field];
+      const rawAddress = p[field];
       if (rawAddress && typeof rawAddress === 'string' && rawAddress.trim()) {
         // Skip if it looks like just a state code
         if (rawAddress.trim().length <= 2) continue;
@@ -701,19 +778,19 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   // Priority 3: Try Heyflow address sub-fields (id-38a5bae0-*)
   // ========================================
   if (!addressParsed) {
-    const heyflowStreet = payload['id-38a5bae0-street'] || payload['id-38a5bae0-Street'];
-    const heyflowHouse = payload['id-38a5bae0-house'] || payload['id-38a5bae0-House'];
-    const heyflowCity = payload['id-38a5bae0-city'] || payload['id-38a5bae0-City'];
+    const heyflowStreet = p['id-38a5bae0-street'] || p['id-38a5bae0-Street'];
+    const heyflowHouse = p['id-38a5bae0-house'] || p['id-38a5bae0-House'];
+    const heyflowCity = p['id-38a5bae0-city'] || p['id-38a5bae0-City'];
     const heyflowState =
-      payload['id-38a5bae0-state_code'] ||
-      payload['id-38a5bae0-state'] ||
-      payload['id-38a5bae0-State'];
+      p['id-38a5bae0-state_code'] ||
+      p['id-38a5bae0-state'] ||
+      p['id-38a5bae0-State'];
     const heyflowZip =
-      payload['id-38a5bae0-zip'] ||
-      payload['id-38a5bae0-zip_code'] ||
-      payload['id-38a5bae0-postal_code'] ||
-      payload['id-38a5bae0-Zip'];
-    const heyflowApt = payload['id-0d142f9e'] || payload['apartment#'];
+      p['id-38a5bae0-zip'] ||
+      p['id-38a5bae0-zip_code'] ||
+      p['id-38a5bae0-postal_code'] ||
+      p['id-38a5bae0-Zip'];
+    const heyflowApt = p['id-0d142f9e'] || p['apartment#'];
 
     if (heyflowStreet || heyflowCity || heyflowState || heyflowZip) {
       const composedStreet = [heyflowHouse, heyflowStreet].filter(Boolean).join(' ').trim();
@@ -739,12 +816,12 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   // Priority 4: Try Airtable bracket notation (from Airtable automations)
   // ========================================
   if (!addressParsed) {
-    const airtableStreet = payload['Address [Street]'] || payload['Address [street]'];
-    const airtableHouse = payload['Address [house]'] || payload['Address [House]'];
-    const airtableCity = payload['Address [City]'] || payload['Address [city]'];
-    const airtableState = payload['Address [State]'] || payload['Address [state]'];
-    const airtableZip = payload['Address [Zip]'] || payload['Address [zip]'];
-    const airtableApt = payload['apartment#'] || payload['Apartment#'];
+    const airtableStreet = p['Address [Street]'] || p['Address [street]'];
+    const airtableHouse = p['Address [house]'] || p['Address [House]'];
+    const airtableCity = p['Address [City]'] || p['Address [city]'];
+    const airtableState = p['Address [State]'] || p['Address [state]'];
+    const airtableZip = p['Address [Zip]'] || p['Address [zip]'];
+    const airtableApt = p['apartment#'] || p['Apartment#'];
 
     if (airtableStreet || airtableCity || airtableState || airtableZip) {
       // Compose street address with house number if present
@@ -772,24 +849,24 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   // ========================================
   if (!addressParsed) {
     // Street address
-    if (payload['address1'] || payload['street_address']) {
-      patient.address1 = String(payload['address1'] || payload['street_address']).trim();
+    if (p['address1'] || p['street_address']) {
+      patient.address1 = String(p['address1'] || p['street_address']).trim();
     }
 
     // Address line 2
-    if (payload['address2']) {
-      patient.address2 = String(payload['address2']).trim();
+    if (p['address2']) {
+      patient.address2 = String(p['address2']).trim();
     }
 
     // City
-    if (payload['city']) {
-      patient.city = String(payload['city']).trim();
+    if (p['city']) {
+      patient.city = String(p['city']).trim();
     }
 
     // ZIP
-    if (payload['zip'] || payload['zipCode'] || payload['zip_code']) {
+    if (p['zip'] || p['zipCode'] || p['zip_code']) {
       patient.zip = normalizeZip(
-        String(payload['zip'] || payload['zipCode'] || payload['zip_code'])
+        String(p['zip'] || p['zipCode'] || p['zip_code'])
       );
     }
   }
@@ -810,9 +887,9 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
   //      combined with ZIP not being a valid ZIP code
   // ========================================
   const rawCombined =
-    (typeof payload['shipping_address'] === 'string' && payload['shipping_address'].trim()) ||
-    (typeof payload['billing_address'] === 'string' && payload['billing_address'].trim()) ||
-    (typeof payload['address'] === 'string' && payload['address'].trim());
+    (typeof p['shipping_address'] === 'string' && (p['shipping_address'] as string).trim()) ||
+    (typeof p['billing_address'] === 'string' && (p['billing_address'] as string).trim()) ||
+    (typeof p['address'] === 'string' && (p['address'] as string).trim());
   const combinedForCorrection =
     typeof rawCombined === 'string' && rawCombined.length > 0 ? rawCombined : null;
   const cityLooksLikeApt = patient.city ? isApartmentString(patient.city) : false;
@@ -853,8 +930,8 @@ function buildWellmedrPatient(payload: WellmedrPayload): NormalizedPatient {
 
   // State - handle separately as it might come from its own field
   // even when other address fields are parsed from combined string
-  if (payload['state']) {
-    const stateValue = String(payload['state']).trim();
+  if (p['state']) {
+    const stateValue = String(p['state']).trim();
     // Use the state from payload if we don't already have one,
     // or if the parsed state is empty
     if (!patient.state || patient.state === '') {

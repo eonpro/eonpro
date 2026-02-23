@@ -1,6 +1,11 @@
 /**
  * WELLMEDR INTAKE → EONPRO AIRTABLE AUTOMATION SCRIPT
  *
+ * USE THIS FULL VERSION IN AIRTABLE. If you see "Field 'phone' not found", your
+ * automation is using an older script that only looks for a column named "phone".
+ * This script tries many names (Phone Number, Contact, Contact #, etc.) and
+ * handles linked records. Set CONFIG.TABLE_NAME to your actual table name below.
+ *
  * Sends patient intake data from Airtable to EONPRO when patients complete intake/payment.
  *
  * CRITICAL: You need TWO automations for the full flow:
@@ -47,14 +52,21 @@ const CHECKOUT_FIELD_NAMES = [
     'checkout_completed',
 ];
 
-const WELLMEDR_FIELDS = [
-    'submission-id', 'submission-date',
-    'first-name', 'last-name', 'email', 'phone', 'state', 'dob', 'sex',
-];
-
 // Airtable column names often differ (e.g. "Phone Number" vs "phone"). For each Wellmedr key, try these aliases when reading.
+// Phone: include every common label; Airtable/Forms often rename columns and phone then stops flowing.
 const FIELD_ALIASES = {
-    'phone': ['phone', 'Phone', 'Phone Number', 'Mobile', 'Cell', 'Telephone', 'Phone (from Contacts)', 'Phone Number (from Contacts)'],
+    'phone': [
+        'phone', 'Phone', 'PHONE',
+        'Phone Number', 'Phone number', 'phone number',
+        'Mobile', 'Mobile Number', 'Cell', 'Cell Phone', 'Telephone',
+        'Phone (from Contacts)', 'Phone Number (from Contacts)', 'phone (from contacts)',
+        'Mobile (from Contacts)', 'Cell (from Contacts)',
+        'Primary Phone', 'Contact Phone', 'Your Phone', 'Patient Phone',
+        'Contact Number', 'Primary Contact', 'Phone #',
+        'Contact #', 'Contact', 'Primary Contact Number', 'Patient Contact',
+        'Contact Info', 'Preferred Phone', 'Daytime Phone', 'Work Phone', 'Home Phone',
+        'Phone/Text', 'Text Number', 'Your Phone',
+    ],
     'first-name': ['first-name', 'First Name', 'FirstName', 'first_name'],
     'last-name': ['last-name', 'Last Name', 'LastName', 'last_name'],
     'email': ['email', 'Email', 'Email Address', 'E-mail'],
@@ -154,22 +166,39 @@ async function main() {
         'submission-date': new Date().toISOString(),
     };
 
+    // Extract a string from Airtable cell value (linked records, lookups, primitives).
+    // Linked "Contacts" often return { name, phoneNumber } or array of same; we want a single phone string.
+    function stringCellValue(value, fieldName) {
+        if (value === null || value === undefined) return null;
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string' && value.trim() !== '') return value.trim();
+        if (typeof value === 'number') return String(value);
+        if (Array.isArray(value)) {
+            const parts = value.map(function (v) {
+                if (v == null) return '';
+                if (typeof v === 'string') return v.trim();
+                if (typeof v === 'object') {
+                    return v.phoneNumber || v.phone || v.number || v.name || (v.fields && (v.fields.phone || v.fields.phoneNumber || v.fields.name)) || '';
+                }
+                return String(v);
+            }).filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : null;
+        }
+        if (typeof value === 'object') {
+            const f = value.fields || value;
+            return value.phoneNumber || value.phone || value.number || value.name
+                || (f && (f.phoneNumber || f.phone || f.Phone || f.number)) || null;
+        }
+        return null;
+    }
+
     let fieldCount = 0;
     for (const fieldName of WELLMEDR_FIELDS) {
         try {
-            const value = getCellValueWithAliases(record, fieldName);
-            if (value !== null && value !== undefined && value !== '') {
-                if (typeof value === 'object' && value.name) {
-                    payload[fieldName] = value.name;
-                } else if (Array.isArray(value)) {
-                    if (value.length > 0) {
-                        payload[fieldName] = value.map(v => v.name || v).join(', ');
-                    }
-                } else if (typeof value === 'boolean') {
-                    payload[fieldName] = value;
-                } else {
-                    payload[fieldName] = String(value);
-                }
+            const raw = getCellValueWithAliases(record, fieldName);
+            const value = stringCellValue(raw, fieldName);
+            if (value !== null && value !== '') {
+                payload[fieldName] = typeof value === 'boolean' ? value : String(value);
                 fieldCount++;
             }
         } catch (e) {
@@ -177,8 +206,54 @@ async function main() {
         }
     }
 
+    // Fallback 1: if phone still empty, try ANY field whose name contains "phone", "tel", "mobile", "cell" (handles renamed columns).
+    // Note: In Airtable Automations, table.fields may be undefined; then we rely on Fallback 2.
+    if (!payload['phone'] && typeof table.fields !== 'undefined') {
+        const phoneLike = ['phone', 'tel', 'mobile', 'cell'];
+        for (let i = 0; i < table.fields.length; i++) {
+            const field = table.fields[i];
+            const name = field && field.name;
+            if (!name) continue;
+            const nameLower = name.toLowerCase();
+            if (!phoneLike.some(function (sub) { return nameLower.indexOf(sub) !== -1; })) continue;
+            try {
+                const raw = record.getCellValue(name);
+                const s = stringCellValue(raw, 'phone');
+                if (s) {
+                    payload['phone'] = s;
+                    fieldCount++;
+                    if (CONFIG.DEBUG) console.log('📞 Phone from fallback field: "' + name + '"');
+                    break;
+                }
+            } catch (_) { /* ignore */ }
+        }
+    }
+
+    // Fallback 2: try fixed list of common column names (works when table.fields is unavailable in Automations)
+    if (!payload['phone']) {
+        const extraPhoneNames = [
+            'Contact #', 'Contact', 'Primary Contact Number', 'Primary Contact',
+            'Phone', 'Phone Number', 'Mobile', 'Cell', 'Telephone', 'Your Phone',
+            'Patient Contact', 'Contact Info', 'Preferred Phone', 'Daytime Phone',
+            'Work Phone', 'Home Phone', 'Phone/Text', 'Text Number', 'Mobile Number'
+        ];
+        for (let i = 0; i < extraPhoneNames.length; i++) {
+            try {
+                const raw = record.getCellValue(extraPhoneNames[i]);
+                const s = stringCellValue(raw, 'phone');
+                if (s) {
+                    payload['phone'] = s;
+                    fieldCount++;
+                    if (CONFIG.DEBUG) console.log('📞 Phone from extra column: "' + extraPhoneNames[i] + '"');
+                    break;
+                }
+            } catch (_) { /* column doesn't exist */ }
+        }
+    }
+
     console.log(`📊 Extracted ${fieldCount} fields`);
     console.log(`📦 Patient: ${payload['first-name'] || '?'} ${payload['last-name'] || '?'} (${payload['email'] || '?'})`);
+    console.log(`📦 Phone: ${payload['phone'] ? '***' + (payload['phone'].length > 4 ? payload['phone'].slice(-4) : '') : 'MISSING'}`);
     console.log(`📦 Checkout Completed: ${payload['Checkout Completed'] ?? payload['Checkout Completed 2'] ?? 'N/A'}`);
 
     if (!payload['email'] && !payload['phone']) {

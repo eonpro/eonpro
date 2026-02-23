@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PaymentStatus } from '@prisma/client';
-import { encryptCardData } from '@/lib/encryption';
 import crypto from 'crypto';
 import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
 import { logger } from '@/lib/logger';
@@ -483,169 +482,81 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       });
     }
 
-    // --- New card path (original flow) ---
-    const {
-      cardNumber,
-      cardholderName,
-      expiryMonth,
-      expiryYear,
-      cvv,
-      billingZip,
-      cardBrand,
-      saveCard,
-    } = paymentDetails as PaymentDetails;
+    // --- New card path: charge via Stripe (never record SUCCEEDED without Stripe) ---
+    // Raw card details cannot be sent to Stripe server-side (PCI). Create an unconfirmed
+    // PaymentIntent and return clientSecret so the frontend confirms via Stripe.js.
+    const { saveCard } = (paymentDetails || {}) as Partial<PaymentDetails>;
 
-    const cardLast4 = cardNumber.slice(-4);
-    const encryptionKeyId = crypto.randomBytes(16).toString('hex');
-
-    const result = await prisma.$transaction(async (tx) => {
-      let paymentMethodId: number | null = null;
-      let subscriptionId: number | null = null;
-
-      if (saveCard || subscription) {
-        const encryptedCardNumber = encryptCardData(cardNumber);
-        const encryptedCvv = encryptCardData(cvv);
-
-        const paymentMethod = await tx.paymentMethod.create({
-          data: {
-            patientId: patient.id,
-            encryptedCardNumber,
-            cardLast4,
-            cardBrand: cardBrand || 'Unknown',
-            expiryMonth,
-            expiryYear,
-            cardholderName,
-            encryptedCvv,
-            billingZip,
-            isDefault: patient.paymentMethods.length === 0,
-            isActive: true,
-            encryptionKeyId,
-            fingerprint: crypto.createHash('sha256').update(cardNumber).digest('hex'),
-            lastUsedAt: new Date(),
-          },
-        });
-
-        paymentMethodId = paymentMethod.id;
-      }
-
-      if (subscription) {
-        const subscriptionInfo = subscription as SubscriptionInfo;
-        const now = new Date();
-        const periodEnd = new Date(now);
-        const totalMonths = subscriptionInfo.intervalCount *
-          (subscriptionInfo.interval === 'year' ? 12 : subscriptionInfo.interval === 'month' ? 1 : 1);
-        periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
-
-        const createdSubscription = await tx.subscription.create({
-          data: {
-            patientId: patient.id,
-            planId: subscriptionInfo.planId,
-            planName: subscriptionInfo.planName,
-            planDescription: description,
-            amount,
-            interval: subscriptionInfo.interval,
-            intervalCount: subscriptionInfo.intervalCount,
-            startDate: now,
-            currentPeriodStart: now,
-            currentPeriodEnd: periodEnd,
-            nextBillingDate: periodEnd,
-            paymentMethodId: paymentMethodId!,
-          },
-        });
-
-        subscriptionId = createdSubscription.id;
-
-        const currentTags = (patient.tags as string[]) || [];
-        const subscriptionTag = `subscription-${subscriptionInfo.planName.toLowerCase().replace(/\s+/g, '-')}`;
-
-        if (!currentTags.includes(subscriptionTag)) {
-          await tx.patient.update({
-            where: { id: patient.id },
-            data: {
-              tags: [...currentTags, subscriptionTag, 'active-subscription'],
-            },
-          });
-        }
-      }
-
-      const payment = await tx.payment.create({
-        data: {
-          patientId: patient.id,
-          amount,
-          status: PaymentStatus.SUCCEEDED,
-          paymentMethod: `Card ending ${cardLast4}`,
-          description,
-          notes,
-          subscriptionId,
-          metadata: {
-            cardBrand,
-            paymentMethodId,
-            subscriptionId,
-            planId: subscription?.planId,
-          } as any,
-        },
-      });
-
-      if (paymentMethodId) {
-        await tx.paymentMethod.update({
-          where: { id: paymentMethodId },
-          data: { lastUsedAt: new Date() },
-        });
-      }
-
-      return { payment, paymentMethodId, subscriptionId };
-    }, { timeout: 15000 });
-
-    const { payment, paymentMethodId, subscriptionId } = result;
-
-    let commissionProcessed = false;
-    try {
-      const priorPaymentCount = await prisma.payment.count({
-        where: {
-          patientId: patient.id,
-          status: PaymentStatus.SUCCEEDED,
-          id: { not: payment.id },
-        },
-      });
-      const isFirstPayment = priorPaymentCount === 0;
-
-      const commissionResult = await processPaymentForCommission({
-        clinicId: patient.clinicId,
-        patientId: patient.id,
-        stripeEventId: `payment-${payment.id}`,
-        stripeObjectId: payment.id.toString(),
-        stripeEventType: 'payment.succeeded',
-        amountCents: Math.round(amount * 100),
-        occurredAt: new Date(),
-        isFirstPayment,
-        isRecurring: !!subscription,
-        recurringMonth: isFirstPayment ? undefined : undefined,
-        productSku: subscription?.planId,
-        productCategory: subscription?.planName,
-      });
-
-      commissionProcessed = commissionResult.success && !commissionResult.skipped;
-      if (commissionProcessed) {
-        logger.info('[PaymentProcess] Affiliate commission created', {
-          paymentId: payment.id,
-          patientId: patient.id,
-          commissionEventId: commissionResult.commissionEventId,
-        });
-      }
-    } catch (commissionError) {
-      logger.warn('[PaymentProcess] Affiliate commission processing failed (non-blocking)', {
-        paymentId: payment.id,
-        patientId: patient.id,
-        error: commissionError instanceof Error ? commissionError.message : 'Unknown',
-      });
+    let stripeCustomerId = patient.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await StripeCustomerService.getOrCreateCustomer(patient.id);
+      stripeCustomerId = customer.id;
     }
 
+    const stripeContext = await getStripeForClinic(patient.clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
+
+    const intentParams: Record<string, unknown> = {
+      amount,
+      currency: 'usd',
+      customer: stripeCustomerId,
+      description,
+      setup_future_usage: saveCard || subscription ? 'off_session' : undefined,
+      metadata: {
+        patientId: patient.id.toString(),
+        saveCard: saveCard === true ? 'true' : 'false',
+        ...(subscription
+          ? {
+              subscription: JSON.stringify({
+                planId: subscription.planId,
+                planName: subscription.planName,
+                interval: subscription.interval,
+                intervalCount: subscription.intervalCount,
+              }),
+            }
+          : {}),
+      },
+    };
+
+    const intent = connectOpts
+      ? await stripe.paymentIntents.create(intentParams as any, connectOpts)
+      : await stripe.paymentIntents.create(intentParams as any);
+
+    await prisma.payment.create({
+      data: {
+        patientId: patient.id,
+        amount,
+        status: PaymentStatus.PENDING,
+        paymentMethod: 'Card (to be confirmed)',
+        description,
+        notes,
+        stripePaymentIntentId: intent.id,
+        metadata: {
+          saveCard: saveCard === true,
+          subscription: subscription || null,
+          newCardFlow: true,
+        } as any,
+      },
+    });
+
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: patient.clinicId },
+      select: { subdomain: true },
+    });
+    const clinicPk = clinic?.subdomain
+      ? getDedicatedAccountPublishableKey(clinic.subdomain)
+      : undefined;
+
     return NextResponse.json({
-      success: true,
-      payment,
-      paymentMethodSaved: saveCard || !!subscription,
-      subscriptionCreated: !!subscriptionId,
-      commissionProcessed,
+      requiresStripeConfirmation: true,
+      clientSecret: intent.client_secret,
+      paymentIntentId: intent.id,
+      localPaymentMethodId: null,
+      stripePublishableKey: clinicPk || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      stripeConnectedAccountId: stripeContext.stripeAccountId || null,
     });
   } catch (error: unknown) {
     return handleApiError(error, { route: 'POST /api/stripe/payments/process' });

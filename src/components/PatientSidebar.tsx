@@ -522,15 +522,16 @@ export default function PatientSidebar({
   };
 
   const formatPhone = (phone: string) => {
-    if (!phone) return '';
-    // Check if encrypted
+    if (!phone) return '—';
+    // Placeholder stored when intake had no phone
+    const digits = phone.replace(/\D/g, '');
+    if (digits === '0000000000' || digits === '0') return '—';
     if (isEncryptedData(phone)) return '(encrypted)';
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `+1(${cleaned.slice(0, 3)})${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    if (digits.length === 10) {
+      return `+1(${digits.slice(0, 3)})${digits.slice(3, 6)}-${digits.slice(6)}`;
     }
-    if (cleaned.length === 11 && cleaned.startsWith('1')) {
-      return `+1(${cleaned.slice(1, 4)})${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+    if (digits.length === 11 && digits.startsWith('1')) {
+      return `+1(${digits.slice(1, 4)})${digits.slice(4, 7)}-${digits.slice(7)}`;
     }
     return phone;
   };

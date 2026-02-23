@@ -87,7 +87,7 @@ export async function upsertPatientFromIntake(
       submissionId: intake.submissionId,
     });
 
-    // Don't overwrite address fields with empty — preserve existing zip/city/state when intake omits them
+    // Don't overwrite address/contact with empty or placeholder — preserve existing when intake omits or sends placeholder
     const addressKeys = ['address1', 'address2', 'city', 'state', 'zip'] as const;
     const mergedForUpdate = { ...normalized };
     for (const key of addressKeys) {
@@ -97,6 +97,19 @@ export async function upsertPatientFromIntake(
         if (existingValue != null && String(existingValue).trim() !== '') {
           (mergedForUpdate as Record<string, string>)[key] = String(existingValue);
         }
+      }
+    }
+    const existingRecord = existing as Record<string, unknown>;
+    if (!mergedForUpdate.phone || mergedForUpdate.phone === '0000000000') {
+      const existingPhone = existingRecord.phone;
+      if (existingPhone != null && String(existingPhone).trim() !== '' && String(existingPhone) !== '0000000000') {
+        mergedForUpdate.phone = String(existingPhone);
+      }
+    }
+    if (!mergedForUpdate.email || mergedForUpdate.email === 'unknown@example.com') {
+      const existingEmail = existingRecord.email;
+      if (existingEmail != null && String(existingEmail).trim() !== '' && String(existingEmail) !== 'unknown@example.com') {
+        mergedForUpdate.email = String(existingEmail);
       }
     }
 
@@ -170,13 +183,8 @@ function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreat
 
 function buildMatchFilters(patient: NormalizedPatient) {
   const filters: Prisma.PatientWhereInput[] = [];
-  const email = patient.email?.toLowerCase();
-  const dob = patient.dob && patient.dob !== '1900-01-01' ? patient.dob : null;
-  if (email && email !== 'unknown@example.com' && dob) {
-    filters.push({ email, dob });
-  }
-  if (email && email !== 'unknown@example.com') {
-    filters.push({ email });
+  if (patient.email) {
+    filters.push({ email: patient.email.toLowerCase() });
   }
   if (patient.phone) {
     filters.push({ phone: sanitizePhone(patient.phone) });

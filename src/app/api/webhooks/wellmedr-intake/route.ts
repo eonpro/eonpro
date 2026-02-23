@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { PatientDocumentCategory, Clinic, Patient, Prisma } from '@prisma/client';
 import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
-import { normalizeWellmedrPayload, isCheckoutComplete } from '@/lib/wellmedr/intakeNormalizer';
+import { normalizeWellmedrPayload, isCheckoutComplete, coerceToPhoneString } from '@/lib/wellmedr/intakeNormalizer';
 import { isFilloutPayload, filloutToWellmedrPayload } from '@/lib/wellmedr/filloutAdapter';
 import type { WellmedrPayload } from '@/lib/wellmedr/types';
 import { generateIntakePdf } from '@/services/intakePdfService';
@@ -17,7 +17,7 @@ import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI } from '@/lib/security/phi-encryption';
+import { decryptPHI, encryptPHI } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
@@ -300,7 +300,13 @@ export async function POST(req: NextRequest) {
       logger.info(`[WELLMEDR-INTAKE ${requestId}] Fillout payload detected, converting to flat format`);
       payload = filloutToWellmedrPayload(parsed);
     } else {
-      payload = parsed as WellmedrPayload;
+      const raw = parsed as Record<string, unknown>;
+      // Flatten: some senders wrap in { data: { phone: '...', ... } }; merge so normalizer sees all keys
+      if (raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) {
+        payload = { ...(raw.data as Record<string, unknown>), ...raw } as WellmedrPayload;
+      } else {
+        payload = raw as WellmedrPayload;
+      }
     }
 
     // Log payload structure
@@ -435,10 +441,40 @@ export async function POST(req: NextRequest) {
 
   const patientData = normalizePatientData(normalized.patient);
 
-  if (patientData.phone) {
-    logger.info(`[WELLMEDR-INTAKE ${requestId}] Phone present for profile (digits: ${patientData.phone.length})`);
+  // Last-chance: if normalizer didn't extract phone, scan raw payload for any phone-like key (handles renamed Airtable columns / Fillout question IDs)
+  let phoneForDb = patientData.phone || '';
+  if (!phoneForDb) {
+    const phoneLikeSubstrings = ['phone', 'mobile', 'cell', 'tel', 'contact'];
+    for (const [key, value] of Object.entries(payload)) {
+      if (value == null || value === '') continue;
+      if (!phoneLikeSubstrings.some((sub) => key.toLowerCase().includes(sub))) continue;
+      const str = coerceToPhoneString(value);
+      if (!str) continue;
+      const digits = sanitizePhone(str);
+      if (digits.length >= 10) {
+        phoneForDb = digits;
+        logger.info(`[WELLMEDR-INTAKE ${requestId}] Phone from last-chance key "${key}" (digits: ${digits.length})`);
+        break;
+      }
+    }
+  }
+  if (!phoneForDb) {
+    phoneForDb = '0000000000';
+    const allKeys = Object.keys(payload);
+    const phoneLikeKeys = allKeys.filter(
+      (k) =>
+        k.toLowerCase().includes('phone') ||
+        k.toLowerCase().includes('mobile') ||
+        k.toLowerCase().includes('cell') ||
+        k.toLowerCase().includes('tel')
+    );
+    logger.warn(`[WELLMEDR-INTAKE ${requestId}] No phone in normalized payload or raw payload`, {
+      totalKeys: allKeys.length,
+      phoneLikeKeys: phoneLikeKeys.length ? phoneLikeKeys : 'none',
+      sampleKeys: allKeys.slice(0, 30),
+    });
   } else {
-    logger.warn(`[WELLMEDR-INTAKE ${requestId}] No phone in normalized payload; keys with "phone": ${Object.keys(payload).filter((k) => k.toLowerCase().includes('phone')).join(', ') || 'none'}`);
+    logger.info(`[WELLMEDR-INTAKE ${requestId}] Phone present for profile (digits: ${phoneForDb.length})`);
   }
 
   // Build tags
@@ -446,6 +482,72 @@ export async function POST(req: NextRequest) {
   const submissionTags = isPartialSubmission
     ? [...baseTags, 'partial-lead', 'needs-followup']
     : [...baseTags, 'complete-intake'];
+
+  // ═══════════════════════════════════════════════════════════════════
+  // FIND EXISTING PATIENT (email, phone, or name+DOB) — update instead of duplicate
+  // ═══════════════════════════════════════════════════════════════════
+  const recentPatients = await withRetry<Patient[]>(() =>
+    prisma.patient.findMany({
+      where: { clinicId },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    })
+  );
+
+  const searchEmail = patientData.email?.toLowerCase().trim();
+  const searchPhone = phoneForDb;
+  const searchFirstName = patientData.firstName?.toLowerCase().trim();
+  const searchLastName = patientData.lastName?.toLowerCase().trim();
+  const searchDob = patientData.dob;
+
+  let existingPatient: Patient | null = null;
+  for (const p of recentPatients) {
+    const decryptedEmail = safeDecrypt(p.email)?.toLowerCase().trim();
+    const decryptedPhone = safeDecrypt(p.phone);
+    const decryptedFirstName = safeDecrypt(p.firstName)?.toLowerCase().trim();
+    const decryptedLastName = safeDecrypt(p.lastName)?.toLowerCase().trim();
+    const decryptedDob = safeDecrypt(p.dob);
+
+    if (
+      searchEmail &&
+      searchEmail !== 'unknown@example.com' &&
+      decryptedEmail &&
+      decryptedEmail === searchEmail
+    ) {
+      existingPatient = p;
+      logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by email: ${p.id}`);
+      break;
+    }
+    if (
+      searchPhone &&
+      searchPhone !== '0000000000' &&
+      decryptedPhone &&
+      decryptedPhone === searchPhone
+    ) {
+      existingPatient = p;
+      logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by phone: ${p.id}`);
+      break;
+    }
+    if (
+      searchFirstName &&
+      searchFirstName !== 'unknown' &&
+      searchLastName &&
+      searchLastName !== 'unknown' &&
+      searchDob &&
+      searchDob !== '1900-01-01' &&
+      decryptedFirstName === searchFirstName &&
+      decryptedLastName === searchLastName &&
+      decryptedDob === searchDob
+    ) {
+      existingPatient = p;
+      logger.debug(`[WELLMEDR-INTAKE ${requestId}] Found patient match by name+DOB: ${p.id}`);
+      break;
+    }
+  }
+
+  if (!existingPatient) {
+    logger.debug(`[WELLMEDR-INTAKE ${requestId}] No existing patient found, will create new`);
+  }
 
   // Build notes
   const buildNotes = (existing: string | null | undefined) => {
@@ -473,9 +575,79 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // ═══════════════════════════════════════════════════════════════════
-    // CREATE NEW PATIENT - No auto-merge. Duplicate profiles are merged manually.
-    // ═══════════════════════════════════════════════════════════════════
+    if (existingPatient) {
+      // ═══════════════════════════════════════════════════════════════════
+      // UPDATE EXISTING PATIENT — preserve phone/email when intake didn't provide real values
+      // ═══════════════════════════════════════════════════════════════════
+      const existingTags = Array.isArray(existingPatient.tags)
+        ? (existingPatient.tags as string[])
+        : [];
+      const wasPartial = existingTags.includes('partial-lead');
+      const wasStub = existingTags.includes('stub-from-invoice');
+      const upgradedFromPartial = wasPartial && !isPartialSubmission;
+
+      let updatedTags = mergeTags(existingPatient.tags, submissionTags);
+      if (upgradedFromPartial) {
+        updatedTags = updatedTags.filter(
+          (t: string) => t !== 'partial-lead' && t !== 'needs-followup'
+        );
+        logger.info(`[WELLMEDR-INTAKE ${requestId}] ⬆ Upgrading from partial to complete`);
+      }
+      if (wasStub) {
+        updatedTags = updatedTags.filter(
+          (t: string) => t !== 'stub-from-invoice' && t !== 'needs-intake-merge'
+        );
+        updatedTags.push('merged-from-stub');
+        logger.info(
+          `[WELLMEDR-INTAKE ${requestId}] ⬆ MERGING stub patient with full intake data`
+        );
+      }
+
+      const updateSearchIndex = buildPatientSearchIndex({
+        ...patientData,
+        patientId: existingPatient.patientId,
+      });
+
+      const updateData: Record<string, unknown> = {
+        firstName: encryptPHI(patientData.firstName) ?? patientData.firstName,
+        lastName: encryptPHI(patientData.lastName) ?? patientData.lastName,
+        email:
+          patientData.email && patientData.email !== 'unknown@example.com'
+            ? (encryptPHI(patientData.email) ?? patientData.email)
+            : undefined,
+        dob: encryptPHI(patientData.dob) ?? patientData.dob,
+        address1: String(patientData.address1 || '').trim()
+          ? (encryptPHI(patientData.address1) ?? patientData.address1)
+          : '',
+        address2: String(patientData.address2 || '').trim()
+          ? (encryptPHI(patientData.address2) ?? patientData.address2)
+          : '',
+        city: patientData.city ? (encryptPHI(patientData.city) ?? patientData.city) : '',
+        state: patientData.state ? (encryptPHI(patientData.state) ?? patientData.state) : '',
+        zip: patientData.zip ? (encryptPHI(patientData.zip) ?? patientData.zip) : '',
+        profileStatus: 'ACTIVE',
+        tags: updatedTags,
+        notes: buildNotes(existingPatient.notes),
+        searchIndex: updateSearchIndex,
+      };
+      if (phoneForDb && phoneForDb !== '0000000000') {
+        (updateData as any).phone = encryptPHI(phoneForDb) ?? phoneForDb;
+      }
+      if (updateData.email === undefined) delete updateData.email;
+
+      patient = await withRetry(() =>
+        prisma.patient.update({
+          where: { id: existingPatient!.id },
+          data: updateData as any,
+        })
+      );
+      logger.info(
+        `[WELLMEDR-INTAKE ${requestId}] ✓ ${wasStub ? 'Merged stub → full' : 'Updated'} patient: ${patient.id} (clinicId=${clinicId})`
+      );
+    } else {
+      // ═══════════════════════════════════════════════════════════════════
+      // CREATE NEW PATIENT (with retry on patientId conflict)
+      // ═══════════════════════════════════════════════════════════════════
       const MAX_RETRIES = 5;
       let retryCount = 0;
       let created = false;
@@ -487,10 +659,10 @@ export async function POST(req: NextRequest) {
             ...patientData,
             patientId: patientNumber,
           });
-          // DB requires non-empty phone; use placeholder only when intake didn't provide one
-          const createPayload = {
+          // phoneForDb set above (normalizer + last-chance raw payload scan)
+          const rawPayload = {
             ...patientData,
-            phone: patientData.phone || '0000000000',
+            phone: phoneForDb,
             patientId: patientNumber,
             clinicId: clinicId,
             profileStatus: 'ACTIVE' as const,
@@ -508,6 +680,20 @@ export async function POST(req: NextRequest) {
               clinicName: 'Wellmedr',
             },
           };
+          // Encrypt PHI at rest (platform standard; no PHI middleware on this path)
+          const createPayload = {
+            ...rawPayload,
+            firstName: encryptPHI(rawPayload.firstName) ?? rawPayload.firstName,
+            lastName: encryptPHI(rawPayload.lastName) ?? rawPayload.lastName,
+            email: encryptPHI(rawPayload.email) ?? rawPayload.email,
+            phone: encryptPHI(phoneForDb) ?? phoneForDb,
+            dob: encryptPHI(rawPayload.dob) ?? rawPayload.dob,
+            address1: rawPayload.address1 ? (encryptPHI(rawPayload.address1) ?? rawPayload.address1) : '',
+            address2: rawPayload.address2 ? (encryptPHI(rawPayload.address2) ?? rawPayload.address2) : '',
+            city: rawPayload.city ? (encryptPHI(rawPayload.city) ?? rawPayload.city) : '',
+            state: rawPayload.state ? (encryptPHI(rawPayload.state) ?? rawPayload.state) : '',
+            zip: rawPayload.zip ? (encryptPHI(rawPayload.zip) ?? rawPayload.zip) : '',
+          };
           patient = await prisma.patient.create({
             data: createPayload,
           });
@@ -517,17 +703,74 @@ export async function POST(req: NextRequest) {
             `[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
           );
         } catch (createErr: any) {
-          // Check if this is a unique constraint violation on patientId
           if (createErr?.code === 'P2002' && createErr?.meta?.target?.includes('patientId')) {
             retryCount++;
             logger.warn(
               `[WELLMEDR-INTAKE ${requestId}] PatientId conflict, retrying (${retryCount}/${MAX_RETRIES})...`
             );
-
-            // Wait a bit before retrying to avoid race conditions
             await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
+
+            if (retryCount >= 3) {
+              const refetched = await prisma.patient.findMany({
+                where: { clinicId },
+                orderBy: { createdAt: 'desc' },
+                take: 100,
+              });
+              let refetchPatient: Patient | null = null;
+              for (const r of refetched) {
+                const de = safeDecrypt(r.email)?.toLowerCase().trim();
+                const dp = safeDecrypt(r.phone);
+                if (
+                  (searchEmail && searchEmail !== 'unknown@example.com' && de === searchEmail) ||
+                  (searchPhone &&
+                    searchPhone !== '0000000000' &&
+                    dp &&
+                    dp === searchPhone)
+                ) {
+                  refetchPatient = r;
+                  break;
+                }
+              }
+              if (refetchPatient) {
+                const retrySearchIndex = buildPatientSearchIndex({
+                  ...patientData,
+                  patientId: refetchPatient.patientId,
+                });
+                const retryUpdateData: Record<string, unknown> = {
+                  firstName: encryptPHI(patientData.firstName) ?? patientData.firstName,
+                  lastName: encryptPHI(patientData.lastName) ?? patientData.lastName,
+                  dob: encryptPHI(patientData.dob) ?? patientData.dob,
+                  address1: String(patientData.address1 || '').trim()
+                    ? (encryptPHI(patientData.address1) ?? patientData.address1)
+                    : '',
+                  address2: String(patientData.address2 || '').trim()
+                    ? (encryptPHI(patientData.address2) ?? patientData.address2)
+                    : '',
+                  city: patientData.city ? (encryptPHI(patientData.city) ?? patientData.city) : '',
+                  state: patientData.state ? (encryptPHI(patientData.state) ?? patientData.state) : '',
+                  zip: patientData.zip ? (encryptPHI(patientData.zip) ?? patientData.zip) : '',
+                  profileStatus: 'ACTIVE',
+                  tags: mergeTags(refetchPatient.tags, submissionTags),
+                  notes: buildNotes(refetchPatient.notes),
+                  searchIndex: retrySearchIndex,
+                };
+                if (phoneForDb && phoneForDb !== '0000000000') {
+                  (retryUpdateData as any).phone = encryptPHI(phoneForDb) ?? phoneForDb;
+                }
+                if (patientData.email && patientData.email !== 'unknown@example.com') {
+                  (retryUpdateData as any).email = encryptPHI(patientData.email) ?? patientData.email;
+                }
+                patient = await prisma.patient.update({
+                  where: { id: refetchPatient.id },
+                  data: retryUpdateData as any,
+                });
+                created = true;
+                logger.info(
+                  `[WELLMEDR-INTAKE ${requestId}] ✓ Updated existing patient after conflict: ${patient.id}`
+                );
+              }
+            }
           } else {
-            // Not a patientId conflict - rethrow
             throw createErr;
           }
         }
@@ -538,6 +781,7 @@ export async function POST(req: NextRequest) {
           `Failed to create patient after ${MAX_RETRIES} retries due to patientId conflicts`
         );
       }
+    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     const errorStack = err instanceof Error ? err.stack : undefined;
@@ -1004,6 +1248,22 @@ export async function POST(req: NextRequest) {
 
     // Legacy field names (for backwards compatibility)
     patientId: patient.id,
+
+    // Diagnostic: key names only (no PHI) — use to debug missing phone when phoneReceived is false
+    _diagnostic: (() => {
+      const phoneLikeSubstrings = ['phone', 'mobile', 'cell', 'tel', 'contact'];
+      const phoneLikeKeysInPayload = Object.keys(payload)
+        .filter((k) => phoneLikeSubstrings.some((sub) => k.toLowerCase().includes(sub)))
+        .map((k) => ({ key: k, valuePresent: payload[k] != null && payload[k] !== '' }));
+      return {
+        receivedKeys: Object.keys(payload),
+        phoneReceived: !!(phoneForDb && phoneForDb !== '0000000000'),
+        phoneLikeKeysInPayload,
+        ...(!phoneForDb || phoneForDb === '0000000000' ? {
+          hint: 'No phone extracted. Check payload key names and value format; see docs/PHONE_NUMBER_DEEP_ANALYSIS.md',
+        } : {}),
+      };
+    })(),
   });
   }); // end runWithClinicContext
 }

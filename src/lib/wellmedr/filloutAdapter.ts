@@ -36,6 +36,11 @@ const FILLOUT_KEY_TO_WELLMEDR: Record<string, string> = {
   Phone: 'phone',
   'Primary Phone': 'phone',
   'Contact Phone': 'phone',
+  'Your Phone': 'phone',
+  'Patient Phone': 'phone',
+  'Contact Number': 'phone',
+  'Primary Contact': 'phone',
+  'Phone #': 'phone',
   Mobile: 'phone',
   Cell: 'phone',
   Telephone: 'phone',
@@ -141,18 +146,53 @@ export function filloutToWellmedrPayload(fillout: FilloutWebhookPayload): Wellme
     flat.lastUpdatedAt = fillout.lastUpdatedAt;
   }
 
-  // Questions → flat key-value (id → value); normalize Fillout Body keys to Wellmedr kebab-case
+  // Helper: extract phone string from object (Fillout/Airtable sometimes send { phoneNumber, phone, etc. })
+  function toPhoneValue(val: unknown): string | unknown {
+    if (val == null) return val;
+    if (typeof val === 'string') return val.trim();
+    if (typeof val === 'number') return String(val);
+    if (Array.isArray(val) && val.length > 0) {
+      const first = val[0];
+      if (typeof first === 'string') return first.trim();
+      if (first && typeof first === 'object') {
+        const o = first as Record<string, unknown>;
+        const s = o.phoneNumber ?? o.phone ?? o.number ?? o.name;
+        if (s != null && typeof s === 'string') return s.trim();
+      }
+    }
+    if (typeof val === 'object') {
+      const o = val as Record<string, unknown>;
+      const s = o.phoneNumber ?? o.phone ?? o.number ?? o.name ?? o.Phone ?? o.PhoneNumber;
+      if (s != null && typeof s === 'string') return s.trim();
+      if (s != null && typeof s === 'number') return String(s);
+    }
+    return val;
+  }
+
+  // Questions → flat key-value (id or name → value); normalize Fillout Body keys to Wellmedr kebab-case
   for (const q of fillout.questions ?? []) {
     if (q.id == null) continue;
     const v = q.value;
     if (v === undefined || v === null) continue;
     const idStr = String(q.id).trim();
-    const key = FILLOUT_KEY_TO_WELLMEDR[idStr] || idStr;
+    const nameStr = q.name != null ? String(q.name).trim() : '';
+    let key = FILLOUT_KEY_TO_WELLMEDR[idStr] ?? (nameStr ? FILLOUT_KEY_TO_WELLMEDR[nameStr] : undefined);
+    if (!key) {
+      const idLower = idStr.toLowerCase();
+      const nameLower = nameStr.toLowerCase();
+      if (/phone|mobile|cell|tel(ephone)?/.test(idLower) || /phone|mobile|cell|tel(ephone)?/.test(nameLower)) {
+        key = 'phone';
+      } else {
+        key = idStr;
+      }
+    }
     const value =
-      typeof v === 'object' && v !== null && !Array.isArray(v)
-        ? JSON.stringify(v)
-        : v;
-    flat[key] = value;
+      key === 'phone'
+        ? toPhoneValue(v)
+        : typeof v === 'object' && v !== null && !Array.isArray(v)
+          ? JSON.stringify(v)
+          : v;
+    if (value !== undefined && value !== null && value !== '') flat[key] = value;
   }
 
   // Combine DOB (Day), (Month), (Year) into single dob if present

@@ -104,9 +104,47 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     // Extract subscription data stored by the process route
     const paymentMeta = (pendingPayment.metadata as Record<string, unknown>) || {};
     const subscription = paymentMeta.subscription as SubscriptionInfo | null;
+    const saveCard = paymentMeta.saveCard === true;
 
-    // Link the Stripe PaymentMethod to the local record for future use
-    const parsedLocalPmId = localPaymentMethodId ? parseInt(String(localPaymentMethodId)) : null;
+    let parsedLocalPmId = localPaymentMethodId ? parseInt(String(localPaymentMethodId)) : null;
+
+    // New-card flow: create local PaymentMethod from Stripe when user chose "save card"
+    if (stripePaymentMethodId && saveCard && !parsedLocalPmId) {
+      try {
+        const pm = connectOpts
+          ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, connectOpts)
+          : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+        const last4 = (pm as Stripe.PaymentMethod).card?.last4 ?? '????';
+        const brand = (pm as Stripe.PaymentMethod).card?.brand
+          ? String((pm as Stripe.PaymentMethod).card?.brand).charAt(0).toUpperCase() +
+            String((pm as Stripe.PaymentMethod).card?.brand).slice(1)
+          : 'Unknown';
+
+        const patientPaymentMethods = await prisma.paymentMethod.count({
+          where: { patientId: patient.id, isActive: true },
+        });
+
+        const created = await prisma.paymentMethod.create({
+          data: {
+            patientId: patient.id,
+            stripePaymentMethodId,
+            cardLast4: last4,
+            cardBrand: brand,
+            isDefault: patientPaymentMethods === 0,
+            isActive: true,
+            lastUsedAt: new Date(),
+          },
+        });
+        parsedLocalPmId = created.id;
+      } catch (createErr) {
+        logger.warn('[PaymentConfirm] Failed to create local PM from Stripe (non-blocking)', {
+          stripePaymentMethodId,
+          error: createErr instanceof Error ? createErr.message : String(createErr),
+        });
+      }
+    }
+
+    // Link the Stripe PaymentMethod to an existing local record when both are provided
     if (stripePaymentMethodId && parsedLocalPmId) {
       try {
         await prisma.paymentMethod.update({
@@ -129,11 +167,22 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     const result = await prisma.$transaction(async (tx) => {
       let subscriptionId: number | null = null;
 
+      const pmForDisplay =
+        parsedLocalPmId != null
+          ? await tx.paymentMethod.findUnique({
+              where: { id: parsedLocalPmId },
+              select: { cardLast4: true },
+            })
+          : null;
+
       await tx.payment.update({
         where: { id: pendingPayment.id },
         data: {
           status: stripeStatus,
           stripeChargeId: intent.latest_charge?.toString(),
+          ...(pmForDisplay?.cardLast4
+            ? { paymentMethod: `Card ending ${pmForDisplay.cardLast4}` }
+            : {}),
         },
       });
 
@@ -157,7 +206,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             currentPeriodStart: now,
             currentPeriodEnd: periodEnd,
             nextBillingDate: periodEnd,
-            paymentMethodId: parsedLocalPmId ?? 0,
+            ...(parsedLocalPmId != null ? { paymentMethodId: parsedLocalPmId } : {}),
           },
         });
 

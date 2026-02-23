@@ -193,23 +193,46 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 0
+
+      - name: Check if commit already in production
+        id: check-deploy
+        run: |
+          # Skip deploy if production already has this commit (avoids duplicate deployments)
+          RESP=$(curl -s -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&target=production&state=READY&limit=1") || true
+          CURRENT_SHA=$(echo "$RESP" | jq -r '.deployments[0].meta.githubCommitSha // .deployments[0].meta.gitSource.sha // .deployments[0].gitSource.sha // empty' 2>/dev/null || echo "")
+          OUR_SHA="${{ github.sha }}"
+          if [ -n "$CURRENT_SHA" ] && [ "$CURRENT_SHA" = "$OUR_SHA" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "✅ Production already has this commit ($OUR_SHA), skipping deploy"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Will deploy (current prod: ${CURRENT_SHA:-unknown}, this: $OUR_SHA)"
+          fi
+
       - name: Setup Node.js
+        if: steps.check-deploy.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           
       - name: Install Vercel CLI
+        if: steps.check-deploy.outputs.skip != 'true'
         run: npm install -g vercel@latest
         
       - name: Pull Vercel Environment
+        if: steps.check-deploy.outputs.skip != 'true'
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         
       - name: Build Project
+        if: steps.check-deploy.outputs.skip != 'true'
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         
       - name: Deploy to Production
+        if: steps.check-deploy.outputs.skip != 'true'
         id: deploy
         run: |
           URL=$(vercel deploy --prebuilt --prod --archive=tgz --token=${{ secrets.VERCEL_TOKEN }})
@@ -217,6 +240,7 @@ jobs:
           echo "🚀 Deployed to: $URL"
           
       - name: Run production health check
+        if: steps.check-deploy.outputs.skip != 'true'
         run: |
           echo "Running health check against production"
           sleep 30
@@ -225,6 +249,7 @@ jobs:
           echo "✅ Health checks passed"
           
       - name: Create release tag
+        if: steps.check-deploy.outputs.skip != 'true'
         uses: actions/github-script@v7
         with:
           script: |

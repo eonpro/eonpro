@@ -33,6 +33,14 @@ interface PaginationMeta {
 
 const PAGE_SIZE = 50;
 
+/** Show "No phone" for placeholder/missing (0000000000), otherwise the phone value */
+function formatContactPhone(phone: string | null | undefined): React.ReactNode {
+  if (!phone) return <span className="text-gray-400">No phone</span>;
+  const digits = phone.replace(/\D/g, '');
+  if (digits === '0000000000' || digits === '0') return <span className="text-gray-400">No phone</span>;
+  return phone;
+}
+
 export default function ProviderPatientsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -475,7 +483,7 @@ export default function ProviderPatientsPage() {
                           {patient.email || <span className="text-gray-400">No email</span>}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {patient.phone || <span className="text-gray-400">No phone</span>}
+                          {formatContactPhone(patient.phone)}
                         </div>
                       </td>
                       <td className="px-4 py-3">
