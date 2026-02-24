@@ -303,12 +303,33 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         // Reproductive status
         clinicalContext.reproductiveStatus = getField(['pregnant-or-nursing', 'pregnantOrNursing', 'pregnant_or_nursing']);
 
-        // GLP-1 history
-        const glp1Used = getField(['glp1-last-30', 'glp1Last30', 'glp1_last_30']);
-        clinicalContext.glp1History.used = glp1Used?.toLowerCase() === 'yes';
-        clinicalContext.glp1History.type = getField(['glp1-last-30-medication-type', 'glp1Last30MedicationType']);
-        clinicalContext.glp1History.dose = getField(['glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg']);
-        clinicalContext.glp1History.sideEffects = getField(['glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects']);
+        // GLP-1 history: WellMedR stores nested glp1History { usedLast30Days, medicationType, doseMg }
+        const nestedGlp1 = docJson.glp1History as { usedLast30Days?: string; medicationType?: string; doseMg?: string; sideEffects?: string } | undefined;
+        if (nestedGlp1 && typeof nestedGlp1 === 'object') {
+          const usedVal = nestedGlp1.usedLast30Days;
+          if (usedVal && (String(usedVal).toLowerCase() === 'yes' || usedVal === true)) {
+            clinicalContext.glp1History.used = true;
+            if (nestedGlp1.medicationType && String(nestedGlp1.medicationType).trim())
+              clinicalContext.glp1History.type = String(nestedGlp1.medicationType).trim();
+            if (nestedGlp1.doseMg != null && String(nestedGlp1.doseMg).trim()) {
+              const numericDose = String(nestedGlp1.doseMg).trim().replace(/[^\d.]/g, '');
+              if (numericDose) clinicalContext.glp1History.dose = numericDose;
+            }
+            if (nestedGlp1.sideEffects && String(nestedGlp1.sideEffects).trim())
+              clinicalContext.glp1History.sideEffects = String(nestedGlp1.sideEffects).trim();
+          }
+        }
+        // Flat keys (Airtable/other intake formats)
+        if (!clinicalContext.glp1History.used) {
+          const glp1Used = getField(['glp1-last-30', 'glp1Last30', 'glp1_last_30']);
+          clinicalContext.glp1History.used = glp1Used?.toLowerCase() === 'yes';
+        }
+        if (!clinicalContext.glp1History.type)
+          clinicalContext.glp1History.type = getField(['glp1-last-30-medication-type', 'glp1Last30MedicationType']);
+        if (!clinicalContext.glp1History.dose)
+          clinicalContext.glp1History.dose = getField(['glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg']);
+        if (!clinicalContext.glp1History.sideEffects)
+          clinicalContext.glp1History.sideEffects = getField(['glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects']);
 
         // Preference
         clinicalContext.preferredMedication = getField(['preferred-meds', 'preferredMedication', 'preferredMeds', 'medication-preference']);
