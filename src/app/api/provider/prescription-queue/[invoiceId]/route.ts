@@ -399,6 +399,37 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       });
     }
 
+    // Fallback: if GLP-1 history was not found in PatientDocument, try invoice metadata.
+    // The queue list uses metadata + doc for glp1Info; without this fallback, the detail view
+    // (expanded row / prescription panel) showed "No prior GLP-1 use" on mobile while desktop list showed history.
+    if (!clinicalContext.glp1History.used && invoice.metadata && typeof invoice.metadata === 'object') {
+      const meta = invoice.metadata as Record<string, unknown>;
+      const metaGlp1Used = [meta['glp1-last-30'], meta['glp1Last30'], meta['glp1_last_30']].find(
+        (v) => v !== undefined && v !== null && String(v).trim() !== ''
+      );
+      if (metaGlp1Used && String(metaGlp1Used).toLowerCase() === 'yes') {
+        clinicalContext.glp1History.used = true;
+        const typeVal =
+          meta['glp1-last-30-medication-type'] ??
+          meta['glp1Last30MedicationType'] ??
+          meta['glp1_last_30_medication_type'];
+        const doseVal =
+          meta['glp1-last-30-medication-dose-mg'] ??
+          meta['glp1Last30MedicationDoseMg'] ??
+          meta['glp1_last_30_medication_dose_mg'];
+        const sideEffectsVal =
+          meta['glp1-side-effects'] ?? meta['glp1SideEffects'] ?? meta['glp1_side_effects'];
+        if (typeVal != null && String(typeVal).trim())
+          clinicalContext.glp1History.type = String(typeVal).trim();
+        if (doseVal != null && String(doseVal).trim()) {
+          const numericDose = String(doseVal).trim().replace(/[^\d.]/g, '');
+          if (numericDose) clinicalContext.glp1History.dose = numericDose;
+        }
+        if (sideEffectsVal != null && String(sideEffectsVal).trim())
+          clinicalContext.glp1History.sideEffects = String(sideEffectsVal).trim();
+      }
+    }
+
     // Merge: prefer PatientDocument sections (richer) over invoice metadata sections
     if (patientDocumentSections.length > 0) {
       intakeSections = patientDocumentSections;
