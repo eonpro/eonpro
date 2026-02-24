@@ -61,10 +61,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const hasTrackingNumber = searchParams.get('hasTrackingNumber');
     const search = searchParams.get('search') || undefined;
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const rawPageSize = parseInt(searchParams.get('pageSize') || '20', 10) || 20;
+    const pageSize = Math.min(100, Math.max(1, rawPageSize));
 
     // Use order service for proper access control
     const result = await orderService.listOrders(userContext, {
-      limit: 100,
+      limit: hasTrackingNumber === 'true' ? 1000 : pageSize,
+      offset: hasTrackingNumber === 'true' ? 0 : (page - 1) * pageSize,
       hasTrackingNumber:
         hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
       search,
@@ -133,7 +137,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 100,
+        take: 1000,
       });
 
       // Convert PatientShippingUpdate records to order-like format
@@ -189,10 +193,26 @@ export async function GET(request: NextRequest) {
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       });
 
-      return Response.json({ orders: allOrders });
+      const total = allOrders.length;
+      const start = (page - 1) * pageSize;
+      const paginatedOrders = allOrders.slice(start, start + pageSize);
+
+      return Response.json({
+        orders: paginatedOrders,
+        total,
+        page,
+        pageSize,
+        hasMore: start + paginatedOrders.length < total,
+      });
     }
 
-    return Response.json({ orders: ordersWithEvents });
+    return Response.json({
+      orders: ordersWithEvents,
+      total: result.total,
+      page,
+      pageSize,
+      hasMore: result.hasMore,
+    });
   } catch (error) {
     return handleApiError(error, {
       context: { route: 'GET /api/orders/list' },

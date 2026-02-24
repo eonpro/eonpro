@@ -16,6 +16,8 @@ import {
   MessageSquare,
   MessageSquareX,
   Send,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -48,6 +50,10 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderWithTracking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasMore, setHasMore] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const handleSearchChange = useCallback((value: string) => {
@@ -66,7 +72,11 @@ export default function AdminOrdersPage() {
     try {
       setLoading(true);
       setError(null);
-      const params = new URLSearchParams({ hasTrackingNumber: 'true' });
+      const params = new URLSearchParams({
+        hasTrackingNumber: 'true',
+        page: String(page),
+        pageSize: String(pageSize),
+      });
       if (debouncedSearch.trim()) {
         params.set('search', debouncedSearch.trim());
       }
@@ -76,12 +86,18 @@ export default function AdminOrdersPage() {
       }
       const data = await response.json();
       setOrders(data.orders || []);
+      setTotal(data.total ?? 0);
+      setHasMore(data.hasMore ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders');
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, pageSize]);
 
   useEffect(() => {
     fetchOrders();
@@ -368,11 +384,17 @@ export default function AdminOrdersPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm">
-                      <div className="text-gray-900">Rx {formatDate(order.createdAt)}</div>
-                      {(order.lastWebhookAt || order.updatedAt) && order.trackingNumber && (
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          Tracked {formatDate((order.lastWebhookAt || order.updatedAt)!)}
-                        </div>
+                      {order.trackingNumber && (order.lastWebhookAt || order.updatedAt) ? (
+                        <>
+                          <div className="text-gray-900">
+                            Tracked {formatDate((order.lastWebhookAt || order.updatedAt)!)}
+                          </div>
+                          <div className="mt-0.5 text-xs text-gray-400">
+                            Rx {formatDate(order.createdAt)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-gray-900">Rx {formatDate(order.createdAt)}</div>
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
@@ -390,6 +412,54 @@ export default function AdminOrdersPage() {
               )}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {!loading && total > 0 && (
+            <div className="flex flex-col gap-4 border-t border-gray-200 bg-gray-50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-600">
+                  Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
+                </span>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  Per page
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {[10, 20, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!hasMore}
+                  className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
