@@ -1,7 +1,7 @@
 /**
  * GET /api/patients/[id]/documents - patient ownership
  *
- * Patient can only access their own documents; other patientId returns 403.
+ * Patient can only access their own documents; other patientId returns 404 (tenant normalization).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -77,7 +77,7 @@ describe('GET /api/patients/[id]/documents (patient ownership)', () => {
     expect(mockDocumentFindMany).toHaveBeenCalled();
   });
 
-  it('returns 403 when patient requests another patient documents', async () => {
+  it('returns 404 when patient requests another patient documents (tenant normalization)', async () => {
     mockUser = { id: 10, role: 'patient', patientId: 1, clinicId: 1 };
     const otherPatientId = 999;
     mockPatientFindUnique.mockResolvedValue({ id: otherPatientId, clinicId: 1 });
@@ -88,9 +88,9 @@ describe('GET /api/patients/[id]/documents (patient ownership)', () => {
     });
     const res = await GET(req, { params: Promise.resolve({ id: String(otherPatientId) }) });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toMatch(/access denied|denied/i);
+    expect(body.error).toMatch(/not found/i);
     expect(mockDocumentFindMany).not.toHaveBeenCalled();
   });
 });
