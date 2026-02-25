@@ -683,9 +683,16 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
         // 3. MERGE PROFILE FIELDS AND METADATA
         // =====================================================================
 
-        const mergedFields = fieldOverrides
+        let mergedFields = fieldOverrides
           ? { ...preview.mergedProfile, ...fieldOverrides }
           : preview.mergedProfile;
+
+        // Preserve target's existing values when merged value is empty or placeholder.
+        // This prevents the merge from overwriting good data with blank/placeholder.
+        mergedFields = preserveTargetWhenMergedEmpty(
+          mergedFields,
+          preview.target as unknown as PatientMergeFields
+        );
 
         // Merge sourceMetadata (intake data)
         const mergedSourceMetadata = mergeSourceMetadata(
@@ -942,6 +949,57 @@ function decryptPatient<T extends Record<string, unknown>>(patient: T): T {
   }
 }
 
+/** Placeholder DOB/phone we should not overwrite target with */
+function isEmptyOrPlaceholder(
+  value: string | null | undefined,
+  field: keyof PatientMergeFields
+): boolean {
+  const trimmed = (value ?? '').toString().trim();
+  if (trimmed === '') return true;
+  if (field === 'dob') {
+    if (/^(1900|1899)/.test(trimmed)) return true;
+    if (trimmed.includes('01/01/1900') || trimmed.includes('12/31/1899')) return true;
+  }
+  if (field === 'phone') {
+    const digits = trimmed.replace(/\D/g, '');
+    if (digits === '0000000000' || digits === '0' || digits.length < 10) return true;
+  }
+  return false;
+}
+
+/**
+ * Preserve target's existing values when merged value is empty or placeholder.
+ * Prevents merge from overwriting good data with blank/placeholder.
+ */
+function preserveTargetWhenMergedEmpty(
+  merged: PatientMergeFields,
+  target: PatientMergeFields
+): PatientMergeFields {
+  const result = { ...merged };
+  const phiKeys: (keyof PatientMergeFields)[] = [
+    'firstName',
+    'lastName',
+    'dob',
+    'gender',
+    'phone',
+    'email',
+    'address1',
+    'address2',
+    'city',
+    'state',
+    'zip',
+  ];
+  for (const key of phiKeys) {
+    const mergedVal = result[key];
+    if (mergedVal === undefined || mergedVal === null) continue;
+    const strVal = typeof mergedVal === 'string' ? mergedVal : String(mergedVal);
+    if (isEmptyOrPlaceholder(strVal, key) && target[key]) {
+      (result as Record<string, unknown>)[key] = target[key];
+    }
+  }
+  return result;
+}
+
 /**
  * Build merged profile using target values, filling gaps from source
  */
@@ -955,7 +1013,7 @@ function buildMergedProfile(source: PatientEntity, target: PatientEntity): Patie
     phone: target.phone || source.phone,
     email: target.email || source.email,
     address1: target.address1 || source.address1,
-    address2: target.address2 || source.address2,
+    address2: target.address2 ?? source.address2,
     city: target.city || source.city,
     state: target.state || source.state,
     zip: target.zip || source.zip,

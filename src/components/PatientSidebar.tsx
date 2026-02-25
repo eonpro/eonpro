@@ -574,8 +574,8 @@ export default function PatientSidebar({
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to update patient');
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || 'Failed to update patient');
     }
 
     // Refresh the page to show updated data
