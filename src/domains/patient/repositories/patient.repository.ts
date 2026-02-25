@@ -283,11 +283,12 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
         // Merge with in-memory fallback for unindexed patients
         if (nullIndexCount > 0) {
+          const fallbackLimit = Math.min(nullIndexCount, 5000);
           const allUnindexed = await db.patient.findMany({
             where: fallbackWhere,
             select: PATIENT_SUMMARY_SELECT,
             orderBy: { [orderBy]: orderDir },
-            take: 1000,
+            take: fallbackLimit,
           });
 
           const decrypted = allUnindexed.map((p) => decryptPatientSummary(p));
@@ -414,11 +415,12 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }
 
         if (nullIndexCount > 0) {
+          const fallbackLimit = Math.min(nullIndexCount, 5000);
           const allUnindexed = await db.patient.findMany({
             where: fallbackWhere,
             select: clinicSelect,
             orderBy: { [orderBy]: orderDir },
-            take: 1000,
+            take: fallbackLimit,
           });
 
           const decrypted = allUnindexed.map((p) => ({
@@ -1090,7 +1092,7 @@ async function healMissingSearchIndexes(
   db: PrismaClient,
   baseWhere: Prisma.PatientWhereInput
 ): Promise<void> {
-  const BATCH_SIZE = 100;
+  const BATCH_SIZE = 500;
 
   const unindexed = await db.patient.findMany({
     where: { ...baseWhere, OR: [{ searchIndex: null }, { searchIndex: '' }] },

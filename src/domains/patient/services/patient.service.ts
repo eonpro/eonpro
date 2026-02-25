@@ -397,6 +397,11 @@ export interface PatientService {
   deletePatient(id: number, user: UserContext): Promise<void>;
 
   /**
+   * Count patients matching a filter (for system-wide totals during search)
+   */
+  countPatients(user: UserContext, filter?: { clinicId?: number }): Promise<number>;
+
+  /**
    * Check if email is already registered in clinic
    */
   isEmailRegistered(email: string, clinicId: number, excludePatientId?: number): Promise<boolean>;
@@ -689,6 +694,20 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
       };
 
       await repo.delete(id, audit, clinicId);
+    },
+
+    async countPatients(
+      user: UserContext,
+      filter: { clinicId?: number } = {}
+    ): Promise<number> {
+      const countFilter: PatientFilterOptions = {};
+      if (user.role !== 'super_admin') {
+        if (!user.clinicId) throw new ForbiddenError(ERR_NO_CLINIC);
+        countFilter.clinicId = user.clinicId;
+      } else if (filter.clinicId) {
+        countFilter.clinicId = filter.clinicId;
+      }
+      return repo.count(countFilter);
     },
 
     async isEmailRegistered(

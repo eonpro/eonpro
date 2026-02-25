@@ -21,6 +21,7 @@ export interface PatientSearchBarProps {
   placeholder?: string;
   isSearching?: boolean;
   totalFound?: number;
+  totalInSystem?: number;
   recentSearches?: string[];
   onRecentSelect?: (query: string) => void;
   onClear?: () => void;
@@ -34,6 +35,7 @@ export function PatientSearchBar({
   placeholder = 'Search by name, email, phone, or patient ID...',
   isSearching = false,
   totalFound,
+  totalInSystem,
   recentSearches = [],
   onRecentSelect,
   onClear,
@@ -117,7 +119,12 @@ export function PatientSearchBar({
 
       {showResults && totalFound! > 0 && (
         <div className="mt-1.5 flex items-center gap-1.5 text-sm text-green-600">
-          <span>{totalFound} patient{totalFound === 1 ? '' : 's'} found</span>
+          <span>
+            {totalFound} patient{totalFound === 1 ? '' : 's'} found
+            {totalInSystem != null && totalInSystem > totalFound && (
+              <span className="text-gray-400"> of {totalInSystem.toLocaleString()} total</span>
+            )}
+          </span>
         </div>
       )}
 
