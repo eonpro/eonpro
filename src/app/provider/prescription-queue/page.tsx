@@ -995,27 +995,30 @@ export default function PrescriptionQueuePage() {
         setTimeout(() => setSuccessMessage(''), 5000);
       } else {
         const errorData = await response.json();
-        // Build a more helpful error message
+        // Build a message that includes the reason so the user can correct it
         let errorMessage = errorData.error || 'Failed to submit prescription';
 
-        // Handle specific error codes with user-friendly messages
         if (errorData.code === 'INVALID_PHARMACY_GENDER') {
           errorMessage = 'Pharmacy requires biological sex (Male or Female). Please select one in the prescription form.';
+          if (errorData.detail) errorMessage += ` ${errorData.detail}`;
+        } else if (errorData.code === 'MISSING_PATIENT_INFO') {
+          errorMessage = errorData.error || 'Patient profile is missing information required by the pharmacy.';
+          if (errorData.detail) errorMessage += ` ${errorData.detail}`;
+          errorMessage += ' Update the patient profile (date of birth, full address), then try again.';
+        } else if (errorData.code === 'LIFEFILE_SUBMISSION_FAILED') {
+          errorMessage = errorData.error || 'The pharmacy could not accept this order.';
+          if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
+          errorMessage += ' Check the patient profile (date of birth, address) and try again.';
         } else if (response.status === 503) {
-          // 503 = service busy / pool exhausted - show user-friendly message only
           errorMessage = errorData.error || 'Service temporarily busy. Please try again in a moment.';
         } else {
           if (errorData.details) {
             const detailMessages = Object.entries(errorData.details)
               .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
               .join('; ');
-            if (detailMessages) {
-              errorMessage += ` (${detailMessages})`;
-            }
+            if (detailMessages) errorMessage += ` (${detailMessages})`;
           }
-          if (errorData.detail) {
-            errorMessage += `: ${errorData.detail}`;
-          }
+          if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
         }
         console.error('[Prescription Queue] Submission error:', errorData);
         setError(errorMessage);

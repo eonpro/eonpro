@@ -560,11 +560,15 @@ export default function PrescriptionForm({
       const data = await res.json();
       if (!res.ok) {
         logger.error('Prescription submission error:', data);
-        // Surface validation details so users know which field failed
+        // Surface error reason so the user can correct it (e.g. missing DOB/address, gender, or Lifefile message)
         const errorMsg = data.error || data.detail || 'Unknown error';
         const details = data.details as Record<string, string[]> | undefined;
         const formErrors = data.formErrors as string[] | undefined;
         const detailLines: string[] = [];
+        // Always show API detail when present (reason from backend or pharmacy)
+        if (data.detail && String(data.detail).trim()) {
+          detailLines.push(data.code === 'LIFEFILE_SUBMISSION_FAILED' ? `Reason: ${String(data.detail)}` : String(data.detail));
+        }
         if (details && typeof details === 'object') {
           for (const [field, msgs] of Object.entries(details)) {
             if (Array.isArray(msgs) && msgs.length) {
@@ -573,6 +577,10 @@ export default function PrescriptionForm({
           }
         }
         if (formErrors?.length) detailLines.push(...formErrors);
+        // Hint for profile-related errors so user knows where to fix it
+        if (data.code === 'MISSING_PATIENT_INFO' || data.code === 'INVALID_PHARMACY_GENDER' || data.code === 'LIFEFILE_SUBMISSION_FAILED') {
+          detailLines.push('Update the patient profile (Profile tab or Edit Patient), then try again.');
+        }
         const detailMsg = detailLines.length ? `\n\n${detailLines.join('\n')}` : '';
         alert(`Error submitting prescription:\n${errorMsg}${detailMsg}`);
         return;

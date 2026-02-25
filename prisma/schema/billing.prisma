@@ -222,8 +222,9 @@ model Product {
   tags     Json? // Array of tags for filtering
 
   // Relations
-  invoiceItems InvoiceItem[]
-  bundleItems  ProductBundleItem[]
+  invoiceItems               InvoiceItem[]
+  bundleItems                ProductBundleItem[]
+  salesRepProductCommissions SalesRepProductCommission[]
 
   @@index([clinicId, isActive])
   @@index([clinicId, category])
@@ -443,7 +444,8 @@ model ProductBundle {
   savingsPercent Float // Percentage saved
 
   // Products in Bundle
-  items ProductBundleItem[]
+  items                        ProductBundleItem[]
+  salesRepProductCommissions  SalesRepProductCommission[]
 
   // Billing
   billingType     BillingType      @default(ONE_TIME)

@@ -63,3 +63,86 @@ model SalesRepTouch {
   @@index([salesRepId, createdAt])
   @@index([salesRepId, touchType, createdAt])
 }
+
+// ==========================================================================
+// SALES REP COMMISSION PLANS (dedicated area — separate from affiliates)
+// ==========================================================================
+// Commission plans for sales rep employees. Uses shared enums from affiliate domain.
+// ==========================================================================
+
+model SalesRepCommissionPlan {
+  id              Int                 @id @default(autoincrement())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  clinicId        Int
+  clinic          Clinic              @relation(fields: [clinicId], references: [id])
+  name            String // e.g., "Standard 10%", "Tier 2 Rep"
+  description     String?
+  planType        CommissionPlanType   @default(PERCENT)
+  flatAmountCents Int?
+  percentBps      Int?
+  appliesTo       CommissionAppliesTo  @default(FIRST_PAYMENT_ONLY)
+  holdDays        Int                 @default(0)
+  clawbackEnabled Boolean             @default(false)
+  isActive        Boolean             @default(true)
+
+  initialPercentBps      Int?
+  initialFlatAmountCents Int?
+  recurringPercentBps      Int?
+  recurringFlatAmountCents Int?
+
+  recurringEnabled Boolean @default(false)
+  recurringMonths   Int?
+
+  // Bonus when sale has multiple items (e.g. add extra % or $ per additional item)
+  multiItemBonusEnabled   Boolean @default(false)
+  multiItemBonusType      String?  // 'PERCENT' | 'FLAT'
+  multiItemBonusPercentBps Int?
+  multiItemBonusFlatCents  Int?
+  multiItemMinQuantity     Int?    // apply when item count >= this (default 2)
+
+  assignments       SalesRepPlanAssignment[]
+  productCommissions SalesRepProductCommission[]
+
+  @@index([clinicId])
+  @@index([isActive])
+}
+
+model SalesRepPlanAssignment {
+  id               Int                       @id @default(autoincrement())
+  createdAt        DateTime                  @default(now())
+  clinicId         Int
+  clinic           Clinic                    @relation(fields: [clinicId], references: [id])
+  salesRepId       Int // User ID with sales_rep role
+  salesRep         User                      @relation("SalesRepPlanAssignments", fields: [salesRepId], references: [id], onDelete: Cascade)
+  commissionPlanId Int
+  commissionPlan   SalesRepCommissionPlan   @relation(fields: [commissionPlanId], references: [id], onDelete: Restrict)
+  effectiveFrom    DateTime                  @default(now())
+  effectiveTo      DateTime?
+  hourlyRateCents  Int?                     // Rep's hourly rate while on this plan (clinic-defined)
+
+  @@index([clinicId])
+  @@index([salesRepId])
+  @@index([commissionPlanId])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+// Per-product or per-package commission override (clinic-customizable)
+// When a rep sells this product or bundle, add this extra commission (% or $)
+model SalesRepProductCommission {
+  id               Int                     @id @default(autoincrement())
+  createdAt        DateTime                @default(now())
+  planId           Int
+  plan             SalesRepCommissionPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  productId        Int?                    // Specific product (optional)
+  product          Product?                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productBundleId  Int?                    // Specific package/bundle (optional)
+  productBundle    ProductBundle?         @relation(fields: [productBundleId], references: [id], onDelete: Cascade)
+  bonusType        String                  // 'PERCENT' | 'FLAT'
+  percentBps       Int?                    // When bonusType = PERCENT
+  flatAmountCents  Int?                    // When bonusType = FLAT
+
+  @@index([planId])
+  @@index([productId])
+  @@index([productBundleId])
+}

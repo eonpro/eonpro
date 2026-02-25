@@ -482,7 +482,10 @@ function PatientRow({
       {/* Patient Summary Row */}
       <div
         onClick={onToggle}
-        className="flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50"
+        onKeyDown={(e) => { if (e.key === 'Enter') onToggle(); }}
+        tabIndex={0}
+        role="button"
+        className="flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-primary)]"
       >
         {/* Expand/Collapse Icon */}
         <div className="flex-shrink-0 text-gray-400">

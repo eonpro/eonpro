@@ -16,6 +16,7 @@ import {
   LogOut,
   Clock,
   ChevronRight,
+  ChevronDown,
   UserPlus,
   UserCheck,
   CreditCard,
@@ -24,6 +25,8 @@ import {
   Key,
   Pill,
   Ticket,
+  BarChart3,
+  Calendar,
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -54,6 +57,20 @@ interface DashboardStats {
   commissionsEarnedCents?: number;
 }
 
+interface DailyScriptBucket {
+  date: string;
+  total: number;
+  medications: Record<string, number>;
+  statuses: Record<string, number>;
+}
+
+interface DailyScriptsData {
+  days: DailyScriptBucket[];
+  grandTotal: number;
+  topMedications: Array<{ name: string; count: number }>;
+  range: { from: string; to: string; days: number };
+}
+
 // Match order and items from lib/nav/adminNav (baseAdminNavConfig) for consistent sidebar
 const navItems = [
   { icon: Home, path: '/', label: 'Home', active: true },
@@ -64,6 +81,7 @@ const navItems = [
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Store, path: '/admin/products', label: 'Products' },
   { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
+  { icon: DollarSign, path: '/admin/sales-rep/commission-plans', label: 'Sales Rep Commissions' },
   { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },
   { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
   { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
@@ -94,6 +112,10 @@ function HomePageInner() {
     clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
   } | null>(null);
   const [geoLoading, setGeoLoading] = useState(true);
+  const [scriptsBreakdown, setScriptsBreakdown] = useState<DailyScriptsData | null>(null);
+  const [scriptsBreakdownLoading, setScriptsBreakdownLoading] = useState(false);
+  const [scriptsBreakdownOpen, setScriptsBreakdownOpen] = useState(false);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -328,7 +350,10 @@ function HomePageInner() {
           const intakesData = await intakesResponse.json();
           const patients = intakesData.patients || [];
           setRecentIntakes(patients);
-          setStats((prev) => ({ ...prev, newIntakes: patients.length }));
+          setStats((prev) => ({
+            ...prev,
+            newIntakes: intakesData.total ?? patients.length,
+          }));
         }
       } catch (e: any) {
         if (e.isAuthError) throw e;
@@ -351,15 +376,29 @@ function HomePageInner() {
 
       // 3. Fetch prescriptions/scripts count (staggered after metrics)
       try {
-        const ordersResponse = await fetchWithRetry('/api/orders?limit=100&recent=24h');
+        const ordersResponse = await fetchWithRetry('/api/orders?limit=1&recent=24h');
         if (ordersResponse.ok) {
           const ordersData = await ordersResponse.json();
-          const orders = ordersData.orders || [];
-          setStats((prev) => ({ ...prev, newPrescriptions: orders.length }));
+          setStats((prev) => ({ ...prev, newPrescriptions: ordersData.total ?? 0 }));
         }
       } catch (e: any) {
         if (e.isAuthError) throw e;
         console.warn('[Dashboard] Orders fetch failed:', e.message);
+      }
+
+      // 3b. Fetch daily scripts breakdown (14-day window)
+      try {
+        setScriptsBreakdownLoading(true);
+        const dailyResponse = await fetchWithRetry('/api/orders/stats/daily?days=14');
+        if (dailyResponse.ok) {
+          const dailyData = await dailyResponse.json();
+          setScriptsBreakdown(dailyData);
+        }
+      } catch (e: any) {
+        if (e.isAuthError) throw e;
+        console.warn('[Dashboard] Daily scripts fetch failed:', e.message);
+      } finally {
+        setScriptsBreakdownLoading(false);
       }
 
       // 4. Fetch geographic data for the map (non-blocking)
@@ -672,19 +711,177 @@ function HomePageInner() {
                     <p className="text-sm text-gray-500">Recurring</p>
                   </div>
                 </div>
-                {/* Scripts (24h) */}
-                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                {/* Scripts (24h) — clickable to toggle breakdown */}
+                <button
+                  onClick={() => setScriptsBreakdownOpen((prev) => !prev)}
+                  className="flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-rose-300 hover:bg-rose-50/30"
+                >
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10">
                     <FileText className="h-6 w-6 text-rose-500" />
                   </div>
-                  <div>
-                    <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions}</p>
+                  <div className="flex-1">
+                    <p className="text-3xl font-bold text-gray-900">{stats.newPrescriptions.toLocaleString()}</p>
                     <p className="text-sm text-gray-500">Scripts (24h)</p>
                   </div>
-                </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-gray-400 transition-transform ${scriptsBreakdownOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
               </>
             )}
           </div>
+
+          {/* Scripts Daily Breakdown (expandable) */}
+          {scriptsBreakdownOpen && userData?.role?.toLowerCase() !== 'sales_rep' && (
+            <div className="mb-8 rounded-2xl border border-gray-200 bg-white">
+              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/10">
+                    <BarChart3 className="h-5 w-5 text-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Scripts Breakdown</h3>
+                    <p className="text-xs text-gray-500">
+                      {scriptsBreakdown
+                        ? `${scriptsBreakdown.grandTotal.toLocaleString()} total scripts in the last ${scriptsBreakdown.range.days} days`
+                        : 'Loading...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {scriptsBreakdownLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-rose-500" />
+                </div>
+              ) : scriptsBreakdown ? (
+                <div className="divide-y divide-gray-50">
+                  {/* Top Medications Summary */}
+                  {scriptsBreakdown.topMedications.length > 0 && (
+                    <div className="px-6 py-4">
+                      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-400">
+                        Top Medications ({scriptsBreakdown.range.days}d)
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {scriptsBreakdown.topMedications.slice(0, 10).map((med) => (
+                          <span
+                            key={med.name}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
+                          >
+                            <Pill className="h-3 w-3 text-gray-400" />
+                            {med.name}
+                            <span className="ml-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
+                              {med.count}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Daily Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100 text-left">
+                          <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-400">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-400">
+                            Scripts
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-400">
+                            Medications
+                          </th>
+                          <th className="w-10 px-3 py-3" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {scriptsBreakdown.days.map((day) => {
+                          const isExpanded = expandedDay === day.date;
+                          const medEntries = Object.entries(day.medications).sort(
+                            (a, b) => b[1] - a[1]
+                          );
+                          const statusEntries = Object.entries(day.statuses).sort(
+                            (a, b) => b[1] - a[1]
+                          );
+                          const dateObj = new Date(day.date + 'T12:00:00');
+                          const formattedDate = dateObj.toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          });
+
+                          return (
+                            <tr
+                              key={day.date}
+                              className="group border-b border-gray-50 last:border-0"
+                            >
+                              <td className="px-6 py-3">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-3.5 w-3.5 text-gray-300" />
+                                  <span className="font-medium text-gray-900">{formattedDate}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-3 text-right">
+                                <span
+                                  className={`text-lg font-bold ${day.total > 0 ? 'text-gray-900' : 'text-gray-300'}`}
+                                >
+                                  {day.total.toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="px-6 py-3">
+                                {medEntries.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {medEntries.slice(0, isExpanded ? undefined : 3).map(([med, count]) => (
+                                      <span
+                                        key={med}
+                                        className="inline-flex items-center rounded bg-gray-50 px-2 py-0.5 text-xs text-gray-600"
+                                      >
+                                        {med}{' '}
+                                        <span className="ml-1 font-semibold text-gray-900">
+                                          {count}
+                                        </span>
+                                      </span>
+                                    ))}
+                                    {!isExpanded && medEntries.length > 3 && (
+                                      <span className="text-xs text-gray-400">
+                                        +{medEntries.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-gray-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3">
+                                {medEntries.length > 3 && (
+                                  <button
+                                    onClick={() =>
+                                      setExpandedDay(isExpanded ? null : day.date)
+                                    }
+                                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                  >
+                                    <ChevronDown
+                                      className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                    />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+                  No data available
+                </div>
+              )}
+            </div>
+          )}
 
           {/* US Map - Client Distribution (hidden for sales rep; they see assigned-only stats) */}
           {userData?.role?.toLowerCase() !== 'sales_rep' && (
@@ -768,10 +965,13 @@ function HomePageInner() {
                       filteredIntakes.map((patient) => (
                         <tr
                           key={patient.id}
-                          className="cursor-pointer transition-colors hover:bg-gray-50/50"
+                          className="cursor-pointer transition-colors hover:bg-gray-50/50 focus:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
+                          tabIndex={0}
+                          role="link"
                           onClick={() => {
                             window.location.href = `/patients/${patient.id}`;
                           }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">

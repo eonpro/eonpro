@@ -298,7 +298,10 @@ export default function ProviderSOAPNotesPage() {
                   <div
                     key={note.id}
                     onClick={() => setSelectedNote(note)}
-                    className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md ${
+                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedNote(note); }}
+                    tabIndex={0}
+                    role="button"
+                    className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)] ${
                       selectedNote?.id === note.id ? 'border-[var(--brand-primary)] bg-[var(--brand-primary-light)]' : ''
                     }`}
                   >

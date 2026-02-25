@@ -471,6 +471,12 @@ Successful response includes EONPRO IDs for bidirectional sync:
 
 ---
 
+## Stripe Payment Sync & Refill Queue (Subscription Renewals)
+
+When patients pay via **Stripe subscriptions** (e.g. monthly Tirzepatide), renewal charges must sync back to the platform so the **Refill Queue** knows when it’s time for a refill. If a charge appears in Stripe but not on the patient profile or refill logic, see **[WELLMEDR_STRIPE_PAYMENT_SYNC.md](../WELLMEDR_STRIPE_PAYMENT_SYNC.md)** for causes (e.g. clinic resolution for Connect, missing local Subscription) and the checklist (webhook delivery, subscription sync script, manual refill for missed renewals).
+
+---
+
 ## Invoice Webhook (Airtable → EONPRO)
 
 ### Purpose

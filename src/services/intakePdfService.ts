@@ -6,6 +6,10 @@ import type { Patient } from '@prisma/client';
 import type { IntakeEntry, NormalizedIntake } from '@/lib/medlink/types';
 import { logger } from '@/lib/logger';
 import { BRAND } from '@/lib/constants/brand-assets';
+import {
+  decryptPatientPHI,
+  DEFAULT_PHI_FIELDS,
+} from '@/lib/security/phi-encryption';
 
 const BACKGROUND = rgb(0.964, 0.956, 0.945);
 const PRIMARY = rgb(0.09, 0.667, 0.482);
@@ -168,6 +172,11 @@ export async function generateIntakePdf(intake: NormalizedIntake, patient: Patie
   logger.debug('[PDF] Starting generation for submission:', { submissionId: intake.submissionId });
   logger.debug('[PDF] Total answers received:', { count: intake.answers.length });
 
+  // Decrypt patient PHI so the PDF shows readable names, DOB, address, etc. (not encrypted ciphertext)
+  const patientForPdf = decryptPatientPHI(patient as unknown as Record<string, unknown>, [
+    ...DEFAULT_PHI_FIELDS,
+  ]) as Patient;
+
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   const pageSize: [number, number] = [612, 792];
@@ -229,12 +238,12 @@ export async function generateIntakePdf(intake: NormalizedIntake, patient: Patie
     {
       title: 'Patient Profile',
       entries: [
-        { label: 'Patient', value: `${patient.firstName} ${patient.lastName}` },
-        { label: 'DOB', value: formatDobForPdf(patient.dob) },
-        { label: 'Gender', value: formatGender(patient.gender) },
-        { label: 'Phone', value: patient.phone },
-        { label: 'Email', value: patient.email },
-        { label: 'Address', value: buildAddress(patient) },
+        { label: 'Patient', value: `${patientForPdf.firstName ?? ''} ${patientForPdf.lastName ?? ''}`.trim() || '—' },
+        { label: 'DOB', value: formatDobForPdf(patientForPdf.dob) },
+        { label: 'Gender', value: formatGender(patientForPdf.gender) },
+        { label: 'Phone', value: patientForPdf.phone ?? '—' },
+        { label: 'Email', value: patientForPdf.email ?? '—' },
+        { label: 'Address', value: buildAddress(patientForPdf) },
       ],
     },
   ]);

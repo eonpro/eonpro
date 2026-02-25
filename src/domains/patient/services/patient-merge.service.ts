@@ -361,6 +361,24 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           data: { patientId: targetPatientId },
         });
 
+        // Medication reminders — @@unique([patientId, medicationName, dayOfWeek])
+        const [sourceReminders, targetReminders] = await Promise.all([
+          tx.patientMedicationReminder.findMany({
+            where: { patientId: sourcePatientId },
+            select: { id: true, medicationName: true, dayOfWeek: true },
+          }),
+          tx.patientMedicationReminder.findMany({
+            where: { patientId: targetPatientId },
+            select: { medicationName: true, dayOfWeek: true },
+          }),
+        ]);
+        const targetReminderKeys = new Set(targetReminders.map((r) => `${r.medicationName}|${r.dayOfWeek}`));
+        const conflictingReminderIds = sourceReminders
+          .filter((r) => targetReminderKeys.has(`${r.medicationName}|${r.dayOfWeek}`))
+          .map((r) => r.id);
+        if (conflictingReminderIds.length > 0) {
+          await tx.patientMedicationReminder.deleteMany({ where: { id: { in: conflictingReminderIds } } });
+        }
         await tx.patientMedicationReminder.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },
@@ -482,19 +500,52 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           data: { patientId: targetPatientId },
         });
 
-        // Wellness: streaks, achievements, points history, challenge participation
+        // Wellness: streaks — @@unique([patientId, streakType])
+        // Delete source streaks that conflict with target, then move the rest
+        const [sourceStreaks, targetStreaks] = await Promise.all([
+          tx.patientStreak.findMany({ where: { patientId: sourcePatientId }, select: { id: true, streakType: true } }),
+          tx.patientStreak.findMany({ where: { patientId: targetPatientId }, select: { streakType: true } }),
+        ]);
+        const targetStreakTypes = new Set(targetStreaks.map((s) => s.streakType));
+        const conflictingStreakIds = sourceStreaks.filter((s) => targetStreakTypes.has(s.streakType)).map((s) => s.id);
+        if (conflictingStreakIds.length > 0) {
+          await tx.patientStreak.deleteMany({ where: { id: { in: conflictingStreakIds } } });
+        }
         await tx.patientStreak.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },
         });
+
+        // Wellness: achievements — @@unique([patientId, achievementId])
+        const [sourceAchievements, targetAchievements] = await Promise.all([
+          tx.patientAchievement.findMany({ where: { patientId: sourcePatientId }, select: { id: true, achievementId: true } }),
+          tx.patientAchievement.findMany({ where: { patientId: targetPatientId }, select: { achievementId: true } }),
+        ]);
+        const targetAchievementIds = new Set(targetAchievements.map((a) => a.achievementId));
+        const conflictingAchievementIds = sourceAchievements.filter((a) => targetAchievementIds.has(a.achievementId)).map((a) => a.id);
+        if (conflictingAchievementIds.length > 0) {
+          await tx.patientAchievement.deleteMany({ where: { id: { in: conflictingAchievementIds } } });
+        }
         await tx.patientAchievement.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },
         });
+
         await tx.pointsHistory.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },
         });
+
+        // Wellness: challenge participation — @@unique([challengeId, patientId])
+        const [sourceParticipants, targetParticipants] = await Promise.all([
+          tx.challengeParticipant.findMany({ where: { patientId: sourcePatientId }, select: { id: true, challengeId: true } }),
+          tx.challengeParticipant.findMany({ where: { patientId: targetPatientId }, select: { challengeId: true } }),
+        ]);
+        const targetChallengeIds = new Set(targetParticipants.map((c) => c.challengeId));
+        const conflictingParticipantIds = sourceParticipants.filter((c) => targetChallengeIds.has(c.challengeId)).map((c) => c.id);
+        if (conflictingParticipantIds.length > 0) {
+          await tx.challengeParticipant.deleteMany({ where: { id: { in: conflictingParticipantIds } } });
+        }
         await tx.challengeParticipant.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },
@@ -538,7 +589,24 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           data: { patientId: targetPatientId },
         });
 
-        // Prescription cycles (platform billing)
+        // Prescription cycles (platform billing) — @@unique([clinicId, patientId, medicationKey])
+        const [sourceCycles, targetCycles] = await Promise.all([
+          tx.patientPrescriptionCycle.findMany({
+            where: { patientId: sourcePatientId },
+            select: { id: true, clinicId: true, medicationKey: true },
+          }),
+          tx.patientPrescriptionCycle.findMany({
+            where: { patientId: targetPatientId },
+            select: { clinicId: true, medicationKey: true },
+          }),
+        ]);
+        const targetCycleKeys = new Set(targetCycles.map((c) => `${c.clinicId}|${c.medicationKey}`));
+        const conflictingCycleIds = sourceCycles
+          .filter((c) => targetCycleKeys.has(`${c.clinicId}|${c.medicationKey}`))
+          .map((c) => c.id);
+        if (conflictingCycleIds.length > 0) {
+          await tx.patientPrescriptionCycle.deleteMany({ where: { id: { in: conflictingCycleIds } } });
+        }
         await tx.patientPrescriptionCycle.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },

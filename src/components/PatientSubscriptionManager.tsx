@@ -22,6 +22,33 @@ interface Subscription {
   stripeSubscriptionId: string | null;
 }
 
+/** Guard against epoch-zero dates (12/31/1969) from missing Stripe fields */
+function isValidDate(dateStr: string | null | undefined): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  return !isNaN(d.getTime()) && d.getFullYear() >= 2020;
+}
+
+/** Format billing interval for display: "month", "3 months", "year", "84 days", etc. */
+function formatBillingInterval(interval: string, intervalCount: number): string {
+  if (intervalCount === 1) {
+    if (interval === 'day') return 'day';
+    if (interval === 'week') return 'week';
+    if (interval === 'month') return 'month';
+    if (interval === 'year') return 'year';
+    return interval;
+  }
+  if (interval === 'day' && intervalCount === 28) return 'month';
+  if (interval === 'day' && intervalCount === 84) return '3 months';
+  if (interval === 'day' && intervalCount === 168) return '6 months';
+  if (interval === 'day' && intervalCount === 336) return '12 months';
+  if (interval === 'day' && intervalCount === 365) return 'year';
+  if (interval === 'month' && intervalCount === 3) return '3 months';
+  if (interval === 'month' && intervalCount === 6) return '6 months';
+  if (interval === 'month' && intervalCount === 12) return 'year';
+  return `${intervalCount} ${interval}s`;
+}
+
 interface ShipmentEntry {
   id: number;
   shipmentNumber: number;
@@ -733,22 +760,22 @@ export function PatientSubscriptionManager({
                 <div>
                   <span className="text-gray-600">Amount:</span>
                   <p className="font-medium text-[#4fa77e]">
-                    {formatPlanPrice(subscription.amount)}/{subscription.interval}
+                    {formatPlanPrice(subscription.amount)}/{formatBillingInterval(subscription.interval, subscription.intervalCount)}
                   </p>
                 </div>
                 <div>
                   <span className="text-gray-600">Started:</span>
                   <p className="font-medium">
-                    {new Date(subscription.startDate).toLocaleDateString()}
+                    {isValidDate(subscription.startDate) ? new Date(subscription.startDate).toLocaleDateString() : '—'}
                   </p>
                 </div>
                 <div>
                   <span className="text-gray-600">Current Period:</span>
                   <p className="font-medium">
-                    Until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                    {isValidDate(subscription.currentPeriodEnd) ? `Until ${new Date(subscription.currentPeriodEnd).toLocaleDateString()}` : '—'}
                   </p>
                 </div>
-                {subscription.nextBillingDate && (
+                {subscription.nextBillingDate && isValidDate(subscription.nextBillingDate) && (
                   <div>
                     <span className="text-gray-600">Next Billing:</span>
                     <p className="font-medium">

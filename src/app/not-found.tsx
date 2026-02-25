@@ -7,6 +7,7 @@ export default function NotFound() {
     <div
       className="flex min-h-screen flex-col items-center justify-center p-6"
       style={{ backgroundColor: '#EFECE7' }}
+      suppressHydrationWarning
     >
       <div className="w-full max-w-lg text-center">
         {/* EonPro Logo */}

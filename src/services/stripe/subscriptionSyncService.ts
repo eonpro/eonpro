@@ -12,6 +12,8 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { findPatientByEmail } from '@/services/stripe/paymentMatchingService';
+import { calculateIntervalDays } from '@/services/refill/refillQueueService';
+import { parsePackageMonthsFromPlan } from '@/lib/shipment-schedule/shipmentScheduleService';
 import type Stripe from 'stripe';
 
 // Map Stripe subscription status to our enum
@@ -53,7 +55,9 @@ async function findPatientByStripeCustomerId(
 }
 
 /**
- * Extract amount (cents), interval, and plan info from Stripe subscription.
+ * Extract amount (cents), interval, plan info, and refill-relevant fields from Stripe subscription.
+ * When product is expanded (data.items.data.price.product), planName comes from Stripe Product name
+ * (e.g. "Tirzepatide Injection - 3 Month Supply"). vialCount/refillIntervalDays are derived for refill queue.
  */
 function extractSubscriptionDetails(sub: Stripe.Subscription): {
   amount: number;
@@ -63,6 +67,8 @@ function extractSubscriptionDetails(sub: Stripe.Subscription): {
   planId: string;
   planName: string;
   planDescription: string;
+  vialCount: number;
+  refillIntervalDays: number;
 } {
   const item = sub.items?.data?.[0];
   const price = item?.price;
@@ -86,17 +92,42 @@ function extractSubscriptionDetails(sub: Stripe.Subscription): {
   }
   if (sub.metadata?.planId) planId = String(sub.metadata.planId);
 
-  return { amount, currency, interval, intervalCount, planId, planName, planDescription };
+  // Refill scheduling: derive vialCount from plan name (1/3/6/12 month) so refill queue logic is correct
+  const packageMonths = parsePackageMonthsFromPlan(planName);
+  const vialCount = packageMonths >= 1 ? Math.min(packageMonths, 12) : 1;
+  const refillIntervalDays = calculateIntervalDays(vialCount);
+
+  return {
+    amount,
+    currency,
+    interval,
+    intervalCount,
+    planId,
+    planName,
+    planDescription,
+    vialCount,
+    refillIntervalDays,
+  };
 }
 
 /**
  * Sync a Stripe subscription (created or updated) to our Subscription model.
  * Idempotent: upserts by stripeSubscriptionId.
- * Skips if no patient is linked to the Stripe customer (logs and returns skipped).
+ *
+ * Patient resolution order:
+ * 1. Fast path: find patient by stripeCustomerId.
+ * 2. Email fallback (Connect clinics like Wellmedr): fetch Stripe customer email,
+ *    findPatientByEmail scoped to clinicId, and set stripeCustomerId for future events.
+ *
+ * @param stripeSubscription - The Stripe subscription object
+ * @param _eventId - Optional Stripe event ID (for logging)
+ * @param options.clinicId - Clinic ID resolved from webhook (enables email fallback for Connect)
+ * @param options.stripeAccountId - Connected account ID (for fetching customer on Connect)
  */
 export async function syncSubscriptionFromStripe(
   stripeSubscription: Stripe.Subscription,
-  _eventId?: string
+  _eventId?: string,
+  options?: { clinicId?: number; stripeAccountId?: string }
 ): Promise<SyncSubscriptionResult> {
   const stripeSubscriptionId = stripeSubscription.id;
   const customerId =
@@ -109,9 +140,47 @@ export async function syncSubscriptionFromStripe(
     return { success: true, skipped: true, reason: 'No customer on subscription' };
   }
 
-  const patientAndClinic = await findPatientByStripeCustomerId(customerId);
+  let patientAndClinic = await findPatientByStripeCustomerId(customerId);
+
+  // Email fallback: when stripeCustomerId not linked, resolve by Stripe customer email
+  if (!patientAndClinic && customerId) {
+    const resolvedClinicId = options?.clinicId;
+    try {
+      const { getStripeClient } = await import('@/lib/stripe/config');
+      const stripe = getStripeClient();
+      if (stripe) {
+        const requestOpts: Stripe.RequestOptions | undefined = options?.stripeAccountId
+          ? { stripeAccount: options.stripeAccountId }
+          : undefined;
+        const customer = await stripe.customers.retrieve(customerId, requestOpts);
+        if (customer && !customer.deleted && 'email' in customer && customer.email) {
+          const email = customer.email.trim().toLowerCase();
+          const patient = await findPatientByEmail(email, resolvedClinicId || undefined);
+          if (patient && patient.clinicId) {
+            // Link stripeCustomerId so future events use the fast path
+            await prisma.patient.update({
+              where: { id: patient.id },
+              data: { stripeCustomerId: customerId },
+            });
+            patientAndClinic = { patientId: patient.id, clinicId: patient.clinicId };
+            logger.info('[SubscriptionSync] Matched patient by email fallback, linked stripeCustomerId', {
+              stripeSubscriptionId,
+              patientId: patient.id,
+              clinicId: patient.clinicId,
+            });
+          }
+        }
+      }
+    } catch (emailFallbackErr) {
+      logger.warn('[SubscriptionSync] Email fallback failed (non-blocking)', {
+        stripeSubscriptionId,
+        error: emailFallbackErr instanceof Error ? emailFallbackErr.message : 'Unknown',
+      });
+    }
+  }
+
   if (!patientAndClinic) {
-    logger.info('[SubscriptionSync] No patient linked to Stripe customer, skipping', {
+    logger.info('[SubscriptionSync] No patient linked to Stripe customer (fast path + email fallback exhausted)', {
       stripeSubscriptionId,
       stripeCustomerId: customerId,
     });
@@ -122,8 +191,20 @@ export async function syncSubscriptionFromStripe(
   const status = STRIPE_STATUS_TO_OUR[stripeSubscription.status] ?? 'ACTIVE';
   const details = extractSubscriptionDetails(stripeSubscription);
 
-  const currentPeriodStart = new Date(((stripeSubscription as any).current_period_start ?? 0) * 1000);
-  const currentPeriodEnd = new Date(((stripeSubscription as any).current_period_end ?? 0) * 1000);
+  // In Stripe API 2025+, current_period_start/end moved from top-level to items.data[0]
+  const item0 = stripeSubscription.items?.data?.[0] as any;
+  const rawPeriodStart =
+    (stripeSubscription as any).current_period_start ??
+    item0?.current_period_start ??
+    stripeSubscription.billing_cycle_anchor ??
+    stripeSubscription.created;
+  const rawPeriodEnd =
+    (stripeSubscription as any).current_period_end ??
+    item0?.current_period_end ??
+    0;
+
+  const currentPeriodStart = rawPeriodStart ? new Date(rawPeriodStart * 1000) : new Date();
+  const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
   const canceledAt = stripeSubscription.canceled_at
     ? new Date(stripeSubscription.canceled_at * 1000)
@@ -145,6 +226,8 @@ export async function syncSubscriptionFromStripe(
         currency: details.currency,
         interval: details.interval,
         intervalCount: details.intervalCount,
+        vialCount: details.vialCount,
+        refillIntervalDays: details.refillIntervalDays,
         startDate,
         currentPeriodStart,
         currentPeriodEnd,
@@ -159,6 +242,8 @@ export async function syncSubscriptionFromStripe(
         currency: details.currency,
         interval: details.interval,
         intervalCount: details.intervalCount,
+        vialCount: details.vialCount,
+        refillIntervalDays: details.refillIntervalDays,
         currentPeriodStart,
         currentPeriodEnd,
         nextBillingDate: status === 'ACTIVE' ? currentPeriodEnd : null,
@@ -222,8 +307,20 @@ export async function syncSubscriptionFromStripeByEmail(
   const status = STRIPE_STATUS_TO_OUR[stripeSubscription.status] ?? 'ACTIVE';
   const details = extractSubscriptionDetails(stripeSubscription);
 
-  const currentPeriodStart = new Date(((stripeSubscription as any).current_period_start ?? 0) * 1000);
-  const currentPeriodEnd = new Date(((stripeSubscription as any).current_period_end ?? 0) * 1000);
+  // In Stripe API 2025+, current_period_start/end moved from top-level to items.data[0]
+  const emailItem0 = stripeSubscription.items?.data?.[0] as any;
+  const rawPeriodStartE =
+    (stripeSubscription as any).current_period_start ??
+    emailItem0?.current_period_start ??
+    stripeSubscription.billing_cycle_anchor ??
+    stripeSubscription.created;
+  const rawPeriodEndE =
+    (stripeSubscription as any).current_period_end ??
+    emailItem0?.current_period_end ??
+    0;
+
+  const currentPeriodStart = rawPeriodStartE ? new Date(rawPeriodStartE * 1000) : new Date();
+  const currentPeriodEnd = rawPeriodEndE ? new Date(rawPeriodEndE * 1000) : null;
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
   const canceledAt = stripeSubscription.canceled_at
     ? new Date(stripeSubscription.canceled_at * 1000)
@@ -252,6 +349,8 @@ export async function syncSubscriptionFromStripeByEmail(
           currency: details.currency,
           interval: details.interval,
           intervalCount: details.intervalCount,
+          vialCount: details.vialCount,
+          refillIntervalDays: details.refillIntervalDays,
           startDate,
           currentPeriodStart,
           currentPeriodEnd,
@@ -266,6 +365,8 @@ export async function syncSubscriptionFromStripeByEmail(
           currency: details.currency,
           interval: details.interval,
           intervalCount: details.intervalCount,
+          vialCount: details.vialCount,
+          refillIntervalDays: details.refillIntervalDays,
           currentPeriodStart,
           currentPeriodEnd,
           nextBillingDate: status === 'ACTIVE' ? currentPeriodEnd : null,

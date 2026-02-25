@@ -128,6 +128,8 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'patientphoto',
   'patientprescriptioncycle',
   'patientsalesrepassignment',
+  'salesrepcommissionplan',
+  'salesrepplanassignment',
   'patientshippingupdate',
   'patientsleeplog',
   'patientwaterlog',
@@ -205,6 +207,8 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
   'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
   'salesreprefcode', // public track endpoint: lookup by refCode to resolve clinicId/salesRepId
+  'salesrepcommissionplan', // admin [id] route: lookup by id to get clinicId for access check
+  'salesrepplanassignment',
 ];
 
 /**
@@ -885,6 +889,12 @@ class PrismaWithClinicFilter {
   }
   get salesRepTouch() {
     return this.createModelProxy('salesRepTouch');
+  }
+  get salesRepCommissionPlan() {
+    return this.createModelProxy('salesRepCommissionPlan');
+  }
+  get salesRepPlanAssignment() {
+    return this.createModelProxy('salesRepPlanAssignment');
   }
 
   // ============================================================================

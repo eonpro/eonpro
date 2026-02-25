@@ -381,8 +381,11 @@ export default function AdminIntakesPage() {
                 {displayedPatients.map((patient) => (
                   <tr
                     key={patient.id}
-                    className="cursor-pointer transition-colors hover:bg-gray-50"
+                    className="cursor-pointer transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
+                    tabIndex={0}
+                    role="link"
                     onClick={() => (window.location.href = `/patients/${patient.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
                   >
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center">

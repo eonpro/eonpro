@@ -479,10 +479,13 @@ export default function PatientsPage() {
               {filteredPatients.map((patient: any) => (
                 <tr
                   key={patient.id}
-                  className="cursor-pointer transition-colors hover:bg-emerald-50"
+                  className="cursor-pointer transition-colors hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
+                  tabIndex={0}
+                  role="link"
                   onClick={() => {
                     window.location.href = `/patients/${patient.id}`;
                   }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
                 >
                   <td className="border px-2 py-1">
                     <div className="flex items-center gap-2">

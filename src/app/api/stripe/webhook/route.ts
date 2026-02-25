@@ -82,14 +82,25 @@ export async function POST(request: NextRequest) {
 
     let event: Stripe.Event;
 
-    try {
-      event = stripeClient.webhooks.constructEvent(
-        body,
-        signature,
-        STRIPE_CONFIG.webhookEndpointSecret
-      );
-    } catch (error: any) {
-      logger.error('[STRIPE WEBHOOK] Signature verification failed:', error);
+    // Try primary secret (EonMeds clinic account), then Connect platform secret (Wellmedr etc.)
+    const secrets = [
+      STRIPE_CONFIG.webhookEndpointSecret,
+      process.env.STRIPE_CONNECT_PLATFORM_WEBHOOK_SECRET,
+    ].filter(Boolean) as string[];
+
+    let verified = false;
+    for (const secret of secrets) {
+      try {
+        event = stripeClient.webhooks.constructEvent(body, signature, secret);
+        verified = true;
+        break;
+      } catch {
+        // Try next secret
+      }
+    }
+
+    if (!verified) {
+      logger.error('[STRIPE WEBHOOK] Signature verification failed (all secrets exhausted)');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
@@ -110,6 +121,25 @@ export async function POST(request: NextRequest) {
           eventId: event.id,
           eventType: event.type,
           clinicId: fallback,
+        });
+      }
+    }
+
+    // Stripe Connect fallback: events from connected accounts (e.g. Wellmedr) include event.account.
+    // Resolve clinic by Clinic.stripeAccountId so subscription renewals and payments are attributed correctly.
+    const connectAccountId = (event as Stripe.Event & { account?: string }).account;
+    if (clinicId === 0 && connectAccountId && typeof connectAccountId === 'string') {
+      const clinicByAccount = await prisma.clinic.findFirst({
+        where: { stripeAccountId: connectAccountId },
+        select: { id: true },
+      });
+      if (clinicByAccount) {
+        clinicId = clinicByAccount.id;
+        logger.info('[STRIPE WEBHOOK] Resolved clinic from Connect account', {
+          eventId: event.id,
+          eventType: event.type,
+          clinicId,
+          accountId: connectAccountId.substring(0, 12) + '…',
         });
       }
     }
@@ -703,7 +733,11 @@ async function processWebhookEvent(
         const subscription = event.data.object as Stripe.Subscription;
         const { syncSubscriptionFromStripe } =
           await import('@/services/stripe/subscriptionSyncService');
-        const result = await syncSubscriptionFromStripe(subscription, event.id);
+        const connectAcct = (event as Stripe.Event & { account?: string }).account;
+        const result = await syncSubscriptionFromStripe(subscription, event.id, {
+          clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
+          stripeAccountId: connectAcct || undefined,
+        });
         if (!result.success) {
           return {
             success: false,
@@ -774,7 +808,11 @@ async function processWebhookEvent(
         const subscription = event.data.object as Stripe.Subscription;
         const { syncSubscriptionFromStripe } =
           await import('@/services/stripe/subscriptionSyncService');
-        const syncResult = await syncSubscriptionFromStripe(subscription, event.id);
+        const connectAcctP = (event as Stripe.Event & { account?: string }).account;
+        const syncResult = await syncSubscriptionFromStripe(subscription, event.id, {
+          clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
+          stripeAccountId: connectAcctP || undefined,
+        });
         if (!syncResult.success) {
           return {
             success: false,
@@ -815,7 +853,11 @@ async function processWebhookEvent(
         const subscription = event.data.object as Stripe.Subscription;
         const { syncSubscriptionFromStripe } =
           await import('@/services/stripe/subscriptionSyncService');
-        const syncResult = await syncSubscriptionFromStripe(subscription, event.id);
+        const connectAcctR = (event as Stripe.Event & { account?: string }).account;
+        const syncResult = await syncSubscriptionFromStripe(subscription, event.id, {
+          clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
+          stripeAccountId: connectAcctR || undefined,
+        });
         if (!syncResult.success) {
           return {
             success: false,

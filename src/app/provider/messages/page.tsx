@@ -211,7 +211,10 @@ export default function ProviderMessagesPage() {
                 <div
                   key={message.id}
                   onClick={() => setSelectedMessage(message)}
-                  className={`cursor-pointer border-b p-4 hover:bg-gray-50 ${
+                  onKeyDown={(e) => { if (e.key === 'Enter') setSelectedMessage(message); }}
+                  tabIndex={0}
+                  role="button"
+                  className={`cursor-pointer border-b p-4 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--brand-primary)] ${
                     selectedMessage?.id === message.id ? 'bg-[var(--brand-primary-light)]' : ''
                   } ${message.unread ? 'bg-blue-50' : ''}`}
                 >

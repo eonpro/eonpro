@@ -20,6 +20,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
+  { path: '/admin/sales-rep/commission-plans', label: 'Sales Rep Commissions', iconKey: 'DollarSign' },
   { path: '/admin/affiliates', label: 'Affiliates', iconKey: 'UserCheck' },
   { path: '/admin/finance', label: 'Finance', iconKey: 'DollarSign' },
   { path: '/admin/stripe-dashboard', label: 'Stripe', iconKey: 'CreditCard' },

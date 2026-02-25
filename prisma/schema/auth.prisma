@@ -130,6 +130,9 @@ model User {
   salesRepRefCodes SalesRepRefCode[] @relation("SalesRepRefCodes")
   salesRepTouches  SalesRepTouch[]   @relation("SalesRepTouches")
 
+  // Sales Rep Commission Plan Assignments
+  salesRepPlanAssignments SalesRepPlanAssignment[] @relation("SalesRepPlanAssignments")
+
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
 

@@ -190,12 +190,36 @@ export function createPrescriptionService(): PrescriptionService {
         );
       }
 
+      // Pharmacy requires date of birth and complete address
+      const dobIso = normalizeDob(input.patient.dob);
+      const missingForPharmacy: string[] = [];
+      if (!input.patient.dob || !String(input.patient.dob).trim()) {
+        missingForPharmacy.push('date of birth');
+      } else if (!dobIso || dobIso.length < 8) {
+        missingForPharmacy.push('valid date of birth');
+      }
+      const addr1 = (input.patient.address1 ?? '').trim();
+      const city = (input.patient.city ?? '').trim();
+      const state = (input.patient.state ?? '').trim();
+      const zip = (input.patient.zip ?? '').trim();
+      if (!addr1) missingForPharmacy.push('street address');
+      if (!city) missingForPharmacy.push('city');
+      if (!state) missingForPharmacy.push('state');
+      if (!zip) missingForPharmacy.push('ZIP code');
+      if (missingForPharmacy.length > 0) {
+        const list = missingForPharmacy.join(', ');
+        throw new PrescriptionError(
+          `Patient profile is missing information required by the pharmacy: ${list}. Please update the patient profile and try again.`,
+          400,
+          'MISSING_PATIENT_INFO'
+        );
+      }
+
       // Build order payload
       const now = new Date();
       const messageId = `eonpro-${Date.now()}`;
       const referenceId = `rx-${Date.now()}`;
       const dateWritten = now.toISOString().slice(0, 10);
-      const dobIso = normalizeDob(input.patient.dob);
       const primary = rxsWithMeds[0];
 
       // Generate PDF

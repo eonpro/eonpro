@@ -431,6 +431,38 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
 
+    // Pharmacy requires date of birth and complete address. Validate before calling Lifefile
+    // so we can return a clear, actionable error instead of a generic API failure.
+    const missingForPharmacy: string[] = [];
+    if (!p.patient.dob || !String(p.patient.dob).trim()) {
+      missingForPharmacy.push('date of birth');
+    } else if (!dobIso || dobIso.length < 8) {
+      missingForPharmacy.push('valid date of birth');
+    }
+    const addr1 = (p.patient.address1 ?? '').trim();
+    const city = (p.patient.city ?? '').trim();
+    const state = (p.patient.state ?? '').trim();
+    const zip = (p.patient.zip ?? '').trim();
+    if (!addr1) missingForPharmacy.push('street address');
+    if (!city) missingForPharmacy.push('city');
+    if (!state) missingForPharmacy.push('state');
+    if (!zip) missingForPharmacy.push('ZIP code');
+    if (missingForPharmacy.length > 0) {
+      const list = missingForPharmacy.join(', ');
+      logger.warn('[PRESCRIPTIONS] Patient missing required fields for pharmacy', {
+        patientId: p.patientId,
+        missing: list,
+      });
+      return NextResponse.json(
+        {
+          error: 'Patient profile is missing information required by the pharmacy. Please update the patient profile and try again.',
+          code: 'MISSING_PATIENT_INFO',
+          detail: `Missing: ${list}. Add these in the patient profile (e.g. Profile tab or Edit Patient) before sending the prescription.`,
+        },
+        { status: 400 }
+      );
+    }
+
     const orderPayload: LifefileOrderPayload = {
       message: {
         id: messageId,
@@ -826,7 +858,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
 
         return NextResponse.json(
           {
-            error: 'Failed to submit order to Lifefile',
+            error: 'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
+            code: 'LIFEFILE_SUBMISSION_FAILED',
             detail: errorMessage,
             orderId: order.id,
             recoverable: true,
@@ -1051,7 +1084,11 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         logger.error('Failed to update order error state:', { value: dbErr });
       }
       return NextResponse.json(
-        { error: 'Failed to submit order to Lifefile', detail: errorMessage },
+        {
+          error: 'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
+          code: 'LIFEFILE_SUBMISSION_FAILED',
+          detail: errorMessage,
+        },
         { status: 502 }
       );
     }

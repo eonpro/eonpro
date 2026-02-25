@@ -428,8 +428,11 @@ export default function PatientSOAPNotesView({
           return filteredNotes.map((note: any) => (
             <div
               key={note.id}
-              className="cursor-pointer rounded-lg border bg-white p-6 transition-shadow hover:shadow-lg"
+              className="cursor-pointer rounded-lg border bg-white p-6 transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
               onClick={() => setSelectedNote(note)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setSelectedNote(note); }}
+              tabIndex={0}
+              role="button"
             >
               <div className="mb-4 flex items-start justify-between">
                 <div>

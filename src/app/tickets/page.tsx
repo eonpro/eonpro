@@ -552,7 +552,10 @@ export default function TicketsPage() {
                   <tr
                     key={ticket.id}
                     onClick={() => { window.location.href = `/tickets/${ticket.id}`; }}
-                    className="cursor-pointer hover:bg-gray-50"
+                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/tickets/${ticket.id}`; }}
+                    className="cursor-pointer hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
+                    tabIndex={0}
+                    role="link"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-start gap-2">

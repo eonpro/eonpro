@@ -262,7 +262,10 @@ export default function ProviderConsultationsPage() {
                   <div
                     key={consultation.id}
                     onClick={() => setSelectedConsultation(consultation)}
-                    className="cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md"
+                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedConsultation(consultation); }}
+                    tabIndex={0}
+                    role="button"
+                    className="cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
                   >
                     <div className="flex items-start justify-between">
                       <div>

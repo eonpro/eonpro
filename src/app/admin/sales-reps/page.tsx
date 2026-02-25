@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Users,
   UserCheck,
@@ -10,6 +11,7 @@ import {
   ChevronRight,
   AlertCircle,
   X,
+  DollarSign,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -66,17 +68,34 @@ export default function SalesRepsPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sales Representatives</h1>
-          <p className="mt-1 text-gray-600">Manage sales reps and their patient assignments</p>
+          <p className="mt-1 text-gray-600">
+            Manage sales reps and their patient assignments.{' '}
+            <Link
+              href="/admin/sales-rep/commission-plans"
+              className="font-medium text-[var(--brand-primary)] hover:underline"
+            >
+              Commission plans
+            </Link>
+          </p>
         </div>
-        <button
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/sales-rep/commission-plans"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <DollarSign className="h-5 w-5" />
+            Commission Plans
+          </Link>
+          <button
           onClick={() => setShowBulkReassignModal(true)}
           disabled={salesReps.length < 2}
           className="flex items-center gap-2 rounded-lg px-4 py-2 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: 'var(--brand-primary, #0EA5E9)' }}
-        >
-          <ArrowRightLeft className="h-5 w-5" />
-          Bulk Reassign
-        </button>
+          >
+            <ArrowRightLeft className="h-5 w-5" />
+            Bulk Reassign
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

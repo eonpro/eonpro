@@ -227,6 +227,10 @@ model Clinic {
   salesRepRefCodes SalesRepRefCode[]
   salesRepTouches  SalesRepTouch[]
 
+  // Sales Rep Commission Plans (dedicated — separate from affiliates)
+  salesRepCommissionPlans SalesRepCommissionPlan[]
+  salesRepPlanAssignments SalesRepPlanAssignment[]
+
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]
 
