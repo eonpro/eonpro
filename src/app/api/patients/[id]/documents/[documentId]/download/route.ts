@@ -5,6 +5,8 @@ import { retrieveFile } from '@/lib/storage/secure-storage';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
+import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
+import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
 
 // Helper to convert data field to Buffer
 const toBuffer = (data: any): Buffer | null => {
@@ -136,25 +138,58 @@ const downloadDocumentHandler = withAuthParams(
       if (document.externalUrl && !document.externalUrl.startsWith('database://')) {
         try {
           logger.debug(`Attempting download from external URL: ${document.externalUrl}`);
-          const file = await retrieveFile(document.externalUrl, patientId);
 
-          return new NextResponse(new Uint8Array(file.data), {
+          let fileData: Buffer;
+          let fileMimeType: string | undefined;
+
+          const isS3Key =
+            document.externalUrl.startsWith('patients/') ||
+            document.externalUrl.startsWith(STORAGE_CONFIG.PATHS.PATIENTS + '/') ||
+            document.externalUrl.match(/^[a-z-]+\/\d+\/[a-z-]+\//) !== null;
+
+          if (isS3Enabled() && isS3Key) {
+            logger.info(`Downloading from S3 for download: ${document.externalUrl}`);
+            fileData = await downloadFromS3(document.externalUrl);
+            fileMimeType = document.mimeType;
+            logger.info(`S3 download successful: ${fileData.length} bytes`);
+          } else {
+            const file = await retrieveFile(document.externalUrl, patientId);
+            fileData = file.data;
+            fileMimeType = file.mimeType || document.mimeType;
+          }
+
+          return new NextResponse(new Uint8Array(fileData), {
             headers: {
-              'Content-Type': file.mimeType || document.mimeType || 'application/octet-stream',
+              'Content-Type': fileMimeType || 'application/octet-stream',
               'Content-Disposition': `attachment; filename="${document.filename || 'document'}"`,
-              'Content-Length': file.data.length.toString(),
+              'Content-Length': fileData.length.toString(),
             },
           });
         } catch (error: any) {
-          logger.error('Error retrieving from external storage:', error);
+          logger.error('Error retrieving from external storage for download', {
+            error: error instanceof Error ? error.message : String(error),
+            key: document.externalUrl,
+            documentId,
+          });
+          return NextResponse.json(
+            { error: `Failed to retrieve document from storage: ${error instanceof Error ? error.message : 'Unknown error'}` },
+            { status: 500 }
+          );
         }
       }
+
+      const hasLegacyData = document.data && (() => {
+        const buf = toBuffer(document.data);
+        if (!buf || buf.length === 0) return false;
+        const ch = buf.toString('utf8', 0, 1);
+        return ch === '{' || ch === '[';
+      })();
 
       return NextResponse.json(
         {
           error: 'PDF document not available. File may need to be regenerated.',
           documentId,
-          needsRegeneration: !!document.intakeData,
+          needsRegeneration: hasLegacyData,
         },
         { status: 404 }
       );

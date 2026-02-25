@@ -115,9 +115,11 @@ export default function PatientPortalDocuments() {
   const documentCategories = [
     { value: 'MEDICAL_RECORDS', label: 'Medical Records' },
     { value: 'LAB_RESULTS', label: 'Lab Results' },
+    { value: 'INSURANCE', label: 'Insurance Documents' },
     { value: 'CONSENT_FORMS', label: 'Consent Forms' },
     { value: 'PRESCRIPTIONS', label: 'Prescriptions' },
     { value: 'IMAGING', label: 'Imaging Results' },
+    { value: 'ID_PHOTO', label: 'ID Photo' },
     { value: 'OTHER', label: 'Other' },
   ];
 

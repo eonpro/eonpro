@@ -99,7 +99,7 @@ export const GET = withAuthParams(
       if (!document) return tenantNotFoundResponse();
 
       logger.debug(
-        `Found document ${documentId}: externalUrl=${document.externalUrl}, hasData=${!!document.data}, hasIntakeData=${!!document.intakeData}, mimeType=${document.mimeType}`
+        `Found document ${documentId}: externalUrl=${document.externalUrl}, hasData=${!!document.data}, mimeType=${document.mimeType}`
       );
 
       // Helper to convert data field to Buffer
@@ -237,7 +237,16 @@ export const GET = withAuthParams(
         }
       }
 
-      // No valid document source found
+      // No valid document source found — check if legacy JSON data exists that could be regenerated
+      const hasLegacyData = document.data && (() => {
+        const buf = document.data;
+        if (!buf || (Buffer.isBuffer(buf) && buf.length === 0)) return false;
+        const raw = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+        if (raw.length === 0) return false;
+        const ch = raw.toString('utf8', 0, 1);
+        return ch === '{' || ch === '[';
+      })();
+
       logger.warn(
         `Document ${documentId} has no servable content. externalUrl: ${document.externalUrl}, dataSize: ${document.data?.length || 0}`
       );
@@ -245,8 +254,7 @@ export const GET = withAuthParams(
         {
           error: 'Document file not available. PDF may need to be regenerated.',
           documentId,
-          hasIntakeData: !!document.intakeData,
-          needsRegeneration: !!document.intakeData,
+          needsRegeneration: hasLegacyData,
         },
         { status: 404 }
       );
@@ -259,7 +267,7 @@ export const GET = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'patient'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'patient'] }
 );
 
 export const DELETE = withAuthParams(
@@ -354,5 +362,5 @@ export const DELETE = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff'] }
 );

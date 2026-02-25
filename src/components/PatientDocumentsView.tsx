@@ -46,10 +46,8 @@ export default function PatientDocumentsView({
           logger.error('Unauthorized access to documents');
           // In a real app, redirect to login
         }
-      } catch (error: any) {
-        // @ts-ignore
-
-        logger.error('Error fetching documents:', error);
+      } catch (error: unknown) {
+        logger.error('Error fetching documents', { error: error instanceof Error ? error.message : 'Unknown' });
       } finally {
         setIsLoading(false);
       }
@@ -72,22 +70,25 @@ export default function PatientDocumentsView({
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isUploading) return;
     if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
     } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
-  }, []);
+  }, [isUploading]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    if (isUploading) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFiles(e.dataTransfer.files);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isUploading, selectedCategory, patientId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
