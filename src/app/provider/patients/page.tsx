@@ -28,6 +28,7 @@ interface Patient {
 interface PaginationMeta {
   count: number;
   total: number;
+  totalInSystem: number;
   hasMore: boolean;
 }
 
@@ -55,7 +56,7 @@ export default function ProviderPatientsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-  const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, hasMore: false });
+  const [meta, setMeta] = useState<PaginationMeta>({ count: 0, total: 0, totalInSystem: 0, hasMore: false });
   const [offset, setOffset] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -138,6 +139,7 @@ export default function ProviderPatientsPage() {
         setMeta({
           count: data.meta?.count ?? mapped.length,
           total: data.meta?.total ?? mapped.length,
+          totalInSystem: data.meta?.totalInSystem ?? data.meta?.total ?? mapped.length,
           hasMore: data.meta?.hasMore ?? false,
         });
         setOffset(currentOffset + mapped.length);
@@ -155,6 +157,8 @@ export default function ProviderPatientsPage() {
 
   useEffect(() => {
     setOffset(0);
+    setPatients([]);
+    setMeta({ count: 0, total: 0, hasMore: false });
     fetchPatients(0, true, searchQuery);
   }, [searchQuery, fetchPatients]);
 
@@ -210,11 +214,12 @@ export default function ProviderPatientsPage() {
           currentOffset += mapped.length;
           hasMore = data.meta?.hasMore || false;
 
-          setMeta({
+          setMeta((prev) => ({
             count: data.meta?.count || 0,
             total: data.meta?.total || 0,
+            totalInSystem: data.meta?.totalInSystem ?? prev.totalInSystem,
             hasMore: false,
-          });
+          }));
         } else {
           break;
         }
@@ -357,6 +362,7 @@ export default function ProviderPatientsPage() {
               onSearch={handleSearch}
               isSearching={searching}
               totalFound={searchQuery ? meta.total : undefined}
+              totalInSystem={meta.totalInSystem}
               recentSearches={recent}
               onRecentSelect={handleRecentSelect}
               onClear={() => setSearchQuery('')}
@@ -379,14 +385,22 @@ export default function ProviderPatientsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-gray-900">{meta.total}</div>
+          <div className="text-2xl font-bold text-gray-900">{meta.totalInSystem}</div>
           <div className="text-sm text-gray-600">Total Patients</div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
-          <div className="text-2xl font-bold text-green-600">{patients.length}</div>
+          <div className="text-2xl font-bold text-green-600">
+            {searchQuery ? meta.total : patients.length}
+          </div>
           <div className="text-sm text-gray-600">
-            Loaded{' '}
-            {meta.hasMore && <span className="text-xs text-gray-400">(of {meta.total})</span>}
+            {searchQuery ? (
+              'Matches'
+            ) : (
+              <>
+                Loaded{' '}
+                {meta.hasMore && <span className="text-xs text-gray-400">(of {meta.totalInSystem})</span>}
+              </>
+            )}
           </div>
         </div>
         <div className="rounded-lg bg-white p-4 shadow">
@@ -558,15 +572,21 @@ export default function ProviderPatientsPage() {
                     disabled={loadingMore}
                     className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
                   >
-                    Load All ({meta.total - patients.length} remaining)
+                    Load All ({Math.max(0, meta.total - patients.length)} remaining)
                   </button>
                 </div>
               )}
 
               {/* Pagination info */}
               <div className="py-4 text-center text-sm text-gray-500">
-                Showing {filteredPatients.length} of {meta.total} patients
-                {searchQuery && ` matching "${searchQuery}"`}
+                {searchQuery ? (
+                  <>
+                    Showing {filteredPatients.length} of {meta.total} matching &quot;{searchQuery}&quot;
+                    {meta.totalInSystem > 0 && ` (${meta.totalInSystem.toLocaleString()} total)`}
+                  </>
+                ) : (
+                  <>Showing {filteredPatients.length} of {meta.totalInSystem.toLocaleString()} patients</>
+                )}
               </div>
             </div>
           )}
