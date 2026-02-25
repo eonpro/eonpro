@@ -153,6 +153,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'referraltracking',
   'refillqueue',
   'reportexport',
+  'rxorderset',
   'retentionoffer',
   'savedreport',
   'scheduledemail',
@@ -1010,6 +1011,12 @@ class PrismaWithClinicFilter {
   get rx() {
     return this.client.rx;
   }
+  get rxOrderSet() {
+    return this.createModelProxy('rxOrderSet');
+  }
+  get rxOrderSetItem() {
+    return this.client.rxOrderSetItem;
+  }
   get sOAPNoteRevision() {
     return this.client.sOAPNoteRevision;
   }
@@ -1260,10 +1267,26 @@ class PrismaWithClinicFilter {
     }
   ): Promise<T> {
     return this.client.$transaction(async (tx) => {
-      // Create wrapped transaction client
       const wrappedTx = new PrismaWithClinicFilter(tx as PrismaClient);
-      return fn(wrappedTx as any);
-    }, options); // CRITICAL: Forward transaction options (timeout, isolation level)
+      // Wrap in a Proxy so models without explicit getters (e.g. rxOrderSetItem)
+      // fall through to the underlying Prisma transaction client.
+      const proxiedTx = new Proxy(wrappedTx, {
+        get(target: PrismaWithClinicFilter, prop: string) {
+          if (prop in target) return (target as any)[prop];
+          const client = (target as any).client;
+          const delegate = client[prop];
+          if (
+            delegate &&
+            typeof prop === 'string' &&
+            (CLINIC_ISOLATED_MODELS as readonly string[]).includes(prop.toLowerCase())
+          ) {
+            return target.getModelDelegate(prop);
+          }
+          return delegate;
+        },
+      });
+      return fn(proxiedTx as any);
+    }, options);
   }
 
   // Expose other Prisma client methods
