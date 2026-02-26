@@ -35,10 +35,7 @@ function safeDecrypt(value: string | null | undefined): string | null {
 // Input sanitization
 function sanitizeText(text: string): string {
   return text
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
+    .replace(/<[^>]*>/g, '')
     .trim()
     .substring(0, 2000);
 }

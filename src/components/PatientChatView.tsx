@@ -14,6 +14,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { decodeHtmlEntities } from '@/lib/utils';
 
 interface Patient {
   id: number;
@@ -361,13 +362,13 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                             <p
                               className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}
                             >
-                              {message.replyTo.message}
+                              {decodeHtmlEntities(message.replyTo.message)}
                             </p>
                           </div>
                         )}
 
                         <p className="break-all whitespace-pre-wrap text-sm">
-                          {message.message}
+                          {decodeHtmlEntities(message.message)}
                         </p>
 
                         <div

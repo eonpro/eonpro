@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePatientId } from '@/hooks/usePatientId';
+import { decodeHtmlEntities } from '@/lib/utils';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
@@ -395,7 +396,7 @@ export default function PatientChatPage() {
                               <p
                                 className={`line-clamp-1 ${isOutgoing ? 'text-white/60' : 'text-gray-500'}`}
                               >
-                                {message.replyTo.message}
+                                {decodeHtmlEntities(message.replyTo.message)}
                               </p>
                             </div>
                           )}
@@ -409,7 +410,7 @@ export default function PatientChatPage() {
 
                           {/* Message Content */}
                           <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-                            {message.message}
+                            {decodeHtmlEntities(message.message)}
                           </p>
 
                           {/* Time and Status */}

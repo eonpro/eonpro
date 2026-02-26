@@ -188,12 +188,7 @@ export function createValidatedHandler<TBody extends ZodSchema, TQuery extends Z
  * Sanitize string input (remove potential XSS)
  */
 export function sanitizeString(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  return input.replace(/<[^>]*>/g, '');
 }
 
 /**

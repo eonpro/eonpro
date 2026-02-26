@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { decodeHtmlEntities } from '@/lib/utils';
 import {
   MessageSquare,
   Send,
@@ -222,7 +223,7 @@ export default function ProviderMessagesPage() {
                     <span className="font-medium">{message.patientName}</span>
                     <span className="text-xs text-gray-500">{message.timestamp}</span>
                   </div>
-                  <div className="truncate text-sm text-gray-600">{message.lastMessage}</div>
+                  <div className="truncate text-sm text-gray-600">{decodeHtmlEntities(message.lastMessage)}</div>
                   <div className="mt-2 flex items-center gap-2">
                     {message.unread && <span className="h-2 w-2 rounded-full bg-blue-600"></span>}
                     {message.priority === 'urgent' && (
@@ -285,7 +286,7 @@ export default function ProviderMessagesPage() {
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
-                        <p>{msg.content}</p>
+                        <p>{decodeHtmlEntities(msg.content)}</p>
                         <p
                           className={`mt-1 text-xs ${
                             msg.sender === 'provider' ? 'text-[var(--brand-primary)]' : 'text-gray-500'

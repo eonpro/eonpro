@@ -40,14 +40,9 @@ function safeDecrypt(value: string | null | undefined): string | null {
  */
 function sanitizeText(text: string): string {
   return text
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\\/g, '&#x5C;')
-    .replace(/`/g, '&#x60;')
+    .replace(/<[^>]*>/g, '')
     .trim()
-    .substring(0, 2000); // Hard limit
+    .substring(0, 2000);
 }
 
 // ============================================================================

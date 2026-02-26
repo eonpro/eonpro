@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
+import { decodeHtmlEntities } from '@/lib/utils';
 import PatientChatView from '@/components/PatientChatView';
 import Link from 'next/link';
 
@@ -361,7 +362,7 @@ export default function AdminMessagesPage() {
                               conv.unread ? 'font-medium text-gray-800' : 'text-gray-500'
                             }`}
                           >
-                            {conv.lastMessage}
+                            {decodeHtmlEntities(conv.lastMessage)}
                           </p>
                         </div>
 

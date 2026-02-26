@@ -483,7 +483,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
     }
 
     // Sanitize message content (basic XSS prevention)
-    const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
+    const sanitizedMessage = message.replace(/<[^>]*>/g, '').trim();
 
     const newMessage = await basePrisma.internalMessage.create({
       data: {
