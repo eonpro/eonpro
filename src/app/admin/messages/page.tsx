@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   Users,
   Mail as MailIcon,
+  Loader2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -39,6 +40,13 @@ interface Stats {
   activeToday: number;
 }
 
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface SelectedPatient {
   id: number;
   firstName: string;
@@ -49,12 +57,15 @@ interface SelectedPatient {
 type FilterType = 'all' | 'unread' | 'needs_response';
 
 const POLL_INTERVAL = 15_000;
+const PAGE_SIZE = 50;
 
 export default function AdminMessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -62,19 +73,55 @@ export default function AdminMessagesPage() {
   const [selectedConvId, setSelectedConvId] = useState<number | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const hasMore = pagination ? pagination.page < pagination.totalPages : false;
 
   const fetchConversations = useCallback(
-    async (showLoading = false) => {
+    async (showLoading = false, page = 1) => {
       try {
         if (showLoading) setLoading(true);
+        if (page > 1) setLoadingMore(true);
 
-        const params = new URLSearchParams({ filter, limit: '100' });
+        const params = new URLSearchParams({
+          filter,
+          limit: String(PAGE_SIZE),
+          page: String(page),
+        });
         if (searchTerm.trim()) params.set('search', searchTerm.trim());
 
         const res = await apiFetch(`/api/admin/messages/conversations?${params}`);
         if (res.ok) {
           const data = await res.json();
-          setConversations(data.conversations || []);
+          const incoming: Conversation[] = data.conversations || [];
+
+          if (page === 1 && showLoading) {
+            // Full reset (filter/search changed or initial load)
+            setConversations(incoming);
+            setPagination(data.pagination || null);
+          } else if (page === 1) {
+            // Polling refresh: update first page while keeping subsequent pages
+            setConversations((prev) => {
+              if (prev.length <= PAGE_SIZE) return incoming;
+              const incomingIds = new Set(incoming.map((c) => c.patientId));
+              const rest = prev.slice(PAGE_SIZE).filter(
+                (c) => !incomingIds.has(c.patientId),
+              );
+              return [...incoming, ...rest];
+            });
+          } else {
+            // Loading next page: append new conversations
+            setConversations((prev) => {
+              const existingIds = new Set(prev.map((c) => c.patientId));
+              const deduped = incoming.filter(
+                (c) => !existingIds.has(c.patientId),
+              );
+              return [...prev, ...deduped];
+            });
+            setPagination(data.pagination || null);
+          }
+
           setStats(data.stats || null);
           setError(null);
         } else if (res.status === 401) {
@@ -86,22 +133,44 @@ export default function AdminMessagesPage() {
         setError('Failed to load conversations. Please check your connection.');
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     },
     [filter, searchTerm],
   );
 
-  useEffect(() => {
-    fetchConversations(true);
-  }, [fetchConversations]);
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore || !pagination) return;
+    fetchConversations(false, pagination.page + 1);
+  }, [loadingMore, hasMore, pagination, fetchConversations]);
 
   useEffect(() => {
+    fetchConversations(true, 1);
+  }, [fetchConversations]);
+
+  // Polling refreshes page 1 only to keep the top of the list fresh
+  useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(() => fetchConversations(false), POLL_INTERVAL);
+    pollRef.current = setInterval(() => fetchConversations(false, 1), POLL_INTERVAL);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [fetchConversations]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { root: listRef.current, rootMargin: '200px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   const handleSelectConversation = (conv: Conversation) => {
     const nameParts = conv.patientName.split(' ');
@@ -217,7 +286,7 @@ export default function AdminMessagesPage() {
           </div>
 
           {/* Conversation List */}
-          <div className="flex-1 overflow-y-auto">
+          <div ref={listRef} className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
@@ -244,72 +313,90 @@ export default function AdminMessagesPage() {
                 </p>
               </div>
             ) : (
-              filteredConversations.map((conv) => (
-                <button
-                  key={conv.patientId}
-                  onClick={() => handleSelectConversation(conv)}
-                  className={`w-full border-b border-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 ${
-                    selectedConvId === conv.id ? 'bg-blue-50' : ''
-                  } ${conv.unread ? 'bg-blue-50/40' : ''}`}
-                >
-                  <div className="flex gap-3">
-                    <div className="relative flex-shrink-0">
-                      <div
-                        className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                          conv.unread
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {getInitials(conv.patientName)}
-                      </div>
-                      {conv.needsResponse && (
-                        <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-orange-500" />
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`truncate text-sm ${
-                            conv.unread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'
+              <>
+                {filteredConversations.map((conv) => (
+                  <button
+                    key={conv.patientId}
+                    onClick={() => handleSelectConversation(conv)}
+                    className={`w-full border-b border-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-50 ${
+                      selectedConvId === conv.id ? 'bg-blue-50' : ''
+                    } ${conv.unread ? 'bg-blue-50/40' : ''}`}
+                  >
+                    <div className="flex gap-3">
+                      <div className="relative flex-shrink-0">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
+                            conv.unread
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-600'
                           }`}
                         >
-                          {conv.patientName}
-                        </span>
-                        <span className="ml-2 flex-shrink-0 text-xs text-gray-400">
-                          {conv.timestamp}
-                        </span>
-                      </div>
-
-                      <div className="mt-0.5 flex items-center gap-1.5">
-                        {conv.direction === 'OUTBOUND' && (
-                          <span className="flex-shrink-0 text-xs text-gray-400">You:</span>
+                          {getInitials(conv.patientName)}
+                        </div>
+                        {conv.needsResponse && (
+                          <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-orange-500" />
                         )}
-                        <p
-                          className={`truncate text-xs ${
-                            conv.unread ? 'font-medium text-gray-800' : 'text-gray-500'
-                          }`}
-                        >
-                          {conv.lastMessage}
-                        </p>
                       </div>
 
-                      <div className="mt-1.5 flex items-center gap-2">
-                        {getChannelIcon(conv.channel)}
-                        <span className="text-[10px] text-gray-400">
-                          {conv.totalMessages} msg{conv.totalMessages !== 1 ? 's' : ''}
-                        </span>
-                        {conv.unreadCount > 0 && (
-                          <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white">
-                            {conv.unreadCount}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`truncate text-sm ${
+                              conv.unread ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'
+                            }`}
+                          >
+                            {conv.patientName}
                           </span>
-                        )}
+                          <span className="ml-2 flex-shrink-0 text-xs text-gray-400">
+                            {conv.timestamp}
+                          </span>
+                        </div>
+
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          {conv.direction === 'OUTBOUND' && (
+                            <span className="flex-shrink-0 text-xs text-gray-400">You:</span>
+                          )}
+                          <p
+                            className={`truncate text-xs ${
+                              conv.unread ? 'font-medium text-gray-800' : 'text-gray-500'
+                            }`}
+                          >
+                            {conv.lastMessage}
+                          </p>
+                        </div>
+
+                        <div className="mt-1.5 flex items-center gap-2">
+                          {getChannelIcon(conv.channel)}
+                          <span className="text-[10px] text-gray-400">
+                            {conv.totalMessages} msg{conv.totalMessages !== 1 ? 's' : ''}
+                          </span>
+                          {conv.unreadCount > 0 && (
+                            <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  </button>
+                ))}
+
+                {/* Infinite scroll sentinel */}
+                <div ref={sentinelRef} className="h-1" />
+
+                {loadingMore && (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <span className="ml-2 text-xs text-gray-500">Loading more...</span>
                   </div>
-                </button>
-              ))
+                )}
+
+                {!hasMore && conversations.length > PAGE_SIZE && (
+                  <div className="py-3 text-center text-xs text-gray-400">
+                    All {pagination?.total || conversations.length} conversations loaded
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
