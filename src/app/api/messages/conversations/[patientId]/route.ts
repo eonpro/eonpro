@@ -14,7 +14,17 @@ import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
+
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Validation schema for query params
 const querySchema = z.object({
@@ -247,7 +257,7 @@ async function getHandler(
       messages: transformedMessages,
       patient: {
         id: patient.id,
-        name: `${patient.firstName} ${patient.lastName}`.trim(),
+        name: `${safeDecrypt(patient.firstName)} ${safeDecrypt(patient.lastName)}`.trim() || `Patient #${patient.id}`,
       },
       meta: {
         count: messages.length,

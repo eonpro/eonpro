@@ -4,6 +4,16 @@ import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 /**
  * GET /api/messages/conversations - Get patient message conversations for provider
@@ -81,11 +91,11 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     // Create a map for quick lookup
     const unreadCountMap = new Map(unreadCounts.map((uc) => [uc.patientId, uc._count.id]));
 
-    // Transform to frontend format
+    // Transform to frontend format (decrypt PHI names)
     const conversations = patientsWithMessages.map((p) => ({
       id: p.chatMessages[0]?.id || p.id,
       patientId: p.id,
-      patientName: `${p.firstName} ${p.lastName}`.trim(),
+      patientName: `${safeDecrypt(p.firstName)} ${safeDecrypt(p.lastName)}`.trim() || `Patient #${p.id}`,
       lastMessage: p.chatMessages[0]?.message || '',
       timestamp: p.chatMessages[0]?.createdAt ? formatTimestamp(p.chatMessages[0].createdAt) : '',
       unread: (unreadCountMap.get(p.id) || 0) > 0,
