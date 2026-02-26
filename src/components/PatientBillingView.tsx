@@ -27,6 +27,28 @@ interface Invoice {
   dueDate: string | null;
   paidAt: string | null;
   createdAt: string;
+  lineItems: Array<{
+    description: string;
+    quantity?: number;
+    unitPrice?: number;
+    amount?: number;
+  }> | null;
+  metadata: {
+    product?: string;
+    medicationType?: string;
+    plan?: string;
+    source?: string;
+    paymentDate?: string;
+    [key: string]: unknown;
+  } | null;
+  items?: Array<{
+    id: number;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+    product: { id: number; name: string } | null;
+  }>;
 }
 
 interface Payment {
@@ -85,6 +107,36 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     if (!dateString) return '—';
     if (!mounted) return '—'; // Return placeholder until mounted
     return new Date(dateString).toLocaleString();
+  };
+
+  const getTreatmentSummary = (invoice: Invoice): string => {
+    if (invoice.items && invoice.items.length > 0) {
+      const names = invoice.items
+        .map((item) => item.product?.name || item.description)
+        .filter(Boolean);
+      if (names.length > 0) {
+        return names.length === 1 ? names[0] : `${names[0]} (+${names.length - 1} more)`;
+      }
+    }
+
+    if (invoice.lineItems && invoice.lineItems.length > 0) {
+      const descriptions = invoice.lineItems.map((item) => item.description).filter(Boolean);
+      if (descriptions.length > 0) {
+        return descriptions.length === 1
+          ? descriptions[0]
+          : `${descriptions[0]} (+${descriptions.length - 1} more)`;
+      }
+    }
+
+    if (invoice.metadata) {
+      const parts: string[] = [];
+      if (invoice.metadata.product) parts.push(invoice.metadata.product);
+      if (invoice.metadata.plan) parts.push(invoice.metadata.plan);
+      if (invoice.metadata.medicationType) parts.push(invoice.metadata.medicationType);
+      if (parts.length > 0) return parts.join(' — ');
+    }
+
+    return invoice.description || 'Medical Services';
   };
 
   // Fetch invoices and payments
@@ -453,16 +505,16 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                           Invoice #
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                          Description
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                          Treatment
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                           Amount
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                           Status
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                          Due Date
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                           Actions
@@ -475,8 +527,16 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                           <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
                             {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
                           </td>
-                          <td className="max-w-[200px] truncate px-4 py-4 text-sm text-gray-600">
-                            {invoice.description || 'Medical Services'}
+                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
+                            <div>{formatDate(invoice.createdAt)}</div>
+                            {invoice.dueDate && (
+                              <div className="text-xs text-gray-400">
+                                Due: {formatDate(invoice.dueDate)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="max-w-[220px] truncate px-4 py-4 text-sm text-gray-700" title={getTreatmentSummary(invoice)}>
+                            {getTreatmentSummary(invoice)}
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
                             <div className="font-medium">{formatCurrency(invoice.amountDue)}</div>
@@ -488,9 +548,6 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                           </td>
                           <td className="whitespace-nowrap px-4 py-4">
                             {getStatusBadge(invoice.status)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-500">
-                            {formatDate(invoice.dueDate)}
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-sm">
                             <div className="flex items-center gap-3">
@@ -607,17 +664,19 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
               <div className="space-y-3 md:hidden">
                 {invoices.map((invoice: any) => (
                   <div key={invoice.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                    <div className="mb-3 flex items-start justify-between">
+                    <div className="mb-2 flex items-start justify-between">
                       <div>
                         <p className="font-semibold text-gray-900">
                           {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
                         </p>
-                        <p className="text-sm text-gray-500">
-                          {invoice.description || 'Medical Services'}
-                        </p>
+                        <p className="text-xs text-gray-400">{formatDate(invoice.createdAt)}</p>
                       </div>
                       {getStatusBadge(invoice.status)}
                     </div>
+
+                    <p className="mb-3 truncate text-sm text-gray-700" title={getTreatmentSummary(invoice)}>
+                      {getTreatmentSummary(invoice)}
+                    </p>
 
                     <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
                       <div>

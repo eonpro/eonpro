@@ -272,6 +272,29 @@ export default function InvoicesPage() {
     });
   };
 
+  const getTreatmentSummary = (invoice: Invoice): string => {
+    if (invoice.lineItems && invoice.lineItems.length > 0) {
+      const descriptions = invoice.lineItems
+        .map((item) => item.description)
+        .filter(Boolean);
+      if (descriptions.length > 0) {
+        return descriptions.length === 1
+          ? descriptions[0]
+          : `${descriptions[0]} (+${descriptions.length - 1} more)`;
+      }
+    }
+
+    if (invoice.metadata) {
+      const parts: string[] = [];
+      if (invoice.metadata.product) parts.push(invoice.metadata.product);
+      if (invoice.metadata.plan) parts.push(invoice.metadata.plan);
+      if (invoice.metadata.medicationType) parts.push(invoice.metadata.medicationType);
+      if (parts.length > 0) return parts.join(' — ');
+    }
+
+    return invoice.description || 'Medical Services';
+  };
+
   // Search is now server-side; use invoices directly
   const filteredInvoices = invoices;
 
@@ -457,10 +480,11 @@ export default function InvoicesPage() {
               {/* Table Header */}
               <div className="grid grid-cols-12 gap-4 border-b border-slate-200 bg-slate-50 px-6 py-3 text-xs font-medium uppercase tracking-wider text-slate-500">
                 <div className="col-span-1">#</div>
-                <div className="col-span-3">Patient</div>
-                <div className="col-span-2">Amount</div>
-                <div className="col-span-2">Status</div>
-                <div className="col-span-2">Due Date</div>
+                <div className="col-span-2">Patient</div>
+                <div className="col-span-3">Treatment</div>
+                <div className="col-span-1">Amount</div>
+                <div className="col-span-1">Status</div>
+                <div className="col-span-2">Date</div>
                 <div className="col-span-2 text-right">Actions</div>
               </div>
 
@@ -481,16 +505,19 @@ export default function InvoicesPage() {
                       #{invoice.id}
                     </div>
 
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                       <p className="text-sm font-medium text-slate-900">
                         {invoice.patient.firstName} {invoice.patient.lastName}
                       </p>
-                      <p className="truncate text-xs text-slate-500">
-                        {invoice.description || 'No description'}
+                    </div>
+
+                    <div className="col-span-3">
+                      <p className="truncate text-sm text-slate-700" title={getTreatmentSummary(invoice)}>
+                        {getTreatmentSummary(invoice)}
                       </p>
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <p className="text-sm font-bold text-slate-900">
                         {formatCurrency(invoice.amount)}
                       </p>
@@ -501,7 +528,7 @@ export default function InvoicesPage() {
                       )}
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusConfig[invoice.status].color}`}
                       >
@@ -509,12 +536,17 @@ export default function InvoicesPage() {
                         {statusConfig[invoice.status].label}
                       </span>
                       {isOverdue && (
-                        <span className="ml-2 text-xs font-medium text-red-600">Overdue</span>
+                        <span className="ml-1 text-xs font-medium text-red-600">!</span>
                       )}
                     </div>
 
-                    <div className="col-span-2 text-sm text-slate-600">
-                      {formatDate(invoice.dueDate)}
+                    <div className="col-span-2">
+                      <p className="text-sm text-slate-900">{formatDate(invoice.createdAt)}</p>
+                      {invoice.dueDate && (
+                        <p className="text-xs text-slate-400">
+                          Due: {formatDate(invoice.dueDate)}
+                        </p>
+                      )}
                     </div>
 
                     <div className="col-span-2 flex items-center justify-end gap-2">
@@ -1032,6 +1064,26 @@ function InvoiceDetailModal({
             <p className="text-sm text-slate-500">{invoice.patient.email}</p>
           </div>
 
+          {/* Dates */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <h3 className="mb-1 text-sm font-medium text-slate-500">Date Posted</h3>
+              <p className="font-medium text-slate-900">{new Date(invoice.createdAt).toLocaleDateString()}</p>
+            </div>
+            {invoice.dueDate && (
+              <div>
+                <h3 className="mb-1 text-sm font-medium text-slate-500">Due Date</h3>
+                <p className="font-medium text-slate-700">{new Date(invoice.dueDate).toLocaleDateString()}</p>
+              </div>
+            )}
+            {invoice.metadata?.paymentDate && (
+              <div>
+                <h3 className="mb-1 text-sm font-medium text-slate-500">Payment Date</h3>
+                <p className="font-medium text-emerald-600">{new Date(invoice.metadata.paymentDate).toLocaleDateString()}</p>
+              </div>
+            )}
+          </div>
+
           {/* Amounts */}
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -1052,41 +1104,59 @@ function InvoiceDetailModal({
             </div>
           </div>
 
-          {/* Line Items */}
-          {invoice.lineItems && invoice.lineItems.length > 0 && (
+          {/* Treatment Details */}
+          {(invoice.lineItems && invoice.lineItems.length > 0) || invoice.metadata?.product || invoice.metadata?.plan ? (
             <div>
-              <h3 className="mb-2 text-sm font-medium text-slate-500">Line Items</h3>
-              <div className="space-y-2 rounded-lg bg-slate-50 p-3">
-                {invoice.lineItems.map((item, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span className="text-slate-700">
-                      {item.description}
-                      {item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
-                    </span>
-                    <span className="font-medium text-slate-900">
-                      {formatCurrency((item.unitPrice || item.amount || 0) * (item.quantity || 1))}
-                    </span>
+              <h3 className="mb-2 text-sm font-medium text-slate-500">Treatment Details</h3>
+              <div className="rounded-lg bg-emerald-50 p-4">
+                {/* Metadata-driven treatment info */}
+                {(invoice.metadata?.product || invoice.metadata?.medicationType || invoice.metadata?.plan) && (
+                  <div className="mb-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
+                    {invoice.metadata?.product && (
+                      <div>
+                        <p className="text-emerald-600">Product</p>
+                        <p className="font-medium capitalize text-emerald-900">{invoice.metadata.product}</p>
+                      </div>
+                    )}
+                    {invoice.metadata?.medicationType && (
+                      <div>
+                        <p className="text-emerald-600">Medication Type</p>
+                        <p className="font-medium capitalize text-emerald-900">{invoice.metadata.medicationType}</p>
+                      </div>
+                    )}
+                    {invoice.metadata?.plan && (
+                      <div>
+                        <p className="text-emerald-600">Plan</p>
+                        <p className="font-medium capitalize text-emerald-900">{invoice.metadata.plan}</p>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )}
+
+                {/* Line items */}
+                {invoice.lineItems && invoice.lineItems.length > 0 && (
+                  <div className="space-y-2">
+                    {invoice.lineItems.map((item, i) => (
+                      <div key={i} className="flex justify-between text-sm">
+                        <span className="text-emerald-800">
+                          {item.description}
+                          {item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
+                        </span>
+                        <span className="font-medium text-emerald-900">
+                          {formatCurrency((item.unitPrice || item.amount || 0) * (item.quantity || 1))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-
-          {/* Description */}
-          {invoice.description && (
+          ) : invoice.description ? (
             <div>
               <h3 className="mb-1 text-sm font-medium text-slate-500">Description</h3>
               <p className="text-slate-700">{invoice.description}</p>
             </div>
-          )}
-
-          {/* Due Date */}
-          {invoice.dueDate && (
-            <div>
-              <h3 className="mb-1 text-sm font-medium text-slate-500">Due Date</h3>
-              <p className="text-slate-700">{new Date(invoice.dueDate).toLocaleDateString()}</p>
-            </div>
-          )}
+          ) : null}
 
           {/* Links */}
           <div className="flex gap-3">

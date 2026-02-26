@@ -77,6 +77,10 @@ export const rxSchema = z.object({
   sig: z.string().min(1, 'Prescription instructions (SIG) are required'),
   quantity: z.union([z.string(), z.number()]).transform((v) => String(v ?? '')),
   refills: z.union([z.string(), z.number()]).transform((v) => String(v ?? '')),
+  daysSupply: z.union([z.string(), z.number()]).optional().transform((v) => {
+    if (v === undefined || v === null || v === '') return undefined;
+    return String(v);
+  }),
 });
 
 // Accept null/undefined providerId - API resolves from user.providerId when missing

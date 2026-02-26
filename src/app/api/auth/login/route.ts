@@ -250,8 +250,8 @@ async function loginHandler(req: NextRequest) {
           break;
 
         case 'patient':
-          // Patient login from legacy Patient table
-          const patientRecord = await prisma.patient.findFirst({
+          // Patient login from legacy Patient table — use basePrisma (no clinic context during login)
+          const patientRecord = await basePrisma.patient.findFirst({
             where: { email: email.toLowerCase() },
           });
           // Note: Patients typically don't have passwords in legacy system
@@ -759,8 +759,9 @@ async function loginHandler(req: NextRequest) {
           })
         : Promise.resolve(null),
       // FALLBACK: Look up patient by email if not already linked
+      // Use basePrisma — clinic context is not yet set during login; clinicId is explicit in the WHERE clause
       needsPatientFallback
-        ? prisma.patient.findFirst({
+        ? basePrisma.patient.findFirst({
             where: {
               email: user.email.toLowerCase(),
               clinicId: activeClinicId,

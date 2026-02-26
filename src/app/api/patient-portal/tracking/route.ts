@@ -13,6 +13,8 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 
+export const maxDuration = 30;
+
 // Helper to generate tracking URL based on carrier
 function generateTrackingUrl(carrier: string, trackingNumber: string): string | null {
   if (!carrier || !trackingNumber || !trackingNumber.trim()) return null;

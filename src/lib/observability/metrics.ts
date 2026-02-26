@@ -2,23 +2,13 @@
  * STRUCTURED METRICS SERVICE
  * ==========================
  *
- * Centralized metrics emission for Sentry dashboards.
- * All metrics flow through here for consistency and discoverability.
- *
- * Sentry Dashboard Configuration:
- *   1. Go to Sentry → Performance → Create Dashboard
- *   2. Add widgets using these custom metrics:
- *      - api.request.duration (distribution, ms) — P50, P95, P99 by route
- *      - api.request.query_count (distribution) — queries per request by route
- *      - api.request.db_time (distribution, ms) — total DB time per request
- *      - api.request.server_error (counter) — 5xx errors by route
- *      - db.pool.utilization (gauge, %) — connection pool usage
- *      - health.status (gauge, 0/1) — platform health
+ * Centralized metrics emission for observability.
+ * Sentry.metrics was deprecated (beta ended Oct 2024) and removed in SDK v9+.
+ * This module now uses structured logging for metrics until Sentry ships a replacement.
  *
  * @module observability/metrics
  */
 
-import * as Sentry from '@sentry/nextjs';
 import { logger } from '@/lib/logger';
 
 // ============================================================================
@@ -46,44 +36,32 @@ interface PoolMetrics {
 // ============================================================================
 
 /**
- * Emit comprehensive request-level metrics to Sentry.
+ * Emit comprehensive request-level metrics.
  * Call at the end of each API request.
  */
 export function emitRequestMetrics(data: RequestMetrics): void {
-  const tags = {
-    route: data.route,
-    method: data.method,
-    status_class: `${Math.floor(data.statusCode / 100)}xx`,
-  };
-
   try {
-    // Core latency metric — powers P50/P95/P99 widgets
-    Sentry.metrics.distribution('api.request.duration', data.durationMs, {
-      tags,
-      unit: 'millisecond',
-    });
-
-    // Query count per request — detect N+1 and fan-out
-    Sentry.metrics.distribution('api.request.query_count', data.queryCount, {
-      tags,
-      unit: 'none',
-    });
-
-    // Database time per request — isolate DB vs compute bottlenecks
-    Sentry.metrics.distribution('api.request.db_time', data.dbTimeMs, {
-      tags,
-      unit: 'millisecond',
-    });
-
-    // Error counter — powers error rate widget
     if (data.statusCode >= 500) {
-      Sentry.metrics.increment('api.request.server_error', 1, { tags });
+      logger.error('[METRICS] api.request.server_error', {
+        route: data.route,
+        method: data.method,
+        statusCode: data.statusCode,
+        durationMs: data.durationMs,
+        queryCount: data.queryCount,
+        dbTimeMs: data.dbTimeMs,
+      });
+    } else if (data.durationMs > 3000) {
+      logger.warn('[METRICS] api.request.slow', {
+        route: data.route,
+        method: data.method,
+        statusCode: data.statusCode,
+        durationMs: data.durationMs,
+        queryCount: data.queryCount,
+        dbTimeMs: data.dbTimeMs,
+      });
     }
-
-    // Rate counter — total request throughput
-    Sentry.metrics.increment('api.request.count', 1, { tags });
   } catch {
-    // Metrics API may not be available in all environments
+    // Best-effort metrics
   }
 }
 
@@ -97,12 +75,16 @@ export function emitRequestMetrics(data: RequestMetrics): void {
  */
 export function emitPoolMetrics(data: PoolMetrics): void {
   try {
-    Sentry.metrics.gauge('db.pool.active', data.activeConnections);
-    Sentry.metrics.gauge('db.pool.idle', data.idleConnections);
-    Sentry.metrics.gauge('db.pool.max', data.maxConnections);
-    Sentry.metrics.gauge('db.pool.utilization', data.utilizationPercent, { unit: 'percent' });
+    if (data.utilizationPercent > 80) {
+      logger.warn('[METRICS] db.pool.high_utilization', {
+        active: data.activeConnections,
+        idle: data.idleConnections,
+        max: data.maxConnections,
+        utilization: data.utilizationPercent,
+      });
+    }
   } catch {
-    // Metrics API may not be available
+    // Best-effort metrics
   }
 }
 
@@ -115,19 +97,15 @@ export function emitQueryMetric(data: {
   durationMs: number;
 }): void {
   try {
-    Sentry.metrics.distribution('db.query.duration', data.durationMs, {
-      tags: { operation: data.operation, table: data.table },
-      unit: 'millisecond',
-    });
-
-    // Flag slow queries (> 1s)
     if (data.durationMs > 1000) {
-      Sentry.metrics.increment('db.query.slow', 1, {
-        tags: { operation: data.operation, table: data.table },
+      logger.warn('[METRICS] db.query.slow', {
+        operation: data.operation,
+        table: data.table,
+        durationMs: data.durationMs,
       });
     }
   } catch {
-    // Metrics API may not be available
+    // Best-effort metrics
   }
 }
 
@@ -140,9 +118,11 @@ export function emitQueryMetric(data: {
  */
 export function emitHealthMetric(healthy: boolean): void {
   try {
-    Sentry.metrics.gauge('health.status', healthy ? 1 : 0);
+    if (!healthy) {
+      logger.error('[METRICS] health.status.unhealthy');
+    }
   } catch {
-    // Metrics API may not be available
+    // Best-effort metrics
   }
 }
 
@@ -153,15 +133,9 @@ export function emitHealthMetric(healthy: boolean): void {
 /**
  * Track feature flag check frequency and disabled hits.
  */
-export function emitFeatureFlagMetric(flag: string, enabled: boolean): void {
-  try {
-    Sentry.metrics.increment('feature_flag.check', 1, { tags: { flag } });
-    if (!enabled) {
-      Sentry.metrics.increment('feature_flag.disabled_hit', 1, { tags: { flag } });
-    }
-  } catch {
-    // Metrics API may not be available
-  }
+export function emitFeatureFlagMetric(_flag: string, _enabled: boolean): void {
+  // No-op: feature flag metrics are low-value without aggregation.
+  // Re-enable when Sentry ships a replacement metrics API.
 }
 
 // ============================================================================
@@ -178,17 +152,20 @@ export function emitExternalServiceMetric(data: {
   success: boolean;
 }): void {
   try {
-    Sentry.metrics.distribution('external.request.duration', data.durationMs, {
-      tags: { service: data.service, operation: data.operation },
-      unit: 'millisecond',
-    });
-
     if (!data.success) {
-      Sentry.metrics.increment('external.request.error', 1, {
-        tags: { service: data.service, operation: data.operation },
+      logger.warn('[METRICS] external.request.error', {
+        service: data.service,
+        operation: data.operation,
+        durationMs: data.durationMs,
+      });
+    } else if (data.durationMs > 5000) {
+      logger.warn('[METRICS] external.request.slow', {
+        service: data.service,
+        operation: data.operation,
+        durationMs: data.durationMs,
       });
     }
   } catch {
-    // Metrics API may not be available
+    // Best-effort metrics
   }
 }

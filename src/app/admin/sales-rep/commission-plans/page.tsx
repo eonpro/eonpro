@@ -180,7 +180,9 @@ export default function SalesRepCommissionPlansPage() {
   const handleOpenCreateModal = async () => {
     setEditingPlan(null);
     setFormData(defaultFormData);
-    setProductRuleLines([]);
+    setProductRuleLines([
+      { productId: '', productBundleId: '', bonusType: 'PERCENT', percentBps: 500, flatAmountCents: 0 },
+    ]);
     setError(null);
     await fetchProductsAndBundles();
     setShowModal(true);
@@ -240,10 +242,14 @@ export default function SalesRepCommissionPlansPage() {
           }))
         );
       } else {
-        setProductRuleLines([]);
+        setProductRuleLines([
+          { productId: '', productBundleId: '', bonusType: 'PERCENT', percentBps: 500, flatAmountCents: 0 },
+        ]);
       }
     } catch {
-      setProductRuleLines([]);
+      setProductRuleLines([
+        { productId: '', productBundleId: '', bonusType: 'PERCENT', percentBps: 500, flatAmountCents: 0 },
+      ]);
     }
     setShowModal(true);
   };
@@ -807,121 +813,13 @@ export default function SalesRepCommissionPlansPage() {
                 )}
               </div>
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4">
-                <label className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={formData.multiItemBonusEnabled}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, multiItemBonusEnabled: e.target.checked }))
-                    }
-                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                  />
-                  <span className="text-sm font-medium text-amber-800">
-                    Add bonus when sale has multiple items
-                  </span>
-                </label>
-                <p className="mt-1 ml-7 text-xs text-amber-700">
-                  Extra commission (% or $) when the sale contains 2+ items (e.g. multi-product orders).
-                </p>
-                {formData.multiItemBonusEnabled && (
-                  <div className="mt-4 ml-7 space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-amber-800">Bonus type</label>
-                      <select
-                        value={formData.multiItemBonusType}
-                        onChange={(e) =>
-                          setFormData((f) => ({
-                            ...f,
-                            multiItemBonusType: e.target.value as 'PERCENT' | 'FLAT',
-                          }))
-                        }
-                        className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      >
-                        <option value="PERCENT">Percentage</option>
-                        <option value="FLAT">Flat amount ($)</option>
-                      </select>
-                    </div>
-                    {formData.multiItemBonusType === 'PERCENT' ? (
-                      <div>
-                        <label className="block text-sm font-medium text-amber-800">
-                          Extra percentage
-                        </label>
-                        <div className="relative mt-1">
-                          <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={0.1}
-                            value={formData.multiItemBonusPercentBps / 100}
-                            onChange={(e) =>
-                              setFormData((f) => ({
-                                ...f,
-                                multiItemBonusPercentBps: Math.round(
-                                  parseFloat(e.target.value || '0') * 100
-                                ),
-                              }))
-                            }
-                            className="w-full rounded-lg border border-amber-300 bg-white py-2 pr-8 pl-3 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-sm font-medium text-amber-800">
-                          Extra amount ($)
-                        </label>
-                        <div className="relative mt-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={formData.multiItemBonusFlatCents / 100}
-                            onChange={(e) =>
-                              setFormData((f) => ({
-                                ...f,
-                                multiItemBonusFlatCents: Math.round(
-                                  parseFloat(e.target.value || '0') * 100
-                                ),
-                              }))
-                            }
-                            className="w-full rounded-lg border border-amber-300 bg-white py-2 pl-7 pr-3 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-sm font-medium text-amber-800">
-                        Minimum items to trigger bonus
-                      </label>
-                      <input
-                        type="number"
-                        min={2}
-                        max={99}
-                        value={formData.multiItemMinQuantity}
-                        onChange={(e) =>
-                          setFormData((f) => ({
-                            ...f,
-                            multiItemMinQuantity: Math.max(2, parseInt(e.target.value, 10) || 2),
-                          }))
-                        }
-                        className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      />
-                      <p className="mt-0.5 text-xs text-amber-600">Apply when sale has this many items or more (default 2).</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4">
+              <div className="rounded-lg border-2 border-emerald-300 bg-emerald-50 p-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
                   <Package className="h-4 w-4" />
                   Custom commission per product or package
                 </h3>
                 <p className="mt-1 text-xs text-emerald-700">
-                  Add lines to pay an extra % or $ when specific products or packages are sold on this plan.
+                  Add lines below to pay an extra % or $ when specific products or packages are sold on this plan.
                 </p>
                 <div className="mt-3 overflow-x-auto">
                   <table className="w-full text-sm">
@@ -961,7 +859,7 @@ export default function SalesRepCommissionPlansPage() {
                               }}
                               className="w-full max-w-[200px] rounded border border-emerald-300 bg-white px-2 py-1.5 text-gray-900"
                             >
-                              <option value="">— Select —</option>
+                              <option value="">— Select product or package —</option>
                               <optgroup label="Products">
                                 {products.map((p) => (
                                   <option key={p.id} value={`p-${p.id}`}>
@@ -1073,6 +971,114 @@ export default function SalesRepCommissionPlansPage() {
                   <Plus className="h-4 w-4" />
                   Add line
                 </button>
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.multiItemBonusEnabled}
+                    onChange={(e) =>
+                      setFormData((f) => ({ ...f, multiItemBonusEnabled: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-sm font-medium text-amber-800">
+                    Add bonus when sale has multiple items
+                  </span>
+                </label>
+                <p className="mt-1 ml-7 text-xs text-amber-700">
+                  Extra commission (% or $) when the sale contains 2+ items (e.g. multi-product orders).
+                </p>
+                {formData.multiItemBonusEnabled && (
+                  <div className="mt-4 ml-7 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-amber-800">Bonus type</label>
+                      <select
+                        value={formData.multiItemBonusType}
+                        onChange={(e) =>
+                          setFormData((f) => ({
+                            ...f,
+                            multiItemBonusType: e.target.value as 'PERCENT' | 'FLAT',
+                          }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      >
+                        <option value="PERCENT">Percentage</option>
+                        <option value="FLAT">Flat amount ($)</option>
+                      </select>
+                    </div>
+                    {formData.multiItemBonusType === 'PERCENT' ? (
+                      <div>
+                        <label className="block text-sm font-medium text-amber-800">
+                          Extra percentage
+                        </label>
+                        <div className="relative mt-1">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.1}
+                            value={formData.multiItemBonusPercentBps / 100}
+                            onChange={(e) =>
+                              setFormData((f) => ({
+                                ...f,
+                                multiItemBonusPercentBps: Math.round(
+                                  parseFloat(e.target.value || '0') * 100
+                                ),
+                              }))
+                            }
+                            className="w-full rounded-lg border border-amber-300 bg-white py-2 pr-8 pl-3 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-amber-800">
+                          Extra amount ($)
+                        </label>
+                        <div className="relative mt-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={formData.multiItemBonusFlatCents / 100}
+                            onChange={(e) =>
+                              setFormData((f) => ({
+                                ...f,
+                                multiItemBonusFlatCents: Math.round(
+                                  parseFloat(e.target.value || '0') * 100
+                                ),
+                              }))
+                            }
+                            className="w-full rounded-lg border border-amber-300 bg-white py-2 pl-7 pr-3 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-amber-800">
+                        Minimum items to trigger bonus
+                      </label>
+                      <input
+                        type="number"
+                        min={2}
+                        max={99}
+                        value={formData.multiItemMinQuantity}
+                        onChange={(e) =>
+                          setFormData((f) => ({
+                            ...f,
+                            multiItemMinQuantity: Math.max(2, parseInt(e.target.value, 10) || 2),
+                          }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-gray-900 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                      <p className="mt-0.5 text-xs text-amber-600">Apply when sale has this many items or more (default 2).</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

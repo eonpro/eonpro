@@ -246,7 +246,7 @@ export const POST = withAuthParams(
         ? `<img src="${logoUrl}" alt="${clinicName}" style="height: 40px; max-width: 200px; object-fit: contain;" />`
         : `<h2 style="color: #1f2937; margin: 0;">${clinicName}</h2>`;
 
-      sendEmail({
+      const welcomeEmailResult = await sendEmail({
         to: application.email,
         subject: `Welcome to ${clinicName} Partner Program!`,
         html: `
@@ -296,13 +296,21 @@ export const POST = withAuthParams(
         clinicId: application.clinicId,
         sourceType: 'notification',
         sourceId: `affiliate-welcome-${result.affiliate.id}`,
-      }).catch((err) => {
-        logger.warn('[Admin Applications] Failed to send welcome email', {
-          error: err instanceof Error ? err.message : 'Unknown error',
-          affiliateId: result.affiliate.id,
-          email: application.email,
-        });
       });
+
+      if (!welcomeEmailResult.success) {
+        logger.error('[Admin Applications] Welcome email FAILED to send', {
+          affiliateId: result.affiliate.id,
+          clinicId: application.clinicId,
+          error: welcomeEmailResult.error,
+        });
+      } else {
+        logger.info('[Admin Applications] Welcome email sent', {
+          affiliateId: result.affiliate.id,
+          clinicId: application.clinicId,
+          messageId: welcomeEmailResult.messageId,
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -313,6 +321,8 @@ export const POST = withAuthParams(
           email: result.user.email,
           refCode: result.refCode,
         },
+        welcomeEmailSent: welcomeEmailResult.success,
+        ...(welcomeEmailResult.success ? {} : { welcomeEmailError: 'Welcome email failed to send. The affiliate can request a setup email from the login page.' }),
       });
     } catch (error) {
       logger.error('[Admin Applications] Error approving application', error);

@@ -22,7 +22,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
 
 // ============================================================================
@@ -30,7 +30,8 @@ import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
 // ============================================================================
 
 const RESET_TOKEN_LENGTH = 32; // 256-bit token
-const RESET_TOKEN_EXPIRY_HOURS = 1;
+const RESET_TOKEN_EXPIRY_HOURS = 1; // returning users: 1 hour
+const FIRST_TIME_TOKEN_EXPIRY_HOURS = 72; // first-time affiliates: 72 hours
 
 // ============================================================================
 // Validation
@@ -77,6 +78,7 @@ function getBaseUrl(request: NextRequest): string {
 
 /**
  * Send clinic-branded password reset email to affiliate.
+ * Returns { success, error? } so the caller can detect delivery failures.
  */
 async function sendAffiliateResetEmail(params: {
   email: string;
@@ -85,7 +87,8 @@ async function sendAffiliateResetEmail(params: {
   clinicName?: string;
   clinicLogoUrl?: string | null;
   clinicId?: number;
-}): Promise<void> {
+  expiryHours?: number;
+}): Promise<{ success: boolean; error?: string }> {
   const { email, firstName, resetUrl, clinicName, clinicLogoUrl, clinicId } = params;
 
   const brandName = clinicName || 'EONPro';
@@ -93,7 +96,7 @@ async function sendAffiliateResetEmail(params: {
     ? `<img src="${clinicLogoUrl}" alt="${brandName}" style="height: 40px; max-width: 200px; object-fit: contain;" />`
     : `<h2 style="color: #1f2937; margin: 0;">${brandName}</h2>`;
 
-  await sendEmail({
+  const result = await sendEmail({
     to: email,
     subject: `Set Your Password — ${brandName} Partner Portal`,
     html: `
@@ -123,7 +126,7 @@ async function sendAffiliateResetEmail(params: {
             </a>
           </div>
           <p style="font-size: 13px; line-height: 1.5; color: #6b7280; margin: 24px 0 0;">
-            This link expires in ${RESET_TOKEN_EXPIRY_HOURS} hour and can only be used once.
+            This link expires in ${params.expiryHours ?? RESET_TOKEN_EXPIRY_HOURS} hour${(params.expiryHours ?? RESET_TOKEN_EXPIRY_HOURS) > 1 ? 's' : ''} and can only be used once.
             If you didn't request this, you can safely ignore this email.
           </p>
         </div>
@@ -138,6 +141,8 @@ async function sendAffiliateResetEmail(params: {
     sourceType: 'notification',
     sourceId: 'affiliate-password-reset',
   });
+
+  return { success: result.success, error: result.error };
 }
 
 // ============================================================================
@@ -146,6 +151,17 @@ async function sendAffiliateResetEmail(params: {
 
 async function handler(request: NextRequest) {
   try {
+    // Fail fast if email service is not configured (system issue, not enumeration)
+    if (!isEmailConfigured()) {
+      logger.error('[Affiliate Auth] Email service not configured — cannot send setup emails', {
+        hint: 'Set NEXT_PUBLIC_ENABLE_AWS_SES_EMAIL=true and configure AWS SES credentials',
+      });
+      return NextResponse.json(
+        { error: 'Email service is temporarily unavailable. Please try again later or contact support.' },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const parsed = forgotPasswordSchema.safeParse(body);
 
@@ -239,8 +255,10 @@ async function handler(request: NextRequest) {
     // Generate secure reset token
     const rawToken = crypto.randomBytes(RESET_TOKEN_LENGTH).toString('hex');
     const hashedToken = hashToken(rawToken);
+    const isFirstTime = user.lastPasswordChange === null;
+    const tokenExpiryHours = isFirstTime ? FIRST_TIME_TOKEN_EXPIRY_HOURS : RESET_TOKEN_EXPIRY_HOURS;
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + RESET_TOKEN_EXPIRY_HOURS);
+    expiresAt.setHours(expiresAt.getHours() + tokenExpiryHours);
 
     // Store hashed token
     await prisma.passwordResetToken.create({
@@ -274,24 +292,40 @@ async function handler(request: NextRequest) {
     // First-time users go to /affiliate/welcome (full onboarding)
     // Returning users go to /affiliate/reset-password (password-only)
     const baseUrl = getBaseUrl(request);
-    const isFirstTime = user.lastPasswordChange === null;
     const resetPath = isFirstTime ? '/affiliate/welcome' : '/affiliate/reset-password';
     const resetUrl = `${baseUrl}${resetPath}?token=${rawToken}`;
 
-    // Send branded email
-    await sendAffiliateResetEmail({
+    // Send branded email and verify delivery
+    const emailResult = await sendAffiliateResetEmail({
       email: user.email,
       firstName: user.firstName,
       resetUrl,
       clinicName: affiliate.clinic?.name,
       clinicLogoUrl: affiliate.clinic?.logoUrl,
       clinicId: affiliate.clinicId,
+      expiryHours: tokenExpiryHours,
     });
 
-    logger.info('[Affiliate Auth] Password reset email sent', {
+    if (!emailResult.success) {
+      logger.error('[Affiliate Auth] Failed to send password setup email', {
+        affiliateId: affiliate.id,
+        userId: user.id,
+        clinicId: affiliate.clinicId,
+        error: emailResult.error,
+      });
+
+      return NextResponse.json(
+        { error: 'Failed to send setup email. Please try again later or contact support.' },
+        { status: 503 }
+      );
+    }
+
+    logger.info('[Affiliate Auth] Password setup email sent successfully', {
       affiliateId: affiliate.id,
       userId: user.id,
       clinicId: affiliate.clinicId,
+      isFirstTime,
+      messageId: emailResult.error ? undefined : 'sent',
     });
 
     return successResponse;

@@ -254,8 +254,8 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
 
-            {/* Treatment Details (for WellMedR/Airtable invoices) */}
-            {invoice.metadata?.source === 'wellmedr-airtable' && (
+            {/* Treatment Details */}
+            {(invoice.metadata?.product || invoice.metadata?.medicationType || invoice.metadata?.plan) && (
               <div className="mb-8 rounded-lg bg-emerald-50 p-4">
                 <h3 className="mb-3 text-sm font-medium uppercase text-emerald-800">
                   Treatment Details
@@ -289,7 +289,7 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                     <div>
                       <p className="text-emerald-600">Order ID</p>
                       <p className="text-xs font-medium text-emerald-900">
-                        {invoice.metadata.submissionId.substring(0, 18)}...
+                        {String(invoice.metadata.submissionId).substring(0, 18)}...
                       </p>
                     </div>
                   )}

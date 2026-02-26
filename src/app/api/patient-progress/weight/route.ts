@@ -8,6 +8,8 @@ import { logPHIAccess, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audi
 import { withRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
+export const maxDuration = 30;
+
 // ============================================================================
 // VALIDATION SCHEMAS
 // ============================================================================
