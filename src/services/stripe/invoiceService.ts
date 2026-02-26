@@ -6,6 +6,7 @@ import type { InvoiceStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { triggerAutomation, AutomationTrigger } from '@/lib/email/automations';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
+import { findPatientByEmail } from '@/services/stripe/paymentMatchingService';
 
 export interface InvoiceLineItem {
   description: string;
@@ -231,7 +232,7 @@ export class StripeInvoiceService {
    */
   static async updateFromWebhook(stripeInvoice: Stripe.Invoice): Promise<void> {
     // Find invoice in database
-    const invoice = await prisma.invoice.findUnique({
+    let invoice = await prisma.invoice.findUnique({
       where: { stripeInvoiceId: stripeInvoice.id },
       include: {
         patient: true,
@@ -243,31 +244,67 @@ export class StripeInvoiceService {
       },
     });
 
+    // ──────────────────────────────────────────────────────────────────────
+    // AUTO-CREATE: When Stripe creates an invoice (subscription renewals,
+    // Payment Links, etc.) there is no local record. Create one so that:
+    //   • The payment appears on the patient's billing profile
+    //   • Receipt email is sent
+    //   • SOAP note is auto-generated
+    //   • Affiliate commission is processed
+    //   • Portal invite triggers
+    // Idempotent: gated by stripeInvoiceId unique index.
+    // ──────────────────────────────────────────────────────────────────────
+    let wasAutoCreated = false;
+
+    if (!invoice && stripeInvoice.status === 'paid') {
+      const created = await this.createInvoiceFromStripeWebhook(stripeInvoice);
+      if (created) {
+        invoice = created;
+        wasAutoCreated = true;
+        logger.info('[STRIPE] Auto-created local invoice from Stripe webhook', {
+          invoiceId: created.id,
+          stripeInvoiceId: stripeInvoice.id,
+          patientId: created.patientId,
+          amount: stripeInvoice.amount_paid,
+          billingReason: stripeInvoice.billing_reason,
+        });
+      }
+    }
+
     if (!invoice) {
-      logger.warn(`[STRIPE] Invoice ${stripeInvoice.id} not found in database`);
+      logger.warn(`[STRIPE] Invoice ${stripeInvoice.id} not found and could not be auto-created`, {
+        stripeInvoiceId: stripeInvoice.id,
+        status: stripeInvoice.status,
+        customerId: typeof stripeInvoice.customer === 'string'
+          ? stripeInvoice.customer
+          : stripeInvoice.customer?.id,
+      });
       return;
     }
 
     const wasPaid = stripeInvoice.status === 'paid';
-    const wasNotPaidBefore = invoice.status !== 'PAID';
+    // Auto-created invoices are born as PAID; treat them as newly paid
+    const wasNotPaidBefore = wasAutoCreated || invoice.status !== 'PAID';
 
-    // Update invoice
-    await prisma.invoice.update({
-      where: { id: invoice.id },
-      data: {
-        status: this.mapStripeStatus(stripeInvoice.status),
-        amountDue: stripeInvoice.amount_due,
-        amountPaid: stripeInvoice.amount_paid,
-        stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
-        stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
-        paidAt:
-          stripeInvoice.status === 'paid' && stripeInvoice.status_transitions?.paid_at
-            ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
-            : undefined,
-      },
-    });
+    // Update invoice (skip full update for just-created records to avoid redundant write)
+    if (!wasAutoCreated) {
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          status: this.mapStripeStatus(stripeInvoice.status),
+          amountDue: stripeInvoice.amount_due,
+          amountPaid: stripeInvoice.amount_paid,
+          stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
+          stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
+          paidAt:
+            stripeInvoice.status === 'paid' && stripeInvoice.status_transitions?.paid_at
+              ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
+              : undefined,
+        },
+      });
 
-    logger.debug(`[STRIPE] Updated invoice ${stripeInvoice.id} from webhook`);
+      logger.debug(`[STRIPE] Updated invoice ${stripeInvoice.id} from webhook`);
+    }
 
     // Send receipt email when invoice is paid
     if (wasPaid && wasNotPaidBefore && invoice.patient?.email) {
@@ -301,7 +338,6 @@ export class StripeInvoiceService {
     }
 
     // CRITICAL: Ensure SOAP note exists for paid invoices ready for prescription
-    // This ensures clinical documentation is complete before providers prescribe
     if (wasPaid && wasNotPaidBefore) {
       try {
         const soapResult = await ensureSoapNoteExists(invoice.patientId, invoice.id);
@@ -312,7 +348,6 @@ export class StripeInvoiceService {
           soapNoteId: soapResult.soapNoteId,
         });
       } catch (soapError: any) {
-        // Log but don't fail - SOAP note can be generated manually if needed
         logger.warn(`[STRIPE] SOAP note generation failed for paid invoice`, {
           invoiceId: invoice.id,
           patientId: invoice.patientId,
@@ -320,22 +355,207 @@ export class StripeInvoiceService {
         });
       }
 
-      // Process affiliate commission for invoice payments (non-blocking)
-      // This is critical because payment_intent.succeeded skips invoice-linked payments,
-      // expecting this handler to process commissions.
+      // Process affiliate commission (non-blocking)
       try {
         await this.processInvoiceCommission(
           invoice,
           stripeInvoice,
         );
       } catch (commissionError) {
-        // Commission failure must never block the invoice update
         logger.warn('[STRIPE] Affiliate commission processing failed for invoice (non-blocking)', {
           invoiceId: invoice.id,
           patientId: invoice.patientId,
           error: commissionError instanceof Error ? commissionError.message : 'Unknown',
         });
       }
+
+      // Auto-send portal invite on payment (always-on, all brands, non-blocking)
+      if (wasAutoCreated) {
+        try {
+          const { triggerPortalInviteOnPayment } = await import('@/lib/portal-invite/service');
+          await triggerPortalInviteOnPayment(invoice.patientId);
+        } catch (inviteErr) {
+          logger.warn('[STRIPE] Portal invite on renewal payment failed (non-fatal)', {
+            invoiceId: invoice.id,
+            patientId: invoice.patientId,
+            error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Create a local Invoice + Payment record from a Stripe-originated invoice.
+   * Used for subscription renewals, Payment Links, and any Stripe-created invoice
+   * that does not have a platform-created counterpart.
+   *
+   * Patient resolution: stripeCustomerId → email fallback (with Stripe Customer fetch).
+   * Idempotent: protected by the stripeInvoiceId unique index.
+   *
+   * Returns the created Invoice (with patient relation) or null if patient cannot be resolved.
+   */
+  private static async createInvoiceFromStripeWebhook(
+    stripeInvoice: Stripe.Invoice
+  ): Promise<(typeof prisma.invoice.$inferSelect & { patient: any; items: any[] }) | null> {
+    const customerId =
+      typeof stripeInvoice.customer === 'string'
+        ? stripeInvoice.customer
+        : stripeInvoice.customer?.id;
+
+    if (!customerId) {
+      logger.warn('[STRIPE] Cannot auto-create invoice: no customer on Stripe invoice', {
+        stripeInvoiceId: stripeInvoice.id,
+      });
+      return null;
+    }
+
+    // Resolve patient from Stripe customer
+    let patient = await prisma.patient.findFirst({
+      where: { stripeCustomerId: customerId },
+    });
+
+    // Email fallback: fetch Stripe customer email and match
+    if (!patient) {
+      try {
+        const stripeClient = getStripe();
+        const stripeCustomer = await stripeClient.customers.retrieve(customerId);
+        if (stripeCustomer && !stripeCustomer.deleted && 'email' in stripeCustomer && stripeCustomer.email) {
+          patient = await findPatientByEmail(stripeCustomer.email.trim().toLowerCase());
+          if (patient) {
+            // Link stripeCustomerId for fast-path on future events
+            await prisma.patient.update({
+              where: { id: patient.id },
+              data: { stripeCustomerId: customerId },
+            });
+            logger.info('[STRIPE] Linked stripeCustomerId via email fallback during invoice auto-create', {
+              patientId: patient.id,
+              stripeInvoiceId: stripeInvoice.id,
+            });
+          }
+        }
+      } catch (emailErr) {
+        logger.warn('[STRIPE] Email fallback for invoice auto-create failed (non-blocking)', {
+          stripeInvoiceId: stripeInvoice.id,
+          error: emailErr instanceof Error ? emailErr.message : 'Unknown',
+        });
+      }
+    }
+
+    if (!patient) {
+      logger.info('[STRIPE] Cannot auto-create invoice: no patient matched for Stripe customer', {
+        stripeInvoiceId: stripeInvoice.id,
+        stripeCustomerId: customerId,
+      });
+      return null;
+    }
+
+    // Build description from Stripe line items
+    const lines = stripeInvoice.lines?.data || [];
+    const description = lines.length > 0
+      ? lines.map((l) => l.description || 'Subscription').join(', ')
+      : stripeInvoice.description || 'Subscription renewal';
+
+    const lineItemsJson = lines.map((l) => ({
+      description: l.description || 'Subscription',
+      amount: l.amount || 0,
+      quantity: l.quantity || 1,
+    }));
+
+    const paidAt = stripeInvoice.status_transitions?.paid_at
+      ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
+      : new Date();
+
+    const paymentIntentId =
+      typeof stripeInvoice.payment_intent === 'string'
+        ? stripeInvoice.payment_intent
+        : stripeInvoice.payment_intent?.id;
+
+    const subscriptionId =
+      typeof stripeInvoice.subscription === 'string'
+        ? stripeInvoice.subscription
+        : stripeInvoice.subscription?.id;
+
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const newInvoice = await tx.invoice.create({
+          data: {
+            patientId: patient!.id,
+            clinicId: patient!.clinicId,
+            stripeInvoiceId: stripeInvoice.id,
+            stripeInvoiceNumber: stripeInvoice.number || undefined,
+            stripeInvoiceUrl: stripeInvoice.hosted_invoice_url || undefined,
+            stripePdfUrl: stripeInvoice.invoice_pdf || undefined,
+            description,
+            amount: stripeInvoice.amount_paid || stripeInvoice.amount_due || 0,
+            amountDue: 0,
+            amountPaid: stripeInvoice.amount_paid || 0,
+            currency: stripeInvoice.currency || 'usd',
+            status: 'PAID' as InvoiceStatus,
+            paidAt,
+            lineItems: lineItemsJson as any,
+            metadata: {
+              source: 'stripe_webhook_auto_create',
+              billingReason: stripeInvoice.billing_reason,
+              stripeSubscriptionId: subscriptionId || undefined,
+              paymentIntentId: paymentIntentId || undefined,
+            } as any,
+          },
+        });
+
+        // Create associated Payment record for full billing trail
+        if (paymentIntentId) {
+          // Guard: skip if payment record already exists (idempotent)
+          const existingPayment = await tx.payment.findUnique({
+            where: { stripePaymentIntentId: paymentIntentId },
+          });
+          if (!existingPayment) {
+            await tx.payment.create({
+              data: {
+                patientId: patient!.id,
+                clinicId: patient!.clinicId,
+                invoiceId: newInvoice.id,
+                stripePaymentIntentId: paymentIntentId,
+                amount: stripeInvoice.amount_paid || 0,
+                currency: stripeInvoice.currency || 'usd',
+                status: 'SUCCEEDED',
+                paidAt,
+                description: `Auto-recorded: ${description}`,
+              },
+            });
+          }
+        }
+
+        return newInvoice;
+      }, { timeout: 15000 });
+
+      // Re-fetch with patient relation so downstream logic has full data
+      const fullInvoice = await prisma.invoice.findUnique({
+        where: { id: result.id },
+        include: {
+          patient: true,
+          items: { include: { product: true } },
+        },
+      });
+
+      return fullInvoice;
+    } catch (createErr: any) {
+      // P2002 = unique constraint violation — another process already created this invoice
+      if (createErr.code === 'P2002') {
+        logger.info('[STRIPE] Invoice auto-create race: already exists (idempotent)', {
+          stripeInvoiceId: stripeInvoice.id,
+        });
+        return await prisma.invoice.findUnique({
+          where: { stripeInvoiceId: stripeInvoice.id },
+          include: { patient: true, items: { include: { product: true } } },
+        });
+      }
+      logger.error('[STRIPE] Failed to auto-create invoice from Stripe webhook', {
+        stripeInvoiceId: stripeInvoice.id,
+        patientId: patient.id,
+        error: createErr.message,
+      });
+      return null;
     }
   }
 

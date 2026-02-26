@@ -350,15 +350,73 @@ async function processWebhookEvent(
           ? invoice.subscription
           : invoice.subscription?.id;
 
+        let refillTriggered = false;
+
         if (invoiceSubscriptionId && invoice.billing_reason !== 'subscription_create') {
           try {
             const { triggerRefillForSubscriptionPayment } =
               await import('@/services/refill/refillQueueService');
 
-            const localSub = await prisma.subscription.findUnique({
+            let localSub = await prisma.subscription.findUnique({
               where: { stripeSubscriptionId: invoiceSubscriptionId },
               select: { id: true, patientId: true, clinicId: true },
             });
+
+            // ────────────────────────────────────────────────────────────
+            // RESILIENCE: If no local subscription exists, attempt on-demand
+            // sync from Stripe. This covers missed customer.subscription.created
+            // webhooks, subscriptions created via Stripe Dashboard, or sync
+            // script gaps. Without this, the refill would silently not trigger.
+            // ────────────────────────────────────────────────────────────
+            if (!localSub) {
+              logger.warn('[STRIPE WEBHOOK] Local subscription missing for renewal — attempting on-demand sync', {
+                stripeSubscriptionId: invoiceSubscriptionId,
+              });
+              try {
+                const { getStripeClient } = await import('@/lib/stripe/config');
+                const stripeForSync = getStripeClient();
+                if (stripeForSync) {
+                  const connectAcct = (event as Stripe.Event & { account?: string }).account;
+                  const requestOpts: import('stripe').default.RequestOptions | undefined = connectAcct
+                    ? { stripeAccount: connectAcct }
+                    : undefined;
+                  const stripeSub = await stripeForSync.subscriptions.retrieve(
+                    invoiceSubscriptionId,
+                    { expand: ['items.data.price.product'] },
+                    requestOpts
+                  );
+
+                  const { syncSubscriptionFromStripe } =
+                    await import('@/services/stripe/subscriptionSyncService');
+                  const syncResult = await syncSubscriptionFromStripe(stripeSub, event.id, {
+                    clinicId: resolvedClinicId > 0 ? resolvedClinicId : undefined,
+                    stripeAccountId: connectAcct || undefined,
+                  });
+
+                  if (syncResult.success && syncResult.subscriptionId) {
+                    localSub = await prisma.subscription.findUnique({
+                      where: { id: syncResult.subscriptionId },
+                      select: { id: true, patientId: true, clinicId: true },
+                    });
+                    logger.info('[STRIPE WEBHOOK] On-demand subscription sync succeeded', {
+                      stripeSubscriptionId: invoiceSubscriptionId,
+                      subscriptionId: syncResult.subscriptionId,
+                    });
+                  } else {
+                    logger.warn('[STRIPE WEBHOOK] On-demand subscription sync did not yield a local record', {
+                      stripeSubscriptionId: invoiceSubscriptionId,
+                      skipped: syncResult.skipped,
+                      reason: syncResult.reason,
+                    });
+                  }
+                }
+              } catch (syncErr) {
+                logger.error('[STRIPE WEBHOOK] On-demand subscription sync failed', {
+                  stripeSubscriptionId: invoiceSubscriptionId,
+                  error: syncErr instanceof Error ? syncErr.message : 'Unknown',
+                });
+              }
+            }
 
             if (localSub) {
               const refill = await triggerRefillForSubscriptionPayment(
@@ -366,12 +424,18 @@ async function processWebhookEvent(
                 undefined,
                 undefined
               );
+              refillTriggered = true;
 
               logger.info('[STRIPE WEBHOOK] Triggered refill for subscription renewal', {
                 subscriptionId: localSub.id,
                 stripeSubscriptionId: invoiceSubscriptionId,
                 refillId: refill?.id,
                 patientId: localSub.patientId,
+              });
+            } else {
+              logger.error('[STRIPE WEBHOOK] Cannot trigger refill: local subscription not found even after on-demand sync', {
+                stripeSubscriptionId: invoiceSubscriptionId,
+                billingReason: invoice.billing_reason,
               });
             }
           } catch (refillErr) {
@@ -387,7 +451,8 @@ async function processWebhookEvent(
           details: {
             invoiceId: invoice.id,
             status: invoice.status,
-            subscriptionRefillTriggered: !!invoiceSubscriptionId && invoice.billing_reason !== 'subscription_create',
+            subscriptionRefillTriggered: refillTriggered,
+            billingReason: invoice.billing_reason,
           },
         };
       }

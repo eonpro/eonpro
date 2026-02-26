@@ -15,6 +15,7 @@ import {
   Sparkles,
   Download,
   Calendar,
+  Receipt,
 } from 'lucide-react';
 
 // Report catalog — one-click access to every report
@@ -35,6 +36,15 @@ const REPORTS = [
     href: '/admin/finance/reports/demographics',
     icon: Users,
     accent: 'teal',
+    featured: true,
+  },
+  {
+    id: 'sales-transactions',
+    name: 'Sales Transactions',
+    description: 'Every transaction with patient name — by day, week, month, or custom dates',
+    href: '/admin/finance/reports/sales',
+    icon: Receipt,
+    accent: 'blue',
     featured: true,
   },
   {

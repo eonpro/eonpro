@@ -28,6 +28,7 @@ import {
   Gauge,
   ClipboardCheck,
   FileText,
+  MessageSquare,
   Link as LinkIcon,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
@@ -130,6 +131,7 @@ const adminNavIconMap = {
   Building2,
   Gauge,
   FileText,
+  MessageSquare,
   Link: LinkIcon,
 } as const;
 

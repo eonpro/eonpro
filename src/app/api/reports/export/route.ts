@@ -35,7 +35,8 @@ type ReportType =
   | 'membership_analytics'
   | 'subscriptions_by_medication'
   | 'subscriptions_by_interval'
-  | 'subscriptions_by_medication_and_interval';
+  | 'subscriptions_by_medication_and_interval'
+  | 'sales_transactions';
 
 async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
@@ -372,6 +373,53 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           'MRR (cents)': r.mrr,
         }));
         filename = `subscriptions_by_medication_and_interval_${new Date().toISOString().split('T')[0]}`;
+        break;
+      }
+
+      case 'sales_transactions': {
+        const salesPayments = await prisma.payment.findMany({
+          where: {
+            ...clinicFilter,
+            createdAt: { gte: start, lte: end },
+          },
+          include: {
+            patient: {
+              select: { firstName: true, lastName: true, email: true, patientId: true },
+            },
+            invoice: {
+              select: {
+                stripeInvoiceNumber: true,
+                items: { select: { description: true, amount: true }, take: 5 },
+              },
+            },
+            subscription: { select: { planName: true, interval: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: AGGREGATION_TAKE,
+        });
+
+        type SalesExport = (typeof salesPayments)[number];
+        data = salesPayments.map((p: SalesExport) => ({
+          'Transaction ID': p.id,
+          Date: p.createdAt.toISOString().split('T')[0],
+          Time: p.createdAt.toISOString().split('T')[1]?.slice(0, 8) || '',
+          'Patient ID': p.patient?.patientId || p.patient?.id || '',
+          'Patient Name': p.patient
+            ? `${p.patient.firstName} ${p.patient.lastName}`.trim()
+            : 'Unknown',
+          'Patient Email': p.patient?.email || '',
+          Amount: formatCurrency(p.amount),
+          'Amount (cents)': p.amount,
+          Status: p.status,
+          'Payment Method': p.paymentMethod || 'Unknown',
+          'Is Recurring': p.subscriptionId ? 'Yes' : 'No',
+          'Subscription Plan': p.subscription?.planName || '',
+          'Invoice #': p.invoice?.stripeInvoiceNumber || '',
+          'Line Items': p.invoice?.items.map((i) => i.description).join('; ') || '',
+          'Refunded Amount': p.refundedAmount ? formatCurrency(p.refundedAmount) : '',
+          'Stripe Payment Intent': p.stripePaymentIntentId || '',
+        }));
+        filename = `sales_transactions_${label.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`;
         break;
       }
 
