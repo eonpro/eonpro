@@ -325,15 +325,19 @@ function preprocessUpdateData(data: unknown): Record<string, unknown> {
   const input = data as Record<string, unknown>;
   const result: Record<string, unknown> = {};
 
-  // Fields where empty string should be treated as "no update"
-  const optionalFields = ['address1', 'address2', 'city', 'state', 'zip'];
+  // Required address fields where empty string means "no update" (would fail validation anyway)
+  const skipIfEmptyFields = ['address1', 'city', 'state', 'zip'];
+  // Nullable fields where empty string means "clear the value"
+  const nullableFields = ['address2', 'notes'];
 
   for (const [key, value] of Object.entries(input)) {
-    // Skip empty strings for optional fields
-    if (optionalFields.includes(key) && value === '') {
+    if (skipIfEmptyFields.includes(key) && value === '') {
       continue;
     }
-    // Keep all other values (including empty strings for required fields - let validation handle those)
+    if (nullableFields.includes(key) && value === '') {
+      result[key] = null;
+      continue;
+    }
     if (value !== undefined) {
       result[key] = value;
     }
