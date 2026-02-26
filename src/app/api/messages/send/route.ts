@@ -295,6 +295,7 @@ function formatTimestamp(date: Date): string {
   return date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'America/New_York',
   });
 }
 

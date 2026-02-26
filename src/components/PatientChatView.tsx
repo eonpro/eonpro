@@ -188,6 +188,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         hour: 'numeric',
         minute: '2-digit',
         hour12: true,
+        timeZone: 'America/New_York',
       }).format(date);
     } catch {
       return '—';
@@ -214,6 +215,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
         month: 'short',
         day: 'numeric',
         year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+        timeZone: 'America/New_York',
       });
     } catch {
       return '—';
