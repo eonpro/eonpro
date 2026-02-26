@@ -22,6 +22,9 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 // Force dynamic rendering to ensure fresh data after intake edits
 export const dynamic = 'force-dynamic';
 
+// Allow up to 30s for heavy patient data queries on Vercel
+export const maxDuration = 30;
+
 type Params = {
   params: { id: string };
 };
@@ -156,7 +159,6 @@ export default async function PatientDetailPage({
           externalUrl: true,
           category: true,
           sourceSubmissionId: true,
-          data: true,
         },
       },
       intakeSubmissions: {
@@ -201,6 +203,37 @@ export default async function PatientDetailPage({
             include: patientInclude,
           });
         });
+      }
+
+      // Fetch intake document data separately to avoid loading binary blobs for ALL documents.
+      // Only MEDICAL_INTAKE_FORM docs need their data field parsed for vitals/affiliate extraction.
+      if (patient && (patient as any).documents?.length > 0) {
+        try {
+          const intakeDocIds = ((patient as any).documents as any[])
+            .filter((d: any) => d.category === 'MEDICAL_INTAKE_FORM')
+            .map((d: any) => d.id);
+
+          if (intakeDocIds.length > 0) {
+            const docClinicId = isSuperAdmin ? (patient.clinicId ?? undefined) : clinicId;
+            const intakeDocsWithData = await runWithClinicContext(docClinicId, async () => {
+              return prisma.patientDocument.findMany({
+                where: { id: { in: intakeDocIds } },
+                select: { id: true, data: true },
+              });
+            });
+
+            const dataMap = new Map(intakeDocsWithData.map((d: any) => [d.id, d.data]));
+            (patient as any).documents = ((patient as any).documents as any[]).map((doc: any) => ({
+              ...doc,
+              data: dataMap.get(doc.id) ?? null,
+            }));
+          }
+        } catch (docDataError) {
+          logger.warn('[PATIENT-DETAIL] Could not fetch intake document data:', {
+            patientId: id,
+            error: docDataError instanceof Error ? docDataError.message : String(docDataError),
+          });
+        }
       }
 
       // Fetch sales rep assignments separately (use patient's clinicId for context when super_admin)
