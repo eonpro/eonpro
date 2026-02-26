@@ -89,7 +89,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           },
         },
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     });
