@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isFeatureEnabled } from '@/lib/features';
 import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { notificationService } from '@/services/notification/notificationService';
 import crypto from 'crypto';
 
 // Twilio Conversations webhook event types
@@ -150,8 +151,26 @@ async function handleMessageAdded(payload: ConversationWebhookPayload): Promise<
           messageSid: MessageSid,
         });
 
-        // TODO: Send real-time notification to staff dashboard
-        // This could trigger a WebSocket event or push notification
+        // Notify clinic admins of inbound patient messages
+        if (senderType === 'PATIENT' && patient.clinicId) {
+          const preview = (Body || '').length > 80 ? `${(Body || '').slice(0, 80)}…` : (Body || '');
+          notificationService.notifyAdmins({
+            clinicId: patient.clinicId,
+            category: 'MESSAGE',
+            priority: 'NORMAL',
+            title: `New message from ${Author || 'Patient'}`,
+            message: preview,
+            actionUrl: '/admin/messages',
+            sourceType: 'patient_chat_webhook',
+            sourceId: `twilio_${MessageSid}`,
+            metadata: { patientId: patient.id, messageSid: MessageSid },
+          }).catch((err) => {
+            logger.error('[CHAT_WEBHOOK] Failed to notify admins', {
+              error: err instanceof Error ? err.message : 'Unknown error',
+              patientId: patient.id,
+            });
+          });
+        }
       }
     } catch (dbError) {
       logger.error('[CHAT_WEBHOOK] Failed to store message', {

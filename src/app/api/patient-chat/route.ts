@@ -18,6 +18,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { notificationService } from '@/services/notification/notificationService';
 import { z } from 'zod';
 
 function safeDecrypt(value: string | null | undefined): string | null {
@@ -382,6 +383,29 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
       userAgent: request.headers.get('user-agent'),
     });
+
+    // Notify clinic admins of new inbound patient message (non-blocking)
+    if (direction === 'INBOUND' && clinicId) {
+      const patientDisplayName = `${patient.firstName} ${patient.lastName}`.trim();
+      const preview = message.length > 80 ? `${message.slice(0, 80)}…` : message;
+      notificationService.notifyAdmins({
+        clinicId,
+        category: 'MESSAGE',
+        priority: 'NORMAL',
+        title: `New message from ${patientDisplayName}`,
+        message: preview,
+        actionUrl: '/admin/messages',
+        sourceType: 'patient_chat',
+        sourceId: `chat_${result.id}`,
+        metadata: { patientId, messageId: result.id, channel },
+      }).catch((err) => {
+        logger.error('Failed to notify admins of new message', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+          patientId,
+          messageId: result.id,
+        });
+      });
+    }
 
     const duration = Date.now() - startTime;
     logger.info('Chat message sent', {

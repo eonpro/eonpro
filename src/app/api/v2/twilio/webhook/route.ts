@@ -4,6 +4,7 @@ import { isFeatureEnabled } from '@/lib/features';
 import { basePrisma, prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { notificationService } from '@/services/notification/notificationService';
 
 function safeDecrypt(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -224,6 +225,28 @@ export async function POST(req: NextRequest) {
             messageSid,
             patientId: resolvedPatientId,
           });
+
+          // Notify clinic admins of inbound SMS from patient
+          if (clinicId && resolvedPatientId) {
+            const preview = (body || '').trim();
+            const truncated = preview.length > 80 ? `${preview.slice(0, 80)}…` : preview;
+            notificationService.notifyAdmins({
+              clinicId,
+              category: 'MESSAGE',
+              priority: 'NORMAL',
+              title: `New SMS from ${senderName || 'Patient'}`,
+              message: truncated,
+              actionUrl: '/admin/messages',
+              sourceType: 'patient_sms_inbound',
+              sourceId: `sms_${messageSid}`,
+              metadata: { patientId: resolvedPatientId, messageSid, channel: 'SMS' },
+            }).catch((err) => {
+              logger.error('[TWILIO_WEBHOOK] Failed to notify admins of SMS', {
+                error: err instanceof Error ? err.message : 'Unknown error',
+                patientId: resolvedPatientId,
+              });
+            });
+          }
         } catch (chatError: any) {
           logger.error('[TWILIO_WEBHOOK] Failed to create PatientChatMessage', {
             error: chatError.message,
