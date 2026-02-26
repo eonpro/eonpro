@@ -143,10 +143,26 @@ export default async function PatientDetailPage({
       },
       orders: {
         orderBy: { createdAt: 'desc' } as const,
+        take: 50,
         include: {
-          rxs: true,
-          provider: true,
-          events: { orderBy: { createdAt: 'desc' } as const },
+          rxs: {
+            select: {
+              id: true,
+              orderId: true,
+              medicationKey: true,
+              medName: true,
+              strength: true,
+              form: true,
+              quantity: true,
+              refills: true,
+              sig: true,
+              daysSupply: true,
+            },
+          },
+          provider: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
         },
       },
       documents: {
@@ -163,8 +179,11 @@ export default async function PatientDetailPage({
       },
       intakeSubmissions: {
         orderBy: { createdAt: 'desc' } as const,
+        take: 20,
         include: {
-          template: true,
+          template: {
+            select: { id: true, name: true, treatmentType: true, version: true },
+          },
           responses: { include: { question: true } },
         },
       },
@@ -390,12 +409,12 @@ export default async function PatientDetailPage({
           else if (typeof doc.data === 'object' && (doc.data.answers || doc.data.sections)) {
             return doc; // Already parsed
           } else {
-            // Unknown format - skip parsing
+            // Unknown format — drop data to prevent non-serializable values reaching RSC
             logger.warn('Unknown data format for document:', {
               docId: doc.id,
               dataType: typeof doc.data,
             });
-            return doc;
+            return { ...doc, data: null };
           }
 
           // Parse the JSON string (skip if it's PDF binary data)
@@ -407,12 +426,12 @@ export default async function PatientDetailPage({
               data: parsedData,
             };
           } else {
-            // Not JSON (likely PDF bytes) - return as-is
-            return doc;
+            // Not JSON (likely PDF bytes) — drop raw binary to prevent RSC serialization issues
+            return { ...doc, data: null };
           }
         } catch (err: any) {
           logger.error('Failed to parse document data:', err.message);
-          return doc;
+          return { ...doc, data: null };
         }
       }
       return doc;
@@ -777,12 +796,28 @@ export default async function PatientDetailPage({
     const bpColor = getBloodPressureColor(vitals.bloodPressure);
     const weightColor = getWeightColor(vitals.weight, vitals.bmi);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // RSC SERIALIZATION SAFETY
+    // ═══════════════════════════════════════════════════════════════════
+    // Strip heavy nested includes (orders, documents, intakeSubmissions,
+    // auditEntries) from the patient object before passing to client
+    // components. RSC recursively serializes all props; the full object
+    // with hundreds of orders+rxs+events causes "Maximum call stack
+    // size exceeded" during the pipe phase.
+    const {
+      orders: _orders,
+      documents: _documents,
+      intakeSubmissions: _intakeSubmissions,
+      auditEntries: _auditEntries,
+      ...patientCore
+    } = patientWithDecryptedPHI;
+
     return (
       <div className="min-h-screen bg-[#efece7] p-6">
         <div className="flex gap-6">
           {/* Left Sidebar - Patient Info & Navigation */}
           <PatientSidebar
-            patient={patientWithDecryptedPHI}
+            patient={patientCore}
             currentTab={currentTab}
             affiliateCode={affiliateCode}
             affiliateAttribution={
@@ -1020,9 +1055,9 @@ export default async function PatientDetailPage({
               <PatientNotesView patientId={patientWithDecryptedPHI.id} />
             ) : currentTab === 'intake' ? (
               <PatientIntakeView
-                patient={patientWithDecryptedPHI}
+                patient={patientCore}
                 documents={documentsWithParsedData}
-                intakeFormSubmissions={patientWithDecryptedPHI.intakeSubmissions}
+                intakeFormSubmissions={patientWithDecryptedPHI.intakeSubmissions ?? []}
                 clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain}
                 fallbackSubdomainForSections={resolveFallbackSubdomain(
                   patientWithDecryptedPHI.clinic?.subdomain,
@@ -1033,15 +1068,15 @@ export default async function PatientDetailPage({
               <PatientSOAPNotesView patientId={patientWithDecryptedPHI.id} />
             ) : currentTab === 'appointments' ? (
               <PatientAppointmentsView
-                patient={patientWithDecryptedPHI}
+                patient={patientCore}
                 clinicId={patientWithDecryptedPHI.clinicId || undefined}
               />
             ) : currentTab === 'progress' ? (
-              <PatientProgressView patient={patientWithDecryptedPHI} />
+              <PatientProgressView patient={patientCore} />
             ) : currentTab === 'prescriptions' ? (
               <PatientPrescriptionsTab
-                patient={patientWithDecryptedPHI}
-                orders={patientWithDecryptedPHI.orders}
+                patient={patientCore}
+                orders={patientWithDecryptedPHI.orders ?? []}
                 shippingLabelMap={shippingLabelMap}
               />
             ) : currentTab === 'billing' ? (
@@ -1072,7 +1107,7 @@ export default async function PatientDetailPage({
                 patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
               />
             ) : currentTab === 'chat' ? (
-              <PatientChatView patient={patientWithDecryptedPHI} />
+              <PatientChatView patient={patientCore} />
             ) : currentTab === 'photos' ? (
               <PatientPhotosView
                 patientId={patientWithDecryptedPHI.id}
