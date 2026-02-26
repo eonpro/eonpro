@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AddressInput, AddressData } from '@/components/AddressAutocomplete';
-import { MEDS, MedicationConfig, SigTemplate } from '@/lib/medications';
+import { MEDS, MedicationConfig, SigTemplate, GLP1_PRODUCT_IDS } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import SignaturePadCanvas from './SignaturePadCanvas';
 import SigBuilder from './SigBuilder';
@@ -542,22 +542,42 @@ export default function PrescriptionForm({
     setShowConfirmation(true);
   }
 
-  async function submit(queueForProvider = false) {
+  async function submit(queueForProvider = false, overrideVialSafeguard = false) {
     try {
       setIsSubmitting(true);
-      // Include patientId when prescribing for an existing patient
-      // This prevents duplicate patient creation across clinics
       const submissionData = {
         ...form,
         patientId: selectedPatientId || null,
         queueForProvider: queueForProvider && isAdminRole,
+        overrideVialSafeguard,
       };
-      const res = await apiFetch('/api/prescriptions', {
+      let res = await apiFetch('/api/prescriptions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submissionData),
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      // Handle 1-month vial safeguard: prompt user to confirm
+      if (!res.ok && data.code === 'VIAL_QUANTITY_SAFEGUARD') {
+        const confirmed = window.confirm(
+          `⚠️ 1-Month Treatment Safeguard\n\n` +
+          `${data.detail}\n\n` +
+          `Do you want to proceed anyway?`
+        );
+        if (!confirmed) {
+          setIsSubmitting(false);
+          return;
+        }
+        // Re-submit with override
+        res = await apiFetch('/api/prescriptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...submissionData, overrideVialSafeguard: true }),
+        });
+        data = await res.json();
+      }
+
       if (!res.ok) {
         logger.error('Prescription submission error:', data);
         // Surface error reason so the user can correct it (e.g. missing DOB/address, gender, or Lifefile message)
@@ -1184,7 +1204,14 @@ export default function PrescriptionForm({
                 <label className="mb-1 block text-xs font-medium text-gray-600">Quantity *</label>
                 <input
                   placeholder="Quantity"
-                  className="w-full border p-2"
+                  className={`w-full border p-2 ${
+                    selectedMed &&
+                    GLP1_PRODUCT_IDS.has(selectedMed.id) &&
+                    Number(rx.quantity) > 1 &&
+                    Number(rx.daysSupply || 30) <= 30
+                      ? 'border-amber-500 ring-1 ring-amber-200'
+                      : ''
+                  }`}
                   value={rx.quantity}
                   onChange={(e: any) => updateRx(index, 'quantity', e.target.value)}
                 />
@@ -1216,6 +1243,27 @@ export default function PrescriptionForm({
                 </select>
               </div>
             </div>
+
+            {/* 1-Month Vial Safeguard Warning */}
+            {selectedMed &&
+              GLP1_PRODUCT_IDS.has(selectedMed.id) &&
+              Number(rx.quantity) > 1 &&
+              Number(rx.daysSupply || 30) <= 30 && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <div className="text-sm">
+                    <p className="font-semibold text-amber-800">
+                      Multiple vials for ≤30 day supply
+                    </p>
+                    <p className="mt-0.5 text-amber-700">
+                      Quantity is <strong>{rx.quantity}</strong> vials with {rx.daysSupply || '30'}-day supply.
+                      A 1-month treatment typically needs only 1 vial. You will be asked to confirm if you proceed.
+                    </p>
+                  </div>
+                </div>
+              )}
 
             {/* Enhanced SigBuilder Component */}
             <SigBuilder

@@ -35,7 +35,7 @@ import {
   ClipboardCheck,
   FileWarning,
 } from 'lucide-react';
-import { MEDS } from '@/lib/medications';
+import { MEDS, GLP1_PRODUCT_IDS } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import SigBuilder from '@/components/SigBuilder';
 import MedicationSelector, { getGLP1SubCategory } from '@/components/MedicationSelector';
@@ -937,12 +937,12 @@ export default function PrescriptionQueuePage() {
     try {
       const { item, details } = prescriptionPanel;
 
-      const payload = {
+      const buildPayload = (overrideVialSafeguard = false) => ({
         patient: {
           firstName: details.patient.firstName,
           lastName: details.patient.lastName,
           dob: details.patient.dob,
-          gender: prescriptionForm.pharmacyGender, // Use pharmacy gender ('m' or 'f' only)
+          gender: prescriptionForm.pharmacyGender,
           phone: details.patient.phone,
           email: details.patient.email,
           address1: prescriptionForm.address1,
@@ -964,11 +964,14 @@ export default function PrescriptionQueuePage() {
         clinicId: details.clinic?.id,
         invoiceId: details.invoice.id,
         patientId: details.patient.id,
-        // CRITICAL: Pass refillId so the backend marks the refill as prescribed
         refillId: item.refillId || null,
-      };
+        planMonths: item.planMonths,
+        overrideVialSafeguard,
+      });
 
-      const response = await apiFetch('/api/prescriptions', {
+      const payload = buildPayload(false);
+
+      let response = await apiFetch('/api/prescriptions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -976,6 +979,32 @@ export default function PrescriptionQueuePage() {
         },
         body: JSON.stringify(payload),
       });
+
+      // Handle 1-month vial safeguard: prompt user to confirm override
+      if (!response.ok) {
+        const peek = await response.clone().json().catch(() => null);
+        if (peek?.code === 'VIAL_QUANTITY_SAFEGUARD') {
+          const confirmed = window.confirm(
+            `⚠️ 1-Month Treatment Safeguard\n\n` +
+            `This is a 1-month plan but ${peek.totalGlp1Vials} GLP-1 vials are being sent.\n` +
+            `Typically only 1 vial is needed for a 1-month supply.\n\n` +
+            `Do you want to proceed anyway?`
+          );
+          if (!confirmed) {
+            setSubmittingPrescription(false);
+            return;
+          }
+          // Re-submit with override
+          response = await apiFetch('/api/prescriptions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${getAuthToken()}`,
+            },
+            body: JSON.stringify(buildPayload(true)),
+          });
+        }
+      }
 
       if (response.ok) {
         // Remove item from queue immediately (backend auto-marks invoice as processed)
@@ -2949,7 +2978,15 @@ export default function PrescriptionQueuePage() {
                                   onChange={(e) =>
                                     updateMedicationField(index, 'quantity', e.target.value)
                                   }
-                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-rose-400"
+                                  className={`w-full rounded-xl border bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
+                                    prescriptionPanel?.item.planMonths === 1 &&
+                                    medication.medicationKey &&
+                                    MEDS[medication.medicationKey] &&
+                                    GLP1_PRODUCT_IDS.has(MEDS[medication.medicationKey].id) &&
+                                    Number(medication.quantity) > 1
+                                      ? 'border-amber-500 ring-2 ring-amber-200'
+                                      : 'border-gray-300'
+                                  }`}
                                 />
                               </div>
                               <div>
@@ -2992,6 +3029,27 @@ export default function PrescriptionQueuePage() {
                                 </select>
                               </div>
                             </div>
+
+                            {/* 1-Month Vial Safeguard Warning */}
+                            {prescriptionPanel?.item.planMonths === 1 &&
+                              medication.medicationKey &&
+                              MEDS[medication.medicationKey] &&
+                              GLP1_PRODUCT_IDS.has(MEDS[medication.medicationKey].id) &&
+                              Number(medication.quantity) > 1 && (
+                                <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                                  <div className="text-sm">
+                                    <p className="font-semibold text-amber-800">
+                                      1-month plan: only 1 vial recommended
+                                    </p>
+                                    <p className="mt-0.5 text-amber-700">
+                                      This patient paid for a 1-month plan but quantity is set to{' '}
+                                      <strong>{medication.quantity}</strong>. Reduce to 1 or confirm
+                                      the override when submitting.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
 
                             {/* Enhanced SigBuilder Component */}
                             <SigBuilder

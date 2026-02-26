@@ -289,6 +289,48 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: errorMessage ?? 'Invalid medication' }, { status: 400 });
     }
 
+    // ── 1-Month Treatment Vial Safeguard ──
+    // GLP-1 medications on a 1-month plan should only have 1 vial.
+    // Block if >1 vial unless the caller explicitly acknowledges the override.
+    const glp1Rxs = rxsWithMeds.filter(({ med }) => GLP1_PRODUCT_IDS.has(med.id));
+    const totalGlp1Vials = glp1Rxs.reduce((sum, { rx }) => sum + (Number(rx.quantity) || 1), 0);
+
+    if (totalGlp1Vials > 1 && glp1Rxs.length > 0) {
+      // Determine plan duration from explicit field or days supply
+      const explicitPlanMonths = (body as any).planMonths ?? (body as any).planDurationMonths;
+      const maxDaysSupply = Math.max(
+        ...p.rxs.map((rx: any) => Number(rx.daysSupply) || 30)
+      );
+      // Infer 1-month if explicitly set, or if max days supply <= 30
+      const is1Month = explicitPlanMonths != null
+        ? Number(explicitPlanMonths) <= 1
+        : maxDaysSupply <= 30;
+
+      if (is1Month && !(body as any).overrideVialSafeguard) {
+        logger.warn('[PRESCRIPTIONS] 1-month plan with multiple GLP-1 vials blocked', {
+          userId: user.id,
+          totalGlp1Vials,
+          explicitPlanMonths,
+          maxDaysSupply,
+          medications: glp1Rxs.map(({ med, rx }) => ({
+            name: med.name,
+            quantity: rx.quantity,
+          })),
+        });
+        return NextResponse.json(
+          {
+            error: 'A 1-month treatment should only include 1 vial.',
+            code: 'VIAL_QUANTITY_SAFEGUARD',
+            detail: `This is a 1-month plan but ${totalGlp1Vials} GLP-1 vials were specified. Please reduce to 1 vial, or confirm the override if this is intentional.`,
+            recoverable: true,
+            totalGlp1Vials,
+            planMonths: explicitPlanMonths ?? 1,
+          },
+          { status: 422 }
+        );
+      }
+    }
+
     // Auto-add syringe kit (1 per vial) for GLP-1 medications (semaglutide/tirzepatide)
     const syringeKitMed = MEDS[String(SYRINGE_KIT_PRODUCT_ID)];
     if (syringeKitMed) {

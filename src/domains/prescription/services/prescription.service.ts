@@ -154,6 +154,33 @@ export function createPrescriptionService(): PrescriptionService {
         return { rx, med };
       });
 
+      // ── 1-Month Treatment Vial Safeguard ──
+      const glp1Rxs = rxsWithMeds.filter(({ med }) => GLP1_PRODUCT_IDS.has(med.id));
+      const totalGlp1Vials = glp1Rxs.reduce((sum, { rx }) => sum + (Number(rx.quantity) || 1), 0);
+
+      if (totalGlp1Vials > 1 && glp1Rxs.length > 0) {
+        const explicitPlanMonths = (input as any).planMonths ?? (input as any).planDurationMonths;
+        const maxDaysSupply = Math.max(
+          ...input.rxs.map((rx: any) => Number(rx.daysSupply) || 30)
+        );
+        const is1Month = explicitPlanMonths != null
+          ? Number(explicitPlanMonths) <= 1
+          : maxDaysSupply <= 30;
+
+        if (is1Month && !(input as any).overrideVialSafeguard) {
+          logger.warn('[PrescriptionService] 1-month plan with multiple GLP-1 vials blocked', {
+            totalGlp1Vials,
+            explicitPlanMonths,
+            maxDaysSupply,
+          });
+          throw new PrescriptionError(
+            `A 1-month treatment should only include 1 vial (got ${totalGlp1Vials}). Confirm the override if intentional.`,
+            422,
+            'VIAL_QUANTITY_SAFEGUARD'
+          );
+        }
+      }
+
       // Auto-add syringe kit (1 per vial) for GLP-1 medications (semaglutide/tirzepatide)
       const syringeKitMed = MEDS[String(SYRINGE_KIT_PRODUCT_ID)];
       if (syringeKitMed) {
