@@ -4,7 +4,17 @@ import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
+
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 const querySchema = z.object({
   search: z.string().max(100).optional(),
@@ -18,7 +28,7 @@ const querySchema = z.object({
  * Centralized admin view of all patient chat conversations for the clinic.
  *
  * - Multi-tenant clinic isolation
- * - Search by patient name
+ * - Search via searchIndex (plaintext index on encrypted PHI)
  * - Filter: all / unread / needs_response
  * - Paginated with aggregate stats
  * - HIPAA audit logged
@@ -52,20 +62,18 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
     const clinicFilter = clinicId ? { clinicId } : {};
 
-    // Build patient where clause with optional name search
+    // Build patient where clause; search uses the plaintext searchIndex
+    // (names are AES-encrypted so LIKE on firstName/lastName won't match)
     const patientWhere: Record<string, unknown> = {
       ...clinicFilter,
       chatMessages: { some: {} },
     };
 
     if (search) {
-      patientWhere.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-      ];
+      patientWhere.searchIndex = { contains: search.toLowerCase(), mode: 'insensitive' };
     }
 
-    // Total count for pagination (before applying filter-specific constraints)
+    // Total count for pagination
     const totalPatients = await prisma.patient.count({ where: patientWhere });
 
     // Fetch patients with their latest message
@@ -124,14 +132,16 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         .map((p) => p.id),
     );
 
-    // Build conversation list
+    // Build conversation list with decrypted patient names
     let conversations = patientsWithMessages.map((p) => {
       const last = p.chatMessages[0];
       const unreadCount = unreadMap.get(p.id) || 0;
+      const firstName = safeDecrypt(p.firstName);
+      const lastName = safeDecrypt(p.lastName);
       return {
         id: last?.id || p.id,
         patientId: p.id,
-        patientName: `${p.firstName} ${p.lastName}`.trim(),
+        patientName: `${firstName} ${lastName}`.trim() || `Patient #${p.id}`,
         lastMessage: last?.message || '',
         lastMessageAt: last?.createdAt?.toISOString() || null,
         timestamp: last?.createdAt ? formatTimestamp(last.createdAt) : '',
