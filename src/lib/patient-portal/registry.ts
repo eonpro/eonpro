@@ -26,14 +26,15 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     exact: true,
     defaultOn: true,
   },
-  {
-    id: 'appointments',
-    pathSuffix: '/appointments',
-    labelKey: 'navAppointments',
-    featureFlagKey: 'showAppointments',
-    navSlot: 'both',
-    defaultOn: true,
-  },
+  // TODO: Re-enable provider appointments when scheduling integration is ready
+  // {
+  //   id: 'appointments',
+  //   pathSuffix: '/appointments',
+  //   labelKey: 'navAppointments',
+  //   featureFlagKey: 'showAppointments',
+  //   navSlot: 'both',
+  //   defaultOn: true,
+  // },
   {
     id: 'care-plan',
     pathSuffix: '/care-plan',
@@ -167,7 +168,6 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
 
 /** Mobile nav uses shorter label keys for some items; registry uses main labelKey; layout maps id -> mobile labelKey where different */
 export const MOBILE_LABEL_OVERRIDE: Record<string, string> = {
-  appointments: 'navAppts',
   medications: 'navMeds',
   settings: 'navProfile',
 };

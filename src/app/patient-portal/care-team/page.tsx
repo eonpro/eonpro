@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   Phone,
-  Video,
   MessageCircle,
   ChevronRight,
 } from 'lucide-react';
@@ -76,11 +75,8 @@ export default function CareTeamPage() {
       window.location.href = `tel:${phone.replace(/\D/g, '')}`;
     }
   };
-  const handleVideo = () => router.push(`${PATIENT_PORTAL_PATH}/appointments?type=video`);
   const handleMessage = (providerId: number) =>
     router.push(`${PATIENT_PORTAL_PATH}/chat?provider=${providerId}`);
-  const handleBookAppointment = (providerId: number) =>
-    router.push(`${PATIENT_PORTAL_PATH}/appointments?provider=${providerId}`);
   const handleContactConcierge = () => router.push(`${PATIENT_PORTAL_PATH}/chat?concierge=true`);
 
   if (loading) {
@@ -163,13 +159,6 @@ export default function CareTeamPage() {
               <Phone className="mb-1 h-6 w-6" />
               <span className="text-sm font-medium">{t('careTeamCall')}</span>
             </button>
-            <button
-              onClick={handleVideo}
-              className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30"
-            >
-              <Video className="mb-1 h-6 w-6" />
-              <span className="text-sm font-medium">{t('careTeamVideo')}</span>
-            </button>
           </div>
         </div>
 
@@ -229,15 +218,6 @@ export default function CareTeamPage() {
                       >
                         {t('careTeamMessage')}
                       </button>
-                      {member.available && (
-                        <button
-                          onClick={() => handleBookAppointment(member.id)}
-                          className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90"
-                          style={{ backgroundColor: primaryColor }}
-                        >
-                          {t('careTeamBookAppointment')}
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
