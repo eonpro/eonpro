@@ -384,41 +384,78 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           },
           include: {
             patient: {
-              select: { firstName: true, lastName: true, email: true, patientId: true },
+              select: {
+                id: true,
+                patientId: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                orders: {
+                  select: { primaryMedName: true, primaryMedStrength: true, primaryMedForm: true },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
             },
             invoice: {
               select: {
                 stripeInvoiceNumber: true,
-                items: { select: { description: true, amount: true }, take: 5 },
+                status: true,
+                amount: true,
+                amountPaid: true,
+                items: { select: { description: true, amount: true, quantity: true, unitPrice: true } },
               },
             },
-            subscription: { select: { planName: true, interval: true } },
+            subscription: { select: { planName: true, interval: true, intervalCount: true, amount: true, status: true } },
           },
           orderBy: { createdAt: 'desc' },
           take: AGGREGATION_TAKE,
         });
 
         type SalesExport = (typeof salesPayments)[number];
-        data = salesPayments.map((p: SalesExport) => ({
-          'Transaction ID': p.id,
-          Date: p.createdAt.toISOString().split('T')[0],
-          Time: p.createdAt.toISOString().split('T')[1]?.slice(0, 8) || '',
-          'Patient ID': p.patient?.patientId || p.patient?.id || '',
-          'Patient Name': p.patient
-            ? `${p.patient.firstName} ${p.patient.lastName}`.trim()
-            : 'Unknown',
-          'Patient Email': p.patient?.email || '',
-          Amount: formatCurrency(p.amount),
-          'Amount (cents)': p.amount,
-          Status: p.status,
-          'Payment Method': p.paymentMethod || 'Unknown',
-          'Is Recurring': p.subscriptionId ? 'Yes' : 'No',
-          'Subscription Plan': p.subscription?.planName || '',
-          'Invoice #': p.invoice?.stripeInvoiceNumber || '',
-          'Line Items': p.invoice?.items.map((i) => i.description).join('; ') || '',
-          'Refunded Amount': p.refundedAmount ? formatCurrency(p.refundedAmount) : '',
-          'Stripe Payment Intent': p.stripePaymentIntentId || '',
-        }));
+        data = salesPayments.map((p: SalesExport) => {
+          const order = p.patient?.orders?.[0];
+          const treatment = order
+            ? [order.primaryMedName, order.primaryMedStrength, order.primaryMedForm].filter(Boolean).join(' ')
+            : '';
+
+          return {
+            'Transaction ID': p.id,
+            'Date': p.createdAt.toISOString().split('T')[0],
+            'Time': p.createdAt.toISOString().split('T')[1]?.slice(0, 8) || '',
+            'Paid At': p.paidAt ? p.paidAt.toISOString() : '',
+            'Patient ID': p.patient?.patientId || p.patient?.id || '',
+            'Patient Name': p.patient
+              ? `${p.patient.firstName} ${p.patient.lastName}`.trim()
+              : 'Unknown',
+            'Patient Email': p.patient?.email || '',
+            'Patient Phone': p.patient?.phone || '',
+            'Treatment': treatment,
+            'Amount': formatCurrency(p.amount),
+            'Amount (cents)': p.amount,
+            'Currency': p.currency || 'usd',
+            'Status': p.status,
+            'Payment Method': p.paymentMethod || 'Unknown',
+            'Failure Reason': p.failureReason || '',
+            'Description': p.description || '',
+            'Is Recurring': p.subscriptionId ? 'Yes' : 'No',
+            'Subscription Plan': p.subscription?.planName || '',
+            'Subscription Interval': p.subscription ? `${p.subscription.intervalCount} ${p.subscription.interval}` : '',
+            'Subscription Amount (cents)': p.subscription?.amount ?? '',
+            'Subscription Status': p.subscription?.status || '',
+            'Invoice #': p.invoice?.stripeInvoiceNumber || '',
+            'Invoice Status': p.invoice?.status || '',
+            'Invoice Total (cents)': p.invoice?.amount ?? '',
+            'Invoice Paid (cents)': p.invoice?.amountPaid ?? '',
+            'Line Items': p.invoice?.items.map((i) => `${i.description} (x${i.quantity} @ ${formatCurrency(i.unitPrice)})`).join('; ') || '',
+            'Refunded Amount': p.refundedAmount ? formatCurrency(p.refundedAmount) : '',
+            'Refunded Amount (cents)': p.refundedAmount || '',
+            'Refunded At': p.refundedAt ? p.refundedAt.toISOString() : '',
+            'Stripe Payment Intent': p.stripePaymentIntentId || '',
+            'Stripe Charge ID': p.stripeChargeId || '',
+          };
+        });
         filename = `sales_transactions_${label.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}`;
         break;
       }
