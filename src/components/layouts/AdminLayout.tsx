@@ -24,6 +24,7 @@ import {
   Key,
   Building2,
   ClipboardCheck,
+  MessageSquare,
 } from 'lucide-react';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
@@ -45,6 +46,7 @@ const adminNavIconMap = {
   Key,
   Settings,
   Building2,
+  MessageSquare,
 } as const;
 
 interface AdminLayoutProps {

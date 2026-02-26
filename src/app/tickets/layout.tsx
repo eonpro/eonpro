@@ -27,6 +27,7 @@ import {
   Shield,
   UserCog,
   Activity,
+  MessageSquare,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -60,6 +61,7 @@ const adminNavIconMap = {
   Key,
   Settings,
   Building2,
+  MessageSquare,
 } as const;
 
 // Fallback UI for ticket errors (used by ErrorBoundary - reports to Sentry)

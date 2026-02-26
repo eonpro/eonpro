@@ -27,6 +27,7 @@ import {
   Ticket,
   BarChart3,
   Calendar,
+  MessageSquare,
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -76,6 +77,7 @@ const navItems = [
   { icon: Home, path: '/', label: 'Home', active: true },
   { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
+  { icon: MessageSquare, path: '/admin/messages', label: 'Messages' },
   { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
   { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
