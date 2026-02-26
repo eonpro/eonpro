@@ -62,23 +62,66 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
     const clinicFilter = clinicId ? { clinicId } : {};
 
-    // Build patient where clause; search uses the plaintext searchIndex
-    // (names are AES-encrypted so LIKE on firstName/lastName won't match)
-    const patientWhere: Record<string, unknown> = {
-      ...clinicFilter,
-      chatMessages: { some: {} },
-    };
+    // Step 1: Find patient IDs with conversations, ordered by latest message,
+    // with DB-level filtering for unread / needs_response.
+    const messageWhereBase: Record<string, unknown> = { ...clinicFilter };
 
-    if (search) {
-      patientWhere.searchIndex = { contains: search.toLowerCase(), mode: 'insensitive' };
+    if (filter === 'unread') {
+      messageWhereBase.direction = 'INBOUND';
+      messageWhereBase.readAt = null;
     }
 
-    // Total count for pagination
-    const totalPatients = await prisma.patient.count({ where: patientWhere });
+    // Get patientIds ordered by most recent message activity (DB-level sort)
+    const recentActivity = await prisma.patientChatMessage.groupBy({
+      by: ['patientId'],
+      where: messageWhereBase,
+      _max: { createdAt: true },
+      orderBy: { _max: { createdAt: 'desc' } },
+      take: 500,
+    });
 
-    // Fetch patients with their latest message
+    let orderedPatientIds = recentActivity.map((r) => r.patientId);
+
+    // For needs_response: further filter to patients whose *latest* message is INBOUND
+    if (filter === 'needs_response') {
+      const latestMessages = await prisma.patientChatMessage.findMany({
+        where: {
+          patientId: { in: orderedPatientIds },
+          ...clinicFilter,
+        },
+        distinct: ['patientId'],
+        orderBy: { createdAt: 'desc' },
+        select: { patientId: true, direction: true },
+      });
+      const needsReplyIds = new Set(
+        latestMessages.filter((m) => m.direction === 'INBOUND').map((m) => m.patientId),
+      );
+      orderedPatientIds = orderedPatientIds.filter((id) => needsReplyIds.has(id));
+    }
+
+    const totalFiltered = orderedPatientIds.length;
+
+    // Paginate the ordered IDs
+    const pageIds = orderedPatientIds.slice((page - 1) * limit, page * limit);
+
+    // Step 2: Search filter — if searching, narrow to matching patients
+    let finalIds = pageIds;
+    if (search && pageIds.length > 0) {
+      const matchingPatients = await prisma.patient.findMany({
+        where: {
+          id: { in: orderedPatientIds },
+          searchIndex: { contains: search.toLowerCase(), mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      const matchSet = new Set(matchingPatients.map((p) => p.id));
+      const filteredOrdered = orderedPatientIds.filter((id) => matchSet.has(id));
+      finalIds = filteredOrdered.slice((page - 1) * limit, page * limit);
+    }
+
+    // Step 3: Fetch patient details + latest message for the page
     const patientsWithMessages = await prisma.patient.findMany({
-      where: patientWhere,
+      where: { id: { in: finalIds } },
       select: {
         id: true,
         firstName: true,
@@ -97,18 +140,17 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
     });
 
-    const patientIds = patientsWithMessages.map((p) => p.id);
+    // Re-sort to match the ordered IDs (DB findMany doesn't preserve IN order)
+    const patientMap = new Map(patientsWithMessages.map((p) => [p.id, p]));
+    const sortedPatients = finalIds.map((id) => patientMap.get(id)).filter(Boolean) as typeof patientsWithMessages;
 
-    // Unread counts (inbound messages not yet read)
+    // Step 4: Unread + total counts for the page
     const unreadCounts = await prisma.patientChatMessage.groupBy({
       by: ['patientId'],
       where: {
-        patientId: { in: patientIds },
+        patientId: { in: finalIds },
         direction: 'INBOUND',
         readAt: null,
         ...clinicFilter,
@@ -117,23 +159,15 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     });
     const unreadMap = new Map(unreadCounts.map((uc) => [uc.patientId, uc._count.id]));
 
-    // Total message counts per patient
     const totalCounts = await prisma.patientChatMessage.groupBy({
       by: ['patientId'],
-      where: { patientId: { in: patientIds }, ...clinicFilter },
+      where: { patientId: { in: finalIds }, ...clinicFilter },
       _count: { id: true },
     });
     const totalMap = new Map(totalCounts.map((tc) => [tc.patientId, tc._count.id]));
 
-    // For "needs_response" filter: find patients whose last message is INBOUND
-    const needsResponseIds = new Set(
-      patientsWithMessages
-        .filter((p) => p.chatMessages[0]?.direction === 'INBOUND')
-        .map((p) => p.id),
-    );
-
     // Build conversation list with decrypted patient names
-    let conversations = patientsWithMessages.map((p) => {
+    const conversations = sortedPatients.map((p) => {
       const last = p.chatMessages[0];
       const unreadCount = unreadMap.get(p.id) || 0;
       const firstName = safeDecrypt(p.firstName);
@@ -151,42 +185,25 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         unread: unreadCount > 0,
         unreadCount,
         totalMessages: totalMap.get(p.id) || 0,
-        needsResponse: needsResponseIds.has(p.id),
+        needsResponse: last?.direction === 'INBOUND',
       };
     });
 
-    // Apply client-side filter
-    if (filter === 'unread') {
-      conversations = conversations.filter((c) => c.unread);
-    } else if (filter === 'needs_response') {
-      conversations = conversations.filter((c) => c.needsResponse);
-    }
-
-    // Sort: unread first, then by most recent activity
-    conversations.sort((a, b) => {
-      if (a.unread !== b.unread) return a.unread ? -1 : 1;
-      if (a.lastMessageAt && b.lastMessageAt) {
-        return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
-      }
-      return 0;
-    });
-
     // Aggregate stats for the entire clinic
-    const totalUnread = await prisma.patientChatMessage.count({
-      where: { direction: 'INBOUND', readAt: null, ...clinicFilter },
-    });
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const activeToday = await prisma.patientChatMessage.groupBy({
-      by: ['patientId'],
-      where: { createdAt: { gte: todayStart }, ...clinicFilter },
-      _count: { id: true },
-    });
+    const [totalConversations, totalUnread, activeToday] = await Promise.all([
+      prisma.patient.count({ where: { ...clinicFilter, chatMessages: { some: {} } } }),
+      prisma.patientChatMessage.count({
+        where: { direction: 'INBOUND', readAt: null, ...clinicFilter },
+      }),
+      prisma.patientChatMessage.groupBy({
+        by: ['patientId'],
+        where: { createdAt: { gte: (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })() }, ...clinicFilter },
+        _count: { id: true },
+      }),
+    ]);
 
     const stats = {
-      totalConversations: totalPatients,
+      totalConversations,
       totalUnread,
       activeToday: activeToday.length,
     };
@@ -211,8 +228,8 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       pagination: {
         page,
         limit,
-        total: totalPatients,
-        totalPages: Math.ceil(totalPatients / limit),
+        total: totalFiltered,
+        totalPages: Math.ceil(totalFiltered / limit),
       },
     });
   } catch (error) {
