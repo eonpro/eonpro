@@ -381,6 +381,27 @@ export class StripeInvoiceService {
             error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
           });
         }
+
+        // Notify admins of the renewal payment (non-blocking)
+        try {
+          const { notificationEvents } = await import('@/services/notification/notificationEvents');
+          const amountDollars = (stripeInvoice.amount_paid || 0) / 100;
+          const patientName = invoice.patient
+            ? `${invoice.patient.firstName || ''} ${invoice.patient.lastName || ''}`.trim()
+            : 'Patient';
+          await notificationEvents.paymentReceived({
+            clinicId: invoice.clinicId || 0,
+            patientId: invoice.patientId,
+            patientName,
+            amount: amountDollars,
+            invoiceNumber: stripeInvoice.number || undefined,
+          });
+        } catch (notifErr) {
+          logger.warn('[STRIPE] Payment notification for renewal failed (non-fatal)', {
+            invoiceId: invoice.id,
+            error: notifErr instanceof Error ? notifErr.message : 'Unknown',
+          });
+        }
       }
     }
   }

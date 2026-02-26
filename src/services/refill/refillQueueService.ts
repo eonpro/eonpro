@@ -545,6 +545,11 @@ export async function processAdminApproval(input: AdminApprovalInput): Promise<R
     newStatus,
   });
 
+  // Notify providers when refill is approved (non-blocking)
+  if (approved) {
+    notifyRefillApproved(updated).catch(() => {});
+  }
+
   return updated;
 }
 
@@ -1242,6 +1247,9 @@ export async function triggerRefillForSubscriptionPayment(
     stripePaymentId,
   });
 
+  // Notify admins that a refill is due (non-blocking)
+  notifyRefillDue(subscription, refill).catch(() => {});
+
   return refill;
 }
 
@@ -1419,4 +1427,104 @@ function extractMedicationName(planName: string | null): string | undefined {
   if (lower.includes('semaglutide')) return 'Semaglutide';
   if (lower.includes('tirzepatide')) return 'Tirzepatide';
   return undefined;
+}
+
+// ============================================================================
+// Notification Helpers (non-blocking, fire-and-forget)
+// ============================================================================
+
+/**
+ * Safe PHI decryption: returns original value if decryption fails or value is plaintext.
+ */
+function safeDecryptForNotification(value: string | null): string {
+  if (!value) return 'Patient';
+  try {
+    const parts = value.split(':');
+    if (parts.length === 3 && parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+      const { decryptPHI } = require('@/lib/security/phi-encryption');
+      return decryptPHI(value) || value;
+    }
+    return value;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Notify admins when a subscription refill is due (PENDING_ADMIN).
+ * Sent as in-app notification + WebSocket push via notificationEvents.refillDue().
+ */
+async function notifyRefillDue(
+  subscription: Subscription & { patient?: Patient | null },
+  refill: RefillQueue
+): Promise<void> {
+  try {
+    if (!subscription.clinicId) return;
+
+    const firstName = safeDecryptForNotification(subscription.patient?.firstName ?? null);
+    const lastName = safeDecryptForNotification(subscription.patient?.lastName ?? null);
+    const patientName = `${firstName} ${lastName}`.trim() || 'Patient';
+    const medicationName = extractMedicationName(subscription.planName) || subscription.planName || 'Medication';
+
+    const { notificationEvents } = await import('@/services/notification/notificationEvents');
+
+    await notificationEvents.refillDue({
+      clinicId: subscription.clinicId,
+      patientId: subscription.patientId,
+      patientName,
+      medicationName,
+      daysUntilDue: 0, // Due now — payment confirmed
+    });
+
+    logger.debug('[RefillQueue] Refill due notification sent', {
+      refillId: refill.id,
+      patientId: subscription.patientId,
+    });
+  } catch (err) {
+    logger.warn('[RefillQueue] Refill due notification failed (non-blocking)', {
+      refillId: refill.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
+}
+
+/**
+ * Notify providers when a refill is approved and ready for prescribing.
+ * Sent as in-app notification + WebSocket push via notificationEvents.newRxQueue().
+ */
+async function notifyRefillApproved(refill: RefillQueue): Promise<void> {
+  try {
+    if (!refill.clinicId) return;
+
+    const patient = await prisma.patient.findUnique({
+      where: { id: refill.patientId },
+      select: { firstName: true, lastName: true },
+    });
+
+    const firstName = safeDecryptForNotification(patient?.firstName ?? null);
+    const lastName = safeDecryptForNotification(patient?.lastName ?? null);
+    const patientName = `${firstName} ${lastName}`.trim() || 'Patient';
+    const medName = refill.medicationName || extractMedicationName(refill.planName) || 'Prescription';
+
+    const { notificationEvents } = await import('@/services/notification/notificationEvents');
+
+    await notificationEvents.newRxQueue({
+      clinicId: refill.clinicId,
+      patientId: refill.patientId,
+      patientName,
+      treatmentType: medName,
+      isRefill: true,
+      priority: 'normal',
+    });
+
+    logger.debug('[RefillQueue] Refill approved notification sent to providers', {
+      refillId: refill.id,
+      patientId: refill.patientId,
+    });
+  } catch (err) {
+    logger.warn('[RefillQueue] Refill approved notification failed (non-blocking)', {
+      refillId: refill.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
 }
