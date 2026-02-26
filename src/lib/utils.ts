@@ -1,6 +1,27 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+const HTML_ENTITY_MAP: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#x27;': "'",
+  '&#039;': "'",
+  '&#x5C;': '\\',
+  '&#x60;': '`',
+};
+
+const ENTITY_REGEX = /&(?:amp|lt|gt|quot|#x27|#039|#x5C|#x60);/g;
+
+/**
+ * Decode HTML entities that were stored in the DB by legacy sanitization.
+ */
+export function decodeHtmlEntities(text: string): string {
+  if (!text) return text;
+  return text.replace(ENTITY_REGEX, (match) => HTML_ENTITY_MAP[match] || match);
+}
+
 /**
  * Combines class names using clsx and tailwind-merge
  * This ensures Tailwind CSS classes are properly merged without conflicts
