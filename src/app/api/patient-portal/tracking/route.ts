@@ -295,10 +295,21 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       (a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime()
     );
 
-    // Separate active (non-delivered) and history (delivered)
-    const activeShipments = allShipments.filter(
-      (s) => s.status !== 'delivered' && s.status !== 'exception'
-    );
+    const TRACKING_VISIBLE_LIMIT_MS = 3 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const activeShipments = allShipments.filter((s) => {
+      if (s.status === 'delivered' || s.status === 'exception') return false;
+
+      const trackingSince = (s.shippedAt || s.lastUpdate || s.orderedAt) as string | null;
+      if (trackingSince) {
+        const elapsed = now - new Date(trackingSince).getTime();
+        if (elapsed > TRACKING_VISIBLE_LIMIT_MS) return false;
+      }
+
+      return true;
+    });
+
     const deliveredShipments = allShipments.filter(
       (s) => s.status === 'delivered' || s.status === 'exception'
     );
