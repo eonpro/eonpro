@@ -480,13 +480,13 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       <main
         className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${isChatPage ? '' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
+        <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
           {children}
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation - iPhone optimized (hidden on chat page) */}
-      <nav className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden ${isChatPage ? 'hidden' : ''}`}>
+      {/* Mobile Bottom Navigation - iPhone optimized */}
+      <nav className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden`}>
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
             {mobileNavItems.map((item) => {

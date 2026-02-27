@@ -298,7 +298,7 @@ export default function PatientChatPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div
           className="h-10 w-10 animate-spin rounded-full border-[3px] border-t-transparent"
           style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
@@ -307,14 +307,22 @@ export default function PatientChatPage() {
     );
   }
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      window.location.href = PATIENT_PORTAL_PATH;
+    }
+  };
+
   return (
-    <div className="flex h-[100dvh] flex-col bg-gray-50">
+    <div className="flex h-[calc(100dvh-80px)] flex-col bg-gray-50 lg:h-[100dvh]">
       {/* Header */}
       <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
         <button
-          onClick={() => router.push(PATIENT_PORTAL_PATH)}
+          onClick={handleBack}
           aria-label="Go back"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100"
+          className="flex h-12 w-12 items-center justify-center rounded-full text-gray-600 active:bg-gray-100"
         >
           <ArrowLeft className="h-6 w-6" />
         </button>
@@ -448,7 +456,7 @@ export default function PatientChatPage() {
       )}
 
       {/* Input Area */}
-      <div className="pb-safe border-t border-gray-200 bg-white p-4">
+      <div className="border-t border-gray-200 bg-white p-4 lg:pb-safe">
         <div className="flex items-end gap-3">
           {/* Attachment Button */}
           <button
