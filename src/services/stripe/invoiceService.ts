@@ -7,6 +7,20 @@ import { logger } from '@/lib/logger';
 import { triggerAutomation, AutomationTrigger } from '@/lib/email/automations';
 import { ensureSoapNoteExists } from '@/lib/soap-note-automation';
 import { findPatientByEmail } from '@/services/stripe/paymentMatchingService';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+function safeDecryptField(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    const parts = value.split(':');
+    if (parts.length === 3 && parts.every((p) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+      return decryptPHI(value) || '';
+    }
+    return value;
+  } catch {
+    return '';
+  }
+}
 
 export interface InvoiceLineItem {
   description: string;
@@ -138,13 +152,14 @@ export class StripeInvoiceService {
     logger.debug(`[STRIPE] Sent invoice ${invoice.stripeInvoiceId}`);
 
     // Send payment link email to patient
-    if (invoice.patient?.email && sentInvoice.hosted_invoice_url) {
+    const decryptedEmail = safeDecryptField(invoice.patient?.email);
+    if (decryptedEmail && sentInvoice.hosted_invoice_url) {
       try {
         await triggerAutomation({
           trigger: AutomationTrigger.INVOICE_SENT,
-          recipientEmail: invoice.patient.email,
+          recipientEmail: decryptedEmail,
           data: {
-            patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+            patientName: `${safeDecryptField(invoice.patient?.firstName)} ${safeDecryptField(invoice.patient?.lastName)}`.trim(),
             invoiceNumber: sentInvoice.number || invoice.stripeInvoiceId,
             amount: ((invoice.amountDue || 0) / 100).toFixed(2),
             currency: invoice.currency?.toUpperCase() || 'USD',
@@ -307,14 +322,18 @@ export class StripeInvoiceService {
     }
 
     // Send receipt email when invoice is paid
-    if (wasPaid && wasNotPaidBefore && invoice.patient?.email) {
+    const receiptEmail = safeDecryptField(invoice.patient?.email);
+    if (wasPaid && wasNotPaidBefore && receiptEmail) {
       try {
+        const decFirstName = safeDecryptField(invoice.patient?.firstName);
+        const decLastName = safeDecryptField(invoice.patient?.lastName);
+        const fullName = `${decFirstName} ${decLastName}`.trim();
         await triggerAutomation({
           trigger: AutomationTrigger.PAYMENT_RECEIVED,
-          recipientEmail: invoice.patient.email,
+          recipientEmail: receiptEmail,
           data: {
-            patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
-            customerName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
+            patientName: fullName,
+            customerName: fullName,
             invoiceNumber: stripeInvoice.number || stripeInvoice.id,
             amount: ((stripeInvoice.amount_paid || 0) / 100).toFixed(2),
             currency: (stripeInvoice.currency || 'usd').toUpperCase(),
@@ -387,7 +406,7 @@ export class StripeInvoiceService {
           const { notificationEvents } = await import('@/services/notification/notificationEvents');
           const amountDollars = (stripeInvoice.amount_paid || 0) / 100;
           const patientName = invoice.patient
-            ? `${invoice.patient.firstName || ''} ${invoice.patient.lastName || ''}`.trim()
+            ? `${safeDecryptField(invoice.patient.firstName)} ${safeDecryptField(invoice.patient.lastName)}`.trim() || 'Patient'
             : 'Patient';
           await notificationEvents.paymentReceived({
             clinicId: invoice.clinicId || 0,

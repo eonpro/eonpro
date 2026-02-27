@@ -9,7 +9,13 @@ import { getEnabledProgressTabIds } from '@/lib/patient-portal';
 import { logger } from '@/lib/logger';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 import { toast } from '@/components/Toast';
-import WeightTracker from '@/components/WeightTracker';
+import dynamic from 'next/dynamic';
+
+const WeightTracker = dynamic(() => import('@/components/WeightTracker'), {
+  loading: () => <div className="animate-pulse rounded-2xl bg-gray-100 h-80 w-full" />,
+  ssr: false,
+});
+
 import {
   Scale,
   Droplets,

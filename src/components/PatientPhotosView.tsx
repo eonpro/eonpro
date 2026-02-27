@@ -19,9 +19,11 @@ import {
   Clock,
   AlertCircle,
   X,
+  XCircle,
   ZoomIn,
   Loader2,
   RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { apiFetch } from '@/lib/api/fetch';
@@ -134,6 +136,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   const [activeCategory, setActiveCategory] = useState<
     'all' | 'progress' | 'verification' | 'medical'
   >('all');
+  const [verifying, setVerifying] = useState(false);
+  const [verificationNotes, setVerificationNotes] = useState('');
+  const [verificationSuccess, setVerificationSuccess] = useState<string | null>(null);
 
   const fetchPhotos = useCallback(async () => {
     setLoading(true);
@@ -158,6 +163,55 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   useEffect(() => {
     fetchPhotos();
   }, [fetchPhotos]);
+
+  const handleVerify = async (photoId: number, action: 'approve' | 'reject' | 'request_resubmit') => {
+    setVerifying(true);
+    setVerificationSuccess(null);
+
+    try {
+      const response = await apiFetch('/api/admin/verification-queue', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          photoId,
+          action,
+          notes: action !== 'approve' ? verificationNotes : undefined,
+        }),
+      });
+
+      if (response.ok) {
+        const statusLabel =
+          action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'marked for resubmission';
+        setVerificationSuccess(`Photo ${statusLabel} successfully`);
+        setVerificationNotes('');
+
+        const newStatus =
+          action === 'approve' ? 'VERIFIED' : action === 'reject' ? 'REJECTED' : 'EXPIRED';
+
+        setPhotos((prev) =>
+          prev.map((p) =>
+            p.id === photoId
+              ? { ...p, verificationStatus: newStatus, verifiedAt: new Date().toISOString() }
+              : p
+          )
+        );
+
+        if (selectedPhoto?.id === photoId) {
+          setSelectedPhoto((prev) =>
+            prev ? { ...prev, verificationStatus: newStatus, verifiedAt: new Date().toISOString() } : prev
+          );
+        }
+
+        setTimeout(() => setVerificationSuccess(null), 3000);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || 'Failed to update verification status');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update verification');
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const categorized = categorizePhotos(photos);
 
@@ -454,6 +508,67 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                         <p className="mt-1 text-xs text-gray-500">
                           Verified: {format(parseISO(selectedPhoto.verifiedAt), 'MMM d, yyyy')}
                         </p>
+                      )}
+
+                      {/* Admin Verification Actions */}
+                      {(selectedPhoto.verificationStatus === 'PENDING' ||
+                        selectedPhoto.verificationStatus === 'IN_REVIEW') && (
+                        <div className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                          <p className="text-xs font-semibold uppercase text-gray-600">
+                            Verification Actions
+                          </p>
+
+                          {verificationSuccess && (
+                            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              {verificationSuccess}
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleVerify(selectedPhoto.id, 'approve')}
+                              disabled={verifying}
+                              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+                            >
+                              {verifying ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-3.5 w-3.5" />
+                              )}
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleVerify(selectedPhoto.id, 'reject')}
+                              disabled={verifying}
+                              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {verifying ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5" />
+                              )}
+                              Reject
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={() => handleVerify(selectedPhoto.id, 'request_resubmit')}
+                            disabled={verifying}
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700 transition-colors hover:bg-orange-100 disabled:opacity-50"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Request Resubmission
+                          </button>
+
+                          <textarea
+                            value={verificationNotes}
+                            onChange={(e) => setVerificationNotes(e.target.value)}
+                            placeholder="Notes (required for reject/resubmit)..."
+                            rows={2}
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700 placeholder:text-gray-400 focus:border-[var(--brand-primary)] focus:outline-none"
+                          />
+                        </div>
                       )}
                     </div>
                   )}

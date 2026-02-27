@@ -23,6 +23,7 @@ import { outfitFont as sofiaPro } from './fonts-fallback';
 
 export const metadata = {
   title: 'EONPRO',
+  robots: { index: false, follow: false },
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },

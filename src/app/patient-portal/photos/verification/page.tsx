@@ -14,7 +14,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { safeParseJson } from '@/lib/utils/safe-json';
-import { PhotoUploader } from '@/components/patient-portal/photos';
+import dynamic from 'next/dynamic';
+
+const PhotoUploader = dynamic(
+  () => import('@/components/patient-portal/photos').then(mod => ({ default: mod.PhotoUploader })),
+  {
+    loading: () => <div className="animate-pulse rounded-2xl bg-gray-100 h-64 w-full" />,
+    ssr: false,
+  },
+);
 import {
   Shield,
   CheckCircle,
