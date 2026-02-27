@@ -10,39 +10,32 @@ import { logger } from '@/lib/logger';
 import {
   Package,
   Truck,
-  CheckCircle2,
   Clock,
-  MapPin,
   ExternalLink,
-  ChevronRight,
   Calendar,
-  AlertTriangle,
-  History,
   ArrowLeft,
   RefreshCw,
-  Box,
-  Home,
-  Sparkles,
 } from 'lucide-react';
+
+interface ShipmentItem {
+  name: string;
+  strength?: string;
+  quantity: number;
+}
 
 interface Shipment {
   id: string;
   orderNumber: string;
-  status: 'processing' | 'shipped' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'exception';
+  status: string;
   statusLabel: string;
-  step: number;
   carrier: string;
   trackingNumber: string;
   trackingUrl: string | null;
-  items: Array<{ name: string; strength?: string; quantity: number }>;
+  items: ShipmentItem[];
   orderedAt: string;
   shippedAt: string | null;
   estimatedDelivery: string | null;
-  deliveredAt: string | null;
   lastUpdate: string;
-  lastLocation: string | null;
-  isRefill: boolean;
-  refillNumber: number | null;
 }
 
 interface PrescriptionJourney {
@@ -50,76 +43,28 @@ interface PrescriptionJourney {
   label: string;
   message: string;
   medicationName: string | null;
-  orderId?: number;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
   carrier?: string | null;
   orderedAt?: string | null;
 }
 
-const statusConfig = {
-  processing: {
-    label: 'Processing',
-    color: '#F59E0B',
-    bgColor: 'bg-amber-100',
-    textColor: 'text-amber-700',
-    gradient: 'from-amber-400 to-orange-500',
-    icon: Clock,
-  },
-  shipped: {
-    label: 'Shipped',
-    color: '#3B82F6',
-    bgColor: 'bg-blue-100',
-    textColor: 'text-blue-700',
-    gradient: 'from-blue-400 to-blue-600',
-    icon: Package,
-  },
-  in_transit: {
-    label: 'In Transit',
-    color: '#06B6D4',
-    bgColor: 'bg-cyan-100',
-    textColor: 'text-cyan-700',
-    gradient: 'from-cyan-400 to-teal-600',
-    icon: Truck,
-  },
-  out_for_delivery: {
-    label: 'Out for Delivery',
-    color: '#10B981',
-    bgColor: 'bg-emerald-100',
-    textColor: 'text-emerald-700',
-    gradient: 'from-emerald-400 to-teal-500',
-    icon: Truck,
-  },
-  delivered: {
-    label: 'Delivered',
-    color: '#059669',
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-700',
-    gradient: 'from-green-400 to-emerald-600',
-    icon: CheckCircle2,
-  },
-  exception: {
-    label: 'Exception',
-    color: '#EF4444',
-    bgColor: 'bg-red-100',
-    textColor: 'text-red-700',
-    gradient: 'from-red-400 to-rose-500',
-    icon: AlertTriangle,
-  },
-};
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export default function ShipmentsPage() {
   const { branding } = useClinicBranding();
   const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const [activeShipments, setActiveShipments] = useState<Shipment[]>([]);
-  const [deliveredShipments, setDeliveredShipments] = useState<Shipment[]>([]);
+  const [allShipments, setAllShipments] = useState<Shipment[]>([]);
   const [prescriptionJourney, setPrescriptionJourney] = useState<PrescriptionJourney | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
-  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -154,17 +99,11 @@ export default function ShipmentsPage() {
         data !== null && typeof data === 'object' && 'prescriptionJourney' in data
           ? (data as { prescriptionJourney?: PrescriptionJourney | null }).prescriptionJourney ?? null
           : null;
-      setActiveShipments(Array.isArray(active) ? active : []);
-      setDeliveredShipments(Array.isArray(delivered) ? delivered : []);
-      setPrescriptionJourney(journey);
 
-      if (Array.isArray(active) && active.length > 0) {
-        setSelectedShipment(active[0] as Shipment);
-        setActiveTab('active');
-      } else if (Array.isArray(delivered) && delivered.length > 0) {
-        setSelectedShipment(delivered[0] as Shipment);
-        setActiveTab('history');
-      }
+      const merged = [...(Array.isArray(active) ? active : []), ...(Array.isArray(delivered) ? delivered : [])];
+      merged.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
+      setAllShipments(merged);
+      setPrescriptionJourney(journey);
     } catch (err) {
       logger.error('Error loading shipments', {
         error: err instanceof Error ? err.message : 'Unknown',
@@ -177,12 +116,9 @@ export default function ShipmentsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setError(null);
     await loadShipments();
     setRefreshing(false);
   };
-
-  const currentShipments = activeTab === 'active' ? activeShipments : deliveredShipments;
 
   if (loading) {
     return (
@@ -230,455 +166,97 @@ export default function ShipmentsPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="mb-6 inline-flex rounded-2xl border border-gray-100 bg-white p-1.5 shadow-sm">
-        <button
-          onClick={() => {
-            setActiveTab('active');
-            if (activeShipments.length > 0) setSelectedShipment(activeShipments[0]);
-          }}
-          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
-            activeTab === 'active'
-              ? 'text-white shadow-lg'
-              : 'text-gray-600 hover:bg-gray-50'
-          }`}
-          style={activeTab === 'active' ? { backgroundColor: primaryColor, boxShadow: `0 10px 15px ${primaryColor}30` } : undefined}
+      {/* Prescription Journey (when no shipments yet) */}
+      {allShipments.length === 0 && prescriptionJourney && prescriptionJourney.stage <= 3 && (
+        <div
+          className="mb-6 overflow-hidden rounded-2xl border bg-white shadow-sm"
+          style={{ borderColor: `${primaryColor}20` }}
         >
-          <Truck className="h-4 w-4" />
-          Active ({activeShipments.length})
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab('history');
-            if (deliveredShipments.length > 0) setSelectedShipment(deliveredShipments[0]);
-          }}
-          className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all ${
-            activeTab === 'history'
-              ? 'text-white shadow-lg'
-              : 'text-gray-600 hover:bg-gray-50'
-          }`}
-          style={activeTab === 'history' ? { backgroundColor: primaryColor, boxShadow: `0 10px 15px ${primaryColor}30` } : undefined}
-        >
-          <History className="h-4 w-4" />
-          History ({deliveredShipments.length})
-        </button>
-      </div>
-
-      {currentShipments.length === 0 ? (
-        activeTab === 'active' &&
-        prescriptionJourney &&
-        prescriptionJourney.stage <= 3 ? (
           <div
-            className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg"
-            style={{
-              borderColor: `${primaryColor}20`,
-            }}
+            className="flex items-center gap-3 px-5 py-4 text-white"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)` }}
           >
-            <div
-              className="px-6 py-5 text-white"
-              style={{
-                background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`,
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-                  <Clock className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white/90">
-                    {prescriptionJourney.stage === 1
-                      ? t('journeyStep1Label')
-                      : prescriptionJourney.stage === 3
-                        ? t('journeyStep3Label')
-                        : prescriptionJourney.stage === 4
-                          ? t('journeyStep4Label')
-                          : prescriptionJourney.label}
-                  </p>
-                  <p className="mt-0.5 text-lg font-bold text-white">{t('journeyPrescriptionStatus')}</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <p className="mb-6 text-gray-700">
-                {prescriptionJourney.stage === 1
-                  ? t('journeyMessageStage1')
-                  : prescriptionJourney.stage === 3
-                    ? t('journeyMessageStage3WithMed').replace(
-                        '{medName}',
-                        prescriptionJourney.medicationName || t('journeyYourMedication')
-                      )
-                    : prescriptionJourney.stage === 4
-                      ? t('journeyMessageStage4')
-                      : prescriptionJourney.message}
-              </p>
-              <div className="space-y-4">
-                {[
-                  { step: 1, labelKey: 'journeyStep1Label', descKey: 'journeyStep1Desc' },
-                  { step: 2, labelKey: 'journeyStep2Label', descKey: 'journeyStep2Desc' },
-                  { step: 3, labelKey: 'journeyStep3Label', descKey: 'journeyStep3Desc' },
-                  { step: 4, labelKey: 'journeyStep4Label', descKey: 'journeyStep4Desc' },
-                ].map((s) => {
-                  const isCompleted = prescriptionJourney.stage > s.step;
-                  const isCurrent = prescriptionJourney.stage === s.step;
-                  return (
-                    <div
-                      key={s.step}
-                      className="flex gap-4 rounded-2xl border p-4 transition-all"
-                      style={{
-                        borderColor: isCurrent
-                          ? `${primaryColor}80`
-                          : isCompleted
-                            ? `${primaryColor}30`
-                            : '#e5e7eb',
-                        backgroundColor: isCurrent
-                          ? `${primaryColor}0f`
-                          : isCompleted
-                            ? `${primaryColor}08`
-                            : undefined,
-                      }}
-                    >
-                      <div
-                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
-                        style={{
-                          backgroundColor:
-                            isCompleted || isCurrent ? primaryColor : '#e5e7eb',
-                          color: isCompleted || isCurrent ? 'white' : '#9ca3af',
-                        }}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle2 className="h-5 w-5" />
-                        ) : (
-                          s.step
-                        )}
-                      </div>
-                      <div>
-                        <p
-                          className="font-semibold"
-                          style={
-                            isCurrent ? { color: primaryColor } : undefined
-                          }
-                        >
-                          {t('journeyStepPrefix')} {s.step}. {t(s.labelKey)}
-                        </p>
-                        <p className="mt-0.5 text-sm text-gray-600">{t(s.descKey)}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            <Clock className="h-6 w-6" />
+            <div>
+              <p className="text-sm font-medium text-white/90">{prescriptionJourney.label}</p>
+              <p className="font-bold text-white">Prescription Status</p>
             </div>
           </div>
-        ) : (
-          <div className="rounded-3xl border border-gray-100 bg-white p-12 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50">
-              {activeTab === 'active' ? (
-                <Package className="h-10 w-10 text-gray-400" />
-              ) : (
-                <History className="h-10 w-10 text-gray-400" />
-              )}
-            </div>
-            <h3 className="mb-2 text-xl font-bold text-gray-900">
-              {activeTab === 'active' ? 'No Active Shipments' : 'No Delivery History'}
-            </h3>
-            <p className="text-gray-500">
-              {activeTab === 'active'
-                ? 'Your orders will appear here once shipped.'
-                : 'Your past deliveries will be stored here.'}
-            </p>
+          <div className="p-5">
+            <p className="text-sm text-gray-700">{prescriptionJourney.message}</p>
           </div>
-        )
+        </div>
+      )}
+
+      {/* Shipment List */}
+      {allShipments.length === 0 && (!prescriptionJourney || prescriptionJourney.stage > 3) ? (
+        <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
+            <Package className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="mb-2 text-lg font-bold text-gray-900">No Shipments Yet</h3>
+          <p className="text-gray-500">Your shipments will appear here once your prescriptions are shipped.</p>
+        </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Shipment List */}
-          <div className="space-y-3 lg:col-span-1">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-              {activeTab === 'active' ? 'Active Orders' : 'Past Deliveries'}
-            </h2>
-            {currentShipments.map((shipment) => {
-              const config = statusConfig[shipment.status];
-              const StatusIcon = config.icon;
-              const isSelected = selectedShipment?.id === shipment.id;
-
-              return (
-                <button
-                  key={shipment.id}
-                  onClick={() => setSelectedShipment(shipment)}
-                  className={`w-full rounded-2xl border-2 bg-white p-4 text-left transition-all ${
-                    isSelected
-                      ? 'shadow-lg'
-                      : 'border-transparent shadow-sm hover:border-gray-200 hover:shadow-md'
-                  }`}
-                  style={isSelected ? { borderColor: primaryColor, boxShadow: `0 10px 15px ${primaryColor}10` } : undefined}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`rounded-xl p-2.5 ${config.bgColor}`}>
-                      <StatusIcon className="h-5 w-5" style={{ color: config.color }} />
+        <div className="space-y-4">
+          {allShipments.map((shipment) => (
+            <div
+              key={shipment.id}
+              className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+            >
+              {/* Shipment header */}
+              <div className="border-b border-gray-100 px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-xl"
+                      style={{ backgroundColor: `${primaryColor}15` }}
+                    >
+                      <Truck className="h-5 w-5" style={{ color: primaryColor }} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate font-semibold text-gray-900">
-                          {shipment.orderNumber}
-                        </p>
-                        {shipment.isRefill && (
-                          <span
-                            className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium"
-                            style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
-                          >
-                            <Sparkles className="h-3 w-3" />
-                            Refill
-                          </span>
-                        )}
-                      </div>
-                      <p className={`text-sm font-medium ${config.textColor}`}>
-                        {shipment.statusLabel}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-gray-400">
-                        {(shipment.items ?? []).map((i) => i.name).join(', ')}
-                      </p>
-                    </div>
-                    <ChevronRight
-                      className="h-5 w-5 flex-shrink-0 transition-colors"
-                      style={{ color: isSelected ? primaryColor : '#d1d5db' }}
-                    />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Shipment Details */}
-          {selectedShipment && (
-            <div className="space-y-6 lg:col-span-2">
-              {/* Status Hero Card */}
-              <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg">
-                <div
-                  className="relative px-8 py-8"
-                  style={{
-                    background: selectedShipment.status === 'exception'
-                      ? 'linear-gradient(135deg, #EF4444, #F87171)'
-                      : `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`,
-                  }}
-                >
-                  {/* Decorative elements */}
-                  <div className="absolute inset-0 overflow-hidden">
-                    <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
-                    <div className="absolute -bottom-5 -left-5 h-24 w-24 rounded-full bg-white/10" />
-                  </div>
-
-                  <div className="relative flex items-center justify-between">
                     <div>
-                      <p className="mb-1 text-sm font-medium text-white/80">Order Status</p>
-                      <p className="text-3xl font-bold text-white">
-                        {selectedShipment.statusLabel}
-                      </p>
-                      <p className="mt-1 text-white/70">{selectedShipment.orderNumber}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {selectedShipment.isRefill && (
-                        <span className="flex items-center gap-1 rounded-full bg-white/20 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm">
-                          <Sparkles className="h-4 w-4" />
-                          Refill #{selectedShipment.refillNumber || ''}
-                        </span>
-                      )}
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-                        <Package className="h-7 w-7 text-white" />
-                      </div>
+                      <p className="font-semibold text-gray-900">{shipment.carrier}</p>
+                      <p className="font-mono text-sm text-gray-500">{shipment.trackingNumber}</p>
                     </div>
                   </div>
-
-                  {/* Delivery Info */}
-                  {(selectedShipment.estimatedDelivery || selectedShipment.deliveredAt) && (() => {
-                    const dateStr = selectedShipment.deliveredAt || selectedShipment.estimatedDelivery!;
-                    const parsed = new Date(dateStr);
-                    const isValid = !isNaN(parsed.getTime());
-                    return (
-                      <div className="relative mt-6 rounded-2xl bg-white/20 p-4 backdrop-blur-sm">
-                        <p className="text-xs font-medium text-white/80">
-                          {selectedShipment.status === 'delivered'
-                            ? 'Delivered On'
-                            : 'Expected Delivery'}
-                        </p>
-                        <p className="text-xl font-bold text-white">
-                          {isValid
-                            ? parsed.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-                            : 'Date unavailable'}
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Visual Timeline */}
-                {selectedShipment.status !== 'exception' && (
-                  <div className="px-8 py-6">
-                    <div className="flex items-center justify-between">
-                      {[
-                        { icon: Box, label: 'Ordered', step: 1 },
-                        { icon: Package, label: 'Shipped', step: 2 },
-                        { icon: Truck, label: 'In Transit', step: 3 },
-                        { icon: Truck, label: 'Out for Delivery', step: 4 },
-                        { icon: Home, label: 'Delivered', step: 5 },
-                      ].map((item, idx) => {
-                        const isCompleted = selectedShipment.step > item.step;
-                        const isCurrent = selectedShipment.step === item.step;
-                        const ItemIcon = item.icon;
-
-                        return (
-                          <div key={idx} className="relative flex flex-col items-center">
-                            {idx < 4 && (
-                              <div className="absolute left-[50%] top-5 -z-10 h-1 w-full">
-                                <div
-                                  className="h-full transition-all duration-500"
-                                  style={{ backgroundColor: isCompleted ? primaryColor : '#e5e7eb' }}
-                                />
-                              </div>
-                            )}
-
-                            <div
-                              className={`relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-500 ${
-                                !isCompleted && !isCurrent ? 'bg-gray-100 text-gray-400' : 'text-white'
-                              } ${isCurrent ? 'scale-110' : ''}`}
-                              style={
-                                isCompleted || isCurrent
-                                  ? { background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`, boxShadow: `0 4px 14px ${primaryColor}30` }
-                                  : undefined
-                              }
-                            >
-                              {isCurrent && (
-                                <div
-                                  className="absolute inset-0 animate-ping rounded-full opacity-30"
-                                  style={{ backgroundColor: primaryColor }}
-                                />
-                              )}
-                              {isCompleted ? (
-                                <CheckCircle2 className="h-5 w-5" />
-                              ) : (
-                                <ItemIcon className="h-5 w-5" />
-                              )}
-                            </div>
-
-                            <span
-                              className={`mt-2 text-center text-xs font-medium ${
-                                !isCurrent && !isCompleted ? 'text-gray-400' : ''
-                              }`}
-                              style={isCurrent || isCompleted ? { color: primaryColor } : undefined}
-                            >
-                              {item.label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Tracking Info Card */}
-              <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="mb-4 font-bold text-gray-900">Tracking Information</h3>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div
-                      className="rounded-2xl border p-4"
-                      style={{ borderColor: `${primaryColor}20`, backgroundColor: `${primaryColor}08` }}
-                    >
-                      <p className="mb-1 text-xs font-medium" style={{ color: primaryColor }}>Carrier</p>
-                      <p className="text-lg font-bold text-gray-900">{selectedShipment.carrier}</p>
-                    </div>
-                    <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-slate-50 p-4">
-                      <p className="mb-1 text-xs font-medium text-gray-500">Tracking Number</p>
-                      <p className="break-all font-mono text-sm font-semibold text-gray-900">
-                        {selectedShipment.trackingNumber}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedShipment.lastLocation && (
-                    <div
-                      className="flex items-start gap-3 rounded-2xl border p-4"
-                      style={{ borderColor: `${primaryColor}20`, backgroundColor: `${primaryColor}08` }}
-                    >
-                      <div
-                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
-                        style={{ backgroundColor: `${primaryColor}15` }}
-                      >
-                        <MapPin className="h-5 w-5" style={{ color: primaryColor }} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium" style={{ color: primaryColor }}>Latest Update</p>
-                        <p className="font-semibold text-gray-900">
-                          {selectedShipment.lastLocation}
-                        </p>
-                        <p className="mt-0.5 text-xs" style={{ color: `${primaryColor}99` }}>
-                          {(() => {
-                            const d = new Date(selectedShipment.lastUpdate);
-                            return isNaN(d.getTime()) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                          })()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedShipment.trackingUrl && (
+                  {shipment.trackingUrl && (
                     <a
-                      href={selectedShipment.trackingUrl}
+                      href={shipment.trackingUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold text-white shadow-lg transition-all hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]"
-                      style={{ backgroundColor: primaryColor, boxShadow: `0 10px 30px ${primaryColor}30` }}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white transition-all hover:brightness-90"
+                      style={{ backgroundColor: primaryColor }}
                     >
-                      <Truck className="h-5 w-5" />
-                      Track on {selectedShipment.carrier}
-                      <ExternalLink className="h-4 w-4" />
+                      Track
+                      <ExternalLink className="h-3.5 w-3.5" />
                     </a>
                   )}
                 </div>
               </div>
 
-              {/* Order Items Card */}
-              <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="mb-4 font-bold text-gray-900">📦 Package Contents</h3>
-
-                <div className="space-y-3">
-                  {(selectedShipment.items ?? []).map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between rounded-2xl bg-gray-50 p-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="flex h-10 w-10 items-center justify-center rounded-xl"
-                          style={{ backgroundColor: `${primaryColor}15` }}
-                        >
-                          <Package className="h-5 w-5" style={{ color: primaryColor }} />
-                        </div>
-                        <div>
-                          <span className="font-semibold text-gray-900">{item.name}</span>
-                          {item.strength && (
-                            <span className="ml-2 text-sm text-gray-500">{item.strength}</span>
-                          )}
-                        </div>
-                      </div>
-                      <span className="rounded-full bg-gray-200 px-3 py-1 text-sm font-medium text-gray-600">
-                        Qty: {item.quantity}
-                      </span>
+              {/* Medications & date */}
+              <div className="px-5 py-4">
+                <div className="space-y-2">
+                  {(shipment.items ?? []).map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Package className="h-4 w-4 shrink-0 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                      {item.strength && (
+                        <span className="text-sm text-gray-500">{item.strength}</span>
+                      )}
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 text-sm text-gray-500">
-                  <Calendar className="h-4 w-4" />
-                  {(() => {
-                    const d = new Date(selectedShipment.orderedAt);
-                    return isNaN(d.getTime())
-                      ? 'Order date unavailable'
-                      : `Ordered on ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
-                  })()}
+                <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {shipment.shippedAt
+                    ? `Shipped ${formatDate(shipment.shippedAt)}`
+                    : `Ordered ${formatDate(shipment.orderedAt)}`}
                 </div>
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

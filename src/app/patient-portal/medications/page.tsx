@@ -30,6 +30,7 @@ import {
   ChevronUp,
   FileText,
   Truck,
+  ExternalLink,
 } from 'lucide-react';
 
 interface RxMedication {
@@ -115,12 +116,23 @@ export default function MedicationsPage() {
   const accentIconColor = getContrastTextColor(accentColor) === 'light' ? '#ffffff' : '#1f2937';
   const primaryIconColor = getContrastTextColor(primaryColor) === 'light' ? '#ffffff' : '#1f2937';
 
+  interface TrackingShipment {
+    id: string;
+    carrier: string;
+    trackingNumber: string;
+    trackingUrl: string | null;
+    items: Array<{ name: string; strength?: string; quantity: number }>;
+    orderedAt: string;
+    shippedAt: string | null;
+  }
+
   const { patientId } = usePatientId();
   const [medications, setMedications] = useState<Medication[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [billingPlan, setBillingPlan] = useState<BillingPlan | null>(null);
   const [invoiceHistory, setInvoiceHistory] = useState<InvoiceRecord[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [trackingShipments, setTrackingShipments] = useState<TrackingShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
@@ -162,6 +174,28 @@ export default function MedicationsPage() {
               setPrescriptions(d.prescriptions || []);
               setBillingPlan(d.plan || null);
               setInvoiceHistory(d.invoiceHistory || []);
+            }
+          }
+        })
+        .catch(() => {})
+    );
+
+    fetchPromises.push(
+      portalFetch('/api/patient-portal/tracking')
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await safeParseJson(res);
+            if (data && typeof data === 'object') {
+              const d = data as {
+                activeShipments?: TrackingShipment[];
+                deliveredShipments?: TrackingShipment[];
+              };
+              const all = [
+                ...(d.activeShipments || []),
+                ...(d.deliveredShipments || []),
+              ];
+              all.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
+              setTrackingShipments(all);
             }
           }
         })
@@ -615,6 +649,54 @@ END:VCALENDAR`;
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Shipment History ── */}
+      {trackingShipments.length > 0 && (
+        <div className="mb-8 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
+          <div className="border-b border-gray-100 px-4 py-4 sm:p-5">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Truck className="h-5 w-5 shrink-0 text-gray-400" />
+              Shipment History
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+                {trackingShipments.length}
+              </span>
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {trackingShipments.map((shipment) => (
+              <div key={shipment.id} className="px-4 py-3 sm:px-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {(shipment.items ?? []).map((i) => i.name).join(', ') || 'Medication'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {shipment.carrier}: {shipment.trackingNumber}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-400">
+                      {shipment.shippedAt
+                        ? `Shipped ${formatDate(shipment.shippedAt)}`
+                        : `Ordered ${formatDate(shipment.orderedAt)}`}
+                    </p>
+                  </div>
+                  {shipment.trackingUrl && (
+                    <a
+                      href={shipment.trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      Track
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
