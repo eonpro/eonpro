@@ -207,25 +207,6 @@ export default function CareTeamPage() {
           )}
         </div>
 
-        {/* Concierge Card */}
-        <div className="rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4 sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="font-semibold text-gray-900">{t('careTeamConcierge')}</h3>
-              <p className="mt-1 text-sm text-gray-600">{t('careTeamConciergeDesc')}</p>
-            </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--brand-primary)]">
-              <MessageCircle className="h-5 w-5 text-white" />
-            </div>
-          </div>
-
-          <button
-            onClick={handleContactConcierge}
-            className="w-full rounded-lg bg-[var(--brand-primary)] py-2 text-sm font-medium text-white transition-colors hover:brightness-90"
-          >
-            {t('careTeamContactConcierge')}
-          </button>
-        </div>
       </div>
     </div>
   );
