@@ -14,6 +14,7 @@ model Order {
   messageId          String
   referenceId        String
   lifefileOrderId    String?
+  fulfillmentChannel String    @default("lifefile") // "lifefile" or "dosespot"
   status             String?
   patientId          Int
   providerId         Int
@@ -29,6 +30,12 @@ model Order {
   shippingStatus     String?
   trackingNumber     String?
   trackingUrl        String?
+
+  // DoseSpot E-Prescribing (only populated when fulfillmentChannel = "dosespot")
+  doseSpotPrescriptionId Int?    // DoseSpot prescription ID
+  doseSpotPatientId      Int?    // DoseSpot patient ID (denormalized for queries)
+  externalPharmacyName   String? // Pharmacy name from DoseSpot
+  externalPharmacyId     Int?    // DoseSpot pharmacy ID
 
   // Cancellation tracking
   cancelledAt            DateTime? // When the order was cancelled

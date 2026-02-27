@@ -1293,6 +1293,7 @@ export default function ClinicDetailPage() {
               { id: 'branding', label: 'Branding', icon: Palette },
               { id: 'features', label: 'Features', icon: Settings },
               { id: 'pharmacy', label: 'Pharmacy', icon: Pill, highlight: true },
+              { id: 'dosespot', label: 'DoseSpot', icon: Pill },
               { id: 'users', label: 'Users', icon: Users },
               { id: 'settings', label: 'Settings', icon: Globe },
             ].map((tab) => (
@@ -2633,6 +2634,40 @@ export default function ClinicDetailPage() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {activeTab === 'dosespot' && (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    DoseSpot E-Prescribing
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Configure DoseSpot for e-prescribing to external pharmacies outside the
+                    Lifefile network
+                  </p>
+                </div>
+                <a
+                  href={`/super-admin/clinics/${clinicId}/dosespot`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                >
+                  <Settings className="h-4 w-4" />
+                  Configure DoseSpot
+                </a>
+              </div>
+            </div>
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6">
+              <h4 className="font-semibold text-indigo-900">About DoseSpot</h4>
+              <ul className="mt-2 space-y-1 text-sm text-indigo-800">
+                <li>Enables providers to e-prescribe to any US pharmacy via SSO</li>
+                <li>Supports EPCS (electronic prescribing of controlled substances)</li>
+                <li>Patients and providers are synced automatically on first use</li>
+                <li>Separate from Lifefile in-network prescriptions</li>
+              </ul>
+            </div>
           </div>
         )}
 

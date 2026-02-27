@@ -103,6 +103,9 @@ model Patient {
   // Profile-level notes (staff/admin/provider) with author attribution
   profileNotes PatientNote[]
 
+  // DoseSpot E-Prescribing: patient ID in DoseSpot system (set on first external Rx sync)
+  doseSpotPatientId Int?
+
   // SEARCH INDEX: Lowercased plain-text of searchable fields for DB-level full-text search.
   // Contains: "firstname lastname email phone_digits patientid"
   // Enables SQL LIKE queries via pg_trgm GIN index for O(1) substring matching at any scale.

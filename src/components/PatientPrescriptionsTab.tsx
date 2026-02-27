@@ -29,7 +29,10 @@ type Order = {
     npi: string;
   } | null;
   status: string | null;
+  fulfillmentChannel?: string | null;
   lifefileOrderId?: string | null;
+  doseSpotPrescriptionId?: number | null;
+  externalPharmacyName?: string | null;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
   shippingMethod?: number | null;
@@ -158,6 +161,11 @@ export default function PatientPrescriptionsTab({
                             `Service ${order.shippingMethod}`}
                         </span>
                       )}
+                      {order.fulfillmentChannel === 'dosespot' && order.externalPharmacyName && (
+                        <span className="block text-xs text-indigo-600">
+                          {order.externalPharmacyName}
+                        </span>
+                      )}
                       {order.lifefileOrderId && (
                         <span className="block text-xs text-gray-500">
                           Order #{order.lifefileOrderId}
@@ -170,21 +178,28 @@ export default function PatientPrescriptionsTab({
                       )}
                     </td>
                     <td className="border px-3 py-2 capitalize">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                          order.status === 'success'
-                            ? 'bg-green-100 text-green-800'
-                            : order.status === 'error'
-                              ? 'bg-red-100 text-red-800'
-                              : order.status === 'awaiting_webhook' || order.status === 'processing'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {order.status === 'awaiting_webhook'
-                          ? 'Processing'
-                          : (order.status ?? 'pending')}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                            order.status === 'success'
+                              ? 'bg-green-100 text-green-800'
+                              : order.status === 'error'
+                                ? 'bg-red-100 text-red-800'
+                                : order.status === 'awaiting_webhook' || order.status === 'processing'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {order.status === 'awaiting_webhook'
+                            ? 'Processing'
+                            : (order.status ?? 'pending')}
+                        </span>
+                        {order.fulfillmentChannel === 'dosespot' && (
+                          <span className="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-xs font-semibold text-indigo-700">
+                            External Rx
+                          </span>
+                        )}
+                      </div>
                       {order.lastWebhookAt && (
                         <span className="mt-1 block text-xs normal-case text-gray-500">
                           Updated {new Date(order.lastWebhookAt).toLocaleString()}

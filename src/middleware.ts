@@ -51,6 +51,8 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   for (const [k, v] of Object.entries(securityHeaders)) {
     response.headers.set(k, v);
   }
+  // Block all search engine indexing. Only www.eonpro.io (separate deployment) should be indexed.
+  response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return response;
 }
 

@@ -29,9 +29,13 @@ import {
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
-import ActiveShipmentTracker from '@/components/patient-portal/ActiveShipmentTracker';
-import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import dynamic from 'next/dynamic';
+
+const ActiveShipmentTracker = dynamic(
+  () => import('@/components/patient-portal/ActiveShipmentTracker'),
+  { ssr: false },
+);
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { getPortalMode } from '@/lib/patient-portal/portal-mode';
 import type { PortalMode } from '@/lib/patient-portal/types';
 

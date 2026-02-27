@@ -394,6 +394,20 @@ export const circuitBreakers = {
       );
     },
   }),
+
+  // ENTERPRISE: DoseSpot e-prescribing API circuit breaker
+  dosespot: createCircuitBreaker({
+    name: 'dosespot',
+    timeout: 30000,
+    errorThreshold: 40,
+    volumeThreshold: 5,
+    sleepWindow: 60000,
+    fallback: async () => {
+      throw new Error(
+        'DoseSpot e-prescribing service is temporarily unavailable. Please try again shortly.'
+      );
+    },
+  }),
 };
 
 // Register all pre-configured breakers

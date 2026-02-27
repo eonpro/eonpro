@@ -46,6 +46,9 @@ model Provider {
   passwordResetExpires DateTime?
   passwordResetToken   String?
 
+  // DoseSpot E-Prescribing: clinician ID in DoseSpot system (set on first provider sync)
+  doseSpotClinicianId Int?
+
   // Relations
   orders              Order[]
   auditEntries        ProviderAudit[]

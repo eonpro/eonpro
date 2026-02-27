@@ -77,6 +77,16 @@ model Clinic {
   lifefileInboundAllowedIPs String? // Optional: comma-separated allowed IP addresses
   lifefileInboundEvents    String[] @default([]) // Allowed event types: ["shipping", "prescription", "order", "rx"]
 
+  // DoseSpot E-Prescribing Integration (per-clinic credentials - encrypted)
+  doseSpotEnabled          Boolean @default(false) // Is DoseSpot integration enabled?
+  doseSpotBaseUrl          String? // DoseSpot REST API base URL
+  doseSpotTokenUrl         String? // OAuth2 token endpoint URL
+  doseSpotSsoUrl           String? // SSO login page base URL
+  doseSpotClinicId         String? // DoseSpot clinic ID (OAuth2 client_id)
+  doseSpotClinicKey        String? // DoseSpot clinic key (encrypted - OAuth2 secret + SSO signing key)
+  doseSpotAdminId          String? // DoseSpot admin user ID (OAuth2 username)
+  doseSpotSubscriptionKey  String? // API gateway subscription key (encrypted)
+
   // Zoom Telehealth Integration (per-clinic OAuth)
   zoomAccountId          String?   @unique // Zoom account ID
   zoomAccountEmail       String? // Zoom account email
