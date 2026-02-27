@@ -195,7 +195,6 @@ export async function generateSignedUrl(
   expiresIn: number = 3600
 ): Promise<string> {
   if (!isS3Enabled()) {
-    // Return mock URL for development
     return `https://mock-s3.lifefile.com/${key}?expires=${Date.now() + expiresIn * 1000}`;
   }
 
@@ -215,7 +214,6 @@ export async function generateSignedUrl(
 
     const url = await getSignedUrl(client, command, { expiresIn });
 
-    // Use CloudFront URL if configured
     if (s3Config.cloudFrontUrl && operation === 'GET') {
       const cfUrl = new URL(url);
       cfUrl.host = new URL(s3Config.cloudFrontUrl).host;
@@ -224,10 +222,20 @@ export async function generateSignedUrl(
 
     return url;
   } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[S3] Failed to generate signed URL:', error);
-    throw new Error('Failed to generate file access URL');
+    logger.error('[S3] Failed to generate signed URL', {
+      operation,
+      bucket: s3Config.bucketName,
+      region: s3Config.region,
+      keyPrefix: key.substring(0, 30),
+      hasAccessKey: !!s3Config.accessKeyId,
+      hasSecretKey: !!s3Config.secretAccessKey,
+      errorName: error?.name,
+      errorCode: error?.Code || error?.code,
+      errorMessage: error?.message,
+    });
+    throw new Error(
+      `Failed to generate file access URL: ${error?.message || 'Unknown S3 error'}`
+    );
   }
 }
 

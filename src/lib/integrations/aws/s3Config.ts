@@ -17,18 +17,26 @@ export interface AWSS3Config {
 }
 
 // Load configuration from environment
+// Region priority: AWS_S3_REGION > AWS_REGION > AWS_SES_REGION (shared creds) > us-east-1
 // Use AWS_S3_DOCUMENTS_BUCKET_NAME for patient/intake documents when set (e.g. intakesnew);
 // otherwise fall back to AWS_S3_BUCKET_NAME so existing deployments keep working.
+// All values are trimmed to guard against stray whitespace/newlines in env vars.
 export const s3Config: AWSS3Config = {
-  region: process.env.AWS_S3_REGION || process.env.AWS_REGION || 'us-east-1',
-  bucketName:
+  region: (
+    process.env.AWS_S3_REGION ||
+    process.env.AWS_REGION ||
+    process.env.AWS_SES_REGION ||
+    'us-east-1'
+  ).trim(),
+  bucketName: (
     process.env.AWS_S3_DOCUMENTS_BUCKET_NAME ||
     process.env.AWS_S3_BUCKET_NAME ||
-    'lifefile-documents',
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  cloudFrontUrl: process.env.AWS_CLOUDFRONT_URL,
-  kmsKeyId: process.env.AWS_KMS_KEY_ID,
+    'lifefile-documents'
+  ).trim(),
+  accessKeyId: (process.env.AWS_ACCESS_KEY_ID || '').trim(),
+  secretAccessKey: (process.env.AWS_SECRET_ACCESS_KEY || '').trim(),
+  cloudFrontUrl: process.env.AWS_CLOUDFRONT_URL?.trim(),
+  kmsKeyId: process.env.AWS_KMS_KEY_ID?.trim(),
 };
 
 // Validate S3 configuration
