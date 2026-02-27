@@ -19,7 +19,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
 import { encryptPatientPHI, decryptPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, buildPatientSearchWhere, fuzzyTermMatch } from '@/lib/utils/search';
+import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, buildPatientSearchWhere, buildIncompleteSearchIndexWhere, fuzzyTermMatch } from '@/lib/utils/search';
 
 import {
   PHI_FIELDS,
@@ -244,9 +244,10 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
 
         // Phase 2: Fallback for patients with NULL/empty searchIndex
         // Run BOTH phases in parallel so fallback patients are always found.
+        // Catches NULL, empty, AND incomplete (single-token) searchIndex values.
         const fallbackWhere: Prisma.PatientWhereInput = {
           ...where,
-          OR: [{ searchIndex: null }, { searchIndex: '' }],
+          ...buildIncompleteSearchIndexWhere(),
         };
 
         const [dbPatients, dbTotal, nullIndexCount] = await Promise.all([
@@ -338,7 +339,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }),
         db.patient.count({ where }),
         db.patient.count({
-          where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+          where: { ...where, ...buildIncompleteSearchIndexWhere() },
         }),
       ]);
 
@@ -378,7 +379,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         const dbSearchWhere = { ...where, ...searchFilter };
         const fallbackWhere: Prisma.PatientWhereInput = {
           ...where,
-          OR: [{ searchIndex: null }, { searchIndex: '' }],
+          ...buildIncompleteSearchIndexWhere(),
         };
 
         const [dbPatients, dbTotal, nullIndexCount] = await Promise.all([
@@ -477,7 +478,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         }),
         db.patient.count({ where }),
         db.patient.count({
-          where: { ...where, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+          where: { ...where, ...buildIncompleteSearchIndexWhere() },
         }),
       ]);
 
@@ -1095,7 +1096,7 @@ async function healMissingSearchIndexes(
   const BATCH_SIZE = 500;
 
   const unindexed = await db.patient.findMany({
-    where: { ...baseWhere, OR: [{ searchIndex: null }, { searchIndex: '' }] },
+    where: { ...baseWhere, ...buildIncompleteSearchIndexWhere() },
     select: {
       id: true,
       patientId: true,
@@ -1103,6 +1104,7 @@ async function healMissingSearchIndexes(
       lastName: true,
       email: true,
       phone: true,
+      searchIndex: true,
     },
     take: BATCH_SIZE,
     orderBy: { createdAt: 'desc' },

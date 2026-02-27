@@ -30,7 +30,7 @@ import { withAdminAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
 
 const MAX_BATCH_SIZE = 500;
 const DEFAULT_BATCH_SIZE = 200;
@@ -55,7 +55,7 @@ export const POST = withAdminAuth(async (req: NextRequest) => {
 
   try {
     const whereNull = {
-      OR: [{ searchIndex: null }, { searchIndex: '' }],
+      ...buildIncompleteSearchIndexWhere(),
       ...(clinicId ? { clinicId } : {}),
     };
 

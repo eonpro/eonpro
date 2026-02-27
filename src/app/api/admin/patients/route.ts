@@ -21,7 +21,7 @@ import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
-import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex } from '@/lib/utils/search';
+import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -217,18 +217,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       db.patient.count({ where: whereClause }),
     ]);
 
-    // Phase 2: Fallback for patients with NULL/empty searchIndex
-    // These patients were created before searchIndex was added, or through
-    // code paths that didn't populate it. We scan ALL unindexed in chunks
-    // (not just the first 500 by createdAt) so every patient is findable.
+    // Phase 2: Fallback for patients with NULL/empty/incomplete searchIndex
+    // These patients were created before searchIndex was added, through code
+    // paths that didn't populate it, or have only a patientId token (no name).
+    // We scan ALL such patients in chunks so every patient is findable.
     // Matched patients are self-healed: searchIndex is backfilled so next search uses the fast path.
     const FALLBACK_CHUNK_SIZE = 500;
-    const FALLBACK_MAX_SCAN = 10_000; // Cap total scanned to avoid timeouts; log if hit
+    const FALLBACK_MAX_SCAN = 10_000;
     let fallbackPatients: typeof indexedPatients = [];
     if (search) {
       const fallbackWhere: Prisma.PatientWhereInput = {
         ...baseWhere,
-        AND: [{ OR: [{ searchIndex: null }, { searchIndex: '' }] }],
+        ...buildIncompleteSearchIndexWhere(),
       };
 
       const unindexedCount = await db.patient.count({ where: fallbackWhere });

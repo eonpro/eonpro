@@ -361,10 +361,16 @@ export async function registerPatient(
             (!existingPatient.phone || existingPatient.phone !== normalizedPhone)
               ? { phone: normalizedPhone }
               : {}),
-            // Update email if patient was matched by phone (email may differ)
             ...(existingPatient.email !== normalizedEmail
               ? { email: normalizedEmail }
               : {}),
+            searchIndex: buildPatientSearchIndex({
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              email: normalizedEmail,
+              phone: normalizedPhone,
+              patientId: existingPatient.patientId ?? null,
+            }),
             sourceMetadata: {
               ...(typeof existingPatient.sourceMetadata === 'object'
                 ? existingPatient.sourceMetadata

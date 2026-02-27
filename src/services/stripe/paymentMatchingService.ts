@@ -1813,11 +1813,20 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
         }
 
         if (Object.keys(patientUpdates).length > 0) {
+          const mergedSearchData = {
+            firstName: patientUpdates.firstName ?? (invoice.patient.firstName || null),
+            lastName: patientUpdates.lastName ?? (invoice.patient.lastName || null),
+            email: patientUpdates.email ?? (invoice.patient.email || null),
+            phone: patientUpdates.phone ?? (invoice.patient.phone || null),
+            patientId: invoice.patient.patientId || null,
+          };
+
           await prisma.patient.update({
             where: { id: invoice.patient.id },
             data: {
               ...patientUpdates,
-              profileStatus: 'ACTIVE', // Mark as complete since we have real data now
+              searchIndex: buildPatientSearchIndex(mergedSearchData),
+              profileStatus: 'ACTIVE',
               notes: invoice.patient.notes?.replace(
                 '⚠️ PENDING COMPLETION:',
                 '✅ SYNCED FROM STRIPE:'

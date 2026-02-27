@@ -14,8 +14,9 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { decryptPatientPHI, encryptPHI } from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, decryptPHI, encryptPHI } from '@/lib/security/phi-encryption';
 import { handleApiError } from '@/domains/shared/errors';
+import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 const addressSchema = z.object({
   street: z.string().max(200).optional(),
@@ -227,6 +228,29 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         await tx.user.update({ where: { id: user.id }, data: userUpdateData });
       }
       if (Object.keys(patientUpdateData).length > 0 && dbUser?.patientId) {
+        const phiChanged = firstName !== undefined || lastName !== undefined ||
+          email !== undefined || phone !== undefined;
+
+        if (phiChanged) {
+          const existing = await tx.patient.findUnique({
+            where: { id: dbUser.patientId },
+            select: { firstName: true, lastName: true, email: true, phone: true, patientId: true },
+          });
+
+          const safeDecrypt = (v: unknown): string => {
+            if (v == null || v === '') return '';
+            try { return decryptPHI(String(v)) ?? ''; } catch { return String(v); }
+          };
+
+          patientUpdateData.searchIndex = buildPatientSearchIndex({
+            firstName: firstName ?? safeDecrypt(existing?.firstName),
+            lastName: lastName ?? safeDecrypt(existing?.lastName),
+            email: email ?? safeDecrypt(existing?.email),
+            phone: phone ?? safeDecrypt(existing?.phone),
+            patientId: existing?.patientId ?? null,
+          });
+        }
+
         await tx.patient.update({ where: { id: dbUser.patientId }, data: patientUpdateData });
       }
     }, { timeout: 10000 });

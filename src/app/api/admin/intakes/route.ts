@@ -16,7 +16,7 @@ import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex } from '@/lib/utils/search';
+import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 const PAGE_SIZE = 25;
@@ -114,14 +114,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       db.patient.count({ where: whereClause }),
     ]);
 
-    // Phase 2: Fallback for patients with NULL/empty searchIndex (scan all unindexed in chunks; self-heal on match)
+    // Phase 2: Fallback for patients with NULL/empty/incomplete searchIndex
+    // (e.g. only "eon-7914" with no name — scan, decrypt, filter, self-heal)
     const FALLBACK_CHUNK_SIZE = 500;
     const FALLBACK_MAX_SCAN = 10_000;
     let fallbackIntakes: typeof indexedIntakes = [];
     if (search) {
       const fallbackWhere: Prisma.PatientWhereInput = {
         ...baseWhere,
-        AND: [{ OR: [{ searchIndex: null }, { searchIndex: '' }] }],
+        ...buildIncompleteSearchIndexWhere(),
       };
 
       const unindexedCount = await db.patient.count({ where: fallbackWhere });

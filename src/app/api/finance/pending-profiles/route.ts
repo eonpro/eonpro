@@ -15,7 +15,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
+import { normalizeSearch, splitSearchTerms, healPatientSearchIndex } from '@/lib/utils/search';
 
 // PHI fields that need decryption
 const PHI_FIELDS = [
@@ -435,6 +435,8 @@ async function handlePatch(req: NextRequest, user: AuthUser): Promise<NextRespon
               : 'Profile completed.',
           },
         });
+
+        healPatientSearchIndex(prisma, patientId).catch(() => {});
 
         logger.info('[Pending Profiles] Profile completed', {
           patientId,

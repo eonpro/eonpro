@@ -407,6 +407,28 @@ export function isSearchIndexIncomplete(searchIndex: string | null | undefined):
   return tokens.length < 2;
 }
 
+/**
+ * Prisma WHERE fragment that matches patients whose searchIndex is missing or incomplete.
+ *
+ * Covers three cases:
+ *  1. searchIndex is NULL
+ *  2. searchIndex is '' (empty string)
+ *  3. searchIndex is a single token with no space (e.g. "eon-7914") — has data
+ *     but is missing name/email/phone, so name-based searches won't hit it.
+ *
+ * Use this everywhere a "fallback / needs-heal" query is built so that
+ * incomplete records are always caught by the decrypt-and-filter path.
+ */
+export function buildIncompleteSearchIndexWhere(): Record<string, unknown> {
+  return {
+    OR: [
+      { searchIndex: null },
+      { searchIndex: '' },
+      { AND: [{ searchIndex: { not: null } }, { NOT: { searchIndex: { contains: ' ' } } }] },
+    ],
+  };
+}
+
 export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter {
   const search = rawSearch.trim();
   if (!search) return {};
@@ -431,4 +453,80 @@ export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter 
       ],
     })),
   };
+}
+
+// ============================================================================
+// Search Index Self-Healing
+// ============================================================================
+
+/**
+ * Read a patient, decrypt PHI, rebuild searchIndex if incomplete, and persist.
+ *
+ * Designed to be called fire-and-forget from any context (Prisma middleware,
+ * background job, etc.). Safe to call repeatedly — no-ops when the index is
+ * already complete.
+ *
+ * @param db  Any PrismaClient instance (base or tenant-scoped)
+ * @param patientId  The numeric `id` of the patient to heal
+ */
+export async function healPatientSearchIndex(
+  db: { patient: { findUnique: Function; update: Function } },
+  patientId: number,
+): Promise<void> {
+  try {
+    const patient = await db.patient.findUnique({
+      where: { id: patientId },
+      select: {
+        id: true,
+        patientId: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        searchIndex: true,
+      },
+    });
+
+    if (!patient) return;
+
+    // Lazy-import to avoid circular dependency (search.ts is pure utility)
+    const { decryptPHI } = await import('@/lib/security/phi-encryption');
+
+    const safeDecrypt = (v: unknown): string => {
+      if (v == null || v === '') return '';
+      try {
+        const s = String(v);
+        const parts = s.split(':');
+        if (parts.length === 3 && parts.every((p: string) => /^[A-Za-z0-9+/]+=*$/.test(p) && p.length >= 2)) {
+          return decryptPHI(s) ?? '';
+        }
+        return s;
+      } catch {
+        return '';
+      }
+    };
+
+    const fn = safeDecrypt(patient.firstName);
+    const ln = safeDecrypt(patient.lastName);
+    const em = safeDecrypt(patient.email);
+    const ph = safeDecrypt(patient.phone);
+
+    const newIndex = buildPatientSearchIndex({
+      firstName: fn || null,
+      lastName: ln || null,
+      email: em || null,
+      phone: ph || null,
+      patientId: patient.patientId || null,
+    });
+
+    if (!newIndex) return;
+    if (newIndex === patient.searchIndex) return;
+
+    await db.patient.update({
+      where: { id: patientId },
+      data: { searchIndex: newIndex },
+    });
+  } catch {
+    // Swallow — callers handle logging; this must never throw.
+  }
 }

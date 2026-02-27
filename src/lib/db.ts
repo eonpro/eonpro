@@ -344,6 +344,56 @@ function createPrismaClient() {
     });
   }
 
+  // ── SearchIndex safety net ────────────────────────────────────────────
+  // Intercepts Patient create/update/upsert. When PHI fields are present
+  // in the write data but searchIndex is NOT, fire-and-forget a self-heal
+  // that reads, decrypts, and rebuilds the index. Logs a warning so we
+  // can find and fix the leaking code path.
+  const _PHI_KEYS = new Set(['firstName', 'lastName', 'email', 'phone']);
+
+  // @ts-ignore - Prisma v5 middleware
+  client.$use?.(async (params: any, next: any) => {
+    const result = await next(params);
+
+    if (
+      params.model === 'Patient' &&
+      (params.action === 'create' || params.action === 'update' || params.action === 'upsert')
+    ) {
+      try {
+        const data = params.args?.data;
+        if (data && typeof data === 'object') {
+          const keys = Object.keys(data);
+          const hasPHI = keys.some((k) => _PHI_KEYS.has(k));
+          const hasSearchIndex = 'searchIndex' in data && data.searchIndex;
+
+          if ((hasPHI || params.action === 'create') && !hasSearchIndex) {
+            const patientId = result?.id;
+            if (patientId) {
+              import('@/lib/utils/search').then(({ healPatientSearchIndex }) => {
+                healPatientSearchIndex(client, patientId).catch((err: any) => {
+                  logger.warn('[SearchIndex Safety Net] Heal failed', {
+                    patientId,
+                    error: err?.message,
+                  });
+                });
+              }).catch(() => {});
+
+              logger.warn('[SearchIndex Safety Net] Patient write missing searchIndex — auto-healing', {
+                patientId,
+                action: params.action,
+                phiFields: keys.filter((k) => _PHI_KEYS.has(k)),
+              });
+            }
+          }
+        }
+      } catch {
+        // Safety net must never break the write path
+      }
+    }
+
+    return result;
+  });
+
   return client;
 }
 
