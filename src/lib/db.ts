@@ -369,7 +369,7 @@ function createPrismaClient() {
           if ((hasPHI || params.action === 'create') && !hasSearchIndex) {
             const patientId = result?.id;
             if (patientId) {
-              import('@/lib/utils/search-index-heal').then(({ healPatientSearchIndex }) => {
+              import(/* webpackIgnore: true */ '@/lib/utils/search-index-heal').then(({ healPatientSearchIndex }) => {
                 healPatientSearchIndex(client, patientId).catch((err: any) => {
                   logger.warn('[SearchIndex Safety Net] Heal failed', {
                     patientId,
