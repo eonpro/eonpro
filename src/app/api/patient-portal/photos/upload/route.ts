@@ -15,7 +15,8 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
-import { STORAGE_CONFIG, isS3Enabled } from '@/lib/integrations/aws/s3Config';
+import { STORAGE_CONFIG, isS3Enabled, isS3Configured, s3Config } from '@/lib/integrations/aws/s3Config';
+import { isFeatureEnabled } from '@/lib/features';
 import { PatientPhotoType } from '@prisma/client';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';
 
@@ -85,10 +86,31 @@ function getExtensionFromMimeType(mimeType: string): string {
 
 async function handlePost(req: NextRequest, user: AuthUser) {
   try {
-    // Check if S3 is enabled
+    // Detailed S3 diagnostics for 503
     if (!isS3Enabled()) {
+      const featureFlag = isFeatureEnabled('AWS_S3_STORAGE');
+      const configured = isS3Configured();
+      logger.error('[Photos Upload] S3 not enabled', {
+        featureFlag,
+        configured,
+        hasBucket: !!s3Config.bucketName,
+        hasAccessKey: !!s3Config.accessKeyId,
+        hasSecretKey: !!s3Config.secretAccessKey,
+        hasRegion: !!s3Config.region,
+        bucket: s3Config.bucketName,
+        region: s3Config.region,
+      });
       return NextResponse.json(
-        { error: 'Photo upload is not available. Storage service not configured.' },
+        {
+          error: 'Photo upload is not available. Storage service not configured.',
+          diagnostics: {
+            featureEnabled: featureFlag,
+            configured,
+            hasBucket: !!s3Config.bucketName,
+            hasCredentials: !!s3Config.accessKeyId && !!s3Config.secretAccessKey,
+            hasRegion: !!s3Config.region,
+          },
+        },
         { status: 503 }
       );
     }
@@ -111,7 +133,6 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       if (!user.patientId) {
         return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
       }
-      // Get patient's clinic
       const patient = await prisma.patient.findUnique({
         where: { id: user.patientId },
         select: { id: true, clinicId: true },
@@ -122,7 +143,6 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       patientId = patient.id;
       clinicId = patient.clinicId;
     } else {
-      // Staff can upload for patients - require patientId in body
       const bodyPatientId = body.patientId;
       if (!bodyPatientId) {
         return NextResponse.json({ error: 'patientId is required' }, { status: 400 });
@@ -137,7 +157,6 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
 
-      // Verify clinic access
       if (user.role !== 'super_admin' && user.clinicId !== patient.clinicId) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
@@ -148,8 +167,31 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     const extension = getExtensionFromMimeType(parsed.data.contentType);
     const s3Key = generateS3Key(patientId, clinicId, parsed.data.type, extension);
 
-    // Generate presigned URL for main photo
-    const uploadUrl = await generateSignedUrl(s3Key, 'PUT', PRESIGNED_URL_EXPIRY);
+    // Generate presigned URL with detailed error capture
+    let uploadUrl: string;
+    try {
+      uploadUrl = await generateSignedUrl(s3Key, 'PUT', PRESIGNED_URL_EXPIRY);
+    } catch (signError) {
+      logger.error('[Photos Upload] Presigned URL generation failed', {
+        userId: user.id,
+        patientId,
+        clinicId,
+        s3Key,
+        bucket: s3Config.bucketName,
+        region: s3Config.region,
+        hasAccessKey: !!s3Config.accessKeyId,
+        hasSecretKey: !!s3Config.secretAccessKey,
+        error: signError instanceof Error ? signError.message : 'Unknown',
+        stack: signError instanceof Error ? signError.stack : undefined,
+      });
+      return NextResponse.json(
+        {
+          error: 'Failed to generate upload URL. S3 signing failed.',
+          code: 'S3_SIGN_FAILED',
+        },
+        { status: 500 }
+      );
+    }
 
     // Optionally generate thumbnail upload URL
     let thumbnailUploadUrl: string | null = null;
@@ -157,7 +199,13 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     if (parsed.data.includeThumbnail) {
       thumbnailKey = s3Key.replace(`.${extension}`, `_thumb.${extension}`);
-      thumbnailUploadUrl = await generateSignedUrl(thumbnailKey, 'PUT', PRESIGNED_URL_EXPIRY);
+      try {
+        thumbnailUploadUrl = await generateSignedUrl(thumbnailKey, 'PUT', PRESIGNED_URL_EXPIRY);
+      } catch {
+        logger.warn('[Photos Upload] Thumbnail presigned URL failed, continuing without', {
+          thumbnailKey,
+        });
+      }
     }
 
     logger.info('[Photos Upload] Presigned URL generated', {
@@ -180,7 +228,6 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       thumbnailKey,
       expiresIn: PRESIGNED_URL_EXPIRY,
       maxSize: MAX_PHOTO_SIZE,
-      // Include metadata to send back when confirming upload
       metadata: {
         patientId,
         clinicId,
@@ -191,11 +238,22 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    logger.error('[Photos Upload] Error generating presigned URL', {
+    const errMsg = error instanceof Error ? error.message : 'Unknown error';
+    const errStack = error instanceof Error ? error.stack : undefined;
+    logger.error('[Photos Upload] Unhandled error', {
       userId: user.id,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      role: user.role,
+      patientId: user.patientId,
+      error: errMsg,
+      stack: errStack,
+      s3Enabled: isS3Enabled(),
+      featureFlag: isFeatureEnabled('AWS_S3_STORAGE'),
+      s3Configured: isS3Configured(),
     });
-    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
+    return NextResponse.json(
+      { error: `Failed to generate upload URL: ${errMsg}`, code: 'UPLOAD_URL_ERROR' },
+      { status: 500 }
+    );
   }
 }
 

@@ -18,7 +18,7 @@ import {
   s3Config,
 } from '@/lib/integrations/aws/s3Config';
 import { isFeatureEnabled } from '@/lib/features';
-import { getS3Client } from '@/lib/integrations/aws/s3Service';
+import { getS3Client, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,7 +33,7 @@ export const GET = withAuth(
     const hasBucket =
       !!process.env.AWS_S3_DOCUMENTS_BUCKET_NAME || !!process.env.AWS_S3_BUCKET_NAME;
     const hasCredentials = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-    const hasRegion = !!process.env.AWS_REGION;
+    const hasRegion = !!(process.env.AWS_REGION || process.env.AWS_S3_REGION);
     const configured = isS3Configured();
     const enabled = isS3Enabled();
     const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
@@ -53,8 +53,11 @@ export const GET = withAuth(
     let headBucketOk: boolean | null = null;
     let headBucketError: string | null = null;
     let awsErrorCode: string | null = null;
+    let presignedUrlOk: boolean | null = null;
+    let presignedUrlError: string | null = null;
 
     if (enabled) {
+      // Test 1: HeadBucket — verifies bucket exists and credentials are valid
       try {
         const client = getS3Client();
         await client.send(
@@ -67,15 +70,27 @@ export const GET = withAuth(
         headBucketError = e?.message || String(err);
         awsErrorCode = e?.Code || null;
       }
+
+      // Test 2: Presigned URL generation — verifies signing works (patient photo path)
+      try {
+        const testKey = `patient-photos/diagnostic-test/${Date.now()}.jpg`;
+        const url = await generateSignedUrl(testKey, 'PUT', 60);
+        presignedUrlOk = !!url && url.startsWith('http');
+      } catch (err: unknown) {
+        presignedUrlOk = false;
+        presignedUrlError = err instanceof Error ? err.message : String(err);
+      }
     }
 
     Object.assign(diagnostics, {
       headBucketOk,
       headBucketError: headBucketError ? headBucketError.slice(0, 200) : null,
       awsErrorCode,
+      presignedUrlOk,
+      presignedUrlError: presignedUrlError ? presignedUrlError.slice(0, 200) : null,
     });
 
-    const ok = enabled && headBucketOk !== false;
+    const ok = enabled && headBucketOk !== false && presignedUrlOk !== false;
     const suggestions: string[] = [];
 
     if (!featureEnabled) {
@@ -92,7 +107,7 @@ export const GET = withAuth(
       );
     }
     if (!hasRegion) {
-      suggestions.push('Set AWS_REGION in Vercel (e.g. us-east-2).');
+      suggestions.push('Set AWS_REGION (or AWS_S3_REGION) in Vercel (e.g. us-east-2). Currently defaulting to: ' + s3Config.region);
     }
     if (enabled && headBucketOk === false) {
       const hint =
@@ -102,6 +117,11 @@ export const GET = withAuth(
             ? 'IAM user needs s3:ListBucket (HeadBucket) and s3:PutObject on the bucket.'
             : 'Check IAM permissions and bucket region.';
       suggestions.push(hint);
+    }
+    if (enabled && presignedUrlOk === false) {
+      suggestions.push(
+        `Presigned URL generation failed: ${presignedUrlError || 'unknown'}. Check AWS credentials and SDK configuration.`
+      );
     }
 
     return NextResponse.json({
