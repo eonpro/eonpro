@@ -633,25 +633,28 @@ export function PhotoUploader({
         </div>
       )}
 
-      {/* Camera Modal */}
+      {/* Camera Modal — z-[100] to cover ALL layout elements (header z-50, nav z-40) */}
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black">
           {/* Camera Header */}
-          <div className="flex shrink-0 items-center justify-between bg-black/80 p-4">
-            <button onClick={closeCamera} className="rounded-full p-2 text-white hover:bg-white/20">
-              <X className="h-6 w-6" />
+          <div
+            className="flex shrink-0 items-center justify-between bg-black px-4 py-3"
+            style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
+          >
+            <button onClick={closeCamera} className="flex h-12 w-12 items-center justify-center rounded-full text-white active:bg-white/20">
+              <X className="h-7 w-7" />
             </button>
-            <span className="font-medium text-white">Take Photo</span>
+            <span className="text-lg font-semibold text-white">Take Photo</span>
             <button
               onClick={switchCamera}
-              className="rounded-full p-2 text-white hover:bg-white/20"
+              className="flex h-12 w-12 items-center justify-center rounded-full text-white active:bg-white/20"
             >
               <RotateCcw className="h-6 w-6" />
             </button>
           </div>
 
-          {/* Video Feed - flex-1 so button stays visible above browser chrome */}
-          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+          {/* Video Feed */}
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
             <video
               ref={videoRef}
               autoPlay
@@ -665,14 +668,14 @@ export function PhotoUploader({
             />
           </div>
 
-          {/* Capture Button - safe-area so not cut off by mobile browser bar (PWA/webview) */}
+          {/* Capture Button */}
           <div
-            className="flex shrink-0 justify-center bg-black/80 px-6 pt-6"
+            className="flex shrink-0 justify-center bg-black px-6 py-6"
             style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom, 0px))' }}
           >
             <button
               onClick={capturePhoto}
-              className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gray-300 bg-white transition-transform hover:scale-105"
+              className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-gray-300 bg-white transition-transform active:scale-95"
             >
               <div className="h-16 w-16 rounded-full border-2 border-gray-400 bg-white" />
             </button>
