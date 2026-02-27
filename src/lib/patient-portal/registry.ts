@@ -35,14 +35,15 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
   //   navSlot: 'both',
   //   defaultOn: true,
   // },
-  {
-    id: 'care-plan',
-    pathSuffix: '/care-plan',
-    labelKey: 'navCarePlan',
-    featureFlagKey: 'showCarePlan',
-    navSlot: 'main',
-    defaultOn: true,
-  },
+  // Disabled until care plan content is ready
+  // {
+  //   id: 'care-plan',
+  //   pathSuffix: '/care-plan',
+  //   labelKey: 'navCarePlan',
+  //   featureFlagKey: 'showCarePlan',
+  //   navSlot: 'main',
+  //   defaultOn: true,
+  // },
   {
     id: 'care-team',
     pathSuffix: '/care-team',
@@ -51,14 +52,15 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     navSlot: 'main',
     defaultOn: true,
   },
-  {
-    id: 'health-score',
-    pathSuffix: '/health-score',
-    labelKey: 'navHealthScore',
-    featureFlagKey: 'showHealthScore',
-    navSlot: 'main',
-    defaultOn: true,
-  },
+  // Disabled until health score feature is ready
+  // {
+  //   id: 'health-score',
+  //   pathSuffix: '/health-score',
+  //   labelKey: 'navHealthScore',
+  //   featureFlagKey: 'showHealthScore',
+  //   navSlot: 'main',
+  //   defaultOn: true,
+  // },
   {
     id: 'progress',
     pathSuffix: '/progress',
