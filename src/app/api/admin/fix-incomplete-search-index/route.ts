@@ -150,3 +150,9 @@ export const POST = withAdminAuth(async (req: NextRequest) => {
     );
   }
 });
+
+// GET handler so admin can trigger via browser navigation
+export const GET = withAdminAuth(async (req: NextRequest) => {
+  const postResponse = await POST(req);
+  return postResponse;
+});
