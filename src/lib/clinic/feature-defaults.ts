@@ -12,7 +12,7 @@
 
 export const DEFAULT_CLINIC_FEATURES: Record<string, boolean> = {
   BLOODWORK_LABS: true, // Labs tab on patient profile — must default ON
-  // Add more as needed; only add keys that should default for new clinics
+  DOSESPOT: false, // DoseSpot e-prescribing — OFF by default, enable per clinic
 };
 
 export const FEATURE_DEFAULTS_VERSION = 1;
