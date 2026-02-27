@@ -15,7 +15,8 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
-import { normalizeSearch, splitSearchTerms, healPatientSearchIndex } from '@/lib/utils/search';
+import { normalizeSearch, splitSearchTerms } from '@/lib/utils/search';
+import { healPatientSearchIndex } from '@/lib/utils/search-index-heal';
 
 // PHI fields that need decryption
 const PHI_FIELDS = [
