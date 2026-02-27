@@ -107,13 +107,50 @@ function safeDate(value: string | number | Date | null | undefined): string | nu
 async function getHandler(req: NextRequest, user: AuthUser) {
   try {
     if (!user.patientId) {
+      logger.warn('[Portal Tracking] No patientId in JWT', { userId: user.id, role: user.role });
       return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
     }
 
-    const patientId = user.patientId;
+    let patientId = user.patientId;
     const clinicId = user.clinicId ?? undefined;
 
-    const result = await runWithClinicContext(clinicId, async () => {
+    // Verify the patientId from the JWT still matches and resolve clinicId if missing
+    const patientRecord = await runWithClinicContext(clinicId, async () => {
+      return prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { id: true, clinicId: true },
+      });
+    }).catch(() => null);
+
+    // If the scoped query fails (wrong clinic), try basePrisma lookup
+    if (!patientRecord) {
+      const { basePrisma } = await import('@/lib/db');
+      const fallback = await basePrisma.patient.findFirst({
+        where: { userId: user.id },
+        select: { id: true, clinicId: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (fallback) {
+        logger.info('[Portal Tracking] Resolved patientId via userId fallback', {
+          jwtPatientId: patientId,
+          resolvedPatientId: fallback.id,
+          clinicId: fallback.clinicId,
+        });
+        patientId = fallback.id;
+      }
+    }
+
+    const effectiveClinicId = patientRecord?.clinicId ?? clinicId;
+
+    logger.info('[Portal Tracking] Query context', {
+      userId: user.id,
+      patientId,
+      jwtPatientId: user.patientId,
+      jwtClinicId: user.clinicId,
+      effectiveClinicId,
+    });
+
+    const result = await runWithClinicContext(effectiveClinicId, async () => {
       const [shippingUpdates, ordersWithTracking, allRecentOrders, paidInvoicesAwaitingRx] =
         await Promise.all([
           prisma.patientShippingUpdate.findMany({
@@ -206,6 +243,14 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         allRecentOrders,
         paidInvoicesAwaitingRx,
       };
+    });
+
+    logger.info('[Portal Tracking] Query results', {
+      patientId,
+      shippingUpdates: result.shippingUpdates.length,
+      ordersWithTracking: result.ordersWithTracking.length,
+      allRecentOrders: result.allRecentOrders.length,
+      paidInvoicesAwaitingRx: result.paidInvoicesAwaitingRx.length,
     });
 
     const shipmentMap = new Map<string, Record<string, unknown>>();
