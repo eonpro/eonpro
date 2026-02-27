@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
-  Phone,
   MessageCircle,
   ChevronRight,
 } from 'lucide-react';
@@ -67,17 +66,7 @@ export default function CareTeamPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Navigation handlers
   const handleChat = () => router.push(`${PATIENT_PORTAL_PATH}/chat`);
-  const handleCall = () => {
-    const phone = branding?.supportPhone;
-    if (phone) {
-      window.location.href = `tel:${phone.replace(/\D/g, '')}`;
-    }
-  };
-  const handleMessage = (providerId: number) =>
-    router.push(`${PATIENT_PORTAL_PATH}/chat?provider=${providerId}`);
-  const handleContactConcierge = () => router.push(`${PATIENT_PORTAL_PATH}/chat?concierge=true`);
 
   if (loading) {
     return (
@@ -139,27 +128,29 @@ export default function CareTeamPage() {
           </div>
         )}
 
-        {/* Book a Visit Card */}
-        <div className="rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white sm:p-6">
-          <h2 className="mb-2 text-lg font-semibold sm:text-xl">{t('careTeamBookVisit')}</h2>
-          <p className="mb-4 text-sm text-blue-100">{t('careTeamScheduleNext')}</p>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleChat}
-              className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30"
+        {/* Contact Care Team Card */}
+        <div className="rounded-2xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4 sm:p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white"
+              style={{ backgroundColor: primaryColor }}
             >
-              <MessageCircle className="mb-1 h-6 w-6" />
-              <span className="text-sm font-medium">{t('careTeamChat')}</span>
-            </button>
-            <button
-              onClick={handleCall}
-              className="flex flex-1 flex-col items-center rounded-xl bg-white/20 py-3 backdrop-blur transition-colors hover:bg-white/30"
-            >
-              <Phone className="mb-1 h-6 w-6" />
-              <span className="text-sm font-medium">{t('careTeamCall')}</span>
-            </button>
+              <MessageCircle className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900">{t('careTeamContactTitle')}</h2>
+              <p className="text-sm text-gray-600">{t('careTeamContactDesc')}</p>
+            </div>
           </div>
+
+          <button
+            onClick={handleChat}
+            className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition-all hover:brightness-90 active:scale-[0.98]"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <MessageCircle className="h-5 w-5" />
+            {t('careTeamChat')}
+          </button>
         </div>
 
         {/* Team Members */}
@@ -208,16 +199,6 @@ export default function CareTeamPage() {
                       >
                         {member.available ? t('careTeamAvailable') : t('careTeamBusy')}
                       </span>
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() => handleMessage(member.id)}
-                        className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-200"
-                      >
-                        {t('careTeamMessage')}
-                      </button>
                     </div>
                   </div>
                 </div>
