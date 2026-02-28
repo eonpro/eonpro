@@ -183,11 +183,13 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
 
   const effectiveEmail = userEmail || currentUserEmail;
 
+  const hideOnMobile = pathname?.startsWith('/provider/prescription-queue');
+
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button (hidden on mobile for prescription queue to avoid overlay) */}
       {!showChat && (
-        <div className="fixed bottom-6 left-[88px] z-[9999]">
+        <div className={`fixed bottom-6 left-[88px] z-[9999]${hideOnMobile ? ' hidden sm:block' : ''}`}>
           <BeccaButton onClick={() => setShowChat(true)} />
         </div>
       )}

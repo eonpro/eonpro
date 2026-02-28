@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { logger } from '../lib/logger';
 import { apiGet, apiFetch } from '@/lib/api/fetch';
 import {
@@ -97,6 +98,7 @@ interface InternalChatProps {
 // =============================================================================
 
 export default function InternalChat({ currentUserId, currentUserRole }: InternalChatProps) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -760,11 +762,13 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   // Render: Closed State (Floating Button)
   // ===========================================================================
 
+  const hideButtonOnMobile = pathname?.startsWith('/provider/prescription-queue');
+
   if (!isOpen) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="group fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6"
+        className={`group fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6${hideButtonOnMobile ? ' hidden sm:block' : ''}`}
         style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         title="Open Team Chat"
       >
