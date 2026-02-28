@@ -104,7 +104,7 @@ type RefillWithRelations = RefillQueue & {
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = parseInt(searchParams.get('limit') || '500', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     logger.info('[PRESCRIPTION-QUEUE] GET request', {
