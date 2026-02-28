@@ -15,6 +15,7 @@ import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import { getStripeForClinic, withConnectedAccount } from '@/lib/stripe/connect';
 import {
   syncSubscriptionFromStripe,
+  syncSubscriptionFromStripeByEmail,
   cancelSubscriptionFromStripe,
 } from '@/services/stripe/subscriptionSyncService';
 import type Stripe from 'stripe';
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { stripe } = stripeContext;
+    const { stripe, stripeAccountId } = stripeContext;
     if (!stripe) {
       return NextResponse.json(
         { error: 'This clinic does not have a Stripe account configured' },
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       const listParams = withConnectedAccount(stripeContext, {
         limit: 100,
         status: 'all',
+        expand: ['data.customer'],
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       } as Stripe.SubscriptionListParams);
 
@@ -111,7 +113,25 @@ export async function POST(request: NextRequest) {
             if (r.success && !r.skipped) results.canceled++;
             else if (r.skipped) results.skipped++;
           } else {
-            const r = await syncSubscriptionFromStripe(sub);
+            // Try standard sync first (stripeCustomerId fast path + email fallback)
+            let r = await syncSubscriptionFromStripe(sub, undefined, {
+              clinicId,
+              stripeAccountId: stripeAccountId || undefined,
+            });
+
+            // If skipped (no patient link), try email-based sync from expanded customer
+            if (r.skipped) {
+              const customer = sub.customer;
+              const email =
+                typeof customer === 'object' && customer && 'email' in customer
+                  ? (customer as { email?: string | null }).email?.trim()
+                  : null;
+
+              if (email) {
+                r = await syncSubscriptionFromStripeByEmail(sub, email, clinicId);
+              }
+            }
+
             if (r.success && !r.skipped) results.synced++;
             else if (r.skipped) results.skipped++;
             else results.errors++;

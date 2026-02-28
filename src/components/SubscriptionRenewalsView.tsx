@@ -17,6 +17,7 @@ import {
   ExternalLink,
   RefreshCw,
   Filter,
+  CloudDownload,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -197,6 +198,8 @@ export default function SubscriptionRenewalsView({
   const [sortBy, setSortBy] = useState<'nextBillingDate' | 'amount' | 'patientName' | 'createdAt'>('nextBillingDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showPaymentFilter, setShowPaymentFilter] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -247,6 +250,26 @@ export default function SubscriptionRenewalsView({
     }
   };
 
+  const handleSyncFromStripe = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const response = await apiFetch('/api/finance/sync-subscriptions', { method: 'POST' });
+      const json = await response.json();
+      if (response.ok) {
+        setSyncResult(`Synced ${json.synced}, canceled ${json.canceled}, skipped ${json.skipped}${json.errors ? `, errors ${json.errors}` : ''}`);
+        fetchData();
+      } else {
+        setSyncResult(`Sync failed: ${json.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setSyncResult('Sync failed: Network error');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const summary = data?.summary;
   const renewals = data?.renewals || [];
   const totalPages = data?.totalPages || 1;
@@ -261,15 +284,41 @@ export default function SubscriptionRenewalsView({
             Track upcoming rebills, payment statuses, and patient refill schedules
           </p>
         </div>
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {(userRole === 'admin' || userRole === 'super_admin') && (
+            <button
+              onClick={handleSyncFromStripe}
+              disabled={syncing}
+              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 shadow-sm transition-colors hover:bg-blue-100 disabled:opacity-50"
+            >
+              <CloudDownload className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync from Stripe'}
+            </button>
+          )}
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Sync Result Banner */}
+      {syncResult && (
+        <div className={`rounded-xl border px-4 py-3 text-sm ${
+          syncResult.startsWith('Sync failed')
+            ? 'border-red-200 bg-red-50 text-red-700'
+            : 'border-green-200 bg-green-50 text-green-700'
+        }`}>
+          {syncResult}
+          <button onClick={() => setSyncResult(null)} className="ml-3 font-medium underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       {summary && (
